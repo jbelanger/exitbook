@@ -14,7 +14,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
@@ -222,7 +222,7 @@ const AccountList: FC<{
   terminalHeight: number;
 }> = ({ accounts, selectedIndex, scrollOffset, terminalHeight }) => {
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
-  const cols = createColumns(accounts, {
+  const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
     source: { format: (item) => item.sourceName, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
@@ -248,7 +248,7 @@ const AccountList: FC<{
             key={item.accountId}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -262,13 +262,12 @@ const AccountList: FC<{
 };
 
 const AccountRow: FC<{
-  cols: Columns<AccountVerificationItem, 'id' | 'source' | 'type'>;
+  columns: Columns<AccountVerificationItem, 'id' | 'source' | 'type'>;
   isSelected: boolean;
   item: AccountVerificationItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
+}> = ({ item, isSelected, columns }) => {
   const icon = getAccountStatusIcon(item);
-  const { id, source, type } = cols.format(item);
+  const { id, source, type } = columns.format(item);
 
   // Status-dependent content
   let statusText: string;
@@ -289,40 +288,34 @@ const AccountRow: FC<{
     statusText = parts.join('   ');
   }
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {icon} {id} {source} {type} {statusText}
-      </Text>
-    );
-  }
-
   // Dim for skipped, pending
   if (item.status === 'skipped' || item.status === 'pending') {
     return (
-      <Text dimColor>
-        {cursor} {icon} {id} {source} {type} {statusText}
-      </Text>
+      <SelectableRow
+        dimWhenUnselected
+        isSelected={isSelected}
+      >
+        {icon} {id} {source} {type} {statusText}
+      </SelectableRow>
     );
   }
 
   // Error: dim text, red icon
   if (item.status === 'error') {
     return (
-      <Text>
-        {cursor} {icon}{' '}
-        <Text dimColor>
+      <SelectableRow isSelected={isSelected}>
+        {icon}{' '}
+        <Text dimColor={!isSelected}>
           {id} {source} {type} {statusText}
         </Text>
-      </Text>
+      </SelectableRow>
     );
   }
 
   return (
-    <Text>
-      {cursor} {icon} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text>{' '}
-      <AssetCountsInline item={item} />
-    </Text>
+    <SelectableRow isSelected={isSelected}>
+      {icon} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <AssetCountsInline item={item} />
+    </SelectableRow>
   );
 };
 
@@ -608,7 +601,7 @@ const OfflineAccountList: FC<{
   terminalHeight: number;
 }> = ({ accounts, selectedIndex, scrollOffset, terminalHeight }) => {
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
-  const cols = createColumns(accounts, {
+  const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
     source: { format: (item) => item.sourceName, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
@@ -634,7 +627,7 @@ const OfflineAccountList: FC<{
             key={item.accountId}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -648,26 +641,17 @@ const OfflineAccountList: FC<{
 };
 
 const OfflineAccountRow: FC<{
-  cols: Columns<AccountOfflineItem, 'id' | 'source' | 'type'>;
+  columns: Columns<AccountOfflineItem, 'id' | 'source' | 'type'>;
   isSelected: boolean;
   item: AccountOfflineItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { id, source, type } = cols.format(item);
+}> = ({ item, isSelected, columns }) => {
+  const { id, source, type } = columns.format(item);
   const assets = `${item.assetCount} ${item.assetCount === 1 ? 'asset' : 'assets'}`;
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {id} {source} {type} {assets}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text dimColor>{assets}</Text>
-    </Text>
+    <SelectableRow isSelected={isSelected}>
+      {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text dimColor>{assets}</Text>
+    </SelectableRow>
   );
 };
 
@@ -847,7 +831,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
 const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = getBalanceAssetsVisibleRows(terminalHeight);
-  const assetCols: BalanceAssetCols = createColumns(state.assets as BalanceAssetBase[], {
+  const assetColumns: BalanceAssetCols = createColumns(state.assets as BalanceAssetBase[], {
     symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
     calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
   });
@@ -874,7 +858,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
               key={item.assetId}
               asset={item as AssetOfflineItem}
               isSelected={isSelected}
-              assetCols={assetCols}
+              assetColumns={assetColumns}
             />
           );
         }
@@ -883,7 +867,7 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
             key={item.assetId}
             asset={item as AssetComparisonItem}
             isSelected={isSelected}
-            assetCols={assetCols}
+            assetColumns={assetColumns}
           />
         );
       })}
@@ -899,15 +883,14 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
 type BalanceAssetBase = Pick<AssetComparisonItem, 'assetSymbol' | 'calculatedBalance'>;
 type BalanceAssetCols = Columns<BalanceAssetBase, 'symbol' | 'calc'>;
 
-const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetCols: BalanceAssetCols; isSelected: boolean }> = ({
+const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetColumns: BalanceAssetCols; isSelected: boolean }> = ({
   asset,
   isSelected,
-  assetCols,
+  assetColumns,
 }) => {
-  const cursor = getSelectionCursor(isSelected);
   const icon = getAssetStatusIcon(asset.status);
-  const { symbol, calc } = assetCols.format(asset);
-  const live = asset.liveBalance.padStart(assetCols.widths.calc);
+  const { symbol, calc } = assetColumns.format(asset);
+  const live = asset.liveBalance.padStart(assetColumns.widths.calc);
 
   const statusContent =
     asset.status === 'match' ? (
@@ -920,18 +903,9 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetCols: BalanceAssetCo
       </Text>
     );
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {icon} {symbol} calc {calc} live {live}{' '}
-        {asset.status === 'match' ? 'match' : `diff ${asset.difference} (${asset.percentageDiff.toFixed(1)}%)`}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} {icon}
+    <SelectableRow isSelected={isSelected}>
+      {icon}
       {'  '}
       {symbol}
       {'  '}
@@ -940,31 +914,22 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetCols: BalanceAssetCo
       <Text dimColor>live</Text> {live}
       {'    '}
       {statusContent}
-    </Text>
+    </SelectableRow>
   );
 };
 
-const OfflineAssetRow: FC<{ asset: AssetOfflineItem; assetCols: BalanceAssetCols; isSelected: boolean }> = ({
+const OfflineAssetRow: FC<{ asset: AssetOfflineItem; assetColumns: BalanceAssetCols; isSelected: boolean }> = ({
   asset,
   isSelected,
-  assetCols,
+  assetColumns,
 }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { symbol, calc: balance } = assetCols.format(asset);
+  const { symbol, calc: balance } = assetColumns.format(asset);
   const balanceColor = asset.isNegative ? 'red' : 'green';
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {symbol} {balance}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} {symbol} <Text color={balanceColor}>{balance}</Text>
-    </Text>
+    <SelectableRow isSelected={isSelected}>
+      {symbol} <Text color={balanceColor}>{balance}</Text>
+    </SelectableRow>
   );
 };
 

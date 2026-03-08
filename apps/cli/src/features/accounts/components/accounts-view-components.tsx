@@ -12,7 +12,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
@@ -126,7 +126,7 @@ function buildTypeParts(counts: TypeCounts): { count: number; label: string }[] 
 const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { accounts, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
-  const cols = createColumns(accounts, {
+  const columns = createColumns(accounts, {
     acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
     source: { format: (item) => item.sourceName, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
@@ -153,7 +153,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
             key={item.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -169,35 +169,25 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const AccountRow: FC<{
-  cols: Columns<AccountViewItem, 'acctId' | 'source' | 'type'>;
+  columns: Columns<AccountViewItem, 'acctId' | 'source' | 'type'>;
   isSelected: boolean;
   item: AccountViewItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { acctId, source, type } = cols.format(item);
+}> = ({ item, isSelected, columns }) => {
+  const { acctId, source, type } = columns.format(item);
   const identifier = truncateIdentifier(item.identifier, item.accountType, 28);
   const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
   const { icon, iconColor } = getVerificationDisplay(item.verificationStatus);
   const children = item.childAccounts ? ` +${item.childAccounts.length}` : '';
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {acctId} {source} {type} {identifier} {sessions}
-        {children} {icon}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} {acctId} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> {identifier}{' '}
+    <SelectableRow isSelected={isSelected}>
+      {acctId} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> {identifier}{' '}
       <Text dimColor>
         {sessions}
         {children}
       </Text>{' '}
       <Text color={iconColor}>{icon}</Text>
-    </Text>
+    </SelectableRow>
   );
 };
 

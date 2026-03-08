@@ -12,7 +12,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 import { formatTimeAgo } from '../providers-view-utils.js';
 
@@ -171,7 +171,7 @@ const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
 const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { providers, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
-  const cols = createColumns(providers, {
+  const columns = createColumns(providers, {
     displayName: { format: (item) => item.name, minWidth: 16 },
     chains: { format: (item) => `${item.chainCount} ${item.chainCount === 1 ? 'chain ' : 'chains'}`, minWidth: 10 },
     avgResponse: {
@@ -212,7 +212,7 @@ const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = 
             key={item.name}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -228,13 +228,12 @@ const ProviderList: FC<{ state: ProvidersViewState; terminalHeight: number }> = 
 // --- Row ---
 
 const ProviderRow: FC<{
-  cols: Columns<ProviderViewItem, 'displayName' | 'chains' | 'avgResponse' | 'errorRate' | 'totalReqs'>;
+  columns: Columns<ProviderViewItem, 'displayName' | 'chains' | 'avgResponse' | 'errorRate' | 'totalReqs'>;
   isSelected: boolean;
   item: ProviderViewItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
+}> = ({ item, isSelected, columns }) => {
   const icon = getHealthIcon(item.healthStatus);
-  const { displayName, chains, avgResponse, errorRate, totalReqs } = cols.format(item);
+  const { displayName, chains, avgResponse, errorRate, totalReqs } = columns.format(item);
 
   const hasStats = item.stats !== undefined;
 
@@ -244,29 +243,23 @@ const ProviderRow: FC<{
     apiKeyText = item.apiKeyEnvVar;
   }
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
-        {apiKeyText ? `   ${apiKeyText} ${item.apiKeyConfigured ? '✓' : '✗'}` : ''}
-      </Text>
-    );
-  }
-
   // No-stats rows are entirely dim
   if (item.healthStatus === 'no-stats') {
     return (
-      <Text dimColor>
-        {cursor} {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
+      <SelectableRow
+        dimWhenUnselected
+        isSelected={isSelected}
+      >
+        {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
         {apiKeyText ? `   ${apiKeyText}` : ''}
-      </Text>
+      </SelectableRow>
     );
   }
 
   // Normal row: use pre-formatted strings for alignment, apply colors to content
   return (
-    <Text>
-      {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} {chains}{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color={icon.color}>{icon.char}</Text> {displayName} {chains}{' '}
       {hasStats ? (
         <Text color={getResponseTimeColor(item.stats!.avgResponseTime)}>{avgResponse}</Text>
       ) : (
@@ -290,7 +283,7 @@ const ProviderRow: FC<{
           )}
         </>
       )}
-    </Text>
+    </SelectableRow>
   );
 };
 

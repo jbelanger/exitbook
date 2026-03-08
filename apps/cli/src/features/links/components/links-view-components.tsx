@@ -19,7 +19,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
 
@@ -218,7 +218,7 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
   const { links, selectedIndex, scrollOffset } = state;
 
   const visibleRows = calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES);
-  const cols = createColumns(links, {
+  const columns = createColumns(links, {
     date: {
       format: (item) => formatLinkDate(item),
       minWidth: 10,
@@ -258,7 +258,7 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
             key={item.link.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -275,42 +275,34 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
  * Individual link row component
  */
 const LinkRow: FC<{
-  cols: Columns<LinkWithTransactions, 'date' | 'asset' | 'status' | 'sourceTarget'>;
+  columns: Columns<LinkWithTransactions, 'date' | 'asset' | 'status' | 'sourceTarget'>;
   isSelected: boolean;
   item: LinkWithTransactions;
-}> = ({ item, isSelected, cols }) => {
+}> = ({ item, isSelected, columns }) => {
   const { link } = item;
 
-  const { date, asset, status, sourceTarget } = cols.format(item);
+  const { date, asset, status, sourceTarget } = columns.format(item);
   const amountDisplay = getLinkAmountDisplay(link);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
 
   const { icon, iconColor } = getStatusDisplay(link.status);
 
-  const cursor = getSelectionCursor(isSelected);
-
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {icon} {date} {asset} {renderAmountSummary(amountDisplay)} <Text color="cyan">{sourceTarget}</Text>{' '}
-        {confidence} {status}
-      </Text>
-    );
-  }
-
   if (link.status === 'rejected') {
     return (
-      <Text dimColor>
-        {cursor} {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget} {confidence} {status}
-      </Text>
+      <SelectableRow
+        dimWhenUnselected
+        isSelected={isSelected}
+      >
+        {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget} {confidence} {status}
+      </SelectableRow>
     );
   }
 
   return (
-    <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text> {date} {asset} {renderAmountSummary(amountDisplay)}{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color={iconColor}>{icon}</Text> {date} {asset} {renderAmountSummary(amountDisplay)}{' '}
       <Text color="cyan">{sourceTarget}</Text> {confidence} {status}
-    </Text>
+    </SelectableRow>
   );
 };
 
@@ -679,7 +671,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
   const issues = linkAnalysis.issues;
 
   const visibleRows = calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
-  const cols = createColumns(issues, {
+  const columns = createColumns(issues, {
     txId: { format: (issue) => `#${issue.transactionId}`, align: 'right', minWidth: 6 },
     source: { format: (issue) => issue.blockchain ?? issue.source, minWidth: 10 },
     asset: { format: (issue) => issue.assetSymbol, minWidth: 5 },
@@ -706,7 +698,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
             key={`${issue.transactionId}-${issue.assetSymbol}-${issue.direction}`}
             issue={issue}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -723,33 +715,22 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
  * Individual gap row component
  */
 const GapRow: FC<{
-  cols: Columns<LinkGapIssue, 'txId' | 'source' | 'asset'>;
+  columns: Columns<LinkGapIssue, 'txId' | 'source' | 'asset'>;
   isSelected: boolean;
   issue: LinkGapIssue;
-}> = ({ issue, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { txId, source, asset } = cols.format(issue);
+}> = ({ issue, isSelected, columns }) => {
+  const { txId, source, asset } = columns.format(issue);
   const timestamp = issue.timestamp.substring(0, 16).replace('T', ' ');
   const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
   const coverage = formatCoverage(issue.confirmedCoveragePercent);
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color="yellow">⚠</Text> {txId} {source} <Text dimColor>{timestamp}</Text> {asset}{' '}
-        <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text> <Text dimColor>of</Text>{' '}
-        <Text>{issue.totalAmount}</Text> {coverage}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text>{' '}
-      {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text>{' '}
-      <Text dimColor>of</Text> <Text>{issue.totalAmount}</Text> {coverage}
-    </Text>
+    <SelectableRow isSelected={isSelected}>
+      <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text> {asset}{' '}
+      <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text> <Text dimColor>of</Text>{' '}
+      <Text>{issue.totalAmount}</Text> {coverage}
+    </SelectableRow>
   );
 };
 

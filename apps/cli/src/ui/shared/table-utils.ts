@@ -109,12 +109,12 @@ export interface Columns<T, K extends string> {
  *
  * @example
  * ```ts
- * const cols = createColumns(items, {
+ * const columns = createColumns(items, {
  *   name:  { format: (i) => i.name, minWidth: 10 },
  *   count: { format: (i) => `${i.count}`, align: 'right', minWidth: 5 },
  * });
  * // In row component:
- * const { name, count } = cols.format(item);
+ * const { name, count } = columns.format(item);
  * ```
  */
 export function createColumns<T, K extends string>(items: T[], defs: Record<K, ColumnDef<T>>): Columns<T, K> {

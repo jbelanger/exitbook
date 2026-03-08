@@ -16,6 +16,7 @@ export {
 export { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.jsx';
 export { formatDuration, formatWaitTime } from './format-duration.js';
 export { PromptFlow, type PromptStep } from './PromptFlow.jsx';
+export { SelectableRow, type SelectableRowProps } from './SelectableRow.jsx';
 export { SelectPrompt, type SelectPromptProps, type SelectOption } from './SelectPrompt.jsx';
 export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.jsx';
 export { TextPrompt, type TextPromptProps } from './TextPrompt.jsx';

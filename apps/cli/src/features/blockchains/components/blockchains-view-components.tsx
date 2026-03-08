@@ -12,7 +12,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
@@ -133,7 +133,7 @@ function buildCategoryParts(counts: Record<string, number>): { count: number; la
 
 const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> = ({ state, visibleRows }) => {
   const { blockchains, selectedIndex, scrollOffset } = state;
-  const cols = createColumns(blockchains, {
+  const columns = createColumns(blockchains, {
     displayName: { format: (item) => item.displayName, minWidth: 10 },
     category: { format: (item) => item.category, minWidth: 6 },
     layer: { format: (item) => (item.layer ? `L${item.layer}` : ''), minWidth: 2 },
@@ -169,7 +169,7 @@ const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> =
             key={item.name}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -185,29 +185,20 @@ const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> =
 // --- Row ---
 
 const BlockchainRow: FC<{
-  cols: Columns<BlockchainViewItem, 'displayName' | 'category' | 'layer' | 'providers' | 'keyStatus'>;
+  columns: Columns<BlockchainViewItem, 'displayName' | 'category' | 'layer' | 'providers' | 'keyStatus'>;
   isSelected: boolean;
   item: BlockchainViewItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
+}> = ({ item, isSelected, columns }) => {
   const icon = getKeyStatusIcon(item.keyStatus);
-  const { displayName, category, layer, providers, keyStatus } = cols.format(item);
-
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {icon.char} {displayName} {category} {layer} {providers} {keyStatus}
-      </Text>
-    );
-  }
+  const { displayName, category, layer, providers, keyStatus } = columns.format(item);
 
   return (
-    <Text>
-      {cursor} <Text color={icon.color}>{icon.char}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color={icon.color}>{icon.char}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
       <Text dimColor>{layer}</Text> {providers}
       {'  '}
       <Text color={icon.color}>{keyStatus}</Text>
-    </Text>
+    </SelectableRow>
   );
 };
 

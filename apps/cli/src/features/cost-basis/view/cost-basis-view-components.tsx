@@ -12,7 +12,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
@@ -225,7 +225,7 @@ const CostBasisHeader: FC<{ state: CostBasisAssetState }> = ({ state }) => {
 
 const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_ASSETS_CHROME_LINES);
-  const cols = createColumns(state.assets, {
+  const columns = createColumns(state.assets, {
     asset: { format: (item) => item.asset, minWidth: 6 },
     disposalCount: { format: (item) => `${item.disposalCount}`, align: 'right', minWidth: 5 },
     proceeds: { format: (item) => item.totalProceeds, align: 'right', minWidth: 10 },
@@ -254,7 +254,7 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
             item={item}
             currency={state.currency}
             isSelected={actualIndex === state.selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -269,36 +269,27 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
 };
 
 const AssetRow: FC<{
-  cols: Columns<AssetCostBasisItem, 'asset' | 'disposalCount' | 'proceeds' | 'basis'>;
+  columns: Columns<AssetCostBasisItem, 'asset' | 'disposalCount' | 'proceeds' | 'basis'>;
   currency: string;
   isSelected: boolean;
   item: AssetCostBasisItem;
-}> = ({ item, currency, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
+}> = ({ item, currency, isSelected, columns }) => {
   const gainLossColor = item.isGain ? 'green' : 'red';
 
-  const { asset, disposalCount, proceeds, basis } = cols.format(item);
+  const { asset, disposalCount, proceeds, basis } = columns.format(item);
   const disposalLabel = item.disposalCount === 1 ? 'disposal ' : 'disposals';
   const gainLoss = formatSignedCurrency(item.totalGainLoss, currency);
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {asset} {disposalCount} {disposalLabel} proceeds: {proceeds} basis: {basis} gain/loss: {gainLoss}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} {asset} {disposalCount} <Text dimColor>{disposalLabel}</Text>
+    <SelectableRow isSelected={isSelected}>
+      {asset} {disposalCount} <Text dimColor>{disposalLabel}</Text>
       {'  '}
       <Text dimColor>proceeds:</Text> {proceeds}
       {'  '}
       <Text dimColor>basis:</Text> {basis}
       {'  '}
       <Text dimColor>gain/loss:</Text> <Text color={gainLossColor}>{gainLoss}</Text>
-    </Text>
+    </SelectableRow>
   );
 };
 
@@ -476,7 +467,7 @@ function getTimelineQuantityLabel(event: TimelineEvent): string {
 
 const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
-  const cols = createColumns(state.events, {
+  const columns = createColumns(state.events, {
     quantityAsset: { format: (event) => getTimelineQuantityLabel(event), minWidth: 40 },
     basisOrGainLoss: {
       format: (event) => {
@@ -521,7 +512,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
               item={event}
               currency={state.currency}
               isSelected={isSelected}
-              cols={cols}
+              columns={columns}
             />
           );
         }
@@ -534,7 +525,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
               currency={state.currency}
               isUS={isUS}
               isSelected={isSelected}
-              cols={cols}
+              columns={columns}
             />
           );
         }
@@ -545,7 +536,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
             item={event}
             currency={state.currency}
             isSelected={isSelected}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -563,45 +554,35 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
 
 type TimelineCols = Columns<TimelineEvent, 'quantityAsset' | 'basisOrGainLoss' | 'holding'>;
 
-const AcquisitionRow: FC<{ cols: TimelineCols; currency: string; isSelected: boolean; item: AcquisitionViewItem }> = ({
-  item,
-  isSelected,
-  cols,
-}) => {
-  const cursor = getSelectionCursor(isSelected);
+const AcquisitionRow: FC<{
+  columns: TimelineCols;
+  currency: string;
+  isSelected: boolean;
+  item: AcquisitionViewItem;
+}> = ({ item, isSelected, columns }) => {
   const marker = '+';
 
   const date = item.date;
-  const { quantityAsset: quantity, basisOrGainLoss: basis } = cols.format(item);
+  const { quantityAsset: quantity, basisOrGainLoss: basis } = columns.format(item);
   const txId = `#${item.transactionId}`;
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color="green">{marker}</Text> {date} acquired {quantity} basis {basis} {txId}
-        {fxNote && <Text dimColor>{fxNote}</Text>}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} <Text color="green">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>acquired</Text>{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color="green">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>acquired</Text>{' '}
       <Text color="green">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txId}</Text>
       {fxNote && <Text dimColor>{fxNote}</Text>}
-    </Text>
+    </SelectableRow>
   );
 };
 
 const DisposalRow: FC<{
-  cols: TimelineCols;
+  columns: TimelineCols;
   currency: string;
   isSelected: boolean;
   isUS: boolean;
   item: DisposalViewItem;
-}> = ({ item, isUS, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
+}> = ({ item, isUS, isSelected, columns }) => {
   const marker = '−';
   const gainLossColor = item.isGain ? 'green' : 'red';
 
@@ -614,21 +595,12 @@ const DisposalRow: FC<{
   const taxCategoryColor = taxCategory === 'long-term' ? 'green' : 'yellow';
 
   const date = item.date;
-  const { quantityAsset: quantity, basisOrGainLoss: gainLoss, holding } = cols.format(item);
+  const { quantityAsset: quantity, basisOrGainLoss: gainLoss, holding } = columns.format(item);
   const txId = `#${item.disposalTransactionId}`;
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color="red">{marker}</Text> {date} disposed {quantity} {gainLoss} {holding} {txId}
-        {taxCategory ? `  ${taxCategory}` : ''}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} <Text color="red">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>disposed</Text>{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color="red">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>disposed</Text>{' '}
       <Text color="red">{quantity}</Text> <Text color={gainLossColor}>{gainLoss}</Text> <Text dimColor>{holding}</Text>{' '}
       <Text dimColor>{txId}</Text>
       {taxCategory && (
@@ -637,38 +609,28 @@ const DisposalRow: FC<{
           <Text color={taxCategoryColor}>{taxCategory}</Text>
         </>
       )}
-    </Text>
+    </SelectableRow>
   );
 };
 
-const TransferRow: FC<{ cols: TimelineCols; currency: string; isSelected: boolean; item: TransferViewItem }> = ({
+const TransferRow: FC<{ columns: TimelineCols; currency: string; isSelected: boolean; item: TransferViewItem }> = ({
   item,
   isSelected,
-  cols,
+  columns,
 }) => {
-  const cursor = getSelectionCursor(isSelected);
   const marker = '→';
 
   const date = item.date;
-  const { quantityAsset: quantity, basisOrGainLoss: basis } = cols.format(item);
+  const { quantityAsset: quantity, basisOrGainLoss: basis } = columns.format(item);
   const txIds = `#${item.sourceTransactionId} → #${item.targetTransactionId}`;
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color="cyan">{marker}</Text> {date} transfer {quantity} basis {basis} {txIds}
-        {fxNote && <Text dimColor>{fxNote}</Text>}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>transfer</Text>{' '}
+    <SelectableRow isSelected={isSelected}>
+      <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>transfer</Text>{' '}
       <Text color="cyan">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txIds}</Text>
       {fxNote && <Text dimColor>{fxNote}</Text>}
-    </Text>
+    </SelectableRow>
   );
 };
 

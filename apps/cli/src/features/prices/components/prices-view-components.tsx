@@ -12,7 +12,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
 import { formatCoveragePercentage } from '../prices-view-utils.js';
@@ -204,7 +204,7 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
 const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { coverage, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, getCoverageChromeLines());
-  const cols = useMemo(
+  const columns = useMemo(
     () =>
       createColumns(coverage, {
         asset: { format: (item) => item.assetSymbol, minWidth: 10 },
@@ -237,7 +237,7 @@ const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number 
             key={item.assetSymbol}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -251,36 +251,23 @@ const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number 
 };
 
 const CoverageRow: FC<{
-  cols: Columns<PriceCoverageDetail, 'asset' | 'total' | 'withPrice' | 'missing' | 'pct'>;
+  columns: Columns<PriceCoverageDetail, 'asset' | 'total' | 'withPrice' | 'missing' | 'pct'>;
   isSelected: boolean;
   item: PriceCoverageDetail;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { asset, total, withPrice, missing, pct } = cols.format(item);
+}> = ({ item, isSelected, columns }) => {
+  const { asset, total, withPrice, missing, pct } = columns.format(item);
 
   const icon = getCoverageIcon(item.coverage_percentage, item.missing_price);
   const iconColor = getCoverageIconColor(item.coverage_percentage, item.missing_price);
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color={iconColor}>{icon}</Text> {asset}
-        {total}
-        {withPrice}
-        {missing}
-        {pct}
-      </Text>
-    );
-  }
-
   return (
-    <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text> {asset}
+    <SelectableRow isSelected={isSelected}>
+      <Text color={iconColor}>{icon}</Text> {asset}
       {total}
       {withPrice}
       {item.missing_price > 0 ? <Text color="yellow">{missing}</Text> : <>{missing}</>}
       {pct}
-    </Text>
+    </SelectableRow>
   );
 };
 
@@ -507,7 +494,7 @@ const MissingAssetBreakdown: FC<{ assets: AssetBreakdownEntry[] }> = ({ assets }
 const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { movements, selectedIndex, scrollOffset, resolvedRows } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, getMissingChromeLines(state.assetBreakdown.length));
-  const cols = useMemo(
+  const columns = useMemo(
     () =>
       createColumns(movements, {
         txId: { format: (m) => `#${m.transactionId}`, align: 'right', minWidth: 6 },
@@ -539,7 +526,7 @@ const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }>
             movement={movement}
             isSelected={actualIndex === selectedIndex}
             isResolved={resolvedRows.has(missingRowKey(movement))}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -553,13 +540,12 @@ const MissingList: FC<{ state: PricesViewMissingState; terminalHeight: number }>
 };
 
 const MissingRow: FC<{
-  cols: Columns<MissingPriceMovement, 'txId' | 'source' | 'asset'>;
+  columns: Columns<MissingPriceMovement, 'txId' | 'source' | 'asset'>;
   isResolved: boolean;
   isSelected: boolean;
   movement: MissingPriceMovement;
-}> = ({ movement, isSelected, isResolved, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { txId, source, asset } = cols.format(movement);
+}> = ({ movement, isSelected, isResolved, columns }) => {
+  const { txId, source, asset } = columns.format(movement);
   const timestamp = movement.datetime.substring(0, 16).replace('T', ' ');
   const dir = movement.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = movement.direction === 'inflow' ? 'green' : 'yellow';
@@ -567,26 +553,20 @@ const MissingRow: FC<{
 
   if (isResolved) {
     return (
-      <Text dimColor>
-        {cursor} ✓ {txId} {source} {timestamp} {asset} {dir} {amount}
-      </Text>
-    );
-  }
-
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} <Text color="yellow">⚠</Text> {txId} {source} <Text dimColor>{timestamp}</Text> {asset}{' '}
-        <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>
-      </Text>
+      <SelectableRow
+        dimWhenUnselected
+        isSelected={isSelected}
+      >
+        ✓ {txId} {source} {timestamp} {asset} {dir} {amount}
+      </SelectableRow>
     );
   }
 
   return (
-    <Text>
-      {cursor} <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text>{' '}
-      {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>
-    </Text>
+    <SelectableRow isSelected={isSelected}>
+      <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text> {asset}{' '}
+      <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>
+    </SelectableRow>
   );
 };
 

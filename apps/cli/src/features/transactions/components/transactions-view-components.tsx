@@ -14,7 +14,7 @@ import {
   createColumns,
   Divider,
   FixedHeightDetail,
-  getSelectionCursor,
+  SelectableRow,
 } from '../../../ui/shared/index.js';
 
 import {
@@ -175,7 +175,7 @@ function buildCategoryParts(counts: CategoryCounts): { count: number; label: str
 const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { transactions, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
-  const cols = useMemo(
+  const columns = useMemo(
     () =>
       createColumns(transactions, {
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
@@ -208,7 +208,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
             key={item.id}
             item={item}
             isSelected={actualIndex === selectedIndex}
-            cols={cols}
+            columns={columns}
           />
         );
       })}
@@ -224,42 +224,36 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const TransactionRow: FC<{
-  cols: Columns<TransactionViewItem, 'txId' | 'source' | 'operation' | 'asset' | 'amount'>;
+  columns: Columns<TransactionViewItem, 'txId' | 'source' | 'operation' | 'asset' | 'amount'>;
   isSelected: boolean;
   item: TransactionViewItem;
-}> = ({ item, isSelected, cols }) => {
-  const cursor = getSelectionCursor(isSelected);
-  const { txId, source, operation, asset, amount } = cols.format(item);
+}> = ({ item, isSelected, columns }) => {
+  const { txId, source, operation, asset, amount } = columns.format(item);
   const timestamp = item.datetime.substring(0, 16).replace('T', ' ');
   const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
   const { icon, iconColor } = getPriceStatusIcon(item.priceStatus);
 
   const isExcluded = item.excludedFromAccounting || item.isSpam;
 
-  if (isSelected) {
-    return (
-      <Text bold>
-        {cursor} {txId} {source} <Text dimColor>{timestamp}</Text> {operation} {asset} {dir} {amount} {icon}
-      </Text>
-    );
-  }
-
   if (isExcluded) {
     return (
-      <Text dimColor>
-        {cursor} {txId} {source} {timestamp} {operation} {asset} {dir} {amount} {icon}
-      </Text>
+      <SelectableRow
+        dimWhenUnselected
+        isSelected={isSelected}
+      >
+        {txId} {source} {timestamp} {operation} {asset} {dir} {amount} {icon}
+      </SelectableRow>
     );
   }
 
   const dirColor = item.primaryDirection === 'in' ? 'green' : 'yellow';
 
   return (
-    <Text>
-      {cursor} {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text>{' '}
-      <Text dimColor>{operation}</Text> {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>{' '}
+    <SelectableRow isSelected={isSelected}>
+      {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text> <Text dimColor>{operation}</Text>{' '}
+      {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>{' '}
       <Text color={iconColor}>{icon}</Text>
-    </Text>
+    </SelectableRow>
   );
 };
 
@@ -520,7 +514,7 @@ const FormatSelector: FC<{ selectedIndex: number }> = ({ selectedIndex }) => {
       <Text> </Text>
       {FORMAT_OPTIONS.map((option, i) => {
         const isSelected = i === selectedIndex;
-        const cursor = getSelectionCursor(isSelected);
+        const cursor = isSelected ? '▸' : ' ';
         const number = `${i + 1}`;
         return (
           <Text key={option.label}>
