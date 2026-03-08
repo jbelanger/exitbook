@@ -6,7 +6,7 @@ import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceAssetDebugResult } from './balance-debug.js';
+import type { BalanceAssetDiagnosticsSummary } from './balance-diagnostics.js';
 import { getExchangeCredentialsFromEnv } from './balance-utils.js';
 import type {
   AccountOfflineItem,
@@ -14,67 +14,39 @@ import type {
   AssetComparisonItem,
   AssetDiagnostics,
   AssetOfflineItem,
-  DiagnosticFeeSample,
-  DiagnosticSample,
 } from './components/balance-view-state.js';
 
 // ─── Diagnostics Builder ─────────────────────────────────────────────────────
 
 /**
- * Transform BalanceAssetDebugResult (Decimal types) → AssetDiagnostics (string types for display).
+ * Transform BalanceAssetDiagnosticsSummary (Decimal types) → AssetDiagnostics (string types for display).
  */
 export function buildAssetDiagnostics(
-  debugResult: BalanceAssetDebugResult,
+  diagnosticsSummary: BalanceAssetDiagnosticsSummary,
   comparison?: { calculatedBalance: string; liveBalance: string }
 ): AssetDiagnostics {
-  const topOutflows: DiagnosticSample[] = debugResult.topOutflows.map((s) => ({
-    amount: s.amount.toFixed(),
-    datetime: s.datetime,
-    from: s.from,
-    to: s.to,
-    transactionHash: s.transactionHash,
-  }));
+  const dateRange = diagnosticsSummary.dateRange;
 
-  const topInflows: DiagnosticSample[] = debugResult.topInflows.map((s) => ({
-    amount: s.amount.toFixed(),
-    datetime: s.datetime,
-    from: s.from,
-    to: s.to,
-    transactionHash: s.transactionHash,
-  }));
-
-  const topFees: DiagnosticFeeSample[] = debugResult.topFees.map((s) => ({
-    amount: s.amount.toFixed(),
-    datetime: s.datetime,
-    transactionHash: s.transactionHash,
-  }));
-
-  const dateRange = debugResult.dateRange;
-
-  // Implied missing = live - calculated (when there's a comparison)
-  let impliedMissing: string | undefined;
+  let unexplainedDelta: string | undefined;
   if (comparison) {
     const live = parseDecimal(comparison.liveBalance);
     const calculated = parseDecimal(comparison.calculatedBalance);
     const diff = live.minus(calculated);
     if (!diff.isZero()) {
-      impliedMissing = diff.toFixed();
+      unexplainedDelta = diff.toFixed();
     }
   }
 
   return {
-    txCount: debugResult.totals.txCount,
+    txCount: diagnosticsSummary.totals.txCount,
     dateRange,
     totals: {
-      inflows: debugResult.totals.inflows.toFixed(),
-      outflows: debugResult.totals.outflows.toFixed(),
-      fees: debugResult.totals.fees.toFixed(),
-      net: debugResult.totals.net.toFixed(),
+      inflows: diagnosticsSummary.totals.inflows.toFixed(),
+      outflows: diagnosticsSummary.totals.outflows.toFixed(),
+      fees: diagnosticsSummary.totals.fees.toFixed(),
+      net: diagnosticsSummary.totals.net.toFixed(),
     },
-    impliedMissing,
-    topOutflows,
-    topInflows,
-    topFees,
+    unexplainedDelta,
   };
 }
 

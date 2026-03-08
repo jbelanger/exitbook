@@ -16,7 +16,6 @@ import {
   FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
-import { formatSignedAmount, truncateAddress } from '../balance-view-utils.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 import type {
@@ -1013,17 +1012,16 @@ function buildOnlineDiagnosticsRows(asset: AssetComparisonItem): ReactElement[] 
     ...buildDiagnosticsContentRows(diagnostics),
   ];
 
-  if (diagnostics.impliedMissing) {
+  if (diagnostics.unexplainedDelta) {
     rows.push(
-      <Text key="implied-missing">
+      <Text key="unexplained-delta">
         {'  '}
-        <Text dimColor>Implied missing: </Text>
-        <Text color="red">{diagnostics.impliedMissing}</Text>
+        <Text dimColor>Unexplained delta: </Text>
+        <Text color={asset.status === 'mismatch' ? 'red' : 'yellow'}>{diagnostics.unexplainedDelta}</Text>
       </Text>
     );
   }
 
-  rows.push(...buildDiagnosticsSampleRows(diagnostics));
   return rows;
 }
 
@@ -1052,7 +1050,6 @@ function buildOfflineDiagnosticsRows(asset: AssetOfflineItem): ReactElement[] {
     );
   }
 
-  rows.push(...buildDiagnosticsSampleRows(diagnostics));
   return rows;
 }
 
@@ -1099,119 +1096,6 @@ function buildDiagnosticsContentRows(diagnostics: AssetDiagnostics): ReactElemen
     </Text>,
   ];
 }
-
-function buildDiagnosticsSampleRows(diagnostics: AssetDiagnostics): ReactElement[] {
-  if (diagnostics.txCount === 0) return [];
-
-  const rows: ReactElement[] = [];
-
-  if (diagnostics.topOutflows.length > 0) {
-    rows.push(
-      <Text key="outflows-blank"> </Text>,
-      <Text
-        key="outflows-label"
-        dimColor
-      >
-        {'  '}Top Outflows
-      </Text>
-    );
-    rows.push(
-      ...diagnostics.topOutflows.map((sample, index) => (
-        <SampleRow
-          key={`out-${index}`}
-          sample={sample}
-          type="outflow"
-        />
-      ))
-    );
-  }
-  if (diagnostics.topInflows.length > 0) {
-    rows.push(
-      <Text key="inflows-blank"> </Text>,
-      <Text
-        key="inflows-label"
-        dimColor
-      >
-        {'  '}Top Inflows
-      </Text>
-    );
-    rows.push(
-      ...diagnostics.topInflows.map((sample, index) => (
-        <SampleRow
-          key={`in-${index}`}
-          sample={sample}
-          type="inflow"
-        />
-      ))
-    );
-  }
-  if (diagnostics.topFees.length > 0) {
-    rows.push(
-      <Text key="fees-blank"> </Text>,
-      <Text
-        key="fees-label"
-        dimColor
-      >
-        {'  '}Top Fees
-      </Text>
-    );
-    rows.push(
-      ...diagnostics.topFees.map((sample, index) => (
-        <FeeSampleRow
-          key={`fee-${index}`}
-          sample={sample}
-        />
-      ))
-    );
-  }
-
-  return rows;
-}
-
-const SampleRow: FC<{
-  sample: {
-    amount: string;
-    datetime: string;
-    from?: string | undefined;
-    to?: string | undefined;
-    transactionHash?: string | undefined;
-  };
-  type: 'inflow' | 'outflow';
-}> = ({ sample, type }) => {
-  const amount = formatSignedAmount(sample.amount);
-  const amountColor = type === 'inflow' ? 'green' : 'yellow';
-  const peerLabel = type === 'inflow' ? 'from' : 'to';
-  const peer = type === 'inflow' ? sample.from : sample.to;
-
-  return (
-    <Text>
-      {'    '}
-      <Text color={amountColor}>{amount.padStart(12)}</Text>
-      <Text dimColor> {sample.datetime.substring(0, 10)}</Text>
-      {peer && (
-        <Text dimColor>
-          {' '}
-          {peerLabel} {truncateAddress(peer)}
-        </Text>
-      )}
-      {sample.transactionHash && <Text dimColor> tx {truncateAddress(sample.transactionHash)}</Text>}
-    </Text>
-  );
-};
-
-const FeeSampleRow: FC<{ sample: { amount: string; datetime: string; transactionHash?: string | undefined } }> = ({
-  sample,
-}) => {
-  const amount = formatSignedAmount(sample.amount);
-  return (
-    <Text>
-      {'    '}
-      <Text color="yellow">{amount.padStart(12)}</Text>
-      <Text dimColor> {sample.datetime.substring(0, 10)}</Text>
-      {sample.transactionHash && <Text dimColor> tx {truncateAddress(sample.transactionHash)}</Text>}
-    </Text>
-  );
-};
 
 // ─── Controls Bars ───────────────────────────────────────────────────────────
 

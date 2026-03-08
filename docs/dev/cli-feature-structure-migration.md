@@ -175,8 +175,7 @@ Examples of likely renames:
   name if it remains shared
 - `transactions-view-utils.ts` -> split or rename if export code still depends
   on it
-- `balance-debug.ts` -> `balance-analysis.ts` or move it into the owning slice
-- `balance-explain.ts` -> `balance-explanation.ts` or move it into the owning
+- `balance-debug.ts` -> `balance-diagnostics.ts` or move it into the owning
   slice
 
 ### 3a. Resolve smells by ownership, not by more folders
@@ -343,9 +342,9 @@ apps/cli/src/features/<feature>/
 
 Notes:
 
-- `balance-debug.ts` and `balance-explain.ts` should not stay at the root under
-  those names if they are slice-owned. Either move them into the owning slice or
-  rename them to a neutral shared name if both slices truly depend on them.
+- `balance-debug.ts` should not stay at the root under that name if it is
+  slice-owned. Either move it into the owning slice or rename it to a neutral
+  shared name if both slices truly depend on it.
 - `portfolio-types.ts` is a legitimate root candidate only if both
   `command/portfolio-handler.ts` and `view/*` still import it after migration.
 

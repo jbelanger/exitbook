@@ -8,7 +8,7 @@ import type { EventRelay } from '../../ui/shared/event-relay.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
 
-import { buildBalanceAssetDebug } from './balance-debug.js';
+import { buildBalanceAssetDiagnosticsSummary } from './balance-diagnostics.js';
 import {
   buildAssetDiagnostics,
   buildAssetOfflineItem,
@@ -137,7 +137,7 @@ export class BalanceHandler {
       const transactions = await this.loadAccountTransactions(account);
 
       const comparisons: AssetComparisonItem[] = vr.comparisons.map((c) => {
-        const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+        const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
           liveBalance: c.liveBalance,
           calculatedBalance: c.calculatedBalance,
         });
@@ -214,7 +214,7 @@ export class BalanceHandler {
 
         const transactions = await this.loadAccountTransactions(account);
         const comparisons: AssetComparisonItem[] = vr.comparisons.map((c) => {
-          const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, account.id, {
+          const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
             liveBalance: c.liveBalance,
             calculatedBalance: c.calculatedBalance,
           });
@@ -313,7 +313,7 @@ export class BalanceHandler {
 
         const comparisons = sortAssetsByStatus(
           vr.comparisons.map((c) => {
-            const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, item.accountId, {
+            const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
               liveBalance: c.liveBalance,
               calculatedBalance: c.calculatedBalance,
             });
@@ -403,23 +403,10 @@ export class BalanceHandler {
     assetId: string,
     assetSymbol: string,
     transactions: UniversalTransactionData[],
-    accountId: number,
     balances?: { calculatedBalance: string; liveBalance: string }
   ): ReturnType<typeof buildAssetDiagnostics> {
-    const debugResult = buildBalanceAssetDebug({ assetId, assetSymbol, transactions });
-
-    if (debugResult.isOk()) {
-      return buildAssetDiagnostics(debugResult.value, balances);
-    }
-
-    logger.warn(`Failed to build diagnostics for ${assetSymbol} (account #${accountId}): ${debugResult.error.message}`);
-    return {
-      txCount: 0,
-      totals: { inflows: '0', outflows: '0', fees: '0', net: '0' },
-      topOutflows: [],
-      topInflows: [],
-      topFees: [],
-    };
+    const diagnosticsSummary = buildBalanceAssetDiagnosticsSummary({ assetId, assetSymbol, transactions });
+    return buildAssetDiagnostics(diagnosticsSummary, balances);
   }
 
   private extractStreamMetadata(account: Account): Record<string, unknown> | undefined {
@@ -448,7 +435,7 @@ export class BalanceHandler {
 
     return Object.entries(balances).map(([assetId, balance]) => {
       const assetSymbol = assetMetadata[assetId] ?? assetId;
-      const diagnostics = this.buildDiagnosticsForAsset(assetId, assetSymbol, transactions, account.id);
+      const diagnostics = this.buildDiagnosticsForAsset(assetId, assetSymbol, transactions);
       return buildAssetOfflineItem(assetId, assetSymbol, balance, diagnostics);
     });
   }

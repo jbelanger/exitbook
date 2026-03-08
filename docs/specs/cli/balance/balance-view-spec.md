@@ -7,8 +7,8 @@
 Three entry modes, same TUI:
 
 - **All accounts** (default): Verifies all verifiable accounts sequentially, showing progress. Lands on an account-level results browser with drill-down to asset detail.
-- **Single account** (`--account-id N`): Verifies one account. Lands directly on an asset-level results browser with inline diagnostics.
-- **Offline** (`--offline`): Skips live balance fetching entirely. Shows calculated balances from imported transactions with full diagnostics. No API calls, no credentials needed. Useful for inspecting transaction processing without verifying against live data.
+- **Single account** (`--account-id N`): Verifies one account. Lands directly on an asset-level results browser with inline summary diagnostics.
+- **Offline** (`--offline`): Skips live balance fetching entirely. Shows calculated balances from imported transactions with inline summary diagnostics. No API calls, no credentials needed. Useful for inspecting transaction processing without verifying against live data.
 
 `--json` bypasses the TUI in any mode.
 
@@ -280,7 +280,7 @@ Default: by status (mismatches first, then warnings, then matches, then skipped)
 
 ## Single-Account Mode / Drill-Down View
 
-Activated by `--account-id N` (direct entry) or by pressing `Enter` on an account in all-accounts mode. Shows one account's per-asset balance comparisons with inline diagnostics.
+Activated by `--account-id N` (direct entry) or by pressing `Enter` on an account in all-accounts mode. Shows one account's per-asset balance comparisons with inline summary diagnostics.
 
 ### Loading (Single-Account Entry)
 
@@ -303,15 +303,7 @@ Balance  ethereum #5  blockchain  2 assets · 1 match · 1 mismatch
 
   Transactions: 42 · 2023-06-12 to 2024-11-28
   Net from transactions: 175.0000 (in 500.0000 · out 325.0000 · fees 0.0000)
-
-  Top Outflows
-    -100.0000  2024-11-15  to 0x1234...5678  tx 0x7a3f...8b2e
-     -75.0000  2024-10-28  to 0x9abc...def0  tx 0x3b1c...4d5e
-     -50.0000  2024-09-15  to 0x5678...1234  tx 0xa2b3...c4d5
-
-  Top Inflows
-    +200.0000  2024-06-12  from 0xabcd...ef01  tx 0xf1e2...d3c4
-    +150.0000  2024-08-20  from 0x2345...6789  tx 0xb5a6...7890
+  Unexplained delta: -25.0000
 
 ↑↓/j/k · ^U/^D page · Home/End · backspace back · q/esc quit
 ```
@@ -384,7 +376,7 @@ Balance  kraken #1  exchange-api  5 assets · all match
 
 ### Detail Panel (Asset List) — Diagnostics
 
-The detail panel shows transaction diagnostics for the selected asset. This replaces the `--explain` and `--debug-asset-id` flags — the information is always available inline.
+The detail panel shows summary transaction diagnostics for the selected asset. This replaces the `--explain` and `--debug-asset-id` flags — the core mismatch context is always available inline.
 
 #### Match Detail
 
@@ -402,19 +394,7 @@ The detail panel shows transaction diagnostics for the selected asset. This repl
 
   Transactions: 42 · 2023-06-12 to 2024-11-28
   Net from transactions: 175.0000 (in 500.0000 · out 325.0000 · fees 0.0000)
-  Implied missing: -25.0000
-
-  Top Outflows
-    -100.0000  2024-11-15  to 0x1234...5678  tx 0x7a3f...8b2e
-     -75.0000  2024-10-28  to 0x9abc...def0  tx 0x3b1c...4d5e
-     -50.0000  2024-09-15  to 0x5678...1234  tx 0xa2b3...c4d5
-
-  Top Inflows
-    +200.0000  2024-06-12  from 0xabcd...ef01  tx 0xf1e2...d3c4
-    +150.0000  2024-08-20  from 0x2345...6789  tx 0xb5a6...7890
-
-  Top Fees
-    -2.5000  2024-11-15  tx 0x7a3f...8b2e
+  Unexplained delta: -25.0000
 ```
 
 #### Negative Calculated Balance Detail
@@ -426,10 +406,6 @@ The detail panel shows transaction diagnostics for the selected asset. This repl
   Net from transactions: -2.5000 (in 10.0000 · out 12.5000 · fees 0.0000)
 
   ⚠ Negative balance — likely missing inflow transactions
-
-  Top Outflows
-    -5.0000  2024-06-20  to 0xabcd...1234  tx 0xf1e2...d3c4
-    -4.0000  2024-03-15  to 0x5678...9abc  tx 0xa2b3...c4d5
 ```
 
 #### No Transactions for Asset
@@ -443,37 +419,30 @@ The detail panel shows transaction diagnostics for the selected asset. This repl
 
 ### Detail Panel Elements (Asset Diagnostics)
 
-| Element                         | Color                            |
-| ------------------------------- | -------------------------------- |
-| Asset symbol                    | white/bold                       |
-| `calculated` label              | dim                              |
-| Calculated value                | green (positive), red (negative) |
-| `live` label                    | dim                              |
-| Live value                      | white                            |
-| `match`                         | green                            |
-| `diff` label                    | dim                              |
-| Difference value                | red (negative), green (positive) |
-| Percentage diff                 | dim                              |
-| `Transactions:` label           | dim                              |
-| Transaction count               | white                            |
-| Date range                      | dim                              |
-| `Net from transactions:` label  | dim                              |
-| Net value                       | white                            |
-| `in` / `out` / `fees` labels    | dim                              |
-| Inflow total                    | green                            |
-| Outflow total                   | yellow                           |
-| Fee total                       | yellow                           |
-| `Implied missing:` label        | dim                              |
-| Implied missing value           | red                              |
-| Section labels (`Top Outflows`) | dim                              |
-| Outflow amounts                 | yellow                           |
-| Inflow amounts (`+`)            | green                            |
-| Fee amounts                     | yellow                           |
-| Timestamps in samples           | dim                              |
-| Addresses (`to`, `from`)        | dim                              |
-| Transaction hashes              | dim                              |
-| Warning text                    | yellow                           |
-| Explanatory text                | dim                              |
+| Element                        | Color                            |
+| ------------------------------ | -------------------------------- |
+| Asset symbol                   | white/bold                       |
+| `calculated` label             | dim                              |
+| Calculated value               | green (positive), red (negative) |
+| `live` label                   | dim                              |
+| Live value                     | white                            |
+| `match`                        | green                            |
+| `diff` label                   | dim                              |
+| Difference value               | red (negative), green (positive) |
+| Percentage diff                | dim                              |
+| `Transactions:` label          | dim                              |
+| Transaction count              | white                            |
+| Date range                     | dim                              |
+| `Net from transactions:` label | dim                              |
+| Net value                      | white                            |
+| `in` / `out` / `fees` labels   | dim                              |
+| Inflow total                   | green                            |
+| Outflow total                  | yellow                           |
+| Fee total                      | yellow                           |
+| `Unexplained delta:` label     | dim                              |
+| Unexplained delta value        | red / yellow by status           |
+| Warning text                   | yellow                           |
+| Explanatory text               | dim                              |
 
 ### Sorting (Asset List)
 
@@ -588,15 +557,6 @@ Balance (offline)  ethereum #5  blockchain  2 assets
   Transactions: 42 · 2023-06-12 to 2024-11-28
   Net from transactions: 175.0000 (in 500.0000 · out 325.0000 · fees 0.0000)
 
-  Top Outflows
-    -100.0000  2024-11-15  to 0x1234...5678  tx 0x7a3f...8b2e
-     -75.0000  2024-10-28  to 0x9abc...def0  tx 0x3b1c...4d5e
-     -50.0000  2024-09-15  to 0x5678...1234  tx 0xa2b3...c4d5
-
-  Top Inflows
-    +200.0000  2024-06-12  from 0xabcd...ef01  tx 0xf1e2...d3c4
-    +150.0000  2024-08-20  from 0x2345...6789  tx 0xb5a6...7890
-
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
 
@@ -625,15 +585,6 @@ Same diagnostic content as verification mode, but the summary line omits `live` 
 
   Transactions: 42 · 2023-06-12 to 2024-11-28
   Net from transactions: 175.0000 (in 500.0000 · out 325.0000 · fees 0.0000)
-
-  Top Outflows
-    ...
-
-  Top Inflows
-    ...
-
-  Top Fees
-    ...
 ```
 
 For negative balances:
@@ -645,9 +596,6 @@ For negative balances:
   Net from transactions: -2.5000 (in 10.0000 · out 12.5000 · fees 0.0000)
 
   ⚠ Negative balance — likely missing inflow transactions
-
-  Top Outflows
-    ...
 ```
 
 ### Sorting (Offline)
@@ -720,7 +668,7 @@ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET
 
 ### Offline Mode (`--offline`)
 
-Skips live balance fetching. Shows calculated balances from transactions with full diagnostics. No API calls, no credentials, no provider manager.
+Skips live balance fetching. Shows calculated balances from transactions with inline summary diagnostics. No API calls, no credentials, no provider manager.
 
 ```bash
 exitbook balance --offline                    # All accounts, calculated only
@@ -852,7 +800,7 @@ Same shape as the existing `BalanceCommandResult` — preserves backward compati
   "balances": [
     {
       "assetId": "blockchain:ethereum:native",
-      "currency": "ETH",
+      "assetSymbol": "ETH",
       "calculatedBalance": "2.1500",
       "liveBalance": "2.1500",
       "difference": "0",
@@ -861,7 +809,7 @@ Same shape as the existing `BalanceCommandResult` — preserves backward compati
     },
     {
       "assetId": "blockchain:ethereum:0xa0b8...",
-      "currency": "USDC",
+      "assetSymbol": "USDC",
       "calculatedBalance": "175.0000",
       "liveBalance": "150.0000",
       "difference": "-25.0000",
@@ -963,9 +911,6 @@ Same conventions as all other TUI views.
 | Labels (`calc`, `live`, `diff`, `in`, `out`, `fees`) | dim   |
 | Percentage diff                                      | dim   |
 | `match`, `asset(s)`, `mismatch` labels (non-count)   | dim   |
-| Section labels (`Top Outflows`, `Top Inflows`)       | dim   |
-| Timestamps                                           | dim   |
-| Addresses and transaction hashes                     | dim   |
 | `Press enter to drill down`                          | dim   |
 | Command/action hints                                 | dim   |
 | Divider `─`                                          | dim   |
@@ -1105,24 +1050,7 @@ interface AssetDiagnostics {
     fees: string;
     net: string;
   };
-  impliedMissing?: string | undefined; // live - calculated, when mismatched
-  topOutflows: DiagnosticSample[];
-  topInflows: DiagnosticSample[];
-  topFees: DiagnosticFeeSample[];
-}
-
-interface DiagnosticSample {
-  amount: string;
-  datetime: string;
-  from?: string | undefined;
-  to?: string | undefined;
-  transactionHash?: string | undefined;
-}
-
-interface DiagnosticFeeSample {
-  amount: string;
-  datetime: string;
-  transactionHash?: string | undefined;
+  unexplainedDelta?: string | undefined; // live - calculated, when mismatched
 }
 ```
 
@@ -1200,8 +1128,8 @@ Notes:
 
 - `--offline` works with or without `--account-id` — no API calls, no credentials needed
 - `--api-key`, `--api-secret`, `--api-passphrase` only valid with `--account-id` and without `--offline`
-- `--explain` and `--debug-asset-id` are removed — diagnostics are always available inline in the TUI
-- `--debug-top` is removed — top 5 samples are always shown
+- `--explain` and `--debug-asset-id` are removed — summary diagnostics are always available inline in the TUI
+- `--debug-top` is removed — the TUI now sticks to the summary rows that fit reliably
 
 ---
 
@@ -1216,7 +1144,7 @@ Notes:
 5. Verify each account sequentially:
    a. Resolve credentials (stored → env → skip)
    b. Call `BalanceService.verifyBalance()` — fetches live, calculates from transactions, compares
-   c. Precompute `AssetDiagnostics` for each asset using `buildBalanceAssetDebug()`
+   c. Precompute `AssetDiagnostics` for each asset using `buildBalanceAssetDiagnosticsSummary()`
    d. Dispatch `VERIFICATION_COMPLETED` (or `SKIPPED`/`ERROR`) to update the TUI
 6. Dispatch `ALL_VERIFICATIONS_COMPLETE`
 7. User browses results interactively
@@ -1240,7 +1168,7 @@ Notes:
 4. For each account:
    a. Fetch transactions via `TransactionRepository.getTransactions({ accountIds })` (including child accounts)
    b. Run `calculateBalances()` to get per-asset calculated balances
-   c. Run `buildBalanceAssetDebug()` for each asset to build diagnostics
+   c. Run `buildBalanceAssetDiagnosticsSummary()` for each asset to build diagnostics
 5. Render TUI immediately (no verification phase, no progress animation)
 6. On quit: close database
 
@@ -1248,9 +1176,9 @@ Offline mode never initializes the `BlockchainProviderManager` or exchange clien
 
 ### Diagnostic Precomputation
 
-During verification, after `BalanceService.verifyBalance()` returns, the controller fetches all transactions for the account (including child accounts for xpubs) and calls `buildBalanceAssetDebug()` for each asset in the comparison. This data is stored in `AssetComparisonItem.diagnostics` for instant access when the user navigates.
+During verification, after `BalanceService.verifyBalance()` returns, the controller fetches all transactions for the account (including child accounts for xpubs) and calls `buildBalanceAssetDiagnosticsSummary()` for each asset in the comparison. This data is stored in `AssetComparisonItem.diagnostics` for instant access when the user navigates.
 
-The `buildBalanceAssetDebug()` function already exists in `balance-debug.ts` — it computes totals, top inflows/outflows/fees from transactions.
+The `buildBalanceAssetDiagnosticsSummary()` function computes the summary rows shown in the TUI: transaction count, date range, and in/out/fee/net totals.
 
 ### EventBus Integration
 

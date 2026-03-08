@@ -4,23 +4,9 @@
 
 import type { AccountType } from '@exitbook/core';
 
-import type { DateRange } from '../balance-debug.js';
+import type { DateRange } from '../balance-diagnostics.js';
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────────
-
-export interface DiagnosticSample {
-  amount: string;
-  datetime: string;
-  from?: string | undefined;
-  to?: string | undefined;
-  transactionHash?: string | undefined;
-}
-
-export interface DiagnosticFeeSample {
-  amount: string;
-  datetime: string;
-  transactionHash?: string | undefined;
-}
 
 export interface AssetDiagnostics {
   txCount: number;
@@ -31,10 +17,7 @@ export interface AssetDiagnostics {
     net: string;
     outflows: string;
   };
-  impliedMissing?: string | undefined;
-  topOutflows: DiagnosticSample[];
-  topInflows: DiagnosticSample[];
-  topFees: DiagnosticFeeSample[];
+  unexplainedDelta?: string | undefined;
 }
 
 // ─── Asset Items ─────────────────────────────────────────────────────────────
