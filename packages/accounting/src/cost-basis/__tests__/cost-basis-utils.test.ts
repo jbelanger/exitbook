@@ -456,7 +456,7 @@ describe('cost-basis-utils', () => {
 
       const result = validateTransactionPrices(transactions, 'USD');
       const resultValue = assertOk(result);
-      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.priceCompleteTransactions).toHaveLength(2);
       expect(resultValue.missingPricesCount).toBe(0);
     });
 
@@ -484,7 +484,7 @@ describe('cost-basis-utils', () => {
 
       const result = validateTransactionPrices(transactions, 'USD');
       const resultValue = assertOk(result);
-      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.priceCompleteTransactions).toHaveLength(2);
       expect(resultValue.missingPricesCount).toBe(1);
     });
 
@@ -528,7 +528,7 @@ describe('cost-basis-utils', () => {
 
       const result = validateTransactionPrices(transactions, 'USD');
       const resultValue = assertOk(result);
-      expect(resultValue.validTransactions).toHaveLength(2);
+      expect(resultValue.priceCompleteTransactions).toHaveLength(2);
       expect(resultValue.missingPricesCount).toBe(0);
     });
   });

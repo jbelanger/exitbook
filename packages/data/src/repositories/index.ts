@@ -17,4 +17,3 @@ export type {
   TransactionSummary,
 } from './transaction-repository.js';
 export { UserRepository } from './user-repository.js';
-export { UtxoConsolidatedMovementRepository } from './utxo-consolidated-movement-repository.js';

@@ -6,8 +6,7 @@ import type { DataContext } from '../data-context.js';
 /**
  * Bridges DataContext to accounting's ILinksReset port.
  *
- * Owns only transaction_links. Does NOT touch utxo_consolidated_movements —
- * that belongs to the processed-transactions projection.
+ * Owns only transaction_links.
  */
 export function buildLinksResetPorts(db: DataContext): ILinksReset {
   return {

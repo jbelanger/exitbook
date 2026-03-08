@@ -214,29 +214,6 @@ export interface TransactionLinksTable {
 }
 
 /**
- * UTXO consolidated movements table - stores collapsed UTXO movements
- * that merge multiple raw inputs/outputs into single logical movements per direction.
- */
-export interface UtxoConsolidatedMovementsTable {
-  id: Generated<number>;
-  transaction_id: number;
-  account_id: number;
-  source_name: string;
-  asset_symbol: string;
-  direction: 'in' | 'out';
-  amount: DecimalString;
-  gross_amount: DecimalString | null;
-  fee_amount: DecimalString | null;
-  fee_asset_symbol: string | null;
-  timestamp: DateTime;
-  blockchain_tx_hash: string;
-  from_address: string | null;
-  to_address: string | null;
-  consolidated_from: JSONString | null; // JSON array of raw tx IDs
-  created_at: DateTime;
-}
-
-/**
  * Projection state table - tracks lifecycle state of persisted derived datasets.
  * Replaces the singleton raw_data_processed_state with a generalized model.
  */
@@ -261,6 +238,5 @@ export interface DatabaseSchema {
   transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
-  utxo_consolidated_movements: UtxoConsolidatedMovementsTable;
   projection_state: ProjectionStateTable;
 }

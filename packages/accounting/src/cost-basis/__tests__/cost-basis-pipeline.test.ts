@@ -59,7 +59,7 @@ describe('runCostBasisPipeline', () => {
 
     const resultValue = assertOk(result);
     expect(resultValue.missingPricesCount).toBe(1);
-    expect(resultValue.validTransactions.map((tx) => tx.id)).toEqual([1]);
+    expect(resultValue.priceCompleteTransactions.map((tx) => tx.id)).toEqual([1]);
     expect(resultValue.summary.calculation.transactionsProcessed).toBe(1);
     expect(resultValue.summary.lotsCreated).toBe(1);
     expect(resultValue.summary.disposalsProcessed).toBe(0);

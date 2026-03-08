@@ -8,7 +8,6 @@ import type { DataContext } from '../data-context.js';
  *
  * Owns:
  * - transactions (processing output)
- * - utxo_consolidated_movements
  * - raw processing status reset back to pending
  */
 export function buildProcessedTransactionsResetPorts(db: DataContext): IProcessedTransactionsReset {
@@ -18,21 +17,14 @@ export function buildProcessedTransactionsResetPorts(db: DataContext): IProcesse
         const transactions = yield* await (accountIds
           ? db.transactions.count({ accountIds, includeExcluded: true })
           : db.transactions.count({ includeExcluded: true }));
-        const consolidatedMovements = yield* await db.utxoConsolidatedMovements.count(
-          accountIds ? { accountIds } : undefined
-        );
 
-        return { transactions, consolidatedMovements };
+        return { transactions };
       });
     },
 
     async reset(accountIds) {
       return db.executeInTransaction(async (tx) =>
         resultDoAsync(async function* () {
-          // FK-ordered: consolidated movements first, then transactions
-          const consolidatedMovements = yield* await (accountIds
-            ? tx.utxoConsolidatedMovements.deleteByAccountIds(accountIds)
-            : tx.utxoConsolidatedMovements.deleteAll());
           const transactions = yield* await (accountIds
             ? tx.transactions.deleteByAccountIds(accountIds)
             : tx.transactions.deleteAll());
@@ -52,7 +44,7 @@ export function buildProcessedTransactionsResetPorts(db: DataContext): IProcesse
             yield* await tx.projectionState.markStale(downstream, 'upstream-reset:processed-transactions');
           }
 
-          return { transactions, consolidatedMovements };
+          return { transactions };
         })
       );
     },

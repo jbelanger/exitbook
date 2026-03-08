@@ -211,11 +211,11 @@ export class PortfolioHandler {
         return err(pipelineResult.error);
       }
 
-      const { summary: costBasisSummary, missingPricesCount, validTransactions } = pipelineResult.value;
+      const { summary: costBasisSummary, missingPricesCount, priceCompleteTransactions } = pipelineResult.value;
 
       if (missingPricesCount > 0) {
-        const validTransactionIds = new Set(validTransactions.map((tx) => tx.id));
-        const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !validTransactionIds.has(tx.id));
+        const priceCompleteTransactionIds = new Set(priceCompleteTransactions.map((tx) => tx.id));
+        const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !priceCompleteTransactionIds.has(tx.id));
         const spamOrExcludedCount = excludedForMissingPrices.filter((tx) => isSpamOrExcludedTransaction(tx)).length;
 
         const warning =

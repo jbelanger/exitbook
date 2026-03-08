@@ -86,7 +86,7 @@ describe('projection-runtime', () => {
     };
 
     const resetLinks = vi.fn().mockResolvedValue(ok({ links: 1 }));
-    const resetProcessed = vi.fn().mockResolvedValue(ok({ transactions: 2, consolidatedMovements: 3 }));
+    const resetProcessed = vi.fn().mockResolvedValue(ok({ transactions: 2 }));
     mockBuildLinksResetPorts.mockReturnValue({ reset: resetLinks });
     mockBuildProcessedTransactionsResetPorts.mockReturnValue({ reset: resetProcessed });
 

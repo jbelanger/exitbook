@@ -351,51 +351,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['target_transaction_id', 'asset'])
     .execute();
 
-  // Create utxo_consolidated_movements table - stores collapsed UTXO movements
-  await db.schema
-    .createTable('utxo_consolidated_movements')
-    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
-    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
-    .addColumn('source_name', 'text', (col) => col.notNull())
-    .addColumn('asset_symbol', 'text', (col) => col.notNull())
-    .addColumn('direction', 'text', (col) => col.notNull())
-    .addColumn('amount', 'text', (col) => col.notNull())
-    .addColumn('gross_amount', 'text')
-    .addColumn('fee_amount', 'text')
-    .addColumn('fee_asset_symbol', 'text')
-    .addColumn('timestamp', 'text', (col) => col.notNull())
-    .addColumn('blockchain_tx_hash', 'text', (col) => col.notNull())
-    .addColumn('from_address', 'text')
-    .addColumn('to_address', 'text')
-    .addColumn('consolidated_from', 'text') // JSON array of raw tx IDs
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
-    .addCheckConstraint('utxo_consolidated_movements_direction_valid', sql`direction IN ('in', 'out')`)
-    .addCheckConstraint(
-      'utxo_consolidated_movements_consolidated_from_json_valid',
-      sql`consolidated_from IS NULL OR json_valid(consolidated_from)`
-    )
-    .execute();
-
-  // Indexes for utxo_consolidated_movements
-  await db.schema
-    .createIndex('idx_utxo_consolidated_movements_account_id')
-    .on('utxo_consolidated_movements')
-    .column('account_id')
-    .execute();
-
-  await db.schema
-    .createIndex('idx_utxo_consolidated_movements_tx_hash')
-    .on('utxo_consolidated_movements')
-    .column('blockchain_tx_hash')
-    .execute();
-
-  await db.schema
-    .createIndex('idx_utxo_consolidated_movements_transaction_id')
-    .on('utxo_consolidated_movements')
-    .column('transaction_id')
-    .execute();
-
   // Projection state table - generalized lifecycle tracking for persisted derived datasets
   await sql`
     CREATE TABLE projection_state (
@@ -414,8 +369,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('projection_state').execute();
-  // Drop utxo_consolidated_movements table
-  await db.schema.dropTable('utxo_consolidated_movements').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
   // Drop transaction linking table

@@ -11,7 +11,6 @@ export {
   TransactionLinkRepository,
   TransactionRepository,
   UserRepository,
-  UtxoConsolidatedMovementRepository,
 } from './repositories/index.js';
 export type {
   FindOrCreateAccountParams,
@@ -31,7 +30,6 @@ export type {
   ProjectionStateTable,
   TransactionLinksTable,
   RawTransactionTable,
-  UtxoConsolidatedMovementsTable,
 } from './database-schema.js';
 export { toRawTransaction, withControlledTransaction } from './utils/db-utils.js';
 

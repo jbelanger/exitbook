@@ -12,7 +12,6 @@ import { RawTransactionRepository } from './repositories/raw-transaction-reposit
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
 import { UserRepository } from './repositories/user-repository.js';
-import { UtxoConsolidatedMovementRepository } from './repositories/utxo-consolidated-movement-repository.js';
 import { withControlledTransaction } from './utils/db-utils.js';
 
 const logger = getLogger('data-context');
@@ -33,7 +32,6 @@ export class DataContext {
   readonly users: UserRepository;
   readonly nearRawData: NearRawTransactionRepository;
   readonly projectionState: ProjectionStateRepository;
-  readonly utxoConsolidatedMovements: UtxoConsolidatedMovementRepository;
 
   private readonly connection: KyselyDB;
   private readonly isTransactionScoped: boolean;
@@ -49,7 +47,6 @@ export class DataContext {
     this.users = new UserRepository(connection);
     this.nearRawData = new NearRawTransactionRepository(connection);
     this.projectionState = new ProjectionStateRepository(connection);
-    this.utxoConsolidatedMovements = new UtxoConsolidatedMovementRepository(connection);
   }
 
   /**

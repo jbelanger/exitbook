@@ -110,34 +110,6 @@ describe('buildLinksResetPorts', () => {
     expect(linksState!.invalidatedBy).toBe('reset');
   });
 
-  it('does not touch utxo_consolidated_movements', async () => {
-    const { tx1Id, tx2Id } = await seedTransactionPair();
-    await seedLink(tx1Id, tx2Id);
-
-    // Seed a consolidated movement
-    await db
-      .insertInto('utxo_consolidated_movements')
-      .values({
-        account_id: 1,
-        transaction_id: tx1Id,
-        source_name: 'test',
-        asset_symbol: 'BTC',
-        direction: 'in',
-        amount: '1.0',
-        timestamp: new Date().toISOString(),
-        blockchain_tx_hash: `hash-${globalThis.crypto.randomUUID()}`,
-        created_at: new Date().toISOString(),
-      })
-      .execute();
-
-    const reset = buildLinksResetPorts(ctx);
-    assertOk(await reset.reset());
-
-    // Consolidated movements should remain
-    const cmCount = assertOk(await ctx.utxoConsolidatedMovements.count());
-    expect(cmCount).toBe(1);
-  });
-
   it('scopes reset to specific account IDs', async () => {
     const { tx1Id, tx2Id } = await seedTransactionPair();
     await seedLink(tx1Id, tx2Id);

@@ -305,8 +305,8 @@ export function scopedTransactionHasAllPrices(scopedTransaction: AccountingScope
 export function validateTransactionPrices(
   transactions: UniversalTransactionData[],
   requiredCurrency: string
-): Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error> {
-  const validTransactions: UniversalTransactionData[] = [];
+): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
+  const priceCompleteTransactions: UniversalTransactionData[] = [];
   let missingPricesCount = 0;
 
   for (const tx of transactions) {
@@ -317,13 +317,13 @@ export function validateTransactionPrices(
     }
 
     if (hasAllPricesResult.value) {
-      validTransactions.push(tx);
+      priceCompleteTransactions.push(tx);
     } else {
       missingPricesCount++;
     }
   }
 
-  if (validTransactions.length === 0) {
+  if (priceCompleteTransactions.length === 0) {
     return err(
       new Error(
         `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
@@ -331,7 +331,7 @@ export function validateTransactionPrices(
     );
   }
 
-  return ok({ validTransactions, missingPricesCount });
+  return ok({ priceCompleteTransactions, missingPricesCount });
 }
 
 /**
@@ -341,8 +341,8 @@ export function validateTransactionPrices(
 export function validateScopedTransactionPrices(
   scopedBuildResult: AccountingScopedBuildResult,
   requiredCurrency: string
-): Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error> {
-  const validTransactions: UniversalTransactionData[] = [];
+): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
+  const priceCompleteTransactions: UniversalTransactionData[] = [];
   let missingPricesCount = 0;
 
   for (const scopedTransaction of scopedBuildResult.transactions) {
@@ -352,13 +352,13 @@ export function validateScopedTransactionPrices(
     }
 
     if (hasAllPricesResult.value) {
-      validTransactions.push(scopedTransaction.tx);
+      priceCompleteTransactions.push(scopedTransaction.tx);
     } else {
       missingPricesCount++;
     }
   }
 
-  if (validTransactions.length === 0) {
+  if (priceCompleteTransactions.length === 0) {
     return err(
       new Error(
         `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
@@ -366,7 +366,7 @@ export function validateScopedTransactionPrices(
     );
   }
 
-  return ok({ validTransactions, missingPricesCount });
+  return ok({ priceCompleteTransactions, missingPricesCount });
 }
 
 /**

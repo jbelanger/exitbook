@@ -29,7 +29,7 @@ export interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
   /** Transactions that survived price validation and were included in matching. */
-  validTransactions: UniversalTransactionData[];
+  priceCompleteTransactions: UniversalTransactionData[];
 }
 
 const logger = getLogger('cost-basis-pipeline');
@@ -57,7 +57,7 @@ export async function runCostBasisPipeline(
     return err(validationResult.error);
   }
 
-  const { validTransactions, missingPricesCount } = validationResult.value;
+  const { priceCompleteTransactions, missingPricesCount } = validationResult.value;
   if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
     return err(
       new Error(
@@ -73,7 +73,7 @@ export async function runCostBasisPipeline(
       {
         missingPricesCount,
         originalTransactionsCount: transactions.length,
-        validTransactionsCount: validTransactions.length,
+        priceCompleteTransactionsCount: priceCompleteTransactions.length,
       },
       'Excluding transactions with missing prices from the soft cost-basis pipeline'
     );
@@ -82,7 +82,7 @@ export async function runCostBasisPipeline(
     // fee-only carryovers. After excluding raw transactions we must rebuild the
     // scoped subset so those transfer decisions are recomputed against the
     // surviving transactions rather than leaving dangling carryover state.
-    const priceCompleteScopedResult = buildAccountingScopedTransactions(validTransactions, logger);
+    const priceCompleteScopedResult = buildAccountingScopedTransactions(priceCompleteTransactions, logger);
     if (priceCompleteScopedResult.isErr()) {
       return err(priceCompleteScopedResult.error);
     }
@@ -116,5 +116,5 @@ export async function runCostBasisPipeline(
     return err(costBasisResult.error);
   }
 
-  return ok({ summary: costBasisResult.value, missingPricesCount, validTransactions });
+  return ok({ summary: costBasisResult.value, missingPricesCount, priceCompleteTransactions });
 }

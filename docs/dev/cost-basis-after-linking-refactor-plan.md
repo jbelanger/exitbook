@@ -16,9 +16,9 @@ It is intentionally scoped in three steps:
 
 This document expands the brief "Step 2 Overall: Fix Cost-Basis" section in
 [`linking-first-refactor-plan.md`](./linking-first-refactor-plan.md). It also
-supersedes the cost-basis portion of
-[`utxo-consolidation.md`](./utxo-consolidation.md), which assumed a persisted
-UTXO consolidation view. The plan here keeps the middle ground we agreed on:
+supersedes the older persisted-UTXO-view idea, which assumed cost basis should
+read a persisted consolidation layer. The plan here keeps the middle ground we
+agreed on:
 
 - persist source facts once
 - build cost-basis meaning ephemerally

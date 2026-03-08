@@ -173,7 +173,7 @@ export function createClearHandler(deps: ClearHandlerDeps) {
         // Reset projections in graph order (downstream first)
         const plan = resetPlan('processed-transactions');
         let linksImpact: LinksResetImpact = { links: 0 };
-        let ptImpact: ProcessedTransactionsResetImpact = { transactions: 0, consolidatedMovements: 0 };
+        let ptImpact: ProcessedTransactionsResetImpact = { transactions: 0 };
 
         for (const projectionId of plan) {
           if (projectionId === 'links') {

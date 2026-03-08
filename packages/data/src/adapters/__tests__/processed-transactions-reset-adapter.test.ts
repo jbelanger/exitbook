@@ -57,53 +57,28 @@ describe('buildProcessedTransactionsResetPorts', () => {
     return result.id;
   }
 
-  async function seedConsolidatedMovement(accountId: number) {
-    const txId = await seedTransaction(accountId);
-    await db
-      .insertInto('utxo_consolidated_movements')
-      .values({
-        account_id: accountId,
-        transaction_id: txId,
-        source_name: 'test',
-        asset_symbol: 'BTC',
-        direction: 'in',
-        amount: '1.0',
-        timestamp: new Date().toISOString(),
-        blockchain_tx_hash: `hash-${globalThis.crypto.randomUUID()}`,
-        created_at: new Date().toISOString(),
-      })
-      .execute();
-  }
-
   it('counts impact correctly', async () => {
     await seedTransaction(1);
-    await seedConsolidatedMovement(1);
+    await seedTransaction(1);
 
     const reset = buildProcessedTransactionsResetPorts(ctx);
     const impact = assertOk(await reset.countResetImpact());
-    // 2 transactions: one standalone + one from seedConsolidatedMovement
     expect(impact.transactions).toBe(2);
-    expect(impact.consolidatedMovements).toBe(1);
   });
 
   it('resets all data and marks raw as pending', async () => {
     await seedRawTransaction(1, 'processed');
     await seedTransaction(1);
-    await seedConsolidatedMovement(1);
+    await seedTransaction(1);
 
     const reset = buildProcessedTransactionsResetPorts(ctx);
     const impact = assertOk(await reset.reset());
 
     expect(impact.transactions).toBe(2);
-    expect(impact.consolidatedMovements).toBe(1);
 
     // Verify transactions are deleted
     const txCount = assertOk(await ctx.transactions.count({ includeExcluded: true }));
     expect(txCount).toBe(0);
-
-    // Verify consolidated movements are deleted
-    const cmCount = assertOk(await ctx.utxoConsolidatedMovements.count());
-    expect(cmCount).toBe(0);
 
     // Verify raw data is reset to pending
     const rawRows = await db.selectFrom('raw_transactions').selectAll().execute();

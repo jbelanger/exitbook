@@ -2,7 +2,6 @@ import type { Result } from '@exitbook/core';
 
 export interface ProcessedTransactionsResetImpact {
   transactions: number;
-  consolidatedMovements: number;
 }
 
 /**
@@ -10,7 +9,6 @@ export interface ProcessedTransactionsResetImpact {
  *
  * Owns:
  * - transactions (processing output)
- * - utxo_consolidated_movements
  * - raw processing status reset back to pending
  */
 export interface IProcessedTransactionsReset {

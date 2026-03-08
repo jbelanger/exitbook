@@ -73,7 +73,6 @@ Owned by `@exitbook/ingestion`. Includes:
 
 - `transactions`
 - `transaction_movements`
-- `utxo_consolidated_movements`
 - Raw processing status
 
 #### `links`
@@ -202,7 +201,6 @@ Uses `resetPlan('processed-transactions')` -> `['links', 'processed-transactions
 1. Reset `links` (downstream first)
 2. Reset `processed-transactions`:
    - Delete processed transaction output
-   - Delete `utxo_consolidated_movements`
    - Reset raw processing status
    - Mark affected projections stale
 
@@ -243,12 +241,11 @@ Each projection defines its own freshness and reset interfaces in its owning cap
 **Ingestion** (`@exitbook/ingestion`):
 
 - `IProcessedTransactionsFreshness` — checks if processing is current
-- `IProcessedTransactionsReset` — previews and resets processed output, UTXO consolidations, and raw status
+- `IProcessedTransactionsReset` — previews and resets processed output and raw status
 
   ```ts
   interface ProcessedTransactionsResetImpact {
     transactions: number;
-    consolidatedMovements: number;
   }
 
   interface IProcessedTransactionsReset {
@@ -320,7 +317,6 @@ The runtime registry is keyed by `ProjectionId` and used only for readiness/rebu
 - **Crash during build**: A lingering `building` status after a crash is treated as rebuildable on next consumer readiness check.
 - **First run**: No `projection_state` row exists; freshness adapters use fallback heuristics (e.g., "no links exist" implies stale).
 - **Account hash metadata**: `processed-transactions` freshness uses an account hash fingerprint stored in `metadata_json` to detect when accounts have changed since last build.
-- **`utxo_consolidated_movements` ownership**: Belongs to `processed-transactions` (ingestion), not to links (accounting), despite being related to UTXO accounting concerns.
 
 ## Known Limitations (Current Implementation)
 
@@ -335,4 +331,4 @@ The runtime registry is keyed by `ProjectionId` and used only for readiness/rebu
 
 ---
 
-_Last updated: 2026-03-07_
+_Last updated: 2026-03-08_
