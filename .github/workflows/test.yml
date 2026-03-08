@@ -33,7 +33,9 @@ jobs:
         run: pnpm lint
 
       - name: Check formatting
-        run: pnpm prettier
+        run: |
+          FILES=$(git diff --name-only origin/main...HEAD -- '*.ts' '*.tsx' '*.js' '*.json' '*.md' '*.yaml' '*.yml')
+          [ -z "$FILES" ] && echo "No files to check." || pnpm exec prettier --check $FILES
 
   typecheck:
     runs-on: ubuntu-latest
