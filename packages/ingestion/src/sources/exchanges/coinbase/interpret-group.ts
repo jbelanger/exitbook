@@ -187,7 +187,7 @@ function buildDraft(
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[],
   fees: ExchangeFeeDraft[],
-  notes?: TransactionNote[]  
+  notes?: TransactionNote[]
 ): ConfirmedExchangeTransactionDraft {
   const primaryEvent = group.events[0];
   if (!primaryEvent) {

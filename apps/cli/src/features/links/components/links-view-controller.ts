@@ -20,7 +20,7 @@ export type LinksViewAction =
   | { type: 'END'; visibleRows: number }
   | { type: 'CONFIRM_SELECTED' }
   | { type: 'REJECT_SELECTED' }
-  | { linkId: number; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS'; }
+  | { linkId: number; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS' }
   | { type: 'CLEAR_ERROR' }
   | { error: string; type: 'SET_ERROR' };
 
