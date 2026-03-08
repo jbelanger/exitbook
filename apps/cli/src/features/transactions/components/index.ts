@@ -2,7 +2,7 @@
  * Transactions UI components
  */
 
-export { TransactionsViewApp } from './transactions-view-components.js';
+export { TransactionsViewApp } from './transactions-view-components.jsx';
 export {
   FORMAT_OPTIONS,
   handleTransactionsKeyboardInput,

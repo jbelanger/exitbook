@@ -2,8 +2,8 @@
  * Shared UI utilities for Ink-based command interfaces
  */
 
-export { ApiFooter } from './ApiFooter.js';
-export { Divider } from './Divider.js';
+export { ApiFooter } from './ApiFooter.jsx';
+export { Divider } from './Divider.jsx';
 export { createEventDrivenController, EventDrivenController, type LifecycleBridge } from './event-driven-controller.js';
 export { EventRelay } from './event-relay.js';
 export {
@@ -12,12 +12,12 @@ export {
   type ApiCallStats,
   type ProviderApiStats,
 } from './api-stats-types.js';
-export { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.js';
+export { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.jsx';
 export { formatDuration, formatWaitTime } from './format-duration.js';
-export { PromptFlow, type PromptStep } from './PromptFlow.js';
-export { SelectPrompt, type SelectPromptProps, type SelectOption } from './SelectPrompt.js';
-export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.js';
-export { TextPrompt, type TextPromptProps } from './TextPrompt.js';
+export { PromptFlow, type PromptStep } from './PromptFlow.jsx';
+export { SelectPrompt, type SelectPromptProps, type SelectOption } from './SelectPrompt.jsx';
+export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.jsx';
+export { TextPrompt, type TextPromptProps } from './TextPrompt.jsx';
 export { TreeChars } from './tree-chars.js';
 
 export {

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "KRKN_EVT_DEPOSIT_SOL",
+    "refid": "KRKN_REF_DEPOSIT_SOL",
+    "time": 1733843677.244812,
+    "type": "deposit",
+    "subtype": "",
+    "aclass": "currency",
+    "asset": "SOL",
+    "amount": "1.2500000000",
+    "fee": "0.0000000000",
+    "balance": "0.0000000000"
+  }
+]

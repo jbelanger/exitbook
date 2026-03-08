@@ -1,7 +1,7 @@
 import type { Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotDisposal } from '../schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../shared/schemas.js';
 
 /**
  * Disposal request for matching to acquisition lots

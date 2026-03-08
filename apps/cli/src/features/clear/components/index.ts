@@ -2,7 +2,7 @@
  * Clear view components barrel export
  */
 
-export { ClearViewApp } from './clear-view-components.js';
+export { ClearViewApp } from './clear-view-components.jsx';
 export { clearViewReducer, handleClearKeyboardInput, type ClearViewAction } from './clear-view-controller.js';
 export {
   buildCategoryItems,

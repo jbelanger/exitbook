@@ -6,8 +6,8 @@
  */
 
 // Configuration
-export type { CostBasisConfig, FiatCurrency } from './cost-basis/cost-basis-config.js';
-export { getDefaultDateRange } from './cost-basis/cost-basis-config.js';
+export type { CostBasisConfig, FiatCurrency } from './cost-basis/shared/cost-basis-config.js';
+export { getDefaultDateRange } from './cost-basis/shared/cost-basis-config.js';
 
 // Domain types
 export type {
@@ -18,41 +18,41 @@ export type {
   LotStatus,
   LotTransfer,
   LotTransferProvenance,
-} from './cost-basis/types.js';
+} from './cost-basis/shared/types.js';
 
 // Cost basis calculation
-export { LotMatcher } from './cost-basis/lot-matcher.js';
-export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './cost-basis/lot-matcher.js';
-export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './cost-basis/gain-loss-utils.js';
+export { LotMatcher } from './cost-basis/matching/lot-matcher.js';
+export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './cost-basis/matching/lot-matcher.js';
+export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './cost-basis/shared/gain-loss-utils.js';
 export {
   calculateGainLoss,
   checkLossDisallowance,
   aggregateAssetGainLoss,
   aggregateOverallGainLoss,
-} from './cost-basis/gain-loss-utils.js';
-export { calculateCostBasisFromValidatedTransactions } from './cost-basis/cost-basis-calculator.js';
-export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
-export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
+} from './cost-basis/shared/gain-loss-utils.js';
+export { calculateCostBasisFromValidatedTransactions } from './cost-basis/orchestration/cost-basis-calculator.js';
+export type { CostBasisSummary } from './cost-basis/orchestration/cost-basis-calculator.js';
+export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
 export type {
   CostBasisPipelineOptions,
   CostBasisPipelineResult,
   MissingPricePolicy,
-} from './cost-basis/cost-basis-pipeline.js';
-export { CostBasisWorkflow } from './cost-basis/cost-basis-workflow.js';
-export type { CostBasisWorkflowResult } from './cost-basis/cost-basis-workflow.js';
-export { buildAccountingScopedTransactions } from './cost-basis/build-accounting-scoped-transactions.js';
+} from './cost-basis/orchestration/cost-basis-pipeline.js';
+export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
+export type { CostBasisWorkflowResult } from './cost-basis/orchestration/cost-basis-workflow.js';
+export { buildAccountingScopedTransactions } from './cost-basis/matching/build-accounting-scoped-transactions.js';
 export type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
   ScopedAssetMovement,
   ScopedFeeMovement,
-} from './cost-basis/build-accounting-scoped-transactions.js';
-export { validateScopedTransferLinks } from './cost-basis/validated-scoped-transfer-links.js';
+} from './cost-basis/matching/build-accounting-scoped-transactions.js';
+export { validateScopedTransferLinks } from './cost-basis/matching/validated-scoped-transfer-links.js';
 export type {
   ValidatedScopedTransferLink,
   ValidatedScopedTransferSet,
-} from './cost-basis/validated-scoped-transfer-links.js';
+} from './cost-basis/matching/validated-scoped-transfer-links.js';
 
 // Strategies
 export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';
@@ -73,9 +73,9 @@ export type {
   ConvertedLotDisposal,
   ConvertedLotTransfer,
   FxConversionMetadata,
-} from './cost-basis/report-types.js';
-export { CostBasisReportGenerator } from './cost-basis/cost-basis-report-generator.js';
-export type { CostBasisReportInput } from './cost-basis/cost-basis-report-generator.js';
+} from './cost-basis/shared/report-types.js';
+export { CostBasisReportGenerator } from './cost-basis/orchestration/cost-basis-report-generator.js';
+export type { CostBasisReportInput } from './cost-basis/orchestration/cost-basis-report-generator.js';
 
 // Ports
 export type { ICostBasisPersistence, CostBasisContext } from './ports/index.js';
@@ -125,12 +125,15 @@ export {
   scopedTransactionHasAllPrices,
   getJurisdictionRules,
   formatCurrency,
-} from './cost-basis/cost-basis-utils.js';
-export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/cost-basis-utils.js';
+} from './cost-basis/shared/cost-basis-utils.js';
+export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/shared/cost-basis-utils.js';
 
 // Transaction price coverage
-export { checkTransactionPriceCoverage } from './cost-basis/transaction-price-coverage-utils.js';
-export type { PriceCoverageResult, PriceCoverageInput } from './cost-basis/transaction-price-coverage-utils.js';
+export { checkTransactionPriceCoverage } from './cost-basis/orchestration/transaction-price-coverage-utils.js';
+export type {
+  PriceCoverageResult,
+  PriceCoverageInput,
+} from './cost-basis/orchestration/transaction-price-coverage-utils.js';
 
 export { PriceDerivationService } from './price-enrichment/price-derivation-service.js';
 export type { PriceEvent } from './price-enrichment/price-events.js';

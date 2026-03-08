@@ -7,7 +7,7 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.js';
+import { PromptFlow, type PromptStep } from '../../ui/shared/PromptFlow.jsx';
 import { displayCliError } from '../shared/cli-error.js';
 import { runCommand } from '../shared/command-runtime.js';
 import { ExitCodes } from '../shared/exit-codes.js';

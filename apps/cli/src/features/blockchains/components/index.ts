@@ -2,7 +2,7 @@
  * Blockchains UI components
  */
 
-export { BlockchainsViewApp } from './blockchains-view-components.js';
+export { BlockchainsViewApp } from './blockchains-view-components.jsx';
 export {
   handleBlockchainsKeyboardInput,
   blockchainsViewReducer,

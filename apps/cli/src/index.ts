@@ -34,7 +34,7 @@ import { registerAccountsCommand } from './features/accounts/accounts.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
 import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
 import { registerClearCommand } from './features/clear/clear.js';
-import { registerCostBasisCommand } from './features/cost-basis/cost-basis.js';
+import { registerCostBasisCommand } from './features/cost-basis/command/cost-basis.js';
 import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';
 import { registerPortfolioCommand } from './features/portfolio/portfolio.js';

@@ -1,6 +1,6 @@
 import type { Decimal } from 'decimal.js';
 
-import type { JurisdictionConfig } from '../types.js';
+import type { JurisdictionConfig } from '../shared/types.js';
 
 /**
  * Jurisdiction-specific tax rules interface

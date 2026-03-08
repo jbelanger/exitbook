@@ -6,7 +6,7 @@ import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
 import type { MissingPriceMovement, PriceCoverageDetail } from '../../prices-view-utils.js';
-import { PricesViewApp } from '../prices-view-components.js';
+import { PricesViewApp } from '../prices-view-components.jsx';
 import { createCoverageViewState, createMissingViewState } from '../prices-view-state.js';
 
 describe('PricesViewApp - coverage mode', () => {

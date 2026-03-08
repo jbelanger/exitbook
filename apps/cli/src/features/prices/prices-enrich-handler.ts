@@ -14,7 +14,7 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 
-import { PricesEnrichMonitor } from './components/prices-enrich-components.js';
+import { PricesEnrichMonitor } from './components/prices-enrich-components.jsx';
 import { createDefaultPriceProviderManager } from './prices-utils.js';
 
 const logger = getLogger('PricesEnrichHandler');

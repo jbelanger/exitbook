@@ -5,7 +5,7 @@
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { CHROME_LINES } from './providers-view-components.js';
+import { CHROME_LINES } from './providers-view-components.jsx';
 import type { ProvidersViewState } from './providers-view-state.js';
 
 /**

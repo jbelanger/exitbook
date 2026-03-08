@@ -2,7 +2,7 @@
  * Accounts UI components
  */
 
-export { AccountsViewApp } from './accounts-view-components.js';
+export { AccountsViewApp } from './accounts-view-components.jsx';
 export {
   handleAccountsKeyboardInput,
   accountsViewReducer,

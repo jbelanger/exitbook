@@ -1,46 +1,96 @@
-import { parseCurrency } from '@exitbook/core';
-import { err, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
-import { normalizeKrakenAsset } from '@exitbook/exchange-providers';
+import type { z } from 'zod';
 
-import { CorrelatingExchangeProcessor } from '../shared/correlating-exchange-processor.js';
-import type { ExchangeLedgerEntry } from '../shared/schemas.js';
-import { byCorrelationId, standardAmounts } from '../shared/strategies/index.js';
+import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
+import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import {
+  materializeProcessedTransaction,
+  RawExchangeProcessorInputSchema,
+  type ExchangeProcessingDiagnostic,
+  type RawExchangeProcessorInput,
+} from '../shared-v2/index.js';
+
+import { buildKrakenCorrelationGroups } from './build-correlation-groups.js';
+import { interpretKrakenGroup } from './interpret-group.js';
+import { normalizeKrakenProviderEvent } from './normalize-provider-event.js';
 
 /**
- * Kraken processor: normalizes raw Kraken ledger entries and uses
- * standard correlation + amount semantics (amount is net, fee is separate).
+ * Kraken processor built on provider-event normalization and explicit
+ * interpretation outcomes. Ambiguous same-asset opposing groups fail closed
+ * instead of being materialized as transfers.
  */
-export class KrakenProcessor extends CorrelatingExchangeProcessor<KrakenLedgerEntry> {
+export class KrakenProcessor extends BaseTransactionProcessor<RawExchangeProcessorInput<KrakenLedgerEntry>> {
   constructor() {
-    super('kraken', byCorrelationId, standardAmounts);
+    super('kraken');
   }
 
-  protected normalizeEntry(raw: KrakenLedgerEntry, _eventId: string): Result<ExchangeLedgerEntry, Error> {
-    const normalizedAsset = normalizeKrakenAsset(raw.asset);
+  protected get inputSchema(): z.ZodType<RawExchangeProcessorInput<KrakenLedgerEntry>> {
+    return RawExchangeProcessorInputSchema as z.ZodType<RawExchangeProcessorInput<KrakenLedgerEntry>>;
+  }
 
-    const currencyResult = parseCurrency(normalizedAsset);
-    if (currencyResult.isErr()) {
+  protected async transformNormalizedData(
+    rawInputs: RawExchangeProcessorInput<KrakenLedgerEntry>[]
+  ): Promise<Result<ProcessedTransaction[], Error>> {
+    const providerEvents = [];
+
+    for (const input of rawInputs) {
+      const normalizedResult = normalizeKrakenProviderEvent(input.raw, input.eventId);
+      if (normalizedResult.isErr()) {
+        return err(normalizedResult.error);
+      }
+      providerEvents.push(normalizedResult.value);
+    }
+
+    const groups = buildKrakenCorrelationGroups(providerEvents);
+    const transactions: ProcessedTransaction[] = [];
+    const diagnostics: ExchangeProcessingDiagnostic[] = [];
+
+    for (const group of groups) {
+      const interpretation = interpretKrakenGroup(group);
+
+      if (interpretation.kind === 'confirmed') {
+        transactions.push(materializeProcessedTransaction(interpretation.draft));
+        continue;
+      }
+
+      diagnostics.push(interpretation.diagnostic);
+    }
+
+    for (const diagnostic of diagnostics) {
+      const logContext = {
+        code: diagnostic.code,
+        correlationKey: diagnostic.correlationKey,
+        evidence: diagnostic.evidence,
+        providerEventIds: diagnostic.providerEventIds,
+      };
+
+      if (diagnostic.severity === 'error') {
+        this.logger.error(logContext, diagnostic.message);
+        continue;
+      }
+
+      if (diagnostic.severity === 'warning') {
+        this.logger.warn(logContext, diagnostic.message);
+        continue;
+      }
+
+      this.logger.info(logContext, diagnostic.message);
+    }
+
+    const blockingDiagnostics = diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+    if (blockingDiagnostics.length > 0) {
+      const errorSummary = blockingDiagnostics
+        .map((diagnostic) => `[${diagnostic.correlationKey}] ${diagnostic.code}: ${diagnostic.message}`)
+        .join('; ');
+
       return err(
         new Error(
-          `Invalid Kraken asset "${raw.asset}" (normalized: "${normalizedAsset}"): ${currencyResult.error.message}`
+          `Kraken processing cannot proceed: ${blockingDiagnostics.length}/${groups.length} group(s) were ambiguous or invalid. ${errorSummary}`
         )
       );
     }
 
-    const timestamp = Math.floor(raw.time * 1000);
-    const assetSymbol = currencyResult.value;
-
-    return this.validateNormalized({
-      id: raw.id,
-      correlationId: raw.refid,
-      timestamp,
-      type: raw.type,
-      assetSymbol,
-      amount: raw.amount,
-      fee: raw.fee,
-      feeCurrency: assetSymbol,
-      status: 'success',
-    });
+    return ok(transactions);
   }
 }

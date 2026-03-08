@@ -1,0 +1,26 @@
+[
+  {
+    "id": "KRKN_EVT_AKT_OUT",
+    "refid": "KRKN_REF_AMBIG_AKT",
+    "time": 1735313731.964518,
+    "type": "withdrawal",
+    "subtype": "",
+    "aclass": "currency",
+    "asset": "AKT",
+    "amount": "-385.1555371100",
+    "fee": "0.5000000000",
+    "balance": "0.0000000000"
+  },
+  {
+    "id": "KRKN_EVT_AKT_IN",
+    "refid": "KRKN_REF_AMBIG_AKT",
+    "time": 1735313760.299395,
+    "type": "withdrawal",
+    "subtype": "",
+    "aclass": "currency",
+    "asset": "AKT",
+    "amount": "385.1555371100",
+    "fee": "-0.5000000000",
+    "balance": "0.0000000000"
+  }
+]

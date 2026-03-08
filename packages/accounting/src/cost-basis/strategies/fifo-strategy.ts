@@ -1,6 +1,6 @@
 import type { Result } from '@exitbook/core';
 
-import type { AcquisitionLot, LotDisposal } from '../schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../shared/schemas.js';
 
 import type { DisposalRequest, ICostBasisStrategy } from './base-strategy.js';
 import { matchDisposalToSortedLots, sortLotsFifo } from './lot-sorting-utils.js';

@@ -3,7 +3,7 @@
  */
 
 // Providers view components
-export { ProvidersViewApp } from './providers-view-components.js';
+export { ProvidersViewApp } from './providers-view-components.jsx';
 export {
   handleProvidersKeyboardInput,
   providersViewReducer,
@@ -21,7 +21,7 @@ export {
 } from './providers-view-state.js';
 
 // Benchmark components
-export { BenchmarkApp } from './benchmark-components.js';
+export { BenchmarkApp } from './benchmark-components.jsx';
 export {
   benchmarkReducer,
   createBenchmarkState,

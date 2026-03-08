@@ -2,7 +2,7 @@ import type { Currency } from '@exitbook/core';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import { PortfolioApp } from '../portfolio-view-components.js';
+import { PortfolioApp } from '../portfolio-view-components.jsx';
 import { createPortfolioAssetsState } from '../portfolio-view-state.js';
 
 function createBaseState() {

@@ -3,7 +3,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot } from '../../schemas.js';
+import type { AcquisitionLot } from '../../shared/schemas.js';
 import { AverageCostStrategy } from '../average-cost-strategy.js';
 
 describe('AverageCostStrategy', () => {

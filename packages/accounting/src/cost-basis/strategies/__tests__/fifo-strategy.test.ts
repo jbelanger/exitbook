@@ -2,7 +2,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import type { AcquisitionLot } from '../../schemas.js';
+import type { AcquisitionLot } from '../../shared/schemas.js';
 import { FifoStrategy } from '../fifo-strategy.js';
 
 describe('FifoStrategy', () => {

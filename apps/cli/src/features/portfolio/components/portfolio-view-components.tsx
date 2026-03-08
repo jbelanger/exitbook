@@ -15,7 +15,7 @@ import {
   Divider,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
-import { formatCryptoQuantity } from '../../cost-basis/cost-basis-view-utils.js';
+import { formatCryptoQuantity } from '../../shared/crypto-format.js';
 import type { PortfolioPositionItem, PortfolioTransactionItem } from '../portfolio-types.js';
 
 import { portfolioViewReducer, handlePortfolioKeyboardInput } from './portfolio-view-controller.js';

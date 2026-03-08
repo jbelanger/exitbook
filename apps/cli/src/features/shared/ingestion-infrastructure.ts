@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
-import { IngestionMonitor } from '../import/components/ingestion-monitor-view-components.js';
+import { IngestionMonitor } from '../import/components/ingestion-monitor-view-components.jsx';
 
 import type { CommandContext } from './command-runtime.js';
 import { createProviderManagerWithStats, type ProviderManagerWithStats } from './provider-manager-factory.js';

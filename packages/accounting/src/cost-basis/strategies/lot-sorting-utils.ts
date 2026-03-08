@@ -2,7 +2,7 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotDisposal } from '../schemas.js';
+import type { AcquisitionLot, LotDisposal } from '../shared/schemas.js';
 
 import type { DisposalRequest } from './base-strategy.js';
 

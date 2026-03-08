@@ -6,7 +6,7 @@ import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import type { CsvFormat, ExportFormat } from '../transactions-export-utils.js';
 
-import { CHROME_LINES } from './transactions-view-components.js';
+import { CHROME_LINES } from './transactions-view-components.jsx';
 import type { TransactionsViewState } from './transactions-view-state.js';
 
 /**

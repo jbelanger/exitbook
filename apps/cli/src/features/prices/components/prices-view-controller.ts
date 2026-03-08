@@ -6,7 +6,7 @@ import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import type { AssetBreakdownEntry, MissingPriceMovement } from '../prices-view-utils.js';
 
-import { getCoverageChromeLines, getMissingChromeLines } from './prices-view-components.js';
+import { getCoverageChromeLines, getMissingChromeLines } from './prices-view-components.jsx';
 import { missingRowKey, type PricesViewCoverageState, type PricesViewState } from './prices-view-state.js';
 
 /**

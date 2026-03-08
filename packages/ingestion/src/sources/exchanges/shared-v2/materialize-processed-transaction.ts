@@ -1,0 +1,51 @@
+import { parseDecimal } from '@exitbook/core';
+
+import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+
+import type { ConfirmedExchangeTransactionDraft } from './exchange-interpretation.js';
+
+export function materializeProcessedTransaction(draft: ConfirmedExchangeTransactionDraft): ProcessedTransaction {
+  return {
+    externalId: draft.externalId,
+    datetime: new Date(draft.timestamp).toISOString(),
+    timestamp: draft.timestamp,
+    source: draft.source,
+    sourceType: 'exchange',
+    status: draft.status,
+    ...(draft.from ? { from: draft.from } : {}),
+    ...(draft.to ? { to: draft.to } : {}),
+    movements: {
+      inflows: draft.movements.inflows.map((movement) => ({
+        assetId: movement.assetId,
+        assetSymbol: movement.assetSymbol,
+        grossAmount: parseDecimal(movement.grossAmount),
+        ...(movement.netAmount ? { netAmount: parseDecimal(movement.netAmount) } : {}),
+      })),
+      outflows: draft.movements.outflows.map((movement) => ({
+        assetId: movement.assetId,
+        assetSymbol: movement.assetSymbol,
+        grossAmount: parseDecimal(movement.grossAmount),
+        ...(movement.netAmount ? { netAmount: parseDecimal(movement.netAmount) } : {}),
+      })),
+    },
+    fees: draft.fees.map((fee) => ({
+      assetId: fee.assetId,
+      assetSymbol: fee.assetSymbol,
+      amount: parseDecimal(fee.amount),
+      scope: fee.scope,
+      settlement: fee.settlement,
+    })),
+    operation: draft.operation,
+    ...(draft.notes && draft.notes.length > 0 ? { notes: draft.notes } : {}),
+    ...(draft.blockchain
+      ? {
+          blockchain: {
+            name: draft.blockchain.name,
+            ...(draft.blockchain.blockHeight ? { block_height: draft.blockchain.blockHeight } : {}),
+            transaction_hash: draft.blockchain.transactionHash,
+            is_confirmed: draft.blockchain.isConfirmed,
+          },
+        }
+      : {}),
+  };
+}

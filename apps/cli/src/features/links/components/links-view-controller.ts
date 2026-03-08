@@ -5,7 +5,7 @@
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { GAPS_CHROME_LINES, LINKS_CHROME_LINES } from './links-view-components.js';
+import { GAPS_CHROME_LINES, LINKS_CHROME_LINES } from './links-view-components.jsx';
 import type { LinksViewState } from './links-view-state.js';
 
 /**

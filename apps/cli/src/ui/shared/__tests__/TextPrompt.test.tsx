@@ -10,7 +10,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
-import { TextPrompt } from '../TextPrompt.js';
+import { TextPrompt } from '../TextPrompt.jsx';
 
 describe('TextPrompt', () => {
   it('renders with message and placeholder', () => {

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "KRKN_EVT_WITHDRAW_ONDO",
+    "refid": "KRKN_REF_WITHDRAW_ONDO",
+    "time": 1735318468.143821,
+    "type": "withdrawal",
+    "subtype": "",
+    "aclass": "currency",
+    "asset": "ONDO",
+    "amount": "-634.33590",
+    "fee": "2.66800",
+    "balance": "0.00000"
+  }
+]

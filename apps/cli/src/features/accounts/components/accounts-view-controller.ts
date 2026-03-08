@@ -5,7 +5,7 @@
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 
-import { CHROME_LINES } from './accounts-view-components.js';
+import { CHROME_LINES } from './accounts-view-components.jsx';
 import type { AccountsViewState } from './accounts-view-state.js';
 
 /**

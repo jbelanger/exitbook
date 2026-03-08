@@ -2,7 +2,7 @@
  * Prices UI components
  */
 
-export { PricesViewApp } from './prices-view-components.js';
+export { PricesViewApp } from './prices-view-components.jsx';
 export { handlePricesKeyboardInput, pricesViewReducer, type PricesViewAction } from './prices-view-controller.js';
 export {
   createCoverageViewState,

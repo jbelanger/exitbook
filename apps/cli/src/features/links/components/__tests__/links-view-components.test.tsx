@@ -9,7 +9,7 @@ import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
 import type { LinkGapAnalysis } from '../../links-gap-utils.js';
-import { LinksViewApp } from '../links-view-components.js';
+import { LinksViewApp } from '../links-view-components.jsx';
 import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
 
 describe('LinksViewApp - links mode', () => {

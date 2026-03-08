@@ -5,9 +5,9 @@
 import { Box, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 
-import { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.js';
-import { SelectPrompt, type SelectPromptProps } from './SelectPrompt.js';
-import { TextPrompt, type TextPromptProps } from './TextPrompt.js';
+import { ConfirmPrompt, type ConfirmPromptProps } from './ConfirmPrompt.jsx';
+import { SelectPrompt, type SelectPromptProps } from './SelectPrompt.jsx';
+import { TextPrompt, type TextPromptProps } from './TextPrompt.jsx';
 
 /** Prompt step types */
 export type PromptStep =

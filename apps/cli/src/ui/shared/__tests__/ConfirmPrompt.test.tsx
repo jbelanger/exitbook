@@ -10,7 +10,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
-import { ConfirmPrompt } from '../ConfirmPrompt.js';
+import { ConfirmPrompt } from '../ConfirmPrompt.jsx';
 
 describe('ConfirmPrompt', () => {
   it('renders with message and Yes selected by default', () => {

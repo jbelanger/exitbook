@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { calculateVisibleRows } from '../../../../ui/shared/chrome-layout.js';
 import type { MissingPriceMovement } from '../../prices-view-utils.js';
-import { getCoverageChromeLines, getMissingChromeLines } from '../prices-view-components.js';
+import { getCoverageChromeLines, getMissingChromeLines } from '../prices-view-components.jsx';
 import { handlePricesKeyboardInput, pricesViewReducer } from '../prices-view-controller.js';
 import { createCoverageViewState, createMissingViewState, missingRowKey } from '../prices-view-state.js';
 

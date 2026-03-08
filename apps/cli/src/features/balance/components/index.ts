@@ -2,7 +2,7 @@
  * Balance UI components
  */
 
-export { BalanceApp } from './balance-view-components.js';
+export { BalanceApp } from './balance-view-components.jsx';
 export { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 export {
   createBalanceAssetState,

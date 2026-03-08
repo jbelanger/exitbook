@@ -12,7 +12,7 @@ import { getLogger } from '@exitbook/logger';
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import type { CommandContext } from '../shared/command-runtime.js';
 
-import { LinksRunMonitor } from './components/links-run-components.js';
+import { LinksRunMonitor } from './components/links-run-components.jsx';
 
 const logger = getLogger('LinksRunHandler');
 

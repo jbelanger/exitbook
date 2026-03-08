@@ -1,7 +1,7 @@
 import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { getPortfolioAssetsLayout, getPortfolioAssetsVisibleRows } from '../portfolio-view-components.js';
+import { getPortfolioAssetsLayout, getPortfolioAssetsVisibleRows } from '../portfolio-view-components.jsx';
 import { createPortfolioAssetsState } from '../portfolio-view-state.js';
 
 function createState(openLotCount: number) {

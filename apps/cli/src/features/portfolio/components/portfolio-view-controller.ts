@@ -5,7 +5,7 @@
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import { sortPositions } from '../portfolio-utils.js';
 
-import { getPortfolioAssetsVisibleRows, getPortfolioHistoryVisibleRows } from './portfolio-view-components.js';
+import { getPortfolioAssetsVisibleRows, getPortfolioHistoryVisibleRows } from './portfolio-view-components.jsx';
 import type { PortfolioAction, PortfolioState } from './portfolio-view-state.js';
 import { createPortfolioHistoryState, getVisiblePositions } from './portfolio-view-state.js';
 
