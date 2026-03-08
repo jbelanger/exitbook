@@ -52,6 +52,7 @@ export const SameHashExternalSourceAllocationSchema = z.object({
   grossAmount: z.string(),
   linkedAmount: z.string(),
   feeDeducted: z.string(),
+  unlinkedAmount: z.string().optional(),
 });
 
 export const TransactionLinkMetadataSchema = z
@@ -70,9 +71,13 @@ export const TransactionLinkMetadataSchema = z
     blockchainTxHash: z.string().optional(),
     blockchain: z.string().optional(),
     sameHashExternalGroup: z.literal(true).optional(),
+    sameHashMixedExternalGroup: z.literal(true).optional(),
     dedupedSameHashFee: z.string().optional(),
     sameHashExternalGroupAmount: z.string().optional(),
     sameHashExternalGroupSize: z.number().int().positive().optional(),
+    sameHashTrackedSiblingInflowAmount: z.string().optional(),
+    sameHashTrackedSiblingInflowCount: z.number().int().positive().optional(),
+    sameHashResidualAllocationPolicy: z.string().optional(),
     feeBearingSourceTransactionId: z.number().int().positive().optional(),
     sameHashExternalSourceAllocations: z.array(SameHashExternalSourceAllocationSchema).optional(),
     sharedToAddress: z.string().optional(),

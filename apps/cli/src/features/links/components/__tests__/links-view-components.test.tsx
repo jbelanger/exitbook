@@ -278,6 +278,65 @@ describe('LinksViewApp - links mode', () => {
     expect(frame).toContain('Implied fee: 0.00012837 BTC');
     expect(frame).not.toContain('Change: 0.00012837 BTC');
   });
+
+  it('explains mixed same-hash external groups with sibling inflows', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'suggested', 1, 'BTC', '0.01092189', '0.01092189', 3955, 4289),
+          linkType: 'blockchain_to_exchange',
+          metadata: {
+            partialMatch: true,
+            fullSourceAmount: '0.01092189',
+            fullTargetAmount: '0.01479224',
+            consumedAmount: '0.01092189',
+            sameHashExternalGroup: true,
+            sameHashMixedExternalGroup: true,
+            dedupedSameHashFee: '0.00017347',
+            sameHashExternalGroupAmount: '0.01479224',
+            sameHashExternalGroupSize: 2,
+            sameHashTrackedSiblingInflowAmount: '0.00625144',
+            sameHashTrackedSiblingInflowCount: 1,
+            sameHashResidualAllocationPolicy: 'transaction_id_prefix',
+            feeBearingSourceTransactionId: 3955,
+            sameHashExternalSourceAllocations: [
+              {
+                sourceTransactionId: 3955,
+                grossAmount: '0.01109536',
+                linkedAmount: '0.01092189',
+                feeDeducted: '0.00017347',
+              },
+              {
+                sourceTransactionId: 3959,
+                grossAmount: '0.01012179',
+                linkedAmount: '0.00387035',
+                feeDeducted: '0',
+                unlinkedAmount: '0.00625144',
+              },
+            ],
+            blockchainTxHash: '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96',
+            sharedToAddress: '3BxnrjbqTVyxfvc3DdoubqBw441VbPy6jo',
+          },
+        },
+        sourceTransaction: createMockTransaction(3955, 'bitcoin', '2024-05-31T20:17:28.000Z'),
+        targetTransaction: createMockTransaction(4289, 'kucoin', '2024-05-31T20:19:17.000Z'),
+      },
+    ];
+    const state = createLinksViewState(links);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('same-hash mixed group');
+    expect(normalizedFrame).toContain('0.01479224 BTC to exchange');
+    expect(normalizedFrame).toContain('0.00625144 BTC to 1 tracked sibl');
+  });
 });
 
 describe('LinksViewApp - gaps mode', () => {

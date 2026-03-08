@@ -160,8 +160,114 @@ describe('SameHashExternalOutflowStrategy', () => {
     ]);
   });
 
-  it('skips same-hash groups when tracked blockchain inflows share the hash', () => {
+  it('suggests a mixed same-hash external group when the exact residual matches one exchange deposit', () => {
     const hash = '0xshared';
+    const timestamp = new Date('2024-01-01T12:00:00Z');
+    const toAddress = 'addr-1';
+
+    const sources = [
+      createLinkableMovement({
+        id: 1,
+        transactionId: 10,
+        accountId: 1,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('1.4'),
+        grossAmount: parseDecimal('1.5'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:10:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 2,
+        transactionId: 11,
+        accountId: 2,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('1.8'),
+        grossAmount: parseDecimal('1.9'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:11:outflow:0',
+      }),
+    ];
+
+    const targets = [
+      createLinkableMovement({
+        id: 3,
+        transactionId: 12,
+        accountId: 3,
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('1.2'),
+        direction: 'in',
+        timestamp,
+        blockchainTxHash: hash,
+        movementFingerprint: 'movement:bitcoin:12:inflow:0',
+      }),
+      createLinkableMovement({
+        id: 100,
+        transactionId: 20,
+        sourceName: 'kraken',
+        sourceType: 'exchange',
+        assetId: 'exchange:kraken:btc',
+        amount: parseDecimal('2.1'),
+        direction: 'in',
+        timestamp: new Date('2024-01-01T12:10:00Z'),
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:kraken:20:inflow:0',
+      }),
+    ];
+
+    const strategy = new SameHashExternalOutflowStrategy();
+    const result = strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value.links).toHaveLength(2);
+    expect([...result.value.consumedCandidateIds].sort((left, right) => left - right)).toEqual([1, 2, 100]);
+    expect(result.value.links.every((link) => link.status === 'suggested')).toBe(true);
+    expect(result.value.links.every((link) => link.confidenceScore.eq(parseDecimal('1')))).toBe(true);
+
+    const firstLink = result.value.links.find((link) => link.sourceTransactionId === 10);
+    expect(firstLink?.sourceAmount.toFixed()).toBe('1.5');
+    expect(firstLink?.metadata?.['sameHashMixedExternalGroup']).toBe(true);
+    expect(firstLink?.metadata?.['sameHashTrackedSiblingInflowAmount']).toBe('1.2');
+    expect(firstLink?.metadata?.['sameHashTrackedSiblingInflowCount']).toBe(1);
+    expect(firstLink?.metadata?.['sameHashResidualAllocationPolicy']).toBe('transaction_id_prefix');
+    expect(firstLink?.metadata?.['sameHashExternalSourceAllocations']).toEqual([
+      {
+        sourceTransactionId: 10,
+        grossAmount: '1.5',
+        linkedAmount: '1.5',
+        feeDeducted: '0',
+      },
+      {
+        sourceTransactionId: 11,
+        grossAmount: '1.9',
+        linkedAmount: '0.6',
+        feeDeducted: '0.1',
+        unlinkedAmount: '1.2',
+      },
+    ]);
+
+    const secondLink = result.value.links.find((link) => link.sourceTransactionId === 11);
+    expect(secondLink?.sourceAmount.toFixed()).toBe('0.6');
+  });
+
+  it('skips mixed groups when the residual does not land at the shared external address', () => {
+    const hash = '0xmismatch-address';
     const timestamp = new Date('2024-01-01T12:00:00Z');
 
     const sources = [
@@ -172,8 +278,8 @@ describe('SameHashExternalOutflowStrategy', () => {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         assetId: 'blockchain:bitcoin:native',
-        amount: parseDecimal('1'),
-        grossAmount: parseDecimal('1.1'),
+        amount: parseDecimal('1.4'),
+        grossAmount: parseDecimal('1.5'),
         direction: 'out',
         timestamp,
         blockchainTxHash: hash,
@@ -186,8 +292,8 @@ describe('SameHashExternalOutflowStrategy', () => {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         assetId: 'blockchain:bitcoin:native',
-        amount: parseDecimal('2'),
-        grossAmount: parseDecimal('2.1'),
+        amount: parseDecimal('1.8'),
+        grossAmount: parseDecimal('1.9'),
         direction: 'out',
         timestamp,
         blockchainTxHash: hash,
@@ -203,7 +309,7 @@ describe('SameHashExternalOutflowStrategy', () => {
         sourceName: 'bitcoin',
         sourceType: 'blockchain',
         assetId: 'blockchain:bitcoin:native',
-        amount: parseDecimal('3'),
+        amount: parseDecimal('1.2'),
         direction: 'in',
         timestamp,
         blockchainTxHash: hash,
@@ -214,9 +320,11 @@ describe('SameHashExternalOutflowStrategy', () => {
         sourceName: 'kraken',
         sourceType: 'exchange',
         assetId: 'exchange:kraken:btc',
-        amount: parseDecimal('3.1'),
+        amount: parseDecimal('2.1'),
         direction: 'in',
         timestamp: new Date('2024-01-01T12:10:00Z'),
+        blockchainTxHash: hash,
+        toAddress: 'other-addr',
       }),
     ];
 

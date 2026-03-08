@@ -5,6 +5,7 @@
 import {
   hasImpliedFeeLinkMetadata,
   isPartialMatchLinkMetadata,
+  isSameHashExternalLinkMetadata,
   type LinkStatus,
   type MatchCriteria,
   type TransactionLink,
@@ -409,6 +410,25 @@ interface LinkAmountDisplay {
 
 function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
   const metadata = link.metadata;
+
+  if (
+    isSameHashExternalLinkMetadata(metadata) &&
+    metadata.sameHashMixedExternalGroup === true &&
+    typeof metadata.sameHashTrackedSiblingInflowAmount === 'string' &&
+    typeof metadata.sameHashTrackedSiblingInflowCount === 'number'
+  ) {
+    const siblingLabel =
+      metadata.sameHashTrackedSiblingInflowCount === 1 ? 'tracked sibling inflow' : 'tracked sibling inflows';
+
+    return {
+      detailLabel: 'Summary:',
+      matchedAmount: link.sourceAmount.toFixed(),
+      detailSummary:
+        `same-hash mixed group: ${metadata.sameHashExternalGroupAmount} ${link.assetSymbol} to exchange ` +
+        `after ${metadata.sameHashTrackedSiblingInflowAmount} ${link.assetSymbol} to ` +
+        `${metadata.sameHashTrackedSiblingInflowCount} ${siblingLabel}`,
+    };
+  }
 
   if (isPartialMatchLinkMetadata(metadata)) {
     const consumedAmount = metadata.consumedAmount ?? link.sourceAmount.toFixed();
