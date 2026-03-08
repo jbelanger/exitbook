@@ -14,8 +14,8 @@ import {
 } from '../../../../../core/utils/test-utils.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
-import { TatumBitcoinApiClient, tatumBitcoinMetadata } from '../tatum-bitcoin.api-client.js';
-import type { TatumBitcoinBalance, TatumBitcoinTransaction } from '../tatum.schemas.js';
+import { BlockstreamApiClient, blockstreamMetadata } from '../blockstream-api-client.js';
+import type { BlockstreamAddressInfo, BlockstreamTransaction } from '../blockstream.schemas.js';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────
 
@@ -35,90 +35,103 @@ vi.mock('@exitbook/logger', () => ({
   })),
 }));
 
-vi.stubEnv('TATUM_API_KEY', 'test-api-key');
-
 // ── Fixtures ────────────────────────────────────────────────────────
 
 const TEST_ADDRESS = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-function buildBalance(overrides?: Partial<TatumBitcoinBalance>): TatumBitcoinBalance {
+const emptyStats = {
+  funded_txo_count: 0,
+  funded_txo_sum: 0,
+  spent_txo_count: 0,
+  spent_txo_sum: 0,
+  tx_count: 0,
+};
+
+function buildAddressInfo(overrides?: Partial<BlockstreamAddressInfo>): BlockstreamAddressInfo {
   return {
-    incoming: '5000000000',
-    outgoing: '1000000000',
+    address: TEST_ADDRESS,
+    chain_stats: {
+      funded_txo_count: 5,
+      funded_txo_sum: 10000000000,
+      spent_txo_count: 3,
+      spent_txo_sum: 6000000000,
+      tx_count: 8,
+    },
+    mempool_stats: emptyStats,
     ...overrides,
   };
 }
 
-function buildTransaction(overrides?: Partial<TatumBitcoinTransaction>): TatumBitcoinTransaction {
+function buildTransaction(overrides?: Partial<BlockstreamTransaction>): BlockstreamTransaction {
   return {
-    blockNumber: 800000,
-    fee: '5000',
-    hash: 'abc123txhash',
-    index: 0,
-    inputs: [
+    fee: 5000,
+    locktime: 0,
+    size: 250,
+    status: {
+      block_hash: '00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f9a4670',
+      block_height: 800000,
+      block_time: new Date('2023-07-01T12:00:00Z'),
+      confirmed: true,
+    },
+    txid: 'abc123txid',
+    version: 2,
+    vin: [
       {
-        coin: {
-          address: '1InputAddress',
-          coinbase: false,
-          height: 799999,
-          script: 'script',
-          value: 100000,
-          version: 0,
-        },
+        is_coinbase: false,
         prevout: {
-          hash: 'prev-hash-123',
-          index: 0,
+          scriptpubkey: '76a914...88ac',
+          scriptpubkey_address: '1InputAddress',
+          scriptpubkey_asm: 'OP_DUP ...',
+          scriptpubkey_type: 'p2pkh',
+          value: 100000,
         },
-        script: 'input-script',
+        scriptsig: 'sig',
+        scriptsig_asm: 'asm',
         sequence: 4294967295,
+        txid: 'prev-txid',
+        vout: 0,
       },
     ],
-    locktime: 0,
-    outputs: [
+    vout: [
       {
-        address: '1OutputAddress',
-        script: 'output-script',
-        scriptPubKey: { type: 'pubkeyhash' },
+        scriptpubkey: '76a914...88ac',
+        scriptpubkey_address: '1OutputAddress',
+        scriptpubkey_asm: 'OP_DUP ...',
+        scriptpubkey_type: 'p2pkh',
         value: 95000,
       },
     ],
-    hex: 'rawtxhex',
-    size: 250,
-    time: 1688212800,
-    version: 2,
-    vsize: 250,
     weight: 1000,
-    witnessHash: 'witness-hash',
     ...overrides,
   };
 }
 
 // ── Test suite ──────────────────────────────────────────────────────
 
-describe('TatumBitcoinApiClient', () => {
+describe('BlockstreamApiClient', () => {
   const providerRegistry = createProviderRegistry();
-  let client: TatumBitcoinApiClient;
+  let client: BlockstreamApiClient;
   let mockGet: MockHttpClient['get'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
 
-    const config = providerRegistry.createDefaultConfig('bitcoin', 'tatum');
-    client = new TatumBitcoinApiClient(config);
+    const config = providerRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
+    client = new BlockstreamApiClient(config);
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
   });
 
   describe('metadata', () => {
     it('should have correct provider identity', () => {
-      expect(client).toBeInstanceOf(TatumBitcoinApiClient);
+      expect(client).toBeInstanceOf(BlockstreamApiClient);
       expect(client.blockchain).toBe('bitcoin');
-      expect(client.name).toBe('tatum');
+      expect(client.name).toBe('blockstream.info');
     });
 
-    it('should require API key', () => {
-      expect(tatumBitcoinMetadata.requiresApiKey).toBe(true);
+    it('should not require API key', () => {
+      expect(blockstreamMetadata.requiresApiKey).toBe(false);
     });
 
     it('should have correct capabilities', () => {
@@ -129,39 +142,73 @@ describe('TatumBitcoinApiClient', () => {
         'hasAddressTransactions',
       ]);
       expect(capabilities.supportedTransactionTypes).toEqual(['normal']);
-      expect(capabilities.preferredCursorType).toBe('pageToken');
+      expect(capabilities.preferredCursorType).toBe('txHash');
       expect(capabilities.replayWindow).toEqual({ blocks: 4 });
-      expect(capabilities.supportedCursorTypes).toEqual(['pageToken', 'blockNumber', 'timestamp']);
-    });
-
-    it('should have correct rate limit configuration', () => {
-      const rateLimit = client.rateLimit;
-      expect(rateLimit.requestsPerSecond).toBe(3);
-      expect(rateLimit.burstLimit).toBe(50);
-      expect(rateLimit.requestsPerMinute).toBe(180);
+      expect(capabilities.supportedCursorTypes).toEqual(['txHash', 'blockNumber', 'timestamp']);
     });
   });
 
   describe('execute - getAddressBalances', () => {
-    it('should calculate balance from incoming - outgoing', async () => {
-      mockGet.mockResolvedValue(ok(buildBalance()));
+    it('should calculate balance from chain_stats funded - spent', async () => {
+      mockGet.mockResolvedValue(
+        ok(
+          buildAddressInfo({
+            chain_stats: {
+              funded_txo_count: 5,
+              funded_txo_sum: 10000000000,
+              spent_txo_count: 3,
+              spent_txo_sum: 6000000000,
+              tx_count: 8,
+            },
+            mempool_stats: emptyStats,
+          })
+        )
+      );
 
       const result = expectOk(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
 
       expect(result).toEqual({
         symbol: 'BTC',
-        rawAmount: '4000000000', // 5000000000 - 1000000000
+        rawAmount: '4000000000',
         decimalAmount: '40',
         decimals: 8,
       });
       expect(mockGet).toHaveBeenCalledWith(
-        `/address/balance/${TEST_ADDRESS}`,
+        `/address/${TEST_ADDRESS}`,
         expect.objectContaining({ schema: expect.anything() })
       );
     });
 
+    it('should include mempool balance in total', async () => {
+      mockGet.mockResolvedValue(
+        ok(
+          buildAddressInfo({
+            chain_stats: {
+              funded_txo_count: 1,
+              funded_txo_sum: 5000000000,
+              spent_txo_count: 0,
+              spent_txo_sum: 0,
+              tx_count: 1,
+            },
+            mempool_stats: {
+              funded_txo_count: 1,
+              funded_txo_sum: 1000000000,
+              spent_txo_count: 0,
+              spent_txo_sum: 0,
+              tx_count: 1,
+            },
+          })
+        )
+      );
+
+      const result = expectOk(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
+
+      expect(result.rawAmount).toBe('6000000000');
+      expect(result.decimalAmount).toBe('60');
+    });
+
     it('should handle zero balance', async () => {
-      mockGet.mockResolvedValue(ok(buildBalance({ incoming: '0', outgoing: '0' })));
+      mockGet.mockResolvedValue(ok(buildAddressInfo({ chain_stats: emptyStats, mempool_stats: emptyStats })));
 
       const result = expectOk(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
 
@@ -170,29 +217,50 @@ describe('TatumBitcoinApiClient', () => {
     });
 
     it('should propagate API errors', async () => {
-      mockGet.mockResolvedValue(err(new Error('API Error')));
+      mockGet.mockResolvedValue(err(new Error('Network timeout')));
 
       const error = expectErr(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
 
-      expect(error.message).toBe('API Error');
+      expect(error.message).toBe('Network timeout');
     });
   });
 
   describe('execute - hasAddressTransactions', () => {
-    it('should return true when transactions exist', async () => {
-      mockGet.mockResolvedValue(ok([buildTransaction()]));
+    it('should return true when tx_count > 0', async () => {
+      mockGet.mockResolvedValue(ok(buildAddressInfo()));
 
       const result = expectOk(await client.execute({ type: 'hasAddressTransactions', address: TEST_ADDRESS }));
 
       expect(result).toBe(true);
     });
 
-    it('should return false when no transactions', async () => {
-      mockGet.mockResolvedValue(ok([]));
+    it('should return false when tx_count is 0', async () => {
+      mockGet.mockResolvedValue(ok(buildAddressInfo({ chain_stats: emptyStats, mempool_stats: emptyStats })));
 
       const result = expectOk(await client.execute({ type: 'hasAddressTransactions', address: TEST_ADDRESS }));
 
       expect(result).toBe(false);
+    });
+
+    it('should count mempool transactions', async () => {
+      mockGet.mockResolvedValue(
+        ok(
+          buildAddressInfo({
+            chain_stats: emptyStats,
+            mempool_stats: {
+              funded_txo_count: 1,
+              funded_txo_sum: 1000,
+              spent_txo_count: 0,
+              spent_txo_sum: 0,
+              tx_count: 1,
+            },
+          })
+        )
+      );
+
+      const result = expectOk(await client.execute({ type: 'hasAddressTransactions', address: TEST_ADDRESS }));
+
+      expect(result).toBe(true);
     });
 
     it('should propagate API errors', async () => {
@@ -208,12 +276,12 @@ describe('TatumBitcoinApiClient', () => {
     it('should return error for unknown operation type', async () => {
       const error = expectErr(
         await client.execute({
-          type: 'unsupportedOperation',
+          type: 'getTokenMetadata',
           address: TEST_ADDRESS,
         } as unknown as OneShotOperation)
       );
 
-      expect(error.message).toBe('Unsupported operation: unsupportedOperation');
+      expect(error.message).toContain('Unsupported operation');
     });
   });
 
@@ -232,9 +300,26 @@ describe('TatumBitcoinApiClient', () => {
       expect(error.message).toContain('Streaming not yet implemented');
     });
 
-    it('should stream transactions with offset-based pagination', async () => {
-      // Single page (< 50 results = complete)
-      mockGet.mockResolvedValueOnce(ok([buildTransaction()]));
+    it('should yield error for unsupported stream type', async () => {
+      const results = [];
+      for await (const result of client.executeStreaming({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+        streamType: 'internal' as never,
+      })) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      const error = expectErr(results[0]!);
+      expect(error.message).toContain('Unsupported transaction type');
+    });
+
+    it('should stream transactions with txid-based pagination', async () => {
+      const tx = buildTransaction();
+
+      // Single page (< 25 results = complete)
+      mockGet.mockResolvedValueOnce(ok([tx]));
 
       const transactions: BitcoinTransaction[] = [];
       for await (const result of client.executeStreaming<BitcoinTransaction>({
@@ -246,8 +331,9 @@ describe('TatumBitcoinApiClient', () => {
       }
 
       expect(transactions).toHaveLength(1);
-      expect(transactions[0]!.id).toBe('abc123txhash');
-      expect(transactions[0]!.providerName).toBe('tatum');
+      expect(transactions[0]!.id).toBe('abc123txid');
+      expect(transactions[0]!.providerName).toBe('blockstream.info');
+      expect(transactions[0]!.status).toBe('success');
     });
 
     it('should handle empty transaction list', async () => {
@@ -282,13 +368,15 @@ describe('TatumBitcoinApiClient', () => {
   });
 
   describe('extractCursors', () => {
-    it('should extract blockNumber and timestamp cursors', () => {
+    it('should always include txHash as primary cursor', () => {
       const cursors = client.extractCursors({
+        id: 'tx-abc123',
         blockHeight: 800000,
         timestamp: 1700000000000,
       } as BitcoinTransaction);
 
       expect(cursors).toEqual([
+        { type: 'txHash', value: 'tx-abc123' },
         { type: 'blockNumber', value: 800000 },
         { type: 'timestamp', value: 1700000000000 },
       ]);
@@ -296,15 +384,27 @@ describe('TatumBitcoinApiClient', () => {
 
     it('should omit blockNumber when blockHeight is undefined', () => {
       const cursors = client.extractCursors({
+        id: 'tx-abc123',
         timestamp: 1700000000000,
       } as BitcoinTransaction);
 
-      expect(cursors).toEqual([{ type: 'timestamp', value: 1700000000000 }]);
+      expect(cursors).toEqual([
+        { type: 'txHash', value: 'tx-abc123' },
+        { type: 'timestamp', value: 1700000000000 },
+      ]);
     });
 
-    it('should return empty array when no cursor data available', () => {
-      const cursors = client.extractCursors({} as BitcoinTransaction);
-      expect(cursors).toEqual([]);
+    it('should omit timestamp when falsy', () => {
+      const cursors = client.extractCursors({
+        id: 'tx-abc123',
+        blockHeight: 800000,
+        timestamp: 0,
+      } as BitcoinTransaction);
+
+      expect(cursors).toEqual([
+        { type: 'txHash', value: 'tx-abc123' },
+        { type: 'blockNumber', value: 800000 },
+      ]);
     });
   });
 
@@ -319,50 +419,32 @@ describe('TatumBitcoinApiClient', () => {
       expect(cursor).toEqual({ type: 'blockNumber', value: 0 });
     });
 
-    it('should pass through non-blockNumber cursors unchanged', () => {
-      const cursor = { type: 'timestamp' as const, value: 1700000000000 };
+    it('should pass through txHash cursors unchanged', () => {
+      const cursor = { type: 'txHash' as const, value: 'abc123' };
       expect(client.applyReplayWindow(cursor)).toEqual(cursor);
     });
 
-    it('should pass through pageToken cursors unchanged', () => {
-      const cursor = { type: 'pageToken' as const, value: '50', providerName: 'tatum' };
+    it('should pass through timestamp cursors unchanged', () => {
+      const cursor = { type: 'timestamp' as const, value: 1700000000000 };
       expect(client.applyReplayWindow(cursor)).toEqual(cursor);
     });
   });
 
   describe('getHealthCheckConfig', () => {
-    it('should target genesis address balance endpoint', () => {
+    it('should target /blocks/tip/height endpoint', () => {
       const config = client.getHealthCheckConfig();
-      expect(config.endpoint).toBe('/address/balance/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+      expect(config.endpoint).toBe('/blocks/tip/height');
     });
 
-    it('should validate any non-null response', () => {
+    it('should validate response as positive number', () => {
       const { validate } = client.getHealthCheckConfig();
-      expect(validate({ incoming: '0', outgoing: '0' })).toBe(true);
-      expect(validate({})).toBe(true);
+      expect(validate(800000)).toBe(true);
+      expect(validate(1)).toBe(true);
+      expect(validate(0)).toBe(false);
+      expect(validate(-1)).toBe(false);
+      expect(validate('800000')).toBe(false);
       expect(validate(null)).toBe(false);
       expect(validate(undefined)).toBe(false);
-    });
-  });
-
-  describe('isHealthy', () => {
-    it('should return true when API responds', async () => {
-      mockGet.mockResolvedValue(ok(buildBalance({ incoming: '0', outgoing: '0' })));
-
-      const result = await client.isHealthy();
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toBe(true);
-      }
-    });
-
-    it('should return error when API fails', async () => {
-      mockGet.mockResolvedValue(err(new Error('API Error')));
-
-      const result = await client.isHealthy();
-
-      expect(result.isErr()).toBe(true);
     });
   });
 });

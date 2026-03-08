@@ -3,25 +3,25 @@ import { z } from 'zod';
 
 import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
 
+import { validateBech32Address } from './utils.js';
+
+/** Normalizes any address-like string to lowercase without structural validation (for Ethereum hex addresses, denoms, etc.). */
+const LowercaseStringSchema = z.string().transform((s) => s.toLowerCase());
+
 /**
- * Cosmos address schema with automatic lowercase normalization
+ * Cosmos address schema with Bech32 validation and automatic lowercase normalization.
  *
- * Cosmos addresses use Bech32 encoding (e.g., cosmos1..., inj1..., osmo1...),
- * which is case-insensitive according to BIP-173. The standard representation uses lowercase.
- *
- * This schema automatically normalizes addresses to lowercase at the validation boundary,
- * eliminating the need for manual normalization throughout the codebase.
+ * Validates that the input is a structurally valid Bech32 address (correct checksum,
+ * non-empty data payload) before normalizing to lowercase.
  *
  * Examples:
  * - "inj1abc..." → "inj1abc..." (already lowercase)
  * - "INJ1ABC..." → "inj1abc..." (normalized to lowercase)
- * - "cosmos1xyz..." → "cosmos1xyz..." (already lowercase)
- *
- * @see https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
+ * - "not-an-address" → validation error
  */
 export const CosmosAddressSchema = z
   .string()
-  .min(1, 'Cosmos address must not be empty')
+  .refine((addr) => validateBech32Address(addr.toLowerCase()), { message: 'Invalid Bech32 address' })
   .transform((addr) => addr.toLowerCase());
 
 /**
@@ -44,9 +44,9 @@ export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   timestamp: z.number().positive('Timestamp must be positive'),
   status: z.enum(['success', 'failed', 'pending']),
 
-  // Transaction flow (addresses normalized via CosmosAddressSchema)
-  from: CosmosAddressSchema,
-  to: CosmosAddressSchema,
+  // Transaction flow. Cosmos bech32 for native/IBC txns; Ethereum hex for Peggy bridge deposits/withdrawals.
+  from: LowercaseStringSchema,
+  to: LowercaseStringSchema,
 
   // Value information
   amount: DecimalStringSchema,
@@ -73,8 +73,8 @@ export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
 
-  // Token-specific information
-  tokenAddress: CosmosAddressSchema.optional(),
+  // Token-specific information (tokenAddress can be a bech32 contract address OR a denom string like 'usdc', 'uakt')
+  tokenAddress: LowercaseStringSchema.optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenSymbol: z.string().optional(),
   tokenType: z.enum(['cw20', 'native', 'ibc']).optional(),
@@ -90,9 +90,9 @@ export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   bridgeType: z.enum(['peggy', 'gravity', 'ibc', 'native']).optional(),
   bridgeId: z.string().optional(),
 
-  // Injective Peggy bridge-specific (Ethereum addresses also normalized to lowercase)
-  ethereumSender: CosmosAddressSchema.optional(),
-  ethereumReceiver: CosmosAddressSchema.optional(),
+  // Injective Peggy bridge-specific (Ethereum hex addresses, normalized to lowercase)
+  ethereumSender: LowercaseStringSchema.optional(),
+  ethereumReceiver: LowercaseStringSchema.optional(),
   eventNonce: z.string().optional(),
   claimId: z.array(z.number()).optional(),
 

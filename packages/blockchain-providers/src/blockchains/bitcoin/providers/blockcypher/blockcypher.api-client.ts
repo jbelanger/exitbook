@@ -177,8 +177,7 @@ export class BlockCypherApiClient extends BaseApiClient {
     return {
       endpoint: '/',
       validate: (response: unknown) => {
-        const data = response as { name?: string };
-        return hasStringProperty(data, 'name');
+        return hasStringProperty(response, 'name') && response.name.length > 0;
       },
     };
   }

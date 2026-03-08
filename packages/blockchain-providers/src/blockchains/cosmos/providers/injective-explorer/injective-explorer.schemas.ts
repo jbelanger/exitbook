@@ -10,6 +10,9 @@ import { z } from 'zod';
 import { timestampToDate } from '../../../../core/utils/zod-utils.js';
 import { CosmosAddressSchema } from '../../schemas.js';
 
+/** Normalizes any address-like string to lowercase without structural validation (for Ethereum hex addresses). */
+const LowercaseAddressSchema = z.string().transform((s) => s.toLowerCase());
+
 /**
  * Schema for Injective amount (denom and amount pair)
  */
@@ -48,8 +51,8 @@ export const InjectiveMessageValueSchema = z.object({
   block_height: z.string().nullish(),
   cosmos_receiver: CosmosAddressSchema.nullish(),
   data: z.string().nullish(),
-  ethereum_receiver: CosmosAddressSchema.nullish(),
-  ethereum_sender: CosmosAddressSchema.nullish(),
+  ethereum_receiver: LowercaseAddressSchema.nullish(),
+  ethereum_sender: LowercaseAddressSchema.nullish(),
   event_nonce: z.string().nullish(), // For Peggy bridge deposits
   from_address: CosmosAddressSchema.nullish(),
   injective_receiver: CosmosAddressSchema.nullish(),
@@ -63,13 +66,13 @@ export const InjectiveMessageValueSchema = z.object({
   timeout_timestamp: z.string().nullish(),
   to_address: CosmosAddressSchema.nullish(),
   token: InjectiveAmountSchema.nullish(),
-  token_contract: CosmosAddressSchema.nullish(),
+  token_contract: LowercaseAddressSchema.nullish(),
   // CosmWasm contract execution fields
-  contract: CosmosAddressSchema.nullish(),
+  contract: LowercaseAddressSchema.nullish(),
   msg: z.any().nullish(), // Can be object or JSON string
   funds: z.union([z.array(InjectiveAmountSchema), z.string()]).nullish(), // Array for MsgExecuteContract, string for MsgExecuteContractCompat
   // Peggy bridge withdrawal fields
-  eth_dest: CosmosAddressSchema.nullish(),
+  eth_dest: LowercaseAddressSchema.nullish(),
   bridge_fee: InjectiveAmountSchema.nullish(),
   // MsgMultiSend fields
   inputs: z.array(InjectiveMultiSendIOSchema).nullish(),

@@ -368,16 +368,22 @@ export class SubscanApiClient extends BaseApiClient {
         });
       }
 
+      // Pre-filter to transfers involving this address before passing to mapItem.
+      // hasMore is based on the raw page size so pagination advances correctly
+      // even when all transfers on a page are filtered out.
+      const relevantAddresses = new Set([address]);
+      const relevantTransfers = transfers.filter((t) => relevantAddresses.has(t.from) || relevantAddresses.has(t.to));
+
       // Check if there are more pages
       const hasMore = transfers.length === rowsPerPage;
       const nextPageToken = hasMore ? String(page + 1) : undefined;
 
       this.logger.debug(
-        `Fetched page ${page} - Address: ${maskAddress(address)}, Transfers: ${transfers.length}, HasMore: ${hasMore}`
+        `Fetched page ${page} - Address: ${maskAddress(address)}, Transfers: ${transfers.length}, Relevant: ${relevantTransfers.length}, HasMore: ${hasMore}`
       );
 
       return ok({
-        items: transfers,
+        items: relevantTransfers,
         nextPageToken,
         isComplete: !hasMore,
       });
@@ -389,7 +395,6 @@ export class SubscanApiClient extends BaseApiClient {
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
-        // Normalize transaction using pure mapping function
         const relevantAddresses = new Set([address]);
         const mapResult = convertSubscanTransaction(
           raw,
@@ -399,26 +404,16 @@ export class SubscanApiClient extends BaseApiClient {
           this.chainConfig.nativeDecimals
         );
 
-        // Skip transactions that aren't relevant to this address or have validation errors
         if (mapResult.isErr()) {
           const error = mapResult.error;
-          if (error.type === 'skip') {
-            // Return a skip error that the streaming adapter will filter out
-            return err(new Error(`Transaction not relevant: ${error.reason}`));
-          }
-          // error.type === 'error'
+          const errorMessage = error.type === 'error' ? error.message : error.reason;
           this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${error.message}`
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
           );
-          return err(new Error(`Provider data validation failed: ${error.message}`));
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        return ok([
-          {
-            raw,
-            normalized: mapResult.value,
-          },
-        ]);
+        return ok([{ raw, normalized: mapResult.value }]);
       },
       extractCursors: (tx) => this.extractCursors(tx),
       applyReplayWindow: (cursor) => this.applyReplayWindow(cursor),

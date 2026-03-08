@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
 import { mapInjectiveExplorerTransaction } from '../mapper-utils.js';
 
-const userAddress = 'inj1user123456789';
+const INJ_USER = 'inj1qyqszqgpqyqszqgpqyqszqgpqyqszqgpc6k6ly';
+const INJ_SENDER = 'inj1qgpqyqszqgpqyqszqgpqyqszqgpqyqszf7sl5j';
+const INJ_RECEIVER = 'inj1qvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrgw377n';
+const INJ_OTHER = 'inj1qszqgpqyqszqgpqyqszqgpqyqszqgpqyg7kme0';
+const COSMOS_RECEIVER = 'cosmos1qyqszqgpqyqszqgpqyqszqgpqyqszqgpjnp7du';
+
+const userAddress = INJ_USER;
 
 describe('injective-explorer mapper-utils', () => {
   describe('mapInjectiveExplorerTransaction', () => {
@@ -25,8 +31,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1sender123',
-              to_address: 'inj1user123456789',
+              from_address: INJ_SENDER,
+              to_address: INJ_USER,
             },
           },
         ],
@@ -41,8 +47,8 @@ describe('injective-explorer mapper-utils', () => {
         expect(normalized).toMatchObject({
           id: '0xabc123',
           amount: '5',
-          from: 'inj1sender123',
-          to: 'inj1user123456789',
+          from: INJ_SENDER,
+          to: INJ_USER,
           currency: 'INJ',
           tokenType: 'native',
           tokenSymbol: 'INJ',
@@ -77,8 +83,8 @@ describe('injective-explorer mapper-utils', () => {
           {
             type: '/ibc.applications.transfer.v1.MsgTransfer',
             value: {
-              receiver: 'cosmos1receiver',
-              sender: 'inj1user123456789',
+              receiver: COSMOS_RECEIVER,
+              sender: INJ_USER,
               source_channel: 'channel-1',
               source_port: 'transfer',
               token: { amount: '1000000000000000000', denom: 'usdc' },
@@ -95,8 +101,8 @@ describe('injective-explorer mapper-utils', () => {
         const normalized = result.value;
         expect(normalized).toMatchObject({
           amount: '1',
-          from: 'inj1user123456789',
-          to: 'cosmos1receiver',
+          from: INJ_USER,
+          to: COSMOS_RECEIVER,
           currency: 'USDC',
           tokenType: 'ibc',
           bridgeType: 'ibc',
@@ -126,7 +132,7 @@ describe('injective-explorer mapper-utils', () => {
             type: '/injective.peggy.v1.MsgDepositClaim',
             value: {
               amount: '1000000000000000000',
-              cosmos_receiver: 'inj1user123456789',
+              cosmos_receiver: INJ_USER,
               ethereum_receiver: '0xethReceiver',
               ethereum_sender: '0xeth123',
               event_nonce: '12345',
@@ -177,7 +183,7 @@ describe('injective-explorer mapper-utils', () => {
                 amount: '500000000000000000',
                 denom: 'inj',
               },
-              cosmos_receiver: 'inj1user123456789',
+              cosmos_receiver: INJ_USER,
               ethereum_sender: '0xeth456',
             },
           },
@@ -213,7 +219,7 @@ describe('injective-explorer mapper-utils', () => {
             type: '/injective.peggy.v1.MsgDepositClaim',
             value: {
               amount: '1000000000000000000',
-              cosmos_receiver: 'inj1user123456789',
+              cosmos_receiver: INJ_USER,
               ethereum_receiver: '0xethReceiver',
               ethereum_sender: '0xeth123',
               event_nonce: '12345',
@@ -261,7 +267,7 @@ describe('injective-explorer mapper-utils', () => {
               amount: { amount: '2000000000000000000', denom: 'inj' },
               bridge_fee: { amount: '10000000000000000', denom: 'inj' },
               eth_dest: '0xethReceiver',
-              sender: 'inj1user123456789',
+              sender: INJ_USER,
             },
           },
         ],
@@ -275,7 +281,7 @@ describe('injective-explorer mapper-utils', () => {
         const normalized = result.value;
         expect(normalized).toMatchObject({
           amount: '2',
-          from: 'inj1user123456789',
+          from: INJ_USER,
           to: '0xethreceiver',
           currency: 'INJ',
           bridgeType: 'peggy',
@@ -302,8 +308,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1other123',
-              to_address: 'inj1another456',
+              from_address: INJ_OTHER,
+              to_address: INJ_RECEIVER,
             },
           },
         ],
@@ -339,8 +345,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '0', denom: 'inj' }],
-              from_address: 'inj1user123456789',
-              to_address: 'inj1other123',
+              from_address: INJ_USER,
+              to_address: INJ_OTHER,
             },
           },
         ],
@@ -406,8 +412,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1sender123',
-              to_address: 'inj1receiver456',
+              from_address: INJ_SENDER,
+              to_address: INJ_RECEIVER,
             },
           },
         ],
@@ -443,8 +449,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1user123456789',
-              to_address: 'inj1receiver456',
+              from_address: INJ_USER,
+              to_address: INJ_RECEIVER,
             },
           },
         ],
@@ -478,8 +484,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1user123456789',
-              to_address: 'inj1receiver456',
+              from_address: INJ_USER,
+              to_address: INJ_RECEIVER,
             },
           },
         ],
@@ -514,7 +520,7 @@ describe('injective-explorer mapper-utils', () => {
               contract: 'inj1contract123',
               funds: [{ amount: '1000000', denom: 'usdc' }],
               msg: { transfer: { amount: '1000000', recipient: 'inj1receiver' } },
-              sender: 'inj1other123',
+              sender: INJ_OTHER,
             },
           },
         ],
@@ -550,8 +556,8 @@ describe('injective-explorer mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgSend',
             value: {
               amount: [{ amount: '5000000000000000000', denom: 'inj' }],
-              from_address: 'inj1sender123',
-              to_address: 'inj1user123456789',
+              from_address: INJ_SENDER,
+              to_address: INJ_USER,
             },
           },
         ],

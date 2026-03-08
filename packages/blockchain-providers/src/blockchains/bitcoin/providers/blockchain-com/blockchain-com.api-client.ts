@@ -157,8 +157,13 @@ export class BlockchainComApiClient extends BaseApiClient {
     return {
       endpoint: '/latestblock',
       validate: (response: unknown) => {
-        const data = response as { height?: number };
-        return typeof data.height === 'number' && data.height > 0;
+        return (
+          response !== null &&
+          typeof response === 'object' &&
+          'height' in response &&
+          typeof (response as { height: unknown }).height === 'number' &&
+          (response as { height: number }).height > 0
+        );
       },
     };
   }

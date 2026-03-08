@@ -1,0 +1,411 @@
+/* eslint-disable unicorn/no-null -- acceptable for tests */
+import { err, ok } from '@exitbook/core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { OneShotOperation } from '../../../../../core/index.js';
+import {
+  createMockHttpClient,
+  expectErr,
+  expectOk,
+  injectMockHttpClient,
+  type MockHttpClient,
+  resetMockHttpClient,
+} from '../../../../../core/utils/test-utils.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
+import type { EvmTransaction } from '../../../types.js';
+import { MoralisApiClient, moralisMetadata } from '../moralis.api-client.js';
+
+// ── Module-level mocks (hoisted by vitest) ──────────────────────────
+
+const mockHttp = createMockHttpClient();
+
+vi.mock('@exitbook/shared-utils', () => ({
+  HttpClient: vi.fn(() => mockHttp),
+  maskAddress: (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`,
+}));
+
+vi.mock('@exitbook/logger', () => ({
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    trace: vi.fn(),
+    warn: vi.fn(),
+  })),
+}));
+
+// ── Fixtures ────────────────────────────────────────────────────────
+
+const TEST_ADDRESS = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
+const CONTRACT_ADDRESS = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+
+// ── Test suite ──────────────────────────────────────────────────────
+
+describe('MoralisApiClient', () => {
+  const providerRegistry = createProviderRegistry();
+  let client: MoralisApiClient;
+  let mockGet: MockHttpClient['get'];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockHttpClient(mockHttp);
+
+    const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
+    client = new MoralisApiClient(config);
+    injectMockHttpClient(client, mockHttp);
+    mockGet = mockHttp.get;
+  });
+
+  describe('metadata', () => {
+    it('should have correct provider identity', () => {
+      expect(client).toBeInstanceOf(MoralisApiClient);
+      expect(client.blockchain).toBe('ethereum');
+      expect(client.name).toBe('moralis');
+    });
+
+    it('should require API key', () => {
+      expect(moralisMetadata.requiresApiKey).toBe(true);
+    });
+
+    it('should have correct capabilities', () => {
+      const { capabilities } = client;
+      expect(capabilities.supportedOperations).toContain('getAddressTransactions');
+      expect(capabilities.supportedOperations).toContain('getAddressBalances');
+      expect(capabilities.supportedOperations).toContain('getAddressTokenBalances');
+      expect(capabilities.supportedOperations).toContain('getTokenMetadata');
+      expect(capabilities.preferredCursorType).toBe('pageToken');
+      expect(capabilities.replayWindow).toEqual({ blocks: 2 });
+    });
+  });
+
+  describe('execute - getAddressBalances', () => {
+    it('should return native balance data', async () => {
+      mockGet.mockResolvedValue(ok({ balance: '1000000000000000000' }));
+
+      const result = expectOk(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
+
+      expect(result).toMatchObject({
+        symbol: 'ETH',
+        rawAmount: '1000000000000000000',
+        decimals: 18,
+      });
+      expect(result.decimalAmount).toBe('1');
+    });
+
+    it('should propagate API errors', async () => {
+      mockGet.mockResolvedValue(err(new Error('Unauthorized')));
+
+      const error = expectErr(await client.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
+
+      expect(error.message).toBe('Unauthorized');
+    });
+  });
+
+  describe('execute - getAddressTokenBalances', () => {
+    it('should return token balance data', async () => {
+      mockGet.mockResolvedValue(
+        ok([
+          {
+            balance: '1000000',
+            decimals: 6,
+            logo: null,
+            name: 'USD Coin',
+            symbol: 'USDC',
+            token_address: CONTRACT_ADDRESS,
+          },
+        ])
+      );
+
+      const result = expectOk(
+        await client.execute({
+          type: 'getAddressTokenBalances',
+          address: TEST_ADDRESS,
+        })
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        symbol: 'USDC',
+        rawAmount: '1000000',
+        decimals: 6,
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    });
+
+    it('should skip tokens with missing decimals', async () => {
+      mockGet.mockResolvedValue(
+        ok([
+          {
+            balance: '1000000',
+            decimals: null,
+            logo: null,
+            name: 'Unknown Token',
+            symbol: 'UNK',
+            token_address: CONTRACT_ADDRESS,
+          },
+        ])
+      );
+
+      const result = expectOk(
+        await client.execute({
+          type: 'getAddressTokenBalances',
+          address: TEST_ADDRESS,
+        })
+      );
+
+      // Token with null decimals should be skipped
+      expect(result).toHaveLength(0);
+    });
+
+    it('should propagate API errors', async () => {
+      mockGet.mockResolvedValue(err(new Error('Bad request')));
+
+      const error = expectErr(
+        await client.execute({
+          type: 'getAddressTokenBalances',
+          address: TEST_ADDRESS,
+        })
+      );
+
+      expect(error.message).toBe('Bad request');
+    });
+  });
+
+  describe('execute - getTokenMetadata', () => {
+    it('should return empty array for no contract addresses', async () => {
+      const result = expectOk(await client.execute({ type: 'getTokenMetadata', contractAddresses: [] }));
+      expect(result).toHaveLength(0);
+    });
+
+    it('should return token metadata', async () => {
+      mockGet.mockResolvedValue(
+        ok([
+          {
+            address: CONTRACT_ADDRESS,
+            decimals: 6,
+            logo: null,
+            name: 'USD Coin',
+            symbol: 'USDC',
+            possible_spam: false,
+            verified_contract: true,
+            total_supply: null,
+            created_at: null,
+            block_number: null,
+          },
+        ])
+      );
+
+      const result = expectOk(
+        await client.execute({
+          type: 'getTokenMetadata',
+          contractAddresses: [CONTRACT_ADDRESS],
+        })
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        contractAddress: CONTRACT_ADDRESS,
+        symbol: 'USDC',
+        decimals: 6,
+      });
+    });
+
+    it('should propagate API errors', async () => {
+      mockGet.mockResolvedValue(err(new Error('Server error')));
+
+      const error = expectErr(
+        await client.execute({
+          type: 'getTokenMetadata',
+          contractAddresses: [CONTRACT_ADDRESS],
+        })
+      );
+
+      expect(error.message).toBe('Server error');
+    });
+  });
+
+  describe('execute - unsupported operation', () => {
+    it('should return error for unsupported operation', async () => {
+      const error = expectErr(
+        await client.execute({
+          type: 'getAddressInfo',
+          address: TEST_ADDRESS,
+        } as unknown as OneShotOperation)
+      );
+
+      expect(error.message).toContain('Unsupported operation');
+    });
+  });
+
+  describe('executeStreaming', () => {
+    it('should yield error for non-getAddressTransactions operation', async () => {
+      const results = [];
+      for await (const result of client.executeStreaming({
+        type: 'getAddressBalances',
+        address: TEST_ADDRESS,
+      } as never)) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      const error = expectErr(results[0]!);
+      expect(error.message).toContain('Streaming not yet implemented');
+    });
+
+    it('should yield empty batch for internal stream type (unified in normal stream)', async () => {
+      const batches = [];
+      for await (const result of client.executeStreaming({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+        streamType: 'internal',
+      })) {
+        batches.push(result);
+      }
+
+      expect(batches).toHaveLength(1);
+      const batch = expectOk(batches[0]!);
+      expect(batch.data).toHaveLength(0);
+      expect(batch.isComplete).toBe(true);
+    });
+
+    it('should yield empty batch for token stream type (unified in normal stream)', async () => {
+      const batches = [];
+      for await (const result of client.executeStreaming({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+        streamType: 'token',
+      })) {
+        batches.push(result);
+      }
+
+      expect(batches).toHaveLength(1);
+      const batch = expectOk(batches[0]!);
+      expect(batch.data).toHaveLength(0);
+      expect(batch.isComplete).toBe(true);
+    });
+
+    it('should propagate API errors during normal streaming', async () => {
+      mockGet.mockResolvedValue(err(new Error('Service unavailable')));
+
+      let gotError = false;
+      for await (const result of client.executeStreaming({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        expectErr(result);
+        gotError = true;
+      }
+
+      expect(gotError).toBe(true);
+    });
+
+    it('should stream wallet history transactions', async () => {
+      mockGet.mockResolvedValue(
+        ok({
+          cursor: null,
+          page: 1,
+          page_size: 100,
+          result: [
+            {
+              block_hash: '0xabcdef0000000000000000000000000000000000000000000000000000000000',
+              block_number: '12345',
+              block_timestamp: 1700000000,
+              category: 'receive',
+              erc20_transfers: [],
+              from_address: '0x1111111111111111111111111111111111111111',
+              gas_price: '1000000000',
+              hash: '0xdeadbeef00000000000000000000000000000000000000000000000000000001',
+              internal_transactions: [],
+              method_label: null,
+              native_transfers: [
+                {
+                  direction: 'receive',
+                  from_address: '0x1111111111111111111111111111111111111111',
+                  from_address_label: null,
+                  internal_transaction: false,
+                  to_address: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+                  to_address_label: null,
+                  token_symbol: 'ETH',
+                  value: '1000000000000000000',
+                  value_formatted: '1.0',
+                },
+              ],
+              nonce: '0',
+              possible_spam: false,
+              receipt_gas_used: '21000',
+              receipt_status: '1',
+              summary: 'Received 1 ETH',
+              to_address: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+              transaction_fee: '0.000021',
+              value: '1000000000000000000',
+            },
+          ],
+        })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions.length).toBeGreaterThanOrEqual(1);
+      expect(transactions[0]!.providerName).toBe('moralis');
+    });
+  });
+
+  describe('extractCursors', () => {
+    it('should extract blockNumber and timestamp cursors', () => {
+      const cursors = client.extractCursors({
+        blockHeight: 12345,
+        timestamp: 1700000000000,
+      } as EvmTransaction);
+
+      expect(cursors).toEqual([
+        { type: 'blockNumber', value: 12345 },
+        { type: 'timestamp', value: 1700000000000 },
+      ]);
+    });
+
+    it('should return empty array when no cursor data available', () => {
+      expect(client.extractCursors({} as EvmTransaction)).toEqual([]);
+    });
+  });
+
+  describe('applyReplayWindow', () => {
+    it('should subtract replay blocks from blockNumber cursor', () => {
+      const cursor = client.applyReplayWindow({ type: 'blockNumber', value: 100000 });
+      expect(cursor).toEqual({ type: 'blockNumber', value: 99998 }); // 100000 - 2
+    });
+
+    it('should not go below zero', () => {
+      const cursor = client.applyReplayWindow({ type: 'blockNumber', value: 0 });
+      expect(cursor).toEqual({ type: 'blockNumber', value: 0 });
+    });
+
+    it('should pass through non-blockNumber cursors unchanged', () => {
+      const cursor = { type: 'pageToken' as const, value: 'some-cursor-token', providerName: 'moralis' };
+      expect(client.applyReplayWindow(cursor)).toEqual(cursor);
+    });
+  });
+
+  describe('getHealthCheckConfig', () => {
+    it('should target dateToBlock endpoint', () => {
+      const config = client.getHealthCheckConfig();
+      expect(config.endpoint).toContain('dateToBlock');
+      expect(config.endpoint).toContain('chain=eth');
+    });
+
+    it('should validate response with block number', () => {
+      const { validate } = client.getHealthCheckConfig();
+      expect(validate({ block: 12345 })).toBe(true);
+      expect(validate({ block: 0 })).toBe(true);
+      expect(validate({})).toBeFalsy();
+      expect(validate({ block: 'not-a-number' })).toBeFalsy();
+      expect(validate(null)).toBeFalsy();
+    });
+  });
+});

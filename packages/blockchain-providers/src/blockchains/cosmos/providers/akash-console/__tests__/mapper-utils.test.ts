@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 import type { AkashTransactionDetail } from '../akash-console.schemas.js';
 import { mapAkashConsoleTransaction } from '../mapper-utils.js';
 
-const userAddress = 'akash1user123456789';
+const AKASH_USER = 'akash1qyqszqgpqyqszqgpqyqszqgpqyqszqgplgve5x';
+const AKASH_SENDER = 'akash1qgpqyqszqgpqyqszqgpqyqszqgpqyqszwv2uls';
+const AKASH_RECEIVER_1 = 'akash1qvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcr0uta43';
+const AKASH_RECEIVER_2 = 'akash1qszqgpqyqszqgpqyqszqgpqyqszqgpqy0vvcjd';
+const AKASH_OTHER = 'akash1q5zs2pg9q5zs2pg9q5zs2pg9q5zs2pg9wudecv';
+const COSMOS_RECEIVER = 'cosmos1qyqszqgpqyqszqgpqyqszqgpqyqszqgpjnp7du';
+
+const userAddress = AKASH_USER;
 
 describe('akash-console mapper-utils', () => {
   describe('mapAkashConsoleTransaction', () => {
@@ -22,14 +29,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }], // 5 AKT in uakt
-              from_address: 'akash1sender123',
-              to_address: 'akash1user123456789',
+              from_address: AKASH_SENDER,
+              to_address: AKASH_USER,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1sender123'],
+        signers: [AKASH_SENDER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -44,7 +51,7 @@ describe('akash-console mapper-utils', () => {
           currency: 'AKT',
           feeAmount: '0.005',
           feeCurrency: 'AKT',
-          from: 'akash1sender123',
+          from: AKASH_SENDER,
           gasUsed: 50000,
           gasWanted: 100000,
           id: 'ABC123',
@@ -52,7 +59,7 @@ describe('akash-console mapper-utils', () => {
           providerName: 'akash-console',
           status: 'success',
           timestamp: new Date('2025-01-01T12:00:00.000Z').getTime(),
-          to: 'akash1user123456789',
+          to: AKASH_USER,
           tokenSymbol: 'AKT',
           tokenType: 'native',
         });
@@ -74,14 +81,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '1000000', denom: 'uakt' }], // 1 AKT
-              from_address: 'akash1sender123',
-              to_address: 'akash1user123456789',
+              from_address: AKASH_SENDER,
+              to_address: AKASH_USER,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1sender123'],
+        signers: [AKASH_SENDER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -108,8 +115,8 @@ describe('akash-console mapper-utils', () => {
         messages: [
           {
             data: {
-              receiver: 'cosmos1receiver',
-              sender: 'akash1user123456789',
+              receiver: COSMOS_RECEIVER,
+              sender: AKASH_USER,
               source_channel: 'channel-1',
               source_port: 'transfer',
               token: { amount: '2000000', denom: 'uakt' }, // 2 AKT
@@ -118,7 +125,7 @@ describe('akash-console mapper-utils', () => {
             type: '/ibc.applications.transfer.v1.MsgTransfer',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -130,11 +137,11 @@ describe('akash-console mapper-utils', () => {
           amount: '2',
           bridgeType: 'ibc',
           currency: 'AKT',
-          from: 'akash1user123456789',
+          from: AKASH_USER,
           sourceChannel: 'channel-1',
           sourcePort: 'transfer',
           status: 'success',
-          to: 'cosmos1receiver',
+          to: COSMOS_RECEIVER,
           tokenType: 'ibc',
         });
       }
@@ -156,17 +163,17 @@ describe('akash-console mapper-utils', () => {
             data: {
               inputs: [
                 {
-                  address: 'akash1user123456789',
+                  address: AKASH_USER,
                   coins: [{ amount: '3000000', denom: 'uakt' }], // 3 AKT
                 },
               ],
               outputs: [
                 {
-                  address: 'akash1receiver1',
+                  address: AKASH_RECEIVER_1,
                   coins: [{ amount: '1500000', denom: 'uakt' }],
                 },
                 {
-                  address: 'akash1receiver2',
+                  address: AKASH_RECEIVER_2,
                   coins: [{ amount: '1500000', denom: 'uakt' }],
                 },
               ],
@@ -175,7 +182,7 @@ describe('akash-console mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgMultiSend',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -187,10 +194,10 @@ describe('akash-console mapper-utils', () => {
           amount: '3',
           bridgeType: 'native',
           currency: 'AKT',
-          from: 'akash1user123456789',
+          from: AKASH_USER,
           messageType: '/cosmos.bank.v1beta1.MsgMultiSend',
           status: 'success',
-          to: 'akash1receiver1',
+          to: AKASH_RECEIVER_1,
           tokenType: 'native',
         });
       }
@@ -212,17 +219,17 @@ describe('akash-console mapper-utils', () => {
             data: {
               inputs: [
                 {
-                  address: 'akash1sender123',
+                  address: AKASH_SENDER,
                   coins: [{ amount: '3000000', denom: 'uakt' }],
                 },
               ],
               outputs: [
                 {
-                  address: 'akash1user123456789',
+                  address: AKASH_USER,
                   coins: [{ amount: '2000000', denom: 'uakt' }], // 2 AKT
                 },
                 {
-                  address: 'akash1other123',
+                  address: AKASH_OTHER,
                   coins: [{ amount: '1000000', denom: 'uakt' }],
                 },
               ],
@@ -231,7 +238,7 @@ describe('akash-console mapper-utils', () => {
             type: '/cosmos.bank.v1beta1.MsgMultiSend',
           },
         ],
-        signers: ['akash1sender123'],
+        signers: [AKASH_SENDER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -241,8 +248,8 @@ describe('akash-console mapper-utils', () => {
         const normalized = result.value;
         expect(normalized).toMatchObject({
           amount: '2',
-          from: 'akash1sender123',
-          to: 'akash1user123456789',
+          from: AKASH_SENDER,
+          to: AKASH_USER,
         });
       }
     });
@@ -262,14 +269,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }],
-              from_address: 'akash1other123',
-              to_address: 'akash1another456',
+              from_address: AKASH_OTHER,
+              to_address: AKASH_RECEIVER_2,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1other123'],
+        signers: [AKASH_OTHER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -298,14 +305,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '0', denom: 'uakt' }],
-              from_address: 'akash1user123456789',
-              to_address: 'akash1other123',
+              from_address: AKASH_USER,
+              to_address: AKASH_OTHER,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -330,14 +337,14 @@ describe('akash-console mapper-utils', () => {
         messages: [
           {
             data: {
-              delegator_address: 'akash1user123456789',
+              delegator_address: AKASH_USER,
               validator_address: 'akashvaloper1validator',
             },
             id: 'msg-1',
             type: '/cosmos.staking.v1beta1.MsgDelegate',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -366,14 +373,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }],
-              from_address: 'akash1sender123',
-              to_address: 'akash1receiver456',
+              from_address: AKASH_SENDER,
+              to_address: AKASH_RECEIVER_1,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1sender123'],
+        signers: [AKASH_SENDER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, '');
@@ -402,14 +409,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }],
-              from_address: 'akash1user123456789',
-              to_address: 'akash1receiver456',
+              from_address: AKASH_USER,
+              to_address: AKASH_RECEIVER_1,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -435,14 +442,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }],
-              from_address: 'akash1user123456789',
-              to_address: 'akash1receiver456',
+              from_address: AKASH_USER,
+              to_address: AKASH_RECEIVER_1,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1user123456789'],
+        signers: [AKASH_USER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
@@ -468,14 +475,14 @@ describe('akash-console mapper-utils', () => {
           {
             data: {
               amount: [{ amount: '5000000', denom: 'uakt' }],
-              from_address: 'akash1sender123',
-              to_address: 'akash1user123456789',
+              from_address: AKASH_SENDER,
+              to_address: AKASH_USER,
             },
             id: 'msg-1',
             type: '/cosmos.bank.v1beta1.MsgSend',
           },
         ],
-        signers: ['akash1sender123'],
+        signers: [AKASH_SENDER],
       };
 
       const result = mapAkashConsoleTransaction(rawData, userAddress);
