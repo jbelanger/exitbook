@@ -75,6 +75,14 @@ describe('buildLinkFromOrphanedOverride', () => {
         source_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-1',
         target_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-3',
         asset: 'BTC',
+        resolved_link_fingerprint:
+          'resolved-link:v1:movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0:movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0:test:btc:test:btc',
+        source_asset_id: 'test:btc',
+        target_asset_id: 'test:btc',
+        source_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0',
+        target_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0',
+        source_amount: '6',
+        target_amount: '6',
       },
     };
     const entry: OrphanedLinkOverride = {
@@ -83,6 +91,12 @@ describe('buildLinkFromOrphanedOverride', () => {
       targetTransactionId: 3,
       assetSymbol: 'BTC',
       linkType: 'transfer',
+      sourceAssetId: 'test:btc',
+      targetAssetId: 'test:btc',
+      sourceMovementFingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0',
+      targetMovementFingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0',
+      sourceAmount: '6',
+      targetAmount: '6',
     };
 
     const result = assertOk(buildLinkFromOrphanedOverride(entry, candidates, txById));

@@ -1,5 +1,5 @@
-import { wrapError } from '@exitbook/core';
-import type { LinkOverridePayload, OverrideEvent, UnlinkOverridePayload } from '@exitbook/core';
+import { computeResolvedLinkFingerprint, computeTxFingerprint, wrapError } from '@exitbook/core';
+import type { LinkOverridePayload, OverrideEvent, OverrideLinkType, UnlinkOverridePayload } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -24,6 +24,10 @@ interface LinkWithStatus {
   sourceTransactionId: number;
   targetTransactionId: number;
   assetSymbol: string;
+  sourceAssetId?: string | undefined;
+  targetAssetId?: string | undefined;
+  sourceMovementFingerprint?: string | undefined;
+  targetMovementFingerprint?: string | undefined;
   status: 'suggested' | 'confirmed' | 'rejected';
   reviewedBy?: string | undefined;
   reviewedAt?: Date | undefined;
@@ -38,31 +42,29 @@ export function buildFingerprintMap(transactions: TransactionWithFingerprint[]):
   const map = new Map<string, number>();
 
   for (const tx of transactions) {
-    const fingerprint = `${tx.source}:${tx.externalId}`;
-    map.set(fingerprint, tx.id);
+    const fingerprintResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    if (fingerprintResult.isOk()) {
+      map.set(fingerprintResult.value, tx.id);
+    }
   }
 
   return map;
 }
 
 /**
- * Build both fingerprint and ID lookup maps in a single pass
- * More efficient than calling buildFingerprintMap separately when both maps are needed
+ * Build a fingerprint lookup map for transactions in a single pass.
  */
-function buildTransactionMaps(transactions: TransactionWithFingerprint[]): {
-  fingerprintMap: Map<string, number>;
-  txById: Map<number, TransactionWithFingerprint>;
-} {
+function buildTransactionMaps(transactions: TransactionWithFingerprint[]): { fingerprintMap: Map<string, number> } {
   const fingerprintMap = new Map<string, number>();
-  const txById = new Map<number, TransactionWithFingerprint>();
 
   for (const tx of transactions) {
-    const fingerprint = `${tx.source}:${tx.externalId}`;
-    fingerprintMap.set(fingerprint, tx.id);
-    txById.set(tx.id, tx);
+    const fingerprintResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    if (fingerprintResult.isOk()) {
+      fingerprintMap.set(fingerprintResult.value, tx.id);
+    }
   }
 
-  return { fingerprintMap, txById };
+  return { fingerprintMap };
 }
 
 /**
@@ -83,7 +85,13 @@ export interface OrphanedLinkOverride {
   sourceTransactionId: number;
   targetTransactionId: number;
   assetSymbol: string;
-  linkType: string;
+  linkType: OverrideLinkType;
+  sourceAssetId: string;
+  targetAssetId: string;
+  sourceMovementFingerprint: string;
+  targetMovementFingerprint: string;
+  sourceAmount: string;
+  targetAmount: string;
 }
 
 /**
@@ -92,11 +100,18 @@ export interface OrphanedLinkOverride {
  */
 interface OverrideState {
   action: 'confirm' | 'reject';
+  fingerprintKey: string;
   lastEvent: OverrideEvent;
   sourceTransactionId: number;
   targetTransactionId: number;
   assetSymbol: string;
-  linkType: string;
+  linkType: OverrideLinkType | '';
+  sourceAssetId?: string | undefined;
+  targetAssetId?: string | undefined;
+  sourceMovementFingerprint?: string | undefined;
+  targetMovementFingerprint?: string | undefined;
+  sourceAmount?: string | undefined;
+  targetAmount?: string | undefined;
 }
 
 /**
@@ -121,7 +136,7 @@ function projectOverrideState(
   const overrideStates = new Map<string, OverrideState>();
   const unresolved: OverrideEvent[] = [];
 
-  // Process events in chronological order (already sorted in JSONL)
+  // Process events in append order (already sorted by SQLite sequence)
   for (const override of overrides) {
     if (override.scope === 'link') {
       const payload = override.payload as LinkOverridePayload;
@@ -143,22 +158,38 @@ function projectOverrideState(
         continue;
       }
 
-      // Build link fingerprint (sorted for deterministic ordering)
-      const [fp1, fp2] = [payload.source_fingerprint, payload.target_fingerprint].sort();
-      const linkFingerprint = `link:${fp1}:${fp2}:${payload.asset}`;
+      const linkFingerprint = getOverrideFingerprint(payload);
+      if (linkFingerprint.isErr()) {
+        logger.warn(
+          {
+            overrideId: override.id,
+            error: linkFingerprint.error.message,
+          },
+          'Could not compute fingerprint for link override'
+        );
+        unresolved.push(override);
+        continue;
+      }
 
       // Upsert state (last event wins)
-      overrideStates.set(linkFingerprint, {
+      overrideStates.set(linkFingerprint.value, {
         action: 'confirm',
+        fingerprintKey: linkFingerprint.value,
         lastEvent: override,
         sourceTransactionId: sourceId,
         targetTransactionId: targetId,
         assetSymbol: payload.asset,
         linkType: payload.link_type,
+        sourceAssetId: payload.source_asset_id,
+        targetAssetId: payload.target_asset_id,
+        sourceMovementFingerprint: payload.source_movement_fingerprint,
+        targetMovementFingerprint: payload.target_movement_fingerprint,
+        sourceAmount: payload.source_amount,
+        targetAmount: payload.target_amount,
       });
     } else if (override.scope === 'unlink') {
       const payload = override.payload as UnlinkOverridePayload;
-      const linkFingerprint = payload.link_fingerprint;
+      const linkFingerprint = payload.resolved_link_fingerprint;
 
       // Get existing state to preserve transaction details
       const existingState = overrideStates.get(linkFingerprint);
@@ -179,6 +210,7 @@ function projectOverrideState(
         // arrives, it will update this state with real transaction details.
         overrideStates.set(linkFingerprint, {
           action: 'reject',
+          fingerprintKey: linkFingerprint,
           lastEvent: override,
           sourceTransactionId: -1, // Placeholder - will be replaced if link event arrives
           targetTransactionId: -1, // Placeholder - will be replaced if link event arrives
@@ -213,8 +245,8 @@ export function applyLinkOverrides(
   transactions: TransactionWithFingerprint[]
 ): Result<{ links: LinkWithStatus[]; orphaned: OrphanedLinkOverride[]; unresolved: OverrideEvent[] }, Error> {
   try {
-    // Build both lookup maps in a single pass for efficiency
-    const { fingerprintMap, txById } = buildTransactionMaps(transactions);
+    // Build transaction fingerprint lookup once for override resolution
+    const { fingerprintMap } = buildTransactionMaps(transactions);
     const orphaned: OrphanedLinkOverride[] = [];
 
     // Filter to link-related overrides
@@ -223,18 +255,9 @@ export function applyLinkOverrides(
     // Build a map of link fingerprints to link objects for fast lookup
     const linkMap = new Map<string, LinkWithStatus>();
     for (const link of links) {
-      const sourceTx = txById.get(link.sourceTransactionId);
-      const targetTx = txById.get(link.targetTransactionId);
-
-      if (sourceTx && targetTx) {
-        const sourceFingerprint = `${sourceTx.source}:${sourceTx.externalId}`;
-        const targetFingerprint = `${targetTx.source}:${targetTx.externalId}`;
-
-        // Sort fingerprints for deterministic ordering
-        const [fp1, fp2] = [sourceFingerprint, targetFingerprint].sort();
-        const linkFingerprint = `link:${fp1}:${fp2}:${link.assetSymbol}`;
-
-        linkMap.set(linkFingerprint, link);
+      const resolvedFingerprintResult = getResolvedLinkFingerprintForLink(link);
+      if (resolvedFingerprintResult.isOk()) {
+        linkMap.set(resolvedFingerprintResult.value, link);
       }
     }
 
@@ -255,13 +278,23 @@ export function applyLinkOverrides(
         if (state.action === 'confirm') {
           // Only create orphaned if final state is confirm
           // Validate we have proper transaction IDs (not placeholders from unlink-only)
-          if (state.sourceTransactionId === -1 || state.targetTransactionId === -1) {
+          if (
+            state.sourceTransactionId === -1 ||
+            state.targetTransactionId === -1 ||
+            state.linkType === '' ||
+            state.sourceAssetId === undefined ||
+            state.targetAssetId === undefined ||
+            state.sourceMovementFingerprint === undefined ||
+            state.targetMovementFingerprint === undefined ||
+            state.sourceAmount === undefined ||
+            state.targetAmount === undefined
+          ) {
             logger.warn(
               {
                 overrideId: state.lastEvent.id,
                 linkFingerprint,
               },
-              'Cannot create orphaned link from unlink-only override (missing transaction details)'
+              'Cannot create orphaned link from incomplete override state'
             );
             unresolved.push(state.lastEvent);
             continue;
@@ -280,6 +313,12 @@ export function applyLinkOverrides(
             targetTransactionId: state.targetTransactionId,
             assetSymbol: state.assetSymbol,
             linkType: state.linkType,
+            sourceAssetId: state.sourceAssetId,
+            targetAssetId: state.targetAssetId,
+            sourceMovementFingerprint: state.sourceMovementFingerprint,
+            targetMovementFingerprint: state.targetMovementFingerprint,
+            sourceAmount: state.sourceAmount,
+            targetAmount: state.targetAmount,
           });
         }
         // If final state is 'reject', don't create the link at all
@@ -291,4 +330,26 @@ export function applyLinkOverrides(
   } catch (error) {
     return wrapError(error, 'Failed to apply link overrides');
   }
+}
+
+function getOverrideFingerprint(payload: LinkOverridePayload): Result<string, Error> {
+  return ok(payload.resolved_link_fingerprint);
+}
+
+function getResolvedLinkFingerprintForLink(link: LinkWithStatus): Result<string, Error> {
+  if (
+    !link.sourceAssetId ||
+    !link.targetAssetId ||
+    !link.sourceMovementFingerprint ||
+    !link.targetMovementFingerprint
+  ) {
+    return wrapError(new Error('Missing resolved link identity'), 'Failed to build resolved override fingerprint');
+  }
+
+  return computeResolvedLinkFingerprint({
+    sourceAssetId: link.sourceAssetId,
+    targetAssetId: link.targetAssetId,
+    sourceMovementFingerprint: link.sourceMovementFingerprint,
+    targetMovementFingerprint: link.targetMovementFingerprint,
+  });
 }

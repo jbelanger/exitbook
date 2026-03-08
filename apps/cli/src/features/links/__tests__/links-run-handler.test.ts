@@ -9,7 +9,7 @@ import { LinksRunHandler } from '../links-run-handler.js';
 
 describe('LinksRunHandler', () => {
   let mockOrchestrator: { execute: Mock };
-  let mockOverrideStore: { exists: Mock; readAll: Mock };
+  let mockOverrideStore: { exists: Mock; readByScopes: Mock };
   let mockController: { abort: Mock; complete: Mock; fail: Mock; start: Mock; stop: Mock };
   let handler: LinksRunHandler;
 
@@ -27,7 +27,7 @@ describe('LinksRunHandler', () => {
 
     mockOverrideStore = {
       exists: vi.fn(),
-      readAll: vi.fn(),
+      readByScopes: vi.fn(),
     };
 
     mockController = {
@@ -47,7 +47,7 @@ describe('LinksRunHandler', () => {
 
   it('should not start the controller when reading overrides fails', async () => {
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readAll.mockResolvedValue(err(new Error('Overrides file is invalid')));
+    mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('Overrides file is invalid')));
 
     const result = await handler.execute(params);
 
@@ -73,7 +73,7 @@ describe('LinksRunHandler', () => {
     };
 
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readAll.mockResolvedValue(
+    mockOverrideStore.readByScopes.mockResolvedValue(
       ok([
         {
           id: 'evt-1',
@@ -83,7 +83,7 @@ describe('LinksRunHandler', () => {
           scope: 'unlink',
           payload: {
             type: 'unlink_override',
-            link_fingerprint: 'link:a:b:BTC',
+            resolved_link_fingerprint: 'resolved-link:v1:a:b:c:d',
           },
         },
       ])
@@ -93,10 +93,10 @@ describe('LinksRunHandler', () => {
     const result = await handler.execute(params);
 
     expect(result.isOk()).toBe(true);
-    expect(mockOverrideStore.readAll).toHaveBeenCalledOnce();
+    expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(['link', 'unlink']);
     expect(mockController.start).toHaveBeenCalledOnce();
     expect(mockOrchestrator.execute).toHaveBeenCalledWith(params, [expect.objectContaining({ scope: 'unlink' })]);
-    const readOverridesCallOrder = mockOverrideStore.readAll.mock.invocationCallOrder.at(0);
+    const readOverridesCallOrder = mockOverrideStore.readByScopes.mock.invocationCallOrder.at(0);
     const controllerStartCallOrder = mockController.start.mock.invocationCallOrder.at(0);
 
     expect(readOverridesCallOrder).toBeDefined();

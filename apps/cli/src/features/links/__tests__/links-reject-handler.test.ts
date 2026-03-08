@@ -83,12 +83,16 @@ describe('LinksRejectHandler', () => {
 
       await handler.execute(params);
 
+      const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
+      expect(appendCall).toBeDefined();
+
       // Sorted fingerprints: blockchain:bitcoin:abc123 < kraken:WITHDRAWAL-123
-      expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      expect(appendCall?.[0]).toMatchObject({
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+          resolved_link_fingerprint:
+            'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
         },
       });
     });

@@ -106,8 +106,8 @@ export function createLinksRunHandler(
 async function readLinkOverrides(overrideStore: OverrideStore): Promise<Result<OverrideEvent[], Error>> {
   if (!overrideStore.exists()) return ok([]);
 
-  const result = await overrideStore.readAll();
+  const result = await overrideStore.readByScopes(['link', 'unlink']);
   if (result.isErr()) return err(new Error(`Failed to read override events: ${result.error.message}`));
 
-  return ok(result.value.filter((o) => o.scope === 'link' || o.scope === 'unlink'));
+  return ok(result.value);
 }

@@ -15,9 +15,8 @@ const logger = getLogger('linking-orchestrator-utils');
  * An orphaned override occurs when the user confirmed a link between two
  * transactions, but the algorithm didn't rediscover it during reprocessing.
  *
- * Resolves source/target link candidates for the override asset symbol.
- * Only materializes when exactly one source candidate and one target candidate
- * match — ambiguous cases are skipped with a warning.
+ * Revalidates the exact source/target movement identity captured in the override.
+ * Only materializes when both exact candidates are rediscovered.
  */
 export function buildLinkFromOrphanedOverride(
   entry: OrphanedLinkOverride,
@@ -36,59 +35,48 @@ export function buildLinkFromOrphanedOverride(
     return err(new Error(`Target tx ${entry.targetTransactionId} not found for orphaned override`));
   }
 
-  // Resolve orphaned overrides from the same candidate set used by algorithmic matching,
-  // so manual links inherit identical amount shaping and movement identity.
-  const sourceCandidates = candidates.filter(
+  const exactSourceCandidate = candidates.find(
     (candidate) =>
       candidate.transactionId === entry.sourceTransactionId &&
       candidate.direction === 'out' &&
-      candidate.assetSymbol === entry.assetSymbol
+      candidate.movementFingerprint === entry.sourceMovementFingerprint &&
+      candidate.assetId === entry.sourceAssetId
   );
-  const targetCandidates = candidates.filter(
+  const exactTargetCandidate = candidates.find(
     (candidate) =>
       candidate.transactionId === entry.targetTransactionId &&
       candidate.direction === 'in' &&
-      candidate.assetSymbol === entry.assetSymbol
+      candidate.movementFingerprint === entry.targetMovementFingerprint &&
+      candidate.assetId === entry.targetAssetId
   );
 
-  if (sourceCandidates.length !== 1) {
-    const reason =
-      sourceCandidates.length === 0
-        ? `no outflow link candidates for ${entry.assetSymbol}`
-        : `${sourceCandidates.length} outflow link candidates for ${entry.assetSymbol} (ambiguous)`;
+  if (!exactSourceCandidate) {
     logger.warn(
       {
         overrideId: entry.override.id,
         sourceTransactionId: entry.sourceTransactionId,
         targetTransactionId: entry.targetTransactionId,
-        asset: entry.assetSymbol,
-        outflowCount: sourceCandidates.length,
+        sourceAssetId: entry.sourceAssetId,
+        sourceMovementFingerprint: entry.sourceMovementFingerprint,
       },
-      `Skipping orphaned override: source tx has ${reason}`
+      'Skipping orphaned override: exact source movement identity no longer resolves'
     );
-    return err(new Error(`Cannot resolve orphaned override: source tx has ${reason}`));
+    return err(new Error('Cannot resolve orphaned override: exact source movement identity no longer resolves'));
   }
 
-  if (targetCandidates.length !== 1) {
-    const reason =
-      targetCandidates.length === 0
-        ? `no inflow link candidates for ${entry.assetSymbol}`
-        : `${targetCandidates.length} inflow link candidates for ${entry.assetSymbol} (ambiguous)`;
+  if (!exactTargetCandidate) {
     logger.warn(
       {
         overrideId: entry.override.id,
         sourceTransactionId: entry.sourceTransactionId,
         targetTransactionId: entry.targetTransactionId,
-        asset: entry.assetSymbol,
-        inflowCount: targetCandidates.length,
+        targetAssetId: entry.targetAssetId,
+        targetMovementFingerprint: entry.targetMovementFingerprint,
       },
-      `Skipping orphaned override: target tx has ${reason}`
+      'Skipping orphaned override: exact target movement identity no longer resolves'
     );
-    return err(new Error(`Cannot resolve orphaned override: target tx has ${reason}`));
+    return err(new Error('Cannot resolve orphaned override: exact target movement identity no longer resolves'));
   }
-
-  const sourceCandidate = sourceCandidates[0]!;
-  const targetCandidate = targetCandidates[0]!;
 
   // Derive structural link type from source/target transaction sourceType
   // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
@@ -98,12 +86,12 @@ export function buildLinkFromOrphanedOverride(
     sourceTransactionId: entry.sourceTransactionId,
     targetTransactionId: entry.targetTransactionId,
     assetSymbol: entry.assetSymbol as Currency,
-    sourceAssetId: sourceCandidate.assetId,
-    targetAssetId: targetCandidate.assetId,
-    sourceAmount: sourceCandidate.amount,
-    targetAmount: targetCandidate.amount,
-    sourceMovementFingerprint: sourceCandidate.movementFingerprint,
-    targetMovementFingerprint: targetCandidate.movementFingerprint,
+    sourceAssetId: exactSourceCandidate.assetId,
+    targetAssetId: exactTargetCandidate.assetId,
+    sourceAmount: exactSourceCandidate.amount,
+    targetAmount: exactTargetCandidate.amount,
+    sourceMovementFingerprint: exactSourceCandidate.movementFingerprint,
+    targetMovementFingerprint: exactTargetCandidate.movementFingerprint,
     linkType,
     confidenceScore: parseDecimal('1'),
     matchCriteria: {

@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, isPartialMatchLinkMetadata, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingScopedTransaction, ScopedAssetMovement } from './build-accounting-scoped-transactions.js';
@@ -147,7 +147,7 @@ export function validateScopedTransferLinks(
       );
     }
 
-    const isPartialMatch = link.metadata?.['partialMatch'] === true;
+    const isPartialMatch = isPartialMatchLinkMetadata(link.metadata);
     const sourceMovementAmount = getTransferMovementAmount(sourceRef.movement);
     const targetMovementAmount = getTransferMovementAmount(targetRef.movement);
 

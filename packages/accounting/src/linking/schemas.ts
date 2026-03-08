@@ -4,7 +4,9 @@ import {
   LinkTypeSchema,
   MatchCriteriaSchema,
   NewTransactionLinkSchema,
+  SameHashExternalSourceAllocationSchema,
   TransactionLinkMetadataSchema,
+  TransactionLinkScoreBreakdownEntrySchema,
   TransactionLinkSchema,
 } from '@exitbook/core';
 import { z } from 'zod';
@@ -25,7 +27,9 @@ export {
   LinkStatusSchema,
   MatchCriteriaSchema,
   NewTransactionLinkSchema,
+  SameHashExternalSourceAllocationSchema,
   TransactionLinkMetadataSchema,
+  TransactionLinkScoreBreakdownEntrySchema,
   TransactionLinkSchema,
 };
 

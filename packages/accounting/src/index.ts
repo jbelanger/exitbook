@@ -96,12 +96,16 @@ export type {
   LinkStatus,
   MatchCriteria,
   TransactionLink,
+  TransactionLinkMetadata,
+  TransactionLinkScoreBreakdownEntry,
+  SameHashExternalSourceAllocation,
   PotentialMatch,
   MatchingConfig,
 } from './linking/types.js';
 export { DEFAULT_MATCHING_CONFIG } from './linking/matching-config.js';
 export { createTransactionLink } from './linking/link-construction.js';
 export { LinkIndex } from './linking/link-index.js';
+export { hasImpliedFeeLinkMetadata, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Pre-linking & strategy-based matching
 export { buildLinkCandidates } from './linking/pre-linking/index.js';

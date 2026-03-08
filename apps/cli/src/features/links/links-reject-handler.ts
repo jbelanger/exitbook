@@ -99,13 +99,7 @@ export class LinksRejectHandler {
 
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
-        await writeUnlinkOverrideEvent(
-          this.db.transactions,
-          this.overrideStore,
-          link.sourceTransactionId,
-          link.targetTransactionId,
-          link.assetSymbol
-        );
+        await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, link);
       }
 
       // Fetch transaction details for rich display

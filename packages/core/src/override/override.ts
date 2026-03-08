@@ -54,6 +54,13 @@ export const LinkOverridePayloadSchema = z.object({
   source_fingerprint: z.string().min(1, 'Source fingerprint must not be empty'),
   target_fingerprint: z.string().min(1, 'Target fingerprint must not be empty'),
   asset: z.string().min(1, 'Asset must not be empty'),
+  resolved_link_fingerprint: z.string().min(1, 'Resolved link fingerprint must not be empty'),
+  source_asset_id: z.string().min(1, 'Source asset ID must not be empty'),
+  target_asset_id: z.string().min(1, 'Target asset ID must not be empty'),
+  source_movement_fingerprint: z.string().min(1, 'Source movement fingerprint must not be empty'),
+  target_movement_fingerprint: z.string().min(1, 'Target movement fingerprint must not be empty'),
+  source_amount: z.string().min(1, 'Source amount must not be empty'),
+  target_amount: z.string().min(1, 'Target amount must not be empty'),
 });
 
 /**
@@ -62,7 +69,7 @@ export const LinkOverridePayloadSchema = z.object({
  */
 export const UnlinkOverridePayloadSchema = z.object({
   type: z.literal('unlink_override'),
-  link_fingerprint: z.string().min(1, 'Link fingerprint must not be empty'),
+  resolved_link_fingerprint: z.string().min(1, 'Resolved link fingerprint must not be empty'),
 });
 
 /**
@@ -88,7 +95,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
 
 /**
  * Override event schema
- * Represents a single override event in the JSONL store.
+ * Represents a single override event in the SQLite override store.
  * Enforces that scope and payload.type are consistent.
  */
 export const OverrideEventSchema = z
@@ -145,12 +152,15 @@ export interface TransactionFingerprintInput {
 }
 
 /**
- * Link fingerprint components
+ * Exact persisted link identity for override replay.
+ * This matches the stricter movement/asset identity already persisted on
+ * TransactionLink rows.
  */
-export interface LinkIdentity {
-  sourceTx: string; // source_name:external_id
-  targetTx: string; // source_name:external_id
-  asset: string;
+export interface ResolvedLinkIdentity {
+  sourceAssetId: string;
+  sourceMovementFingerprint: string;
+  targetAssetId: string;
+  targetMovementFingerprint: string;
 }
 
 /**

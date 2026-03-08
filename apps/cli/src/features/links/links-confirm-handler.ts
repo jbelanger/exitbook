@@ -94,13 +94,7 @@ export class LinksConfirmHandler {
 
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
-        await writeLinkOverrideEvent(
-          this.db.transactions,
-          this.overrideStore,
-          link.sourceTransactionId,
-          link.targetTransactionId,
-          link.assetSymbol
-        );
+        await writeLinkOverrideEvent(this.db.transactions, this.overrideStore, link);
       }
 
       // Fetch transaction details for rich display

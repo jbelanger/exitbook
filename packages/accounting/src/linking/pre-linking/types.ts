@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency, TransactionLinkMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkCandidate } from '../link-candidate.js';
@@ -26,7 +26,7 @@ export interface PendingInternalLink {
   reviewedAt: Date;
   createdAt: Date;
   updatedAt: Date;
-  metadata?: Record<string, unknown> | undefined;
+  metadata?: TransactionLinkMetadata | undefined;
 }
 
 /**

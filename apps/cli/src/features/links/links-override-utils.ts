@@ -1,7 +1,12 @@
 // Shared utility for writing link/unlink override events from CLI handlers.
 // Resolves transaction fingerprints and delegates to OverrideStore.
 
-import { computeLinkFingerprint, computeTxFingerprint, type CreateOverrideEventOptions } from '@exitbook/core';
+import {
+  computeResolvedLinkFingerprint,
+  computeTxFingerprint,
+  type CreateOverrideEventOptions,
+  type TransactionLink,
+} from '@exitbook/core';
 import { type OverrideStore, type TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
@@ -15,11 +20,9 @@ const logger = getLogger('LinkOverrideUtils');
 export async function writeLinkOverrideEvent(
   txRepo: TransactionRepository,
   overrideStore: OverrideStore,
-  sourceTransactionId: number,
-  targetTransactionId: number,
-  assetSymbol: string
+  link: TransactionLink
 ): Promise<void> {
-  const fingerprints = await resolveFingerprints(txRepo, sourceTransactionId, targetTransactionId, assetSymbol);
+  const fingerprints = await resolveFingerprints(txRepo, link);
   if (!fingerprints) return;
 
   const options: CreateOverrideEventOptions = {
@@ -30,7 +33,14 @@ export async function writeLinkOverrideEvent(
       link_type: 'transfer',
       source_fingerprint: fingerprints.sourceFp,
       target_fingerprint: fingerprints.targetFp,
-      asset: assetSymbol,
+      asset: link.assetSymbol,
+      resolved_link_fingerprint: fingerprints.resolvedLinkFp,
+      source_asset_id: link.sourceAssetId,
+      target_asset_id: link.targetAssetId,
+      source_movement_fingerprint: link.sourceMovementFingerprint,
+      target_movement_fingerprint: link.targetMovementFingerprint,
+      source_amount: link.sourceAmount.toFixed(),
+      target_amount: link.targetAmount.toFixed(),
     },
   };
 
@@ -42,24 +52,22 @@ export async function writeLinkOverrideEvent(
 
 /**
  * Write an unlink_override event to the override store.
- * Fetches both transactions to compute the link fingerprint.
+ * Fetches both transactions to compute the resolved link fingerprint.
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeUnlinkOverrideEvent(
   txRepo: TransactionRepository,
   overrideStore: OverrideStore,
-  sourceTransactionId: number,
-  targetTransactionId: number,
-  assetSymbol: string
+  link: TransactionLink
 ): Promise<void> {
-  const fingerprints = await resolveFingerprints(txRepo, sourceTransactionId, targetTransactionId, assetSymbol);
+  const fingerprints = await resolveFingerprints(txRepo, link);
   if (!fingerprints) return;
 
   const options: CreateOverrideEventOptions = {
     scope: 'unlink',
     payload: {
       type: 'unlink_override',
-      link_fingerprint: fingerprints.linkFp,
+      resolved_link_fingerprint: fingerprints.resolvedLinkFp,
     },
   };
 
@@ -70,19 +78,17 @@ export async function writeUnlinkOverrideEvent(
 }
 
 /**
- * Resolve transaction and link fingerprints from transaction IDs.
+ * Resolve transaction and exact link fingerprints from transaction IDs.
  * Returns undefined if any step fails (with warnings logged).
  */
 async function resolveFingerprints(
   txRepo: TransactionRepository,
-  sourceTransactionId: number,
-  targetTransactionId: number,
-  assetSymbol: string
-): Promise<{ linkFp: string; sourceFp: string; targetFp: string } | undefined> {
+  link: TransactionLink
+): Promise<{ resolvedLinkFp: string; sourceFp: string; targetFp: string } | undefined> {
   try {
     const [sourceResult, targetResult] = await Promise.all([
-      txRepo.findById(sourceTransactionId),
-      txRepo.findById(targetTransactionId),
+      txRepo.findById(link.sourceTransactionId),
+      txRepo.findById(link.targetTransactionId),
     ]);
 
     if (sourceResult.isErr() || targetResult.isErr()) {
@@ -106,18 +112,23 @@ async function resolveFingerprints(
       return undefined;
     }
 
-    const linkFpResult = computeLinkFingerprint({
-      sourceTx: sourceFp.value,
-      targetTx: targetFp.value,
-      asset: assetSymbol,
+    const resolvedLinkFpResult = computeResolvedLinkFingerprint({
+      sourceAssetId: link.sourceAssetId,
+      targetAssetId: link.targetAssetId,
+      sourceMovementFingerprint: link.sourceMovementFingerprint,
+      targetMovementFingerprint: link.targetMovementFingerprint,
     });
 
-    if (linkFpResult.isErr()) {
-      logger.warn('Failed to compute link fingerprint for override event');
+    if (resolvedLinkFpResult.isErr()) {
+      logger.warn('Failed to compute resolved link fingerprint for override event');
       return undefined;
     }
 
-    return { sourceFp: sourceFp.value, targetFp: targetFp.value, linkFp: linkFpResult.value };
+    return {
+      sourceFp: sourceFp.value,
+      targetFp: targetFp.value,
+      resolvedLinkFp: resolvedLinkFpResult.value,
+    };
   } catch (error) {
     logger.warn({ error }, 'Unexpected error resolving fingerprints for override event');
     return undefined;

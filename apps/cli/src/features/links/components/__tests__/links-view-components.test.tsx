@@ -249,6 +249,35 @@ describe('LinksViewApp - links mode', () => {
     expect(frame).toContain('2023-03-15');
     expect(frame).toContain('Change: 0.00823055 BTC');
   });
+
+  it('shows implied fee when the linker persisted fee metadata', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'confirmed', 1, 'BTC', '0.015765', '0.01563663', 839, 807),
+          metadata: {
+            variance: '0.00012837',
+            variancePct: '0.81',
+            impliedFee: '0.00012837',
+          },
+        },
+        sourceTransaction: createMockTransaction(839, 'coinbase', '2024-03-05T22:13:31.000Z'),
+        targetTransaction: createMockTransaction(807, 'bitcoin', '2024-03-05T22:19:54.000Z'),
+      },
+    ];
+    const state = createLinksViewState(links);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('Implied fee: 0.00012837 BTC');
+    expect(frame).not.toContain('Change: 0.00012837 BTC');
+  });
 });
 
 describe('LinksViewApp - gaps mode', () => {

@@ -164,10 +164,10 @@ function buildLinksRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
 
       let overrides: import('@exitbook/core').OverrideEvent[] = [];
       if (overrideStore.exists()) {
-        const overridesResult = await overrideStore.readAll();
+        const overridesResult = await overrideStore.readByScopes(['link', 'unlink']);
         if (overridesResult.isErr())
           return err(new Error(`Failed to read override events: ${overridesResult.error.message}`));
-        overrides = overridesResult.value.filter((o) => o.scope === 'link' || o.scope === 'unlink');
+        overrides = overridesResult.value;
       }
 
       const params = {

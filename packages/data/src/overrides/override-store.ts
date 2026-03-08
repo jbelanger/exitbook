@@ -1,40 +1,37 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream, existsSync } from 'node:fs';
-import { appendFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { createInterface } from 'node:readline';
 
 import { wrapError } from '@exitbook/core';
 import { OverrideEventSchema, type OverrideEvent, type Scope } from '@exitbook/core';
 import type { CreateOverrideEventOptions } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
+import type { Selectable } from '@exitbook/sqlite';
+
+import { withOverridesDatabase } from './database.js';
+import type { OverrideEventsTable } from './schema.js';
 
 /**
- * Override Store - Append-only JSONL persistence for user override events
+ * Override Store - durable SQLite persistence for user override events
  *
  * Stores user decisions (confirmed links, manual prices, etc.) separately from
  * derived data so they survive database wipes and reprocessing.
  *
- * Format: JSONL (JSON Lines) - one JSON object per line
- * Location: ${dataDir}/overrides.jsonl
+ * Storage: ${dataDir}/overrides.db
  *
- * Example content:
- * {"id":"abc-123","created_at":"2024-01-15T10:00:00Z","actor":"user","source":"cli","scope":"link","payload":{...}}
- * {"id":"def-456","created_at":"2024-01-15T11:00:00Z","actor":"user","source":"cli","scope":"price","payload":{...}}
- *
- * Events are replayed in chronological order during reprocessing.
- *
- * Concurrency: Uses a write queue to serialize append operations and prevent
- * interleaved writes that could corrupt the JSONL format.
+ * Events are returned in append order via an autoincrement sequence column.
+ * Writes are still serialized by an internal queue so command-level callers
+ * keep the same "append and continue" behavior as before.
  */
 export class OverrideStore {
-  private readonly filePath: string;
+  private readonly dbPath: string;
   private readonly logger: Logger;
   private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(dataDir: string) {
-    this.filePath = path.join(dataDir, 'overrides.jsonl');
+    this.dbPath = path.join(dataDir, 'overrides.db');
     this.logger = getLogger('OverrideStore');
   }
 
@@ -65,48 +62,31 @@ export class OverrideStore {
    */
   async readAll(): Promise<Result<OverrideEvent[], Error>> {
     try {
-      if (!existsSync(this.filePath)) {
-        this.logger.debug({ filePath: this.filePath }, 'Override file does not exist, returning empty array');
+      const ensureResult = await this.ensureDatabaseReady();
+      if (ensureResult.isErr()) {
+        return err(ensureResult.error);
+      }
+
+      if (!ensureResult.value) {
+        this.logger.debug({ dbPath: this.dbPath }, 'Override database does not exist, returning empty array');
         return ok([]);
       }
 
-      const events: OverrideEvent[] = [];
-      const fileStream = createReadStream(this.filePath, 'utf-8');
-      const rl = createInterface({
-        input: fileStream,
-        crlfDelay: Number.POSITIVE_INFINITY,
-      });
-
-      let lineNumber = 0;
-      for await (const line of rl) {
-        lineNumber++;
-
-        if (!line.trim()) {
-          continue;
-        }
-
-        let parsed: unknown;
+      return withOverridesDatabase(this.dbPath, async (db) => {
         try {
-          parsed = JSON.parse(line);
-        } catch (parseError) {
-          this.logger.warn({ lineNumber, line, error: parseError }, 'Failed to parse JSONL line, skipping');
-          continue;
+          const rows = await db.selectFrom('override_events').selectAll().orderBy('sequence_id', 'asc').execute();
+
+          const eventsResult = this.parseStoredEvents(rows);
+          if (eventsResult.isErr()) {
+            return err(eventsResult.error);
+          }
+
+          this.logger.debug({ count: eventsResult.value.length }, 'Read override events');
+          return ok(eventsResult.value);
+        } catch (error) {
+          return wrapError(error, 'Failed to read override events');
         }
-
-        const validationResult = OverrideEventSchema.safeParse(parsed);
-        if (!validationResult.success) {
-          this.logger.warn(
-            { lineNumber, error: validationResult.error, parsed },
-            'Invalid override event in JSONL, skipping'
-          );
-          continue;
-        }
-
-        events.push(validationResult.data);
-      }
-
-      this.logger.debug({ count: events.length }, 'Read override events');
-      return ok(events);
+      });
     } catch (error) {
       return wrapError(error, 'Failed to read override events');
     }
@@ -116,28 +96,71 @@ export class OverrideStore {
    * Read override events filtered by scope
    */
   async readByScope(scope: Scope): Promise<Result<OverrideEvent[], Error>> {
-    const allEventsResult = await this.readAll();
-    if (allEventsResult.isErr()) {
-      return err(allEventsResult.error);
+    const eventsResult = await this.readByScopes([scope]);
+    if (eventsResult.isErr()) {
+      return err(eventsResult.error);
     }
 
-    const events = allEventsResult.value.filter((event) => event.scope === scope);
-    this.logger.debug({ scope, count: events.length }, 'Read override events by scope');
-    return ok(events);
+    this.logger.debug({ scope, count: eventsResult.value.length }, 'Read override events by scope');
+    return ok(eventsResult.value);
+  }
+
+  /**
+   * Read override events filtered by multiple scopes while preserving append order.
+   */
+  async readByScopes(scopes: Scope[]): Promise<Result<OverrideEvent[], Error>> {
+    try {
+      if (scopes.length === 0) {
+        return ok([]);
+      }
+
+      const ensureResult = await this.ensureDatabaseReady();
+      if (ensureResult.isErr()) {
+        return err(ensureResult.error);
+      }
+
+      if (!ensureResult.value) {
+        this.logger.debug({ dbPath: this.dbPath, scopes }, 'Override database does not exist, returning empty array');
+        return ok([]);
+      }
+
+      return withOverridesDatabase(this.dbPath, async (db) => {
+        try {
+          const rows = await db
+            .selectFrom('override_events')
+            .selectAll()
+            .where('scope', 'in', scopes)
+            .orderBy('sequence_id', 'asc')
+            .execute();
+
+          const eventsResult = this.parseStoredEvents(rows);
+          if (eventsResult.isErr()) {
+            return err(eventsResult.error);
+          }
+
+          this.logger.debug({ scopes, count: eventsResult.value.length }, 'Read override events by scopes');
+          return ok(eventsResult.value);
+        } catch (error) {
+          return wrapError(error, 'Failed to read override events by scopes');
+        }
+      });
+    } catch (error) {
+      return wrapError(error, 'Failed to read override events by scopes');
+    }
   }
 
   /**
    * Get the file path for the override store
    */
   getFilePath(): string {
-    return this.filePath;
+    return this.dbPath;
   }
 
   /**
    * Check if the override store file exists
    */
   exists(): boolean {
-    return existsSync(this.filePath);
+    return existsSync(this.dbPath);
   }
 
   /**
@@ -162,25 +185,92 @@ export class OverrideStore {
         return err(new Error(`Invalid override event: ${validationResult.error.message}`));
       }
 
-      // Ensure directory exists
-      const dir = path.dirname(this.filePath);
-      await mkdir(dir, { recursive: true });
+      const ensureResult = await this.ensureDatabaseReady({ createIfMissing: true });
+      if (ensureResult.isErr()) {
+        return err(ensureResult.error);
+      }
 
-      // Append event as JSONL (one line)
-      const line = JSON.stringify(event) + '\n';
-      await appendFile(this.filePath, line, 'utf-8');
+      return withOverridesDatabase(this.dbPath, async (db) => {
+        try {
+          await db
+            .insertInto('override_events')
+            .values({
+              event_id: event.id,
+              created_at: event.created_at,
+              actor: event.actor,
+              source: event.source,
+              scope: event.scope,
+              reason: event.reason,
+              payload_json: JSON.stringify(event.payload),
+            })
+            .execute();
 
-      this.logger.info(
-        {
-          eventId: event.id,
-          scope: event.scope,
-        },
-        'Appended override event'
-      );
+          this.logger.info(
+            {
+              eventId: event.id,
+              scope: event.scope,
+            },
+            'Appended override event'
+          );
 
-      return ok(event);
+          return ok(event);
+        } catch (error) {
+          return wrapError(error, 'Failed to persist override event');
+        }
+      });
     } catch (error) {
       return wrapError(error, 'Failed to append override event');
     }
+  }
+
+  private async ensureDatabaseReady(options?: {
+    createIfMissing?: boolean | undefined;
+  }): Promise<Result<boolean, Error>> {
+    try {
+      if (existsSync(this.dbPath)) {
+        return ok(true);
+      }
+
+      if (!options?.createIfMissing) {
+        return ok(false);
+      }
+
+      await mkdir(path.dirname(this.dbPath), { recursive: true });
+      const dbReadyResult = await withOverridesDatabase(this.dbPath, async () => ok(undefined));
+
+      if (dbReadyResult.isErr()) {
+        return err(dbReadyResult.error);
+      }
+
+      return ok(true);
+    } catch (error) {
+      return wrapError(error, 'Failed to initialize override database');
+    }
+  }
+
+  private parseStoredEvents(rows: Selectable<OverrideEventsTable>[]): Result<OverrideEvent[], Error> {
+    const events: OverrideEvent[] = [];
+
+    for (const row of rows) {
+      const parsedPayload: unknown = JSON.parse(row.payload_json);
+      const eventCandidate = {
+        id: row.event_id,
+        created_at: row.created_at,
+        actor: row.actor,
+        source: row.source,
+        scope: row.scope as Scope,
+        reason: row.reason ?? undefined,
+        payload: parsedPayload,
+      };
+
+      const validationResult = OverrideEventSchema.safeParse(eventCandidate);
+      if (!validationResult.success) {
+        return err(new Error(`Invalid override event stored in database: ${validationResult.error.message}`));
+      }
+
+      events.push(validationResult.data);
+    }
+
+    return ok(events);
   }
 }

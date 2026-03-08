@@ -2,7 +2,12 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { NewTransactionLink, PotentialMatch } from './types.js';
+import type {
+  NewTransactionLink,
+  PotentialMatch,
+  TransactionLinkMetadata,
+  TransactionLinkScoreBreakdownEntry,
+} from './types.js';
 
 export const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
 
@@ -175,15 +180,15 @@ export function createTransactionLink(
 
   // Build metadata
   const validationInfo = validationResult.value;
-  const metadata: Record<string, unknown> = {};
+  const metadata: TransactionLinkMetadata = {};
 
   if (isPartialMatch) {
     // Partial match: record full original amounts for audit trail.
     // No impliedFee — it's meaningless for splits/consolidations.
-    metadata['partialMatch'] = true;
-    metadata['fullSourceAmount'] = match.sourceMovement.amount.toFixed();
-    metadata['fullTargetAmount'] = match.targetMovement.amount.toFixed();
-    metadata['consumedAmount'] = sourceAmount.toFixed();
+    metadata.partialMatch = true;
+    metadata.fullSourceAmount = match.sourceMovement.amount.toFixed();
+    metadata.fullTargetAmount = match.targetMovement.amount.toFixed();
+    metadata.consumedAmount = sourceAmount.toFixed();
   } else {
     // 1:1 match: variance/implied fee (original behavior, unchanged)
     const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
@@ -191,19 +196,20 @@ export function createTransactionLink(
   }
 
   if (validationInfo.allowTargetExcess) {
-    metadata['targetExcessAllowed'] = true;
-    metadata['targetExcess'] = validationInfo.allowTargetExcess.excess.toFixed();
-    metadata['targetExcessPct'] = validationInfo.allowTargetExcess.excessPct.toFixed(2);
+    metadata.targetExcessAllowed = true;
+    metadata.targetExcess = validationInfo.allowTargetExcess.excess.toFixed();
+    metadata.targetExcessPct = validationInfo.allowTargetExcess.excessPct.toFixed(2);
   }
 
   // Persist score breakdown for audit trails / debugging
   if (match.scoreBreakdown && match.scoreBreakdown.length > 0) {
-    metadata['scoreBreakdown'] = match.scoreBreakdown.map((c) => ({
+    const scoreBreakdown: TransactionLinkScoreBreakdownEntry[] = match.scoreBreakdown.map((c) => ({
       signal: c.signal,
       weight: c.weight.toFixed(),
       value: c.value.toFixed(),
       contribution: c.contribution.toFixed(),
     }));
+    metadata.scoreBreakdown = scoreBreakdown;
   }
 
   return ok({

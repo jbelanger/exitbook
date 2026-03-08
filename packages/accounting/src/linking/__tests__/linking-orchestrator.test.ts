@@ -42,7 +42,7 @@ function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinking
 }
 
 describe('LinkingOrchestrator', () => {
-  it('applies unlink overrides to internal links so rejected links do not reappear', async () => {
+  it('applies exact unlink overrides to internal links so rejected links do not reappear', async () => {
     // Two blockchain transactions with same hash from different accounts → internal link
     const transactions = [
       createTransaction({
@@ -73,8 +73,8 @@ describe('LinkingOrchestrator', () => {
       scope: 'unlink',
       payload: {
         type: 'unlink_override',
-        link_fingerprint:
-          'link:blockchain:ethereum:blockchain:ethereum-1:blockchain:ethereum:blockchain:ethereum-2:ETH',
+        resolved_link_fingerprint:
+          'resolved-link:v1:movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
       },
     };
 
@@ -203,7 +203,7 @@ describe('LinkingOrchestrator', () => {
     expect(assertErr(result).message).toContain('replace failed');
   });
 
-  it('skips orphaned override when assetId cannot be resolved from movements', async () => {
+  it('skips orphaned override when exact asset ids do not resolve from current candidates', async () => {
     // Transactions have ETH movements only — override references BTC (no match)
     const transactions = [
       createTransaction({
@@ -236,6 +236,14 @@ describe('LinkingOrchestrator', () => {
         source_fingerprint: 'kraken:kraken-1',
         target_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-2',
         asset: 'BTC',
+        resolved_link_fingerprint:
+          'resolved-link:v1:movement:kraken:kraken-1:outflow:0:movement:blockchain:bitcoin:blockchain:bitcoin-2:inflow:0:test:btc:test:btc',
+        source_asset_id: 'test:btc',
+        target_asset_id: 'test:btc',
+        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:0',
+        target_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-2:inflow:0',
+        source_amount: '10',
+        target_amount: '10',
       },
     };
 
@@ -257,7 +265,7 @@ describe('LinkingOrchestrator', () => {
     assertOk(result);
   });
 
-  it('skips orphaned override when source transaction has ambiguous assetIds for symbol', async () => {
+  it('skips orphaned override when exact source movement identity no longer resolves', async () => {
     const transactions = [
       createTransaction({
         id: 1,
@@ -288,6 +296,14 @@ describe('LinkingOrchestrator', () => {
         source_fingerprint: 'kraken:kraken-1',
         target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
         asset: 'USDC',
+        resolved_link_fingerprint:
+          'resolved-link:v1:movement:kraken:kraken-1:outflow:9:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:usdc:test:usdc',
+        source_asset_id: 'test:usdc',
+        target_asset_id: 'test:usdc',
+        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:9',
+        target_movement_fingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0',
+        source_amount: '100',
+        target_amount: '101',
       },
     };
 
@@ -425,8 +441,8 @@ describe('LinkingOrchestrator', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint:
-            'link:blockchain:ethereum:blockchain:ethereum-1:blockchain:ethereum:blockchain:ethereum-2:ETH',
+          resolved_link_fingerprint:
+            'resolved-link:v1:movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
         },
       };
 
@@ -447,7 +463,7 @@ describe('LinkingOrchestrator', () => {
     });
   });
 
-  it('skips orphaned override when target transaction has ambiguous assetIds for symbol', async () => {
+  it('skips orphaned override when exact target movement identity no longer resolves', async () => {
     const transactions = [
       createTransaction({
         id: 1,
@@ -478,6 +494,14 @@ describe('LinkingOrchestrator', () => {
         source_fingerprint: 'kraken:kraken-1',
         target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
         asset: 'USDC',
+        resolved_link_fingerprint:
+          'resolved-link:v1:movement:kraken:kraken-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:9:test:usdc:test:usdc',
+        source_asset_id: 'test:usdc',
+        target_asset_id: 'test:usdc',
+        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:0',
+        target_movement_fingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:9',
+        source_amount: '100',
+        target_amount: '99',
       },
     };
 

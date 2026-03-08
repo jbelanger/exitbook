@@ -2,7 +2,13 @@
  * Links view TUI components
  */
 
-import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
+import {
+  hasImpliedFeeLinkMetadata,
+  isPartialMatchLinkMetadata,
+  type LinkStatus,
+  type MatchCriteria,
+  type TransactionLink,
+} from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
@@ -391,15 +397,11 @@ interface LinkAmountDisplay {
 
 function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
   const metadata = link.metadata;
-  const isPartialMatch = metadata?.['partialMatch'] === true;
 
-  if (isPartialMatch) {
-    const consumedAmount =
-      typeof metadata?.['consumedAmount'] === 'string' ? metadata['consumedAmount'] : link.sourceAmount.toFixed();
-    const fullSourceAmount =
-      typeof metadata?.['fullSourceAmount'] === 'string' ? metadata['fullSourceAmount'] : link.sourceAmount.toFixed();
-    const fullTargetAmount =
-      typeof metadata?.['fullTargetAmount'] === 'string' ? metadata['fullTargetAmount'] : link.targetAmount.toFixed();
+  if (isPartialMatchLinkMetadata(metadata)) {
+    const consumedAmount = metadata.consumedAmount ?? link.sourceAmount.toFixed();
+    const fullSourceAmount = metadata.fullSourceAmount ?? link.sourceAmount.toFixed();
+    const fullTargetAmount = metadata.fullTargetAmount ?? link.targetAmount.toFixed();
 
     return {
       detailLabel: 'Summary:',
@@ -417,9 +419,9 @@ function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
 
   if (link.sourceAmount.greaterThan(link.targetAmount)) {
     return {
-      detailLabel: 'Change:',
+      detailLabel: hasImpliedFeeLinkMetadata(metadata) ? 'Implied fee:' : 'Change:',
       matchedAmount: link.targetAmount.toFixed(),
-      detailSummary: `${link.sourceAmount.minus(link.targetAmount).toFixed()} ${link.assetSymbol}`,
+      detailSummary: `${hasImpliedFeeLinkMetadata(metadata) ? metadata.impliedFee : link.sourceAmount.minus(link.targetAmount).toFixed()} ${link.assetSymbol}`,
     };
   }
 

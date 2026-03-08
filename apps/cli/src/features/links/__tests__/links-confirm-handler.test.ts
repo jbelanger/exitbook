@@ -83,7 +83,9 @@ describe('LinksConfirmHandler', () => {
 
       await handler.execute(params);
 
-      expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
+      expect(appendCall).toBeDefined();
+      expect(appendCall?.[0]).toMatchObject({
         scope: 'link',
         payload: {
           type: 'link_override',
@@ -92,6 +94,14 @@ describe('LinksConfirmHandler', () => {
           source_fingerprint: 'kraken:WITHDRAWAL-123',
           target_fingerprint: 'blockchain:bitcoin:abc123',
           asset: 'BTC',
+          resolved_link_fingerprint:
+            'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+          source_asset_id: 'exchange:source:btc',
+          target_asset_id: 'blockchain:target:btc',
+          source_movement_fingerprint: 'movement:exchange:source:1:btc:outflow:0',
+          target_movement_fingerprint: 'movement:blockchain:target:2:btc:inflow:0',
+          source_amount: '1',
+          target_amount: '1',
         },
       });
     });

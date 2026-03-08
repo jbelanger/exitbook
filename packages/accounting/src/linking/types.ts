@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import type {
   LinkStatusSchema,
+  SameHashExternalSourceAllocationSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
   MatchingConfigSchema,
@@ -9,6 +10,8 @@ import type {
   PotentialMatchSchema,
   ScoreComponentSchema,
   TransactionLinkSchema,
+  TransactionLinkMetadataSchema,
+  TransactionLinkScoreBreakdownEntrySchema,
 } from './schemas.js';
 
 /**
@@ -40,6 +43,9 @@ export type LinkStatus = z.infer<typeof LinkStatusSchema>;
  * - addressMatch: If we can match blockchain addresses (optional)
  */
 export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
+export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;
+export type TransactionLinkScoreBreakdownEntry = z.infer<typeof TransactionLinkScoreBreakdownEntrySchema>;
+export type SameHashExternalSourceAllocation = z.infer<typeof SameHashExternalSourceAllocationSchema>;
 
 /**
  * Transaction link - represents a connection between two transactions

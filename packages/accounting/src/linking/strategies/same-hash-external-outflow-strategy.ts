@@ -5,7 +5,13 @@ import type { Decimal } from 'decimal.js';
 import { createTransactionLink } from '../link-construction.js';
 import { shouldAutoConfirm } from '../match-allocation.js';
 import type { LinkCandidate } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../types.js';
+import type {
+  MatchingConfig,
+  NewTransactionLink,
+  PotentialMatch,
+  SameHashExternalSourceAllocation,
+  TransactionLinkMetadata,
+} from '../types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
@@ -15,13 +21,6 @@ interface SameHashExternalOutflowGroup {
   hash: string;
   sources: LinkCandidate[];
   toAddress: string;
-}
-
-interface SameHashExternalSourceAllocation {
-  feeDeducted: string;
-  grossAmount: string;
-  linkedAmount: string;
-  sourceTransactionId: number;
 }
 
 /**
@@ -74,7 +73,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
         }
 
         const link = linkResult.value;
-        link.metadata = {
+        const metadata: TransactionLinkMetadata = {
           ...link.metadata,
           dedupedSameHashFee: dedupedFee.toFixed(),
           sameHashExternalGroup: true,
@@ -85,6 +84,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
           blockchainTxHash: group.hash,
           sharedToAddress: group.toAddress,
         };
+        link.metadata = metadata;
 
         links.push(link);
         consumedCandidateIds.add(match.sourceMovement.id);

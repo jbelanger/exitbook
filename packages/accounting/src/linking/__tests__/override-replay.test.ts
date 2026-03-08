@@ -3,6 +3,36 @@ import { describe, expect, it } from 'vitest';
 
 import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from '../override-replay.js';
 
+const sourceAssetId = 'exchange:kraken:btc';
+const targetAssetId = 'blockchain:bitcoin:native';
+const sourceMovementFingerprint = 'movement:kraken:WITHDRAWAL-123:outflow:0';
+const targetMovementFingerprint = 'movement:blockchain:bitcoin:abc123:inflow:0';
+const resolvedLinkFingerprint = [
+  'resolved-link:v1',
+  sourceMovementFingerprint,
+  targetMovementFingerprint,
+  sourceAssetId,
+  targetAssetId,
+].join(':');
+
+function createLinkOverridePayload(targetFingerprint = 'blockchain:bitcoin:abc123'): LinkOverridePayload {
+  return {
+    type: 'link_override',
+    action: 'confirm',
+    link_type: 'transfer',
+    source_fingerprint: 'kraken:WITHDRAWAL-123',
+    target_fingerprint: targetFingerprint,
+    asset: 'BTC',
+    resolved_link_fingerprint: resolvedLinkFingerprint,
+    source_asset_id: sourceAssetId,
+    target_asset_id: targetAssetId,
+    source_movement_fingerprint: sourceMovementFingerprint,
+    target_movement_fingerprint: targetMovementFingerprint,
+    source_amount: '1',
+    target_amount: '0.999',
+  };
+}
+
 describe('buildFingerprintMap', () => {
   it('should build fingerprint to ID map', () => {
     const transactions = [
@@ -56,18 +86,15 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
 
-    const payload: LinkOverridePayload = {
-      type: 'link_override',
-      action: 'confirm',
-      link_type: 'transfer',
-      source_fingerprint: 'kraken:WITHDRAWAL-123',
-      target_fingerprint: 'blockchain:bitcoin:abc123',
-      asset: 'BTC',
-    };
+    const payload = createLinkOverridePayload();
 
     const overrides: OverrideEvent[] = [
       {
@@ -107,6 +134,10 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
@@ -120,7 +151,7 @@ describe('applyLinkOverrides', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+          resolved_link_fingerprint: resolvedLinkFingerprint,
         },
       },
     ];
@@ -154,14 +185,7 @@ describe('applyLinkOverrides', () => {
       targetTransactionId: number;
     }[] = [];
 
-    const payload: LinkOverridePayload = {
-      type: 'link_override',
-      action: 'confirm',
-      link_type: 'transfer',
-      source_fingerprint: 'kraken:WITHDRAWAL-123',
-      target_fingerprint: 'blockchain:bitcoin:abc123',
-      asset: 'BTC',
-    };
+    const payload = createLinkOverridePayload();
 
     const overrides: OverrideEvent[] = [
       {
@@ -202,18 +226,15 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
 
-    const payload: LinkOverridePayload = {
-      type: 'link_override',
-      action: 'confirm',
-      link_type: 'transfer',
-      source_fingerprint: 'kraken:WITHDRAWAL-123',
-      target_fingerprint: 'blockchain:bitcoin:unknown',
-      asset: 'BTC',
-    };
+    const payload = createLinkOverridePayload('blockchain:bitcoin:unknown');
 
     const overrides: OverrideEvent[] = [
       {
@@ -252,6 +273,10 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
@@ -290,14 +315,7 @@ describe('applyLinkOverrides', () => {
         actor: 'user',
         source: 'cli',
         scope: 'link',
-        payload: {
-          type: 'link_override',
-          action: 'confirm',
-          link_type: 'transfer',
-          source_fingerprint: 'kraken:WITHDRAWAL-123',
-          target_fingerprint: 'blockchain:bitcoin:abc123',
-          asset: 'BTC',
-        },
+        payload: createLinkOverridePayload(),
       },
       {
         id: 'override-2',
@@ -307,7 +325,7 @@ describe('applyLinkOverrides', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+          resolved_link_fingerprint: resolvedLinkFingerprint,
         },
       },
     ];
@@ -335,6 +353,10 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
@@ -346,14 +368,7 @@ describe('applyLinkOverrides', () => {
         actor: 'user',
         source: 'cli',
         scope: 'link',
-        payload: {
-          type: 'link_override',
-          action: 'confirm',
-          link_type: 'transfer',
-          source_fingerprint: 'kraken:WITHDRAWAL-123',
-          target_fingerprint: 'blockchain:bitcoin:abc123',
-          asset: 'BTC',
-        },
+        payload: createLinkOverridePayload(),
       },
       {
         id: 'override-2',
@@ -363,7 +378,7 @@ describe('applyLinkOverrides', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+          resolved_link_fingerprint: resolvedLinkFingerprint,
         },
       },
       {
@@ -372,14 +387,7 @@ describe('applyLinkOverrides', () => {
         actor: 'user',
         source: 'cli',
         scope: 'link',
-        payload: {
-          type: 'link_override',
-          action: 'confirm',
-          link_type: 'transfer',
-          source_fingerprint: 'kraken:WITHDRAWAL-123',
-          target_fingerprint: 'blockchain:bitcoin:abc123',
-          asset: 'BTC',
-        },
+        payload: createLinkOverridePayload(),
       },
     ];
 
@@ -408,6 +416,10 @@ describe('applyLinkOverrides', () => {
         sourceTransactionId: 1,
         targetTransactionId: 2,
         assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
         status: 'suggested' as const,
       },
     ];
@@ -421,7 +433,7 @@ describe('applyLinkOverrides', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          link_fingerprint: 'link:blockchain:bitcoin:abc123:kraken:WITHDRAWAL-123:BTC',
+          resolved_link_fingerprint: resolvedLinkFingerprint,
         },
       },
       {
@@ -430,14 +442,7 @@ describe('applyLinkOverrides', () => {
         actor: 'user',
         source: 'cli',
         scope: 'link',
-        payload: {
-          type: 'link_override',
-          action: 'confirm',
-          link_type: 'transfer',
-          source_fingerprint: 'kraken:WITHDRAWAL-123',
-          target_fingerprint: 'blockchain:bitcoin:abc123',
-          asset: 'BTC',
-        },
+        payload: createLinkOverridePayload(),
       },
     ];
 

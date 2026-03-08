@@ -137,7 +137,7 @@ Example still unsupported as a first-class policy:
 
 That is exactly the case the scoped boundary was created to support next.
 
-### 4. The current override store is too permissive for accounting policy
+### 4. Override storage is better, but exclusion replay still needs its own contract
 
 Current override infrastructure only supports:
 
@@ -149,12 +149,18 @@ Current override infrastructure only supports:
 See [`override.ts`](../../packages/core/src/override/override.ts).
 
 Also, [`override-store.ts`](../../packages/data/src/overrides/override-store.ts)
-currently logs and skips malformed JSONL lines or invalid events during
-`readAll()`.
+is now durable SQLite storage, but that does not by itself define the exclusion
+replay contract.
 
-That skip-and-continue behavior is acceptable for best-effort tooling, but it
-is not acceptable as the source of truth for accounting exclusion policy. A
-financial read path must fail closed if exclusion replay cannot be trusted.
+For accounting exclusions, we still need an explicit policy replay surface:
+
+- only exclusion scopes participate
+- latest event per `asset_id` wins
+- malformed exclusion payloads or invalid scope/type pairings return `Err`
+- accounting does not consume broad "all overrides" behavior by accident
+
+The main problem is no longer file fragility. The main problem is that asset
+exclusion replay still does not exist as a first-class domain contract.
 
 ## v3 Design
 
@@ -313,10 +319,9 @@ type AssetIncludePayload = {
 Required rule:
 
 - accounting exclusion replay must be strict
-- malformed JSONL, malformed exclusion payloads, or invalid scope/type pairing
-  must return `Err`
-- do not reuse `OverrideStore.readAll()` skip-invalid behavior for accounting
-  exclusion policy
+- malformed exclusion payloads or invalid scope/type pairing must return `Err`
+- do not reuse broad all-override reads where exclusion replay semantics are
+  still implicit
 
 Recommended implementation:
 

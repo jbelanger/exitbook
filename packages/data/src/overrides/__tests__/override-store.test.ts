@@ -8,6 +8,25 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
 
+function createLinkPayload(sourceFingerprint: string, targetFingerprint: string, asset: string): LinkOverridePayload {
+  const normalizedAsset = asset.toLowerCase();
+  return {
+    type: 'link_override',
+    action: 'confirm',
+    link_type: 'transfer',
+    source_fingerprint: sourceFingerprint,
+    target_fingerprint: targetFingerprint,
+    asset,
+    resolved_link_fingerprint: `resolved-link:v1:movement:${sourceFingerprint}:outflow:0:movement:${targetFingerprint}:inflow:0:test:${normalizedAsset}:test:${normalizedAsset}`,
+    source_asset_id: `test:${normalizedAsset}`,
+    target_asset_id: `test:${normalizedAsset}`,
+    source_movement_fingerprint: `movement:${sourceFingerprint}:outflow:0`,
+    target_movement_fingerprint: `movement:${targetFingerprint}:inflow:0`,
+    source_amount: '1',
+    target_amount: '1',
+  };
+}
+
 describe('OverrideStore', () => {
   let tempDir: string;
   let store: OverrideStore;
@@ -25,14 +44,7 @@ describe('OverrideStore', () => {
 
   describe('append', () => {
     it('should append a link override event', async () => {
-      const payload: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-123',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
 
       const result = await store.append({
         scope: 'link',
@@ -95,17 +107,10 @@ describe('OverrideStore', () => {
       expect(assertErr(result).message).toContain("scope 'link' requires payload type 'link_override'");
     });
 
-    it('should create overrides.jsonl file if it does not exist', async () => {
+    it('should create overrides.db file if it does not exist', async () => {
       expect(store.exists()).toBe(false);
 
-      const payload: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-123',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
 
       const result = await store.append({
         scope: 'link',
@@ -117,14 +122,7 @@ describe('OverrideStore', () => {
     });
 
     it('should return an error result and recover queue after unexpected append failure', async () => {
-      const payload: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-123',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
 
       const appendImplSpy = vi
         .spyOn(store as unknown as { appendImpl: (options: unknown) => Promise<unknown> }, 'appendImpl')
@@ -163,14 +161,7 @@ describe('OverrideStore', () => {
     });
 
     it('should read all events in order', async () => {
-      const payload1: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-1',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+      const payload1 = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
 
       const payload2: PriceOverridePayload = {
         type: 'price_override',
@@ -181,14 +172,7 @@ describe('OverrideStore', () => {
         timestamp: '2024-01-15T14:30:00Z',
       };
 
-      const payload3: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-3',
-        target_fingerprint: 'blockchain:bitcoin:def',
-        asset: 'ETH',
-      };
+      const payload3 = createLinkPayload('kraken:TRADE-3', 'blockchain:bitcoin:def', 'ETH');
 
       await store.append({ scope: 'link', payload: payload1 });
       await store.append({ scope: 'price', payload: payload2 });
@@ -207,43 +191,31 @@ describe('OverrideStore', () => {
       }
     });
 
-    it('should skip invalid JSONL lines', async () => {
-      const payload: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-1',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+    it('should preserve append order via database sequence', async () => {
+      const payload1 = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
 
-      await store.append({ scope: 'link', payload });
+      const payload2 = createLinkPayload('kraken:TRADE-2', 'blockchain:bitcoin:def', 'ETH');
 
-      // Manually append invalid JSON to the file
-      const { appendFile } = await import('node:fs/promises');
-      await appendFile(store.getFilePath(), 'invalid json line\n', 'utf-8');
+      const first = await store.append({ scope: 'link', payload: payload1 });
+      const second = await store.append({ scope: 'link', payload: payload2 });
+
+      expect(first.isOk()).toBe(true);
+      expect(second.isOk()).toBe(true);
 
       const result = await store.readAll();
-
       expect(result.isOk()).toBe(true);
 
       if (result.isOk()) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.scope).toBe('link');
+        expect(result.value).toHaveLength(2);
+        expect(result.value[0]?.payload).toEqual(payload1);
+        expect(result.value[1]?.payload).toEqual(payload2);
       }
     });
   });
 
   describe('readByScope', () => {
     it('should filter events by scope', async () => {
-      const linkPayload: LinkOverridePayload = {
-        type: 'link_override',
-        action: 'confirm',
-        link_type: 'transfer',
-        source_fingerprint: 'kraken:TRADE-1',
-        target_fingerprint: 'blockchain:bitcoin:abc',
-        asset: 'BTC',
-      };
+      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
 
       const pricePayload: PriceOverridePayload = {
         type: 'price_override',
@@ -268,19 +240,61 @@ describe('OverrideStore', () => {
         expect(events.every((e) => e.scope === 'link')).toBe(true);
       }
     });
+
+    it('should query scope directly without delegating to readAll', async () => {
+      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      await store.append({ scope: 'link', payload: linkPayload });
+
+      const readAllSpy = vi.spyOn(store, 'readAll');
+      const result = await store.readByScope('link');
+
+      expect(result.isOk()).toBe(true);
+      expect(readAllSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('readByScopes', () => {
+    it('should read multiple scopes in append order', async () => {
+      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const otherLinkPayload = createLinkPayload('kraken:TRADE-2', 'blockchain:bitcoin:def', 'BTC');
+      const pricePayload: PriceOverridePayload = {
+        type: 'price_override',
+        asset: 'BTC',
+        quote_asset: 'USD',
+        price: '45000.00',
+        price_source: 'manual',
+        timestamp: '2024-01-15T14:30:00Z',
+      };
+
+      await store.append({ scope: 'link', payload: linkPayload });
+      await store.append({ scope: 'price', payload: pricePayload });
+      await store.append({
+        scope: 'unlink',
+        payload: {
+          type: 'unlink_override',
+          resolved_link_fingerprint:
+            'resolved-link:v1:movement:kraken:TRADE-1:outflow:0:movement:blockchain:bitcoin:abc:inflow:0:test:btc:test:btc',
+        },
+      });
+      await store.append({ scope: 'link', payload: otherLinkPayload });
+
+      const result = await store.readByScopes(['link', 'unlink']);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(3);
+        expect(result.value.map((event) => event.scope)).toEqual(['link', 'unlink', 'link']);
+      }
+    });
   });
 
   describe('file independence', () => {
-    it('should store overrides as a plain file independent of database operations', () => {
-      // The override store file path is a plain JSONL file on the filesystem,
-      // not a database table. The clear/reset operations work exclusively through
-      // SQL repositories and never touch filesystem files, so overrides.jsonl
-      // inherently survives database wipes and reprocessing.
+    it('should store overrides in a dedicated sqlite file independent of the main database', () => {
       const filePath = store.getFilePath();
 
-      expect(filePath).toMatch(/overrides\.jsonl$/);
-      expect(filePath).not.toMatch(/\.db$/);
-      expect(filePath).not.toMatch(/\.sqlite$/);
+      expect(filePath).toMatch(/overrides\.db$/);
+      expect(filePath).not.toMatch(/transactions\.db$/);
     });
   });
 });
