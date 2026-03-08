@@ -1,94 +1,42 @@
-import { type TransactionLink } from '@exitbook/accounting';
-import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
-import type { DataContext, OverrideStore } from '@exitbook/data';
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import type { OverrideStore } from '@exitbook/data';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LinksRejectHandler } from '../links-reject-handler.js';
 import type { LinksRejectParams } from '../links-reject-handler.js';
 
+import {
+  createMockDataContext,
+  createMockLink,
+  createMockLinkRepository,
+  createMockOverrideStore,
+  createMockTransactionObjects,
+  createMockTransactionRepository,
+} from './test-utils.js';
+
 describe('LinksRejectHandler', () => {
-  let mockLinkQueries: {
-    findById: Mock;
-    updateStatus: Mock;
-  };
-  let mockTransactionQueries: {
-    findById: Mock;
-  };
-  let mockOverrideStore: {
-    append: Mock;
-  };
   let handler: LinksRejectHandler;
+  let mockLinkQueries: ReturnType<typeof createMockLinkRepository>;
+  let mockTransactionQueries: ReturnType<typeof createMockTransactionRepository>;
+  let mockOverrideStore: ReturnType<typeof createMockOverrideStore>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLinkQueries = {
-      findById: vi.fn(),
-      updateStatus: vi.fn(),
-    };
+    mockLinkQueries = createMockLinkRepository();
+    mockTransactionQueries = createMockTransactionRepository();
+    mockOverrideStore = createMockOverrideStore();
 
-    mockTransactionQueries = {
-      findById: vi.fn(),
-    };
-
-    mockOverrideStore = {
-      append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
-    };
-
-    const mockDb = {
+    const mockDb = createMockDataContext({
       transactionLinks: mockLinkQueries,
       transactions: mockTransactionQueries,
-    } as unknown as DataContext;
+    });
 
     handler = new LinksRejectHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
   });
 
-  const createMockLink = (
-    id: number,
-    status: 'suggested' | 'confirmed' | 'rejected',
-    reviewedBy?: string,
-    reviewedAt?: Date
-  ): TransactionLink => ({
-    id,
-    sourceTransactionId: 1,
-    targetTransactionId: 2,
-    assetSymbol: 'BTC' as Currency,
-    sourceAssetId: 'exchange:source:btc',
-    targetAssetId: 'blockchain:target:btc',
-    sourceAmount: parseDecimal('1.0'),
-    targetAmount: parseDecimal('1.0'),
-    sourceMovementFingerprint: 'movement:exchange:source:1:btc:outflow:0',
-    targetMovementFingerprint: 'movement:blockchain:target:2:btc:inflow:0',
-    linkType: 'exchange_to_blockchain',
-    confidenceScore: parseDecimal('0.85'),
-    matchCriteria: {
-      assetMatch: true,
-      amountSimilarity: parseDecimal('0.99'),
-      timingValid: true,
-      timingHours: 1,
-      addressMatch: true,
-    },
-    status,
-    reviewedBy,
-    reviewedAt,
-    createdAt: new Date('2024-01-01T12:00:00Z'),
-    updatedAt: new Date('2024-01-01T12:00:00Z'),
-    metadata: undefined,
-  });
-
-  const mockSourceTx = {
-    id: 1,
-    source: 'kraken',
-    externalId: 'WITHDRAWAL-123',
-  };
-
-  const mockTargetTx = {
-    id: 2,
-    source: 'blockchain:bitcoin',
-    externalId: 'abc123',
-  };
+  const { source: mockSourceTx, target: mockTargetTx } = createMockTransactionObjects();
 
   describe('execute', () => {
     it('should successfully reject a suggested link', async () => {
@@ -96,7 +44,7 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, 'suggested');
+      const suggestedLink = createMockLink(123, { status: 'suggested' });
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -123,7 +71,7 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, 'suggested');
+      const suggestedLink = createMockLink(123, { status: 'suggested' });
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -150,7 +98,7 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, 'suggested');
+      const suggestedLink = createMockLink(123, { status: 'suggested' });
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -172,7 +120,11 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const rejectedLink = createMockLink(123, 'rejected', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const rejectedLink = createMockLink(123, {
+        status: 'rejected',
+        reviewedBy: 'cli-user',
+        reviewedAt: new Date('2024-01-02T12:00:00Z'),
+      });
 
       mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
 
@@ -194,7 +146,11 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const confirmedLink = createMockLink(123, 'confirmed', 'cli-user', new Date('2024-01-02T12:00:00Z'));
+      const confirmedLink = createMockLink(123, {
+        status: 'confirmed',
+        reviewedBy: 'cli-user',
+        reviewedAt: new Date('2024-01-02T12:00:00Z'),
+      });
 
       mockLinkQueries.findById.mockResolvedValue(ok(confirmedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(true));
@@ -249,7 +205,7 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, 'suggested');
+      const suggestedLink = createMockLink(123, { status: 'suggested' });
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(err(new Error('Update failed')));
@@ -265,7 +221,7 @@ describe('LinksRejectHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, 'suggested');
+      const suggestedLink = createMockLink(123, { status: 'suggested' });
 
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.updateStatus.mockResolvedValue(ok(false));

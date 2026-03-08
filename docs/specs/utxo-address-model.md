@@ -78,8 +78,10 @@ interface ProcessingContext {
 
 ### Internal Transfer Linking
 
-- Linker groups transactions by normalized `blockchain_transaction_hash` across accounts. When the same hash appears on multiple accounts, it emits confirmed `blockchain_internal` links (confidence 1.0) using the first outflow/inflow gross amounts as link quantities.
-- Links are only created when hashes match and assets can be extracted on both sides; same-account pairs are ignored.
+- Linker groups blockchain transactions by normalized `blockchain_transaction_hash`, then by `assetId`, across accounts.
+- Confirmed `blockchain_internal` links are emitted only for unambiguous same-hash groups with exactly one pure outflow participant and one or more pure inflow participants for that asset.
+- Ambiguous same-hash groups are skipped with warnings rather than collapsed heuristically.
+- Internal links are created only for cross-account pairs; same-account pairs are ignored for link creation.
 
 ### Derived Address Metadata
 
@@ -135,9 +137,10 @@ Stores one row per address/tx. No uniqueness across accounts, allowing multiple 
 ## Related Specs
 
 - [Accounts & Imports](./accounts-and-imports.md) — xpub child account creation and cursor handling.
+- [Transaction Linking](./transaction-linking.md) — same-hash grouping and internal-link reduction on top of per-address UTXO transactions.
 - [Transfers & Tax](./transfers-and-tax.md) — how internal links affect basis and fees.
 - [Pagination & Streaming](./pagination-and-streaming.md) — cursor structures used by UTXO importers.
 
 ---
 
-_Last updated: 2025-12-13_
+_Last updated: 2026-03-08_

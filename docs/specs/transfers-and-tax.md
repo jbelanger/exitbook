@@ -7,7 +7,12 @@ status: canonical
 
 > ⚠️ **Code is law**: If this disagrees with implementation, update the spec to match code.
 
-How Exitbook detects self-transfers, links transactions, preserves cost basis, and applies jurisdictional fee policy during tax lot matching.
+How Exitbook detects self-transfers, consumes transaction links during tax lot
+matching, preserves cost basis, and applies jurisdictional fee policy.
+
+Link generation and the canonical persisted `TransactionLink` contract are
+specified in [`transaction-linking.md`](./transaction-linking.md). This document
+covers the tax-facing behavior on top of those links.
 
 ## Quick Reference
 
@@ -34,7 +39,11 @@ How Exitbook detects self-transfers, links transactions, preserves cost basis, a
 
 ## Definitions
 
-### TransactionLink (transfer contract)
+### TransactionLink (tax-relevant fields)
+
+This is the subset of the persisted link contract used by the tax layer.
+The full persisted contract also includes source/target asset ids and movement
+fingerprints; see [`transaction-linking.md`](./transaction-linking.md).
 
 ```ts
 interface TransactionLink {
@@ -138,6 +147,9 @@ metadata_json TEXT
 
 ### transaction_links (relevant fields)
 
+Tax-only subset. The full persisted schema is defined in
+[`transaction-linking.md`](./transaction-linking.md).
+
 - `asset`, `source_amount`, `target_amount` (net or gross as defined above)
 - `status`, `confidence_score`, `link_type`
 - Indexes: `(source_transaction_id, asset, source_amount)` and `(target_transaction_id, asset)`
@@ -182,6 +194,7 @@ graph TD
 
 ## Related Specs
 
+- [Transaction Linking](./transaction-linking.md) — canonical link-generation and persisted link-contract rules
 - [Fees](./fees.md) — fee semantics and pricing that feed transfer amounts
 - [Price Derivation](./price-derivation.md) — required prices for movements/fees
 - [Accounts & Imports](./accounts-and-imports.md) — where raw transactions originate
@@ -189,4 +202,4 @@ graph TD
 
 ---
 
-_Last updated: 2025-12-12_
+_Last updated: 2026-03-08_

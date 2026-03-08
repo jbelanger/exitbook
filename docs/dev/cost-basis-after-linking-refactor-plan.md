@@ -33,7 +33,8 @@ still contains linking-era UTXO reconstruction logic:
 - `internal_only` branches suppress outflows and inflows inside the matcher
 - `effectiveAmount` threads UTXO-adjusted quantities through transfer handling
 - `findEffectiveSourceLink()` still uses a three-level lookup that exists only
-  because the source movement amount and the persisted link amount used to drift
+  because persisted links used to be too lossy and matcher-local recovery grew
+  around that gap
 
 Today that coupling lives in:
 
@@ -47,8 +48,13 @@ transactions instead of owning its own accounting meaning.
 
 The cost-basis refactor should fix one thing above all:
 
+Phase 0 tightened the persisted transfer-link contract. The remaining job here is
+to delete the matcher-side recovery logic that still behaves as if that debt
+exists.
+
 **cost basis should consume an accounting-scoped transaction view, not infer
-meaning from `blockchain_internal` links or linker-specific amount fallbacks.**
+meaning from `blockchain_internal` links or rebuild persisted link identity
+inside the matcher.**
 
 ## Scope
 
@@ -56,11 +62,12 @@ meaning from `blockchain_internal` links or linker-specific amount fallbacks.**
 
 - introduce an ephemeral accounting-scoped input for cost basis
 - move same-hash UTXO reduction rules into cost-basis-owned code
-- resolve confirmed transfer links onto scoped asset identity before matching
+- validate confirmed transfer links against scoped asset and movement identity
+  before matching
 - simplify lot matching to use scoped movements plus confirmed transfer links
 - remove `effectiveAmount`, `internal_only`, and the UTXO-only source lookup
   fallback from cost basis
-- fail closed on link-resolution and lot-matching errors instead of returning
+- fail closed on link-validation and lot-matching errors instead of returning
   partial asset results
 - keep partial-match support for genuine 1:N and N:1 transfer links
 
@@ -82,7 +89,9 @@ After this refactor:
 - scoped fee normalization happens before price validation and lot matching
 - price coverage and hard price validation run on the scoped result, not raw
   processed transactions
-- confirmed external links are resolved onto scoped source/target asset identity
+- confirmed external links already carry source/target asset ids, movement
+  fingerprints, and resolved amounts from persistence
+- confirmed external links are validated against scoped source/target movements
   before matching
 - confirmed status stays authoritative; cost basis does not re-threshold
   reviewed links by confidence score
@@ -91,7 +100,7 @@ After this refactor:
 - `LotMatcher` no longer consumes `blockchain_internal` links to discover
   accounting behavior
 - transfer source math uses scoped movement amounts directly
-- cost basis returns `Err` for scoped link-resolution or matcher failures instead
+- cost basis returns `Err` for scoped link-validation or matcher failures instead
   of silently omitting failed assets from a completed calculation
 - ambiguous same-hash blockchain groups fail closed with a concrete error
   instead of silently falling back to raw per-address rows
@@ -107,7 +116,7 @@ AccountingScopedBuildResult
         +
 confirmed external transfer links
         +
-scoped link resolution
+scoped link validation
         +
 scoped price validation
         ↓
@@ -129,26 +138,37 @@ about internal change only after it sees `blockchain_internal` links.
 Add cost-basis-local input shapes:
 
 ```ts
+interface ScopedAssetMovement extends AssetMovement {
+  movementFingerprint: string;
+  rawPosition: number;
+}
+
+interface ScopedFeeMovement extends FeeMovement {
+  rawPosition: number;
+}
+
 interface AccountingScopedTransaction {
   tx: UniversalTransactionData;
   movements: {
-    inflows: AssetMovement[];
-    outflows: AssetMovement[];
+    inflows: ScopedAssetMovement[];
+    outflows: ScopedAssetMovement[];
   };
-  fees: FeeMovement[];
+  fees: ScopedFeeMovement[];
 }
 
 interface FeeOnlyInternalCarryoverTarget {
   targetTransactionId: number;
+  targetMovementFingerprint: string;
   quantity: Decimal;
 }
 
 interface FeeOnlyInternalCarryover {
   assetId: string;
   assetSymbol: Currency;
-  fee: FeeMovement;
+  fee: ScopedFeeMovement;
   retainedQuantity: Decimal;
   sourceTransactionId: number;
+  sourceMovementFingerprint: string;
   targets: FeeOnlyInternalCarryoverTarget[];
 }
 
@@ -173,6 +193,9 @@ Important invariant:
 - `tx` remains immutable source facts only
 - `movements` and `fees` become the authoritative accounting view for cost-basis
   math
+- scoped movement identity must survive rewriting; `movementFingerprint` and
+  `rawPosition` always refer to the original raw movement slot from
+  `tx.movements`, even if scoped arrays remove entries or rewrite amounts
 - scoped movements and scoped fees must be cloned before mutation; array copies
   alone are not enough because scoped rewriting must never mutate raw `tx`
   facts
@@ -230,11 +253,15 @@ Ambiguous means either:
 
 - a participant has both inflow and outflow for the same asset
 - multiple pure outflow participants exist while inflows are also present
+- any participant has multiple inflow movements for the same asset
+- any participant has multiple outflow movements for the same asset
 
 Reason:
 
 - linking can tolerate unmatched candidates
 - cost basis cannot safely tolerate invented accounting meaning
+- the landed link contract is movement-position-based, so cost basis cannot
+  collapse multi-movement participants without inventing a new identity rule
 
 The error should include:
 
@@ -370,10 +397,14 @@ Cases:
   `FeeOnlyInternalCarryover`
 - builder does not mutate raw transaction movements or raw `tx.fees` when
   scoped amounts are rewritten
+- scoped movements preserve raw movement fingerprints and raw positions after
+  same-hash reduction
 - fee-only carryover preserves per-target retained quantities for multi-target
   same-hash internal sends
+- fee-only carryover preserves source and target movement fingerprints
 - ambiguous mixed inflow/outflow same-hash group returns `Err`
 - ambiguous multiple-outflow same-hash group returns `Err`
+- ambiguous multi-movement participant returns `Err`
 - non-blockchain transactions pass through unchanged
 
 ### Exit Criteria
@@ -409,7 +440,9 @@ Update:
 - [`packages/accounting/src/cost-basis/lot-transfer-processing-utils.ts`](../../packages/accounting/src/cost-basis/lot-transfer-processing-utils.ts)
 - [`packages/accounting/src/cost-basis/internal-carryover-processing-utils.ts`](../../packages/accounting/src/cost-basis/internal-carryover-processing-utils.ts)
 - [`packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts)
+- [`packages/accounting/src/cost-basis/cost-basis-workflow.ts`](../../packages/accounting/src/cost-basis/cost-basis-workflow.ts)
 - [`packages/accounting/src/linking/link-index.ts`](../../packages/accounting/src/linking/link-index.ts)
+- [`packages/accounting/src/index.ts`](../../packages/accounting/src/index.ts)
 
 ### 1. Build scoped input before any downstream validation
 
@@ -428,20 +461,38 @@ That means:
 
 The exclusions phase should not have to reopen these files later.
 
-### 2. Resolve confirmed external links onto the scoped boundary
+### 2. Validate confirmed external links against the scoped boundary
 
-Before matching, convert confirmed external links into a cost-basis-local shape
-that is resolved against scoped transactions.
+Phase 0 already tightened `transaction_links`. Before matching, verify that each
+confirmed external link still lines up with the accounting-scoped transactions.
+This is validation, not recovery.
 
-Recommended local shape:
+Do not stop at returning bare `TransactionLink[]` if that would force the
+matcher back into symbol-based or amount-based movement resolution. The
+validated boundary should carry movement-targeted lookup data so the matcher can
+stay dumb and deterministic.
+
+Recommended entry point:
 
 ```ts
-interface ResolvedTransferLink {
+interface ValidatedScopedTransferLink {
   link: TransactionLink;
-  assetId: string;
-  resolvedSourceAmount: Decimal;
-  resolvedTargetAmount: Decimal;
+  sourceMovementFingerprint: string;
+  targetMovementFingerprint: string;
+  sourceAssetId: string;
+  targetAssetId: string;
 }
+
+interface ValidatedScopedTransferSet {
+  links: ValidatedScopedTransferLink[];
+  bySourceMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
+  byTargetMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
+}
+
+function validateScopedTransferLinks(
+  scoped: AccountingScopedTransaction[],
+  confirmedLinks: TransactionLink[]
+): Result<ValidatedScopedTransferSet, Error>;
 ```
 
 Important rules:
@@ -449,14 +500,18 @@ Important rules:
 - filter out `blockchain_internal` here
 - do not re-filter confirmed links by confidence score; `status === 'confirmed'`
   is already the reviewed boundary used by cost basis
-- if a confirmed link carries sentinel override amounts (`sourceAmount = 0`,
-  `targetAmount = 0`, `metadata.overrideId`), resolve it from scoped source and
-  target movements only when each side has exactly one eligible scoped movement
-  for the linked asset
-- if source/target asset identity is missing, mismatched, or ambiguous after
-  scoping, return `Err`
-- keep this resolver local to cost basis; do not push accounting-specific
-  rewrite rules back into linking persistence
+- require `sourceAssetId`, `targetAssetId`, `sourceMovementFingerprint`, and
+  `targetMovementFingerprint` to match one scoped source/target movement each
+- require persisted link amounts to reconcile with those matched scoped
+  movements; for partial links, validate against the persisted partial amount,
+  not the full scoped movement quantity
+- build matcher-facing indexes by movement fingerprint during validation; do not
+  make `LotMatcher` rebuild those indexes from symbol or amount heuristics
+- if scoped transactions are missing, movement fingerprints do not match scoped
+  movements,
+  asset ids mismatch, or amount reconciliation fails, return `Err`
+- do not add symbol-based, amount-free, or override-specific fallback logic
+  here; those were Phase 0 persistence debts and should stay deleted
 
 ### 3. Build scoped input before matching
 
@@ -472,10 +527,10 @@ if (scopedResult.isErr()) return err(scopedResult.error);
 const priceGateResult = validateScopedTransactionPrices(scopedResult.value, config.currency);
 if (priceGateResult.isErr()) return err(priceGateResult.error);
 
-const resolvedLinksResult = resolveScopedTransferLinks(scopedResult.value.transactions, confirmedLinks);
-if (resolvedLinksResult.isErr()) return err(resolvedLinksResult.error);
+const validatedLinksResult = validateScopedTransferLinks(scopedResult.value.transactions, confirmedLinks);
+if (validatedLinksResult.isErr()) return err(validatedLinksResult.error);
 
-return matcher.match(scopedResult.value, resolvedLinksResult.value, config);
+return matcher.match(scopedResult.value, validatedLinksResult.value, config);
 ```
 
 ### 4. Keep `blockchain_internal` out of cost-basis matching
@@ -485,7 +540,7 @@ channel.
 
 Inside `LotMatcher.match()`:
 
-- accept already-resolved external links or defensively reject internal links
+- accept already-validated external links or defensively reject internal links
 - do not consume or skip internal links because they should no longer be
   present
 
@@ -519,6 +574,10 @@ Recommended replacement:
 - if a source link is a genuine partial match (`metadata.partialMatch === true`)
   use `link.sourceAmount` as the linked source quantity
 - otherwise use the scoped outflow's `netAmount ?? grossAmount`
+- make `processTransferSource()` consume scoped fees from the scoped
+  transaction, not raw `tx.fees`
+- make fee extraction and fee validation key by `assetId` on scoped fees, not
+  `assetSymbol` scans over raw source facts
 
 If a parameter is still needed, rename it to `linkedSourceAmount`. Do not keep
 the name `effectiveAmount`; it hides two unrelated concerns.
@@ -532,21 +591,26 @@ the name `effectiveAmount`; it hides two unrelated concerns.
 
 Replace it with:
 
-1. exact lookup using the scoped outflow amount
-2. if no exact link exists, and all source links for `(txId, asset)` are
-   partial matches, return them all
+1. exact lookup using the scoped outflow `movementFingerprint`
+2. if links exist for that fingerprint and all are partial matches, return them
+   all
 3. otherwise return `none`
 
 This preserves genuine 1:N split handling without keeping the UTXO fallback.
-Any amount-free resolution that still exists for override links belongs in
-`resolveScopedTransferLinks()`, not inside `LotMatcher`.
+Any remaining mismatch at this point indicates persisted-link corruption or a
+scoped-build bug; return `Err`, do not add another fallback.
 
 ### 8. Simplify target lookup
 
 `findEffectiveTargetLink()` should:
 
 - stop consuming internal links
-- keep partial-match aggregation for genuine N:1 cases
+- resolve by scoped target `movementFingerprint`, not by `(txId, assetSymbol)`
+- keep partial-match aggregation only when all links share the same validated
+  target movement fingerprint
+- stop aggregating all same-asset inflows in a transaction before link lookup;
+  inflow handling must stay movement-targeted unless validated partial links
+  explicitly point at one target movement
 
 ### 9. Add a dedicated fee-only internal carryover path
 
@@ -557,7 +621,7 @@ persisted `TransactionLink`s.
 Recommended shape:
 
 ```ts
-matcher.match(scoped: AccountingScopedBuildResult, externalLinks: ResolvedTransferLink[], config)
+matcher.match(scoped: AccountingScopedBuildResult, validatedExternalLinks: ValidatedScopedTransferSet, config)
 ```
 
 Recommended helper:
@@ -568,13 +632,16 @@ function processFeeOnlyInternalCarryover(...)
 
 Behavior:
 
-- reuse dependency ordering by building local dependency edges from resolved
-  external links plus carryovers; do not keep `sortTransactionsByDependency()`
-  locked to raw `TransactionLink[]`
+- reuse dependency ordering by building local dependency edges from validated
+  external links plus carryovers; do not keep
+  `sortTransactionsByDependency()` locked to raw `TransactionLink[]`
 - source side identifies the lots backing `retainedQuantity`
 - disposal jurisdictions create explicit fee disposals
 - add-to-basis jurisdictions create target carryover lots with inherited basis
   plus capitalized fee
+- carryover dependency edges and target resolution use
+  `sourceMovementFingerprint` / `targetMovementFingerprint`, not just
+  transaction id
 - if carryover targets are missing or price data is incomplete, return `Err`
   rather than warning and continuing
 
@@ -591,6 +658,14 @@ Required behavior:
 - any acquisition lot creation failure returns `Err`
 - any carryover processing failure returns `Err`
 - cost basis must not produce a `completed` calculation that omits failed assets
+
+This also requires deleting the public partial-success contract:
+
+- remove `AssetMatchError`
+- remove `LotMatchResult.errors`
+- remove `CostBasisSummary.errors`
+- remove `CostBasisWorkflowResult.errors`
+- remove any package exports that still advertise partial matcher success
 
 ### Tests To Add Or Update
 
@@ -612,9 +687,16 @@ Add assertions that:
 - lot matching no longer depends on `blockchain_internal` links being present
 - clear same-hash UTXO source reductions match external transfer links exactly
 - partial-match 1:N and N:1 behavior still works
-- confirmed override links with sentinel zero amounts still resolve when scoped
-  source/target asset selection is unique
-- ambiguous override resolution or scoped assetId mismatch returns `Err`
+- confirmed links validate against persisted asset ids and movement
+  fingerprints on the scoped boundary
+- unknown scoped movement fingerprints, scoped assetId mismatch, or amount
+  reconciliation failure returns `Err`
+- same-asset same-amount sibling outflows in one transaction do not cross-match;
+  source matching uses `sourceMovementFingerprint`
+- same-asset sibling inflows in one transaction do not aggregate unless
+  validated links share one `targetMovementFingerprint`
+- scoped fee extraction does not cross-deduct same-symbol different-assetId
+  fees
 - confirmed links are not re-filtered by confidence score
 - fee handling still works for:
   - transfer fee disposal jurisdictions
@@ -631,10 +713,12 @@ Step 2 is done when:
 - `lot-matcher.ts` contains no `internal_only` or `effectiveAmount`
 - `LotMatcher` does not consume `blockchain_internal` links
 - confirmed status, not confidence re-thresholding, controls link inclusion
-- sentinel zero-amount override links resolve explicitly or fail closed with a
-  concrete error
+- persisted asset ids and movement fingerprints validate explicitly or fail
+  closed with a concrete error
 - `LotMatcher` and the calculator no longer return completed partial results
 - `LinkIndex.findAnyBySource()` is no longer required by cost basis
+- transfer matching is keyed by movement fingerprints, not `assetSymbol` lookup
+  heuristics
 - transfer tests still pass for ordinary exchange/blockchain transfers,
   partial links, and fee-only internal carryovers
 
@@ -710,18 +794,21 @@ important rule:
 For one developer working locally, follow this order:
 
 1. implement the accounting-scoped transaction builder and its tests
-2. move price validation and price coverage to the scoped boundary
-3. implement scoped transfer-link resolution for confirmed links, including
-   sentinel override links
-4. wire the builder + resolved links into the lot-matcher path
-5. simplify `LotMatcher`, `LinkIndex`, and `processTransferSource()`
-6. generalize dependency ordering to consume resolved transfer edges plus
+2. preserve raw movement identity in the scoped builder
+3. move price validation and price coverage to the scoped boundary
+4. implement scoped transfer-link validation for confirmed links using
+   persisted asset ids and movement fingerprints
+5. wire the builder + validated links into the lot-matcher path
+6. simplify `LotMatcher`, `LinkIndex`, and `processTransferSource()` around
+   movement-fingerprint lookups
+7. generalize dependency ordering to consume validated transfer edges plus
    carryover edges
-7. add fee-only internal carryover processing
-8. remove warning-and-continue partial-result behavior
-9. remove `LinkIndex.findAnyBySource()` if it is now unused
-10. update specs and docs
-11. only then start the exclusions phase
+8. add fee-only internal carryover processing
+9. remove warning-and-continue partial-result behavior and stale public error
+   surfaces
+10. remove `LinkIndex.findAnyBySource()` if it is now unused
+11. update specs and docs
+12. only then start the exclusions phase
 
 ## Decisions And Smells
 
@@ -737,9 +824,21 @@ For one developer working locally, follow this order:
 - Confirmed-link smell: cost basis must treat `status === 'confirmed'` as the
   reviewed boundary and must not silently drop manual links by re-thresholding
   on confidence score.
-- Override smell: confirmed orphaned overrides currently persist sentinel
-  zero-amount links; the refactor needs an explicit scoped resolver for them
-  before deleting amount-free matcher fallbacks.
+- Boundary smell to avoid: cost basis should validate persisted asset ids and
+  movement fingerprints, not rebuild link identity from symbols or amount
+  heuristics.
+- Identity smell: scoped movement rewrites must preserve raw movement identity;
+  if scoping drops the fingerprint/position mapping, link validation is forced
+  back into heuristic lookup.
+- Matching smell: a movement-level persisted contract is wasted if the matcher
+  still resolves links by `assetSymbol` and amount; post-validation matching
+  should key by movement fingerprint.
+- Fee-ownership smell: once scoped fees become authoritative, fee utilities
+  should not fall back to raw symbol-only scans or they will recreate the same
+  ambiguity one layer later.
+- Carryover smell: fee-only internal carryovers need source/target movement
+  fingerprints, not just transaction ids, or the next phase will reintroduce
+  movement guessing.
 - Naming issue: `effectiveAmount` hides both "partial link quantity" and
   "UTXO-reduced quantity"; if any parameter survives, rename it to
   `linkedSourceAmount`.
@@ -747,6 +846,8 @@ For one developer working locally, follow this order:
   fees first; mutating shared movement objects would corrupt raw source facts.
 - Failure-policy smell: partial lot-matcher success is not acceptable for
   cost basis; matching errors must abort the calculation.
+- Contract cleanup smell: once matching fails closed, exported `errors` arrays
+  become stale API debt and should be deleted in the same refactor.
 - Recommended design: fee-only internal same-hash groups should use a
   cost-basis-local carryover sidecar, not a fake disposal-only outflow and not
   a persisted internal link.

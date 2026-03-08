@@ -2,17 +2,15 @@
  * Tests for links view controller
  */
 
-import type { Currency } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkGapAnalysis } from '../../links-gap-utils.js';
+import { createMockGapAnalysis, createMockLinksBatch } from '../../__tests__/test-utils.js';
 import { handleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
-import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
+import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
 
 describe('linksViewReducer', () => {
   it('navigates up and wraps to bottom', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 1;
 
@@ -26,7 +24,7 @@ describe('linksViewReducer', () => {
   });
 
   it('navigates down and wraps to top', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 2;
 
@@ -40,7 +38,7 @@ describe('linksViewReducer', () => {
   });
 
   it('clears error on navigation', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
 
@@ -52,7 +50,7 @@ describe('linksViewReducer', () => {
   });
 
   it('scrolls down when navigating below visible window', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0;
     state.scrollOffset = 0;
@@ -68,7 +66,7 @@ describe('linksViewReducer', () => {
   });
 
   it('scrolls up when navigating above visible window', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 2;
     state.scrollOffset = 2;
@@ -84,7 +82,7 @@ describe('linksViewReducer', () => {
   });
 
   it('scrolls to end when wrapping to bottom', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0;
     state.scrollOffset = 0;
@@ -96,7 +94,7 @@ describe('linksViewReducer', () => {
   });
 
   it('scrolls to top when wrapping to top', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 3;
     state.scrollOffset = 2;
@@ -108,7 +106,7 @@ describe('linksViewReducer', () => {
   });
 
   it('handles PAGE_UP navigation', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 3;
     state.scrollOffset = 2;
@@ -119,7 +117,7 @@ describe('linksViewReducer', () => {
   });
 
   it('handles PAGE_DOWN navigation', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0;
     state.scrollOffset = 0;
@@ -130,7 +128,7 @@ describe('linksViewReducer', () => {
   });
 
   it('sets both selected index and scroll offset for END', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
 
     const endState = linksViewReducer(state, { type: 'END', visibleRows: 2 });
@@ -153,7 +151,7 @@ describe('linksViewReducer', () => {
   });
 
   it('confirms suggested link', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 2; // suggested link
 
@@ -169,7 +167,7 @@ describe('linksViewReducer', () => {
   });
 
   it('rejects suggested link', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 2; // suggested link
 
@@ -185,7 +183,7 @@ describe('linksViewReducer', () => {
   });
 
   it('prevents confirming non-suggested link', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0; // confirmed link
 
@@ -198,7 +196,7 @@ describe('linksViewReducer', () => {
   });
 
   it('prevents rejecting non-suggested link', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0; // confirmed link
 
@@ -211,7 +209,7 @@ describe('linksViewReducer', () => {
   });
 
   it('sets error message', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.pendingAction = { linkId: 3, action: 'confirm' };
 
@@ -224,7 +222,7 @@ describe('linksViewReducer', () => {
   });
 
   it('clears error message and pending action', () => {
-    const links = createMockLinks();
+    const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
     state.pendingAction = { linkId: 3, action: 'confirm' };
@@ -600,202 +598,3 @@ describe('handleKeyboardInput', () => {
     expect(receivedVisibleRows).toBe(6);
   });
 });
-
-/**
- * Create mock links for testing
- */
-function createMockLinks(): LinkWithTransactions[] {
-  return [
-    {
-      link: {
-        id: 1,
-        sourceTransactionId: 1,
-        targetTransactionId: 2,
-        linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'exchange:source:eth',
-        targetAssetId: 'blockchain:target:eth',
-        sourceAmount: new Decimal('1.5'),
-        targetAmount: new Decimal('1.498'),
-        sourceMovementFingerprint: 'movement:exchange:source:1:eth:outflow:0',
-        targetMovementFingerprint: 'movement:blockchain:target:2:eth:inflow:0',
-        confidenceScore: new Decimal('0.98'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: new Decimal('0.998'),
-          timingValid: true,
-          timingHours: 0.03,
-          addressMatch: false,
-        },
-        status: 'confirmed',
-        reviewedBy: 'user@example.com',
-        reviewedAt: new Date('2024-03-20T12:00:00Z'),
-        createdAt: new Date('2024-03-15T10:00:00Z'),
-        updatedAt: new Date('2024-03-20T12:00:00Z'),
-      },
-      sourceTransaction: undefined,
-      targetTransaction: undefined,
-    },
-    {
-      link: {
-        id: 2,
-        sourceTransactionId: 3,
-        targetTransactionId: 4,
-        linkType: 'exchange_to_blockchain',
-        assetSymbol: 'BTC' as Currency,
-        sourceAssetId: 'exchange:source:btc',
-        targetAssetId: 'blockchain:target:btc',
-        sourceAmount: new Decimal('0.5'),
-        targetAmount: new Decimal('0.4998'),
-        sourceMovementFingerprint: 'movement:exchange:source:3:btc:outflow:0',
-        targetMovementFingerprint: 'movement:blockchain:target:4:btc:inflow:0',
-        confidenceScore: new Decimal('0.96'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: new Decimal('0.998'),
-          timingValid: true,
-          timingHours: 0.05,
-          addressMatch: false,
-        },
-        status: 'confirmed',
-        reviewedBy: 'user@example.com',
-        reviewedAt: new Date('2024-03-20T12:00:00Z'),
-        createdAt: new Date('2024-03-15T10:00:00Z'),
-        updatedAt: new Date('2024-03-20T12:00:00Z'),
-      },
-      sourceTransaction: undefined,
-      targetTransaction: undefined,
-    },
-    {
-      link: {
-        id: 3,
-        sourceTransactionId: 5,
-        targetTransactionId: 6,
-        linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'exchange:source:eth',
-        targetAssetId: 'blockchain:target:eth',
-        sourceAmount: new Decimal('2.0'),
-        targetAmount: new Decimal('1.997'),
-        sourceMovementFingerprint: 'movement:exchange:source:5:eth:outflow:0',
-        targetMovementFingerprint: 'movement:blockchain:target:6:eth:inflow:0',
-        confidenceScore: new Decimal('0.82'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: new Decimal('0.998'),
-          timingValid: true,
-          timingHours: 0.02,
-          addressMatch: false,
-        },
-        status: 'suggested',
-        reviewedBy: undefined,
-        reviewedAt: undefined,
-        createdAt: new Date('2024-03-15T10:00:00Z'),
-        updatedAt: new Date('2024-03-20T12:00:00Z'),
-      },
-      sourceTransaction: undefined,
-      targetTransaction: undefined,
-    },
-    {
-      link: {
-        id: 4,
-        sourceTransactionId: 7,
-        targetTransactionId: 8,
-        linkType: 'exchange_to_blockchain',
-        assetSymbol: 'ETH' as Currency,
-        sourceAssetId: 'exchange:source:eth',
-        targetAssetId: 'blockchain:target:eth',
-        sourceAmount: new Decimal('3.0'),
-        targetAmount: new Decimal('2.85'),
-        sourceMovementFingerprint: 'movement:exchange:source:7:eth:outflow:0',
-        targetMovementFingerprint: 'movement:blockchain:target:8:eth:inflow:0',
-        confidenceScore: new Decimal('0.52'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: new Decimal('0.95'),
-          timingValid: true,
-          timingHours: 0.45,
-          addressMatch: false,
-        },
-        status: 'rejected',
-        reviewedBy: 'user@example.com',
-        reviewedAt: new Date('2024-03-20T12:00:00Z'),
-        createdAt: new Date('2024-03-15T10:00:00Z'),
-        updatedAt: new Date('2024-03-20T12:00:00Z'),
-      },
-      sourceTransaction: undefined,
-      targetTransaction: undefined,
-    },
-  ];
-}
-
-/**
- * Create mock gap analysis for testing
- */
-function createMockGapAnalysis(): LinkGapAnalysis {
-  return {
-    issues: [
-      {
-        transactionId: 2041,
-        externalId: 'eth-inflow-1',
-        source: 'ethereum',
-        blockchain: 'ethereum',
-        timestamp: '2024-03-18T09:12:34Z',
-        assetSymbol: 'ETH',
-        missingAmount: '1.5',
-        totalAmount: '1.5',
-        confirmedCoveragePercent: '0',
-        operationCategory: 'transfer',
-        operationType: 'deposit',
-        suggestedCount: 2,
-        highestSuggestedConfidencePercent: '82.4',
-        direction: 'inflow',
-      },
-      {
-        transactionId: 2198,
-        externalId: 'eth-inflow-2',
-        source: 'ethereum',
-        blockchain: 'ethereum',
-        timestamp: '2024-04-02T14:45:00Z',
-        assetSymbol: 'ETH',
-        missingAmount: '2.0',
-        totalAmount: '2.0',
-        confirmedCoveragePercent: '0',
-        operationCategory: 'transfer',
-        operationType: 'deposit',
-        suggestedCount: 0,
-        direction: 'inflow',
-      },
-      {
-        transactionId: 2456,
-        externalId: 'kraken-outflow-1',
-        source: 'kraken',
-        timestamp: '2024-05-01T16:20:00Z',
-        assetSymbol: 'ETH',
-        missingAmount: '1.2',
-        totalAmount: '1.2',
-        confirmedCoveragePercent: '0',
-        operationCategory: 'transfer',
-        operationType: 'withdrawal',
-        suggestedCount: 1,
-        highestSuggestedConfidencePercent: '74.8',
-        direction: 'outflow',
-      },
-    ],
-    summary: {
-      total_issues: 3,
-      uncovered_inflows: 2,
-      unmatched_outflows: 1,
-      affected_assets: 1,
-      assets: [
-        {
-          assetSymbol: 'ETH',
-          inflowOccurrences: 2,
-          inflowMissingAmount: '3.5',
-          outflowOccurrences: 1,
-          outflowMissingAmount: '1.2',
-        },
-      ],
-    },
-  };
-}

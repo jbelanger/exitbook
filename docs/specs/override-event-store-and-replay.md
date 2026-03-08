@@ -1,41 +1,44 @@
 ---
-last_verified: 2026-02-07
-status: draft
+last_verified: 2026-03-08
+status: canonical
 ---
 
 # Override Event Store and Replay Specification
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
 
-Defines how user overrides are persisted in `overrides.jsonl` and how link overrides are replayed during `links run` so user decisions survive reprocessing.
+Defines how user overrides are stored in `overrides.jsonl` and how link/unlink
+events are replayed during `links run`.
 
 ## Quick Reference
 
-| Concept              | Key Rule                                                     |
-| -------------------- | ------------------------------------------------------------ |
-| Override storage     | Append-only JSONL at `${EXITBOOK_DATA_DIR}/overrides.jsonl`  |
-| Transaction identity | Fingerprint is `${source_name}:${external_id}`               |
-| Link identity        | Fingerprint is `link:${sortedTxFp1}:${sortedTxFp2}:${asset}` |
-| Replay precedence    | Override replay runs after linking heuristic output          |
-| Conflict resolution  | Last event wins per link fingerprint                         |
+| Concept                 | Key Rule                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Storage                 | Append-only JSONL at `${EXITBOOK_DATA_DIR}/overrides.jsonl`                                                 |
+| Transaction identity    | `${source}:${externalId}`                                                                                   |
+| Link identity           | `link:${sortedTxFp1}:${sortedTxFp2}:${assetSymbol}`                                                         |
+| Replay precedence       | Override replay runs after algorithmic link generation                                                      |
+| Conflict resolution     | Last event wins per link fingerprint                                                                        |
+| Orphaned confirm        | Materialize only when source and target transactions resolve and exactly one source/target candidate exists |
+| Persisted orphaned link | Uses candidate-derived asset ids, amounts, and movement fingerprints; never zero-amount sentinels           |
 
 ## Goals
 
-- Persist high-value user decisions outside rebuildable databases.
-- Reapply link decisions deterministically during `links run`.
-- Keep CLI writes resilient: primary command succeeds even if override write fails.
+- **Durable user decisions**: Preserve high-value link and unlink choices outside rebuildable databases.
+- **Deterministic replay**: Reapply the same decisions on every `links run`.
+- **Best-effort CLI writes**: User-facing commands succeed even if the follow-up override append fails.
 
 ## Non-Goals
 
-- Full replay integration for all override scopes in all pipelines.
-- Deleting or mutating prior events in place.
-- Introducing a DB-level `tx_fingerprint` column.
+- Replaying every override scope in every pipeline.
+- Mutating or deleting historical events in place.
+- Replacing the canonical persisted link contract in `transaction_links`.
 
 ## Definitions
 
 ### Override Event
 
-Append-only event written to JSONL:
+Append-only JSONL event:
 
 ```ts
 {
@@ -51,76 +54,112 @@ Append-only event written to JSONL:
 
 ### Transaction Fingerprint
 
-Stable transaction identity:
+Stable transaction identity used by replay:
 
 ```ts
-`${source_name}:${external_id}`;
+`${source}:${externalId}`;
 ```
-
-This follows issue #254 comment simplification and uses already persisted transaction fields.
 
 ### Link Fingerprint
 
-Stable relationship identity:
+Stable override identity for a logical link:
 
 ```ts
-`link:${sorted(source_tx, target_tx)}:${asset}`;
+`link:${sorted(sourceFingerprint, targetFingerprint)}:${assetSymbol}`;
 ```
 
-Sorting makes A->B and B->A equivalent.
+Sorting makes A→B and B→A equivalent for override replay.
 
 ## Behavioral Rules
 
 ### Storage Rules
 
 - `OverrideStore.append()` validates via Zod and writes one JSON object per line.
-- Writes are serialized by an internal queue to avoid interleaved JSONL corruption.
-- `OverrideStore.readAll()` streams line-by-line, skipping invalid JSON/invalid schema rows with warnings.
-- `OverrideStore.readByScope(scope)` filters `readAll()` results by scope.
+- Writes are serialized by an internal queue.
+- `OverrideStore.readAll()` streams line-by-line and skips malformed JSON or schema-invalid rows with warnings.
+- `OverrideStore.readByScope(scope)` filters the full event stream by scope.
 
-### Write Path Rules (CLI)
+### CLI Write Path Rules
 
-| Command              | DB mutation                        | Override event                                                     |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------ |
-| `links confirm <id>` | Updates link status to `confirmed` | Appends `scope='link'`, `type='link_override'`, `action='confirm'` |
-| `links reject <id>`  | Updates link status to `rejected`  | Appends `scope='unlink'`, `type='unlink_override'`                 |
-| `prices set ...`     | Saves manual price                 | Appends `scope='price'`, `type='price_override'`                   |
-| `prices set-fx ...`  | Saves manual FX                    | Appends `scope='fx'`, `type='fx_override'`                         |
+| Command              | Database mutation               | Override event                                                     |
+| -------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `links confirm <id>` | sets link status to `confirmed` | appends `scope='link'`, `type='link_override'`, `action='confirm'` |
+| `links reject <id>`  | sets link status to `rejected`  | appends `scope='unlink'`, `type='unlink_override'`                 |
+| `prices set ...`     | saves manual price              | appends `scope='price'`, `type='price_override'`                   |
+| `prices set-fx ...`  | saves manual FX                 | appends `scope='fx'`, `type='fx_override'`                         |
 
-- Idempotent no-op confirm/reject (`already confirmed` / `already rejected`) does not append a new event.
-- Override append failures are logged as warnings and do not fail the user command.
+Additional rules:
+
+- idempotent confirm/reject no-ops do not append a new event
+- append failures are logged as warnings and do not fail the primary CLI command
 
 ### Replay Rules (`links run`)
 
-`LinksRunHandler` flow:
+Replay runs after algorithmic link generation and before persistence.
 
-1. Load transactions
-2. Clear existing links
-3. Run linking algorithm
-4. Build link entities (confirmed + suggested)
-5. Count internal links (for reporting)
-6. Apply link/unlink overrides to all links
-7. Save all non-rejected links
+Replay input:
+
+- algorithmic `TransactionLink` values
+- link/unlink override events
+- processed transactions for fingerprint resolution
 
 Replay semantics:
 
-- Only `scope='link' | 'unlink'` events are considered.
-- Event stream projection uses last-event-wins per link fingerprint.
-- Matching algorithm links get status overwritten to confirmed/rejected.
-- Confirmed override with resolvable transactions but no algorithm link is returned as `orphaned`, then materialized as a new confirmed link.
-- Unresolvable fingerprints are returned as `unresolved` and logged.
+1. build `transactionFingerprint -> transactionId` lookup from processed transactions
+2. project the override stream by link fingerprint using last-event-wins semantics
+3. apply final projected state to matching algorithmic links
+4. collect final `confirm` states that resolve transactions but have no matching algorithmic link as orphaned overrides
+5. return unresolved events when the transaction fingerprints cannot be resolved
 
-### Orphaned Link Materialization
+Important rules:
 
-When materializing orphaned confirmed overrides, link fields use sentinels:
+- only `scope='link' | 'unlink'` participate in link replay
+- `unlink` with no prior `link` event creates a placeholder reject state, not a new link
+- if the final projected state for a fingerprint is `reject`, no orphaned link is created
 
-- `sourceAmount=0`, `targetAmount=0`
-- `amountSimilarity=0`, `timingHours=0`
-- `confidenceScore=1`
-- `status='confirmed'`
-- `metadata.overrideId=<event id>`
+### Orphaned Confirmed Override Materialization
 
-These represent user-authoritative links not rediscovered by heuristics.
+An orphaned confirmed override is a final `confirm` state whose source and target
+transactions resolve, but whose pair was not rediscovered by the algorithm.
+
+Materialization rules:
+
+1. resolve source and target transactions from the override fingerprints
+2. resolve source outflow candidates for the override `assetSymbol`
+3. resolve target inflow candidates for the override `assetSymbol`
+4. materialize only when exactly one source candidate and one target candidate remain
+5. derive link type structurally from source and target `sourceType`
+6. persist:
+   - `sourceAssetId`
+   - `targetAssetId`
+   - `sourceAmount`
+   - `targetAmount`
+   - `sourceMovementFingerprint`
+   - `targetMovementFingerprint`
+7. persist `status='confirmed'`, `confidenceScore=1`, and override metadata
+8. if either side is missing or ambiguous, log and skip
+
+Explicitly not allowed:
+
+- `sourceAmount=0`
+- `targetAmount=0`
+- missing asset ids
+- missing movement fingerprints
+- raw movement fallback outside the normal candidate builder
+
+### Reviewed Metadata Rules
+
+When replay updates or materializes a confirmed link:
+
+- `reviewedBy = override.actor`
+- `reviewedAt = new Date(override.created_at)`
+
+When replay updates a rejected link:
+
+- `status='rejected'`
+- `reviewedBy` and `reviewedAt` are updated from the final unlink event
+
+Rejected links are not persisted by `links run`.
 
 ## Data Model
 
@@ -137,7 +176,13 @@ type OverridePayload =
       tx_fingerprint?: string;
       price_source?: string;
     }
-  | { type: 'fx_override'; fx_pair: string; rate: string; timestamp: string; tx_fingerprint?: string }
+  | {
+      type: 'fx_override';
+      fx_pair: string;
+      rate: string;
+      timestamp: string;
+      tx_fingerprint?: string;
+    }
   | {
       type: 'link_override';
       action: 'confirm';
@@ -146,57 +191,62 @@ type OverridePayload =
       target_fingerprint: string;
       asset: string;
     }
-  | { type: 'unlink_override'; link_fingerprint: string };
+  | {
+      type: 'unlink_override';
+      link_fingerprint: string;
+    };
 ```
 
 Scope/payload pairing is enforced:
 
-- `scope='price'` -> `type='price_override'`
-- `scope='fx'` -> `type='fx_override'`
-- `scope='link'` -> `type='link_override'`
-- `scope='unlink'` -> `type='unlink_override'`
+- `scope='price' -> type='price_override'`
+- `scope='fx' -> type='fx_override'`
+- `scope='link' -> type='link_override'`
+- `scope='unlink' -> type='unlink_override'`
 
 ## Pipeline / Flow
 
 ```mermaid
 graph TD
     A["CLI confirm/reject/prices set"] --> B["Append event to overrides.jsonl"]
-    C["links run algorithm output"] --> D["applyLinkOverrides(...)"]
+    C["links run algorithmic links"] --> D["Project final override state"]
     B --> D
-    D --> E["Adjust existing links status"]
-    D --> F["Return orphaned confirmed overrides"]
-    F --> G["Create synthetic confirmed links"]
-    E --> H["Save non-rejected links"]
-    G --> H
+    E["Processed transactions"] --> D
+    D --> F["Update matching links"]
+    D --> G["Return orphaned confirms"]
+    G --> H["Resolve orphaned confirm from link candidates"]
+    F --> I["Persist non-rejected links"]
+    H --> I
 ```
 
 ## Invariants
 
-- Override log is append-only.
-- Link replay is deterministic for the same input transactions and event log.
-- Link fingerprint construction is order-invariant due to sorted transaction fingerprints.
-- User decision precedence: replay runs after heuristic link generation.
+- **Append-only log**: Events are never edited in place.
+- **Deterministic replay**: The same transaction set and event order produce the same final override state.
+- **Order-invariant link identity**: Link fingerprints sort transaction fingerprints before hashing the relationship key.
+- **User precedence**: Replay always runs after algorithmic link generation.
+- **No vague orphaned links**: Orphaned confirms never persist zero-amount or fingerprint-less links.
 
-## Edge Cases and Gotchas
+## Edge Cases & Gotchas
 
-- Duplicate or malformed JSONL lines are skipped, not fatal.
-- `unlink` events without prior resolvable link details can produce placeholder state and may become unresolved if no later confirm provides transaction details.
-- Confirm/reject command success does not guarantee override durability if append fails.
-- Rejected links are intentionally not persisted in final `links run` save.
+- malformed JSONL lines are skipped, not fatal
+- confirm/reject command success does not guarantee override durability if the append fails afterward
+- `unlink` without a prior resolvable `link` event creates placeholder reject state; that placeholder never becomes a persisted link by itself
+- link fingerprints remain keyed by `assetSymbol`, even though persisted links now carry stricter source/target asset ids
 
 ## Known Limitations (Current Implementation)
 
-- Replay integration is implemented for link/unlink flow in `links run`; price/fx replay in processing pipeline is not yet wired here.
-- Event IDs are UUIDs, not ULIDs from the original issue proposal.
-- Override ordering is file append order (chronological in practice), not re-sorted by `created_at`.
-- `fingerprint-utils.ts` still exists as a thin helper, but identity is now `source_name:external_id` (no new DB fingerprint column).
+- price/fx override replay is not the focus of this spec and is not wired through every pipeline the same way as link replay
+- override ordering follows file append order rather than a separate sort by `created_at`
+- override identity is still symbol-based, not the stricter `(sourceAssetId, targetAssetId)` pair used by persisted links
 
 ## Related Specs
 
-- [Links Run UI Spec](../mockups/links/links-run-spec.md)
-- [Links Confirm/Reject CLI Spec](../mockups/links/links-confirm-reject-spec.md)
-- [Accounts and Imports](./accounts-and-imports.md)
+- [Transaction Linking](./transaction-linking.md) — canonical linking runtime and persisted link contract
+- [CLI Links Run](./cli/links/links-run-spec.md) — command UX around linking runs
+- [CLI Links Confirm/Reject](./cli/links/links-confirm-reject-spec.md) — user-facing mutation flows
+- [Accounts and Imports](./accounts-and-imports.md) — processed transactions that replay resolves against
 
 ---
 
-_Last updated: 2026-02-07_
+_Last updated: 2026-03-08_

@@ -1,0 +1,323 @@
+import type { TransactionLink } from '@exitbook/accounting';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
+import { ok } from '@exitbook/core';
+import type { DataContext } from '@exitbook/data';
+import { Decimal } from 'decimal.js';
+import { vi, type Mock } from 'vitest';
+
+import type { LinkWithTransactions } from '../components/links-view-state.js';
+import type { LinkGapAnalysis } from '../links-gap-utils.js';
+
+/**
+ * Create a mock transaction link with sensible defaults
+ */
+export function createMockLink(
+  id: number,
+  overrides: {
+    assetSymbol?: Currency;
+    confidenceScore?: number | Decimal;
+    reviewedAt?: Date;
+    reviewedBy?: string;
+    sourceTransactionId?: number;
+    status?: 'suggested' | 'confirmed' | 'rejected';
+    targetTransactionId?: number;
+  } = {}
+): TransactionLink {
+  const confidenceScore = overrides.confidenceScore ?? 0.85;
+  const confidenceDecimal =
+    typeof confidenceScore === 'number' ? parseDecimal(confidenceScore.toString()) : confidenceScore;
+
+  return {
+    id,
+    sourceTransactionId: overrides.sourceTransactionId ?? 1,
+    targetTransactionId: overrides.targetTransactionId ?? 2,
+    assetSymbol: overrides.assetSymbol ?? ('BTC' as Currency),
+    sourceAssetId: 'exchange:source:btc',
+    targetAssetId: 'blockchain:target:btc',
+    sourceAmount: parseDecimal('1.0'),
+    targetAmount: parseDecimal('1.0'),
+    sourceMovementFingerprint: 'movement:exchange:source:1:btc:outflow:0',
+    targetMovementFingerprint: 'movement:blockchain:target:2:btc:inflow:0',
+    linkType: 'exchange_to_blockchain',
+    confidenceScore: confidenceDecimal,
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('0.99'),
+      timingValid: true,
+      timingHours: 1,
+      addressMatch: true,
+    },
+    status: overrides.status ?? 'suggested',
+    reviewedBy: overrides.reviewedBy,
+    reviewedAt: overrides.reviewedAt,
+    createdAt: new Date('2024-01-01T12:00:00Z'),
+    updatedAt: new Date('2024-01-01T12:00:00Z'),
+    metadata: undefined,
+  };
+}
+
+/**
+ * Create a mock universal transaction with sensible defaults
+ */
+export function createMockTransaction(
+  id: number,
+  overrides: {
+    assetSymbol?: Currency;
+    movements?: {
+      inflows?: { amount: string; assetSymbol: string }[];
+      outflows?: { amount: string; assetSymbol: string }[];
+    };
+    source?: string;
+  } = {}
+): UniversalTransactionData {
+  const inflows = overrides.movements?.inflows ?? [{ assetSymbol: overrides.assetSymbol ?? 'BTC', amount: '1.0' }];
+  const outflows = overrides.movements?.outflows ?? [];
+
+  return {
+    id,
+    accountId: 1,
+    externalId: `tx-${id}`,
+    source: overrides.source ?? 'test-source',
+    sourceType: 'exchange',
+    datetime: '2024-01-01T12:00:00Z',
+    timestamp: Date.parse('2024-01-01T12:00:00Z'),
+    status: 'success',
+    from: '0x1234567890abcdef1234567890abcdef12345678',
+    to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+    movements: {
+      inflows: inflows.map((inflow) => {
+        const grossAmt = parseDecimal(inflow.amount);
+        return {
+          assetId: 'test:btc',
+          assetSymbol: (inflow.assetSymbol as Currency) ?? ('BTC' as Currency),
+          grossAmount: grossAmt,
+          netAmount: grossAmt.times(0.999),
+        };
+      }),
+      outflows: outflows.map((outflow) => {
+        const grossAmt = parseDecimal(outflow.amount);
+        return {
+          assetId: 'test:btc',
+          assetSymbol: (outflow.assetSymbol as Currency) ?? ('BTC' as Currency),
+          grossAmount: grossAmt,
+          netAmount: grossAmt.times(0.999),
+        };
+      }),
+    },
+    fees: [],
+    operation: {
+      category: 'transfer',
+      type: 'deposit',
+    },
+  };
+}
+
+/**
+ * Create a mock LinkWithTransactions for view controller tests
+ */
+export function createMockLinkWithTransactions(
+  id: number,
+  overrides: {
+    assetSymbol?: Currency;
+    confidence?: number;
+    reviewedAt?: Date;
+    reviewedBy?: string;
+    status?: 'suggested' | 'confirmed' | 'rejected';
+  } = {}
+): LinkWithTransactions {
+  const confidence = overrides.confidence ?? 0.85;
+
+  return {
+    link: createMockLink(id, {
+      assetSymbol: overrides.assetSymbol ?? ('BTC' as Currency),
+      confidenceScore: confidence,
+      status: overrides.status ?? 'suggested',
+      ...(overrides.reviewedBy !== undefined && { reviewedBy: overrides.reviewedBy }),
+      ...(overrides.reviewedAt !== undefined && { reviewedAt: overrides.reviewedAt }),
+    }),
+    sourceTransaction: undefined,
+    targetTransaction: undefined,
+  };
+}
+
+/**
+ * Create a batch of mock links with various statuses and confidence levels
+ */
+export function createMockLinksBatch(count = 4): LinkWithTransactions[] {
+  return [
+    createMockLinkWithTransactions(1, {
+      assetSymbol: 'ETH' as Currency,
+      confidence: 0.98,
+      status: 'confirmed',
+      reviewedBy: 'user@example.com',
+      reviewedAt: new Date('2024-03-20T12:00:00Z'),
+    }),
+    createMockLinkWithTransactions(2, {
+      assetSymbol: 'BTC' as Currency,
+      confidence: 0.96,
+      status: 'confirmed',
+      reviewedBy: 'user@example.com',
+      reviewedAt: new Date('2024-03-20T12:00:00Z'),
+    }),
+    createMockLinkWithTransactions(3, {
+      assetSymbol: 'ETH' as Currency,
+      confidence: 0.82,
+      status: 'suggested',
+    }),
+    ...(count > 3
+      ? [
+          createMockLinkWithTransactions(4, {
+            assetSymbol: 'ETH' as Currency,
+            confidence: 0.52,
+            status: 'rejected',
+            reviewedBy: 'user@example.com',
+            reviewedAt: new Date('2024-03-20T12:00:00Z'),
+          }),
+        ]
+      : []),
+  ];
+}
+
+/**
+ * Create mock transaction objects for handler tests
+ */
+export function createMockTransactionObjects() {
+  return {
+    source: {
+      id: 1,
+      source: 'kraken',
+      externalId: 'WITHDRAWAL-123',
+    },
+    target: {
+      id: 2,
+      source: 'blockchain:bitcoin',
+      externalId: 'abc123',
+    },
+  };
+}
+
+/**
+ * Create a mock transaction links repository
+ */
+export function createMockLinkRepository(): {
+  findById: Mock;
+  updateStatus: Mock;
+} {
+  return {
+    findById: vi.fn(),
+    updateStatus: vi.fn(),
+  };
+}
+
+/**
+ * Create a mock transactions repository
+ */
+export function createMockTransactionRepository(): {
+  findById: Mock;
+} {
+  return {
+    findById: vi.fn(),
+  };
+}
+
+/**
+ * Create a mock override store
+ */
+export function createMockOverrideStore(): {
+  append: Mock;
+  exists: Mock;
+  readAll: Mock;
+} {
+  return {
+    append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
+    exists: vi.fn(),
+    readAll: vi.fn(),
+  };
+}
+
+/**
+ * Create a mock DataContext with transaction and links repositories
+ */
+export function createMockDataContext(
+  overrides: {
+    transactionLinks?: ReturnType<typeof createMockLinkRepository>;
+    transactions?: ReturnType<typeof createMockTransactionRepository>;
+  } = {}
+): DataContext {
+  return {
+    transactionLinks: overrides.transactionLinks ?? createMockLinkRepository(),
+    transactions: overrides.transactions ?? createMockTransactionRepository(),
+  } as unknown as DataContext;
+}
+
+/**
+ * Create mock gap analysis data
+ */
+export function createMockGapAnalysis(): LinkGapAnalysis {
+  return {
+    issues: [
+      {
+        transactionId: 2041,
+        externalId: 'eth-inflow-1',
+        source: 'ethereum',
+        blockchain: 'ethereum',
+        timestamp: '2024-03-18T09:12:34Z',
+        assetSymbol: 'ETH',
+        missingAmount: '1.5',
+        totalAmount: '1.5',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'deposit',
+        suggestedCount: 2,
+        highestSuggestedConfidencePercent: '82.4',
+        direction: 'inflow',
+      },
+      {
+        transactionId: 2198,
+        externalId: 'eth-inflow-2',
+        source: 'ethereum',
+        blockchain: 'ethereum',
+        timestamp: '2024-04-02T14:45:00Z',
+        assetSymbol: 'ETH',
+        missingAmount: '2.0',
+        totalAmount: '2.0',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'deposit',
+        suggestedCount: 0,
+        direction: 'inflow',
+      },
+      {
+        transactionId: 2456,
+        externalId: 'kraken-outflow-1',
+        source: 'kraken',
+        timestamp: '2024-05-01T16:20:00Z',
+        assetSymbol: 'ETH',
+        missingAmount: '1.2',
+        totalAmount: '1.2',
+        confirmedCoveragePercent: '0',
+        operationCategory: 'transfer',
+        operationType: 'withdrawal',
+        suggestedCount: 1,
+        highestSuggestedConfidencePercent: '74.8',
+        direction: 'outflow',
+      },
+    ],
+    summary: {
+      total_issues: 3,
+      uncovered_inflows: 2,
+      unmatched_outflows: 1,
+      affected_assets: 1,
+      assets: [
+        {
+          assetSymbol: 'ETH',
+          inflowOccurrences: 2,
+          inflowMissingAmount: '3.5',
+          outflowOccurrences: 1,
+          outflowMissingAmount: '1.2',
+        },
+      ],
+    },
+  };
+}
