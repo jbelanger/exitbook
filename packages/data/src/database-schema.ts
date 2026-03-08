@@ -200,6 +200,8 @@ export interface TransactionLinksTable {
   target_asset_id: string; // Target movement asset ID (e.g., 'blockchain:bitcoin:native')
   source_amount: DecimalString; // Gross outflow amount (before fees deducted)
   target_amount: DecimalString; // Net received amount (after fees)
+  source_movement_fingerprint: string; // Deterministic movement identity (e.g., movement:kraken:WITHDRAWAL-123:outflow:0)
+  target_movement_fingerprint: string; // Deterministic movement identity (e.g., movement:blockchain:ethereum:0xabc:inflow:0)
   link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';
   confidence_score: DecimalString; // 0-1
   match_criteria_json: JSONString; // MatchCriteria

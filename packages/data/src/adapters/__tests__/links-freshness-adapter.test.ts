@@ -51,6 +51,8 @@ describe('buildLinksFreshnessPorts', () => {
         target_asset_id: 'blockchain:bitcoin:native',
         source_amount: '1.0',
         target_amount: '1.0',
+        source_movement_fingerprint: `movement:exchange:kraken:${txs[0]!.id}:outflow:0`,
+        target_movement_fingerprint: `movement:blockchain:bitcoin:${txs[1]!.id}:inflow:0`,
         link_type: 'exchange_to_blockchain',
         confidence_score: '1.0',
         match_criteria_json: JSON.stringify({

@@ -42,6 +42,8 @@ function makeLink(sourceId: number, targetId: number, overrides?: Partial<Transa
     targetAssetId: 'blockchain:bitcoin:native',
     sourceAmount: new Decimal('1'),
     targetAmount: new Decimal('0.999'),
+    sourceMovementFingerprint: `movement:exchange:kraken:${sourceId}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:bitcoin:${targetId}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: new Decimal('0.95'),
     matchCriteria: {

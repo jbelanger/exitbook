@@ -38,15 +38,18 @@ function createTransactionLink(
   targetAmount: string,
   confidenceScore = '0.99'
 ): TransactionLink {
+  const asset = assetSymbol.toLowerCase();
   return {
     id,
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     assetSymbol: assetSymbol as Currency,
-    sourceAssetId: `exchange:source:${assetSymbol.toLowerCase()}`,
-    targetAssetId: `blockchain:target:${assetSymbol.toLowerCase()}`,
+    sourceAssetId: `exchange:source:${asset}`,
+    targetAssetId: `blockchain:target:${asset}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
+    sourceMovementFingerprint: `movement:exchange:source:${sourceName}:${asset}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:target:${targetId}:${asset}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: new Decimal(confidenceScore),
     matchCriteria: {

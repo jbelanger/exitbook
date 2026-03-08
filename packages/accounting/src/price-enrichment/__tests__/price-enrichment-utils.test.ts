@@ -18,8 +18,44 @@ import {
   createTransactionFromMovements,
   createFee,
 } from '../../__tests__/test-utils.js';
+import type { TransactionLink } from '../../linking/types.js';
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.js';
 import type { TransactionGroup } from '../types.js';
+
+function createTestLink(params: {
+  id: number;
+  linkType?: TransactionLink['linkType'];
+  sourceAmount: string;
+  sourceAssetId?: string | undefined;
+  sourceTransactionId: number;
+  targetAmount: string;
+  targetAssetId?: string | undefined;
+  targetTransactionId: number;
+}): TransactionLink {
+  return {
+    id: params.id,
+    sourceTransactionId: params.sourceTransactionId,
+    targetTransactionId: params.targetTransactionId,
+    assetSymbol: 'BTC' as Currency,
+    sourceAssetId: params.sourceAssetId ?? 'exchange:source:btc',
+    targetAssetId: params.targetAssetId ?? 'blockchain:target:btc',
+    sourceAmount: parseDecimal(params.sourceAmount),
+    targetAmount: parseDecimal(params.targetAmount),
+    sourceMovementFingerprint: `movement:${params.sourceAssetId ?? 'exchange:source:btc'}:${params.sourceTransactionId}:outflow:0`,
+    targetMovementFingerprint: `movement:${params.targetAssetId ?? 'blockchain:target:btc'}:${params.targetTransactionId}:inflow:0`,
+    linkType: params.linkType ?? 'exchange_to_blockchain',
+    status: 'confirmed',
+    confidenceScore: parseDecimal('0.95'),
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('1.0'),
+      timingValid: true,
+      timingHours: 0.5,
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
 
 describe('inferMultiPass', () => {
   describe('Pass 0: Exchange execution prices', () => {
@@ -283,27 +319,7 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [sourceTx, targetTx],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
-          id: 1,
-          sourceTransactionId: 1,
-          targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1'),
-          targetAmount: parseDecimal('1'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('1.0'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        createTestLink({ id: 1, sourceTransactionId: 1, targetTransactionId: 2, sourceAmount: '1', targetAmount: '1' }),
       ],
     };
 
@@ -340,27 +356,13 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [sourceTx, targetTx],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
+        createTestLink({
           id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1.0'),
-          targetAmount: parseDecimal('0.9999'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('0.9999'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+          sourceAmount: '1.0',
+          targetAmount: '0.9999',
+        }),
       ],
     };
 
@@ -396,27 +398,13 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [sourceTx, targetTx],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
+        createTestLink({
           id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1.0'),
-          targetAmount: parseDecimal('0.8'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('0.8'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+          sourceAmount: '1.0',
+          targetAmount: '0.8',
+        }),
       ],
     };
 
@@ -454,27 +442,13 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [sourceTx, targetTx],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
+        createTestLink({
           id: 1,
           sourceTransactionId: 1,
           targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1.0'),
-          targetAmount: parseDecimal('1.0'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('1.0'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+          sourceAmount: '1.0',
+          targetAmount: '1.0',
+        }),
       ],
     };
 
@@ -509,27 +483,7 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [sourceTx, targetTx],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
-          id: 1,
-          sourceTransactionId: 1,
-          targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1'),
-          targetAmount: parseDecimal('1'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('1.0'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        createTestLink({ id: 1, sourceTransactionId: 1, targetTransactionId: 2, sourceAmount: '1', targetAmount: '1' }),
       ],
     };
 
@@ -573,48 +527,17 @@ describe('propagatePricesAcrossLinks', () => {
       transactions: [tx1, tx2, tx3],
       sources: new Set(['kraken', 'bitcoin']),
       linkChain: [
-        {
-          id: 1,
-          sourceTransactionId: 1,
-          targetTransactionId: 2,
-          assetSymbol: 'BTC' as Currency,
-          sourceAssetId: 'exchange:source:btc',
-          targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1'),
-          targetAmount: parseDecimal('1'),
-          linkType: 'exchange_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('1.0'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
+        createTestLink({ id: 1, sourceTransactionId: 1, targetTransactionId: 2, sourceAmount: '1', targetAmount: '1' }),
+        createTestLink({
           id: 2,
           sourceTransactionId: 2,
           targetTransactionId: 3,
-          assetSymbol: 'BTC' as Currency,
           sourceAssetId: 'blockchain:source:btc',
           targetAssetId: 'blockchain:target:btc',
-          sourceAmount: parseDecimal('1'),
-          targetAmount: parseDecimal('1'),
+          sourceAmount: '1',
+          targetAmount: '1',
           linkType: 'blockchain_to_blockchain',
-          status: 'confirmed',
-          confidenceScore: parseDecimal('0.95'),
-          matchCriteria: {
-            assetMatch: true,
-            amountSimilarity: parseDecimal('1.0'),
-            timingValid: true,
-            timingHours: 0.5,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        }),
       ],
     };
 

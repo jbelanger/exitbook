@@ -51,6 +51,61 @@ describe('buildLinkCandidates', () => {
     });
   });
 
+  it('assigns deterministic position-based movement fingerprints per direction', () => {
+    const transactions = [
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        sourceType: 'exchange',
+        datetime: '2026-01-01T00:00:00Z',
+        inflows: [
+          { assetSymbol: 'ETH', amount: '1' },
+          { assetSymbol: 'USDT', amount: '100' },
+        ],
+        outflows: [
+          { assetSymbol: 'BTC', amount: '0.5' },
+          { assetSymbol: 'SOL', amount: '10' },
+        ],
+      }),
+    ];
+
+    const result = assertOk(buildLinkCandidates(transactions, logger));
+
+    expect(
+      result.candidates.map((candidate) => ({
+        assetSymbol: candidate.assetSymbol,
+        direction: candidate.direction,
+        position: candidate.position,
+        movementFingerprint: candidate.movementFingerprint,
+      }))
+    ).toEqual([
+      {
+        assetSymbol: 'ETH',
+        direction: 'in',
+        position: 0,
+        movementFingerprint: 'movement:kraken:kraken-1:inflow:0',
+      },
+      {
+        assetSymbol: 'USDT',
+        direction: 'in',
+        position: 1,
+        movementFingerprint: 'movement:kraken:kraken-1:inflow:1',
+      },
+      {
+        assetSymbol: 'BTC',
+        direction: 'out',
+        position: 0,
+        movementFingerprint: 'movement:kraken:kraken-1:outflow:0',
+      },
+      {
+        assetSymbol: 'SOL',
+        direction: 'out',
+        position: 1,
+        movementFingerprint: 'movement:kraken:kraken-1:outflow:1',
+      },
+    ]);
+  });
+
   it('marks structural trades as excluded', () => {
     const transactions = [
       createTransaction({
@@ -126,6 +181,8 @@ describe('buildLinkCandidates', () => {
       sourceTransactionId: 1,
       targetTransactionId: 2,
       linkType: 'blockchain_internal',
+      sourceMovementFingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0',
+      targetMovementFingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0',
     });
 
     // Outflow candidate reduced from gross amounts: 5 - 3 - 0.01 = 1.99

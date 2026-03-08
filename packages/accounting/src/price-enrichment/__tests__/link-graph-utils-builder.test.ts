@@ -80,6 +80,8 @@ function createTransactionLink(params: {
     targetAssetId: `blockchain:target:${asset.toLowerCase()}`,
     sourceAmount: parseDecimal(params.sourceAmount ?? '1.0'),
     targetAmount: parseDecimal(params.targetAmount ?? '1.0'),
+    sourceMovementFingerprint: `movement:exchange:source:${params.sourceTransactionId}:${asset.toLowerCase()}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:target:${params.targetTransactionId}:${asset.toLowerCase()}:inflow:0`,
     linkType: params.linkType,
     confidenceScore: parseDecimal(params.confidenceScore ?? '0.95'),
     matchCriteria: {

@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { TransactionFingerprintInput, LinkIdentity } from './override.js';
+import type { TransactionFingerprintInput, LinkIdentity, MovementFingerprintInput } from './override.js';
 
 /**
  * Compute transaction fingerprint from source and externalId
@@ -23,6 +23,28 @@ export function computeTxFingerprint(identity: TransactionFingerprintInput): Res
   }
 
   return ok(`${source}:${externalId}`);
+}
+
+/**
+ * Compute deterministic movement fingerprint from transaction fingerprint + movement type + position.
+ * Format: movement:${txFingerprint}:${movementType}:${position}
+ *
+ * Examples:
+ * - movement:kraken:WITHDRAWAL-123:outflow:0
+ * - movement:blockchain:ethereum:0xabc...:inflow:0
+ */
+export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
+  const { txFingerprint, movementType, position } = input;
+
+  if (!txFingerprint || txFingerprint.trim() === '') {
+    return err(new Error('txFingerprint must not be empty'));
+  }
+
+  if (position < 0 || !Number.isInteger(position)) {
+    return err(new Error(`position must be a non-negative integer, got ${position}`));
+  }
+
+  return ok(`movement:${txFingerprint}:${movementType}:${position}`);
 }
 
 /**

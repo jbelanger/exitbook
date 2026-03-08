@@ -106,6 +106,45 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
+  const createMockLink = (params: {
+    assetSymbol: string;
+    confidenceScore: string;
+    id: number;
+    linkType: TransactionLink['linkType'];
+    sourceAmount: string;
+    sourceAssetId: string;
+    sourceTransactionId: number;
+    targetAmount: string;
+    targetAssetId: string;
+    targetTransactionId: number;
+  }): TransactionLink => ({
+    id: params.id,
+    sourceTransactionId: params.sourceTransactionId,
+    targetTransactionId: params.targetTransactionId,
+    assetSymbol: params.assetSymbol as Currency,
+    sourceAssetId: params.sourceAssetId,
+    targetAssetId: params.targetAssetId,
+    sourceAmount: parseDecimal(params.sourceAmount),
+    targetAmount: parseDecimal(params.targetAmount),
+    sourceMovementFingerprint: `movement:${params.sourceAssetId}:${params.sourceTransactionId}:outflow:0`,
+    targetMovementFingerprint: `movement:${params.targetAssetId}:${params.targetTransactionId}:inflow:0`,
+    linkType: params.linkType,
+    confidenceScore: parseDecimal(params.confidenceScore),
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('0.99'),
+      timingValid: true,
+      timingHours: 1,
+      addressMatch: true,
+    },
+    status: 'confirmed',
+    reviewedBy: undefined,
+    reviewedAt: undefined,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+    metadata: undefined,
+  });
+
   it('should flag deposits without confirmed links', () => {
     const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [];
@@ -132,31 +171,18 @@ describe('analyzeLinkGaps', () => {
   it('should treat confirmed links as coverage', () => {
     const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [
-      {
+      createMockLink({
         id: 1,
         sourceTransactionId: 5,
         targetTransactionId: 11,
-        assetSymbol: 'BTC' as Currency,
+        assetSymbol: 'BTC',
         sourceAssetId: 'exchange:source:btc',
         targetAssetId: 'blockchain:target:btc',
-        sourceAmount: parseDecimal('0.8'),
-        targetAmount: parseDecimal('0.8'),
+        sourceAmount: '0.8',
+        targetAmount: '0.8',
         linkType: 'exchange_to_blockchain',
-        confidenceScore: parseDecimal('0.97'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: parseDecimal('0.99'),
-          timingValid: true,
-          timingHours: 6,
-          addressMatch: true,
-        },
-        status: 'confirmed',
-        reviewedBy: undefined,
-        reviewedAt: undefined,
-        createdAt: new Date('2024-01-01T00:00:00Z'),
-        updatedAt: new Date('2024-01-01T00:00:00Z'),
-        metadata: undefined,
-      },
+        confidenceScore: '0.97',
+      }),
     ];
 
     const analysis = analyzeLinkGaps(transactions, links);
@@ -214,31 +240,18 @@ describe('analyzeLinkGaps', () => {
     const withdrawal = createBlockchainWithdrawal({ id: 22, externalId: 'btc-outflow-2' });
     const transactions: UniversalTransactionData[] = [withdrawal];
     const links: TransactionLink[] = [
-      {
+      createMockLink({
         id: 1,
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 42,
-        assetSymbol: 'BTC' as Currency,
+        assetSymbol: 'BTC',
         sourceAssetId: 'blockchain:source:btc',
         targetAssetId: 'blockchain:target:btc',
-        sourceAmount: parseDecimal('0.5'),
-        targetAmount: parseDecimal('0.5'),
+        sourceAmount: '0.5',
+        targetAmount: '0.5',
         linkType: 'blockchain_to_blockchain',
-        confidenceScore: parseDecimal('0.95'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: parseDecimal('0.99'),
-          timingValid: true,
-          timingHours: 1,
-          addressMatch: true,
-        },
-        status: 'confirmed',
-        reviewedBy: undefined,
-        reviewedAt: undefined,
-        createdAt: new Date('2024-01-02T00:00:00Z'),
-        updatedAt: new Date('2024-01-02T00:00:00Z'),
-        metadata: undefined,
-      },
+        confidenceScore: '0.95',
+      }),
     ];
 
     const analysis = analyzeLinkGaps(transactions, links);
@@ -276,31 +289,18 @@ describe('analyzeLinkGaps', () => {
     const withdrawal = createExchangeWithdrawal({ id: 32, externalId: 'kraken-outflow-2' });
     const transactions: UniversalTransactionData[] = [withdrawal];
     const links: TransactionLink[] = [
-      {
+      createMockLink({
         id: 1,
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 77,
-        assetSymbol: 'ETH' as Currency,
+        assetSymbol: 'ETH',
         sourceAssetId: 'exchange:source:eth',
         targetAssetId: 'blockchain:target:eth',
-        sourceAmount: parseDecimal('5'),
-        targetAmount: parseDecimal('5'),
+        sourceAmount: '5',
+        targetAmount: '5',
         linkType: 'exchange_to_blockchain',
-        confidenceScore: parseDecimal('0.92'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: parseDecimal('0.99'),
-          timingValid: true,
-          timingHours: 3,
-          addressMatch: true,
-        },
-        status: 'confirmed',
-        reviewedBy: undefined,
-        reviewedAt: undefined,
-        createdAt: new Date('2024-01-03T00:00:00Z'),
-        updatedAt: new Date('2024-01-03T00:00:00Z'),
-        metadata: undefined,
-      },
+        confidenceScore: '0.92',
+      }),
     ];
 
     const analysis = analyzeLinkGaps(transactions, links);

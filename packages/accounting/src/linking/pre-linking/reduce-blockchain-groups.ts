@@ -3,19 +3,18 @@ import { parseDecimal } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
-import type { NewTransactionLink } from '../types.js';
-
 import type { SameHashAssetGroup, SameHashParticipant } from './group-same-hash-transactions.js';
+import type { PendingInternalLink } from './types.js';
 
 /**
  * Result of reducing same-hash blockchain groups.
  */
 export interface BlockchainGroupReduction {
   /** Conservative blockchain_internal links for clearly internal transfers */
-  internalLinks: NewTransactionLink[];
+  internalLinks: PendingInternalLink[];
 
   /**
-   * Outflow amount reductions keyed by txId → assetSymbol → reduced amount.
+   * Outflow amount reductions keyed by txId → assetId → reduced amount.
    * Only populated for clearly internal cases.
    */
   outflowReductions: Map<number, Map<string, Decimal>>;
@@ -36,7 +35,7 @@ export interface BlockchainGroupReduction {
  * 4. Mixed inflow/outflow on same participant → ambiguous, skip with warning
  */
 export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Logger): BlockchainGroupReduction {
-  const internalLinks: NewTransactionLink[] = [];
+  const internalLinks: PendingInternalLink[] = [];
   const outflowReductions = new Map<number, Map<string, Decimal>>();
   const internalTxIds = new Set<number>();
   const now = new Date();
@@ -70,6 +69,7 @@ export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Log
         {
           hash: group.normalizedHash,
           blockchain: group.blockchain,
+          assetId: group.assetId,
           asset: group.assetSymbol,
           mixedTxIds: mixed.map((p) => p.txId),
         },
@@ -84,6 +84,7 @@ export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Log
         {
           hash: group.normalizedHash,
           blockchain: group.blockchain,
+          assetId: group.assetId,
           asset: group.assetSymbol,
           outflowTxIds: pureOutflows.map((p) => p.txId),
           inflowTxIds: pureInflows.map((p) => p.txId),
@@ -96,6 +97,25 @@ export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Log
     // Rule 2: Exactly one pure outflow + pure inflows — clearly internal
     const sender = pureOutflows[0];
     if (pureOutflows.length === 1 && pureInflows.length > 0 && sender) {
+      if (sender.outflowMovementCount !== 1 || pureInflows.some((receiver) => receiver.inflowMovementCount !== 1)) {
+        logger.warn(
+          {
+            hash: group.normalizedHash,
+            blockchain: group.blockchain,
+            assetId: group.assetId,
+            asset: group.assetSymbol,
+            senderTxId: sender.txId,
+            senderOutflowMovementCount: sender.outflowMovementCount,
+            receiverMovementCounts: pureInflows.map((receiver) => ({
+              txId: receiver.txId,
+              inflowMovementCount: receiver.inflowMovementCount,
+            })),
+          },
+          'Ambiguous same-hash group: participant has multiple movements for the same asset'
+        );
+        continue;
+      }
+
       // Mark all participants as internal
       internalTxIds.add(sender.txId);
       for (const receiver of pureInflows) {
@@ -153,7 +173,7 @@ export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Log
 
       if (reducedAmount.gt(0)) {
         const byAsset = outflowReductions.get(sender.txId) ?? new Map<string, Decimal>();
-        byAsset.set(group.assetSymbol, reducedAmount);
+        byAsset.set(group.assetId, reducedAmount);
         outflowReductions.set(sender.txId, byAsset);
       }
     }

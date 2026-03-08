@@ -617,6 +617,8 @@ function createMockLinks(): LinkWithTransactions[] {
         targetAssetId: 'blockchain:target:eth',
         sourceAmount: new Decimal('1.5'),
         targetAmount: new Decimal('1.498'),
+        sourceMovementFingerprint: 'movement:exchange:source:1:eth:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:2:eth:inflow:0',
         confidenceScore: new Decimal('0.98'),
         matchCriteria: {
           assetMatch: true,
@@ -645,6 +647,8 @@ function createMockLinks(): LinkWithTransactions[] {
         targetAssetId: 'blockchain:target:btc',
         sourceAmount: new Decimal('0.5'),
         targetAmount: new Decimal('0.4998'),
+        sourceMovementFingerprint: 'movement:exchange:source:3:btc:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:4:btc:inflow:0',
         confidenceScore: new Decimal('0.96'),
         matchCriteria: {
           assetMatch: true,
@@ -673,6 +677,8 @@ function createMockLinks(): LinkWithTransactions[] {
         targetAssetId: 'blockchain:target:eth',
         sourceAmount: new Decimal('2.0'),
         targetAmount: new Decimal('1.997'),
+        sourceMovementFingerprint: 'movement:exchange:source:5:eth:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:6:eth:inflow:0',
         confidenceScore: new Decimal('0.82'),
         matchCriteria: {
           assetMatch: true,
@@ -701,6 +707,8 @@ function createMockLinks(): LinkWithTransactions[] {
         targetAssetId: 'blockchain:target:eth',
         sourceAmount: new Decimal('3.0'),
         targetAmount: new Decimal('2.85'),
+        sourceMovementFingerprint: 'movement:exchange:source:7:eth:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:8:eth:inflow:0',
         confidenceScore: new Decimal('0.52'),
         matchCriteria: {
           assetMatch: true,

@@ -52,6 +52,8 @@ export const TransactionLinkSchema = z.object({
   targetAssetId: z.string(),
   sourceAmount: DecimalSchema,
   targetAmount: DecimalSchema,
+  sourceMovementFingerprint: z.string(),
+  targetMovementFingerprint: z.string(),
   linkType: LinkTypeSchema,
   confidenceScore: UnitIntervalDecimalSchema,
   matchCriteria: MatchCriteriaSchema,

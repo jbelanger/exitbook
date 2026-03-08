@@ -257,6 +257,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('target_asset_id', 'text', (col) => col.notNull())
     .addColumn('source_amount', 'text', (col) => col.notNull())
     .addColumn('target_amount', 'text', (col) => col.notNull())
+    .addColumn('source_movement_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('target_movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())
     .addColumn('confidence_score', 'text', (col) => col.notNull())
     .addColumn('match_criteria_json', 'text', (col) => col.notNull())

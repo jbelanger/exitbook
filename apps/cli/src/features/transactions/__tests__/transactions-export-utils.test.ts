@@ -489,6 +489,8 @@ describe('export-utils', () => {
         targetAssetId: 'blockchain:target:btc',
         sourceAmount: parseDecimal('1.5'),
         targetAmount: parseDecimal('1.49'),
+        sourceMovementFingerprint: 'movement:exchange:source:1:btc:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:2:btc:inflow:0',
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.99'),
         matchCriteria: {

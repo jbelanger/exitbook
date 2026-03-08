@@ -1,14 +1,15 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
-import { ok, type Result } from '@exitbook/core';
+import { computeMovementFingerprint, computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkCandidate } from '../link-candidate.js';
 import { normalizeTransactionHash } from '../strategies/exact-hash-utils.js';
+import type { NewTransactionLink } from '../types.js';
 
 import { groupSameHashTransactions } from './group-same-hash-transactions.js';
 import { reduceBlockchainGroups } from './reduce-blockchain-groups.js';
-import type { LinkCandidateBuildResult } from './types.js';
+import type { LinkCandidateBuildResult, PendingInternalLink } from './types.js';
 
 /**
  * Build link candidates from raw transactions.
@@ -49,9 +50,27 @@ export function buildLinkCandidates(
       ? normalizeTransactionHash(tx.blockchain.transaction_hash)
       : undefined;
 
-    for (const inflow of tx.movements.inflows ?? []) {
+    // Compute tx fingerprint once per transaction for movement fingerprints
+    const txFpResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    if (txFpResult.isErr()) {
+      return err(txFpResult.error);
+    }
+    const txFingerprint = txFpResult.value;
+
+    const inflows = tx.movements.inflows ?? [];
+    for (let inflowIdx = 0; inflowIdx < inflows.length; inflowIdx++) {
+      const inflow = inflows[inflowIdx]!;
       const amount = inflow.netAmount ?? inflow.grossAmount;
       const grossAmount = inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
+
+      const movementFingerprintResult = computeMovementFingerprint({
+        txFingerprint,
+        movementType: 'inflow',
+        position: inflowIdx,
+      });
+      if (movementFingerprintResult.isErr()) {
+        return err(movementFingerprintResult.error);
+      }
 
       candidates.push(
         createCandidate(
@@ -66,17 +85,30 @@ export function buildLinkCandidates(
           {
             excluded,
             isInternal,
+            position: inflowIdx,
+            movementFingerprint: movementFingerprintResult.value,
           }
         )
       );
     }
 
-    for (const outflow of tx.movements.outflows ?? []) {
+    const outflows = tx.movements.outflows ?? [];
+    for (let outflowIdx = 0; outflowIdx < outflows.length; outflowIdx++) {
+      const outflow = outflows[outflowIdx]!;
       // Apply outflow reduction if one exists for this tx+asset
-      const reduction = outflowReductions.get(tx.id)?.get(outflow.assetSymbol);
+      const reduction = outflowReductions.get(tx.id)?.get(outflow.assetId);
       const amount = reduction ?? outflow.netAmount ?? outflow.grossAmount;
       const grossAmount =
         outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount) ? outflow.grossAmount : undefined;
+
+      const movementFingerprintResult = computeMovementFingerprint({
+        txFingerprint,
+        movementType: 'outflow',
+        position: outflowIdx,
+      });
+      if (movementFingerprintResult.isErr()) {
+        return err(movementFingerprintResult.error);
+      }
 
       candidates.push(
         createCandidate(
@@ -91,10 +123,17 @@ export function buildLinkCandidates(
           {
             excluded,
             isInternal,
+            position: outflowIdx,
+            movementFingerprint: movementFingerprintResult.value,
           }
         )
       );
     }
+  }
+
+  const enrichedInternalLinksResult = attachInternalLinkFingerprints(internalLinks, candidates);
+  if (enrichedInternalLinksResult.isErr()) {
+    return err(enrichedInternalLinksResult.error);
   }
 
   logger.info(
@@ -106,7 +145,7 @@ export function buildLinkCandidates(
     'Link candidate building completed'
   );
 
-  return ok({ candidates, internalLinks });
+  return ok({ candidates, internalLinks: enrichedInternalLinksResult.value });
 }
 
 function createCandidate(
@@ -118,7 +157,7 @@ function createCandidate(
   amount: Decimal,
   grossAmount: Decimal | undefined,
   normalizedHash: string | undefined,
-  flags: { excluded: boolean; isInternal: boolean }
+  flags: { excluded: boolean; isInternal: boolean; movementFingerprint: string; position: number }
 ): LinkCandidate {
   return {
     id,
@@ -137,7 +176,54 @@ function createCandidate(
     toAddress: tx.to,
     isInternal: flags.isInternal,
     excluded: flags.excluded,
+    position: flags.position,
+    movementFingerprint: flags.movementFingerprint,
   };
+}
+
+function attachInternalLinkFingerprints(
+  internalLinks: PendingInternalLink[],
+  candidates: LinkCandidate[]
+): Result<NewTransactionLink[], Error> {
+  const enrichedLinks: NewTransactionLink[] = [];
+
+  for (const link of internalLinks) {
+    const sourceCandidates = candidates.filter(
+      (candidate) =>
+        candidate.transactionId === link.sourceTransactionId &&
+        candidate.direction === 'out' &&
+        candidate.assetId === link.sourceAssetId
+    );
+    if (sourceCandidates.length !== 1) {
+      return err(
+        new Error(
+          `Expected exactly one source candidate for internal link ${link.sourceTransactionId}->${link.targetTransactionId} ${link.sourceAssetId}, found ${sourceCandidates.length}`
+        )
+      );
+    }
+
+    const targetCandidates = candidates.filter(
+      (candidate) =>
+        candidate.transactionId === link.targetTransactionId &&
+        candidate.direction === 'in' &&
+        candidate.assetId === link.targetAssetId
+    );
+    if (targetCandidates.length !== 1) {
+      return err(
+        new Error(
+          `Expected exactly one target candidate for internal link ${link.sourceTransactionId}->${link.targetTransactionId} ${link.targetAssetId}, found ${targetCandidates.length}`
+        )
+      );
+    }
+
+    enrichedLinks.push({
+      ...link,
+      sourceMovementFingerprint: sourceCandidates[0]!.movementFingerprint,
+      targetMovementFingerprint: targetCandidates[0]!.movementFingerprint,
+    });
+  }
+
+  return ok(enrichedLinks);
 }
 
 /**

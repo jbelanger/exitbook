@@ -214,6 +214,8 @@ export function createTransactionLink(
     targetAssetId: match.targetMovement.assetId,
     sourceAmount,
     targetAmount,
+    sourceMovementFingerprint: match.sourceMovement.movementFingerprint,
+    targetMovementFingerprint: match.targetMovement.movementFingerprint,
     linkType: match.linkType,
     confidenceScore: match.confidenceScore,
     matchCriteria: match.matchCriteria,

@@ -382,6 +382,8 @@ function createMockLink(
     targetAssetId: `blockchain:target:${asset.toLowerCase()}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
+    sourceMovementFingerprint: `movement:exchange:source:${sourceTxId}:${asset.toLowerCase()}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:target:${targetTxId}:${asset.toLowerCase()}:inflow:0`,
     confidenceScore: new Decimal(confidence),
     matchCriteria: {
       assetMatch: true,

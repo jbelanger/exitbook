@@ -21,6 +21,8 @@ export const LinkCandidateSchema = z.object({
   toAddress: z.string().optional(),
   isInternal: z.boolean(),
   excluded: z.boolean(),
+  position: z.number().int().nonnegative(),
+  movementFingerprint: z.string(),
 });
 
 export type LinkCandidate = z.infer<typeof LinkCandidateSchema>;

@@ -42,6 +42,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     targetAssetId: `blockchain:target:${assetSymbol.toLowerCase()}`,
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
+    sourceMovementFingerprint: `movement:exchange:source:${sourceTransactionId}:${assetSymbol.toLowerCase()}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:target:${targetTransactionId}:${assetSymbol.toLowerCase()}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal(confidenceScore),
     matchCriteria: {

@@ -190,7 +190,7 @@ export class LinkingOrchestrator {
       const strategyResult = yield* runner.run(candidates);
       const allLinks = [...internalLinks, ...strategyResult.links];
 
-      const finalLinks = yield* self.replayOverrides(allLinks, overrides, transactions, txById);
+      const finalLinks = yield* self.replayOverrides(candidates, allLinks, overrides, transactions, txById);
       const { internalCount, confirmedCount, suggestedCount } = categorizeFinalLinks(finalLinks);
 
       eventBus?.emit({
@@ -227,6 +227,7 @@ export class LinkingOrchestrator {
    * Returns original links unchanged if no overrides provided.
    */
   private replayOverrides(
+    candidates: LinkCandidate[],
     links: NewTransactionLink[],
     overrides: OverrideEvent[],
     transactions: UniversalTransactionData[],
@@ -246,7 +247,7 @@ export class LinkingOrchestrator {
       const finalLinks = adjustedLinks as NewTransactionLink[];
 
       for (const entry of orphaned) {
-        const linkResult = buildLinkFromOrphanedOverride(entry, txById);
+        const linkResult = buildLinkFromOrphanedOverride(entry, candidates, txById);
         if (linkResult.isErr()) {
           logger.error(
             {

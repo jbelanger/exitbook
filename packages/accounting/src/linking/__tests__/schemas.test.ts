@@ -134,6 +134,8 @@ describe('schemas', () => {
         targetAssetId: 'blockchain:bitcoin:native',
         sourceAmount: parseDecimal('1.0'),
         targetAmount: parseDecimal('0.9995'),
+        sourceMovementFingerprint: 'movement:kraken:WITHDRAWAL-123:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:bitcoin:abc123:inflow:0',
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('0.95'),
         matchCriteria: {
@@ -178,6 +180,8 @@ describe('schemas', () => {
         targetAssetId: 'blockchain:ethereum:native',
         sourceAmount: '10.0',
         targetAmount: '9.98',
+        sourceMovementFingerprint: 'movement:blockchain:ethereum:tx-3:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:ethereum:tx-4:inflow:0',
         linkType: 'blockchain_to_blockchain',
         confidenceScore: '0.88',
         matchCriteria: {
@@ -258,6 +262,8 @@ describe('schemas', () => {
       timestamp: new Date(),
       isInternal: false,
       excluded: false,
+      position: 0,
+      movementFingerprint: 'movement:test:tx:outflow:0',
       ...overrides,
     });
 
@@ -460,6 +466,8 @@ describe('schemas', () => {
         timestamp: new Date(),
         isInternal: false,
         excluded: false,
+        position: 0,
+        movementFingerprint: 'movement:test:tx:inflow:0',
       };
 
       const result = LinkCandidateSchema.parse(movement);
@@ -482,6 +490,8 @@ describe('schemas', () => {
         timestamp: new Date('2024-01-01T12:00:00Z'),
         isInternal: false,
         excluded: false,
+        position: 0,
+        movementFingerprint: 'movement:test:tx:outflow:0',
       };
 
       const result = LinkCandidateSchema.parse(movement);
@@ -503,6 +513,8 @@ describe('schemas', () => {
         timestamp: new Date('2024-01-01T12:00:00Z'),
         isInternal: false,
         excluded: false,
+        position: 0,
+        movementFingerprint: 'movement:test:tx:outflow:0',
       };
 
       const result = LinkCandidateSchema.parse(movement);

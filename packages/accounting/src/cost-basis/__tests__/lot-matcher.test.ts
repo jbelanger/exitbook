@@ -633,6 +633,8 @@ describe('LotMatcher - Fee Handling', () => {
         targetAssetId: 'blockchain:bitcoin:native',
         sourceAmount: parseDecimal('0.5'),
         targetAmount: parseDecimal('0.5'),
+        sourceMovementFingerprint: 'movement:blockchain:bitcoin:tx2-change:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:bitcoin:tx3-change:inflow:0',
         linkType: 'blockchain_internal', // This is the key - UTXO change
         confidenceScore: parseDecimal('100'),
         matchCriteria: {

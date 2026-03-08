@@ -13,7 +13,9 @@ export interface SameHashParticipant {
   assetId: string;
   assetSymbol: string;
   inflowGrossAmount: Decimal;
+  inflowMovementCount: number;
   outflowGrossAmount: Decimal;
+  outflowMovementCount: number;
   onChainFeeAmount: Decimal;
   fromAddress?: string | undefined;
   toAddress?: string | undefined;
@@ -65,10 +67,10 @@ export function groupSameHashTransactions(transactions: UniversalTransactionData
     const assetMap = new Map<string, { assetId: string; assetSymbol: string }>();
     for (const tx of txs) {
       for (const inflow of tx.movements.inflows ?? []) {
-        assetMap.set(inflow.assetSymbol, { assetId: inflow.assetId, assetSymbol: inflow.assetSymbol });
+        assetMap.set(inflow.assetId, { assetId: inflow.assetId, assetSymbol: inflow.assetSymbol });
       }
       for (const outflow of tx.movements.outflows ?? []) {
-        assetMap.set(outflow.assetSymbol, { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol });
+        assetMap.set(outflow.assetId, { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol });
       }
     }
 
@@ -79,15 +81,19 @@ export function groupSameHashTransactions(transactions: UniversalTransactionData
       for (const tx of txs) {
         let inflowGrossAmount = parseDecimal('0');
         let outflowGrossAmount = parseDecimal('0');
+        let inflowMovementCount = 0;
+        let outflowMovementCount = 0;
 
         for (const inflow of tx.movements.inflows ?? []) {
-          if (inflow.assetSymbol !== assetSymbol) continue;
+          if (inflow.assetId !== assetId) continue;
           inflowGrossAmount = inflowGrossAmount.plus(inflow.grossAmount);
+          inflowMovementCount++;
         }
 
         for (const outflow of tx.movements.outflows ?? []) {
-          if (outflow.assetSymbol !== assetSymbol) continue;
+          if (outflow.assetId !== assetId) continue;
           outflowGrossAmount = outflowGrossAmount.plus(outflow.grossAmount);
+          outflowMovementCount++;
         }
 
         // Skip transactions that don't participate in this asset
@@ -95,7 +101,7 @@ export function groupSameHashTransactions(transactions: UniversalTransactionData
 
         let onChainFeeAmount = parseDecimal('0');
         for (const fee of tx.fees ?? []) {
-          if (fee.assetSymbol !== assetSymbol) continue;
+          if (fee.assetId !== assetId) continue;
           if (fee.settlement !== 'on-chain') continue;
           onChainFeeAmount = onChainFeeAmount.plus(fee.amount);
         }
@@ -106,7 +112,9 @@ export function groupSameHashTransactions(transactions: UniversalTransactionData
           assetId,
           assetSymbol,
           inflowGrossAmount,
+          inflowMovementCount,
           outflowGrossAmount,
+          outflowMovementCount,
           onChainFeeAmount,
           fromAddress: tx.from,
           toAddress: tx.to,

@@ -1,7 +1,8 @@
-import { parseDecimal, type AssetMovement, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
+import type { LinkCandidate } from './link-candidate.js';
 import type { OrphanedLinkOverride } from './override-replay.js';
 import { determineLinkType } from './strategies/amount-timing-utils.js';
 import type { NewTransactionLink } from './types.js';
@@ -14,12 +15,13 @@ const logger = getLogger('linking-orchestrator-utils');
  * An orphaned override occurs when the user confirmed a link between two
  * transactions, but the algorithm didn't rediscover it during reprocessing.
  *
- * Resolves actual source outflow and target inflow movements for the override
- * asset symbol. Only materializes when exactly one source movement and one
- * target movement match — ambiguous cases are skipped with a warning.
+ * Resolves source/target link candidates for the override asset symbol.
+ * Only materializes when exactly one source candidate and one target candidate
+ * match — ambiguous cases are skipped with a warning.
  */
 export function buildLinkFromOrphanedOverride(
   entry: OrphanedLinkOverride,
+  candidates: LinkCandidate[],
   txById: Map<number, UniversalTransactionData>
 ): Result<NewTransactionLink, Error> {
   const now = new Date();
@@ -34,53 +36,59 @@ export function buildLinkFromOrphanedOverride(
     return err(new Error(`Target tx ${entry.targetTransactionId} not found for orphaned override`));
   }
 
-  // Resolve eligible source outflow movements for the override asset symbol
-  const sourceOutflows = (sourceTx.movements.outflows ?? []).filter((m) => m.assetSymbol === entry.assetSymbol);
+  // Resolve orphaned overrides from the same candidate set used by algorithmic matching,
+  // so manual links inherit identical amount shaping and movement identity.
+  const sourceCandidates = candidates.filter(
+    (candidate) =>
+      candidate.transactionId === entry.sourceTransactionId &&
+      candidate.direction === 'out' &&
+      candidate.assetSymbol === entry.assetSymbol
+  );
+  const targetCandidates = candidates.filter(
+    (candidate) =>
+      candidate.transactionId === entry.targetTransactionId &&
+      candidate.direction === 'in' &&
+      candidate.assetSymbol === entry.assetSymbol
+  );
 
-  // Resolve eligible target inflow movements for the override asset symbol
-  const targetInflows = (targetTx.movements.inflows ?? []).filter((m) => m.assetSymbol === entry.assetSymbol);
-
-  if (sourceOutflows.length !== 1) {
+  if (sourceCandidates.length !== 1) {
     const reason =
-      sourceOutflows.length === 0
-        ? `no outflow movements for ${entry.assetSymbol}`
-        : `${sourceOutflows.length} outflow movements for ${entry.assetSymbol} (ambiguous)`;
+      sourceCandidates.length === 0
+        ? `no outflow link candidates for ${entry.assetSymbol}`
+        : `${sourceCandidates.length} outflow link candidates for ${entry.assetSymbol} (ambiguous)`;
     logger.warn(
       {
         overrideId: entry.override.id,
         sourceTransactionId: entry.sourceTransactionId,
         targetTransactionId: entry.targetTransactionId,
         asset: entry.assetSymbol,
-        outflowCount: sourceOutflows.length,
+        outflowCount: sourceCandidates.length,
       },
       `Skipping orphaned override: source tx has ${reason}`
     );
     return err(new Error(`Cannot resolve orphaned override: source tx has ${reason}`));
   }
 
-  if (targetInflows.length !== 1) {
+  if (targetCandidates.length !== 1) {
     const reason =
-      targetInflows.length === 0
-        ? `no inflow movements for ${entry.assetSymbol}`
-        : `${targetInflows.length} inflow movements for ${entry.assetSymbol} (ambiguous)`;
+      targetCandidates.length === 0
+        ? `no inflow link candidates for ${entry.assetSymbol}`
+        : `${targetCandidates.length} inflow link candidates for ${entry.assetSymbol} (ambiguous)`;
     logger.warn(
       {
         overrideId: entry.override.id,
         sourceTransactionId: entry.sourceTransactionId,
         targetTransactionId: entry.targetTransactionId,
         asset: entry.assetSymbol,
-        inflowCount: targetInflows.length,
+        inflowCount: targetCandidates.length,
       },
       `Skipping orphaned override: target tx has ${reason}`
     );
     return err(new Error(`Cannot resolve orphaned override: target tx has ${reason}`));
   }
 
-  const sourceMovement = sourceOutflows[0] as AssetMovement;
-  const targetMovement = targetInflows[0] as AssetMovement;
-
-  const sourceAmount = sourceMovement.netAmount ?? sourceMovement.grossAmount;
-  const targetAmount = targetMovement.netAmount ?? targetMovement.grossAmount;
+  const sourceCandidate = sourceCandidates[0]!;
+  const targetCandidate = targetCandidates[0]!;
 
   // Derive structural link type from source/target transaction sourceType
   // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
@@ -90,10 +98,12 @@ export function buildLinkFromOrphanedOverride(
     sourceTransactionId: entry.sourceTransactionId,
     targetTransactionId: entry.targetTransactionId,
     assetSymbol: entry.assetSymbol as Currency,
-    sourceAssetId: sourceMovement.assetId,
-    targetAssetId: targetMovement.assetId,
-    sourceAmount,
-    targetAmount,
+    sourceAssetId: sourceCandidate.assetId,
+    targetAssetId: targetCandidate.assetId,
+    sourceAmount: sourceCandidate.amount,
+    targetAmount: targetCandidate.amount,
+    sourceMovementFingerprint: sourceCandidate.movementFingerprint,
+    targetMovementFingerprint: targetCandidate.movementFingerprint,
     linkType,
     confidenceScore: parseDecimal('1'),
     matchCriteria: {

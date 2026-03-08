@@ -22,6 +22,8 @@ function makeBtcLink(sourceTxId: number, targetTxId: number): NewTransactionLink
     targetAssetId: 'blockchain:bitcoin:native',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('0.9995'),
+    sourceMovementFingerprint: `movement:exchange:kraken:${sourceTxId}:outflow:0`,
+    targetMovementFingerprint: `movement:blockchain:bitcoin:${targetTxId}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal('0.98'),
     matchCriteria: {
@@ -88,6 +90,20 @@ describe('TransactionLinkRepository', () => {
       expect(fetched?.assetSymbol).toBe('BTC');
       expect(fetched?.sourceAmount.toFixed()).toBe('1');
       expect(fetched?.targetAmount.toFixed()).toBe('0.9995');
+    });
+
+    it('round-trips movement fingerprints', async () => {
+      const id = assertOk(
+        await repo.create({
+          ...makeBtcLink(1, 2),
+          sourceMovementFingerprint: 'movement:kraken:withdrawal-1:outflow:0',
+          targetMovementFingerprint: 'movement:blockchain:bitcoin:deposit-2:inflow:0',
+        })
+      );
+
+      const fetched = assertOk(await repo.findById(id));
+      expect(fetched?.sourceMovementFingerprint).toBe('movement:kraken:withdrawal-1:outflow:0');
+      expect(fetched?.targetMovementFingerprint).toBe('movement:blockchain:bitcoin:deposit-2:inflow:0');
     });
 
     it('stores variance metadata in metadata_json', async () => {

@@ -59,6 +59,8 @@ describe('LinksConfirmHandler', () => {
     targetAssetId: 'blockchain:target:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
+    sourceMovementFingerprint: 'movement:exchange:source:1:btc:outflow:0',
+    targetMovementFingerprint: 'movement:blockchain:target:2:btc:inflow:0',
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal('0.85'),
     matchCriteria: {

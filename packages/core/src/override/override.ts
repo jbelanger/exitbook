@@ -152,3 +152,14 @@ export interface LinkIdentity {
   targetTx: string; // source_name:external_id
   asset: string;
 }
+
+/**
+ * Movement fingerprint components
+ * Deterministic identity for a movement within a transaction.
+ * Uses position-based identity (not DB row ids) so it survives movement rebuilds.
+ */
+export interface MovementFingerprintInput {
+  txFingerprint: string; // source_name:external_id
+  movementType: 'inflow' | 'outflow' | 'fee';
+  position: number; // 0-based index within movements of this type
+}

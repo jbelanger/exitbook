@@ -23,6 +23,8 @@ export function createCandidate(overrides: Partial<LinkCandidate> = {}): LinkCan
     timestamp: new Date('2024-01-01T12:00:00Z'),
     isInternal: false,
     excluded: false,
+    position: 0,
+    movementFingerprint: 'movement:test:tx:outflow:0',
     ...overrides,
   };
 }
@@ -36,19 +38,26 @@ export function createLink(params: {
   assetSymbol: string;
   id: number;
   sourceAmount: Decimal;
+  sourceMovementFingerprint?: string | undefined;
   sourceTransactionId: number;
   targetAmount: Decimal;
+  targetMovementFingerprint?: string | undefined;
   targetTransactionId: number;
 }): TransactionLink {
+  const asset = params.assetSymbol.toLowerCase();
   return {
     id: params.id,
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
     assetSymbol: params.assetSymbol as Currency,
-    sourceAssetId: `exchange:source:${params.assetSymbol.toLowerCase()}`,
-    targetAssetId: `blockchain:target:${params.assetSymbol.toLowerCase()}`,
+    sourceAssetId: `exchange:source:${asset}`,
+    targetAssetId: `blockchain:target:${asset}`,
     sourceAmount: params.sourceAmount,
     targetAmount: params.targetAmount,
+    sourceMovementFingerprint:
+      params.sourceMovementFingerprint ?? `movement:exchange:source:${params.sourceTransactionId}:${asset}:outflow:0`,
+    targetMovementFingerprint:
+      params.targetMovementFingerprint ?? `movement:blockchain:target:${params.targetTransactionId}:${asset}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal('0.95'),
     matchCriteria: {
@@ -75,8 +84,8 @@ export function createTransaction(params: {
   datetime: string;
   from?: string;
   id: number;
-  inflows?: { amount: string; assetSymbol: string; netAmount?: string | undefined }[];
-  outflows?: { amount: string; assetSymbol: string; netAmount?: string | undefined }[];
+  inflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
+  outflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
   source: string;
   sourceType?: 'blockchain' | 'exchange';
   to?: string;
@@ -96,7 +105,7 @@ export function createTransaction(params: {
     movements: {
       inflows: params.inflows
         ? params.inflows.map((m) => ({
-            assetId: `test:${m.assetSymbol.toLowerCase()}`,
+            assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
             assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
             netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
@@ -104,7 +113,7 @@ export function createTransaction(params: {
         : [],
       outflows: params.outflows
         ? params.outflows.map((m) => ({
-            assetId: `test:${m.assetSymbol.toLowerCase()}`,
+            assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
             assetSymbol: m.assetSymbol as Currency,
             grossAmount: parseDecimal(m.amount),
             netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),

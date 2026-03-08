@@ -120,8 +120,35 @@ describe('reduceBlockchainGroups', () => {
     const result = reduceBlockchainGroups(groups, logger);
 
     // Reduced: 10 - 3 - 0.001 = 6.999
-    const reduction = result.outflowReductions.get(1)?.get('BTC');
+    const reduction = result.outflowReductions.get(1)?.get('test:btc');
     expect(reduction?.toFixed()).toBe('6.999');
+  });
+
+  it('does not group same-symbol movements with different assetIds', () => {
+    const transactions = [
+      createTransaction({
+        id: 1,
+        accountId: 1,
+        source: 'blockchain:ethereum',
+        sourceType: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        outflows: [{ assetId: 'blockchain:ethereum:0xa0b8', assetSymbol: 'USDC', amount: '10' }],
+        blockchain: { name: 'ethereum', transaction_hash: '0xassetid', is_confirmed: true },
+      }),
+      createTransaction({
+        id: 2,
+        accountId: 2,
+        source: 'blockchain:ethereum',
+        sourceType: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        inflows: [{ assetId: 'blockchain:ethereum:0xfake', assetSymbol: 'USDC', amount: '10' }],
+        blockchain: { name: 'ethereum', transaction_hash: '0xassetid', is_confirmed: true },
+      }),
+    ];
+
+    const groups = groupSameHashTransactions(transactions);
+
+    expect(groups).toHaveLength(0);
   });
 
   it('emits warning and skips links for multi-outflow + inflow ambiguous groups', () => {
@@ -274,7 +301,44 @@ describe('reduceBlockchainGroups', () => {
     expect(result.internalLinks.map((l) => l.targetTransactionId).sort()).toEqual([2, 3]);
 
     // Reduction: 10 - 4 - 5 = 1
-    const reduction = result.outflowReductions.get(1)?.get('BTC');
+    const reduction = result.outflowReductions.get(1)?.get('test:btc');
     expect(reduction?.toFixed()).toBe('1');
+  });
+
+  it('skips internal reduction when a participant has multiple same-asset movements', () => {
+    const transactions = [
+      createTransaction({
+        id: 1,
+        accountId: 1,
+        source: 'blockchain:bitcoin',
+        sourceType: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        outflows: [
+          { assetSymbol: 'BTC', amount: '6' },
+          { assetSymbol: 'BTC', amount: '4' },
+        ],
+        blockchain: { name: 'bitcoin', transaction_hash: '0xmultiout', is_confirmed: true },
+      }),
+      createTransaction({
+        id: 2,
+        accountId: 2,
+        source: 'blockchain:bitcoin',
+        sourceType: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        inflows: [{ assetSymbol: 'BTC', amount: '9' }],
+        blockchain: { name: 'bitcoin', transaction_hash: '0xmultiout', is_confirmed: true },
+      }),
+    ];
+
+    const groups = groupSameHashTransactions(transactions);
+    const result = reduceBlockchainGroups(groups, logger);
+
+    expect(result.internalLinks).toHaveLength(0);
+    expect(result.outflowReductions.size).toBe(0);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable here
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ senderOutflowMovementCount: 2 }),
+      expect.stringContaining('multiple movements for the same asset')
+    );
   });
 });
