@@ -206,12 +206,12 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
         if (action === 'confirm') {
           const result = await confirmHandler.execute({ linkId });
           if (result.isErr()) {
-            console.error('\n⚠ Error:', result.error.message);
+            throw result.error;
           }
         } else {
           const result = await rejectHandler.execute({ linkId });
           if (result.isErr()) {
-            console.error('\n⚠ Error:', result.error.message);
+            throw result.error;
           }
         }
       };

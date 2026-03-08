@@ -81,7 +81,8 @@ export const LinksViewApp: FC<{
 
       void onAction(linkId, action)
         .then(() => {
-          dispatch({ type: 'CLEAR_ERROR' });
+          const newStatus = action === 'confirm' ? 'confirmed' : 'rejected';
+          dispatch({ type: 'ACTION_SUCCESS', linkId, newStatus });
         })
         .catch((error: unknown) => {
           dispatch({ type: 'SET_ERROR', error: error instanceof Error ? error.message : String(error) });

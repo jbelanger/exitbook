@@ -20,6 +20,7 @@ export type LinksViewAction =
   | { type: 'END'; visibleRows: number }
   | { type: 'CONFIRM_SELECTED' }
   | { type: 'REJECT_SELECTED' }
+  | { linkId: number; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS'; }
   | { type: 'CLEAR_ERROR' }
   | { error: string; type: 'SET_ERROR' };
 
@@ -174,6 +175,35 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
           linkId: selected.link.id,
           action: 'reject',
         },
+        error: undefined,
+      };
+    }
+
+    case 'ACTION_SUCCESS': {
+      if (state.mode === 'gaps') {
+        return state;
+      }
+
+      const updatedLinks = state.links.map((item) =>
+        item.link.id === action.linkId ? { ...item, link: { ...item.link, status: action.newStatus } } : item
+      );
+
+      const updatedCounts = updatedLinks.reduce(
+        (acc, item) => {
+          const status = item.link.status;
+          if (status === 'confirmed') acc.confirmed += 1;
+          else if (status === 'suggested') acc.suggested += 1;
+          else if (status === 'rejected') acc.rejected += 1;
+          return acc;
+        },
+        { confirmed: 0, suggested: 0, rejected: 0 }
+      );
+
+      return {
+        ...state,
+        links: updatedLinks,
+        counts: updatedCounts,
+        pendingAction: undefined,
         error: undefined,
       };
     }
