@@ -6,6 +6,7 @@ export { ApiFooter } from './ApiFooter.jsx';
 export { Divider } from './Divider.jsx';
 export { createEventDrivenController, EventDrivenController, type LifecycleBridge } from './event-driven-controller.js';
 export { EventRelay } from './event-relay.js';
+export { FixedHeightDetail, type FixedDetailRow, type FixedHeightDetailProps } from './fixed-height-detail.jsx';
 export {
   createProviderStats,
   getOrCreateProviderStats,

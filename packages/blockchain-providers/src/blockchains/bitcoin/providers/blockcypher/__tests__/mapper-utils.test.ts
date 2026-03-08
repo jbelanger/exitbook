@@ -1,17 +1,9 @@
-import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import type { BlockCypherTransaction } from '../blockcypher.schemas.js';
 import { mapBlockCypherTransaction } from '../mapper-utils.js';
-
-const mockBitcoinChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin',
-  displayName: 'Bitcoin',
-  nativeCurrency: 'BTC' as Currency,
-  nativeDecimals: 8,
-};
 
 describe('mapBlockCypherTransaction', () => {
   it('should map confirmed BlockCypher transaction', () => {
@@ -52,37 +44,33 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockCypherTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized).toMatchObject({
-        id: 'blockcypher-hash',
-        currency: 'BTC',
-        providerName: 'blockcypher',
-        status: 'success',
-        blockHeight: 12345,
-        blockId: 'block-hash',
-        feeAmount: satoshisToBtcString(400),
-        feeCurrency: 'BTC',
-      });
+    expect(normalized).toMatchObject({
+      id: 'blockcypher-hash',
+      currency: 'BTC',
+      providerName: 'blockcypher',
+      status: 'success',
+      blockHeight: 12345,
+      blockId: 'block-hash',
+      feeAmount: satoshisToBtcString(400),
+      feeCurrency: 'BTC',
+    });
 
-      expect(normalized.inputs).toHaveLength(1);
-      expect(normalized.inputs[0]).toMatchObject({
-        address: 'input-address',
-        txid: 'prev-hash',
-        vout: 0,
-        value: '3000',
-      });
+    expect(normalized.inputs).toHaveLength(1);
+    expect(normalized.inputs[0]).toMatchObject({
+      address: 'input-address',
+      txid: 'prev-hash',
+      vout: 0,
+      value: '3000',
+    });
 
-      expect(normalized.outputs).toHaveLength(1);
-      expect(normalized.outputs[0]).toMatchObject({
-        address: 'output-address',
-        index: 0,
-        value: '2600',
-      });
-    }
+    expect(normalized.outputs).toHaveLength(1);
+    expect(normalized.outputs[0]).toMatchObject({
+      address: 'output-address',
+      index: 0,
+      value: '2600',
+    });
   });
 
   it('should map unconfirmed BlockCypher transaction', () => {
@@ -119,15 +107,11 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockCypherTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.status).toBe('pending');
-      expect(normalized.blockHeight).toBeUndefined();
-      expect(normalized.blockId).toBeUndefined();
-    }
+    expect(normalized.status).toBe('pending');
+    expect(normalized.blockHeight).toBeUndefined();
+    expect(normalized.blockId).toBeUndefined();
   });
 
   it('should handle transactions with empty addresses arrays', () => {
@@ -167,14 +151,10 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockCypherTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.inputs[0]?.address).toBeUndefined();
-      expect(normalized.outputs[0]?.address).toBeUndefined();
-    }
+    expect(normalized.inputs[0]?.address).toBeUndefined();
+    expect(normalized.outputs[0]?.address).toBeUndefined();
   });
 
   it('should handle zero fee', () => {
@@ -214,14 +194,10 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockCypherTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.feeAmount).toBeUndefined();
-      expect(normalized.feeCurrency).toBeUndefined();
-    }
+    expect(normalized.feeAmount).toBeUndefined();
+    expect(normalized.feeCurrency).toBeUndefined();
   });
 
   it('should use Date.now() timestamp when not confirmed', () => {
@@ -259,14 +235,10 @@ describe('mapBlockCypherTransaction', () => {
       ],
     };
 
-    const result = mapBlockCypherTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockCypherTransaction(rawData, mockBitcoinChainConfig));
     const afterTime = Date.now();
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.timestamp).toBeGreaterThanOrEqual(beforeTime);
-      expect(normalized.timestamp).toBeLessThanOrEqual(afterTime);
-    }
+    expect(normalized.timestamp).toBeGreaterThanOrEqual(beforeTime);
+    expect(normalized.timestamp).toBeLessThanOrEqual(afterTime);
   });
 });

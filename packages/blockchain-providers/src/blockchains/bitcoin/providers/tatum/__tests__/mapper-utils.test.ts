@@ -1,17 +1,9 @@
-import type { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { mapTatumTransaction } from '../mapper-utils.js';
 import type { TatumBitcoinTransaction } from '../tatum.schemas.js';
-
-const mockBitcoinChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin',
-  displayName: 'Bitcoin',
-  nativeCurrency: 'BTC' as Currency,
-  nativeDecimals: 8,
-};
 
 describe('mapTatumTransaction', () => {
   it('should map confirmed Tatum transaction', () => {
@@ -62,37 +54,33 @@ describe('mapTatumTransaction', () => {
       ],
     };
 
-    const result = mapTatumTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapTatumTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized).toMatchObject({
-        id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
-        currency: 'BTC',
-        providerName: 'tatum',
-        status: 'success',
-        timestamp: 1755706690000,
-        blockHeight: 910910,
-        blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
-        feeCurrency: 'BTC',
-      });
+    expect(normalized).toMatchObject({
+      id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
+      currency: 'BTC',
+      providerName: 'tatum',
+      status: 'success',
+      timestamp: 1755706690000,
+      blockHeight: 910910,
+      blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
+      feeCurrency: 'BTC',
+    });
 
-      expect(normalized.inputs).toHaveLength(1);
-      expect(normalized.inputs[0]).toMatchObject({
-        address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
-        txid: 'ab8f57a8d7792bf005b437ee2e558eff3e75fced27ca58dd13c856fc352d0fb8',
-        vout: 0,
-        value: '3586',
-      });
+    expect(normalized.inputs).toHaveLength(1);
+    expect(normalized.inputs[0]).toMatchObject({
+      address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
+      txid: 'ab8f57a8d7792bf005b437ee2e558eff3e75fced27ca58dd13c856fc352d0fb8',
+      vout: 0,
+      value: '3586',
+    });
 
-      expect(normalized.outputs).toHaveLength(1);
-      expect(normalized.outputs[0]).toMatchObject({
-        address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
-        index: 0,
-        value: '31958',
-      });
-    }
+    expect(normalized.outputs).toHaveLength(1);
+    expect(normalized.outputs[0]).toMatchObject({
+      address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
+      index: 0,
+      value: '31958',
+    });
   });
 
   it('should map unconfirmed Tatum transaction', () => {
@@ -143,15 +131,11 @@ describe('mapTatumTransaction', () => {
       ],
     };
 
-    const result = mapTatumTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapTatumTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.status).toBe('pending');
-      expect(normalized.blockHeight).toBeUndefined();
-      expect(normalized.blockId).toBeUndefined();
-    }
+    expect(normalized.status).toBe('pending');
+    expect(normalized.blockHeight).toBeUndefined();
+    expect(normalized.blockId).toBeUndefined();
   });
 
   it('should handle zero fee', () => {
@@ -202,14 +186,10 @@ describe('mapTatumTransaction', () => {
       ],
     };
 
-    const result = mapTatumTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapTatumTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.feeAmount).toBeUndefined();
-      expect(normalized.feeCurrency).toBeUndefined();
-    }
+    expect(normalized.feeAmount).toBeUndefined();
+    expect(normalized.feeCurrency).toBeUndefined();
   });
 
   it('should handle large fee correctly using Decimal', () => {
@@ -260,14 +240,10 @@ describe('mapTatumTransaction', () => {
       ],
     };
 
-    const result = mapTatumTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapTatumTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      const expectedFee = new Decimal(100000000).div(100000000).toFixed();
-      expect(normalized.feeAmount).toBe(expectedFee);
-      expect(normalized.feeAmount).toBe('1');
-    }
+    const expectedFee = new Decimal(100000000).div(100000000).toFixed();
+    expect(normalized.feeAmount).toBe(expectedFee);
+    expect(normalized.feeAmount).toBe('1');
   });
 });

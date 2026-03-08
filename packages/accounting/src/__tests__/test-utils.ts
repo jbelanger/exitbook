@@ -18,6 +18,8 @@ export function createPriceAtTxTime(
   options?: {
     fetchedAt?: Date;
     granularity?: 'exact' | 'minute' | 'hour' | 'day';
+    originalAmount?: string;
+    originalCurrency?: string;
     source?: string;
   }
 ): PriceAtTxTime {
@@ -26,6 +28,13 @@ export function createPriceAtTxTime(
       amount: parseDecimal(amount),
       currency: currency as Currency,
     },
+    originalPrice:
+      options?.originalAmount && options?.originalCurrency
+        ? {
+            amount: parseDecimal(options.originalAmount),
+            currency: options.originalCurrency as Currency,
+          }
+        : undefined,
     source: options?.source ?? 'manual',
     fetchedAt: options?.fetchedAt ?? new Date('2024-01-01'),
     granularity: options?.granularity ?? 'exact',

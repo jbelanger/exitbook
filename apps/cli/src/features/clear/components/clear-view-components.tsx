@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC } from 'react';
+import { useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,6 +11,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
   StatusIcon,
 } from '../../../ui/shared/index.js';
@@ -300,108 +301,183 @@ const DetailPanel: FC<{
 
 const PreviewDetail: FC<{ item: ClearCategoryItem; totalToDelete: number }> = ({ item, totalToDelete }) => {
   const description = getCategoryDescription(item.key);
-
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={2}
-    >
-      <Text bold>{item.label}</Text>
-      <Text dimColor>{description}</Text>
-      <Text> </Text>
-      {totalToDelete === 0 && (
-        <>
-          <Text dimColor>No data to clear. All categories are empty.</Text>
-          <Text> </Text>
-        </>
-      )}
-      {item.status === 'will-delete' && (
-        <Text color="red">
-          {formatCount(item.count)} {item.count === 1 ? 'item' : 'items'} will be deleted
-        </Text>
-      )}
-      {item.status === 'preserved' && (
-        <Text color="green">
-          {formatCount(item.count)} {item.count === 1 ? 'item' : 'items'} will be preserved
-        </Text>
-      )}
-      {item.status === 'empty' && <Text dimColor>No items to delete</Text>}
-    </Box>
+    <FixedHeightDetail
+      height={4}
+      rows={buildPreviewDetailRows(item, description, totalToDelete)}
+    />
   );
 };
+
+function buildPreviewDetailRows(item: ClearCategoryItem, description: string, totalToDelete: number): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text
+      key="title"
+      bold
+    >
+      {item.label}
+    </Text>,
+    <Text
+      key="description"
+      dimColor
+    >
+      {description}
+    </Text>,
+    <Text key="blank"> </Text>,
+  ];
+
+  if (totalToDelete === 0) {
+    rows.push(
+      <Text
+        key="empty-all"
+        dimColor
+      >
+        No data to clear. All categories are empty.
+      </Text>,
+      <Text key="blank-2"> </Text>
+    );
+  }
+
+  if (item.status === 'will-delete') {
+    rows.push(
+      <Text
+        key="status"
+        color="red"
+      >
+        {formatCount(item.count)} {item.count === 1 ? 'item' : 'items'} will be deleted
+      </Text>
+    );
+  }
+  if (item.status === 'preserved') {
+    rows.push(
+      <Text
+        key="status"
+        color="green"
+      >
+        {formatCount(item.count)} {item.count === 1 ? 'item' : 'items'} will be preserved
+      </Text>
+    );
+  }
+  if (item.status === 'empty') {
+    rows.push(
+      <Text
+        key="status"
+        dimColor
+      >
+        No items to delete
+      </Text>
+    );
+  }
+
+  return rows;
+}
 
 const ConfirmingDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   const totalToDelete = calculateTotalToDelete(state);
 
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={2}
-    >
-      <Text
-        bold
-        color="yellow"
-      >
-        ⚠ Confirm deletion
-      </Text>
-      <Text> </Text>
-      <Text>
-        This will delete {formatCount(totalToDelete)} items{' '}
-        {state.includeRaw && <Text color="red">(including raw data)</Text>}
-      </Text>
-      {state.includeRaw && (
-        <>
-          <Text> </Text>
-          <Text color="red">You will need to re-import from exchanges/blockchains (slow, rate-limited)</Text>
-        </>
-      )}
-      <Text> </Text>
-      <Text dimColor>Press 'd' again to confirm, or any other key to cancel</Text>
-    </Box>
+    <FixedHeightDetail
+      height={4}
+      rows={[
+        <Text
+          key="title"
+          bold
+          color="yellow"
+        >
+          ⚠ Confirm deletion
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        <Text key="summary">
+          This will delete {formatCount(totalToDelete)} items{' '}
+          {state.includeRaw && <Text color="red">(including raw data)</Text>}
+        </Text>,
+        state.includeRaw ? (
+          <Text
+            key="warning"
+            color="red"
+          >
+            You will need to re-import from exchanges/blockchains (slow, rate-limited)
+          </Text>
+        ) : (
+          <Text
+            key="tip"
+            dimColor
+          >
+            Press 'd' again to confirm, or any other key to cancel
+          </Text>
+        ),
+        state.includeRaw ? (
+          <Text
+            key="tip"
+            dimColor
+          >
+            Press 'd' again to confirm, or any other key to cancel
+          </Text>
+        ) : undefined,
+      ]}
+    />
   );
 };
 
 const ExecutingDetail: FC = () => {
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={2}
-    >
-      <Text>
-        <StatusIcon status="active" /> Clearing data...
-      </Text>
-    </Box>
+    <FixedHeightDetail
+      height={4}
+      rows={[
+        <Text key="status">
+          <StatusIcon status="active" /> Clearing data...
+        </Text>,
+      ]}
+    />
   );
 };
 
 const ErrorDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={2}
-    >
-      <Text color="red">
-        <StatusIcon status="failed" /> Clear failed
-      </Text>
-      <Text> </Text>
-      {state.error && <Text color="red">{state.error.message}</Text>}
-      <Text> </Text>
-      <Text dimColor>Press 'q' to exit</Text>
-    </Box>
+    <FixedHeightDetail
+      height={4}
+      rows={[
+        <Text
+          key="title"
+          color="red"
+        >
+          <StatusIcon status="failed" /> Clear failed
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        state.error ? (
+          <Text
+            key="error"
+            color="red"
+          >
+            {state.error.message}
+          </Text>
+        ) : undefined,
+        <Text key="blank-2"> </Text>,
+        <Text
+          key="tip"
+          dimColor
+        >
+          Press 'q' to exit
+        </Text>,
+      ]}
+    />
   );
 };
 
 const CompleteDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   if (!state.result) {
     return (
-      <Box
-        flexDirection="column"
-        paddingLeft={2}
-      >
-        <Text color="green">
-          <StatusIcon status="completed" /> Clear complete
-        </Text>
-      </Box>
+      <FixedHeightDetail
+        height={4}
+        rows={[
+          <Text
+            key="title"
+            color="green"
+          >
+            <StatusIcon status="completed" /> Clear complete
+          </Text>,
+        ]}
+      />
     );
   }
 
@@ -413,18 +489,40 @@ const CompleteDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   if (state.result.rawData > 0) parts.push(`${formatCount(state.result.rawData)} raw items`);
 
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={2}
-    >
-      <Text color="green">
-        <StatusIcon status="completed" /> Clear complete
-      </Text>
-      <Text> </Text>
-      {parts.length > 0 ? <Text dimColor>Deleted: {parts.join(', ')}</Text> : <Text dimColor>No data was deleted</Text>}
-      <Text> </Text>
-      <Text dimColor>Press 'q' to exit</Text>
-    </Box>
+    <FixedHeightDetail
+      height={4}
+      rows={[
+        <Text
+          key="title"
+          color="green"
+        >
+          <StatusIcon status="completed" /> Clear complete
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        parts.length > 0 ? (
+          <Text
+            key="summary"
+            dimColor
+          >
+            Deleted: {parts.join(', ')}
+          </Text>
+        ) : (
+          <Text
+            key="summary"
+            dimColor
+          >
+            No data was deleted
+          </Text>
+        ),
+        <Text key="blank-2"> </Text>,
+        <Text
+          key="tip"
+          dimColor
+        >
+          Press 'q' to exit
+        </Text>,
+      ]}
+    />
   );
 };
 

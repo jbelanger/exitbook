@@ -10,7 +10,7 @@ import {
   type TransactionLink,
 } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useEffect, useReducer, type FC } from 'react';
+import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -18,6 +18,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-utils.js';
@@ -30,12 +31,15 @@ import type {
   LinksViewState,
 } from './links-view-state.js';
 
+export const LINK_DETAIL_LINES = 7;
+export const GAP_DETAIL_LINES = 9;
+
 export const LINKS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Links · N total"
   afterHeader: 1, // blank line
   divider: 1, // separator line
-  detail: 7, // link detail panel
+  detail: LINK_DETAIL_LINES, // link detail panel
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -47,7 +51,7 @@ export const GAPS_CHROME_LINES = calculateChromeLines({
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 9, // gap detail panel (transactions, suggestions)
+  detail: GAP_DETAIL_LINES, // gap detail panel (transactions, suggestions)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -321,74 +325,89 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
     return null;
   }
 
-  const { link, sourceTransaction, targetTransaction } = selected;
+  return (
+    <FixedHeightDetail
+      height={LINK_DETAIL_LINES}
+      rows={buildLinkDetailRows(selected, verbose)}
+    />
+  );
+};
 
+function buildLinkDetailRows(selected: LinkWithTransactions, verbose: boolean): ReactElement[] {
+  const { link, sourceTransaction, targetTransaction } = selected;
   const linkType = formatLinkTypeDisplay(link, sourceTransaction, targetTransaction);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
   const { iconColor: statusColor } = getStatusDisplay(link.status);
   const amountDisplay = getLinkAmountDisplay(link);
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
+      <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{link.status}</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <TransactionLine
+      key="source"
+      label="Source"
+      transaction={sourceTransaction}
+      txId={link.sourceTransactionId}
+      amount={link.sourceAmount.toFixed()}
+      asset={link.assetSymbol}
+      direction="OUT"
+    />,
+    <TransactionLine
+      key="target"
+      label="Target"
+      transaction={targetTransaction}
+      txId={link.targetTransactionId}
+      amount={link.targetAmount.toFixed()}
+      asset={link.assetSymbol}
+      direction="IN"
+    />,
+  ];
 
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
-        <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{link.status}</Text>
-      </Text>
-      <Text> </Text>
-      <TransactionLine
-        label="Source"
-        transaction={sourceTransaction}
-        txId={link.sourceTransactionId}
-        amount={link.sourceAmount.toFixed()}
-        asset={link.assetSymbol}
-        direction="OUT"
-      />
-      <TransactionLine
-        label="Target"
-        transaction={targetTransaction}
-        txId={link.targetTransactionId}
-        amount={link.targetAmount.toFixed()}
-        asset={link.assetSymbol}
-        direction="IN"
-      />
-      {verbose && (sourceTransaction?.from || targetTransaction?.to) && (
-        <>
-          {sourceTransaction?.from && (
-            <Text>
-              {'          '}
-              <Text dimColor>from: </Text>
-              {sourceTransaction.from}
-            </Text>
-          )}
-          {targetTransaction?.to && (
-            <Text>
-              {'          '}
-              <Text dimColor>to: </Text>
-              {targetTransaction.to}
-            </Text>
-          )}
-        </>
-      )}
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Match: </Text>
-        {formatMatchCriteria(link.matchCriteria)}
-      </Text>
-      {amountDisplay.detailSummary && (
-        <Text>
-          {'  '}
-          <Text dimColor>{amountDisplay.detailLabel ?? 'Summary:'} </Text>
-          {amountDisplay.detailSummary}
+  if (verbose && (sourceTransaction?.from || targetTransaction?.to)) {
+    if (sourceTransaction?.from) {
+      rows.push(
+        <Text key="from">
+          {'          '}
+          <Text dimColor>from: </Text>
+          {sourceTransaction.from}
         </Text>
-      )}
-    </Box>
+      );
+    }
+    if (targetTransaction?.to) {
+      rows.push(
+        <Text key="to">
+          {'          '}
+          <Text dimColor>to: </Text>
+          {targetTransaction.to}
+        </Text>
+      );
+    }
+  }
+
+  rows.push(
+    <Text key="blank-2"> </Text>,
+    <Text key="match">
+      {'  '}
+      <Text dimColor>Match: </Text>
+      {formatMatchCriteria(link.matchCriteria)}
+    </Text>
   );
-};
+
+  if (amountDisplay.detailSummary) {
+    rows.push(
+      <Text key="summary">
+        {'  '}
+        <Text dimColor>{amountDisplay.detailLabel ?? 'Summary:'} </Text>
+        {amountDisplay.detailSummary}
+      </Text>
+    );
+  }
+
+  return rows;
+}
 
 interface LinkAmountDisplay {
   detailLabel?: string | undefined;
@@ -744,6 +763,15 @@ const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
     return null;
   }
 
+  return (
+    <FixedHeightDetail
+      height={GAP_DETAIL_LINES}
+      rows={buildGapDetailRows(issue)}
+    />
+  );
+};
+
+function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
   const txId = `#${issue.transactionId}`;
   const source = issue.blockchain ?? issue.source;
   const operation = `${issue.operationCategory}/${issue.operationType}`;
@@ -754,57 +782,49 @@ const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
   const actionText =
     issue.direction === 'inflow'
       ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
-      : 'Identify the destination wallet or confirm a link; otherwise this may be treated as a gift.';
+      : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
 
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ {txId}</Text> <Text color="cyan">{source}</Text> <Text dimColor>{operation}</Text>{' '}
-        <Text dimColor>{issue.timestamp}</Text>
-      </Text>
-
-      <Text>
-        {'  '}
-        <Text dimColor>Missing: </Text>
-        <Text color="green">{issue.missingAmount}</Text> {issue.assetSymbol} <Text dimColor>of</Text>{' '}
-        {issue.totalAmount} {issue.assetSymbol} {directionLabel} <Text dimColor>(</Text>
-        <Text color={coverageColor}>{issue.confirmedCoveragePercent}%</Text>
-        <Text dimColor> confirmed coverage)</Text>
-      </Text>
-
-      <Text>
-        {'  '}
-        <Text dimColor>Suggested matches: </Text>
-        {issue.suggestedCount > 0 ? (
-          <Text>
-            <Text color="green">{issue.suggestedCount}</Text>
-            {issue.highestSuggestedConfidencePercent && (
-              <Text>
-                {' '}
-                (best{' '}
-                <Text color={getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)}>
-                  {issue.highestSuggestedConfidencePercent}%
-                </Text>{' '}
-                confidence)
-              </Text>
-            )}
-          </Text>
-        ) : (
-          <Text dimColor>none</Text>
-        )}
-      </Text>
-
-      <Text>
-        {'  '}
-        <Text dimColor>Action: </Text>
-        {actionText}
-      </Text>
-    </Box>
-  );
-};
+  return [
+    <Text key="title">
+      <Text bold>▸ {txId}</Text> <Text color="cyan">{source}</Text> <Text dimColor>{operation}</Text>{' '}
+      <Text dimColor>{issue.timestamp}</Text>
+    </Text>,
+    <Text key="missing">
+      {'  '}
+      <Text dimColor>Missing: </Text>
+      <Text color="green">{issue.missingAmount}</Text> {issue.assetSymbol} <Text dimColor>of</Text> {issue.totalAmount}{' '}
+      {issue.assetSymbol} {directionLabel} <Text dimColor>(</Text>
+      <Text color={coverageColor}>{issue.confirmedCoveragePercent}%</Text>
+      <Text dimColor> confirmed coverage)</Text>
+    </Text>,
+    <Text key="matches">
+      {'  '}
+      <Text dimColor>Suggested matches: </Text>
+      {issue.suggestedCount > 0 ? (
+        <Text>
+          <Text color="green">{issue.suggestedCount}</Text>
+          {issue.highestSuggestedConfidencePercent && (
+            <Text>
+              {' '}
+              (best{' '}
+              <Text color={getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)}>
+                {issue.highestSuggestedConfidencePercent}%
+              </Text>{' '}
+              confidence)
+            </Text>
+          )}
+        </Text>
+      ) : (
+        <Text dimColor>none</Text>
+      )}
+    </Text>,
+    <Text key="action">
+      {'  '}
+      <Text dimColor>Action: </Text>
+      {actionText}
+    </Text>,
+  ];
+}
 
 /**
  * Controls bar (gaps mode - read-only, no c/r)

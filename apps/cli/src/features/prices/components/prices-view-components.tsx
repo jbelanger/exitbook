@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useEffect, useMemo, useReducer, useRef, type FC } from 'react';
+import { useEffect, useMemo, useReducer, useRef, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,6 +11,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-utils.js';
@@ -20,14 +21,16 @@ import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-cont
 import type { PricesViewCoverageState, PricesViewMissingState, PricesViewState } from './prices-view-state.js';
 import { missingRowKey } from './prices-view-state.js';
 
-// detail is 7 lines base; adds 3 when missingSources are present (missing-in row + blank + tip)
-export function getCoverageChromeLines(hasMissingSources: boolean): number {
+export const COVERAGE_DETAIL_LINES = 10;
+export const MISSING_DETAIL_LINES = 6;
+
+export function getCoverageChromeLines(): number {
   return calculateChromeLines({
     beforeHeader: 1, // blank line
     header: 1, // "Price Coverage · N assets"
     afterHeader: 1, // blank line
     divider: 1, // separator line
-    detail: hasMissingSources ? 10 : 7, // coverage detail panel
+    detail: COVERAGE_DETAIL_LINES, // coverage detail panel
     beforeControls: 1, // blank line
     controls: 1, // control hints
     buffer: 1, // bottom margin
@@ -44,7 +47,7 @@ export function getMissingChromeLines(assetCount: number): number {
     afterBreakdown: 1, // blank line (always rendered)
     listScrollIndicators: 2, // "▲/▼ N more above/below"
     divider: 1, // separator line
-    detail: 6, // missing price detail panel (max: unresolved = 6 lines)
+    detail: MISSING_DETAIL_LINES, // missing price detail panel
     beforeControls: 1, // blank line
     controls: 1, // control hints
     buffer: 1, // bottom margin
@@ -200,8 +203,7 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
 
 const CoverageList: FC<{ state: PricesViewCoverageState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { coverage, selectedIndex, scrollOffset } = state;
-  const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
-  const visibleRows = calculateVisibleRows(terminalHeight, getCoverageChromeLines(hasMissingSources));
+  const visibleRows = calculateVisibleRows(terminalHeight, getCoverageChromeLines());
   const cols = useMemo(
     () =>
       createColumns(coverage, {
@@ -286,69 +288,80 @@ const CoverageDetailPanel: FC<{ state: PricesViewCoverageState }> = ({ state }) 
   const selected = state.coverage[state.selectedIndex];
   if (!selected) return null;
 
-  const coverageColor = getCoverageColor(selected.coverage_percentage);
-
   return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ {selected.assetSymbol}</Text>
-        {'  '}
-        {selected.total_transactions} transactions <Text dimColor>·</Text>{' '}
-        <Text color={coverageColor}>{formatCoveragePercentage(selected.coverage_percentage)} coverage</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>With price: </Text>
-        <Text color="green">{selected.with_price}</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Missing price: </Text>
-        <Text color={selected.missing_price > 0 ? 'yellow' : 'green'}>{selected.missing_price}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Sources: </Text>
-        {selected.sources.map((s, i) => (
-          <Text key={s.name}>
-            {i > 0 && <Text dimColor> · </Text>}
-            <Text color="cyan">{s.name}</Text>
-            <Text> ({s.count})</Text>
-          </Text>
-        ))}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Date range: </Text>
-        <Text dimColor>
-          {formatTimestamp(selected.dateRange.earliest)} to {formatTimestamp(selected.dateRange.latest)}
-        </Text>
-      </Text>
-      {selected.missingSources.length > 0 && (
-        <>
-          <Text>
-            {'  '}
-            <Text dimColor>Missing in: </Text>
-            {selected.missingSources.map((s, i) => (
-              <Text key={s.name}>
-                {i > 0 && <Text dimColor> · </Text>}
-                <Text color="cyan">{s.name}</Text>
-                <Text color="yellow"> ({s.count})</Text>
-              </Text>
-            ))}
-          </Text>
-          <Text> </Text>
-          <Text dimColor>{'  '}Tip: Press Enter to view and set missing prices</Text>
-        </>
-      )}
-    </Box>
+    <FixedHeightDetail
+      height={COVERAGE_DETAIL_LINES}
+      rows={buildCoverageDetailRows(selected)}
+    />
   );
 };
+
+function buildCoverageDetailRows(selected: PriceCoverageDetail): ReactElement[] {
+  const coverageColor = getCoverageColor(selected.coverage_percentage);
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {selected.assetSymbol}</Text>
+      {'  '}
+      {selected.total_transactions} transactions <Text dimColor>·</Text>{' '}
+      <Text color={coverageColor}>{formatCoveragePercentage(selected.coverage_percentage)} coverage</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <Text key="with-price">
+      {'  '}
+      <Text dimColor>With price: </Text>
+      <Text color="green">{selected.with_price}</Text>
+    </Text>,
+    <Text key="missing-price">
+      {'  '}
+      <Text dimColor>Missing price: </Text>
+      <Text color={selected.missing_price > 0 ? 'yellow' : 'green'}>{selected.missing_price}</Text>
+    </Text>,
+    <Text key="blank-2"> </Text>,
+    <Text key="sources">
+      {'  '}
+      <Text dimColor>Sources: </Text>
+      {selected.sources.map((source, index) => (
+        <Text key={source.name}>
+          {index > 0 && <Text dimColor> · </Text>}
+          <Text color="cyan">{source.name}</Text>
+          <Text> ({source.count})</Text>
+        </Text>
+      ))}
+    </Text>,
+    <Text key="date-range">
+      {'  '}
+      <Text dimColor>Date range: </Text>
+      <Text dimColor>
+        {formatTimestamp(selected.dateRange.earliest)} to {formatTimestamp(selected.dateRange.latest)}
+      </Text>
+    </Text>,
+  ];
+
+  if (selected.missingSources.length > 0) {
+    rows.push(
+      <Text key="missing-sources">
+        {'  '}
+        <Text dimColor>Missing in: </Text>
+        {selected.missingSources.map((source, index) => (
+          <Text key={source.name}>
+            {index > 0 && <Text dimColor> · </Text>}
+            <Text color="cyan">{source.name}</Text>
+            <Text color="yellow"> ({source.count})</Text>
+          </Text>
+        ))}
+      </Text>,
+      <Text key="blank-3"> </Text>,
+      <Text
+        key="tip"
+        dimColor
+      >
+        {'  '}Tip: Press Enter to view and set missing prices
+      </Text>
+    );
+  }
+
+  return rows;
+}
 
 const CoverageControlsBar: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
   const selected = state.coverage[state.selectedIndex];
@@ -582,65 +595,86 @@ const MissingDetailPanel: FC<{ state: PricesViewMissingState }> = ({ state }) =>
   if (!movement) return null;
 
   const isResolved = state.resolvedRows.has(missingRowKey(movement));
+
+  return (
+    <FixedHeightDetail
+      height={MISSING_DETAIL_LINES}
+      rows={buildMissingDetailRows(movement, isResolved)}
+    />
+  );
+};
+
+function buildMissingDetailRows(movement: MissingPriceMovement, isResolved: boolean): ReactElement[] {
   const dir = movement.direction === 'inflow' ? 'IN' : 'OUT';
   const dirColor = movement.direction === 'inflow' ? 'green' : 'yellow';
   const opParts = [movement.operationCategory, movement.operationType].filter(Boolean).join('/');
 
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ #{movement.transactionId}</Text>
-        {'  '}
-        <Text color="cyan">{movement.source}</Text>
-        {'  '}
-        {opParts && (
-          <>
-            <Text dimColor>{opParts}</Text>
-            {'  '}
-          </>
-        )}
-        <Text dimColor>{movement.datetime}</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Asset: </Text>
-        {movement.assetSymbol}
-        {'  '}
-        <Text color={dirColor}>{dir}</Text>
-        {'  '}
-        <Text color="green">{movement.amount}</Text>
-      </Text>
-      {isResolved ? (
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ #{movement.transactionId}</Text>
+      {'  '}
+      <Text color="cyan">{movement.source}</Text>
+      {'  '}
+      {opParts && (
         <>
-          <Text>
-            {'  '}
-            <Text dimColor>Price: </Text>
-            <Text color="green">{movement.resolvedPrice}</Text>
-            <Text dimColor> USD</Text> <Text color="green">✓</Text>
-          </Text>
-          <Text> </Text>
-          <Text dimColor>{'  '}Tip: Re-run `exitbook prices enrich` to propagate this price.</Text>
-        </>
-      ) : (
-        <>
-          <Text>
-            {'  '}
-            <Text dimColor>Price: </Text>
-            <Text color="yellow">missing</Text>
-          </Text>
-          <Text> </Text>
-          <Text dimColor>{'  '}Tip: Press 's' to set price, or use:</Text>
-          <Text dimColor>
-            {'  '}exitbook prices set --asset {movement.assetSymbol} --date "{movement.datetime}" --price {'<amount>'}
-          </Text>
+          <Text dimColor>{opParts}</Text>
+          {'  '}
         </>
       )}
-    </Box>
-  );
-};
+      <Text dimColor>{movement.datetime}</Text>
+    </Text>,
+    <Text key="asset">
+      {'  '}
+      <Text dimColor>Asset: </Text>
+      {movement.assetSymbol}
+      {'  '}
+      <Text color={dirColor}>{dir}</Text>
+      {'  '}
+      <Text color="green">{movement.amount}</Text>
+    </Text>,
+  ];
+
+  if (isResolved) {
+    rows.push(
+      <Text key="price">
+        {'  '}
+        <Text dimColor>Price: </Text>
+        <Text color="green">{movement.resolvedPrice}</Text>
+        <Text dimColor> USD</Text> <Text color="green">✓</Text>
+      </Text>,
+      <Text key="blank"> </Text>,
+      <Text
+        key="tip"
+        dimColor
+      >
+        {'  '}Tip: Re-run `exitbook prices enrich` to propagate this price.
+      </Text>
+    );
+  } else {
+    rows.push(
+      <Text key="price">
+        {'  '}
+        <Text dimColor>Price: </Text>
+        <Text color="yellow">missing</Text>
+      </Text>,
+      <Text key="blank"> </Text>,
+      <Text
+        key="tip"
+        dimColor
+      >
+        {'  '}Tip: Press 's' to set price, or use:
+      </Text>,
+      <Text
+        key="command"
+        dimColor
+      >
+        {'  '}exitbook prices set --asset {movement.assetSymbol} --date "{movement.datetime}" --price {'<amount>'}
+      </Text>
+    );
+  }
+
+  return rows;
+}
 
 const PriceInputPanel: FC<{ state: PricesViewMissingState }> = ({ state }) => {
   if (!state.activeInput) return null;
@@ -652,35 +686,38 @@ const PriceInputPanel: FC<{ state: PricesViewMissingState }> = ({ state }) => {
   const dirColor = movement.direction === 'inflow' ? 'green' : 'yellow';
 
   return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text bold>
-        ▸ #{movement.transactionId}
-        {'  '}
-        {movement.source}
-        {'  '}
-        {movement.assetSymbol}
-        {'  '}
-        <Text color={dirColor}>{dir}</Text>
-        {'  '}
-        <Text color="green">{movement.amount}</Text>
-        {'  '}
-        <Text dimColor>{movement.datetime}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}Price (USD): <Text color="green">{state.activeInput.value}</Text>
-        <Text color="green">█</Text>
-      </Text>
-      {state.activeInput.validationError && (
-        <Text>
+    <FixedHeightDetail
+      height={MISSING_DETAIL_LINES}
+      rows={[
+        <Text
+          key="title"
+          bold
+        >
+          ▸ #{movement.transactionId}
           {'  '}
-          <Text color="red">⚠ {state.activeInput.validationError}</Text>
-        </Text>
-      )}
-    </Box>
+          {movement.source}
+          {'  '}
+          {movement.assetSymbol}
+          {'  '}
+          <Text color={dirColor}>{dir}</Text>
+          {'  '}
+          <Text color="green">{movement.amount}</Text>
+          {'  '}
+          <Text dimColor>{movement.datetime}</Text>
+        </Text>,
+        <Text key="blank"> </Text>,
+        <Text key="input">
+          {'  '}Price (USD): <Text color="green">{state.activeInput.value}</Text>
+          <Text color="green">█</Text>
+        </Text>,
+        state.activeInput.validationError ? (
+          <Text key="validation">
+            {'  '}
+            <Text color="red">⚠ {state.activeInput.validationError}</Text>
+          </Text>
+        ) : undefined,
+      ]}
+    />
   );
 };
 

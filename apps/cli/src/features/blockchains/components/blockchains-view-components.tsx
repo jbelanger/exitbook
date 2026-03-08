@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC } from 'react';
+import { useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,34 +11,23 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
 import type { BlockchainViewItem, BlockchainsViewState, ProviderViewItem } from './blockchains-view-state.js';
 
-function getDetailLines(selected: BlockchainViewItem | undefined): number {
-  if (!selected) return 0;
+export const BLOCKCHAINS_DETAIL_LINES = 8;
 
-  const providerLines = selected.providers.length > 0 ? 1 + selected.providers.length : 1;
-
-  return (
-    1 + // title line (▸ name, category, layer, providers)
-    1 + // blank line
-    providerLines + // "Providers" label + provider rows, or "No providers registered"
-    1 + // blank line
-    1 // example command
-  );
-}
-
-function getBlockchainsVisibleRows(terminalHeight: number, selected: BlockchainViewItem | undefined): number {
+function getBlockchainsVisibleRows(terminalHeight: number): number {
   const chromeLines = calculateChromeLines({
     beforeHeader: 1,
     header: 1,
     afterHeader: 1,
     listScrollIndicators: 2,
     divider: 1,
-    detail: getDetailLines(selected),
+    detail: BLOCKCHAINS_DETAIL_LINES,
     beforeControls: 1,
     controls: 1,
     buffer: 1,
@@ -60,8 +49,7 @@ export const BlockchainsViewApp: FC<{
   const terminalHeight = stdout?.rows || 24;
   const terminalWidth = stdout?.columns || 80;
 
-  const selected = state.blockchains[state.selectedIndex];
-  const visibleRows = getBlockchainsVisibleRows(terminalHeight, selected);
+  const visibleRows = getBlockchainsVisibleRows(terminalHeight);
 
   useInput((input, key) => {
     handleBlockchainsKeyboardInput(input, key, dispatch, onQuit, visibleRows);
@@ -229,52 +217,76 @@ const BlockchainDetailPanel: FC<{ state: BlockchainsViewState }> = ({ state }) =
   const selected = state.blockchains[state.selectedIndex];
   if (!selected) return null;
 
+  return (
+    <FixedHeightDetail
+      height={BLOCKCHAINS_DETAIL_LINES}
+      rows={buildBlockchainDetailRows(selected)}
+    />
+  );
+};
+
+function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[] {
   const layerLabel = selected.layer ? `Layer ${selected.layer}` : '';
   const providerLabel = selected.providerCount === 1 ? 'provider' : 'providers';
 
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ {selected.displayName}</Text>
-        {'  '}
-        <Text dimColor>{selected.category}</Text>
-        {layerLabel && (
-          <>
-            <Text dimColor> · </Text>
-            <Text dimColor>{layerLabel}</Text>
-          </>
-        )}
-        {'   '}
-        <Text>{selected.providerCount}</Text>
-        <Text dimColor> {providerLabel}</Text>
-      </Text>
-
-      <Text> </Text>
-
-      {selected.providers.length > 0 ? (
-        <Box flexDirection="column">
-          <Text dimColor>{'  '}Providers</Text>
-          {selected.providers.map((provider) => (
-            <ProviderLine
-              key={provider.name}
-              provider={provider}
-            />
-          ))}
-        </Box>
-      ) : (
-        <Text dimColor>{'  '}No providers registered for this blockchain.</Text>
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {selected.displayName}</Text>
+      {'  '}
+      <Text dimColor>{selected.category}</Text>
+      {layerLabel && (
+        <>
+          <Text dimColor> · </Text>
+          <Text dimColor>{layerLabel}</Text>
+        </>
       )}
+      {'   '}
+      <Text>{selected.providerCount}</Text>
+      <Text dimColor> {providerLabel}</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+  ];
 
-      <Text> </Text>
-      <Text dimColor>
-        {'  '}Example: exitbook import --blockchain {selected.name} --address {selected.exampleAddress}
+  if (selected.providers.length > 0) {
+    rows.push(
+      <Text
+        key="providers-label"
+        dimColor
+      >
+        {'  '}Providers
       </Text>
-    </Box>
+    );
+    rows.push(
+      ...selected.providers.map((provider) => (
+        <ProviderLine
+          key={provider.name}
+          provider={provider}
+        />
+      ))
+    );
+  } else {
+    rows.push(
+      <Text
+        key="no-providers"
+        dimColor
+      >
+        {'  '}No providers registered for this blockchain.
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="blank-2"> </Text>,
+    <Text
+      key="example"
+      dimColor
+    >
+      {'  '}Example: exitbook import --blockchain {selected.name} --address {selected.exampleAddress}
+    </Text>
   );
-};
+
+  return rows;
+}
 
 const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
   const icon = getProviderIcon(provider);

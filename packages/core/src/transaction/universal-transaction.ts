@@ -36,6 +36,7 @@ export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
 export const PriceAtTxTimeSchema = z.object({
   price: MoneySchema, // Always in USD after normalization (storage currency)
+  originalPrice: MoneySchema.optional(), // Original transaction-time price before normalization
   source: z.string(), // exchange-execution | derived-trade | derived-ratio | link-propagated | <provider-name>
   fetchedAt: DateSchema,
   granularity: z.enum(['exact', 'minute', 'hour', 'day']).optional(),
@@ -66,6 +67,7 @@ export const AssetMovementSchema = z
   .object({
     // Asset identity (required)
     assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
+    assetCanonicalId: z.string().min(1).optional(), // Economic identity for tax pooling (cross-venue)
     assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
 
     // Amount fields
@@ -144,6 +146,7 @@ export const AssetMovementSchema = z
 export const FeeMovementSchema = z.object({
   // Asset identity (required)
   assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
+  assetCanonicalId: z.string().min(1).optional(), // Economic identity for tax pooling (cross-venue)
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
   amount: DecimalSchema,
 

@@ -4,7 +4,7 @@
 
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
-import { useLayoutEffect, useReducer, type FC, type ReactNode } from 'react';
+import { useLayoutEffect, useReducer, type FC, type ReactElement, type ReactNode } from 'react';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import {
@@ -13,6 +13,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 import { formatSignedAmount, truncateAddress } from '../balance-view-utils.js';
@@ -31,13 +32,16 @@ import type {
   BalanceVerificationState,
 } from './balance-view-state.js';
 
+const BALANCE_ACCOUNT_DETAIL_LINES = 7;
+const BALANCE_ASSET_DETAIL_LINES = 7;
+
 const BALANCE_ACCOUNTS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Balance Verification · N accounts"
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 7, // account detail panel (asset balances)
+  detail: BALANCE_ACCOUNT_DETAIL_LINES, // account detail panel (asset balances)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -49,7 +53,7 @@ const BALANCE_ASSETS_CHROME_LINES = calculateChromeLines({
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 7, // asset detail panel (account breakdown)
+  detail: BALANCE_ASSET_DETAIL_LINES, // asset detail panel (account breakdown)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -353,131 +357,155 @@ const AccountDetailPanel: FC<{ state: BalanceVerificationState }> = ({ state }) 
   const selected = state.accounts[state.selectedIndex];
   if (!selected) return null;
 
-  // Aborting: show abort message
+  return (
+    <FixedHeightDetail
+      height={BALANCE_ACCOUNT_DETAIL_LINES}
+      rows={buildBalanceAccountDetailRows(state, selected)}
+    />
+  );
+};
+
+function buildBalanceAccountDetailRows(
+  state: BalanceVerificationState,
+  selected: AccountVerificationItem
+): ReactElement[] {
   if (state.aborting) {
-    return (
-      <Box flexDirection="column">
-        <Text color="yellow">⏹ Aborting verification...</Text>
-      </Box>
-    );
+    return [
+      <Text
+        key="aborting"
+        color="yellow"
+      >
+        ⏹ Aborting verification...
+      </Text>,
+    ];
   }
 
-  // During verification: show current status
   if (state.phase === 'verifying') {
-    const verifying = state.accounts.find((a) => a.status === 'verifying');
+    const verifying = state.accounts.find((account) => account.status === 'verifying');
     if (verifying) {
-      return (
-        <Box flexDirection="column">
-          <Text color="yellow">
-            ⏳ Verifying {verifying.sourceName} (account #{verifying.accountId})...
-          </Text>
-        </Box>
-      );
+      return [
+        <Text
+          key="verifying"
+          color="yellow"
+        >
+          ⏳ Verifying {verifying.sourceName} (account #{verifying.accountId})...
+        </Text>,
+      ];
     }
   }
 
-  // Skipped
   if (selected.status === 'skipped') {
-    return (
-      <Box flexDirection="column">
-        <Text>
-          <Text bold>▸ #{selected.accountId}</Text>
-          {'  '}
-          <Text color="cyan">{selected.sourceName}</Text>
-          {'  '}
-          <Text dimColor>{selected.accountType}</Text>
-          {'  '}
-          <Text dimColor>skipped</Text>
-        </Text>
-        <Text> </Text>
-        <Text dimColor>
-          {'  '}
-          {selected.skipReason ?? 'unknown reason'}
-        </Text>
-      </Box>
-    );
-  }
-
-  // Error
-  if (selected.status === 'error') {
-    return (
-      <Box flexDirection="column">
-        <Text>
-          <Text bold>▸ #{selected.accountId}</Text>
-          {'  '}
-          <Text color="cyan">{selected.sourceName}</Text>
-          {'  '}
-          <Text dimColor>{selected.accountType}</Text>
-          {'  '}
-          <Text color="red">error</Text>
-        </Text>
-        <Text> </Text>
-        <Text dimColor>
-          {'  '}
-          {selected.errorMessage ?? 'unknown error'}
-        </Text>
-      </Box>
-    );
-  }
-
-  // Pending / verifying
-  if (selected.status === 'pending' || selected.status === 'verifying') {
-    return (
-      <Box flexDirection="column">
-        <Text>
-          <Text bold>▸ #{selected.accountId}</Text>
-          {'  '}
-          <Text color="cyan">{selected.sourceName}</Text>
-          {'  '}
-          <Text dimColor>{selected.accountType}</Text>
-        </Text>
-        <Text> </Text>
-        <Text dimColor>
-          {'  '}
-          {selected.status === 'verifying' ? 'Verifying...' : 'Pending'}
-        </Text>
-      </Box>
-    );
-  }
-
-  // Completed: show per-asset breakdown
-  const comparisons = selected.comparisons ?? [];
-  const mismatchCount = selected.mismatchCount;
-
-  return (
-    <Box flexDirection="column">
-      <Text>
+    return [
+      <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
         <Text color="cyan">{selected.sourceName}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
         {'  '}
-        {selected.assetCount} <Text dimColor>assets</Text>
-        {mismatchCount > 0 && (
-          <>
-            <Text dimColor> · </Text>
-            <Text color="red">{mismatchCount}</Text> <Text dimColor>mismatch</Text>
-          </>
-        )}
-      </Text>
-      <Text> </Text>
-      {comparisons.slice(0, 8).map((c) => (
-        <ComparisonPreviewRow
-          key={c.assetId}
-          comparison={c}
-        />
-      ))}
-      {comparisons.length > 8 && (
-        <Text dimColor>
-          {'  '}...and {comparisons.length - 8} more
-        </Text>
+        <Text dimColor>skipped</Text>
+      </Text>,
+      <Text key="blank"> </Text>,
+      <Text
+        key="reason"
+        dimColor
+      >
+        {'  '}
+        {selected.skipReason ?? 'unknown reason'}
+      </Text>,
+    ];
+  }
+
+  if (selected.status === 'error') {
+    return [
+      <Text key="title">
+        <Text bold>▸ #{selected.accountId}</Text>
+        {'  '}
+        <Text color="cyan">{selected.sourceName}</Text>
+        {'  '}
+        <Text dimColor>{selected.accountType}</Text>
+        {'  '}
+        <Text color="red">error</Text>
+      </Text>,
+      <Text key="blank"> </Text>,
+      <Text
+        key="reason"
+        dimColor
+      >
+        {'  '}
+        {selected.errorMessage ?? 'unknown error'}
+      </Text>,
+    ];
+  }
+
+  if (selected.status === 'pending' || selected.status === 'verifying') {
+    return [
+      <Text key="title">
+        <Text bold>▸ #{selected.accountId}</Text>
+        {'  '}
+        <Text color="cyan">{selected.sourceName}</Text>
+        {'  '}
+        <Text dimColor>{selected.accountType}</Text>
+      </Text>,
+      <Text key="blank"> </Text>,
+      <Text
+        key="status"
+        dimColor
+      >
+        {'  '}
+        {selected.status === 'verifying' ? 'Verifying...' : 'Pending'}
+      </Text>,
+    ];
+  }
+
+  const comparisons = selected.comparisons ?? [];
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ #{selected.accountId}</Text>
+      {'  '}
+      <Text color="cyan">{selected.sourceName}</Text>
+      {'  '}
+      <Text dimColor>{selected.accountType}</Text>
+      {'  '}
+      {selected.assetCount} <Text dimColor>assets</Text>
+      {selected.mismatchCount > 0 && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color="red">{selected.mismatchCount}</Text> <Text dimColor>mismatch</Text>
+        </>
       )}
-      <Text> </Text>
-      <Text dimColor>{'  '}Press enter to drill down</Text>
-    </Box>
+    </Text>,
+    <Text key="blank"> </Text>,
+    ...comparisons.slice(0, 8).map((comparison) => (
+      <ComparisonPreviewRow
+        key={comparison.assetId}
+        comparison={comparison}
+      />
+    )),
+  ];
+
+  if (comparisons.length > 8) {
+    rows.push(
+      <Text
+        key="more"
+        dimColor
+      >
+        {'  '}...and {comparisons.length - 8} more
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="blank-2"> </Text>,
+    <Text
+      key="tip"
+      dimColor
+    >
+      {'  '}Press enter to drill down
+    </Text>
   );
-};
+  return rows;
+}
 
 const ComparisonPreviewRow: FC<{ comparison: AssetComparisonItem }> = ({ comparison }) => {
   const icon = getAssetStatusIcon(comparison.status);
@@ -649,33 +677,55 @@ const OfflineAccountDetailPanel: FC<{ state: BalanceOfflineState }> = ({ state }
   if (!selected) return null;
 
   return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>▸ #{selected.accountId}</Text>
-        {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
-        {'  '}
-        <Text dimColor>{selected.accountType}</Text>
-        {'  '}
-        {selected.assetCount} <Text dimColor>assets</Text>
-      </Text>
-      <Text> </Text>
-      {selected.assets.slice(0, 8).map((asset) => (
-        <OfflineAssetPreviewRow
-          key={asset.assetId}
-          asset={asset}
-        />
-      ))}
-      {selected.assets.length > 8 && (
-        <Text dimColor>
-          {'  '}...and {selected.assets.length - 8} more
-        </Text>
-      )}
-      <Text> </Text>
-      <Text dimColor>{'  '}Press enter to drill down</Text>
-    </Box>
+    <FixedHeightDetail
+      height={BALANCE_ACCOUNT_DETAIL_LINES}
+      rows={buildOfflineAccountDetailRows(selected)}
+    />
   );
 };
+
+function buildOfflineAccountDetailRows(selected: AccountOfflineItem): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ #{selected.accountId}</Text>
+      {'  '}
+      <Text color="cyan">{selected.sourceName}</Text>
+      {'  '}
+      <Text dimColor>{selected.accountType}</Text>
+      {'  '}
+      {selected.assetCount} <Text dimColor>assets</Text>
+    </Text>,
+    <Text key="blank"> </Text>,
+    ...selected.assets.slice(0, 8).map((asset) => (
+      <OfflineAssetPreviewRow
+        key={asset.assetId}
+        asset={asset}
+      />
+    )),
+  ];
+
+  if (selected.assets.length > 8) {
+    rows.push(
+      <Text
+        key="more"
+        dimColor
+      >
+        {'  '}...and {selected.assets.length - 8} more
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="blank-2"> </Text>,
+    <Text
+      key="tip"
+      dimColor
+    >
+      {'  '}Press enter to drill down
+    </Text>
+  );
+  return rows;
+}
 
 const OfflineAssetPreviewRow: FC<{ asset: AssetOfflineItem }> = ({ asset }) => {
   const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
@@ -925,17 +975,20 @@ const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
   const selected = state.assets[state.selectedIndex];
   if (!selected) return null;
 
-  if (state.offline) {
-    return <OfflineDiagnosticsPanel asset={selected as AssetOfflineItem} />;
-  }
-
-  return <OnlineDiagnosticsPanel asset={selected as AssetComparisonItem} />;
+  return (
+    <FixedHeightDetail
+      height={BALANCE_ASSET_DETAIL_LINES}
+      rows={
+        state.offline
+          ? buildOfflineDiagnosticsRows(selected as AssetOfflineItem)
+          : buildOnlineDiagnosticsRows(selected as AssetComparisonItem)
+      }
+    />
+  );
 };
 
-const OnlineDiagnosticsPanel: FC<{ asset: AssetComparisonItem }> = ({ asset }) => {
+function buildOnlineDiagnosticsRows(asset: AssetComparisonItem): ReactElement[] {
   const { diagnostics } = asset;
-
-  // Summary line
   const summaryStatus =
     asset.status === 'match' ? (
       <Text color="green">match</Text>
@@ -947,138 +1000,173 @@ const OnlineDiagnosticsPanel: FC<{ asset: AssetComparisonItem }> = ({ asset }) =
       </Text>
     );
 
-  return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>▸ {asset.assetSymbol}</Text>
-        {'  '}
-        <Text dimColor>calculated</Text> <Text color="green">{asset.calculatedBalance}</Text>
-        <Text dimColor> · live</Text> {asset.liveBalance}
-        <Text dimColor> · </Text>
-        {summaryStatus}
-      </Text>
-      <Text> </Text>
-      <DiagnosticsContent diagnostics={diagnostics} />
-      {diagnostics.impliedMissing && (
-        <Text>
-          {'  '}
-          <Text dimColor>Implied missing: </Text>
-          <Text color="red">{diagnostics.impliedMissing}</Text>
-        </Text>
-      )}
-      <DiagnosticsSamples diagnostics={diagnostics} />
-    </Box>
-  );
-};
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {asset.assetSymbol}</Text>
+      {'  '}
+      <Text dimColor>calculated</Text> <Text color="green">{asset.calculatedBalance}</Text>
+      <Text dimColor> · live</Text> {asset.liveBalance}
+      <Text dimColor> · </Text>
+      {summaryStatus}
+    </Text>,
+    <Text key="blank"> </Text>,
+    ...buildDiagnosticsContentRows(diagnostics),
+  ];
 
-const OfflineDiagnosticsPanel: FC<{ asset: AssetOfflineItem }> = ({ asset }) => {
+  if (diagnostics.impliedMissing) {
+    rows.push(
+      <Text key="implied-missing">
+        {'  '}
+        <Text dimColor>Implied missing: </Text>
+        <Text color="red">{diagnostics.impliedMissing}</Text>
+      </Text>
+    );
+  }
+
+  rows.push(...buildDiagnosticsSampleRows(diagnostics));
+  return rows;
+}
+
+function buildOfflineDiagnosticsRows(asset: AssetOfflineItem): ReactElement[] {
   const { diagnostics } = asset;
   const balanceColor = asset.isNegative ? 'red' : 'green';
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {asset.assetSymbol}</Text>
+      {'  '}
+      <Text dimColor>balance</Text> <Text color={balanceColor}>{asset.calculatedBalance}</Text>
+    </Text>,
+    <Text key="blank"> </Text>,
+    ...buildDiagnosticsContentRows(diagnostics),
+  ];
 
-  return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>▸ {asset.assetSymbol}</Text>
-        {'  '}
-        <Text dimColor>balance</Text> <Text color={balanceColor}>{asset.calculatedBalance}</Text>
+  if (asset.isNegative) {
+    rows.push(
+      <Text key="negative-blank"> </Text>,
+      <Text
+        key="negative"
+        color="yellow"
+      >
+        {'  '}⚠ Negative balance — likely missing inflow transactions
       </Text>
-      <Text> </Text>
-      <DiagnosticsContent diagnostics={diagnostics} />
-      {asset.isNegative && (
-        <>
-          <Text> </Text>
-          <Text color="yellow">{'  '}⚠ Negative balance — likely missing inflow transactions</Text>
-        </>
-      )}
-      <DiagnosticsSamples diagnostics={diagnostics} />
-    </Box>
-  );
-};
-
-const DiagnosticsContent: FC<{ diagnostics: AssetDiagnostics }> = ({ diagnostics }) => {
-  if (diagnostics.txCount === 0) {
-    return (
-      <Box flexDirection="column">
-        <Text dimColor>{'  '}No movements found in imported transactions.</Text>
-        <Text dimColor>{'  '}Live balance may be from missing import history or an airdrop.</Text>
-      </Box>
     );
+  }
+
+  rows.push(...buildDiagnosticsSampleRows(diagnostics));
+  return rows;
+}
+
+function buildDiagnosticsContentRows(diagnostics: AssetDiagnostics): ReactElement[] {
+  if (diagnostics.txCount === 0) {
+    return [
+      <Text
+        key="empty-1"
+        dimColor
+      >
+        {'  '}No movements found in imported transactions.
+      </Text>,
+      <Text
+        key="empty-2"
+        dimColor
+      >
+        {'  '}Live balance may be from missing import history or an airdrop.
+      </Text>,
+    ];
   }
 
   const dateRangeText = diagnostics.dateRange
     ? `${diagnostics.dateRange.earliest.substring(0, 10)} to ${diagnostics.dateRange.latest.substring(0, 10)}`
     : '';
 
-  return (
-    <Box flexDirection="column">
-      <Text>
-        {'  '}
-        <Text dimColor>Transactions: </Text>
-        {diagnostics.txCount}
-        {dateRangeText && <Text dimColor> · {dateRangeText}</Text>}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Net from transactions: </Text>
-        {diagnostics.totals.net}
-        <Text dimColor> (in </Text>
-        <Text color="green">{diagnostics.totals.inflows}</Text>
-        <Text dimColor> · out </Text>
-        <Text color="yellow">{diagnostics.totals.outflows}</Text>
-        <Text dimColor> · fees </Text>
-        <Text color="yellow">{diagnostics.totals.fees}</Text>
-        <Text dimColor>)</Text>
-      </Text>
-    </Box>
-  );
-};
+  return [
+    <Text key="transactions">
+      {'  '}
+      <Text dimColor>Transactions: </Text>
+      {diagnostics.txCount}
+      {dateRangeText && <Text dimColor> · {dateRangeText}</Text>}
+    </Text>,
+    <Text key="net">
+      {'  '}
+      <Text dimColor>Net from transactions: </Text>
+      {diagnostics.totals.net}
+      <Text dimColor> (in </Text>
+      <Text color="green">{diagnostics.totals.inflows}</Text>
+      <Text dimColor> · out </Text>
+      <Text color="yellow">{diagnostics.totals.outflows}</Text>
+      <Text dimColor> · fees </Text>
+      <Text color="yellow">{diagnostics.totals.fees}</Text>
+      <Text dimColor>)</Text>
+    </Text>,
+  ];
+}
 
-const DiagnosticsSamples: FC<{ diagnostics: AssetDiagnostics }> = ({ diagnostics }) => {
-  if (diagnostics.txCount === 0) return null;
+function buildDiagnosticsSampleRows(diagnostics: AssetDiagnostics): ReactElement[] {
+  if (diagnostics.txCount === 0) return [];
 
-  return (
-    <Box flexDirection="column">
-      {diagnostics.topOutflows.length > 0 && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}Top Outflows</Text>
-          {diagnostics.topOutflows.map((sample, i) => (
-            <SampleRow
-              key={`out-${i}`}
-              sample={sample}
-              type="outflow"
-            />
-          ))}
-        </>
-      )}
-      {diagnostics.topInflows.length > 0 && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}Top Inflows</Text>
-          {diagnostics.topInflows.map((sample, i) => (
-            <SampleRow
-              key={`in-${i}`}
-              sample={sample}
-              type="inflow"
-            />
-          ))}
-        </>
-      )}
-      {diagnostics.topFees.length > 0 && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}Top Fees</Text>
-          {diagnostics.topFees.map((sample, i) => (
-            <FeeSampleRow
-              key={`fee-${i}`}
-              sample={sample}
-            />
-          ))}
-        </>
-      )}
-    </Box>
-  );
-};
+  const rows: ReactElement[] = [];
+
+  if (diagnostics.topOutflows.length > 0) {
+    rows.push(
+      <Text key="outflows-blank"> </Text>,
+      <Text
+        key="outflows-label"
+        dimColor
+      >
+        {'  '}Top Outflows
+      </Text>
+    );
+    rows.push(
+      ...diagnostics.topOutflows.map((sample, index) => (
+        <SampleRow
+          key={`out-${index}`}
+          sample={sample}
+          type="outflow"
+        />
+      ))
+    );
+  }
+  if (diagnostics.topInflows.length > 0) {
+    rows.push(
+      <Text key="inflows-blank"> </Text>,
+      <Text
+        key="inflows-label"
+        dimColor
+      >
+        {'  '}Top Inflows
+      </Text>
+    );
+    rows.push(
+      ...diagnostics.topInflows.map((sample, index) => (
+        <SampleRow
+          key={`in-${index}`}
+          sample={sample}
+          type="inflow"
+        />
+      ))
+    );
+  }
+  if (diagnostics.topFees.length > 0) {
+    rows.push(
+      <Text key="fees-blank"> </Text>,
+      <Text
+        key="fees-label"
+        dimColor
+      >
+        {'  '}Top Fees
+      </Text>
+    );
+    rows.push(
+      ...diagnostics.topFees.map((sample, index) => (
+        <FeeSampleRow
+          key={`fee-${index}`}
+          sample={sample}
+        />
+      ))
+    );
+  }
+
+  return rows;
+}
 
 const SampleRow: FC<{
   sample: {

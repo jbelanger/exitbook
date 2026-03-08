@@ -138,6 +138,7 @@ export function createNormalizedPrice(
       amount: usdAmount,
       currency: 'USD' as Currency,
     },
+    originalPrice: original.price,
     source: upgradedSource,
     // FX metadata for audit trail
     fxRateToUSD: fxRate,

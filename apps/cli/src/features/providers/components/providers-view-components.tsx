@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC } from 'react';
+import { useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,6 +11,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 import { formatTimeAgo } from '../providers-view-utils.js';
@@ -23,13 +24,15 @@ import type {
   ProvidersViewState,
 } from './providers-view-state.js';
 
+export const PROVIDER_DETAIL_LINES = 9;
+
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Blockchain Providers · N providers"
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 9, // provider detail panel (chains list)
+  detail: PROVIDER_DETAIL_LINES, // provider detail panel (chains list)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -297,6 +300,15 @@ const ProviderDetailPanel: FC<{ state: ProvidersViewState }> = ({ state }) => {
   const selected = state.providers[state.selectedIndex];
   if (!selected) return null;
 
+  return (
+    <FixedHeightDetail
+      height={PROVIDER_DETAIL_LINES}
+      rows={buildProviderDetailRows(selected)}
+    />
+  );
+};
+
+function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
   const hasStats = selected.stats !== undefined;
   const healthLabel = getHealthLabel(selected.healthStatus);
   const chainLabel = selected.chainCount === 1 ? 'chain' : 'chains';
@@ -305,108 +317,117 @@ const ProviderDetailPanel: FC<{ state: ProvidersViewState }> = ({ state }) => {
   const MAX_BLOCKCHAINS_SHOWN = 10;
   const visibleBlockchains = selected.blockchains.slice(0, MAX_BLOCKCHAINS_SHOWN);
   const hiddenCount = selected.blockchains.length - visibleBlockchains.length;
-
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {selected.displayName}</Text>
+      {'  '}
+      <Text>{selected.chainCount}</Text>
+      <Text dimColor> {chainLabel}</Text>
+      {hasStats ? (
+        <>
+          <Text dimColor> · </Text>
+          <Text>{selected.stats!.totalRequests.toLocaleString()}</Text>
+          <Text dimColor> total requests</Text>
+          <Text dimColor> · </Text>
+          {healthLabel.color === 'dim' ? (
+            <Text dimColor>{healthLabel.text}</Text>
+          ) : (
+            <Text color={healthLabel.color}>{healthLabel.text}</Text>
+          )}
+        </>
+      ) : (
+        <>
+          <Text dimColor> · </Text>
+          <Text dimColor>no stats</Text>
+        </>
+      )}
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <Text
+      key="blockchains-label"
+      dimColor
     >
-      {/* Title line */}
-      <Text>
-        <Text bold>▸ {selected.displayName}</Text>
-        {'  '}
-        <Text>{selected.chainCount}</Text>
-        <Text dimColor> {chainLabel}</Text>
-        {hasStats ? (
-          <>
-            <Text dimColor> · </Text>
-            <Text>{selected.stats!.totalRequests.toLocaleString()}</Text>
-            <Text dimColor> total requests</Text>
-            <Text dimColor> · </Text>
-            {healthLabel.color === 'dim' ? (
-              <Text dimColor>{healthLabel.text}</Text>
-            ) : (
-              <Text color={healthLabel.color}>{healthLabel.text}</Text>
-            )}
-          </>
+      {'  '}Blockchains
+    </Text>,
+    ...visibleBlockchains.map((blockchain) => (
+      <BlockchainLine
+        key={blockchain.name}
+        blockchain={blockchain}
+      />
+    )),
+  ];
+
+  if (hiddenCount > 0) {
+    rows.push(
+      <Text
+        key="blockchains-more"
+        dimColor
+      >
+        {'    '}... and {hiddenCount} more {hiddenCount === 1 ? 'chain' : 'chains'}
+      </Text>
+    );
+  }
+
+  rows.push(<Text key="blank-2"> </Text>);
+
+  if (selected.rateLimit) {
+    rows.push(
+      <Text key="config">
+        <Text dimColor>{'  '}Config: </Text>
+        <Text>{selected.rateLimit}</Text>
+        <Text dimColor> ({selected.configSource})</Text>
+      </Text>
+    );
+  }
+
+  if (selected.requiresApiKey && selected.apiKeyEnvVar) {
+    rows.push(
+      <Text key="api-key">
+        <Text dimColor>{'  '}API key: </Text>
+        {selected.apiKeyConfigured ? (
+          <Text color="green">{selected.apiKeyEnvVar} ✓</Text>
         ) : (
           <>
-            <Text dimColor> · </Text>
-            <Text dimColor>no stats</Text>
+            <Text color="yellow">{selected.apiKeyEnvVar}</Text>
+            <Text color="red"> ✗</Text>
+            <Text color="yellow"> missing</Text>
           </>
         )}
       </Text>
+    );
+  }
 
-      <Text> </Text>
+  if (selected.lastError && selected.lastErrorTime) {
+    rows.push(
+      <Text key="blank-3"> </Text>,
+      <Text key="last-error">
+        <Text dimColor>{'  '}Last error: </Text>
+        <Text color="yellow">{selected.lastError}</Text>
+        <Text dimColor> ({formatTimeAgo(selected.lastErrorTime)})</Text>
+      </Text>
+    );
+  }
 
-      {/* Blockchain breakdown */}
-      <Box flexDirection="column">
-        <Text dimColor>{'  '}Blockchains</Text>
-        {visibleBlockchains.map((blockchain) => (
-          <BlockchainLine
-            key={blockchain.name}
-            blockchain={blockchain}
-          />
-        ))}
-        {hiddenCount > 0 && (
-          <Text dimColor>
-            {'    '}... and {hiddenCount} more {hiddenCount === 1 ? 'chain' : 'chains'}
-          </Text>
-        )}
-      </Box>
+  if (!hasStats) {
+    rows.push(
+      <Text key="blank-4"> </Text>,
+      <Text
+        key="no-stats-tip"
+        dimColor
+      >
+        {'  '}No usage data. Run an import to generate stats:
+      </Text>,
+      <Text
+        key="no-stats-command"
+        dimColor
+      >
+        {'  '}exitbook import --blockchain {selected.blockchains[0]?.name ?? 'ethereum'} --address {'<address>'}
+      </Text>
+    );
+  }
 
-      <Text> </Text>
-
-      {/* Config line */}
-      {selected.rateLimit && (
-        <Text>
-          <Text dimColor>{'  '}Config: </Text>
-          <Text>{selected.rateLimit}</Text>
-          <Text dimColor> ({selected.configSource})</Text>
-        </Text>
-      )}
-
-      {/* API key line */}
-      {selected.requiresApiKey && selected.apiKeyEnvVar && (
-        <Text>
-          <Text dimColor>{'  '}API key: </Text>
-          {selected.apiKeyConfigured ? (
-            <Text color="green">{selected.apiKeyEnvVar} ✓</Text>
-          ) : (
-            <>
-              <Text color="yellow">{selected.apiKeyEnvVar}</Text>
-              <Text color="red"> ✗</Text>
-              <Text color="yellow"> missing</Text>
-            </>
-          )}
-        </Text>
-      )}
-
-      {/* Last error */}
-      {selected.lastError && selected.lastErrorTime && (
-        <>
-          <Text> </Text>
-          <Text>
-            <Text dimColor>{'  '}Last error: </Text>
-            <Text color="yellow">{selected.lastError}</Text>
-            <Text dimColor> ({formatTimeAgo(selected.lastErrorTime)})</Text>
-          </Text>
-        </>
-      )}
-
-      {/* No usage data hint */}
-      {!hasStats && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}No usage data. Run an import to generate stats:</Text>
-          <Text dimColor>
-            {'  '}exitbook import --blockchain {selected.blockchains[0]?.name ?? 'ethereum'} --address {'<address>'}
-          </Text>
-        </>
-      )}
-    </Box>
-  );
-};
+  return rows;
+}
 
 const BlockchainLine: FC<{ blockchain: ProviderBlockchainItem }> = ({ blockchain }) => {
   const name = blockchain.name.substring(0, 14).padEnd(14);

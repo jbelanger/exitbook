@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC } from 'react';
+import { useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,6 +11,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 
@@ -23,13 +24,15 @@ import type {
   TypeCounts,
 } from './accounts-view-state.js';
 
+export const ACCOUNT_DETAIL_LINES = 7;
+
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Accounts · N total · type counts"
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 7, // account detail panel
+  detail: ACCOUNT_DETAIL_LINES, // account detail panel
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -204,120 +207,154 @@ const AccountDetailPanel: FC<{ state: AccountsViewState }> = ({ state }) => {
   const selected = state.accounts[state.selectedIndex];
   if (!selected) return null;
 
+  return (
+    <FixedHeightDetail
+      height={ACCOUNT_DETAIL_LINES}
+      rows={buildAccountDetailRows(selected)}
+    />
+  );
+};
+
+function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   const type = formatAccountType(selected.accountType);
   const { icon, iconColor, label } = getVerificationDisplay(selected.verificationStatus);
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.sourceName}</Text> <Text dimColor>{type}</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <Text key="identifier">
+      {'  '}
+      <Text dimColor>Identifier: </Text>
+      <Text>{selected.identifier}</Text>
+    </Text>,
+    <Text key="provider">
+      {'  '}
+      <Text dimColor>Provider: </Text>
+      {selected.providerName ? <Text color="cyan">{selected.providerName}</Text> : <Text dimColor>—</Text>}
+    </Text>,
+    <Text key="created">
+      {'  '}
+      <Text dimColor>Created: </Text>
+      <Text dimColor>{formatTimestamp(selected.createdAt)}</Text>
+    </Text>,
+    <Text key="blank-2"> </Text>,
+    <Text key="verification">
+      {'  '}
+      <Text dimColor>Verification: </Text>
+      <Text color={iconColor}>
+        {icon} {label}
+      </Text>
+    </Text>,
+  ];
 
-  return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
+  if (selected.lastBalanceCheckAt) {
+    rows.push(
+      <Text key="last-check">
+        {'  '}
+        <Text dimColor>Last check: </Text>
+        <Text dimColor>{formatTimestamp(selected.lastBalanceCheckAt)}</Text>
+      </Text>
+    );
+  }
+  if (selected.sessionCount !== undefined) {
+    rows.push(
+      <Text key="sessions">
+        {'  '}
+        <Text dimColor>Sessions: </Text>
+        <Text>{selected.sessionCount}</Text>
+      </Text>
+    );
+  }
+  if (selected.childAccounts && selected.childAccounts.length > 0) {
+    rows.push(...buildChildAccountRows(selected.childAccounts));
+  }
+  if (selected.sessions && selected.sessions.length > 0) {
+    rows.push(...buildSessionRows(selected.sessions));
+  }
+
+  return rows;
+}
+
+function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text key="children-blank"> </Text>,
+    <Text
+      key="children-label"
+      dimColor
     >
-      <Text>
-        <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.sourceName}</Text> <Text dimColor>{type}</Text>
-      </Text>
+      {'  '}Derived addresses ({children.length})
+    </Text>,
+  ];
 
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Identifier: </Text>
-        <Text>{selected.identifier}</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Provider: </Text>
-        {selected.providerName ? <Text color="cyan">{selected.providerName}</Text> : <Text dimColor>—</Text>}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Created: </Text>
-        <Text dimColor>{formatTimestamp(selected.createdAt)}</Text>
-      </Text>
-
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Verification: </Text>
-        <Text color={iconColor}>
-          {icon} {label}
+  rows.push(
+    ...children.slice(0, 5).map((child) => {
+      const { icon, iconColor } = getVerificationDisplay(child.verificationStatus);
+      const sessions = child.sessionCount !== undefined ? `${child.sessionCount} sess` : '';
+      return (
+        <Text key={child.id}>
+          {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{sessions}</Text>{' '}
+          <Text color={iconColor}>{icon}</Text>
         </Text>
-      </Text>
-      {selected.lastBalanceCheckAt && (
-        <Text>
-          {'  '}
-          <Text dimColor>Last check: </Text>
-          <Text dimColor>{formatTimestamp(selected.lastBalanceCheckAt)}</Text>
-        </Text>
-      )}
-      {selected.sessionCount !== undefined && (
-        <Text>
-          {'  '}
-          <Text dimColor>Sessions: </Text>
-          <Text>{selected.sessionCount}</Text>
-        </Text>
-      )}
-
-      {selected.childAccounts && selected.childAccounts.length > 0 && (
-        <ChildAccountsSection children={selected.childAccounts} />
-      )}
-
-      {selected.sessions && selected.sessions.length > 0 && <SessionsSection sessions={selected.sessions} />}
-    </Box>
+      );
+    })
   );
-};
 
-const ChildAccountsSection: FC<{ children: ChildAccountViewItem[] }> = ({ children }) => {
-  return (
-    <>
-      <Text> </Text>
-      <Text dimColor>
-        {'  '}Derived addresses ({children.length})
+  if (children.length > 5) {
+    rows.push(
+      <Text
+        key="children-more"
+        dimColor
+      >
+        {'    '}...and {children.length - 5} more
       </Text>
-      {children.slice(0, 5).map((child) => {
-        const { icon, iconColor } = getVerificationDisplay(child.verificationStatus);
-        const sessions = child.sessionCount !== undefined ? `${child.sessionCount} sess` : '';
-        return (
-          <Text key={child.id}>
-            {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)}{' '}
-            <Text dimColor>{sessions}</Text> <Text color={iconColor}>{icon}</Text>
+    );
+  }
+
+  return rows;
+}
+
+function buildSessionRows(sessions: SessionViewItem[]): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text key="sessions-blank"> </Text>,
+    <Text
+      key="sessions-label"
+      dimColor
+    >
+      {'  '}Recent sessions
+    </Text>,
+  ];
+
+  rows.push(
+    ...sessions.slice(0, 5).map((session) => {
+      const { icon, iconColor } = getSessionDisplay(session.status);
+      const completed = session.completedAt ? ` -> ${formatTimestamp(session.completedAt)}` : ' -> -';
+      return (
+        <Text key={session.id}>
+          {'    '}
+          <Text color={iconColor}>{icon}</Text> #{session.id} <Text color={iconColor}>{session.status}</Text>{' '}
+          <Text dimColor>
+            {formatTimestamp(session.startedAt)}
+            {completed}
           </Text>
-        );
-      })}
-      {children.length > 5 && (
-        <Text dimColor>
-          {'    '}...and {children.length - 5} more
         </Text>
-      )}
-    </>
+      );
+    })
   );
-};
 
-const SessionsSection: FC<{ sessions: SessionViewItem[] }> = ({ sessions }) => {
-  return (
-    <>
-      <Text> </Text>
-      <Text dimColor>{'  '}Recent sessions</Text>
-      {sessions.slice(0, 5).map((session) => {
-        const { icon, iconColor } = getSessionDisplay(session.status);
-        const completed = session.completedAt ? ` → ${formatTimestamp(session.completedAt)}` : ' → —';
-        return (
-          <Text key={session.id}>
-            {'    '}
-            <Text color={iconColor}>{icon}</Text> #{session.id} <Text color={iconColor}>{session.status}</Text>{' '}
-            <Text dimColor>
-              {formatTimestamp(session.startedAt)}
-              {completed}
-            </Text>
-          </Text>
-        );
-      })}
-      {sessions.length > 5 && (
-        <Text dimColor>
-          {'    '}...and {sessions.length - 5} more
-        </Text>
-      )}
-    </>
-  );
-};
+  if (sessions.length > 5) {
+    rows.push(
+      <Text
+        key="sessions-more"
+        dimColor
+      >
+        {'    '}...and {sessions.length - 5} more
+      </Text>
+    );
+  }
+
+  return rows;
+}
 
 // ─── Controls & Empty State ─────────────────────────────────────────────────
 

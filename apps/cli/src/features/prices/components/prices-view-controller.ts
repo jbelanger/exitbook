@@ -275,10 +275,7 @@ export function handlePricesKeyboardInput(
 ): void {
   const visibleRows =
     state.mode === 'coverage'
-      ? calculateVisibleRows(
-          terminalHeight,
-          getCoverageChromeLines((state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0)
-        )
+      ? calculateVisibleRows(terminalHeight, getCoverageChromeLines())
       : calculateVisibleRows(terminalHeight, getMissingChromeLines(state.assetBreakdown.length));
 
   // Input mode (missing only)

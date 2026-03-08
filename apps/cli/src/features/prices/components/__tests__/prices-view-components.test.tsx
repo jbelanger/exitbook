@@ -161,6 +161,30 @@ describe('PricesViewApp - coverage mode', () => {
     expect(frame).toContain('Missing in:');
   });
 
+  it('keeps a stable frame height when coverage detail content changes', () => {
+    const coverage = createMockCoverage();
+
+    const withMissingSources = createCoverageViewState(coverage, createMockSummary());
+    withMissingSources.selectedIndex = 0;
+    const withMissingFrame = render(
+      <PricesViewApp
+        initialState={withMissingSources}
+        onQuit={mockOnQuit}
+      />
+    ).lastFrame();
+
+    const withoutMissingSources = createCoverageViewState(coverage, createMockSummary());
+    withoutMissingSources.selectedIndex = 1;
+    const withoutMissingFrame = render(
+      <PricesViewApp
+        initialState={withoutMissingSources}
+        onQuit={mockOnQuit}
+      />
+    ).lastFrame();
+
+    expect(withMissingFrame?.split('\n').length).toBe(withoutMissingFrame?.split('\n').length);
+  });
+
   it('renders controls bar', () => {
     const coverage = createMockCoverage();
     const state = createCoverageViewState(coverage, createMockSummary());

@@ -1,17 +1,9 @@
-import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import type { BlockchainComTransaction } from '../blockchain-com.schemas.js';
 import { mapBlockchainComTransaction } from '../mapper-utils.js';
-
-const mockBitcoinChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin',
-  displayName: 'Bitcoin',
-  nativeCurrency: 'BTC' as Currency,
-  nativeDecimals: 8,
-};
 
 describe('mapBlockchainComTransaction', () => {
   it('should map confirmed Blockchain.com transaction', () => {
@@ -57,36 +49,32 @@ describe('mapBlockchainComTransaction', () => {
       ],
     };
 
-    const result = mapBlockchainComTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockchainComTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized).toMatchObject({
-        id: 'blockchain-com-hash',
-        currency: 'BTC',
-        providerName: 'blockchain.com',
-        status: 'success',
-        timestamp: 1700000000000,
-        blockHeight: 12345,
-        feeAmount: satoshisToBtcString(500),
-        feeCurrency: 'BTC',
-      });
+    expect(normalized).toMatchObject({
+      id: 'blockchain-com-hash',
+      currency: 'BTC',
+      providerName: 'blockchain.com',
+      status: 'success',
+      timestamp: 1700000000000,
+      blockHeight: 12345,
+      feeAmount: satoshisToBtcString(500),
+      feeCurrency: 'BTC',
+    });
 
-      expect(normalized.inputs).toHaveLength(1);
-      expect(normalized.inputs[0]).toMatchObject({
-        address: 'input-address',
-        value: '2000',
-        vout: 0,
-      });
+    expect(normalized.inputs).toHaveLength(1);
+    expect(normalized.inputs[0]).toMatchObject({
+      address: 'input-address',
+      value: '2000',
+      vout: 0,
+    });
 
-      expect(normalized.outputs).toHaveLength(1);
-      expect(normalized.outputs[0]).toMatchObject({
-        address: 'output-address',
-        index: 0,
-        value: '1500',
-      });
-    }
+    expect(normalized.outputs).toHaveLength(1);
+    expect(normalized.outputs[0]).toMatchObject({
+      address: 'output-address',
+      index: 0,
+      value: '1500',
+    });
   });
 
   it('should map unconfirmed Blockchain.com transaction', () => {
@@ -132,14 +120,10 @@ describe('mapBlockchainComTransaction', () => {
       ],
     };
 
-    const result = mapBlockchainComTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockchainComTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.status).toBe('pending');
-      expect(normalized.blockHeight).toBeUndefined();
-    }
+    expect(normalized.status).toBe('pending');
+    expect(normalized.blockHeight).toBeUndefined();
   });
 
   it('should handle transactions without prev_out', () => {
@@ -176,15 +160,11 @@ describe('mapBlockchainComTransaction', () => {
       ],
     };
 
-    const result = mapBlockchainComTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockchainComTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.inputs[0]?.value).toBe('0');
-      expect(normalized.inputs[0]?.address).toBeUndefined();
-      expect(normalized.inputs[0]?.vout).toBeUndefined();
-    }
+    expect(normalized.inputs[0]?.value).toBe('0');
+    expect(normalized.inputs[0]?.address).toBeUndefined();
+    expect(normalized.inputs[0]?.vout).toBeUndefined();
   });
 
   it('should handle zero fee', () => {
@@ -230,13 +210,9 @@ describe('mapBlockchainComTransaction', () => {
       ],
     };
 
-    const result = mapBlockchainComTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockchainComTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.feeAmount).toBeUndefined();
-      expect(normalized.feeCurrency).toBeUndefined();
-    }
+    expect(normalized.feeAmount).toBeUndefined();
+    expect(normalized.feeCurrency).toBeUndefined();
   });
 });

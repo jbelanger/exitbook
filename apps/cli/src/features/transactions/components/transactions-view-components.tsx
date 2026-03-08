@@ -5,7 +5,7 @@
 import { isFiat, type Currency } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
-import { useMemo, useReducer, type FC } from 'react';
+import { useMemo, useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -13,6 +13,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 
@@ -32,13 +33,15 @@ import type {
   TransactionsViewState,
 } from './transactions-view-state.js';
 
+export const TRANSACTION_DETAIL_LINES = 9;
+
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Transactions · N total · category counts"
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 9, // transaction detail panel (movements, fees, prices)
+  detail: TRANSACTION_DETAIL_LINES, // transaction detail panel (movements, fees, prices)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -266,69 +269,100 @@ const TransactionDetailPanel: FC<{ state: TransactionsViewState }> = ({ state })
   const selected = state.transactions[state.selectedIndex];
   if (!selected) return null;
 
-  const operation = formatOperationShort(selected.operationCategory, selected.operationType);
-  const fullTimestamp = selected.datetime.replace('T', ' ').replace('Z', '');
-
   return (
-    <Box
-      flexDirection="column"
-      paddingTop={0}
-    >
-      <Text>
-        <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.source}</Text> <Text dimColor>{operation}</Text>{' '}
-        <Text dimColor>{fullTimestamp}</Text>
-      </Text>
-
-      {selected.inflows.length > 0 && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}Inflows</Text>
-          {selected.inflows.map((m, i) => (
-            <MovementLine
-              key={`in-${i}`}
-              movement={m}
-              sign="+"
-              amountColor="green"
-            />
-          ))}
-        </>
-      )}
-
-      {selected.outflows.length > 0 && (
-        <>
-          <Text> </Text>
-          <Text dimColor>{'  '}Outflows</Text>
-          {selected.outflows.map((m, i) => (
-            <MovementLine
-              key={`out-${i}`}
-              movement={m}
-              sign="-"
-              amountColor="yellow"
-            />
-          ))}
-        </>
-      )}
-
-      <Text> </Text>
-      {selected.fees.length > 0 ? (
-        <>
-          <Text dimColor>{'  '}Fees</Text>
-          {selected.fees.map((f, i) => (
-            <FeeLine
-              key={`fee-${i}`}
-              fee={f}
-            />
-          ))}
-        </>
-      ) : (
-        <Text dimColor>{'  '}No fees</Text>
-      )}
-
-      <Text> </Text>
-      <BlockchainSection item={selected} />
-    </Box>
+    <FixedHeightDetail
+      height={TRANSACTION_DETAIL_LINES}
+      rows={buildTransactionDetailRows(selected)}
+    />
   );
 };
+
+function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement[] {
+  const operation = formatOperationShort(selected.operationCategory, selected.operationType);
+  const fullTimestamp = selected.datetime.replace('T', ' ').replace('Z', '');
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.source}</Text> <Text dimColor>{operation}</Text>{' '}
+      <Text dimColor>{fullTimestamp}</Text>
+    </Text>,
+  ];
+
+  if (selected.inflows.length > 0) {
+    rows.push(
+      <Text key="blank-inflows"> </Text>,
+      <Text
+        key="inflows-label"
+        dimColor
+      >
+        {'  '}Inflows
+      </Text>
+    );
+    rows.push(
+      ...selected.inflows.map((movement, index) => (
+        <MovementLine
+          key={`in-${index}`}
+          movement={movement}
+          sign="+"
+          amountColor="green"
+        />
+      ))
+    );
+  }
+
+  if (selected.outflows.length > 0) {
+    rows.push(
+      <Text key="blank-outflows"> </Text>,
+      <Text
+        key="outflows-label"
+        dimColor
+      >
+        {'  '}Outflows
+      </Text>
+    );
+    rows.push(
+      ...selected.outflows.map((movement, index) => (
+        <MovementLine
+          key={`out-${index}`}
+          movement={movement}
+          sign="-"
+          amountColor="yellow"
+        />
+      ))
+    );
+  }
+
+  rows.push(<Text key="blank-fees"> </Text>);
+  if (selected.fees.length > 0) {
+    rows.push(
+      <Text
+        key="fees-label"
+        dimColor
+      >
+        {'  '}Fees
+      </Text>
+    );
+    rows.push(
+      ...selected.fees.map((fee, index) => (
+        <FeeLine
+          key={`fee-${index}`}
+          fee={fee}
+        />
+      ))
+    );
+  } else {
+    rows.push(
+      <Text
+        key="no-fees"
+        dimColor
+      >
+        {'  '}No fees
+      </Text>
+    );
+  }
+
+  rows.push(<Text key="blank-blockchain"> </Text>, ...buildBlockchainRows(selected));
+  return rows;
+}
 
 const MovementLine: FC<{ amountColor: string; movement: MovementDisplayItem; sign: string }> = ({
   movement,
@@ -391,58 +425,63 @@ const FeeLine: FC<{ fee: FeeDisplayItem }> = ({ fee }) => {
   );
 };
 
-const BlockchainSection: FC<{ item: TransactionViewItem }> = ({ item }) => {
+function buildBlockchainRows(item: TransactionViewItem): ReactElement[] {
   if (!item.blockchain) {
-    return (
+    return [
       <Text>
         {'  '}
         <Text dimColor>Blockchain: —</Text>
-      </Text>
-    );
+      </Text>,
+    ];
   }
 
   const { name, blockHeight, transactionHash, isConfirmed } = item.blockchain;
   const confirmColor = isConfirmed ? 'green' : 'yellow';
   const confirmLabel = isConfirmed ? 'confirmed' : 'pending';
 
-  return (
-    <Box flexDirection="column">
+  const rows: ReactElement[] = [
+    <Text>
+      {'  '}
+      <Text dimColor>Blockchain: </Text>
+      <Text color="cyan">{name}</Text>
+      {blockHeight !== undefined && (
+        <>
+          {'  '}
+          <Text dimColor>block </Text>
+          <Text>{blockHeight.toLocaleString('en-US')}</Text>
+        </>
+      )}
+      {'  '}
+      <Text color={confirmColor}>{confirmLabel}</Text>
+    </Text>,
+    <Text>
+      {'  '}
+      <Text dimColor>Hash: </Text>
+      <Text dimColor>{truncateHash(transactionHash)}</Text>
+    </Text>,
+  ];
+
+  if (item.from) {
+    rows.push(
       <Text>
         {'  '}
-        <Text dimColor>Blockchain: </Text>
-        <Text color="cyan">{name}</Text>
-        {blockHeight !== undefined && (
-          <>
-            {'  '}
-            <Text dimColor>block </Text>
-            <Text>{blockHeight.toLocaleString('en-US')}</Text>
-          </>
-        )}
-        {'  '}
-        <Text color={confirmColor}>{confirmLabel}</Text>
+        <Text dimColor>From: </Text>
+        <Text dimColor>{truncateHash(item.from)}</Text>
       </Text>
+    );
+  }
+  if (item.to) {
+    rows.push(
       <Text>
         {'  '}
-        <Text dimColor>Hash: </Text>
-        <Text dimColor>{truncateHash(transactionHash)}</Text>
+        <Text dimColor>To: </Text>
+        <Text dimColor>{truncateHash(item.to)}</Text>
       </Text>
-      {item.from && (
-        <Text>
-          {'  '}
-          <Text dimColor>From: </Text>
-          <Text dimColor>{truncateHash(item.from)}</Text>
-        </Text>
-      )}
-      {item.to && (
-        <Text>
-          {'  '}
-          <Text dimColor>To: </Text>
-          <Text dimColor>{truncateHash(item.to)}</Text>
-        </Text>
-      )}
-    </Box>
-  );
-};
+    );
+  }
+
+  return rows;
+}
 
 // ─── Export Panel ────────────────────────────────────────────────────────────
 

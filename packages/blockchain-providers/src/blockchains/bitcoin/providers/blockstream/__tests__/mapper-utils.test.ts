@@ -1,17 +1,9 @@
-import type { Currency } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import type { BlockstreamTransaction } from '../blockstream.schemas.js';
 import { mapBlockstreamTransaction } from '../mapper-utils.js';
-
-const mockBitcoinChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin',
-  displayName: 'Bitcoin',
-  nativeCurrency: 'BTC' as Currency,
-  nativeDecimals: 8,
-};
 
 describe('mapBlockstreamTransaction', () => {
   it('should map confirmed Blockstream transaction', () => {
@@ -56,38 +48,34 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized).toMatchObject({
-        id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
-        currency: 'BTC',
-        providerName: 'blockstream.info',
-        status: 'success',
-        timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
-        blockHeight: 910910,
-        blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
-        feeAmount: satoshisToBtcString(390),
-        feeCurrency: 'BTC',
-      });
+    expect(normalized).toMatchObject({
+      id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
+      currency: 'BTC',
+      providerName: 'blockstream.info',
+      status: 'success',
+      timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
+      blockHeight: 910910,
+      blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
+      feeAmount: satoshisToBtcString(390),
+      feeCurrency: 'BTC',
+    });
 
-      expect(normalized.inputs).toHaveLength(1);
-      expect(normalized.inputs[0]).toMatchObject({
-        txid: 'ab8f57a8d7792bf005b437ee2e558eff3e75fced27ca58dd13c856fc352d0fb8',
-        vout: 0,
-        address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
-        value: '3586',
-      });
+    expect(normalized.inputs).toHaveLength(1);
+    expect(normalized.inputs[0]).toMatchObject({
+      txid: 'ab8f57a8d7792bf005b437ee2e558eff3e75fced27ca58dd13c856fc352d0fb8',
+      vout: 0,
+      address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
+      value: '3586',
+    });
 
-      expect(normalized.outputs).toHaveLength(1);
-      expect(normalized.outputs[0]).toMatchObject({
-        index: 0,
-        address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
-        value: '31958',
-      });
-    }
+    expect(normalized.outputs).toHaveLength(1);
+    expect(normalized.outputs[0]).toMatchObject({
+      index: 0,
+      address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
+      value: '31958',
+    });
   });
 
   it('should map unconfirmed Blockstream transaction', () => {
@@ -127,17 +115,13 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.status).toBe('pending');
-      expect(normalized.blockHeight).toBeUndefined();
-      expect(normalized.blockId).toBeUndefined();
-      expect(normalized.feeAmount).toBeUndefined();
-      expect(normalized.feeCurrency).toBeUndefined();
-    }
+    expect(normalized.status).toBe('pending');
+    expect(normalized.blockHeight).toBeUndefined();
+    expect(normalized.blockId).toBeUndefined();
+    expect(normalized.feeAmount).toBeUndefined();
+    expect(normalized.feeCurrency).toBeUndefined();
   });
 
   it('should produce deterministic eventId for unconfirmed txs (timestamp must not affect identity)', () => {
@@ -180,16 +164,12 @@ describe('mapBlockstreamTransaction', () => {
       };
 
       vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-      const first = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
-      expect(first.isOk()).toBe(true);
-      if (!first.isOk()) return;
+      const first = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
       vi.setSystemTime(new Date('2025-01-01T00:00:10.000Z'));
-      const second = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
-      expect(second.isOk()).toBe(true);
-      if (!second.isOk()) return;
+      const second = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
-      expect(first.value.eventId).toBe(second.value.eventId);
+      expect(first.eventId).toBe(second.eventId);
     } finally {
       vi.useRealTimers();
     }
@@ -233,14 +213,10 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.inputs[0]?.address).toBeUndefined();
-      expect(normalized.outputs[0]?.address).toBeUndefined();
-    }
+    expect(normalized.inputs[0]?.address).toBeUndefined();
+    expect(normalized.outputs[0]?.address).toBeUndefined();
   });
 
   it('should handle multiple inputs and outputs', () => {
@@ -307,14 +283,10 @@ describe('mapBlockstreamTransaction', () => {
       ],
     };
 
-    const result = mapBlockstreamTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapBlockstreamTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.inputs).toHaveLength(2);
-      expect(normalized.outputs).toHaveLength(2);
-      expect(normalized.feeAmount).toBe(satoshisToBtcString(500));
-    }
+    expect(normalized.inputs).toHaveLength(2);
+    expect(normalized.outputs).toHaveLength(2);
+    expect(normalized.feeAmount).toBe(satoshisToBtcString(500));
   });
 });

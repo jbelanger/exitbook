@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC } from 'react';
+import { useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -11,6 +11,7 @@ import {
   type Columns,
   createColumns,
   Divider,
+  FixedHeightDetail,
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 
@@ -26,13 +27,16 @@ import type {
 } from './cost-basis-view-state.js';
 import { formatUnsignedCurrency, formatSignedCurrency } from './cost-basis-view-utils.js';
 
+export const COST_BASIS_ASSET_DETAIL_LINES = 10;
+export const COST_BASIS_TIMELINE_DETAIL_LINES = 7;
+
 export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 2, // "Cost Basis Summary" + methodology line
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 10, // asset detail panel (lots/disposals)
+  detail: COST_BASIS_ASSET_DETAIL_LINES, // asset detail panel (lots/disposals)
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -44,7 +48,7 @@ export const COST_BASIS_TIMELINE_CHROME_LINES = calculateChromeLines({
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: 7, // timeline event detail
+  detail: COST_BASIS_TIMELINE_DETAIL_LINES, // timeline event detail
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -304,90 +308,109 @@ const AssetDetailPanel: FC<{ state: CostBasisAssetState }> = ({ state }) => {
   const selected = state.assets[state.selectedIndex];
   if (!selected) return null;
 
-  const gainLossColor = selected.isGain ? 'green' : 'red';
-  const isUS = state.jurisdiction === 'US';
-
   return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>
-          {'\u25B8'} {selected.asset}
-        </Text>
-        {'  '}
-        {selected.disposalCount} <Text dimColor>disposals</Text>
-        <Text dimColor> · gain/loss</Text>{' '}
-        <Text color={gainLossColor}>{formatSignedCurrency(selected.totalGainLoss, state.currency)}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(selected.totalProceeds, state.currency)}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(selected.totalCostBasis, state.currency)}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Gain/Loss: </Text>{' '}
-        <Text color={gainLossColor}>{formatSignedCurrency(selected.totalGainLoss, state.currency)}</Text>
-      </Text>
-      {!isUS && (
-        <Text>
-          {'  '}
-          <Text dimColor>Taxable: </Text>{' '}
-          <Text color={gainLossColor}>{formatSignedCurrency(selected.totalTaxableGainLoss, state.currency)}</Text>
-          <Text dimColor> ({getTaxRule(state.jurisdiction)})</Text>
-        </Text>
-      )}
-      {isUS && selected.shortTermGainLoss !== undefined && selected.longTermGainLoss !== undefined && (
-        <>
-          <Text> </Text>
-          <Text>
-            {'  '}
-            <Text dimColor>Short-term:</Text>{' '}
-            <Text color={parseFloat(selected.shortTermGainLoss) >= 0 ? 'green' : 'red'}>
-              {formatSignedCurrency(selected.shortTermGainLoss, state.currency)}
-            </Text>
-            <Text dimColor>
-              {' '}
-              ({selected.shortTermCount} {selected.shortTermCount === 1 ? 'disposal' : 'disposals'})
-            </Text>
-          </Text>
-          <Text>
-            {'  '}
-            <Text dimColor>Long-term: </Text>{' '}
-            <Text color={parseFloat(selected.longTermGainLoss) >= 0 ? 'green' : 'red'}>
-              {formatSignedCurrency(selected.longTermGainLoss, state.currency)}
-            </Text>
-            <Text dimColor>
-              {' '}
-              ({selected.longTermCount} {selected.longTermCount === 1 ? 'disposal' : 'disposals'})
-            </Text>
-          </Text>
-        </>
-      )}
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Holding:</Text> <Text dimColor>avg</Text> {selected.avgHoldingDays} <Text dimColor>days</Text>
-        <Text dimColor> · shortest</Text> {selected.shortestHoldingDays}
-        <Text dimColor>d</Text>
-        <Text dimColor> · longest</Text> {selected.longestHoldingDays}
-        <Text dimColor>d</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Lots:</Text> {selected.lotCount} <Text dimColor>acquired</Text>
-        <Text dimColor> · </Text>
-        {selected.transferCount} <Text dimColor>transfers</Text>
-      </Text>
-      <Text> </Text>
-      <Text dimColor>{'  '}Press enter to view history</Text>
-    </Box>
+    <FixedHeightDetail
+      height={COST_BASIS_ASSET_DETAIL_LINES}
+      rows={buildAssetDetailRows(selected, state)}
+    />
   );
 };
+
+function buildAssetDetailRows(selected: AssetCostBasisItem, state: CostBasisAssetState): ReactElement[] {
+  const gainLossColor = selected.isGain ? 'green' : 'red';
+  const isUS = state.jurisdiction === 'US';
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>
+        {'\u25B8'} {selected.asset}
+      </Text>
+      {'  '}
+      {selected.disposalCount} <Text dimColor>disposals</Text>
+      <Text dimColor> · gain/loss</Text>{' '}
+      <Text color={gainLossColor}>{formatSignedCurrency(selected.totalGainLoss, state.currency)}</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <Text key="proceeds">
+      {'  '}
+      <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(selected.totalProceeds, state.currency)}
+    </Text>,
+    <Text key="cost-basis">
+      {'  '}
+      <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(selected.totalCostBasis, state.currency)}
+    </Text>,
+    <Text key="gain-loss">
+      {'  '}
+      <Text dimColor>Gain/Loss: </Text>{' '}
+      <Text color={gainLossColor}>{formatSignedCurrency(selected.totalGainLoss, state.currency)}</Text>
+    </Text>,
+  ];
+
+  if (!isUS) {
+    rows.push(
+      <Text key="taxable">
+        {'  '}
+        <Text dimColor>Taxable: </Text>{' '}
+        <Text color={gainLossColor}>{formatSignedCurrency(selected.totalTaxableGainLoss, state.currency)}</Text>
+        <Text dimColor> ({getTaxRule(state.jurisdiction)})</Text>
+      </Text>
+    );
+  }
+  if (isUS && selected.shortTermGainLoss !== undefined && selected.longTermGainLoss !== undefined) {
+    rows.push(
+      <Text key="blank-2"> </Text>,
+      <Text key="short-term">
+        {'  '}
+        <Text dimColor>Short-term:</Text>{' '}
+        <Text color={parseFloat(selected.shortTermGainLoss) >= 0 ? 'green' : 'red'}>
+          {formatSignedCurrency(selected.shortTermGainLoss, state.currency)}
+        </Text>
+        <Text dimColor>
+          {' '}
+          ({selected.shortTermCount} {selected.shortTermCount === 1 ? 'disposal' : 'disposals'})
+        </Text>
+      </Text>,
+      <Text key="long-term">
+        {'  '}
+        <Text dimColor>Long-term: </Text>{' '}
+        <Text color={parseFloat(selected.longTermGainLoss) >= 0 ? 'green' : 'red'}>
+          {formatSignedCurrency(selected.longTermGainLoss, state.currency)}
+        </Text>
+        <Text dimColor>
+          {' '}
+          ({selected.longTermCount} {selected.longTermCount === 1 ? 'disposal' : 'disposals'})
+        </Text>
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="blank-3"> </Text>,
+    <Text key="holding">
+      {'  '}
+      <Text dimColor>Holding:</Text> <Text dimColor>avg</Text> {selected.avgHoldingDays} <Text dimColor>days</Text>
+      <Text dimColor> · shortest</Text> {selected.shortestHoldingDays}
+      <Text dimColor>d</Text>
+      <Text dimColor> · longest</Text> {selected.longestHoldingDays}
+      <Text dimColor>d</Text>
+    </Text>,
+    <Text key="blank-4"> </Text>,
+    <Text key="lots">
+      {'  '}
+      <Text dimColor>Lots:</Text> {selected.lotCount} <Text dimColor>acquired</Text>
+      <Text dimColor> · </Text>
+      {selected.transferCount} <Text dimColor>transfers</Text>
+    </Text>,
+    <Text key="blank-5"> </Text>,
+    <Text
+      key="tip"
+      dimColor
+    >
+      {'  '}Press enter to view history
+    </Text>
+  );
+
+  return rows;
+}
 
 // ─── Timeline View (Level 2) ────────────────────────────────────────────────
 
@@ -686,46 +709,49 @@ const AcquisitionDetail: FC<{ item: AcquisitionViewItem; state: CostBasisTimelin
   const statusLabel = formatLotStatus(item.status);
 
   return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>{'\u25B8'} Acquisition</Text>
-        {'  '}
-        <Text dimColor>{item.date}</Text>
-        {'  '}
-        <Text color="green">{item.quantity}</Text> <Text bold>{item.asset}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
-        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Status:</Text> {statusLabel}
-        <Text dimColor> · remaining</Text> {item.remainingQuantity} <Text dimColor>{item.asset}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Transaction:</Text> #{item.transactionId}
-      </Text>
-      {item.fxConversion && (
-        <Text>
+    <FixedHeightDetail
+      height={COST_BASIS_TIMELINE_DETAIL_LINES}
+      rows={[
+        <Text key="title">
+          <Text bold>{'\u25B8'} Acquisition</Text>
           {'  '}
-          <Text dimColor>
-            FX: USD {'\u2192'} {displayCurrency} at
-          </Text>{' '}
-          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
-        </Text>
-      )}
-      {item.fxUnavailable && (
-        <Text>
+          <Text dimColor>{item.date}</Text>
           {'  '}
-          <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
-        </Text>
-      )}
-    </Box>
+          <Text color="green">{item.quantity}</Text> <Text bold>{item.asset}</Text>
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        <Text key="cost-basis">
+          {'  '}
+          <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
+          <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
+        </Text>,
+        <Text key="status">
+          {'  '}
+          <Text dimColor>Status:</Text> {statusLabel}
+          <Text dimColor> · remaining</Text> {item.remainingQuantity} <Text dimColor>{item.asset}</Text>
+        </Text>,
+        <Text key="blank-2"> </Text>,
+        <Text key="transaction">
+          {'  '}
+          <Text dimColor>Transaction:</Text> #{item.transactionId}
+        </Text>,
+        item.fxConversion ? (
+          <Text key="fx">
+            {'  '}
+            <Text dimColor>
+              FX: USD {'\u2192'} {displayCurrency} at
+            </Text>{' '}
+            {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+          </Text>
+        ) : undefined,
+        item.fxUnavailable ? (
+          <Text key="fx-unavailable">
+            {'  '}
+            <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
+          </Text>
+        ) : undefined,
+      ]}
+    />
   );
 };
 
@@ -741,66 +767,68 @@ const DisposalDetail: FC<{ item: DisposalViewItem; state: CostBasisTimelineState
       : undefined;
 
   return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>{'\u25B8'} Disposal</Text>
-        {'  '}
-        <Text dimColor>{item.date}</Text>
-        {'  '}
-        <Text color="red">{item.quantityDisposed}</Text> <Text bold>{item.asset}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(item.totalProceeds, state.currency)}
-        <Text dimColor> ({formatUnsignedCurrency(item.proceedsPerUnit, state.currency)}/unit)</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, state.currency)}
-        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, state.currency)}/unit)</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Gain/Loss: </Text>{' '}
-        <Text color={gainLossColor}>{formatSignedCurrency(item.gainLoss, state.currency)}</Text>
-      </Text>
-      {!isUS && (
-        <Text>
+    <FixedHeightDetail
+      height={COST_BASIS_TIMELINE_DETAIL_LINES}
+      rows={[
+        <Text key="title">
+          <Text bold>{'\u25B8'} Disposal</Text>
           {'  '}
-          <Text dimColor>Taxable: </Text>{' '}
-          <Text color={gainLossColor}>
-            {formatSignedCurrency(computeDisposalTaxable(item.gainLoss, state.jurisdiction), state.currency)}
+          <Text dimColor>{item.date}</Text>
+          {'  '}
+          <Text color="red">{item.quantityDisposed}</Text> <Text bold>{item.asset}</Text>
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        <Text key="proceeds">
+          {'  '}
+          <Text dimColor>Proceeds: </Text> {formatUnsignedCurrency(item.totalProceeds, state.currency)}
+          <Text dimColor> ({formatUnsignedCurrency(item.proceedsPerUnit, state.currency)}/unit)</Text>
+        </Text>,
+        <Text key="cost-basis">
+          {'  '}
+          <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, state.currency)}
+          <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, state.currency)}/unit)</Text>
+        </Text>,
+        <Text key="gain-loss">
+          {'  '}
+          <Text dimColor>Gain/Loss: </Text>{' '}
+          <Text color={gainLossColor}>{formatSignedCurrency(item.gainLoss, state.currency)}</Text>
+        </Text>,
+        !isUS ? (
+          <Text key="taxable">
+            {'  '}
+            <Text dimColor>Taxable: </Text>{' '}
+            <Text color={gainLossColor}>
+              {formatSignedCurrency(computeDisposalTaxable(item.gainLoss, state.jurisdiction), state.currency)}
+            </Text>
           </Text>
-        </Text>
-      )}
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{item.acquisitionDate}</Text>
-        <Text dimColor> · held</Text> {item.holdingPeriodDays} <Text dimColor>days</Text>
-        {taxCategory && (
-          <>
-            <Text dimColor> · </Text>
-            <Text color={taxCategory === 'long-term' ? 'green' : 'yellow'}>{taxCategory}</Text>
-          </>
-        )}
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Transactions:</Text> <Text dimColor>acquired</Text> #{item.acquisitionTransactionId}
-        <Text dimColor> · disposed</Text> #{item.disposalTransactionId}
-      </Text>
-      {item.fxConversion && (
-        <Text>
+        ) : undefined,
+        <Text key="lot">
           {'  '}
-          <Text dimColor>
-            FX: USD {'\u2192'} {state.currency} at
-          </Text>{' '}
-          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
-        </Text>
-      )}
-    </Box>
+          <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{item.acquisitionDate}</Text>
+          <Text dimColor> · held</Text> {item.holdingPeriodDays} <Text dimColor>days</Text>
+          {taxCategory && (
+            <>
+              <Text dimColor> · </Text>
+              <Text color={taxCategory === 'long-term' ? 'green' : 'yellow'}>{taxCategory}</Text>
+            </>
+          )}
+        </Text>,
+        <Text key="transactions">
+          {'  '}
+          <Text dimColor>Transactions:</Text> <Text dimColor>acquired</Text> #{item.acquisitionTransactionId}
+          <Text dimColor> · disposed</Text> #{item.disposalTransactionId}
+        </Text>,
+        item.fxConversion ? (
+          <Text key="fx">
+            {'  '}
+            <Text dimColor>
+              FX: USD {'\u2192'} {state.currency} at
+            </Text>{' '}
+            {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+          </Text>
+        ) : undefined,
+      ]}
+    />
   );
 };
 
@@ -808,53 +836,56 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
   const displayCurrency = item.fxUnavailable ? 'USD' : state.currency;
 
   return (
-    <Box flexDirection="column">
-      <Text>
-        <Text bold>{'\u25B8'} Transfer</Text>
-        {'  '}
-        <Text dimColor>{item.date}</Text>
-        {'  '}
-        <Text color="cyan">{item.quantity}</Text> <Text bold>{item.asset}</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
-        <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
-      </Text>
-      <Text> </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Source Lot:</Text> <Text dimColor>acquired</Text>{' '}
-        <Text dimColor>{item.sourceAcquisitionDate}</Text>
-      </Text>
-      <Text>
-        {'  '}
-        <Text dimColor>Transactions:</Text> <Text dimColor>source</Text> #{item.sourceTransactionId}
-        <Text dimColor> · target</Text> #{item.targetTransactionId}
-      </Text>
-      {item.feeUsdValue && (
-        <Text>
+    <FixedHeightDetail
+      height={COST_BASIS_TIMELINE_DETAIL_LINES}
+      rows={[
+        <Text key="title">
+          <Text bold>{'\u25B8'} Transfer</Text>
           {'  '}
-          <Text dimColor>Fee:</Text> USD {item.feeUsdValue}
-        </Text>
-      )}
-      {item.fxConversion && (
-        <Text>
+          <Text dimColor>{item.date}</Text>
           {'  '}
-          <Text dimColor>
-            FX: USD {'\u2192'} {displayCurrency} at
-          </Text>{' '}
-          {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
-        </Text>
-      )}
-      {item.fxUnavailable && (
-        <Text>
+          <Text color="cyan">{item.quantity}</Text> <Text bold>{item.asset}</Text>
+        </Text>,
+        <Text key="blank-1"> </Text>,
+        <Text key="cost-basis">
           {'  '}
-          <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
-        </Text>
-      )}
-    </Box>
+          <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
+          <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
+        </Text>,
+        <Text key="blank-2"> </Text>,
+        <Text key="source-lot">
+          {'  '}
+          <Text dimColor>Source Lot:</Text> <Text dimColor>acquired</Text>{' '}
+          <Text dimColor>{item.sourceAcquisitionDate}</Text>
+        </Text>,
+        <Text key="transactions">
+          {'  '}
+          <Text dimColor>Transactions:</Text> <Text dimColor>source</Text> #{item.sourceTransactionId}
+          <Text dimColor> · target</Text> #{item.targetTransactionId}
+        </Text>,
+        item.feeUsdValue ? (
+          <Text key="fee">
+            {'  '}
+            <Text dimColor>Fee:</Text> USD {item.feeUsdValue}
+          </Text>
+        ) : undefined,
+        item.fxConversion ? (
+          <Text key="fx">
+            {'  '}
+            <Text dimColor>
+              FX: USD {'\u2192'} {displayCurrency} at
+            </Text>{' '}
+            {item.fxConversion.fxRate} <Text dimColor>({item.fxConversion.fxSource})</Text>
+          </Text>
+        ) : undefined,
+        item.fxUnavailable ? (
+          <Text key="fx-unavailable">
+            {'  '}
+            <Text dimColor>FX rate unavailable for this date — amounts shown in USD</Text>
+          </Text>
+        ) : undefined,
+      ]}
+    />
   );
 };
 

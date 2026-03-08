@@ -1,17 +1,9 @@
-import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { BitcoinChainConfig } from '../../../chain-config.interface.js';
+import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
 import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
 import type { MempoolTransaction } from '../mempool-space.schemas.js';
-
-const mockBitcoinChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin',
-  displayName: 'Bitcoin',
-  nativeCurrency: 'BTC' as Currency,
-  nativeDecimals: 8,
-};
 
 describe('mapMempoolSpaceTransaction', () => {
   it('should map confirmed Mempool.space transaction', () => {
@@ -55,26 +47,22 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized).toMatchObject({
-        id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
-        currency: 'BTC',
-        providerName: 'mempool.space',
-        status: 'success',
-        timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
-        blockHeight: 910910,
-        blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
-        feeAmount: satoshisToBtcString(390),
-        feeCurrency: 'BTC',
-      });
+    expect(normalized).toMatchObject({
+      id: '5cb4eef31430d6b33b79c4b28f469d23dd62ac8524d0a4741c0b8920f31af5c0',
+      currency: 'BTC',
+      providerName: 'mempool.space',
+      status: 'success',
+      timestamp: new Date('2025-06-20T14:31:30.000Z').getTime(),
+      blockHeight: 910910,
+      blockId: '00000000000000000001b0990dc7c442d33d6845547570808d0b855ca0526421',
+      feeAmount: satoshisToBtcString(390),
+      feeCurrency: 'BTC',
+    });
 
-      expect(normalized.inputs).toHaveLength(1);
-      expect(normalized.outputs).toHaveLength(1);
-    }
+    expect(normalized.inputs).toHaveLength(1);
+    expect(normalized.outputs).toHaveLength(1);
   });
 
   it('should map unconfirmed Mempool.space transaction', () => {
@@ -113,14 +101,10 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.status).toBe('pending');
-      expect(normalized.providerName).toBe('mempool.space');
-    }
+    expect(normalized.status).toBe('pending');
+    expect(normalized.providerName).toBe('mempool.space');
   });
 
   it('should handle transactions without prevout', () => {
@@ -154,13 +138,9 @@ describe('mapMempoolSpaceTransaction', () => {
       ],
     };
 
-    const result = mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig);
+    const normalized = expectOk(mapMempoolSpaceTransaction(rawData, mockBitcoinChainConfig));
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      const normalized = result.value;
-      expect(normalized.inputs[0]?.value).toBe('0');
-      expect(normalized.inputs[0]?.address).toBeUndefined();
-    }
+    expect(normalized.inputs[0]?.value).toBe('0');
+    expect(normalized.inputs[0]?.address).toBeUndefined();
   });
 });

@@ -244,8 +244,7 @@ describe('handlePricesKeyboardInput', () => {
       received = action;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
-    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
-    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines());
 
     handlePricesKeyboardInput('', { ...noKey, upArrow: true }, dispatch, noop, 24, state);
     expect(received).toEqual({ type: 'NAVIGATE_UP', visibleRows: expectedVisibleRows });
@@ -257,8 +256,7 @@ describe('handlePricesKeyboardInput', () => {
       received = action;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
-    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
-    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines());
 
     handlePricesKeyboardInput('j', noKey, dispatch, noop, 24, state);
     expect(received).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: expectedVisibleRows });
@@ -398,8 +396,7 @@ describe('handlePricesKeyboardInput', () => {
       receivedVisibleRows = (action as { visibleRows: number }).visibleRows;
     };
     const state = createCoverageViewState(createMockCoverage(), createMockSummary());
-    const hasMissingSources = (state.coverage[state.selectedIndex]?.missingSources.length ?? 0) > 0;
-    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines(hasMissingSources));
+    const expectedVisibleRows = calculateVisibleRows(24, getCoverageChromeLines());
 
     handlePricesKeyboardInput('j', noKey, dispatch, noop, 24, state);
     expect(receivedVisibleRows).toBe(expectedVisibleRows);
