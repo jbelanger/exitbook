@@ -47,6 +47,8 @@ describe('buildLinksFreshnessPorts', () => {
         source_transaction_id: txs[0]!.id,
         target_transaction_id: txs[1]!.id,
         asset: 'BTC',
+        source_asset_id: 'exchange:kraken:btc',
+        target_asset_id: 'blockchain:bitcoin:native',
         source_amount: '1.0',
         target_amount: '1.0',
         link_type: 'exchange_to_blockchain',

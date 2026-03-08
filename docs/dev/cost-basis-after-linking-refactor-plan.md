@@ -3,6 +3,10 @@
 This document lays out the cost-basis refactor that comes immediately after the
 linking-first work.
 
+It now assumes the smaller persisted-link cleanup in
+[`transaction-link-contract-tightening-plan.md`](./transaction-link-contract-tightening-plan.md)
+has already landed.
+
 It is intentionally scoped in three steps:
 
 1. build an accounting-scoped transaction input for cost basis
@@ -52,9 +56,12 @@ meaning from `blockchain_internal` links or linker-specific amount fallbacks.**
 
 - introduce an ephemeral accounting-scoped input for cost basis
 - move same-hash UTXO reduction rules into cost-basis-owned code
+- resolve confirmed transfer links onto scoped asset identity before matching
 - simplify lot matching to use scoped movements plus confirmed transfer links
 - remove `effectiveAmount`, `internal_only`, and the UTXO-only source lookup
   fallback from cost basis
+- fail closed on link-resolution and lot-matching errors instead of returning
+  partial asset results
 - keep partial-match support for genuine 1:N and N:1 transfer links
 
 ### Out of Scope
@@ -75,11 +82,17 @@ After this refactor:
 - scoped fee normalization happens before price validation and lot matching
 - price coverage and hard price validation run on the scoped result, not raw
   processed transactions
+- confirmed external links are resolved onto scoped source/target asset identity
+  before matching
+- confirmed status stays authoritative; cost basis does not re-threshold
+  reviewed links by confidence score
 - `LotMatcher` uses confirmed cross-transaction transfer links plus
   cost-basis-local fee-only internal carryover sidecars
 - `LotMatcher` no longer consumes `blockchain_internal` links to discover
   accounting behavior
 - transfer source math uses scoped movement amounts directly
+- cost basis returns `Err` for scoped link-resolution or matcher failures instead
+  of silently omitting failed assets from a completed calculation
 - ambiguous same-hash blockchain groups fail closed with a concrete error
   instead of silently falling back to raw per-address rows
 
@@ -92,9 +105,11 @@ cost-basis accounting scope builder
         ↓
 AccountingScopedBuildResult
         +
-price validation
-        +
 confirmed external transfer links
+        +
+scoped link resolution
+        +
+scoped price validation
         ↓
 LotMatcher
 ```
@@ -123,13 +138,18 @@ interface AccountingScopedTransaction {
   fees: FeeMovement[];
 }
 
+interface FeeOnlyInternalCarryoverTarget {
+  targetTransactionId: number;
+  quantity: Decimal;
+}
+
 interface FeeOnlyInternalCarryover {
   assetId: string;
   assetSymbol: Currency;
   fee: FeeMovement;
   retainedQuantity: Decimal;
   sourceTransactionId: number;
-  targetTransactionIds: number[];
+  targets: FeeOnlyInternalCarryoverTarget[];
 }
 
 interface AccountingScopedBuildResult {
@@ -153,6 +173,9 @@ Important invariant:
 - `tx` remains immutable source facts only
 - `movements` and `fees` become the authoritative accounting view for cost-basis
   math
+- scoped movements and scoped fees must be cloned before mutation; array copies
+  alone are not enough because scoped rewriting must never mutate raw `tx`
+  facts
 - if the builder rewrites an outflow amount, it must also rewrite scoped fees so
   `scoped net = scoped gross - scoped on-chain fee` still reconciles
 
@@ -265,6 +288,8 @@ Recommended implementation:
 - remove the source outflow from scoped movements if no external transfer
   quantity remains
 - keep the deduped same-asset fee on the scoped source transaction
+- preserve per-target retained quantities in the carryover sidecar so
+  add-to-basis capitalization can allocate deterministically across targets
 
 Reason:
 
@@ -286,6 +311,7 @@ Pass through unchanged.
 Use two helpers in the same module or split them if the file gets large:
 
 ```ts
+function cloneScopedTransaction(...)
 function groupSameHashTransactionsForCostBasis(...)
 function applySameHashScoping(...)
 function buildFeeOnlyInternalCarryovers(...)
@@ -293,6 +319,8 @@ function buildFeeOnlyInternalCarryovers(...)
 
 Do not call the linking reducer directly from cost basis. The topology rules can
 match, but cost basis should own its own output contract.
+If topology classification starts drifting between linking and cost basis,
+extract a shared pure classifier and keep the two output mappers separate.
 
 ### Pseudo-Code
 
@@ -305,10 +333,10 @@ for (const tx of transactions) {
   scopedByTxId.set(tx.id, {
     tx,
     movements: {
-      inflows: [...(tx.movements.inflows ?? [])],
-      outflows: [...(tx.movements.outflows ?? [])],
+      inflows: cloneAssetMovements(tx.movements.inflows ?? []),
+      outflows: cloneAssetMovements(tx.movements.outflows ?? []),
     },
-    fees: [...tx.fees],
+    fees: cloneFeeMovements(tx.fees ?? []),
   });
 }
 
@@ -340,6 +368,10 @@ Cases:
 - same-symbol different-assetId same-hash group returns `Err`
 - pure internal same-hash fee-only transfer emits a
   `FeeOnlyInternalCarryover`
+- builder does not mutate raw transaction movements or raw `tx.fees` when
+  scoped amounts are rewritten
+- fee-only carryover preserves per-target retained quantities for multi-target
+  same-hash internal sends
 - ambiguous mixed inflow/outflow same-hash group returns `Err`
 - ambiguous multiple-outflow same-hash group returns `Err`
 - non-blockchain transactions pass through unchanged
@@ -373,8 +405,10 @@ Update:
 - [`packages/accounting/src/cost-basis/lot-creation-utils.ts`](../../packages/accounting/src/cost-basis/lot-creation-utils.ts)
 - [`packages/accounting/src/cost-basis/lot-fee-utils.ts`](../../packages/accounting/src/cost-basis/lot-fee-utils.ts)
 - [`packages/accounting/src/cost-basis/lot-matcher.ts`](../../packages/accounting/src/cost-basis/lot-matcher.ts)
+- [`packages/accounting/src/cost-basis/lot-sorting-utils.ts`](../../packages/accounting/src/cost-basis/lot-sorting-utils.ts)
 - [`packages/accounting/src/cost-basis/lot-transfer-processing-utils.ts`](../../packages/accounting/src/cost-basis/lot-transfer-processing-utils.ts)
 - [`packages/accounting/src/cost-basis/internal-carryover-processing-utils.ts`](../../packages/accounting/src/cost-basis/internal-carryover-processing-utils.ts)
+- [`packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts)
 - [`packages/accounting/src/linking/link-index.ts`](../../packages/accounting/src/linking/link-index.ts)
 
 ### 1. Build scoped input before any downstream validation
@@ -387,12 +421,44 @@ That means:
 
 - replace raw `validateTransactionPrices()` usage with a scoped equivalent
 - replace raw `assertPriceDataQuality()` usage with a scoped equivalent
+- replace raw `checkTransactionPriceCoverage()` usage, or its implementation,
+  with a scoped equivalent
 - either remove matcher-local price preflight or switch it to scoped input
   only
 
 The exclusions phase should not have to reopen these files later.
 
-### 2. Build scoped input before matching
+### 2. Resolve confirmed external links onto the scoped boundary
+
+Before matching, convert confirmed external links into a cost-basis-local shape
+that is resolved against scoped transactions.
+
+Recommended local shape:
+
+```ts
+interface ResolvedTransferLink {
+  link: TransactionLink;
+  assetId: string;
+  resolvedSourceAmount: Decimal;
+  resolvedTargetAmount: Decimal;
+}
+```
+
+Important rules:
+
+- filter out `blockchain_internal` here
+- do not re-filter confirmed links by confidence score; `status === 'confirmed'`
+  is already the reviewed boundary used by cost basis
+- if a confirmed link carries sentinel override amounts (`sourceAmount = 0`,
+  `targetAmount = 0`, `metadata.overrideId`), resolve it from scoped source and
+  target movements only when each side has exactly one eligible scoped movement
+  for the linked asset
+- if source/target asset identity is missing, mismatched, or ambiguous after
+  scoping, return `Err`
+- keep this resolver local to cost basis; do not push accounting-specific
+  rewrite rules back into linking persistence
+
+### 3. Build scoped input before matching
 
 In the calculator path, build accounting-scoped transactions before calling the
 matcher.
@@ -406,21 +472,20 @@ if (scopedResult.isErr()) return err(scopedResult.error);
 const priceGateResult = validateScopedTransactionPrices(scopedResult.value, config.currency);
 if (priceGateResult.isErr()) return err(priceGateResult.error);
 
-const externalConfirmedLinks = confirmedLinks.filter(
-  (link) => link.confidenceScore.gte(0.95) && link.linkType !== 'blockchain_internal'
-);
+const resolvedLinksResult = resolveScopedTransferLinks(scopedResult.value.transactions, confirmedLinks);
+if (resolvedLinksResult.isErr()) return err(resolvedLinksResult.error);
 
-return matcher.match(scopedResult.value, externalConfirmedLinks, config);
+return matcher.match(scopedResult.value, resolvedLinksResult.value, config);
 ```
 
-### 3. Keep `blockchain_internal` out of cost-basis matching
+### 4. Keep `blockchain_internal` out of cost-basis matching
 
 Cost basis should not use internal same-hash links as an accounting side
 channel.
 
 Inside `LotMatcher.match()`:
 
-- accept already-filtered external links or defensively re-filter them
+- accept already-resolved external links or defensively reject internal links
 - do not consume or skip internal links because they should no longer be
   present
 
@@ -430,7 +495,7 @@ This means:
 - internal same-hash behavior comes from scoped transactions plus
   fee-only carryover sidecars, not link consumption
 
-### 4. Remove `internal_only`
+### 5. Remove `internal_only`
 
 Delete:
 
@@ -445,7 +510,7 @@ type SourceLinkResult = { links: TransactionLink[]; type: 'transfer' } | { type:
 type TargetLinkResult = { links: TransactionLink[]; type: 'transfer' } | { type: 'none' };
 ```
 
-### 5. Remove `effectiveAmount`
+### 6. Remove `effectiveAmount`
 
 Delete the UTXO-specific parameter from `processTransferSource()`.
 
@@ -458,7 +523,7 @@ Recommended replacement:
 If a parameter is still needed, rename it to `linkedSourceAmount`. Do not keep
 the name `effectiveAmount`; it hides two unrelated concerns.
 
-### 6. Simplify source link lookup
+### 7. Simplify source link lookup
 
 `findEffectiveSourceLink()` should stop:
 
@@ -473,15 +538,17 @@ Replace it with:
 3. otherwise return `none`
 
 This preserves genuine 1:N split handling without keeping the UTXO fallback.
+Any amount-free resolution that still exists for override links belongs in
+`resolveScopedTransferLinks()`, not inside `LotMatcher`.
 
-### 7. Simplify target lookup
+### 8. Simplify target lookup
 
 `findEffectiveTargetLink()` should:
 
 - stop consuming internal links
 - keep partial-match aggregation for genuine N:1 cases
 
-### 8. Add a dedicated fee-only internal carryover path
+### 9. Add a dedicated fee-only internal carryover path
 
 `LotMatcher` should process `feeOnlyInternalCarryovers` from the scoped build
 result with a dedicated helper. Do not try to smuggle this case back through
@@ -490,7 +557,7 @@ persisted `TransactionLink`s.
 Recommended shape:
 
 ```ts
-matcher.match(scoped: AccountingScopedBuildResult, externalLinks: TransactionLink[], config)
+matcher.match(scoped: AccountingScopedBuildResult, externalLinks: ResolvedTransferLink[], config)
 ```
 
 Recommended helper:
@@ -501,13 +568,29 @@ function processFeeOnlyInternalCarryover(...)
 
 Behavior:
 
-- reuse dependency ordering by adding source → target edges for carryovers
+- reuse dependency ordering by building local dependency edges from resolved
+  external links plus carryovers; do not keep `sortTransactionsByDependency()`
+  locked to raw `TransactionLink[]`
 - source side identifies the lots backing `retainedQuantity`
 - disposal jurisdictions create explicit fee disposals
 - add-to-basis jurisdictions create target carryover lots with inherited basis
   plus capitalized fee
 - if carryover targets are missing or price data is incomplete, return `Err`
   rather than warning and continuing
+
+### 10. Fail closed on matcher errors
+
+Remove the current warning-and-continue asset exclusion path from
+`LotMatcher.match()`.
+
+Required behavior:
+
+- any transfer-source failure returns `Err`
+- any disposal matching failure returns `Err`
+- any transfer-target failure returns `Err`
+- any acquisition lot creation failure returns `Err`
+- any carryover processing failure returns `Err`
+- cost basis must not produce a `completed` calculation that omits failed assets
 
 ### Tests To Add Or Update
 
@@ -517,20 +600,28 @@ Update:
 - [`packages/accounting/src/cost-basis/__tests__/cost-basis-pipeline.test.ts`](../../packages/accounting/src/cost-basis/__tests__/cost-basis-pipeline.test.ts)
 - [`packages/accounting/src/cost-basis/__tests__/lot-matcher.test.ts`](../../packages/accounting/src/cost-basis/__tests__/lot-matcher.test.ts)
 - [`packages/accounting/src/cost-basis/__tests__/lot-matcher-transfers.test.ts`](../../packages/accounting/src/cost-basis/__tests__/lot-matcher-transfers.test.ts)
+- [`packages/accounting/src/cost-basis/__tests__/lot-matcher-utils.test.ts`](../../packages/accounting/src/cost-basis/__tests__/lot-matcher-utils.test.ts)
+- [`packages/accounting/src/cost-basis/__tests__/transaction-price-coverage-utils.test.ts`](../../packages/accounting/src/cost-basis/__tests__/transaction-price-coverage-utils.test.ts)
 - [`packages/accounting/src/linking/__tests__/link-index.test.ts`](../../packages/accounting/src/linking/__tests__/link-index.test.ts)
 
 Add assertions that:
 
 - raw-price validation no longer blocks transactions for movements/fees removed
   by the accounting scope builder
+- price coverage uses the scoped boundary, not raw processed transactions
 - lot matching no longer depends on `blockchain_internal` links being present
 - clear same-hash UTXO source reductions match external transfer links exactly
 - partial-match 1:N and N:1 behavior still works
+- confirmed override links with sentinel zero amounts still resolve when scoped
+  source/target asset selection is unique
+- ambiguous override resolution or scoped assetId mismatch returns `Err`
+- confirmed links are not re-filtered by confidence score
 - fee handling still works for:
   - transfer fee disposal jurisdictions
   - add-to-basis jurisdictions
   - fee-only internal same-hash carryover scenarios
 - dependency ordering honors fee-only internal carryover source → target edges
+- lot matching returns `Err` instead of partial success when any asset fails
 
 ### Exit Criteria
 
@@ -539,6 +630,10 @@ Step 2 is done when:
 - price coverage and hard price validation both consume the scoped boundary
 - `lot-matcher.ts` contains no `internal_only` or `effectiveAmount`
 - `LotMatcher` does not consume `blockchain_internal` links
+- confirmed status, not confidence re-thresholding, controls link inclusion
+- sentinel zero-amount override links resolve explicitly or fail closed with a
+  concrete error
+- `LotMatcher` and the calculator no longer return completed partial results
 - `LinkIndex.findAnyBySource()` is no longer required by cost basis
 - transfer tests still pass for ordinary exchange/blockchain transfers,
   partial links, and fee-only internal carryovers
@@ -615,13 +710,18 @@ important rule:
 For one developer working locally, follow this order:
 
 1. implement the accounting-scoped transaction builder and its tests
-2. move price validation to the scoped boundary in pipeline + calculator code
-3. wire the builder into the lot-matcher path
-4. simplify `LotMatcher` and `processTransferSource()`
-5. add fee-only internal carryover processing
-6. remove `LinkIndex.findAnyBySource()` if it is now unused
-7. update specs and docs
-8. only then start the exclusions phase
+2. move price validation and price coverage to the scoped boundary
+3. implement scoped transfer-link resolution for confirmed links, including
+   sentinel override links
+4. wire the builder + resolved links into the lot-matcher path
+5. simplify `LotMatcher`, `LinkIndex`, and `processTransferSource()`
+6. generalize dependency ordering to consume resolved transfer edges plus
+   carryover edges
+7. add fee-only internal carryover processing
+8. remove warning-and-continue partial-result behavior
+9. remove `LinkIndex.findAnyBySource()` if it is now unused
+10. update specs and docs
+11. only then start the exclusions phase
 
 ## Decisions And Smells
 
@@ -634,9 +734,19 @@ For one developer working locally, follow this order:
   scoping begins.
 - Recommended failure mode: same-hash grouping should key by `assetId`, not
   `assetSymbol`, and asset identity collisions should fail closed.
+- Confirmed-link smell: cost basis must treat `status === 'confirmed'` as the
+  reviewed boundary and must not silently drop manual links by re-thresholding
+  on confidence score.
+- Override smell: confirmed orphaned overrides currently persist sentinel
+  zero-amount links; the refactor needs an explicit scoped resolver for them
+  before deleting amount-free matcher fallbacks.
 - Naming issue: `effectiveAmount` hides both "partial link quantity" and
   "UTXO-reduced quantity"; if any parameter survives, rename it to
   `linkedSourceAmount`.
+- Immutability smell: scoped transaction rewriting must clone movements and
+  fees first; mutating shared movement objects would corrupt raw source facts.
+- Failure-policy smell: partial lot-matcher success is not acceptable for
+  cost basis; matching errors must abort the calculation.
 - Recommended design: fee-only internal same-hash groups should use a
   cost-basis-local carryover sidecar, not a fake disposal-only outflow and not
   a persisted internal link.

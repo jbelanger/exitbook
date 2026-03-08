@@ -378,6 +378,8 @@ function createMockLink(
     targetTransactionId: targetTxId,
     linkType: 'exchange_to_blockchain',
     assetSymbol: asset as Currency,
+    sourceAssetId: `exchange:source:${asset.toLowerCase()}`,
+    targetAssetId: `blockchain:target:${asset.toLowerCase()}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
     confidenceScore: new Decimal(confidence),

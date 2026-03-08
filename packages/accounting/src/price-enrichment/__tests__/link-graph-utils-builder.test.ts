@@ -76,6 +76,8 @@ function createTransactionLink(params: {
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
     assetSymbol: asset as Currency,
+    sourceAssetId: `exchange:source:${asset.toLowerCase()}`,
+    targetAssetId: `blockchain:target:${asset.toLowerCase()}`,
     sourceAmount: parseDecimal(params.sourceAmount ?? '1.0'),
     targetAmount: parseDecimal(params.targetAmount ?? '1.0'),
     linkType: params.linkType,

@@ -63,6 +63,8 @@ describe('buildLinksResetPorts', () => {
         source_transaction_id: fromTxId,
         target_transaction_id: toTxId,
         asset: 'BTC',
+        source_asset_id: 'exchange:kraken:btc',
+        target_asset_id: 'blockchain:bitcoin:native',
         source_amount: '1.0',
         target_amount: '1.0',
         link_type: 'exchange_to_blockchain',

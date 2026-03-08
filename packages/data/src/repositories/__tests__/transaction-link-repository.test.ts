@@ -18,6 +18,8 @@ function makeBtcLink(sourceTxId: number, targetTxId: number): NewTransactionLink
     sourceTransactionId: sourceTxId,
     targetTransactionId: targetTxId,
     assetSymbol: 'BTC' as Currency,
+    sourceAssetId: 'exchange:kraken:btc',
+    targetAssetId: 'blockchain:bitcoin:native',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('0.9995'),
     linkType: 'exchange_to_blockchain',

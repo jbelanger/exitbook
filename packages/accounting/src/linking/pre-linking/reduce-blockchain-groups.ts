@@ -110,6 +110,8 @@ export function reduceBlockchainGroups(groups: SameHashAssetGroup[], logger: Log
           sourceTransactionId: sender.txId,
           targetTransactionId: receiver.txId,
           assetSymbol: group.assetSymbol as Currency,
+          sourceAssetId: sender.assetId,
+          targetAssetId: receiver.assetId,
           sourceAmount: sender.outflowGrossAmount,
           targetAmount: receiver.inflowGrossAmount,
           linkType: 'blockchain_internal',

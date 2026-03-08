@@ -45,6 +45,8 @@ export function createLink(params: {
     sourceTransactionId: params.sourceTransactionId,
     targetTransactionId: params.targetTransactionId,
     assetSymbol: params.assetSymbol as Currency,
+    sourceAssetId: `exchange:source:${params.assetSymbol.toLowerCase()}`,
+    targetAssetId: `blockchain:target:${params.assetSymbol.toLowerCase()}`,
     sourceAmount: params.sourceAmount,
     targetAmount: params.targetAmount,
     linkType: 'exchange_to_blockchain',

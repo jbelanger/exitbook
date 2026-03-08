@@ -253,6 +253,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
     .addColumn('asset', 'text', (col) => col.notNull())
+    .addColumn('source_asset_id', 'text', (col) => col.notNull())
+    .addColumn('target_asset_id', 'text', (col) => col.notNull())
     .addColumn('source_amount', 'text', (col) => col.notNull())
     .addColumn('target_amount', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())

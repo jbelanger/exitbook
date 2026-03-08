@@ -38,6 +38,8 @@ function makeLink(sourceId: number, targetId: number, overrides?: Partial<Transa
     sourceTransactionId: sourceId,
     targetTransactionId: targetId,
     assetSymbol: 'BTC' as Currency,
+    sourceAssetId: 'exchange:kraken:btc',
+    targetAssetId: 'blockchain:bitcoin:native',
     sourceAmount: new Decimal('1'),
     targetAmount: new Decimal('0.999'),
     linkType: 'exchange_to_blockchain',

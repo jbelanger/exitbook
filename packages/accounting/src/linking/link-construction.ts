@@ -210,6 +210,8 @@ export function createTransactionLink(
     sourceTransactionId: match.sourceMovement.transactionId,
     targetTransactionId: match.targetMovement.transactionId,
     assetSymbol,
+    sourceAssetId: match.sourceMovement.assetId,
+    targetAssetId: match.targetMovement.assetId,
     sourceAmount,
     targetAmount,
     linkType: match.linkType,

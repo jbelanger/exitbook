@@ -43,6 +43,8 @@ function createTransactionLink(
     sourceTransactionId: sourceName,
     targetTransactionId: targetId,
     assetSymbol: assetSymbol as Currency,
+    sourceAssetId: `exchange:source:${assetSymbol.toLowerCase()}`,
+    targetAssetId: `blockchain:target:${assetSymbol.toLowerCase()}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
     linkType: 'exchange_to_blockchain',

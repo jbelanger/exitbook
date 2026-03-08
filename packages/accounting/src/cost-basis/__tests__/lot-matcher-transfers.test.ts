@@ -38,6 +38,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     sourceTransactionId,
     targetTransactionId,
     assetSymbol: assetSymbol as Currency,
+    sourceAssetId: `exchange:source:${assetSymbol.toLowerCase()}`,
+    targetAssetId: `blockchain:target:${assetSymbol.toLowerCase()}`,
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
     linkType: 'exchange_to_blockchain',
