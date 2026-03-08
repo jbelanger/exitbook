@@ -163,7 +163,7 @@ function buildDraft(
     externalId: primaryEvent.providerEventId,
     source: 'kraken',
     timestamp: primaryEvent.occurredAt,
-    status: 'success',
+    status: primaryEvent.status,
     operation,
     movements: {
       inflows,

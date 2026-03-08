@@ -205,7 +205,7 @@ describe('CoinbaseProcessor - Swaps/Trades', () => {
   test('classifies advanced trade fills as swaps', async () => {
     const processor = createProcessor();
 
-    // Both entries must share the same order_id so byCorrelationId groups them together
+    // Both entries must share the same order_id so the Coinbase grouper keeps them together
     const tradeEntries = [
       buildEntry({
         id: 'trade-1-out',

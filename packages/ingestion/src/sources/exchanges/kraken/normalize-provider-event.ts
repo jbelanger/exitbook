@@ -42,6 +42,7 @@ export function normalizeKrakenProviderEvent(
     providerName: 'kraken',
     providerType: raw.type,
     occurredAt,
+    status: 'success',
     assetSymbol: currencyResult.value,
     rawAmount: raw.amount,
     rawFee: raw.fee,
