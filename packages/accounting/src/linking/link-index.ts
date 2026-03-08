@@ -3,7 +3,8 @@ import type { Decimal } from 'decimal.js';
 import type { TransactionLink } from './types.js';
 
 /**
- * In-memory index for efficient transaction link lookups with support for batched withdrawals.
+ * In-memory index for efficient transaction link lookups with support for
+ * batched and partial transfers.
  *
  * All keys use assetSymbol (not venue-scoped assetId) because linking is cross-venue:
  * a withdrawal from an exchange and a deposit on a blockchain share the same symbol.
@@ -17,7 +18,7 @@ import type { TransactionLink } from './types.js';
  */
 export class LinkIndex {
   private sourceMap: Map<string, TransactionLink[]>;
-  /** Secondary source index keyed by (txId, assetSymbol) without amount — fallback for UTXO adjusted amounts */
+  /** Secondary source index keyed by (txId, assetSymbol) for grouped source lookups. */
   private sourceByTxAssetMap: Map<string, TransactionLink[]>;
   private targetMap: Map<string, TransactionLink[]>;
 
@@ -55,17 +56,6 @@ export class LinkIndex {
   findBySource(txId: number, assetSymbol: string, amount: Decimal): TransactionLink | undefined {
     const key = this.buildSourceKey(txId, assetSymbol, amount);
     const links = this.sourceMap.get(key);
-    return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
-  }
-
-  /**
-   * Find next unconsumed link for a source outflow transaction by txId + assetSymbol only.
-   * Fallback for UTXO transactions where link sourceAmount is an adjusted amount
-   * (gross minus internal change) that doesn't match any movement amount.
-   */
-  findAnyBySource(txId: number, assetSymbol: string): TransactionLink | undefined {
-    const key = buildTxAssetKey(txId, assetSymbol);
-    const links = this.sourceByTxAssetMap.get(key);
     return links && links.length > 0 ? (links[0] ?? undefined) : undefined;
   }
 
@@ -152,7 +142,7 @@ export class LinkIndex {
 
 /**
  * Build key from transaction ID and asset symbol (no amount).
- * Used for target lookups and fallback source lookups.
+ * Used for target lookups and grouped source lookups.
  */
 function buildTxAssetKey(txId: number, assetSymbol: string): string {
   return `${txId}:${assetSymbol}`;

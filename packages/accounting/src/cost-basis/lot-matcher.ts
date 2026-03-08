@@ -1,23 +1,25 @@
-import {
-  isFiat,
-  parseDecimal,
-  wrapError,
-  type AssetMovement,
-  type TransactionLink,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { isFiat, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import type { Decimal } from 'decimal.js';
 
-import { LinkIndex } from '../linking/link-index.js';
-
-import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from './lot-creation-utils.js';
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+  FeeOnlyInternalCarryover,
+  FeeOnlyInternalCarryoverTarget,
+} from './build-accounting-scoped-transactions.js';
+import {
+  processFeeOnlyInternalCarryoverSource,
+  processFeeOnlyInternalCarryoverTarget,
+  type CarryoverTargetBinding,
+} from './internal-carryover-processing-utils.js';
+import { buildAcquisitionLotFromInflow } from './lot-creation-utils.js';
 import { matchOutflowDisposal } from './lot-disposal-utils.js';
-import { sortTransactionsByDependency } from './lot-sorting-utils.js';
+import { sortTransactionsByDependency, type TransactionDependencyEdge } from './lot-sorting-utils.js';
 import { processTransferSource, processTransferTarget } from './lot-transfer-processing-utils.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
+import type { ValidatedScopedTransferLink, ValidatedScopedTransferSet } from './validated-scoped-transfer-links.js';
 
 /**
  * Configuration for lot matching
@@ -54,16 +56,6 @@ export interface AssetLotMatchResult {
 }
 
 /**
- * A per-asset error that did not abort the entire calculation.
- * The failed asset is excluded from results; other assets continue normally.
- */
-export interface AssetMatchError {
-  assetId: string;
-  assetSymbol: string;
-  error: string;
-}
-
-/**
  * Result of lot matching across all assets
  */
 export interface LotMatchResult {
@@ -75,273 +67,355 @@ export interface LotMatchResult {
   totalDisposalsProcessed: number;
   /** Total number of transfers processed */
   totalTransfersProcessed: number;
-  /** Per-asset errors that didn't abort the entire calculation */
-  errors: AssetMatchError[];
 }
 
-/**
- * Result of searching for an effective source link for an outflow.
- *
- * - transfer: Found a cross-source link (may have consumed internal links first)
- * - internal_only: Found only blockchain_internal links (outflow should be skipped)
- * - none: No links found (treat as regular disposal)
- */
-type SourceLinkResult =
-  | { isPartialOutflow: boolean; links: TransactionLink[]; type: 'transfer' }
-  | { type: 'internal_only' }
-  | { type: 'none' };
-
-/**
- * Result of searching for an effective target link for an inflow.
- *
- * - transfer: Found a cross-source link (may have consumed internal links first)
- * - internal_only: Found only blockchain_internal links (inflow should be skipped)
- * - none: No links found (treat as regular acquisition)
- */
-type TargetLinkResult = { links: TransactionLink[]; type: 'transfer' } | { type: 'internal_only' } | { type: 'none' };
-
-/**
- * Mutable per-asset state used during the global transaction processing pass.
- */
 interface AssetProcessingState {
   assetSymbol: string;
-  lots: AcquisitionLot[];
   disposals: LotDisposal[];
   lotTransfers: LotTransfer[];
+  lots: AcquisitionLot[];
 }
 
-/**
- * LotMatcher - Matches disposal transactions to acquisition lots using a specified strategy
- *
- * This service:
- * 1. Sorts transactions by dependency order (topological sort)
- * 2. Processes each transaction globally: outflows first, then inflows
- * 3. Creates acquisition lots, disposals, and lot transfers per asset
- * 4. Returns lots and disposals for storage
- *
- * Note: Transactions must have priceAtTxTime populated on all movements before matching.
- */
+interface PreparedCarryover {
+  carryover: FeeOnlyInternalCarryover;
+  sourceTransaction: AccountingScopedTransaction;
+  targetBindings: CarryoverTargetBinding[];
+}
+
+interface PreparedCarryoverTarget {
+  carryover: FeeOnlyInternalCarryover;
+  sourceTransaction: AccountingScopedTransaction;
+  bindingKey: string;
+  target: FeeOnlyInternalCarryoverTarget;
+}
+
 export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
-  /**
-   * Match transactions to create acquisition lots and disposals
-   *
-   * @param transactions - List of transactions to process (must have prices populated)
-   * @param confirmedLinks - Confirmed transaction links for transfer detection
-   * @param config - Matching configuration
-   * @returns Result containing lots and disposals grouped by asset
-   */
   async match(
-    transactions: UniversalTransactionData[],
-    confirmedLinks: TransactionLink[],
+    scopedBuildResult: AccountingScopedBuildResult,
+    validatedExternalLinks: ValidatedScopedTransferSet,
     config: LotMatcherConfig
   ): Promise<Result<LotMatchResult, Error>> {
     try {
-      // Validate all transactions have prices
-      const missingPrices = filterTransactionsWithoutPrices(transactions);
-      if (missingPrices.length > 0) {
-        return err(
-          new Error(
-            `Cannot calculate cost basis: ${missingPrices.length} transactions missing price data. ` +
-              `Transaction IDs: ${missingPrices.map((t) => t.id).join(', ')}`
-          )
-        );
+      if (
+        (validatedExternalLinks.links.length > 0 || scopedBuildResult.feeOnlyInternalCarryovers.length > 0) &&
+        !config.jurisdiction
+      ) {
+        return err(new Error('Jurisdiction configuration is required for transfer and carryover handling'));
       }
 
-      // Filter to high-confidence links (≥95%)
-      // Include blockchain_internal links so we can skip them during matching
-      const highConfidenceLinks = confirmedLinks.filter((link) => link.confidenceScore.gte(0.95));
-      this.logger.debug(
-        { linkCount: highConfidenceLinks.length },
-        'Using confirmed transaction links for lot matching'
+      const scopedByTxId = new Map(
+        scopedBuildResult.transactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction])
       );
-
-      // Build transaction lookup for transfer target resolution
-      const txById = new Map<number, UniversalTransactionData>();
-      for (const tx of transactions) {
-        txById.set(tx.id, tx);
+      const carryoverPreparationResult = this.prepareCarryovers(scopedBuildResult, scopedByTxId);
+      if (carryoverPreparationResult.isErr()) {
+        return err(carryoverPreparationResult.error);
       }
 
-      // Sort transactions by dependency order (topological sort with chronological tie-breaking)
-      const sortResult = sortTransactionsByDependency(transactions, highConfidenceLinks);
+      const { carryoversBySourceTransactionId, carryoversByTargetMovementFingerprint } =
+        carryoverPreparationResult.value;
+
+      const dependencyEdges: TransactionDependencyEdge[] = [
+        ...validatedExternalLinks.links.map((validatedLink) => ({
+          sourceTransactionId: validatedLink.link.sourceTransactionId,
+          targetTransactionId: validatedLink.link.targetTransactionId,
+        })),
+        ...scopedBuildResult.feeOnlyInternalCarryovers.flatMap((carryover) =>
+          carryover.targets.map((target) => ({
+            sourceTransactionId: carryover.sourceTransactionId,
+            targetTransactionId: target.targetTransactionId,
+          }))
+        ),
+      ];
+
+      const sortResult = sortTransactionsByDependency(
+        scopedBuildResult.transactions.map((scopedTransaction) => scopedTransaction.tx),
+        dependencyEdges
+      );
       if (sortResult.isErr()) {
         return err(sortResult.error);
       }
-      const sortedTransactions = sortResult.value;
 
-      // Build link index for efficient lookup during matching
-      const linkIndex = new LinkIndex(highConfidenceLinks);
+      const sortedScopedTransactions: AccountingScopedTransaction[] = [];
+      for (const transaction of sortResult.value) {
+        const scopedTransaction = scopedByTxId.get(transaction.id);
+        if (!scopedTransaction) {
+          return err(new Error(`Scoped transaction ${transaction.id} not found after dependency sorting`));
+        }
+        sortedScopedTransactions.push(scopedTransaction);
+      }
 
-      // Per-asset mutable state for the global transaction pass
       const lotStateByAssetId = new Map<string, AssetProcessingState>();
-      const sharedLotTransfers: LotTransfer[] = [];
-      const transfersByLinkId = new Map<number, LotTransfer[]>();
+      const transfersByBindingKey = new Map<string, LotTransfer[]>();
 
-      // Per-asset error collection: failed assets are excluded from further processing
-      const failedAssetIds = new Set<string>();
-      const errors: AssetMatchError[] = [];
+      for (const scopedTransaction of sortedScopedTransactions) {
+        const carryoversForSource = carryoversBySourceTransactionId.get(scopedTransaction.tx.id) ?? [];
+        for (const preparedCarryover of carryoversForSource) {
+          const assetState = this.getOrInitAssetState(
+            preparedCarryover.carryover.assetId,
+            preparedCarryover.carryover.assetSymbol,
+            lotStateByAssetId
+          );
 
-      // Global transaction loop: process each transaction in dependency order
-      for (const tx of sortedTransactions) {
-        // Phase 1: Process outflows (disposals and transfer sources)
-        const outflows = tx.movements.outflows || [];
-        for (const outflow of outflows) {
+          const carryoverSourceResult = processFeeOnlyInternalCarryoverSource(
+            preparedCarryover.sourceTransaction,
+            preparedCarryover.carryover,
+            preparedCarryover.targetBindings,
+            assetState.lots,
+            config.strategy,
+            config.calculationId,
+            config.jurisdiction!
+          );
+          if (carryoverSourceResult.isErr()) {
+            return err(carryoverSourceResult.error);
+          }
+
+          for (const warning of carryoverSourceResult.value.warnings) {
+            return err(
+              new Error(
+                `Carryover fee price missing at tx ${preparedCarryover.sourceTransaction.tx.id}: ` +
+                  `${warning.data.feeAmount?.toFixed() ?? 'unknown'} ${preparedCarryover.carryover.assetSymbol}`
+              )
+            );
+          }
+
+          assetState.disposals.push(...carryoverSourceResult.value.disposals);
+          assetState.lots.splice(0, assetState.lots.length, ...carryoverSourceResult.value.updatedLots);
+          for (const transfer of carryoverSourceResult.value.transfers) {
+            assetState.lotTransfers.push(transfer);
+            this.pushTransfer(transfersByBindingKey, transfer);
+          }
+        }
+
+        for (const outflow of scopedTransaction.movements.outflows) {
           if (isFiat(outflow.assetSymbol)) continue;
-          if (failedAssetIds.has(outflow.assetId)) continue;
 
           const assetState = this.getOrInitAssetState(outflow.assetId, outflow.assetSymbol, lotStateByAssetId);
-          const linkResult = this.findEffectiveSourceLink(linkIndex, tx.id, outflow);
+          const sourceLinks = this.findSourceLinks(validatedExternalLinks, outflow.movementFingerprint);
 
-          if (linkResult.type === 'transfer') {
-            const { links, isPartialOutflow } = linkResult;
-            let assetFailed = false;
-
-            for (const link of links) {
-              // For partial matches, use link.sourceAmount (= consumedAmount) as the effective transfer amount.
-              // For UTXO partial outflows (blockchain_internal consumed), use link.sourceAmount.
-              // For regular 1:1 matches, use undefined (original behavior).
-              const isPartialLink = link.metadata?.['partialMatch'] === true;
-              const effectiveAmount = isPartialOutflow || isPartialLink ? link.sourceAmount : undefined;
-
-              const transferResult = this.handleTransferSource(
-                tx,
-                outflow,
-                link,
-                assetState.lots,
-                config,
-                effectiveAmount
-              );
-              if (transferResult.isErr()) {
-                this.logger.warn(
-                  { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: transferResult.error.message },
-                  'Per-asset error during transfer source processing; excluding asset from results'
-                );
-                failedAssetIds.add(outflow.assetId);
-                errors.push({
-                  assetId: outflow.assetId,
-                  assetSymbol: outflow.assetSymbol,
-                  error: transferResult.error.message,
-                });
-                assetFailed = true;
-                break;
-              }
-
-              // Record transfers into shared list, per-asset state, and link index
-              for (const transfer of transferResult.value.transfers) {
-                sharedLotTransfers.push(transfer);
-                assetState.lotTransfers.push(transfer);
-                const existing = transfersByLinkId.get(transfer.linkId) ?? [];
-                existing.push(transfer);
-                transfersByLinkId.set(transfer.linkId, existing);
-              }
-
-              assetState.disposals.push(...transferResult.value.disposals);
-              assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
-              linkIndex.consumeSourceLink(link);
+          if (sourceLinks.length === 0) {
+            const disposalResult = matchOutflowDisposal(scopedTransaction, outflow, assetState.lots, config.strategy);
+            if (disposalResult.isErr()) {
+              return err(disposalResult.error);
             }
-
-            if (assetFailed) continue;
-          } else if (linkResult.type === 'none') {
-            const result = matchOutflowDisposal(tx, outflow, assetState.lots, config.strategy);
-            if (result.isErr()) {
-              this.logger.warn(
-                { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: result.error.message },
-                'Per-asset error during disposal matching; excluding asset from results'
-              );
-              failedAssetIds.add(outflow.assetId);
-              errors.push({ assetId: outflow.assetId, assetSymbol: outflow.assetSymbol, error: result.error.message });
-              continue;
-            }
-            assetState.disposals.push(...result.value.disposals);
-            assetState.lots.splice(0, assetState.lots.length, ...result.value.updatedLots);
+            assetState.disposals.push(...disposalResult.value.disposals);
+            assetState.lots.splice(0, assetState.lots.length, ...disposalResult.value.updatedLots);
+            continue;
           }
-          // linkResult.type === 'internal_only' → skip outflow
+
+          const transferResult = processTransferSource(
+            scopedTransaction,
+            outflow,
+            sourceLinks,
+            assetState.lots,
+            config.strategy,
+            config.calculationId,
+            config.jurisdiction!,
+            config.varianceTolerance
+          );
+          if (transferResult.isErr()) {
+            return err(transferResult.error);
+          }
+
+          for (const warning of transferResult.value.warnings) {
+            if (
+              warning.type === 'variance' &&
+              warning.data.variancePct &&
+              warning.data.linkedSourceAmount &&
+              warning.data.linkTargetAmount
+            ) {
+              const tolerance = config.varianceTolerance?.warn ?? 1.0;
+              this.logger.warn(
+                {
+                  txId: scopedTransaction.tx.id,
+                  linkId: warning.data.linkId,
+                  assetSymbol: warning.data.assetSymbol,
+                  variancePct: warning.data.variancePct.toFixed(2),
+                  linkedSourceAmount: warning.data.linkedSourceAmount.toFixed(),
+                  linkTargetAmount: warning.data.linkTargetAmount.toFixed(),
+                  source: scopedTransaction.tx.source,
+                },
+                `Transfer variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold (${tolerance.toFixed()}). ` +
+                  `Possible hidden fees or incomplete fee metadata. Review exchange fee policies.`
+              );
+            } else if (warning.type === 'missing-price' && warning.data.feeAmount) {
+              this.logger.warn(
+                {
+                  txId: scopedTransaction.tx.id,
+                  linkId: warning.data.linkId,
+                  assetSymbol: warning.data.assetSymbol,
+                  feeAmount: warning.data.feeAmount.toFixed(),
+                  date: scopedTransaction.tx.datetime,
+                },
+                'Crypto fee missing price for add-to-basis policy. Fee will not be added to cost basis. ' +
+                  'Run "prices enrich" to populate missing prices.'
+              );
+            }
+          }
+
+          assetState.disposals.push(...transferResult.value.disposals);
+          assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
+          for (const transfer of transferResult.value.transfers) {
+            assetState.lotTransfers.push(transfer);
+            this.pushTransfer(transfersByBindingKey, transfer);
+          }
         }
 
-        // Phase 2: Process inflows (acquisitions and transfer targets)
-        const inflows = tx.movements.inflows || [];
-
-        // Group inflows by assetId within this transaction
-        const inflowsByAsset = new Map<string, AssetMovement[]>();
-        for (const inflow of inflows) {
+        for (const inflow of scopedTransaction.movements.inflows) {
           if (isFiat(inflow.assetSymbol)) continue;
-          const existing = inflowsByAsset.get(inflow.assetId) ?? [];
-          existing.push(inflow);
-          inflowsByAsset.set(inflow.assetId, existing);
-        }
 
-        for (const [assetId, assetInflows] of inflowsByAsset) {
-          if (failedAssetIds.has(assetId)) continue;
+          const validatedTargetLinks = this.findTargetLinks(validatedExternalLinks, inflow.movementFingerprint);
+          const carryoverTargets = carryoversByTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [];
 
-          const assetState = this.getOrInitAssetState(assetId, assetInflows[0]!.assetSymbol, lotStateByAssetId);
-          const linkResult = this.findEffectiveTargetLink(linkIndex, tx.id, assetInflows[0]!.assetSymbol);
-
-          if (linkResult.type === 'transfer') {
-            const { links } = linkResult;
-            // Aggregate all inflows of this asset for transfer targets
-            // Use netAmount for consistency with link.targetAmount (net received amount)
-            const totalAmount = assetInflows.reduce(
-              (sum, inflow) => sum.plus(inflow.netAmount ?? inflow.grossAmount),
-              parseDecimal('0')
+          if (validatedTargetLinks.length > 0 && carryoverTargets.length > 0) {
+            return err(
+              new Error(
+                `Movement ${inflow.movementFingerprint} is targeted by both validated transfer links and fee-only carryovers`
+              )
             );
+          }
 
-            // Use first inflow as template with aggregated amount
-            const aggregatedInflow: AssetMovement = {
-              ...assetInflows[0]!,
-              grossAmount: totalAmount,
-            };
+          const assetState = this.getOrInitAssetState(inflow.assetId, inflow.assetSymbol, lotStateByAssetId);
 
-            let assetFailed = false;
-            for (const link of links) {
-              // Handle transfer target with pre-filtered transfers for this link
-              const transfersForLink = transfersByLinkId.get(link.id) ?? [];
-              const lotResult = this.handleTransferTarget(tx, aggregatedInflow, link, transfersForLink, config, txById);
-              if (lotResult.isErr()) {
-                const assetSymbol = assetInflows[0]!.assetSymbol;
-                this.logger.warn(
-                  { assetId, assetSymbol, error: lotResult.error.message },
-                  'Per-asset error during transfer target processing; excluding asset from results'
-                );
-                failedAssetIds.add(assetId);
-                errors.push({ assetId, assetSymbol, error: lotResult.error.message });
-                assetFailed = true;
-                break;
+          if (validatedTargetLinks.length > 0) {
+            for (const validatedLink of validatedTargetLinks) {
+              const sourceTransaction = scopedByTxId.get(validatedLink.link.sourceTransactionId);
+              if (!sourceTransaction) {
+                return err(new Error(`Source transaction ${validatedLink.link.sourceTransactionId} not found`));
               }
-              assetState.lots.push(lotResult.value);
-              linkIndex.consumeTargetLink(link);
+
+              const transfersForLink =
+                transfersByBindingKey.get(this.getConfirmedLinkBindingKey(validatedLink.link.id)) ?? [];
+              const transferTargetResult = processTransferTarget(
+                scopedTransaction,
+                inflow,
+                validatedLink,
+                sourceTransaction,
+                transfersForLink,
+                config.calculationId,
+                config.strategy.getName(),
+                config.varianceTolerance
+              );
+              if (transferTargetResult.isErr()) {
+                return err(transferTargetResult.error);
+              }
+
+              for (const warning of transferTargetResult.value.warnings) {
+                if (warning.type === 'no-transfers') {
+                  this.logger.error(
+                    {
+                      linkId: warning.data.linkId,
+                      targetTxId: warning.data.targetTxId,
+                      sourceTxId: warning.data.sourceTxId,
+                    },
+                    'No lot transfers found for link - source transaction may not have been processed'
+                  );
+                } else if (
+                  warning.type === 'variance' &&
+                  warning.data.variancePct &&
+                  warning.data.transferred &&
+                  warning.data.received
+                ) {
+                  this.logger.warn(
+                    {
+                      linkId: warning.data.linkId,
+                      targetTxId: warning.data.targetTxId,
+                      variancePct: warning.data.variancePct.toFixed(2),
+                      transferred: warning.data.transferred.toFixed(),
+                      received: warning.data.received.toFixed(),
+                    },
+                    `Transfer target variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold. ` +
+                      `Possible fee discrepancy between source and target data.`
+                  );
+                } else if (warning.type === 'missing-price' && warning.data.feeAssetSymbol && warning.data.feeAmount) {
+                  this.logger.warn(
+                    {
+                      txId: warning.data.txId,
+                      linkId: warning.data.linkId,
+                      feeAssetSymbol: warning.data.feeAssetSymbol,
+                      feeAmount: warning.data.feeAmount.toFixed(),
+                      date: warning.data.date,
+                    },
+                    'Fiat fee missing priceAtTxTime. Fee will not be added to cost basis. ' +
+                      'Run "prices enrich" to normalize fiat currencies to USD.'
+                  );
+                }
+              }
+
+              assetState.lots.push(transferTargetResult.value.lot);
             }
 
-            if (assetFailed) continue;
-          } else if (linkResult.type === 'none') {
-            // Handle each inflow as regular acquisition
-            for (const inflow of assetInflows) {
-              const lotResult = buildAcquisitionLotFromInflow(
-                tx,
-                inflow,
+            continue;
+          }
+
+          if (carryoverTargets.length > 0) {
+            for (const carryoverTarget of carryoverTargets) {
+              const transfersForTarget = transfersByBindingKey.get(carryoverTarget.bindingKey) ?? [];
+              const carryoverTargetResult = processFeeOnlyInternalCarryoverTarget(
+                carryoverTarget.sourceTransaction,
+                scopedTransaction,
+                carryoverTarget.carryover,
+                carryoverTarget.target,
+                carryoverTarget.bindingKey,
+                transfersForTarget,
                 config.calculationId,
                 config.strategy.getName()
               );
-              if (lotResult.isErr()) {
-                this.logger.warn(
-                  { assetId, assetSymbol: inflow.assetSymbol, error: lotResult.error.message },
-                  'Per-asset error during acquisition lot creation; excluding asset from results'
-                );
-                failedAssetIds.add(assetId);
-                errors.push({ assetId, assetSymbol: inflow.assetSymbol, error: lotResult.error.message });
-                break;
+              if (carryoverTargetResult.isErr()) {
+                return err(carryoverTargetResult.error);
               }
-              assetState.lots.push(lotResult.value);
+
+              for (const warning of carryoverTargetResult.value.warnings) {
+                if (warning.type === 'missing-price') {
+                  return err(
+                    new Error(
+                      `Carryover target fee missing price at tx ${warning.data.txId}: ` +
+                        `${warning.data.feeAmount?.toFixed() ?? 'unknown'} ${warning.data.feeAssetSymbol ?? 'fee'}`
+                    )
+                  );
+                }
+
+                if (
+                  warning.type === 'variance' &&
+                  warning.data.variancePct &&
+                  warning.data.transferred &&
+                  warning.data.received
+                ) {
+                  this.logger.warn(
+                    {
+                      targetTxId: warning.data.targetTxId,
+                      targetMovementFingerprint: warning.data.targetMovementFingerprint,
+                      variancePct: warning.data.variancePct.toFixed(2),
+                      transferred: warning.data.transferred.toFixed(),
+                      received: warning.data.received.toFixed(),
+                    },
+                    `Carryover target variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold.`
+                  );
+                }
+              }
+
+              assetState.lots.push(carryoverTargetResult.value.lot);
             }
+
+            continue;
           }
-          // linkResult.type === 'internal_only' → skip inflows
+
+          const acquisitionResult = buildAcquisitionLotFromInflow(
+            scopedTransaction,
+            inflow,
+            config.calculationId,
+            config.strategy.getName()
+          );
+          if (acquisitionResult.isErr()) {
+            return err(acquisitionResult.error);
+          }
+          assetState.lots.push(acquisitionResult.value);
         }
       }
 
-      // Build asset results from accumulated state, excluding failed assets
       const assetResults: AssetLotMatchResult[] = [];
       for (const [assetId, state] of lotStateByAssetId) {
-        if (failedAssetIds.has(assetId)) continue;
         assetResults.push({
           assetId,
           assetSymbol: state.assetSymbol,
@@ -351,33 +425,71 @@ export class LotMatcher {
         });
       }
 
-      if (errors.length > 0) {
-        this.logger.warn(
-          { failedAssets: errors.map((e) => e.assetSymbol), errorCount: errors.length },
-          'Lot matching completed with per-asset errors; partial results returned'
-        );
-      }
-
-      // Calculate totals
-      const totalLotsCreated = assetResults.reduce((sum, r) => sum + r.lots.length, 0);
-      const totalDisposalsProcessed = assetResults.reduce((sum, r) => sum + r.disposals.length, 0);
-      const totalTransfersProcessed = assetResults.reduce((sum, r) => sum + r.lotTransfers.length, 0);
-
       return ok({
         assetResults,
-        totalLotsCreated,
-        totalDisposalsProcessed,
-        totalTransfersProcessed,
-        errors,
+        totalLotsCreated: assetResults.reduce((sum, result) => sum + result.lots.length, 0),
+        totalDisposalsProcessed: assetResults.reduce((sum, result) => sum + result.disposals.length, 0),
+        totalTransfersProcessed: assetResults.reduce((sum, result) => sum + result.lotTransfers.length, 0),
       });
     } catch (error) {
       return wrapError(error, 'Failed to match lots');
     }
   }
 
-  /**
-   * Get or initialize per-asset processing state.
-   */
+  private prepareCarryovers(
+    scopedBuildResult: AccountingScopedBuildResult,
+    scopedByTxId: Map<number, AccountingScopedTransaction>
+  ): Result<
+    {
+      carryoversBySourceTransactionId: Map<number, PreparedCarryover[]>;
+      carryoversByTargetMovementFingerprint: Map<string, PreparedCarryoverTarget[]>;
+    },
+    Error
+  > {
+    const carryoversBySourceTransactionId = new Map<number, PreparedCarryover[]>();
+    const carryoversByTargetMovementFingerprint = new Map<string, PreparedCarryoverTarget[]>();
+
+    for (const carryover of scopedBuildResult.feeOnlyInternalCarryovers) {
+      const sourceTransaction = scopedByTxId.get(carryover.sourceTransactionId);
+      if (!sourceTransaction) {
+        return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));
+      }
+
+      const targetBindings: CarryoverTargetBinding[] = [];
+      for (const target of carryover.targets) {
+        const bindingKey = this.getCarryoverBindingKey(
+          carryover.sourceMovementFingerprint,
+          target.targetMovementFingerprint
+        );
+        targetBindings.push({ bindingKey, target });
+
+        const preparedTarget: PreparedCarryoverTarget = {
+          carryover,
+          sourceTransaction,
+          bindingKey,
+          target,
+        };
+
+        const existingTargets = carryoversByTargetMovementFingerprint.get(target.targetMovementFingerprint) ?? [];
+        existingTargets.push(preparedTarget);
+        carryoversByTargetMovementFingerprint.set(target.targetMovementFingerprint, existingTargets);
+      }
+
+      const existingCarryovers = carryoversBySourceTransactionId.get(carryover.sourceTransactionId) ?? [];
+      existingCarryovers.push({
+        carryover,
+        sourceTransaction,
+        targetBindings,
+      });
+      carryoversBySourceTransactionId.set(carryover.sourceTransactionId, existingCarryovers);
+    }
+
+    return ok({
+      carryoversBySourceTransactionId,
+      carryoversByTargetMovementFingerprint,
+    });
+  }
+
   private getOrInitAssetState(
     assetId: string,
     assetSymbol: string,
@@ -391,240 +503,43 @@ export class LotMatcher {
     return state;
   }
 
-  /**
-   * Find the effective source link for an outflow, skipping blockchain_internal links.
-   *
-   * A UTXO outflow can have both a blockchain_internal link (change output) and a cross-source
-   * link (exchange withdrawal). This method consumes internal links and returns the first
-   * non-internal link.
-   *
-   * When blockchain_internal links were consumed before finding a cross-source link,
-   * isPartialOutflow=true signals that the link's sourceAmount (adjusted: gross minus change)
-   * should be used instead of the full outflow amount for variance checks and disposal.
-   */
-  private findEffectiveSourceLink(linkIndex: LinkIndex, txId: number, outflow: AssetMovement): SourceLinkResult {
-    // Three-level source lookup:
-    // 1. netAmount ?? grossAmount — matches cross-source links (convertToCandidates uses netAmount)
-    // 2. grossAmount — matches blockchain_internal links (extractPrimaryAmount uses grossAmount)
-    // 3. (txId, assetSymbol) only — matches UTXO cross-source links where sourceAmount is an adjusted
-    //    amount (gross minus internal change) that differs from both netAmount and grossAmount
-    const findLink = (): TransactionLink | undefined => {
-      const lookupAmount = outflow.netAmount ?? outflow.grossAmount;
-      let link = linkIndex.findBySource(txId, outflow.assetSymbol, lookupAmount);
-      if (!link && outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount)) {
-        link = linkIndex.findBySource(txId, outflow.assetSymbol, outflow.grossAmount);
-      }
-      if (!link) {
-        link = linkIndex.findAnyBySource(txId, outflow.assetSymbol);
-      }
-      return link;
-    };
-
-    let foundInternal = false;
-    let link = findLink();
-
-    while (link && link.linkType === 'blockchain_internal') {
-      this.logger.debug(
-        { txId, asset: outflow.assetSymbol, amount: outflow.grossAmount.toFixed() },
-        'Consuming blockchain_internal outflow link'
-      );
-      linkIndex.consumeSourceLink(link);
-      foundInternal = true;
-      link = findLink();
-    }
-
-    if (link) {
-      // For partial matches (1:N splits), return all partial links for this source.
-      // For regular links (multiple outflows of same asset each with own link), return just one.
-      if (link.metadata?.['partialMatch'] === true) {
-        const allLinks = linkIndex
-          .findAllBySource(txId, outflow.assetSymbol)
-          .filter((l) => l.linkType !== 'blockchain_internal');
-        return { type: 'transfer', links: allLinks, isPartialOutflow: foundInternal };
-      }
-      return { type: 'transfer', links: [link], isPartialOutflow: foundInternal };
-    }
-    return foundInternal ? { type: 'internal_only' } : { type: 'none' };
+  private findSourceLinks(
+    validatedExternalLinks: ValidatedScopedTransferSet,
+    movementFingerprint: string
+  ): ValidatedScopedTransferLink[] {
+    return validatedExternalLinks.bySourceMovementFingerprint.get(movementFingerprint) ?? [];
   }
 
-  /**
-   * Find the effective target link for an inflow, skipping blockchain_internal links.
-   */
-  private findEffectiveTargetLink(linkIndex: LinkIndex, txId: number, assetSymbol: string): TargetLinkResult {
-    let foundInternal = false;
-    let link = linkIndex.findByTarget(txId, assetSymbol);
-
-    while (link && link.linkType === 'blockchain_internal') {
-      this.logger.debug({ txId, assetSymbol }, 'Consuming blockchain_internal inflow link');
-      linkIndex.consumeTargetLink(link);
-      foundInternal = true;
-      link = linkIndex.findByTarget(txId, assetSymbol);
-    }
-
-    if (link) {
-      // For partial matches (N:1 consolidations), return all partial links for this target.
-      // For regular links, return just one.
-      if (link.metadata?.['partialMatch'] === true) {
-        const allLinks = linkIndex
-          .findAllByTarget(txId, assetSymbol)
-          .filter((l) => l.linkType !== 'blockchain_internal');
-        return { type: 'transfer', links: allLinks };
-      }
-      return { type: 'transfer', links: [link] };
-    }
-    return foundInternal ? { type: 'internal_only' } : { type: 'none' };
+  private findTargetLinks(
+    validatedExternalLinks: ValidatedScopedTransferSet,
+    movementFingerprint: string
+  ): ValidatedScopedTransferLink[] {
+    return validatedExternalLinks.byTargetMovementFingerprint.get(movementFingerprint) ?? [];
   }
 
-  private handleTransferSource(
-    tx: UniversalTransactionData,
-    outflow: AssetMovement,
-    link: TransactionLink,
-    lots: AcquisitionLot[],
-    config: LotMatcherConfig,
-    effectiveAmount?: Decimal
-  ): Result<{ disposals: LotDisposal[]; transfers: LotTransfer[]; updatedLots: AcquisitionLot[] }, Error> {
-    if (!config.jurisdiction) {
-      return err(new Error('Jurisdiction configuration is required for handling transfer sources'));
+  private getConfirmedLinkBindingKey(linkId: number): string {
+    return `link:${linkId}`;
+  }
+
+  private getCarryoverBindingKey(sourceMovementFingerprint: string, targetMovementFingerprint: string): string {
+    return `carryover:${sourceMovementFingerprint}:${targetMovementFingerprint}`;
+  }
+
+  private getTransferBindingKey(transfer: LotTransfer): string {
+    if (transfer.provenance.kind === 'confirmed-link') {
+      return this.getConfirmedLinkBindingKey(transfer.provenance.linkId);
     }
 
-    // Call pure function for business logic
-    const result = processTransferSource(
-      tx,
-      outflow,
-      link,
-      lots,
-      config.strategy,
-      config.calculationId,
-      config.jurisdiction,
-      config.varianceTolerance,
-      effectiveAmount
+    return this.getCarryoverBindingKey(
+      transfer.provenance.sourceMovementFingerprint,
+      transfer.provenance.targetMovementFingerprint
     );
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    const { disposals, transfers, updatedLots, warnings } = result.value;
-
-    // Handle logging side effects
-    for (const warning of warnings) {
-      if (
-        warning.type === 'variance' &&
-        warning.data.variancePct &&
-        warning.data.netTransferAmount &&
-        warning.data.linkTargetAmount
-      ) {
-        const tolerance = config.varianceTolerance?.warn ?? 1.0;
-        this.logger.warn(
-          {
-            txId: tx.id,
-            assetSymbol: warning.data.asset,
-            variancePct: warning.data.variancePct.toFixed(2),
-            netTransferAmount: warning.data.netTransferAmount.toFixed(),
-            linkTargetAmount: warning.data.linkTargetAmount.toFixed(),
-            source: tx.source,
-          },
-          `Transfer variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold (${tolerance.toFixed()}%). ` +
-            `Possible hidden fees or incomplete fee metadata. Review exchange fee policies.`
-        );
-      } else if (warning.type === 'missing-price' && warning.data.feeAmount) {
-        this.logger.warn(
-          {
-            txId: tx.id,
-            linkId: warning.data.linkId,
-            assetSymbol: warning.data.asset,
-            feeAmount: warning.data.feeAmount.toFixed(),
-            date: tx.datetime,
-          },
-          'Crypto fee missing price for add-to-basis policy. Fee will not be added to cost basis. ' +
-            'Run "prices enrich" to populate missing prices.'
-        );
-      }
-    }
-
-    return ok({ disposals, transfers, updatedLots });
   }
 
-  /**
-   * Handle transfer target - create acquisition lot with inherited cost basis
-   *
-   * When an inflow matches a transfer link, this creates a new acquisition lot
-   * that inherits cost basis from the source lot transfers and adds fiat fees.
-   */
-  private handleTransferTarget(
-    tx: UniversalTransactionData,
-    inflow: AssetMovement,
-    link: TransactionLink,
-    transfersForLink: LotTransfer[],
-    config: LotMatcherConfig,
-    txById: Map<number, UniversalTransactionData>
-  ): Result<AcquisitionLot, Error> {
-    const sourceTx = txById.get(link.sourceTransactionId);
-    if (!sourceTx) {
-      return err(new Error(`Source transaction ${link.sourceTransactionId} not found`));
-    }
-
-    // Call pure function for business logic
-    const result = processTransferTarget(
-      tx,
-      inflow,
-      link,
-      sourceTx,
-      transfersForLink,
-      config.calculationId,
-      config.strategy.getName(),
-      config.varianceTolerance
-    );
-
-    if (result.isErr()) {
-      return err(result.error);
-    }
-
-    const { lot, warnings } = result.value;
-
-    // Handle logging side effects
-    for (const warning of warnings) {
-      if (warning.type === 'no-transfers') {
-        this.logger.error(
-          {
-            linkId: warning.data.linkId,
-            targetTxId: warning.data.targetTxId,
-            sourceTxId: warning.data.sourceTxId,
-          },
-          'No lot transfers found for link - source transaction may not have been processed'
-        );
-      } else if (
-        warning.type === 'variance' &&
-        warning.data.variancePct &&
-        warning.data.transferred &&
-        warning.data.received
-      ) {
-        this.logger.warn(
-          {
-            linkId: warning.data.linkId,
-            targetTxId: warning.data.targetTxId,
-            variancePct: warning.data.variancePct.toFixed(2),
-            transferred: warning.data.transferred.toFixed(),
-            received: warning.data.received.toFixed(),
-          },
-          `Transfer target variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold. ` +
-            `Possible fee discrepancy between source and target data.`
-        );
-      } else if (warning.type === 'missing-price' && warning.data.feeAssetSymbol && warning.data.feeAmount) {
-        this.logger.warn(
-          {
-            txId: warning.data.txId,
-            linkId: warning.data.linkId,
-            feeAssetSymbol: warning.data.feeAssetSymbol,
-            feeAmount: warning.data.feeAmount.toFixed(),
-            date: warning.data.date,
-          },
-          'Fiat fee missing priceAtTxTime. Fee will not be added to cost basis. ' +
-            'Run "prices enrich" to normalize fiat currencies to USD.'
-        );
-      }
-    }
-
-    return ok(lot);
+  private pushTransfer(transfersByBindingKey: Map<string, LotTransfer[]>, transfer: LotTransfer): void {
+    const bindingKey = this.getTransferBindingKey(transfer);
+    const existing = transfersByBindingKey.get(bindingKey) ?? [];
+    existing.push(transfer);
+    transfersByBindingKey.set(bindingKey, existing);
   }
 }

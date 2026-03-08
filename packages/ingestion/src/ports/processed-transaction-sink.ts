@@ -14,5 +14,5 @@ export interface IProcessedTransactionSink {
   saveProcessedBatch(
     transactions: ProcessedTransaction[],
     accountId: number
-  ): Promise<Result<{ duplicates: number; saved: number; }, Error>>;
+  ): Promise<Result<{ duplicates: number; saved: number }, Error>>;
 }

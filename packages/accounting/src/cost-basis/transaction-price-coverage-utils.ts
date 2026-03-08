@@ -1,8 +1,10 @@
 import { resultDoAsync, type Result } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 
 import type { IPriceCoverageData } from '../ports/transaction-price-coverage.js';
 
-import { filterTransactionsByDateRange, transactionHasAllPrices } from './cost-basis-utils.js';
+import { buildAccountingScopedTransactions } from './build-accounting-scoped-transactions.js';
+import { filterTransactionsByDateRange, scopedTransactionHasAllPrices } from './cost-basis-utils.js';
 
 export interface PriceCoverageResult {
   complete: boolean;
@@ -13,6 +15,8 @@ export interface PriceCoverageInput {
   startDate: Date;
   endDate: Date;
 }
+
+const logger = getLogger('transaction-price-coverage-utils');
 
 /**
  * Checks whether all transactions in the given date range have complete price data.
@@ -32,9 +36,14 @@ export function checkTransactionPriceCoverage(
       return { complete: true, reason: undefined };
     }
 
+    const scopedResult = buildAccountingScopedTransactions(filtered, logger);
+    if (scopedResult.isErr()) {
+      return yield* scopedResult;
+    }
+
     let missingCount = 0;
-    for (const tx of filtered) {
-      const hasPrices = yield* transactionHasAllPrices(tx);
+    for (const scopedTransaction of scopedResult.value.transactions) {
+      const hasPrices = yield* scopedTransactionHasAllPrices(scopedTransaction);
       if (!hasPrices) {
         missingCount++;
       }
@@ -46,7 +55,7 @@ export function checkTransactionPriceCoverage(
 
     return {
       complete: false,
-      reason: `${missingCount} of ${filtered.length} transactions missing prices`,
+      reason: `${missingCount} of ${scopedResult.value.transactions.length} transactions missing prices`,
     };
   });
 }

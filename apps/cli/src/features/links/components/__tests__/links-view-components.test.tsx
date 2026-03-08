@@ -88,15 +88,30 @@ describe('LinksViewApp - links mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain(' 1 ');
-    expect(frame).toContain(' 2 ');
-
     expect(frame).toContain('✓');
     expect(frame).toContain('⚠');
     expect(frame).toContain('✗');
 
+    expect(frame).toContain('2024-03-15');
+    expect(frame).toContain('2024-03-16');
     expect(frame).toContain('ETH');
     expect(frame).toContain('BTC');
+  });
+
+  it('sorts links from oldest to newest in the table', () => {
+    const state = createLinksViewState([...createMockLinks()].reverse());
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame.indexOf('2024-03-15')).toBeLessThan(frame.indexOf('2024-03-16'));
+    expect(frame.indexOf('2024-03-16')).toBeLessThan(frame.indexOf('2024-03-17'));
+    expect(frame.indexOf('2024-03-17')).toBeLessThan(frame.indexOf('2024-03-18'));
   });
 
   it('highlights selected link', () => {
@@ -196,6 +211,39 @@ describe('LinksViewApp - links mode', () => {
 
     expect(frame).toContain('to:');
     expect(frame).toContain('0x1234ABCD');
+  });
+
+  it('explains matched amount when internal link amounts differ', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'confirmed', 1, 'BTC', '0.04399', '0.03575945', 382, 389),
+          linkType: 'blockchain_internal',
+          matchCriteria: {
+            assetMatch: true,
+            amountSimilarity: new Decimal(1),
+            timingValid: true,
+            timingHours: 0,
+            addressMatch: undefined,
+          },
+        },
+        sourceTransaction: createMockTransaction(382, 'bitcoin', '2023-03-15T19:56:36.000Z'),
+        targetTransaction: createMockTransaction(389, 'bitcoin', '2023-03-15T19:56:36.000Z'),
+      },
+    ];
+    const state = createLinksViewState(links);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('0.0358 matched');
+    expect(frame).toContain('2023-03-15');
+    expect(frame).toContain('Change: 0.00823055 BTC');
   });
 });
 

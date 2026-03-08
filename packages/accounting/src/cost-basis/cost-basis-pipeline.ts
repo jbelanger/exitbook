@@ -1,22 +1,42 @@
 import { type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../ports/cost-basis-persistence.js';
 
-import { calculateCostBasisFromValidatedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
+import { buildAccountingScopedTransactions } from './build-accounting-scoped-transactions.js';
+import { calculateCostBasisFromScopedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
 import type { CostBasisConfig } from './cost-basis-config.js';
-import { getJurisdictionRules, validateTransactionPrices } from './cost-basis-utils.js';
+import { getJurisdictionRules, validateScopedTransactionPrices } from './cost-basis-utils.js';
 import { LotMatcher } from './lot-matcher.js';
+
+export type MissingPricePolicy = 'error' | 'exclude';
+
+export interface CostBasisPipelineOptions {
+  /**
+   * How missing prices should be handled at the accounting boundary.
+   *
+   * `error` is for tax reporting surfaces where dropping a transaction would
+   * understate realized activity and must fail closed.
+   *
+   * `exclude` is for portfolio-style surfaces where a partial open-lot view is
+   * still useful, as long as the caller warns that unrealized P&L is incomplete.
+   */
+  missingPricePolicy: MissingPricePolicy;
+}
 
 export interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
-  /** Transactions that passed strict price validation. */
+  /** Transactions that survived price validation and were included in matching. */
   validTransactions: UniversalTransactionData[];
 }
 
+const logger = getLogger('cost-basis-pipeline');
+
 /**
- * Shared cost-basis pipeline: strict price validation → jurisdiction rules → lot matching → gain/loss.
+ * Shared cost-basis pipeline: scoped build → price validation policy →
+ * jurisdiction rules → lot matching → gain/loss.
  *
  * Used by CostBasisWorkflow and PortfolioHandler to avoid duplicating the
  * "validate prices → get rules → run calculator" flow.
@@ -24,21 +44,50 @@ export interface CostBasisPipelineResult {
 export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
-  store: ICostBasisPersistence
+  store: ICostBasisPersistence,
+  options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
-  const validationResult = validateTransactionPrices(transactions, config.currency);
+  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+  if (scopedResult.isErr()) {
+    return err(scopedResult.error);
+  }
+
+  const validationResult = validateScopedTransactionPrices(scopedResult.value, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }
 
   const { validTransactions, missingPricesCount } = validationResult.value;
-  if (missingPricesCount > 0) {
+  if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
     return err(
       new Error(
         `${missingPricesCount} transactions are missing required price data. ` +
           `Run 'exitbook prices enrich' and retry cost basis.`
       )
     );
+  }
+
+  let priceCompleteScopedBuild = scopedResult.value;
+  if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
+    logger.warn(
+      {
+        missingPricesCount,
+        originalTransactionsCount: transactions.length,
+        validTransactionsCount: validTransactions.length,
+      },
+      'Excluding transactions with missing prices from the soft cost-basis pipeline'
+    );
+
+    // Same-hash scoping mutates the scoped transaction set and may emit
+    // fee-only carryovers. After excluding raw transactions we must rebuild the
+    // scoped subset so those transfer decisions are recomputed against the
+    // surviving transactions rather than leaving dangling carryover state.
+    const priceCompleteScopedResult = buildAccountingScopedTransactions(validTransactions, logger);
+    if (priceCompleteScopedResult.isErr()) {
+      return err(priceCompleteScopedResult.error);
+    }
+
+    priceCompleteScopedBuild = priceCompleteScopedResult.value;
   }
 
   const rulesResult = getJurisdictionRules(config.jurisdiction);
@@ -56,8 +105,8 @@ export async function runCostBasisPipeline(
 
   const lotMatcher = new LotMatcher();
 
-  const costBasisResult = await calculateCostBasisFromValidatedTransactions(
-    validTransactions,
+  const costBasisResult = await calculateCostBasisFromScopedTransactions(
+    priceCompleteScopedBuild,
     config,
     rules,
     lotMatcher,

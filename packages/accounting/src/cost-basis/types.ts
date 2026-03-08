@@ -10,6 +10,7 @@ export type {
   LotStatus,
   LotTransfer,
   LotTransferMetadata,
+  LotTransferProvenance,
   SameAssetTransferFeePolicy,
   VarianceTolerance,
 } from './schemas.js';

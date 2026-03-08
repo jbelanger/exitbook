@@ -200,7 +200,13 @@ export class PortfolioHandler {
       }
 
       const costBasisStore: ICostBasisPersistence = buildCostBasisPorts(this.db);
-      const pipelineResult = await runCostBasisPipeline(transactionsUpToAsOf, costBasisParams.config, costBasisStore);
+      const pipelineResult = await runCostBasisPipeline(transactionsUpToAsOf, costBasisParams.config, costBasisStore, {
+        // Portfolio is a best-effort holdings view, not a tax filing surface.
+        // Keeping the price-complete subset lets us still show open lots and
+        // spot-valued positions, while warning that unrealized P&L is incomplete
+        // until the excluded transactions are enriched with prices.
+        missingPricePolicy: 'exclude',
+      });
       if (pipelineResult.isErr()) {
         return err(pipelineResult.error);
       }

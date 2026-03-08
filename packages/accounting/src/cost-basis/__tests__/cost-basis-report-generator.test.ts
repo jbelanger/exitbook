@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { FxRateData, IFxRateProvider } from '../../price-enrichment/types.js';
 import { CostBasisReportGenerator } from '../cost-basis-report-generator.js';
-import type { CostBasisCalculation, LotDisposal } from '../schemas.js';
+import type { CostBasisCalculation, LotDisposal, LotTransfer } from '../schemas.js';
 
 describe('CostBasisReportGenerator', () => {
   // Test data
@@ -317,12 +317,17 @@ describe('CostBasisReportGenerator', () => {
       ];
 
       // Create mock lot transfers
-      const mockTransfers = [
+      const mockTransfers: LotTransfer[] = [
         {
           id: 'transfer-1',
           calculationId: mockCalculationId,
           sourceLotId: 'lot-1',
-          linkId: 1,
+          provenance: {
+            kind: 'confirmed-link',
+            linkId: 1,
+            sourceMovementFingerprint: 'source:movement:1',
+            targetMovementFingerprint: 'target:movement:1',
+          },
           quantityTransferred: new Decimal(0.25),
           costBasisPerUnit: new Decimal(40000),
           sourceTransactionId: 301,
@@ -392,12 +397,17 @@ describe('CostBasisReportGenerator', () => {
         },
       ];
 
-      const mockTransfers = [
+      const mockTransfers: LotTransfer[] = [
         {
           id: 'transfer-1',
           calculationId: mockCalculationId,
           sourceLotId: 'lot-1',
-          linkId: 1,
+          provenance: {
+            kind: 'confirmed-link',
+            linkId: 1,
+            sourceMovementFingerprint: 'source:movement:1',
+            targetMovementFingerprint: 'target:movement:1',
+          },
           quantityTransferred: new Decimal(0.25),
           costBasisPerUnit: new Decimal(40000),
           sourceTransactionId: 301,

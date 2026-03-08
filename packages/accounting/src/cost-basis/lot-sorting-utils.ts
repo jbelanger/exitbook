@@ -3,7 +3,10 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { TransactionLink } from '../linking/types.js';
+export interface TransactionDependencyEdge {
+  sourceTransactionId: number;
+  targetTransactionId: number;
+}
 
 /**
  * Topological sort of transactions by link dependencies using Kahn's algorithm.
@@ -26,7 +29,7 @@ import type { TransactionLink } from '../linking/types.js';
  */
 export function sortTransactionsByDependency(
   transactions: UniversalTransactionData[],
-  links: TransactionLink[]
+  edges: TransactionDependencyEdge[]
 ): Result<UniversalTransactionData[], Error> {
   const logger = getLogger('lot-sorting-utils:sortTransactionsByDependency');
 
@@ -49,9 +52,9 @@ export function sortTransactionsByDependency(
   }
 
   // Add edges from links (source → target)
-  for (const link of links) {
-    const source = link.sourceTransactionId;
-    const target = link.targetTransactionId;
+  for (const edge of edges) {
+    const source = edge.sourceTransactionId;
+    const target = edge.targetTransactionId;
 
     // Only add edge if both txs in current batch and not self-referential
     if (txMap.has(source) && txMap.has(target) && source !== target) {

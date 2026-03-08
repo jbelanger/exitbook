@@ -17,16 +17,12 @@ export type {
   LotDisposal,
   LotStatus,
   LotTransfer,
+  LotTransferProvenance,
 } from './cost-basis/types.js';
 
 // Cost basis calculation
 export { LotMatcher } from './cost-basis/lot-matcher.js';
-export type {
-  LotMatcherConfig,
-  LotMatchResult,
-  AssetLotMatchResult,
-  AssetMatchError,
-} from './cost-basis/lot-matcher.js';
+export type { LotMatcherConfig, LotMatchResult, AssetLotMatchResult } from './cost-basis/lot-matcher.js';
 export type { GainLossResult, AssetGainLossSummary, DisposalGainLoss } from './cost-basis/gain-loss-utils.js';
 export {
   calculateGainLoss,
@@ -37,9 +33,26 @@ export {
 export { calculateCostBasisFromValidatedTransactions } from './cost-basis/cost-basis-calculator.js';
 export type { CostBasisSummary } from './cost-basis/cost-basis-calculator.js';
 export { runCostBasisPipeline } from './cost-basis/cost-basis-pipeline.js';
-export type { CostBasisPipelineResult } from './cost-basis/cost-basis-pipeline.js';
+export type {
+  CostBasisPipelineOptions,
+  CostBasisPipelineResult,
+  MissingPricePolicy,
+} from './cost-basis/cost-basis-pipeline.js';
 export { CostBasisWorkflow } from './cost-basis/cost-basis-workflow.js';
 export type { CostBasisWorkflowResult } from './cost-basis/cost-basis-workflow.js';
+export { buildAccountingScopedTransactions } from './cost-basis/build-accounting-scoped-transactions.js';
+export type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+  FeeOnlyInternalCarryover,
+  ScopedAssetMovement,
+  ScopedFeeMovement,
+} from './cost-basis/build-accounting-scoped-transactions.js';
+export { validateScopedTransferLinks } from './cost-basis/validated-scoped-transfer-links.js';
+export type {
+  ValidatedScopedTransferLink,
+  ValidatedScopedTransferSet,
+} from './cost-basis/validated-scoped-transfer-links.js';
 
 // Strategies
 export { FifoStrategy } from './cost-basis/strategies/fifo-strategy.js';
@@ -102,8 +115,10 @@ export {
   buildCostBasisParams,
   validateCostBasisParams,
   validateTransactionPrices,
+  validateScopedTransactionPrices,
   filterTransactionsByDateRange,
   transactionHasAllPrices,
+  scopedTransactionHasAllPrices,
   getJurisdictionRules,
   formatCurrency,
 } from './cost-basis/cost-basis-utils.js';

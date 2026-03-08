@@ -77,11 +77,29 @@ export const LotTransferMetadataSchema = z.object({
   cryptoFeeUsdValue: DecimalSchema.optional(),
 });
 
+export const ConfirmedLinkTransferProvenanceSchema = z.object({
+  kind: z.literal('confirmed-link'),
+  linkId: z.number().int().positive(),
+  sourceMovementFingerprint: z.string().min(1),
+  targetMovementFingerprint: z.string().min(1),
+});
+
+export const FeeOnlyCarryoverTransferProvenanceSchema = z.object({
+  kind: z.literal('fee-only-carryover'),
+  sourceMovementFingerprint: z.string().min(1),
+  targetMovementFingerprint: z.string().min(1),
+});
+
+export const LotTransferProvenanceSchema = z.discriminatedUnion('kind', [
+  ConfirmedLinkTransferProvenanceSchema,
+  FeeOnlyCarryoverTransferProvenanceSchema,
+]);
+
 export const LotTransferSchema = z.object({
   id: z.string().uuid(),
   calculationId: z.string().uuid(),
   sourceLotId: z.string().uuid(),
-  linkId: z.number(),
+  provenance: LotTransferProvenanceSchema,
   quantityTransferred: DecimalSchema,
   costBasisPerUnit: DecimalSchema,
   sourceTransactionId: z.number().int().positive(),
@@ -119,6 +137,7 @@ export type AcquisitionLot = z.infer<typeof AcquisitionLotSchema>;
 export type LotDisposal = z.infer<typeof LotDisposalSchema>;
 export type LotTransfer = z.infer<typeof LotTransferSchema>;
 export type LotTransferMetadata = z.infer<typeof LotTransferMetadataSchema>;
+export type LotTransferProvenance = z.infer<typeof LotTransferProvenanceSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
 export type LotStatus = z.infer<typeof LotStatusSchema>;
 export type CalculationStatus = z.infer<typeof CalculationStatusSchema>;

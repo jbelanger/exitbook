@@ -1,9 +1,16 @@
 import { isFiat, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
+import type { AccountingScopedTransaction } from './build-accounting-scoped-transactions.js';
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import { createAcquisitionLot } from './lot.js';
 import type { AcquisitionLot } from './schemas.js';
+
+type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+
+function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+  return 'tx' in transaction ? transaction.tx : transaction;
+}
 
 /**
  * Filter transactions that are missing price data on any non-fiat movements
@@ -44,13 +51,17 @@ export function filterTransactionsWithoutPrices(transactions: UniversalTransacti
  * Create an acquisition lot from an inflow movement
  */
 export function buildAcquisitionLotFromInflow(
-  transaction: UniversalTransactionData,
+  transaction: CostBasisTransactionLike,
   inflow: AssetMovement,
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost'
 ): Result<AcquisitionLot, Error> {
+  const rawTransaction = getRawTransaction(transaction);
+
   if (!inflow.priceAtTxTime) {
-    return err(new Error(`Inflow missing priceAtTxTime: transaction ${transaction.id}, asset ${inflow.assetSymbol}`));
+    return err(
+      new Error(`Inflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${inflow.assetSymbol}`)
+    );
   }
 
   const quantity = inflow.grossAmount;
@@ -73,13 +84,13 @@ export function buildAcquisitionLotFromInflow(
     createAcquisitionLot({
       id: globalThis.crypto.randomUUID(),
       calculationId,
-      acquisitionTransactionId: transaction.id,
+      acquisitionTransactionId: rawTransaction.id,
       assetId: inflow.assetId,
       assetSymbol: inflow.assetSymbol,
       quantity,
       costBasisPerUnit,
       method: strategyName,
-      transactionDate: new Date(transaction.datetime),
+      transactionDate: new Date(rawTransaction.datetime),
     })
   );
 }

@@ -1,9 +1,8 @@
-import { parseDecimal, type AssetMovement, type PriceAtTxTime, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { TransactionLink } from '../linking/types.js';
-
+import type { AccountingScopedTransaction } from './build-accounting-scoped-transactions.js';
 import { collectFiatFees, extractCryptoFee, validateOutflowFees } from './lot-fee-utils.js';
 import {
   buildTransferMetadata,
@@ -12,122 +11,159 @@ import {
   calculateTransferDisposalAmount,
   validateTransferVariance,
 } from './lot-transfer-utils.js';
+import { applyLotQuantityUpdates, buildLotQuantityUpdateMap } from './lot-update-utils.js';
 import { createAcquisitionLot } from './lot.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
+import type { ValidatedScopedTransferLink } from './validated-scoped-transfer-links.js';
+
+type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+
+function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+  return 'tx' in transaction ? transaction.tx : transaction;
+}
+
+interface TransferWarningData {
+  assetSymbol?: string;
+  date?: string;
+  feeAmount?: Decimal;
+  feeAssetSymbol?: string;
+  linkId?: number;
+  linkTargetAmount?: Decimal;
+  linkedSourceAmount?: Decimal;
+  received?: Decimal;
+  sourceTxId?: number;
+  targetTxId?: number;
+  transferred?: Decimal;
+  txId?: number;
+  variancePct?: Decimal;
+}
+
+interface SourceWarning {
+  data: TransferWarningData;
+  type: 'variance' | 'missing-price';
+}
+interface TargetWarning {
+  data: TransferWarningData;
+  type: 'no-transfers' | 'variance' | 'missing-price';
+}
 
 /**
- * Process a transfer source transaction
+ * Process a transfer source movement.
  *
- * Pure function that validates fees, creates lot transfers and disposals,
- * and returns updated lots without mutation. Returns warnings for logging.
+ * A single scoped outflow can have:
+ * - one full validated link
+ * - multiple partial validated links that partition the full transfer quantity
+ *
+ * The source-side lot matching and fee handling must happen once for the full
+ * movement, then lot transfers are split across the validated links.
  */
 export function processTransferSource(
-  tx: UniversalTransactionData,
+  transaction: CostBasisTransactionLike,
   outflow: AssetMovement,
-  link: TransactionLink,
+  links: ValidatedScopedTransferLink[],
   lots: AcquisitionLot[],
   strategy: ICostBasisStrategy,
   calculationId: string,
   jurisdiction: { sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis' },
-  varianceTolerance?: { error: number; warn: number },
-  effectiveAmount?: Decimal
+  varianceTolerance?: { error: number; warn: number }
 ): Result<
   {
     disposals: LotDisposal[];
     transfers: LotTransfer[];
     updatedLots: AcquisitionLot[];
-    warnings: {
-      data: {
-        asset?: string;
-        feeAmount?: Decimal;
-        linkId?: number;
-        linkTargetAmount?: Decimal;
-        netTransferAmount?: Decimal;
-        variancePct?: Decimal;
-      };
-      type: 'variance' | 'missing-price';
-    }[];
+    warnings: SourceWarning[];
   },
   Error
 > {
-  const warnings: {
-    data: {
-      assetSymbol?: string;
-      feeAmount?: Decimal;
-      linkId?: number;
-      linkTargetAmount?: Decimal;
-      netTransferAmount?: Decimal;
-      variancePct?: Decimal;
-    };
-    type: 'variance' | 'missing-price';
-  }[] = [];
-
-  // When effectiveAmount is provided (UTXO partial outflow), the amount represents the
-  // external transfer portion only (gross minus internal change). Fees are already baked
-  // into the UTXO adjustment, so we skip fee extraction and validation.
-  const isPartialOutflow = effectiveAmount !== undefined;
-
-  let cryptoFee: { amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined };
-  if (isPartialOutflow) {
-    cryptoFee = { amount: parseDecimal('0'), feeType: 'none' };
-  } else {
-    const cryptoFeeResult = extractCryptoFee(tx, outflow.assetSymbol);
-    if (cryptoFeeResult.isErr()) {
-      return err(cryptoFeeResult.error);
-    }
-    cryptoFee = cryptoFeeResult.value;
-
-    // Validate that netAmount matches grossAmount minus on-chain fees
-    const feeValidationResult = validateOutflowFees(outflow, tx, tx.source, tx.id, varianceTolerance);
-    if (feeValidationResult.isErr()) {
-      return err(feeValidationResult.error);
-    }
+  if (links.length === 0) {
+    return err(new Error('Transfer source processing requires at least one validated link'));
   }
 
-  // Use effectiveAmount (UTXO adjusted) or outflow netAmount for transfer validation
-  const netTransferAmount = effectiveAmount ?? outflow.netAmount ?? outflow.grossAmount;
+  const warnings: SourceWarning[] = [];
+  const rawTransaction = getRawTransaction(transaction);
+  const allPartialLinks = links.every((link) => link.isPartialMatch);
+  if (!allPartialLinks && links.length !== 1) {
+    return err(
+      new Error(
+        `Validated transfer source lookup for tx ${rawTransaction.id} movement ${outflow.assetId} returned ` +
+          `${links.length} full links. Expected exactly one.`
+      )
+    );
+  }
 
-  // Validate transfer variance
-  const varianceResult = validateTransferVariance(
-    netTransferAmount,
-    link.targetAmount,
-    tx.source,
-    tx.id,
-    outflow.assetSymbol,
+  const cryptoFeeResult = extractCryptoFee(transaction, outflow.assetId);
+  if (cryptoFeeResult.isErr()) {
+    return err(cryptoFeeResult.error);
+  }
+  const cryptoFee = cryptoFeeResult.value;
+
+  const feeValidationResult = validateOutflowFees(
+    outflow,
+    transaction,
+    rawTransaction.source,
+    rawTransaction.id,
     varianceTolerance
   );
-  if (varianceResult.isErr()) {
-    return err(varianceResult.error);
+  if (feeValidationResult.isErr()) {
+    return err(feeValidationResult.error);
   }
 
-  const { tolerance, variancePct } = varianceResult.value;
+  const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+  const linkedSourceAmount = links.reduce(
+    (sum, validatedLink) => sum.plus(validatedLink.link.sourceAmount),
+    parseDecimal('0')
+  );
+  if (!linkedSourceAmount.eq(netTransferAmount)) {
+    return err(
+      new Error(
+        `Validated transfer source links for tx ${rawTransaction.id} movement ${links[0]!.sourceMovementFingerprint} ` +
+          `sum to ${linkedSourceAmount.toFixed()}, expected ${netTransferAmount.toFixed()}`
+      )
+    );
+  }
 
-  if (variancePct.gt(tolerance.warn)) {
-    warnings.push({
-      type: 'variance',
-      data: {
-        assetSymbol: outflow.assetSymbol,
-        variancePct,
-        netTransferAmount,
-        linkTargetAmount: link.targetAmount,
-      },
-    });
+  for (const validatedLink of links) {
+    const varianceResult = validateTransferVariance(
+      validatedLink.link.sourceAmount,
+      validatedLink.link.targetAmount,
+      rawTransaction.source,
+      rawTransaction.id,
+      outflow.assetSymbol,
+      varianceTolerance
+    );
+    if (varianceResult.isErr()) {
+      return err(varianceResult.error);
+    }
+
+    const { tolerance, variancePct } = varianceResult.value;
+    if (variancePct.gt(tolerance.warn)) {
+      warnings.push({
+        type: 'variance',
+        data: {
+          assetSymbol: outflow.assetSymbol,
+          linkId: validatedLink.link.id,
+          linkTargetAmount: validatedLink.link.targetAmount,
+          linkedSourceAmount: validatedLink.link.sourceAmount,
+          variancePct,
+        },
+      });
+    }
   }
 
   const openLots = lots.filter((lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0));
-
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
-  // For partial outflows, use effectiveAmount directly as the disposal quantity
-  const transferDisposalQuantity = isPartialOutflow
-    ? effectiveAmount
-    : calculateTransferDisposalAmount(outflow, cryptoFee, feePolicy).transferDisposalQuantity;
+  const transferDisposalQuantity = calculateTransferDisposalAmount(
+    outflow,
+    cryptoFee,
+    feePolicy
+  ).transferDisposalQuantity;
 
   const disposal = {
-    transactionId: tx.id,
+    transactionId: rawTransaction.id,
     assetSymbol: outflow.assetSymbol,
     quantity: transferDisposalQuantity,
-    date: new Date(tx.datetime),
+    date: new Date(rawTransaction.datetime),
     proceedsPerUnit: parseDecimal('0'),
   };
 
@@ -145,129 +181,119 @@ export function processTransferSource(
         data: {
           assetSymbol: outflow.assetSymbol,
           feeAmount: cryptoFee.amount,
-          linkId: link.id,
+          linkId: links[0]!.link.id,
         },
       });
-      cryptoFeeUsdValue = undefined;
     } else {
       cryptoFeeUsdValue = cryptoFee.amount.times(cryptoFee.priceAtTxTime.price.amount);
     }
   }
 
   const transfers: LotTransfer[] = [];
-  const quantityToTransfer = netTransferAmount;
-
-  // Create a map for efficient lot lookup during updates
-  const lotUpdates = new Map<string, { quantityToSubtract: Decimal }>();
+  const quantityToSubtractByLotId = new Map<string, Decimal>();
 
   for (const lotDisposal of lotDisposals) {
-    // Build metadata for crypto fees if using add-to-basis policy
-    const metadata = cryptoFeeUsdValue
-      ? buildTransferMetadata(
-          { ...cryptoFee, priceAtTxTime: cryptoFee.priceAtTxTime },
-          feePolicy,
-          lotDisposal.quantityDisposed,
-          transferDisposalQuantity
-        )
-      : undefined;
-
-    const lot = lots.find((l) => l.id === lotDisposal.lotId);
+    const lot = lots.find((candidateLot) => candidateLot.id === lotDisposal.lotId);
     if (!lot) {
       return err(new Error(`Lot ${lotDisposal.lotId} not found`));
     }
 
-    transfers.push({
-      id: globalThis.crypto.randomUUID(),
-      calculationId,
-      sourceLotId: lotDisposal.lotId,
-      linkId: link.id,
-      quantityTransferred: lotDisposal.quantityDisposed.times(quantityToTransfer.dividedBy(transferDisposalQuantity)),
-      costBasisPerUnit: lotDisposal.costBasisPerUnit,
-      sourceTransactionId: tx.id,
-      targetTransactionId: link.targetTransactionId,
-      transferDate: new Date(tx.datetime),
-      metadata,
-      createdAt: new Date(),
-    });
+    buildLotQuantityUpdateMap(lotDisposal.lotId, lotDisposal.quantityDisposed, quantityToSubtractByLotId);
 
-    // Track quantity to subtract for this lot
-    const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: parseDecimal('0') };
-    lotUpdates.set(lotDisposal.lotId, {
-      quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
-    });
+    for (const validatedLink of links) {
+      const linkTransferFraction = validatedLink.link.sourceAmount.dividedBy(netTransferAmount);
+      const allocatedDisposalQuantity = lotDisposal.quantityDisposed.times(linkTransferFraction);
+      const quantityTransferred = lotDisposal.quantityDisposed
+        .times(validatedLink.link.sourceAmount)
+        .dividedBy(transferDisposalQuantity);
+
+      const metadata = cryptoFeeUsdValue
+        ? buildTransferMetadata(
+            {
+              ...cryptoFee,
+              priceAtTxTime: cryptoFee.priceAtTxTime,
+            },
+            feePolicy,
+            allocatedDisposalQuantity,
+            transferDisposalQuantity
+          )
+        : undefined;
+
+      transfers.push({
+        id: globalThis.crypto.randomUUID(),
+        calculationId,
+        sourceLotId: lotDisposal.lotId,
+        provenance: {
+          kind: 'confirmed-link',
+          linkId: validatedLink.link.id,
+          sourceMovementFingerprint: validatedLink.sourceMovementFingerprint,
+          targetMovementFingerprint: validatedLink.targetMovementFingerprint,
+        },
+        quantityTransferred,
+        costBasisPerUnit: lotDisposal.costBasisPerUnit,
+        sourceTransactionId: rawTransaction.id,
+        targetTransactionId: validatedLink.link.targetTransactionId,
+        transferDate: new Date(rawTransaction.datetime),
+        metadata,
+        createdAt: new Date(),
+      });
+    }
   }
 
   const disposals: LotDisposal[] = [];
-
   if (cryptoFee.amount.gt(0) && feePolicy === 'disposal') {
+    const lotsAfterTransferResult = applyLotQuantityUpdates(lots, quantityToSubtractByLotId);
+    if (lotsAfterTransferResult.isErr()) {
+      return err(lotsAfterTransferResult.error);
+    }
+
+    const remainingLotsAfterTransfer = lotsAfterTransferResult.value.filter(
+      (lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0)
+    );
     const feeDisposal = {
-      transactionId: tx.id,
+      transactionId: rawTransaction.id,
       assetSymbol: outflow.assetSymbol,
       quantity: cryptoFee.amount,
-      date: new Date(tx.datetime),
+      date: new Date(rawTransaction.datetime),
       proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
     };
 
-    const feeDisposalsResult = strategy.matchDisposal(feeDisposal, openLots);
+    const feeDisposalsResult = strategy.matchDisposal(feeDisposal, remainingLotsAfterTransfer);
     if (feeDisposalsResult.isErr()) {
       return err(feeDisposalsResult.error);
     }
-    const feeDisposals = feeDisposalsResult.value;
 
-    for (const lotDisposal of feeDisposals) {
-      const lot = lots.find((l) => l.id === lotDisposal.lotId);
+    for (const lotDisposal of feeDisposalsResult.value) {
+      const lot = lots.find((candidateLot) => candidateLot.id === lotDisposal.lotId);
       if (!lot) {
         return err(new Error(`Lot ${lotDisposal.lotId} not found`));
       }
 
-      // Track quantity to subtract for this lot
-      const existing = lotUpdates.get(lotDisposal.lotId) || { quantityToSubtract: parseDecimal('0') };
-      lotUpdates.set(lotDisposal.lotId, {
-        quantityToSubtract: existing.quantityToSubtract.plus(lotDisposal.quantityDisposed),
-      });
-
+      buildLotQuantityUpdateMap(lotDisposal.lotId, lotDisposal.quantityDisposed, quantityToSubtractByLotId);
       disposals.push(lotDisposal);
     }
   }
 
-  // Create updated lots array (no mutation)
-  const updatedLots = lots.map((lot) => {
-    const update = lotUpdates.get(lot.id);
-    if (!update) {
-      return lot;
-    }
+  const updatedLotsResult = applyLotQuantityUpdates(lots, quantityToSubtractByLotId);
+  if (updatedLotsResult.isErr()) {
+    return err(updatedLotsResult.error);
+  }
 
-    const newRemainingQuantity = lot.remainingQuantity.minus(update.quantityToSubtract);
-    let newStatus: 'open' | 'partially_disposed' | 'fully_disposed' = lot.status;
-
-    if (newRemainingQuantity.isZero()) {
-      newStatus = 'fully_disposed';
-    } else if (newRemainingQuantity.lt(lot.quantity)) {
-      newStatus = 'partially_disposed';
-    }
-
-    return {
-      ...lot,
-      remainingQuantity: newRemainingQuantity,
-      status: newStatus,
-      updatedAt: new Date(),
-    };
-  });
-
-  return ok({ disposals, transfers, updatedLots, warnings });
+  return ok({ disposals, transfers, updatedLots: updatedLotsResult.value, warnings });
 }
 
 /**
- * Process a transfer target transaction to create acquisition lot with inherited cost basis
+ * Process a transfer target to create an acquisition lot with inherited basis.
  *
- * Pure function that calculates cost basis and returns the lot with warnings for logging.
- * Source transaction must be provided (fetched by caller).
+ * One target movement can map to multiple validated links under N:1 partial
+ * matching. Each link creates a separate lot slice so fiat fees and inherited
+ * basis stay aligned with the validated source movement partition.
  */
 export function processTransferTarget(
-  tx: UniversalTransactionData,
+  transaction: CostBasisTransactionLike,
   inflow: AssetMovement,
-  link: TransactionLink,
-  sourceTx: UniversalTransactionData,
+  validatedLink: ValidatedScopedTransferLink,
+  sourceTx: CostBasisTransactionLike,
   transfersForLink: LotTransfer[],
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id' | 'average-cost',
@@ -275,68 +301,39 @@ export function processTransferTarget(
 ): Result<
   {
     lot: AcquisitionLot;
-    warnings: {
-      data: {
-        date?: string;
-        feeAmount?: Decimal;
-        feeAssetSymbol?: string;
-        linkId?: number;
-        received?: Decimal;
-        sourceTxId?: number;
-        targetTxId?: number;
-        transferred?: Decimal;
-        txId?: number;
-        variancePct?: Decimal;
-      };
-      type: 'no-transfers' | 'variance' | 'missing-price';
-    }[];
+    warnings: TargetWarning[];
   },
   Error
 > {
-  const warnings: {
-    data: {
-      date?: string;
-      feeAmount?: Decimal;
-      feeAssetSymbol?: string;
-      linkId?: number;
-      received?: Decimal;
-      sourceTxId?: number;
-      targetTxId?: number;
-      transferred?: Decimal;
-      txId?: number;
-      variancePct?: Decimal;
-    };
-    type: 'no-transfers' | 'variance' | 'missing-price';
-  }[] = [];
+  const warnings: TargetWarning[] = [];
+  const rawTransaction = getRawTransaction(transaction);
+  const rawSourceTransaction = getRawTransaction(sourceTx);
 
   if (transfersForLink.length === 0) {
     warnings.push({
       type: 'no-transfers',
       data: {
-        linkId: link.id,
-        targetTxId: tx.id,
-        sourceTxId: link.sourceTransactionId,
+        linkId: validatedLink.link.id,
+        targetTxId: rawTransaction.id,
+        sourceTxId: rawSourceTransaction.id,
       },
     });
     return err(
       new Error(
-        `No lot transfers found for link ${link.id} (target tx ${tx.id}). ` +
-          `Source transaction ${link.sourceTransactionId} should have been processed first.`
+        `No lot transfers found for link ${validatedLink.link.id} (target tx ${rawTransaction.id}). ` +
+          `Source transaction ${rawSourceTransaction.id} should have been processed first.`
       )
     );
   }
 
-  // Calculate inherited cost basis from source lots
   const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfersForLink);
+  const receivedQuantity = validatedLink.link.targetAmount;
 
-  const receivedQuantity = inflow.grossAmount;
-
-  // Validate transfer variance
   const varianceResult = validateTransferVariance(
     transferredQuantity,
     receivedQuantity,
-    tx.source,
-    tx.id,
+    rawTransaction.source,
+    rawTransaction.id,
     inflow.assetSymbol,
     varianceTolerance
   );
@@ -345,13 +342,12 @@ export function processTransferTarget(
   }
 
   const { tolerance, variancePct } = varianceResult.value;
-
   if (variancePct.gt(tolerance.warn)) {
     warnings.push({
       type: 'variance',
       data: {
-        linkId: link.id,
-        targetTxId: tx.id,
+        linkId: validatedLink.link.id,
+        targetTxId: rawTransaction.id,
         variancePct,
         transferred: transferredQuantity,
         received: receivedQuantity,
@@ -359,42 +355,42 @@ export function processTransferTarget(
     });
   }
 
-  const fiatFeesResult = collectFiatFees(sourceTx, tx);
+  const sourceFraction = validatedLink.link.sourceAmount.dividedBy(validatedLink.sourceMovementAmount);
+  const targetFraction = validatedLink.link.targetAmount.dividedBy(validatedLink.targetMovementAmount);
+  const fiatFeesResult = collectFiatFees(sourceTx, transaction, {
+    sourceFraction,
+    targetFraction,
+  });
   if (fiatFeesResult.isErr()) {
     return err(fiatFeesResult.error);
   }
 
   const fiatFees = fiatFeesResult.value;
-
-  // Collect warnings about missing prices on fiat fees
   for (const fee of fiatFees) {
-    if (!fee.priceAtTxTime) {
-      warnings.push({
-        type: 'missing-price',
-        data: {
-          txId: fee.txId,
-          linkId: link.id,
-          feeAssetSymbol: fee.assetSymbol,
-          feeAmount: fee.amount,
-          date: fee.date,
-        },
-      });
-    }
+    if (fee.priceAtTxTime) continue;
+    warnings.push({
+      type: 'missing-price',
+      data: {
+        txId: fee.txId,
+        linkId: validatedLink.link.id,
+        feeAssetSymbol: fee.assetSymbol,
+        feeAmount: fee.amount,
+        date: fee.date,
+      },
+    });
   }
 
-  // Calculate final cost basis including fiat fees
   const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
-
   const lot = createAcquisitionLot({
     id: globalThis.crypto.randomUUID(),
     calculationId,
-    acquisitionTransactionId: tx.id,
+    acquisitionTransactionId: rawTransaction.id,
     assetId: inflow.assetId,
     assetSymbol: inflow.assetSymbol,
     quantity: receivedQuantity,
     costBasisPerUnit,
     method: strategyName,
-    transactionDate: new Date(tx.datetime),
+    transactionDate: new Date(rawTransaction.datetime),
   });
 
   return ok({ lot, warnings });

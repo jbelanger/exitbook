@@ -80,8 +80,19 @@ export function createLinksViewState(
   verbose = false,
   totalCount?: number
 ): LinksViewLinksState {
+  const sortedLinks = [...links].sort((left, right) => {
+    const leftTime = getLinkDisplayTime(left);
+    const rightTime = getLinkDisplayTime(right);
+
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+
+    return left.link.id - right.link.id;
+  });
+
   // Calculate counts
-  const counts = links.reduce(
+  const counts = sortedLinks.reduce(
     (acc, item) => {
       const status = item.link.status;
       if (status === 'confirmed') acc.confirmed += 1;
@@ -94,7 +105,7 @@ export function createLinksViewState(
 
   return {
     mode: 'links',
-    links,
+    links: sortedLinks,
     counts,
     selectedIndex: 0,
     scrollOffset: 0,
@@ -104,6 +115,20 @@ export function createLinksViewState(
     error: undefined,
     verbose,
   };
+}
+
+function getLinkDisplayTime(item: LinkWithTransactions): number {
+  const sourceTime = item.sourceTransaction?.datetime ? Date.parse(item.sourceTransaction.datetime) : Number.NaN;
+  if (!Number.isNaN(sourceTime)) {
+    return sourceTime;
+  }
+
+  const targetTime = item.targetTransaction?.datetime ? Date.parse(item.targetTransaction.datetime) : Number.NaN;
+  if (!Number.isNaN(targetTime)) {
+    return targetTime;
+  }
+
+  return item.link.createdAt.getTime();
 }
 
 /**

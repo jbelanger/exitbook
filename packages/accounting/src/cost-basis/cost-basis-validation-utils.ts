@@ -2,6 +2,11 @@ import { isFiat, type Currency, type UniversalTransactionData } from '@exitbook/
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+} from './build-accounting-scoped-transactions.js';
+
 const logger = getLogger('cost-basis-validation-utils');
 
 /**
@@ -116,6 +121,98 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
 
     // Collect fees
     for (const fee of tx.fees ?? []) {
+      const priceData = fee.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        assetSymbol: fee.assetSymbol,
+        currency: priceData?.price?.currency,
+        kind: 'fee',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+  }
+
+  return entities;
+}
+
+/**
+ * Extract all scoped movements and fees that still require pricing.
+ */
+export function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransaction[]): PricedEntity[] {
+  const entities: PricedEntity[] = [];
+
+  for (const scopedTransaction of scopedTransactions) {
+    const txId = String(scopedTransaction.tx.id ?? scopedTransaction.tx.externalId ?? '(unknown)');
+    const datetime = scopedTransaction.tx.datetime ?? '(unknown)';
+
+    for (const movement of scopedTransaction.movements.inflows) {
+      const priceData = movement.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        assetSymbol: movement.assetSymbol,
+        currency: priceData?.price?.currency,
+        kind: 'inflow',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+
+    for (const movement of scopedTransaction.movements.outflows) {
+      const priceData = movement.priceAtTxTime;
+      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
+      const hasFxMetadata = priceData
+        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
+        : false;
+
+      entities.push({
+        transactionId: txId,
+        datetime,
+        assetSymbol: movement.assetSymbol,
+        currency: priceData?.price?.currency,
+        kind: 'outflow',
+        hasPrice,
+        hasFxMetadata,
+        fxMetadata:
+          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
+            ? {
+                rate: priceData.fxRateToUSD?.toFixed() ?? '',
+                source: priceData.fxSource ?? '',
+                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+              }
+            : undefined,
+      });
+    }
+
+    for (const fee of scopedTransaction.fees) {
       const priceData = fee.priceAtTxTime;
       const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
       const hasFxMetadata = priceData
@@ -338,6 +435,47 @@ export function assertPriceDataQuality(transactions: UniversalTransactionData[])
   };
 
   // Phase 4: Return result
+  if (!result.isValid) {
+    return err(new Error(formatValidationError(result)));
+  }
+
+  return ok(undefined);
+}
+
+/**
+ * Assert that the scoped accounting boundary has complete, USD-denominated price data.
+ */
+export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScopedBuildResult): Result<void, Error> {
+  const entities = collectScopedPricedEntities(scopedBuildResult.transactions);
+
+  const missingPriceIssues = validatePriceCompleteness(entities);
+  const nonUsdIssues = validatePriceCurrency(entities);
+  const missingFxTrailIssues = validateFxAuditTrail(entities);
+  const allIssues = [...missingPriceIssues, ...nonUsdIssues, ...missingFxTrailIssues];
+
+  const byKind = new Map<string, number>();
+  const byCurrency = new Map<string, number>();
+
+  for (const entity of entities) {
+    byKind.set(entity.kind, (byKind.get(entity.kind) ?? 0) + 1);
+    if (entity.currency) {
+      byCurrency.set(entity.currency, (byCurrency.get(entity.currency) ?? 0) + 1);
+    }
+  }
+
+  const result: PriceValidationResult = {
+    isValid: allIssues.length === 0,
+    issues: allIssues,
+    summary: {
+      totalEntities: entities.length,
+      missingPrices: missingPriceIssues.length,
+      nonUsdPrices: nonUsdIssues.length,
+      missingFxTrails: missingFxTrailIssues.length,
+      byKind,
+      byCurrency,
+    },
+  };
+
   if (!result.isValid) {
     return err(new Error(formatValidationError(result)));
   }

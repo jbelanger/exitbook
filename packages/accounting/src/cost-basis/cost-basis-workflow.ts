@@ -9,7 +9,6 @@ import type { CostBasisSummary } from './cost-basis-calculator.js';
 import { runCostBasisPipeline } from './cost-basis-pipeline.js';
 import { CostBasisReportGenerator } from './cost-basis-report-generator.js';
 import { validateCostBasisParams, type CostBasisInput } from './cost-basis-utils.js';
-import type { AssetMatchError } from './lot-matcher.js';
 import type { CostBasisReport } from './report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from './types.js';
 
@@ -20,12 +19,10 @@ const logger = getLogger('CostBasisWorkflow');
  */
 export interface CostBasisWorkflowResult {
   summary: CostBasisSummary;
-  missingPricesWarning?: string | undefined;
   report?: CostBasisReport | undefined;
   lots: AcquisitionLot[];
   disposals: LotDisposal[];
   lotTransfers: LotTransfer[];
-  errors: AssetMatchError[];
 }
 
 /**
@@ -56,12 +53,17 @@ export class CostBasisWorkflow {
     const filteredResult = this.filterTransactionsForWindow(transactions, config);
     if (filteredResult.isErr()) return err(filteredResult.error);
 
-    const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store);
+    const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
+      // Tax reporting must fail closed. Excluding a disposal or transfer because
+      // it lacks prices would change realized gain/loss and silently understate
+      // the report.
+      missingPricePolicy: 'error',
+    });
     if (pipelineResult.isErr()) {
       return err(pipelineResult.error);
     }
 
-    const { summary, missingPricesCount } = pipelineResult.value;
+    const { summary } = pipelineResult.value;
 
     logger.info(
       {
@@ -94,15 +96,10 @@ export class CostBasisWorkflow {
 
     return ok({
       summary,
-      missingPricesWarning:
-        missingPricesCount > 0
-          ? `${missingPricesCount} transactions were excluded due to missing prices. Run 'exitbook prices fetch' to populate missing prices.`
-          : undefined,
       report,
       lots,
       disposals,
       lotTransfers,
-      errors: summary.errors,
     });
   }
 

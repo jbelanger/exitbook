@@ -238,7 +238,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3000'),
       ]);
 
-      const btcOnChainFees = extractOnChainFees(tx, 'BTC');
+      const btcOnChainFees = extractOnChainFees(tx, 'test:btc');
 
       expect(btcOnChainFees.toFixed()).toBe('0.001');
     });
@@ -248,7 +248,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
       ]);
 
-      const onChainFees = extractOnChainFees(tx, 'BTC');
+      const onChainFees = extractOnChainFees(tx, 'test:btc');
 
       expect(onChainFees.toFixed()).toBe('0');
     });
@@ -259,7 +259,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('platform', 'on-chain', 'BTC', '0.0002', '50000'),
       ]);
 
-      const onChainFees = extractOnChainFees(tx, 'BTC');
+      const onChainFees = extractOnChainFees(tx, 'test:btc');
 
       expect(onChainFees.toFixed()).toBe('0.0012');
     });
@@ -271,7 +271,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
       ]);
 
-      const result = extractCryptoFee(tx, 'BTC');
+      const result = extractCryptoFee(tx, 'test:btc');
 
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0.001');
@@ -284,7 +284,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
       ]);
 
-      const result = extractCryptoFee(tx, 'BTC');
+      const result = extractCryptoFee(tx, 'test:btc');
 
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0.002');
@@ -297,7 +297,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('platform', 'on-chain', 'BTC', '0.002', '50000'),
       ]);
 
-      const result = extractCryptoFee(tx, 'BTC');
+      const result = extractCryptoFee(tx, 'test:btc');
 
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0.003');
@@ -307,7 +307,7 @@ describe('lot-matcher-utils', () => {
     it('should return zero for no fees', () => {
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {});
 
-      const result = extractCryptoFee(tx, 'BTC');
+      const result = extractCryptoFee(tx, 'test:btc');
 
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0');
@@ -319,7 +319,7 @@ describe('lot-matcher-utils', () => {
         createFeeMovement('network', 'on-chain', 'ETH', '0.01', '3000'),
       ]);
 
-      const result = extractCryptoFee(tx, 'BTC');
+      const result = extractCryptoFee(tx, 'test:btc');
 
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0');
@@ -914,7 +914,12 @@ describe('lot-matcher-utils', () => {
           id: '1',
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
-          linkId: 1,
+          provenance: {
+            kind: 'confirmed-link',
+            linkId: 1,
+            sourceMovementFingerprint: 'source:movement:1',
+            targetMovementFingerprint: 'target:movement:1',
+          },
           quantityTransferred: parseDecimal('0.5'),
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,
@@ -926,7 +931,12 @@ describe('lot-matcher-utils', () => {
           id: '2',
           calculationId: 'calc-1',
           sourceLotId: 'lot-2',
-          linkId: 1,
+          provenance: {
+            kind: 'confirmed-link',
+            linkId: 1,
+            sourceMovementFingerprint: 'source:movement:2',
+            targetMovementFingerprint: 'target:movement:1',
+          },
           quantityTransferred: parseDecimal('0.3'),
           costBasisPerUnit: parseDecimal('51000'),
           sourceTransactionId: 1,
@@ -950,7 +960,12 @@ describe('lot-matcher-utils', () => {
           id: '1',
           calculationId: 'calc-1',
           sourceLotId: 'lot-1',
-          linkId: 1,
+          provenance: {
+            kind: 'confirmed-link',
+            linkId: 1,
+            sourceMovementFingerprint: 'source:movement:1',
+            targetMovementFingerprint: 'target:movement:1',
+          },
           quantityTransferred: parseDecimal('0.5'),
           costBasisPerUnit: parseDecimal('50000'),
           sourceTransactionId: 1,

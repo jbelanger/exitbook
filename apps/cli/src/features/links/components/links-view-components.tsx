@@ -2,7 +2,7 @@
  * Links view TUI components
  */
 
-import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
+import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC } from 'react';
 
@@ -208,6 +208,11 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
 
   const visibleRows = calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES);
   const cols = createColumns(links, {
+    date: {
+      format: (item) => formatLinkDate(item),
+      minWidth: 10,
+      maxWidth: 10,
+    },
     asset: { format: (item) => item.link.assetSymbol, minWidth: 5 },
     status: { format: (item) => item.link.status, minWidth: 9 },
     sourceTarget: {
@@ -259,15 +264,14 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
  * Individual link row component
  */
 const LinkRow: FC<{
-  cols: Columns<LinkWithTransactions, 'asset' | 'status' | 'sourceTarget'>;
+  cols: Columns<LinkWithTransactions, 'date' | 'asset' | 'status' | 'sourceTarget'>;
   isSelected: boolean;
   item: LinkWithTransactions;
 }> = ({ item, isSelected, cols }) => {
   const { link } = item;
 
-  const { asset, status, sourceTarget } = cols.format(item);
-  const sourceAmount = formatAmount(link.sourceAmount.toFixed(), 15);
-  const targetAmount = formatAmount(link.targetAmount.toFixed(), 15);
+  const { date, asset, status, sourceTarget } = cols.format(item);
+  const amountDisplay = getLinkAmountDisplay(link);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
 
   const { icon, iconColor } = getStatusDisplay(link.status);
@@ -277,7 +281,7 @@ const LinkRow: FC<{
   if (isSelected) {
     return (
       <Text bold>
-        {cursor} {icon} {link.id} {asset} {sourceAmount} <Text dimColor>→</Text> {targetAmount} {sourceTarget}{' '}
+        {cursor} {icon} {date} {asset} {renderAmountSummary(amountDisplay)} <Text color="cyan">{sourceTarget}</Text>{' '}
         {confidence} {status}
       </Text>
     );
@@ -286,16 +290,15 @@ const LinkRow: FC<{
   if (link.status === 'rejected') {
     return (
       <Text dimColor>
-        {cursor} {icon} {link.id} {asset} {sourceAmount} → {targetAmount} {sourceTarget} {confidence} {status}
+        {cursor} {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget} {confidence} {status}
       </Text>
     );
   }
 
   return (
     <Text>
-      {cursor} <Text color={iconColor}>{icon}</Text> {link.id} {asset} <Text color="green">{sourceAmount}</Text>{' '}
-      <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text> <Text color="cyan">{sourceTarget}</Text>{' '}
-      {confidence} {status}
+      {cursor} <Text color={iconColor}>{icon}</Text> {date} {asset} {renderAmountSummary(amountDisplay)}{' '}
+      <Text color="cyan">{sourceTarget}</Text> {confidence} {status}
     </Text>
   );
 };
@@ -317,6 +320,7 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
   const { iconColor: statusColor } = getStatusDisplay(link.status);
+  const amountDisplay = getLinkAmountDisplay(link);
 
   return (
     <Box
@@ -368,16 +372,71 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
         <Text dimColor>Match: </Text>
         {formatMatchCriteria(link.matchCriteria)}
       </Text>
-      {(link.matchCriteria.hashMatch === true || link.linkType === 'blockchain_internal') &&
-        !link.sourceAmount.equals(link.targetAmount) && (
-          <Text>
-            {'  '}
-            <Text dimColor>Note: Amounts differ (UTXO change/fees or multi-output transaction)</Text>
-          </Text>
-        )}
+      {amountDisplay.detailSummary && (
+        <Text>
+          {'  '}
+          <Text dimColor>{amountDisplay.detailLabel ?? 'Summary:'} </Text>
+          {amountDisplay.detailSummary}
+        </Text>
+      )}
     </Box>
   );
 };
+
+interface LinkAmountDisplay {
+  detailLabel?: string | undefined;
+  detailSummary?: string | undefined;
+  matchedAmount: string;
+}
+
+function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
+  const metadata = link.metadata;
+  const isPartialMatch = metadata?.['partialMatch'] === true;
+
+  if (isPartialMatch) {
+    const consumedAmount =
+      typeof metadata?.['consumedAmount'] === 'string' ? metadata['consumedAmount'] : link.sourceAmount.toFixed();
+    const fullSourceAmount =
+      typeof metadata?.['fullSourceAmount'] === 'string' ? metadata['fullSourceAmount'] : link.sourceAmount.toFixed();
+    const fullTargetAmount =
+      typeof metadata?.['fullTargetAmount'] === 'string' ? metadata['fullTargetAmount'] : link.targetAmount.toFixed();
+
+    return {
+      detailLabel: 'Summary:',
+      matchedAmount: consumedAmount,
+      detailSummary: `split match between ${fullSourceAmount} ${link.assetSymbol} sent and ${fullTargetAmount} ${link.assetSymbol} received`,
+    };
+  }
+
+  if (link.sourceAmount.equals(link.targetAmount)) {
+    return {
+      matchedAmount: link.sourceAmount.toFixed(),
+      detailSummary: undefined,
+    };
+  }
+
+  if (link.sourceAmount.greaterThan(link.targetAmount)) {
+    return {
+      detailLabel: 'Change:',
+      matchedAmount: link.targetAmount.toFixed(),
+      detailSummary: `${link.sourceAmount.minus(link.targetAmount).toFixed()} ${link.assetSymbol}`,
+    };
+  }
+
+  return {
+    detailLabel: 'Difference:',
+    matchedAmount: link.sourceAmount.toFixed(),
+    detailSummary: `target exceeds source by ${link.targetAmount.minus(link.sourceAmount).toFixed()} ${link.assetSymbol}`,
+  };
+}
+
+function renderAmountSummary(display: LinkAmountDisplay) {
+  return (
+    <>
+      <Text color="green">{formatAmount(display.matchedAmount, 15)}</Text> <Text dimColor>matched</Text>
+    </>
+  );
+}
 
 /**
  * Transaction line component for detail panel
@@ -770,6 +829,18 @@ function formatAmount(amount: string, width: number): string {
   });
 
   return formatted.padStart(width);
+}
+
+function formatLinkDate(item: LinkWithTransactions): string {
+  const rawTimestamp =
+    item.sourceTransaction?.datetime ?? item.targetTransaction?.datetime ?? item.link.createdAt.toISOString();
+  const parsed = new Date(rawTimestamp);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return 'unknown'.padEnd(10);
+  }
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 function formatConfidenceScore(score: number): string {

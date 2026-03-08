@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-02-13
+last_verified: 2026-03-08
 status: implemented
 ---
 
@@ -9,169 +9,164 @@ status: implemented
 
 ## Quick Reference
 
-| Concept         | Rule                                                     |
-| --------------- | -------------------------------------------------------- |
-| Dependency node | Transaction ID (`number`)                                |
-| Dependency edge | `sourceTransactionId → targetTransactionId`              |
-| Ordering        | Topological order, then `datetime ASC`, then `tx.id ASC` |
-| Processing unit | Single global transaction pass                           |
-| Within-tx order | Outflows first, inflows second                           |
-| Transfer lookup | `Map<string, LotTransfer[]>` keyed by link ID (UUID)     |
-| Cycle handling  | `Err` with DFS-derived cycle path                        |
-| Fiat assets     | Skipped in both outflow and inflow phases                |
+| Concept         | Rule                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| Dependency node | Transaction ID (`number`)                                                                         |
+| Dependency edge | `sourceTransactionId → targetTransactionId`                                                       |
+| Edge sources    | Validated confirmed external links and fee-only internal carryovers                               |
+| Ordering        | Topological order, then `datetime ASC`, then `tx.id ASC`                                          |
+| Processing unit | Single global pass over `AccountingScopedTransaction[]`                                           |
+| Within-tx order | Carryover sources and outflows first, then inflows and carryover targets                          |
+| Transfer lookup | `Map<string, LotTransfer[]>` keyed by binding key                                                 |
+| Binding keys    | `link:${linkId}` for confirmed links; `carryover:${sourceFp}:${targetFp}` for fee-only carryovers |
+| Cycle handling  | `Err` with DFS-derived cycle path                                                                 |
+| Link lookup     | Movement-fingerprint targeted only                                                                |
 
 ## Goals
 
-- **Correct transfer sequencing**: Transfer targets never process before their source in valid acyclic histories.
-- **Deterministic outcomes**: Same inputs produce identical lots/disposals/transfers across runs.
-- **Behavioral preservation**: Existing disposal, acquisition, fee, and transfer math is unchanged; only orchestration differs.
+- Ensure every transfer target is processed after its source lots exist.
+- Keep ordering deterministic across identical inputs.
+- Make fee-only internal carryovers use the same dependency machinery as ordinary transfers.
+- Keep the matcher independent from `blockchain_internal` links and other linker-era UTXO hints.
 
 ## Non-Goals
 
-- Changing transfer-link discovery heuristics (`TransactionLinkingService`).
-- Changing fee valuation formulas or tax policy decisions.
-- Schema or migration changes.
+- Discovering links or same-hash accounting meaning inside the matcher.
+- Applying exclusions inside the matcher. Exclusions belong before matching, on the accounting-scoped boundary.
+- Changing fee policy or disposal strategy math.
 
 ## Core Data Structures
 
-### Transaction Dependency Graph
+### Dependency Graph
 
-Directed graph built from confirmed links over the current transaction batch:
+`sortTransactionsByDependency(...)` consumes `TransactionDependencyEdge[]`.
 
-- **Node**: `tx.id` (integer)
-- **Edge**: `link.sourceTransactionId → link.targetTransactionId`
-- Only edges where both endpoints exist in the batch are included
-- Self-referential edges (`source === target`) are ignored
-- Duplicate edges between the same pair are deduplicated (indegree incremented once)
+- Node: `tx.id`
+- Edge: `sourceTransactionId → targetTransactionId`
+- Edges are built from:
+  - validated confirmed external transfer links
+  - fee-only internal carryover source-to-target relationships
+- Only edges whose endpoints both exist in the current batch are included
+- Self-referential edges are ignored
+- Duplicate edges are deduplicated before indegree updates
 
-### Per-Asset Mutable State
+### Scoped Transaction Input
 
-Each asset ID encountered during processing gets its own state container:
+The matcher runs only on `AccountingScopedBuildResult`, not raw processed transactions.
 
-```ts
-interface AssetProcessingState {
-  assetSymbol: string;
-  lots: AcquisitionLot[];
-  disposals: LotDisposal[];
-  lotTransfers: LotTransfer[];
-}
-```
+That means same-hash internal reductions, scoped movement identity, and fee-only carryover sidecars are already resolved before dependency ordering begins.
 
-Initialized lazily on first encounter via `getOrInitAssetState`.
+### Transfer Binding Map
 
-### Transfer Index
-
-O(1) lookup map for transfer-target processing, populated as transfers are created:
+As transfer sources are processed, `LotTransfer` rows are stored in:
 
 ```ts
-const transfersByLinkId = new Map<string, LotTransfer[]>();
+const transfersByBindingKey = new Map<string, LotTransfer[]>();
 ```
 
-Key is `TransactionLink.id` / `LotTransfer.linkId` (UUID string). `processTransferTarget` receives pre-filtered transfers directly — no runtime filter scan.
+Binding keys are provenance-aware:
+
+- confirmed persisted link: `link:${linkId}`
+- fee-only internal carryover: `carryover:${sourceMovementFingerprint}:${targetMovementFingerprint}`
+
+Targets never scan all transfers. They resolve directly through the binding key implied by the validated link or carryover target.
 
 ## Processing Pipeline
 
 ```mermaid
 graph TD
-    A[Load confirmed links ≥95% confidence] --> B[sortTransactionsByDependency]
-    B --> C[Build LinkIndex for source/target lookup]
-    C --> D[Global transaction loop]
-    D --> E[Outflow phase: disposals + transfer sources]
-    E --> F[Index LotTransfers by linkId]
-    D --> G[Inflow phase: acquisitions + transfer targets]
-    G --> H[Lookup transfersByLinkId for inherited basis]
-    E & G --> I[Accumulate into AssetProcessingState]
-    I --> J[Build LotMatchResult grouped by asset]
+    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
+    B --> C["AccountingScopedBuildResult"]
+    C --> D["validateScopedTransferLinks"]
+    C --> E["Prepare fee-only carryovers"]
+    D --> F["Build dependency edges"]
+    E --> F
+    F --> G["sortTransactionsByDependency"]
+    G --> H["Global matcher pass"]
+    H --> I["Outflows / carryover sources"]
+    H --> J["Inflows / carryover targets"]
+    I --> K["transfersByBindingKey"]
+    J --> K
 ```
 
-### 1. Transaction Ordering (`sortTransactionsByDependency`)
+### 1. Ordering
 
-Kahn's algorithm with deterministic tie-breaking:
+`sortTransactionsByDependency(...)` uses Kahn's algorithm with deterministic tie-breaking:
 
-1. Build adjacency list and indegree map from confirmed links.
-2. Seed queue with zero-indegree nodes, sorted by `(datetime ASC, tx.id ASC)`.
-3. Pop from queue front, decrement neighbor indegrees, insert newly-freed nodes at sorted position (binary-style insertion maintaining `datetime ASC, tx.id ASC`).
-4. If `sorted.length < transactions.length`, unresolved nodes form a cycle — return `Err` with DFS-derived cycle path.
+1. Build adjacency + indegree from dependency edges.
+2. Seed zero-indegree queue.
+3. Sort queue by `datetime ASC`, then `tx.id ASC`.
+4. Pop, emit, decrement neighbors, and insert newly freed nodes in sorted order.
+5. If unresolved nodes remain, return `Err` with a DFS-derived cycle path.
 
-Canonical time source is `tx.datetime` (ISO string parsed via `Date.parse`), not `tx.timestamp`.
+Canonical time source is `tx.datetime`, not `tx.timestamp`.
 
-### 2. Outflow Phase (per transaction)
+### 2. Source-Side Phase
 
-For each outflow movement in the transaction:
+For each sorted scoped transaction:
 
-1. Skip if fiat asset (`Currency.create(symbol).isFiat()`).
-2. Resolve `AssetProcessingState` by `outflow.assetId`.
-3. Find effective source link via `findEffectiveSourceLink`:
-   - Consumes `blockchain_internal` links first (change outputs).
-   - Returns first non-internal link, or signals `internal_only` / `none`.
-   - When internal links were consumed before a cross-source link, `isPartialOutflow=true` — use `link.sourceAmount` instead of outflow amount.
-4. **Transfer**: call `handleTransferSource` → record each `LotTransfer` into shared list, asset state, and `transfersByLinkId` → consume source link.
-5. **None**: call `matchOutflowDisposal` → update lots/disposals.
-6. **Internal only**: skip.
+1. Process any fee-only internal carryovers sourced by this transaction.
+2. Process each non-fiat scoped outflow.
+3. Resolve source links by exact `sourceMovementFingerprint`.
+4. If no validated links exist, treat the outflow as a disposal.
+5. If validated links exist:
+   - require one full link or a set of partial links for that one movement
+   - process transfer-source math once for the scoped movement
+   - emit `LotTransfer` rows under the appropriate binding key
 
-### 3. Inflow Phase (per transaction)
+No internal-link consumption happens here. Same-hash internal behavior was already encoded in the scoped build result.
 
-Inflows are grouped by asset ID within the transaction, then processed per group:
+### 3. Target-Side Phase
 
-1. Skip fiat assets.
-2. Resolve `AssetProcessingState` by `inflow.assetId`.
-3. Find effective target link via `findEffectiveTargetLink` (same internal-skip behavior as source).
-4. **Transfer**: aggregate same-asset inflows → `transfersForLink = transfersByLinkId.get(link.id) ?? []` → call `handleTransferTarget` with pre-filtered transfers → push lot → consume target link.
-5. **None**: create acquisition lot per inflow via `buildAcquisitionLotFromInflow`.
-6. **Internal only**: skip.
+For each non-fiat scoped inflow:
 
-### 4. Result Assembly
+1. Resolve validated links by exact `targetMovementFingerprint`.
+2. Resolve fee-only carryover targets by exact `targetMovementFingerprint`.
+3. Error if both mechanisms target the same scoped inflow.
+4. If validated external links exist:
+   - fetch source-side transfers by confirmed-link binding key
+   - build target acquisition lots from inherited basis plus eligible fiat fees
+5. If carryover targets exist:
+   - fetch carryover transfers by carryover binding key
+   - build target acquisition lots from inherited basis plus eligible fiat fees
+6. If neither exists, create a normal acquisition lot from the inflow.
 
-After the global loop, `lotStateByAssetId` entries become `AssetLotMatchResult[]` with totals.
+Inflows are movement-targeted. The matcher does not aggregate sibling inflows by asset symbol before link lookup.
 
 ## Error Semantics
 
-All errors return `Err<Error>` (no throws, no silent fallbacks):
+All failures return `Err<Error>` and abort the matching run.
 
-| Condition                                   | Error source                   |
-| ------------------------------------------- | ------------------------------ |
-| Invalid `datetime` string                   | `sortTransactionsByDependency` |
-| Transaction dependency cycle                | `sortTransactionsByDependency` |
-| Transfer target with no source transfers    | `processTransferTarget`        |
-| Transfer variance exceeding error threshold | `validateTransferVariance`     |
-| Missing jurisdiction config for transfers   | `handleTransferSource`         |
-| Missing prices on non-fiat movements        | `match()` pre-validation       |
+| Condition                                               | Error source                              |
+| ------------------------------------------------------- | ----------------------------------------- |
+| Invalid `datetime`                                      | `sortTransactionsByDependency`            |
+| Dependency cycle                                        | `sortTransactionsByDependency`            |
+| Missing jurisdiction config for transfers/carryovers    | `LotMatcher.match`                        |
+| Missing carryover source/target transaction or movement | carryover preparation / target processing |
+| Transfer source/target amount reconciliation failure    | transfer processing utils                 |
+| Transfer target with no source-side transfers           | transfer target processing                |
+| Lot depletion / negative remaining quantity             | disposal or lot update utils              |
 
-Cycle errors include a DFS-traced path (e.g., `1 → 2 → 1`) for diagnostics.
+The matcher no longer returns partial-success asset results.
 
 ## Invariants
 
-1. **Dependency correctness**: If link `A → B` exists in batch, tx `A` is processed before tx `B`.
-2. **Within-transaction ordering**: Outflows always processed before inflows.
-3. **Determinism**: Identical inputs produce identical output ordering and results.
-4. **Transfer integrity**: Transfer-target lot creation requires pre-existing `LotTransfer` records for the same link ID.
-5. **Asset isolation**: Lots, disposals, and transfers accumulate into the correct asset state based on movement `assetId`, not transaction-level fields.
+1. If a validated dependency edge `A → B` exists in the batch, `A` is processed before `B`.
+2. Same-hash internal reductions are decided before matching, not by consuming internal links at runtime.
+3. Transfer source and target lookup are both keyed by scoped movement fingerprints.
+4. Fee-only internal carryovers participate in dependency ordering exactly like ordinary transfers.
+5. Asset state is isolated by `assetId`, not by transaction-level symbol guesses.
 
 ## Edge Cases
 
-- **Duplicate links**: Same `(source, target)` pair from multiple links increments indegree only once (Set-based edge tracking).
-- **Self-referential links**: Ignored (`source !== target` guard).
-- **External links**: Links referencing tx IDs outside the current batch are ignored.
-- **Datetime vs timestamp**: Sort uses `datetime` (ISO string) as canonical source, not the numeric `timestamp` field.
-- **Multi-asset transactions**: A single transaction can touch multiple asset states; each movement resolves its own `AssetProcessingState`.
-- **UTXO partial outflows**: When `blockchain_internal` links are consumed before a cross-source link, the link's `sourceAmount` (gross minus change) is used for variance checks and disposal quantity.
-
-## Limitations
-
-- Dependency ordering only considers links present in the input batch; missing links can cause non-transfer (regular disposal) behavior.
-- True transaction cycles are treated as data integrity errors — the entire matching run fails.
-- Link confidence threshold (≥95%) and status filtering are applied before dependency analysis.
-
-## Implementation Files
-
-| File                   | Role                                          |
-| ---------------------- | --------------------------------------------- |
-| `lot-matcher.ts`       | Orchestration: global loop, state management  |
-| `lot-matcher-utils.ts` | Pure functions: sort, disposal, transfer math |
-| `link-index.ts`        | Source/target link lookup and consumption     |
+- Links whose endpoints are both outside the batch produce no dependency edge.
+- Cross-boundary confirmed links fail earlier during scoped validation; they do not reach the sorter.
+- Multiple validated links may share one source movement only when all are partial matches.
+- Multiple validated links may share one target movement only when scoped validation accepted that target fingerprint grouping.
+- Missing validated links still degrade to disposal/acquisition behavior; the matcher does not invent transfers.
 
 ## Related Specs
 
-- [Transfers & Tax](./transfers-and-tax.md) — transfer linkage and tax behavior
-- [Average Cost Basis](./average-cost-basis.md) — strategy-level disposal allocation
-- [Fees](./fees.md) — fee semantics used during cost-basis calculations
+- [Transfers & Tax](./transfers-and-tax.md)
+- [Fees](./fees.md)
+- [Average Cost Basis](./average-cost-basis.md)

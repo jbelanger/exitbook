@@ -1,14 +1,25 @@
 import type { FeeMovement } from '@exitbook/core';
-import { type Currency, parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import {
+  err,
+  type Currency,
+  parseDecimal,
+  type AssetMovement,
+  type Result,
+  type UniversalTransactionData,
+} from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/types.js';
+import type { AccountingScopedTransaction } from '../build-accounting-scoped-transactions.js';
+import { buildAccountingScopedTransactions } from '../build-accounting-scoped-transactions.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
+import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
   const createTransaction = (
@@ -58,8 +69,91 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   });
 
   const matcher = new LotMatcher();
+  const logger = getLogger('lot-matcher-transfers.test');
 
   let transactions: UniversalTransactionData[] = [];
+
+  async function matchTransactions(
+    rawTransactions: UniversalTransactionData[],
+    confirmedLinks: TransactionLink[],
+    config: Parameters<LotMatcher['match']>[2]
+  ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
+    const scopedResult = buildAccountingScopedTransactions(rawTransactions, logger);
+    if (scopedResult.isErr()) {
+      return err(scopedResult.error);
+    }
+    const scoped = scopedResult.value;
+    const hydratedLinks = hydrateTestLinks(scoped.transactions, confirmedLinks);
+    const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, hydratedLinks);
+    if (validatedLinksResult.isErr()) {
+      return err(validatedLinksResult.error);
+    }
+
+    return matcher.match(scoped, validatedLinksResult.value, config);
+  }
+
+  function hydrateTestLinks(
+    scopedTransactions: AccountingScopedTransaction[],
+    confirmedLinks: TransactionLink[]
+  ): TransactionLink[] {
+    const usageByHint = new Map<string, number>();
+
+    return confirmedLinks.map((link) => {
+      const sourceTransaction = scopedTransactions.find(
+        (scopedTransaction) => scopedTransaction.tx.id === link.sourceTransactionId
+      );
+      const targetTransaction = scopedTransactions.find(
+        (scopedTransaction) => scopedTransaction.tx.id === link.targetTransactionId
+      );
+      if (!sourceTransaction || !targetTransaction) {
+        throw new Error(`Failed to hydrate test link ${link.id}: source or target transaction not found`);
+      }
+
+      const sourceMovement = resolveScopedMovement(
+        sourceTransaction,
+        'outflow',
+        link.sourceMovementFingerprint,
+        usageByHint
+      );
+      const targetMovement = resolveScopedMovement(
+        targetTransaction,
+        'inflow',
+        link.targetMovementFingerprint,
+        usageByHint
+      );
+
+      return {
+        ...link,
+        sourceAssetId: sourceMovement.assetId,
+        targetAssetId: targetMovement.assetId,
+        sourceMovementFingerprint: sourceMovement.movementFingerprint,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+      };
+    });
+  }
+
+  function resolveScopedMovement(
+    scopedTransaction: AccountingScopedTransaction,
+    movementType: 'inflow' | 'outflow',
+    fingerprintHint: string,
+    usageByHint: Map<string, number>
+  ) {
+    const positionMatch = fingerprintHint.match(/:(inflow|outflow):(\d+)$/);
+    const hintedPosition = positionMatch ? Number.parseInt(positionMatch[2]!, 10) : 0;
+    const usageKey = `${scopedTransaction.tx.id}:${movementType}:${fingerprintHint}`;
+    const usageOffset = usageByHint.get(usageKey) ?? 0;
+    const position = hintedPosition + usageOffset;
+    const movements =
+      movementType === 'inflow' ? scopedTransaction.movements.inflows : scopedTransaction.movements.outflows;
+    const movement = movements[position];
+    if (!movement) {
+      throw new Error(
+        `Failed to resolve scoped ${movementType} movement at position ${position} for transaction ${scopedTransaction.tx.id}`
+      );
+    }
+    usageByHint.set(usageKey, usageOffset + 1);
+    return movement;
+  }
 
   describe('1. Timestamp inconsistencies - reversed deposit/withdrawal', () => {
     it('should process transfer correctly when target timestamp < source timestamp', async () => {
@@ -92,7 +186,12 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
             priceAtTxTime: createPriceAtTxTime('60000'),
           },
         ],
-        [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000')]
+        [
+          {
+            ...createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '60000'),
+            assetId: 'exchange:kraken:btc',
+          },
+        ]
       );
 
       const depositTx = createTransaction(
@@ -117,7 +216,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -126,15 +225,11 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
       expect(btcResult).toBeDefined();
       expect(btcResult!.lots).toHaveLength(2);
-      expect(btcResult!.disposals).toHaveLength(1);
       expect(btcResult!.lotTransfers).toHaveLength(1);
 
       const transferLot = btcResult!.lots[1];
       expect(transferLot?.acquisitionTransactionId).toBe(3);
       expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-
-      const feeDisposal = btcResult!.disposals[0];
-      expect(feeDisposal?.quantityDisposed.toFixed()).toBe('0.0005');
     });
   });
 
@@ -194,7 +289,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -290,7 +385,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
@@ -376,7 +471,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -483,7 +578,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link1, link2], {
+      const result = await matchTransactions(transactions, [link1, link2], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -583,7 +678,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -685,7 +780,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link1, link2], {
+      const result = await matchTransactions(transactions, [link1, link2], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -708,7 +803,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   });
 
   describe('8. Multiple inflows', () => {
-    it('should handle multiple inflows of same asset aggregated', async () => {
+    it('should fail when one confirmed link tries to span multiple sibling inflows', async () => {
       const purchaseTx = createTransaction(
         1,
         '2024-01-01T00:00:00Z',
@@ -769,22 +864,14 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      const resultValue = assertOk(result);
-      const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
-      expect(btcResult).toBeDefined();
-
-      expect(btcResult!.lots).toHaveLength(2);
-      expect(btcResult!.lotTransfers).toHaveLength(1);
-
-      const transferLot = btcResult!.lots[1];
-      expect(transferLot?.quantity.toFixed()).toBe('0.9995');
-      expect(transferLot?.acquisitionTransactionId).toBe(3);
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('target amount mismatch');
     });
   });
 
@@ -847,7 +934,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -923,7 +1010,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -991,17 +1078,16 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
       });
 
-      const resultValue = assertOk(result);
-      expect(resultValue.errors).toHaveLength(1);
-      expect(resultValue.errors[0]!.error).toContain('Outflow fee validation failed');
-      expect(resultValue.errors[0]!.error).toContain('hidden fee');
-      expect(resultValue.errors[0]!.error).toContain('Exceeds error threshold');
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Outflow fee validation failed');
+      expect(resultError.message).toContain('hidden fee');
+      expect(resultError.message).toContain('Exceeds error threshold');
     });
   });
 
@@ -1061,7 +1147,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1130,7 +1216,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'add-to-basis' },
@@ -1210,7 +1296,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1226,8 +1312,6 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       expect(exchangeResult!.lots).toHaveLength(1);
       expect(exchangeResult!.lots[0]?.costBasisPerUnit.toFixed()).toBe('50000');
       expect(exchangeResult!.lotTransfers).toHaveLength(1);
-      expect(exchangeResult!.disposals).toHaveLength(1);
-      expect(exchangeResult!.disposals[0]?.quantityDisposed.toFixed()).toBe('0.0005');
 
       // Blockchain group: 1 lot (transfer target) with inherited cost basis
       expect(blockchainResult!.lots).toHaveLength(1);
@@ -1306,7 +1390,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link = createLink(101, 3, 4, 'BTC', '1', '1');
       const averageCostStrategy = new AverageCostStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc-acb-transfer',
         strategy: averageCostStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -1392,7 +1476,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       const link = createLink(102, 3, 4, 'BTC', '1.5', '1.5');
       const fifoStrategy = new FifoStrategy();
 
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [link], {
         calculationId: 'calc-fifo-transfer',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },

@@ -2,9 +2,16 @@ import { wrapError, type AssetMovement, type UniversalTransactionData } from '@e
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { AccountingScopedTransaction } from './build-accounting-scoped-transactions.js';
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import type { AcquisitionLot, LotDisposal } from './schemas.js';
 import type { ICostBasisStrategy } from './strategies/base-strategy.js';
+
+type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+
+function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+  return 'tx' in transaction ? transaction.tx : transaction;
+}
 
 /**
  * Calculate net proceeds from an outflow after fees
@@ -12,11 +19,15 @@ import type { ICostBasisStrategy } from './strategies/base-strategy.js';
  * @returns Object with proceedsPerUnit and totalFeeAmount
  */
 export function calculateNetProceeds(
-  transaction: UniversalTransactionData,
+  transaction: CostBasisTransactionLike,
   outflow: AssetMovement
 ): Result<{ proceedsPerUnit: Decimal; totalFeeAmount: Decimal }, Error> {
+  const rawTransaction = getRawTransaction(transaction);
+
   if (!outflow.priceAtTxTime) {
-    return err(new Error(`Outflow missing priceAtTxTime: transaction ${transaction.id}, asset ${outflow.assetSymbol}`));
+    return err(
+      new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${outflow.assetSymbol}`)
+    );
   }
 
   // Calculate fees attributable to this specific movement
@@ -45,12 +56,14 @@ export function calculateNetProceeds(
  * Pure function that returns updated lots without mutation.
  */
 export function matchOutflowDisposal(
-  transaction: UniversalTransactionData,
+  transaction: CostBasisTransactionLike,
   outflow: AssetMovement,
   allLots: AcquisitionLot[],
   strategy: ICostBasisStrategy
 ): Result<{ disposals: LotDisposal[]; updatedLots: AcquisitionLot[] }, Error> {
   try {
+    const rawTransaction = getRawTransaction(transaction);
+
     // Find open lots for this asset (by assetId for contract-level precision)
     const openLots = allLots.filter(
       (lot) => lot.assetId === outflow.assetId && (lot.status === 'open' || lot.status === 'partially_disposed')
@@ -65,10 +78,10 @@ export function matchOutflowDisposal(
 
     // Create disposal request
     const disposal = {
-      transactionId: transaction.id,
+      transactionId: rawTransaction.id,
       assetSymbol: outflow.assetSymbol,
       quantity: outflow.grossAmount,
-      date: new Date(transaction.datetime),
+      date: new Date(rawTransaction.datetime),
       proceedsPerUnit,
     };
 

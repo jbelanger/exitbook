@@ -130,8 +130,6 @@ interface CostBasisCommandResult {
       type: 'transfer';
     }[];
   }[];
-  missingPricesWarning?: string | undefined;
-  errors?: { asset: string; error: string }[] | undefined;
 }
 
 /**
@@ -208,7 +206,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, registry: 
 }
 
 function outputCostBasisJSON(costBasisResult: CostBasisWorkflowResult): void {
-  const { summary, missingPricesWarning, report, lots, disposals, lotTransfers } = costBasisResult;
+  const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
   const currency = summary.calculation.config.currency;
   const jurisdiction = summary.calculation.config.jurisdiction;
 
@@ -240,10 +238,6 @@ function outputCostBasisJSON(costBasisResult: CostBasisWorkflowResult): void {
       ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
     },
     assets: sortedAssets,
-    missingPricesWarning,
-    ...(costBasisResult.errors.length > 0
-      ? { errors: costBasisResult.errors.map((e) => ({ asset: e.assetSymbol, error: e.error })) }
-      : {}),
   };
 
   outputSuccess('cost-basis', resultData);
@@ -287,7 +281,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
       }
 
       const costBasisResult = result.value;
-      const { summary, missingPricesWarning, report, lots, disposals, lotTransfers } = costBasisResult;
+      const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
       const calculation = summary.calculation;
       const currency = calculation.config.currency;
       const jurisdiction = calculation.config.jurisdiction;
@@ -308,16 +302,9 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
         },
       };
 
-      const calculationErrors =
-        costBasisResult.errors.length > 0
-          ? costBasisResult.errors.map((e) => ({ asset: e.assetSymbol, error: e.error }))
-          : undefined;
-
       const initialState = createCostBasisAssetState(context, sortedAssets, summaryTotals, {
         totalDisposals: summary.disposalsProcessed,
         totalLots: summary.lotsCreated,
-        missingPricesWarning,
-        calculationErrors,
       });
 
       const finalState = resolveAssetFilter(initialState, options.asset);

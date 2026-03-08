@@ -3,15 +3,19 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import {
+  buildAccountingScopedTransactions,
+  type AccountingScopedBuildResult,
+} from './build-accounting-scoped-transactions.js';
 import type { CostBasisConfig } from './cost-basis-config.js';
-import { assertPriceDataQuality } from './cost-basis-validation-utils.js';
+import { assertScopedPriceDataQuality } from './cost-basis-validation-utils.js';
 import { calculateGainLoss } from './gain-loss-utils.js';
 import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
-import type { AssetMatchError } from './lot-matcher.js';
 import type { LotMatcher } from './lot-matcher.js';
 import type { CostBasisCalculation } from './schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from './schemas.js';
 import { getStrategyForMethod } from './strategies/strategy-factory.js';
+import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
 
 /**
  * Summary of cost basis calculation results
@@ -35,8 +39,6 @@ export interface CostBasisSummary {
   disposals: LotDisposal[];
   /** Lot transfers (for same-asset transfers) */
   lotTransfers: LotTransfer[];
-  /** Per-asset errors that didn't abort the entire calculation */
-  errors: AssetMatchError[];
 }
 
 const logger = getLogger('calculateCostBasisFromValidatedTransactions');
@@ -45,7 +47,8 @@ const logger = getLogger('calculateCostBasisFromValidatedTransactions');
  * Calculate cost basis for a set of pre-validated transactions.
  *
  * Transactions must have priceAtTxTime populated for all non-fiat movements.
- * Use runCostBasisPipeline for the full flow including soft-fail price filtering.
+ * Use runCostBasisPipeline for the full flow, including explicit missing-price
+ * policy handling at the scoped accounting boundary.
  *
  * @param transactions - Transactions to process (must have priceAtTxTime populated)
  * @param config - Cost basis configuration
@@ -60,12 +63,25 @@ export async function calculateCostBasisFromValidatedTransactions(
   lotMatcher: LotMatcher,
   confirmedLinks: TransactionLink[] = []
 ): Promise<Result<CostBasisSummary, Error>> {
-  // Validate method-jurisdiction compatibility (defense in depth)
+  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+  if (scopedResult.isErr()) {
+    return err(scopedResult.error);
+  }
+
+  return calculateCostBasisFromScopedTransactions(scopedResult.value, config, rules, lotMatcher, confirmedLinks);
+}
+
+export async function calculateCostBasisFromScopedTransactions(
+  scopedBuildResult: AccountingScopedBuildResult,
+  config: CostBasisConfig,
+  rules: IJurisdictionRules,
+  lotMatcher: LotMatcher,
+  confirmedLinks: TransactionLink[] = []
+): Promise<Result<CostBasisSummary, Error>> {
   if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
     return err(new Error('Average Cost method is only supported for Canada (CA)'));
   }
 
-  // Warn about CRA compliance for Canadian users using non-ACB methods
   if (config.jurisdiction === 'CA' && config.method !== 'average-cost') {
     logger.warn(
       { jurisdiction: config.jurisdiction, method: config.method },
@@ -73,10 +89,14 @@ export async function calculateCostBasisFromValidatedTransactions(
     );
   }
 
-  // Assert price data quality before calculating (defense-in-depth)
-  const validationResult = assertPriceDataQuality(transactions);
+  const validationResult = assertScopedPriceDataQuality(scopedBuildResult);
   if (validationResult.isErr()) {
     return err(validationResult.error);
+  }
+
+  const validatedLinksResult = validateScopedTransferLinks(scopedBuildResult.transactions, confirmedLinks);
+  if (validatedLinksResult.isErr()) {
+    return err(validatedLinksResult.error);
   }
 
   const calculationId = globalThis.crypto.randomUUID();
@@ -91,7 +111,7 @@ export async function calculateCostBasisFromValidatedTransactions(
 
     const jurisdictionConfig = rules.getConfig();
 
-    const matchResult = await lotMatcher.match(transactions, confirmedLinks, {
+    const matchResult = await lotMatcher.match(scopedBuildResult, validatedLinksResult.value, {
       calculationId,
       strategy,
       jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
@@ -141,7 +161,7 @@ export async function calculateCostBasisFromValidatedTransactions(
       totalGainLoss: gainLoss.totalCapitalGainLoss,
       totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
       assetsProcessed,
-      transactionsProcessed: transactions.length,
+      transactionsProcessed: scopedBuildResult.transactions.length,
       lotsCreated: lotMatchResult.totalLotsCreated,
       disposalsProcessed: disposals.length,
       status: 'completed',
@@ -159,7 +179,6 @@ export async function calculateCostBasisFromValidatedTransactions(
       lots,
       disposals,
       lotTransfers,
-      errors: lotMatchResult.errors,
     });
   } catch (error) {
     return wrapError(error, 'Failed to calculate cost basis');

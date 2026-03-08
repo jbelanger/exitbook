@@ -55,9 +55,7 @@ describe('CostBasisHandler', () => {
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
 
-    mockWorkflowExecute = vi
-      .fn()
-      .mockResolvedValue(ok({ summary: {}, lots: [], disposals: [], lotTransfers: [], errors: [] }));
+    mockWorkflowExecute = vi.fn().mockResolvedValue(ok({ summary: {}, lots: [], disposals: [], lotTransfers: [] }));
     vi.mocked(CostBasisWorkflow).mockImplementation(function () {
       return { execute: mockWorkflowExecute } as unknown as CostBasisWorkflow;
     } as unknown as typeof CostBasisWorkflow);
@@ -94,7 +92,6 @@ describe('CostBasisHandler', () => {
         lots: [],
         disposals: [],
         lotTransfers: [],
-        errors: [],
       };
       mockWorkflowExecute.mockResolvedValue(ok(workflowResult));
 

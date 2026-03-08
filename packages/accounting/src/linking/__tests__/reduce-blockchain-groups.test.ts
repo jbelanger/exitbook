@@ -299,6 +299,10 @@ describe('reduceBlockchainGroups', () => {
 
     expect(result.internalLinks).toHaveLength(2);
     expect(result.internalLinks.map((l) => l.targetTransactionId).sort()).toEqual([2, 3]);
+    expect(result.internalLinks.find((link) => link.targetTransactionId === 2)?.sourceAmount.toFixed()).toBe('10');
+    expect(result.internalLinks.find((link) => link.targetTransactionId === 2)?.targetAmount.toFixed()).toBe('4');
+    expect(result.internalLinks.find((link) => link.targetTransactionId === 3)?.sourceAmount.toFixed()).toBe('10');
+    expect(result.internalLinks.find((link) => link.targetTransactionId === 3)?.targetAmount.toFixed()).toBe('5');
 
     // Reduction: 10 - 4 - 5 = 1
     const reduction = result.outflowReductions.get(1)?.get('test:btc');

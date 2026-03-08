@@ -9,6 +9,10 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+} from './build-accounting-scoped-transactions.js';
 import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
 import { getDefaultDateRange } from './cost-basis-config.js';
 import type { IJurisdictionRules } from './jurisdictions/base-rules.js';
@@ -269,6 +273,32 @@ export function transactionHasAllPrices(tx: UniversalTransactionData): Result<bo
 }
 
 /**
+ * Check if an accounting-scoped transaction has all required prices.
+ * Uses the scoped boundary so removed movements/fees no longer block cost basis.
+ */
+export function scopedTransactionHasAllPrices(scopedTransaction: AccountingScopedTransaction): Result<boolean, Error> {
+  for (const inflow of scopedTransaction.movements.inflows) {
+    const hasPriceResult = movementHasPrice(inflow);
+    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
+    if (!hasPriceResult.value) return ok(false);
+  }
+
+  for (const outflow of scopedTransaction.movements.outflows) {
+    const hasPriceResult = movementHasPrice(outflow);
+    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
+    if (!hasPriceResult.value) return ok(false);
+  }
+
+  for (const fee of scopedTransaction.fees) {
+    const hasPriceResult = movementHasPrice(fee);
+    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
+    if (!hasPriceResult.value) return ok(false);
+  }
+
+  return ok(true);
+}
+
+/**
  * Validate that transactions have prices, returning valid subset and missing count.
  * Returns an error only when ALL transactions are missing prices.
  */
@@ -288,6 +318,41 @@ export function validateTransactionPrices(
 
     if (hasAllPricesResult.value) {
       validTransactions.push(tx);
+    } else {
+      missingPricesCount++;
+    }
+  }
+
+  if (validTransactions.length === 0) {
+    return err(
+      new Error(
+        `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
+      )
+    );
+  }
+
+  return ok({ validTransactions, missingPricesCount });
+}
+
+/**
+ * Validate scoped transactions for cost basis price completeness.
+ * Returns the original raw transactions that still survive at the scoped boundary.
+ */
+export function validateScopedTransactionPrices(
+  scopedBuildResult: AccountingScopedBuildResult,
+  requiredCurrency: string
+): Result<{ missingPricesCount: number; validTransactions: UniversalTransactionData[] }, Error> {
+  const validTransactions: UniversalTransactionData[] = [];
+  let missingPricesCount = 0;
+
+  for (const scopedTransaction of scopedBuildResult.transactions) {
+    const hasAllPricesResult = scopedTransactionHasAllPrices(scopedTransaction);
+    if (hasAllPricesResult.isErr()) {
+      return err(hasAllPricesResult.error);
+    }
+
+    if (hasAllPricesResult.value) {
+      validTransactions.push(scopedTransaction.tx);
     } else {
       missingPricesCount++;
     }

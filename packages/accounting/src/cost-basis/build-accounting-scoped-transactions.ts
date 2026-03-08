@@ -116,6 +116,13 @@ type SameHashDecision = InternalWithExternalAmount | InternalFeeOnly;
 // Builder entry point
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the cost-basis-owned accounting view from processed transactions.
+ *
+ * This scoped result is the seam for later accounting exclusions: callers can
+ * remove scoped movements, assets, or fees after this build step and before
+ * price validation or lot matching, without reopening matcher-local UTXO logic.
+ */
 export function buildAccountingScopedTransactions(
   transactions: UniversalTransactionData[],
   logger: Logger

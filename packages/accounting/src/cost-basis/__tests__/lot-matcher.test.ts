@@ -1,14 +1,91 @@
-import { type Currency, parseDecimal, type TransactionLink, type UniversalTransactionData } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import {
+  err,
+  type Currency,
+  parseDecimal,
+  type Result,
+  type TransactionLink,
+  type UniversalTransactionData,
+} from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../__tests__/test-utils.js';
+import type { AccountingScopedTransaction } from '../build-accounting-scoped-transactions.js';
+import { buildAccountingScopedTransactions } from '../build-accounting-scoped-transactions.js';
 import { LotMatcher } from '../lot-matcher.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
+import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
 
 describe('LotMatcher - Fee Handling', () => {
   const matcher = new LotMatcher();
   const fifoStrategy = new FifoStrategy();
+  const logger = getLogger('lot-matcher.test');
+
+  async function matchTransactions(
+    transactions: UniversalTransactionData[],
+    confirmedLinks: TransactionLink[],
+    config: Parameters<LotMatcher['match']>[2]
+  ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
+    const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+    if (scopedResult.isErr()) {
+      return err(scopedResult.error);
+    }
+    const scoped = scopedResult.value;
+    const hydratedLinks = hydrateTestLinks(scoped.transactions, confirmedLinks);
+    const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, hydratedLinks);
+    if (validatedLinksResult.isErr()) {
+      return err(validatedLinksResult.error);
+    }
+
+    return matcher.match(scoped, validatedLinksResult.value, config);
+  }
+
+  function hydrateTestLinks(
+    scopedTransactions: AccountingScopedTransaction[],
+    confirmedLinks: TransactionLink[]
+  ): TransactionLink[] {
+    return confirmedLinks.map((link) => {
+      const sourceTransaction = scopedTransactions.find(
+        (scopedTransaction) => scopedTransaction.tx.id === link.sourceTransactionId
+      );
+      const targetTransaction = scopedTransactions.find(
+        (scopedTransaction) => scopedTransaction.tx.id === link.targetTransactionId
+      );
+      if (!sourceTransaction || !targetTransaction) {
+        throw new Error(`Failed to hydrate test link ${link.id}: source or target transaction not found`);
+      }
+
+      const sourceMovement = resolveScopedMovement(sourceTransaction, 'outflow', link.sourceMovementFingerprint);
+      const targetMovement = resolveScopedMovement(targetTransaction, 'inflow', link.targetMovementFingerprint);
+
+      return {
+        ...link,
+        sourceAssetId: sourceMovement.assetId,
+        targetAssetId: targetMovement.assetId,
+        sourceMovementFingerprint: sourceMovement.movementFingerprint,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+      };
+    });
+  }
+
+  function resolveScopedMovement(
+    scopedTransaction: AccountingScopedTransaction,
+    movementType: 'inflow' | 'outflow',
+    fingerprintHint: string
+  ) {
+    const positionMatch = fingerprintHint.match(/:(inflow|outflow):(\d+)$/);
+    const position = positionMatch ? Number.parseInt(positionMatch[2]!, 10) : 0;
+    const movements =
+      movementType === 'inflow' ? scopedTransaction.movements.inflows : scopedTransaction.movements.outflows;
+    const movement = movements[position];
+    if (!movement) {
+      throw new Error(
+        `Failed to resolve scoped ${movementType} movement at position ${position} for transaction ${scopedTransaction.tx.id}`
+      );
+    }
+    return movement;
+  }
 
   describe('Acquisition lots with fees', () => {
     it('should include platform fee in cost basis for acquisitions', async () => {
@@ -24,7 +101,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
       expect(btcResult).toBeDefined();
@@ -54,7 +131,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
@@ -85,7 +162,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -122,7 +199,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -164,7 +241,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
@@ -199,7 +276,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -242,7 +319,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -294,7 +371,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -335,12 +412,11 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
-      const resultValue = assertOk(result);
-      expect(resultValue.errors).toHaveLength(1);
-      expect(resultValue.errors[0]!.error).toContain('Fee in ETH missing priceAtTxTime');
-      expect(resultValue.errors[0]!.error).toContain('Transaction: 1');
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Fee in ETH missing priceAtTxTime');
+      expect(resultError.message).toContain('Transaction: 1');
     });
 
     it('should use 1:1 fallback for fiat fee in same currency as target movement', async () => {
@@ -352,7 +428,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -373,12 +449,11 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
-      const resultValue = assertOk(result);
-      expect(resultValue.errors).toHaveLength(1);
-      expect(resultValue.errors[0]!.error).toContain('Fee in CAD cannot be converted to USD');
-      expect(resultValue.errors[0]!.error).toContain('without exchange rate');
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Fee in CAD cannot be converted to USD');
+      expect(resultError.message).toContain('without exchange rate');
     });
   });
 
@@ -396,7 +471,7 @@ describe('LotMatcher - Fee Handling', () => {
         }),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const xyzResult = resultValue.assetResults.find((r) => r.assetSymbol === 'XYZ');
@@ -432,7 +507,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const tokenAResult = resultValue.assetResults.find((r) => r.assetSymbol === 'TOKEN_A');
@@ -472,7 +547,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const xyzResult = resultValue.assetResults.find((r) => r.assetSymbol === 'XYZ');
@@ -499,7 +574,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       // Fiat-only transactions produce no asset results (fiat is excluded from cost basis tracking)
@@ -525,7 +600,7 @@ describe('LotMatcher - Fee Handling', () => {
         ),
       ];
 
-      const result = await matcher.match(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
+      const result = await matchTransactions(transactions, [], { calculationId: 'calc1', strategy: fifoStrategy });
 
       const resultValue = assertOk(result);
       const btcResult = resultValue.assetResults.find((r) => r.assetSymbol === 'BTC');
@@ -544,11 +619,12 @@ describe('LotMatcher - Fee Handling', () => {
     });
   });
 
-  describe('Blockchain internal links (UTXO change outputs)', () => {
-    it('should exclude blockchain_internal links from disposals/acquisitions', async () => {
+  describe('Same-hash scoped reductions', () => {
+    it('should reduce internal change before matching without requiring internal links', async () => {
       // Setup: Buy 1 BTC at an exchange
-      // Then: Bitcoin transaction with change output (blockchain_internal link)
-      // The change output should NOT create a disposal or acquisition
+      // Then: Bitcoin transaction with a same-hash internal change output.
+      // The builder should remove the internal inflow and reduce the sender
+      // outflow to the external quantity before lot matching runs.
       const transactions: UniversalTransactionData[] = [
         {
           id: 1,
@@ -573,7 +649,7 @@ describe('LotMatcher - Fee Handling', () => {
           fees: [],
           operation: { category: 'trade', type: 'buy' },
         },
-        // UTXO change output (should be excluded)
+        // Same-hash sender with change output
         {
           id: 2,
           accountId: 2, // Different address in same wallet
@@ -587,30 +663,35 @@ describe('LotMatcher - Fee Handling', () => {
             inflows: [],
             outflows: [
               {
-                assetId: 'bitcoin:btc',
+                assetId: 'test:btc',
                 assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('0.5'), // Change output
+                grossAmount: parseDecimal('1'),
                 priceAtTxTime: createPriceAtTxTime('55000'),
               },
             ],
           },
+          blockchain: {
+            name: 'bitcoin',
+            transaction_hash: 'same-hash-utxo',
+            is_confirmed: true,
+          },
           fees: [],
           operation: { category: 'transfer', type: 'withdrawal' },
         },
-        // UTXO change input (should also be excluded)
+        // Same-hash internal change output
         {
           id: 3,
           accountId: 3, // Different address in same wallet
           externalId: 'tx3-change',
-          datetime: '2024-02-01T00:00:01Z',
-          timestamp: Date.parse('2024-02-01T00:00:01Z'),
+          datetime: '2024-02-01T00:00:00Z',
+          timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'bitcoin',
           sourceType: 'blockchain',
           status: 'success',
           movements: {
             inflows: [
               {
-                assetId: 'bitcoin:btc',
+                assetId: 'test:btc',
                 assetSymbol: 'BTC' as Currency,
                 grossAmount: parseDecimal('0.5'), // Change input
                 priceAtTxTime: createPriceAtTxTime('55000'),
@@ -618,38 +699,17 @@ describe('LotMatcher - Fee Handling', () => {
             ],
             outflows: [],
           },
+          blockchain: {
+            name: 'bitcoin',
+            transaction_hash: 'same-hash-utxo',
+            is_confirmed: true,
+          },
           fees: [],
           operation: { category: 'transfer', type: 'deposit' },
         },
       ];
 
-      // Mock blockchain_internal link between tx2 and tx3
-      const link: TransactionLink = {
-        id: 1,
-        sourceTransactionId: 2,
-        targetTransactionId: 3,
-        assetSymbol: 'BTC' as Currency,
-        sourceAssetId: 'blockchain:bitcoin:native',
-        targetAssetId: 'blockchain:bitcoin:native',
-        sourceAmount: parseDecimal('0.5'),
-        targetAmount: parseDecimal('0.5'),
-        sourceMovementFingerprint: 'movement:blockchain:bitcoin:tx2-change:outflow:0',
-        targetMovementFingerprint: 'movement:blockchain:bitcoin:tx3-change:inflow:0',
-        linkType: 'blockchain_internal', // This is the key - UTXO change
-        confidenceScore: parseDecimal('100'),
-        matchCriteria: {
-          assetMatch: true,
-          amountSimilarity: parseDecimal('1'),
-          timingValid: true,
-          timingHours: 0.0002,
-          hashMatch: true,
-        },
-        status: 'confirmed',
-        createdAt: new Date('2024-02-01'),
-        updatedAt: new Date('2024-02-01'),
-      };
-
-      const result = await matcher.match(transactions, [link], {
+      const result = await matchTransactions(transactions, [], {
         calculationId: 'calc1',
         strategy: fifoStrategy,
         jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
@@ -664,10 +724,11 @@ describe('LotMatcher - Fee Handling', () => {
       expect(btcResult!.lots[0]!.acquisitionTransactionId).toBe(1);
       expect(btcResult!.lots[0]!.quantity.toString()).toBe('1');
 
-      // Should have 0 disposals (blockchain_internal links are excluded)
-      expect(btcResult!.disposals).toHaveLength(0);
+      // Same-hash scoping should leave only the external 0.5 BTC send
+      expect(btcResult!.disposals).toHaveLength(1);
+      expect(btcResult!.disposals[0]!.quantityDisposed.toFixed()).toBe('0.5');
 
-      // Should have 0 transfers (blockchain_internal links are excluded)
+      // No cross-transaction transfer remains after the internal change is scoped away.
       expect(btcResult!.lotTransfers).toHaveLength(0);
     });
   });
