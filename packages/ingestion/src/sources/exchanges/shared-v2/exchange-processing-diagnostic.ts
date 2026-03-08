@@ -1,5 +1,6 @@
 export interface ExchangeProcessingDiagnostic {
   code:
+    | 'balanced_same_asset_opposing_pair'
     | 'ambiguous_same_asset_opposing_pair'
     | 'missing_direction_evidence'
     | 'contradictory_provider_rows'

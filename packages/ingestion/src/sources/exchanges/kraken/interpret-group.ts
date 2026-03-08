@@ -109,6 +109,32 @@ function consolidateFees(fees: ExchangeFeeDraft[]): ExchangeFeeDraft[] {
   return Array.from(byFee.values()).filter((fee) => !parseDecimal(fee.amount).isZero());
 }
 
+function hasBalancedSameAssetOpposingPair(
+  interpretedEvents: InterpretedKrakenEvent[],
+  inflows: ExchangeMovementDraft[],
+  outflows: ExchangeMovementDraft[]
+): boolean {
+  if (inflows.length === 0 || outflows.length === 0) {
+    return false;
+  }
+
+  const signedAmountByAsset = new Map<string, ReturnType<typeof parseDecimal>>();
+  let signedFeeTotal = parseDecimal('0');
+
+  for (const event of interpretedEvents) {
+    const assetIdResult = buildExchangeAssetId('kraken', event.event.assetSymbol);
+    if (assetIdResult.isErr()) {
+      return false;
+    }
+
+    const existing = signedAmountByAsset.get(assetIdResult.value) ?? parseDecimal('0');
+    signedAmountByAsset.set(assetIdResult.value, existing.plus(event.amount));
+    signedFeeTotal = signedFeeTotal.plus(event.feeAmount);
+  }
+
+  return Array.from(signedAmountByAsset.values()).every((amount) => amount.isZero()) && signedFeeTotal.isZero();
+}
+
 function interpretKrakenEvent(event: ExchangeProviderEvent): Result<InterpretedKrakenEvent, Error> {
   const amount = parseDecimal(event.rawAmount);
   const feeAmount = parseDecimal(event.rawFee ?? '0');
@@ -220,6 +246,35 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
   const overlappingAssetIds = consolidatedInflows
     .map((movement) => movement.assetId)
     .filter((assetId) => consolidatedOutflows.some((movement) => movement.assetId === assetId));
+
+  if (
+    overlappingAssetIds.length > 0 &&
+    hasBalancedSameAssetOpposingPair(interpretedEvents, consolidatedInflows, consolidatedOutflows)
+  ) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'balanced_same_asset_opposing_pair',
+        'warning',
+        'Kraken group netted to zero across the same asset and fees, so it was skipped as non-accounting provider noise.',
+        {
+          inflows: consolidatedInflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          outflows: consolidatedOutflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          rawFees: interpretedEvents.map((event) => ({
+            eventId: event.event.providerEventId,
+            fee: event.event.rawFee ?? '0',
+          })),
+        }
+      ),
+    };
+  }
 
   if (overlappingAssetIds.length > 0) {
     return {

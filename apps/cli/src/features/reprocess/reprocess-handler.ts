@@ -12,6 +12,7 @@ import { resetProjections } from '../shared/projection-runtime.js';
 export interface ProcessResultWithMetrics {
   processed: number;
   errors: string[];
+  failed: number;
   runStats: MetricsSummary;
 }
 
@@ -42,7 +43,7 @@ export class ProcessHandler {
     const plan = planResult.value;
     if (!plan) {
       await this.ingestionMonitor.stop();
-      return ok({ processed: 0, errors: [], runStats: this.instrumentation.getSummary() });
+      return ok({ processed: 0, errors: [], failed: 0, runStats: this.instrumentation.getSummary() });
     }
 
     // 2. Reset projections in graph order (downstream first)
@@ -63,10 +64,22 @@ export class ProcessHandler {
       return err(result.error);
     }
 
+    if (result.value.failed > 0) {
+      const firstErrors = result.value.errors.slice(0, 5).join('; ');
+      const errorMessage =
+        `Reprocess failed: ${result.value.failed} account(s) failed during processing. ` +
+        (firstErrors.length > 0 ? `First errors: ${firstErrors}` : 'See logs for details.');
+
+      this.ingestionMonitor.fail(errorMessage);
+      await this.ingestionMonitor.stop();
+      return err(new Error(errorMessage));
+    }
+
     await this.ingestionMonitor.stop();
     return ok({
       processed: result.value.processed,
       errors: result.value.errors,
+      failed: result.value.failed,
       runStats: this.instrumentation.getSummary(),
     });
   }

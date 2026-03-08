@@ -62,6 +62,7 @@ describe('ProcessHandler', () => {
 
     const summary = assertOk(result);
     expect(summary.processed).toBe(5);
+    expect(summary.failed).toBe(0);
     expect(summary.runStats).toEqual({ totalRequests: 0 });
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
@@ -106,6 +107,25 @@ describe('ProcessHandler', () => {
 
     expect(assertErr(result)).toBe(error);
     expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Processing failed');
+    expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
+  });
+
+  test('should fail monitor and return error when processing completes with failed accounts', async () => {
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [1] }));
+    mockProcessingWorkflow.processImportedSessions.mockResolvedValue(
+      ok({
+        processed: 362,
+        errors: ['Failed to process account 46: Kraken processing cannot proceed'],
+        failed: 1,
+      })
+    );
+
+    const result = await handler.execute({});
+
+    const error = assertErr(result);
+    expect(error.message).toContain('Reprocess failed: 1 account(s) failed during processing.');
+    expect(error.message).toContain('Failed to process account 46');
+    expect(mockIngestionMonitor.fail).toHaveBeenCalledWith(error.message);
     expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
   });
 

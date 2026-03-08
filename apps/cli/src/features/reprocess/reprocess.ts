@@ -23,6 +23,7 @@ interface ReprocessCommandResult {
   status: 'success' | 'warning';
   reprocess: {
     counts: {
+      failed?: number | undefined;
       processed: number;
     };
     processingErrors?: string[] | undefined;
@@ -138,6 +139,7 @@ function buildReprocessResult(result: ProcessResultWithMetrics): ReprocessComman
     reprocess: {
       counts: {
         processed: result.processed,
+        ...(result.failed > 0 ? { failed: result.failed } : {}),
       },
       processingErrors: result.errors.slice(0, 5),
       runStats: result.runStats,
