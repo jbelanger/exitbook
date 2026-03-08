@@ -6,7 +6,7 @@ import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
   FeeOnlyInternalCarryoverTarget,
-} from '../matching/build-accounting-scoped-transactions.js';
+} from '../matching/build-cost-basis-scoped-transactions.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../shared/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 

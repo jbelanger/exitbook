@@ -2,7 +2,7 @@ import { parseDecimal, type AssetMovement, type UniversalTransactionData } from 
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingScopedTransaction } from '../matching/build-accounting-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferLink } from '../matching/validated-scoped-transfer-links.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../shared/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';

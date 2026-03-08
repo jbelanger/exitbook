@@ -2,16 +2,16 @@ import { parseDecimal } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { createTransactionLink } from '../link-construction.js';
-import { shouldAutoConfirm } from '../match-allocation.js';
-import type { LinkCandidate } from '../pre-linking/types.js';
+import { createTransactionLink } from '../matching/link-construction.js';
+import { shouldAutoConfirm } from '../matching/match-allocation.js';
+import type { LinkableMovement } from '../pre-linking/types.js';
 import type {
   MatchingConfig,
   NewTransactionLink,
   PotentialMatch,
   SameHashExternalSourceAllocation,
   TransactionLinkMetadata,
-} from '../types.js';
+} from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
@@ -19,7 +19,7 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 interface SameHashExternalOutflowGroup {
   assetId: string;
   hash: string;
-  sources: LinkCandidate[];
+  sources: LinkableMovement[];
   toAddress: string;
 }
 
@@ -34,7 +34,11 @@ interface SameHashExternalOutflowGroup {
 export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
   readonly name = 'same-hash-external-outflow';
 
-  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
+  execute(
+    sources: LinkableMovement[],
+    targets: LinkableMovement[],
+    config: MatchingConfig
+  ): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
     const consumedCandidateIds = new Set<number>();
     const now = new Date();
@@ -97,8 +101,8 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
   }
 }
 
-function buildGroups(sources: LinkCandidate[], targets: LinkCandidate[]): SameHashExternalOutflowGroup[] {
-  const candidateGroups = new Map<string, LinkCandidate[]>();
+function buildGroups(sources: LinkableMovement[], targets: LinkableMovement[]): SameHashExternalOutflowGroup[] {
+  const candidateGroups = new Map<string, LinkableMovement[]>();
 
   for (const source of sources) {
     if (source.sourceType !== 'blockchain') continue;
@@ -159,7 +163,7 @@ function buildGroups(sources: LinkCandidate[], targets: LinkCandidate[]): SameHa
   return groups;
 }
 
-function buildSyntheticSource(group: SameHashExternalOutflowGroup): LinkCandidate {
+function buildSyntheticSource(group: SameHashExternalOutflowGroup): LinkableMovement {
   const representative = group.sources[0]!;
   const grossAmount = syntheticGross(group.sources);
   const amount = grossAmount.minus(syntheticFee(group.sources));
@@ -173,7 +177,7 @@ function buildSyntheticSource(group: SameHashExternalOutflowGroup): LinkCandidat
 
 function buildExpandedMatches(
   groupMatch: PotentialMatch,
-  sources: LinkCandidate[],
+  sources: LinkableMovement[],
   memberAmounts: Map<number, Decimal>
 ): PotentialMatch[] {
   return sources.map((source) => {
@@ -189,7 +193,7 @@ function buildExpandedMatches(
   });
 }
 
-function deriveMemberAmounts(sources: LinkCandidate[]): Map<number, Decimal> {
+function deriveMemberAmounts(sources: LinkableMovement[]): Map<number, Decimal> {
   const dedupedFee = syntheticFee(sources);
   const feeBearer = [...sources].sort((left, right) => {
     const feeComparison = sourceFee(right).comparedTo(sourceFee(left));
@@ -213,7 +217,7 @@ function deriveMemberAmounts(sources: LinkCandidate[]): Map<number, Decimal> {
 }
 
 function buildSourceAllocations(
-  sources: LinkCandidate[],
+  sources: LinkableMovement[],
   memberAmounts: Map<number, Decimal>
 ): SameHashExternalSourceAllocation[] {
   return sources.map((source) => {
@@ -229,19 +233,19 @@ function buildSourceAllocations(
   });
 }
 
-function sourceGross(source: LinkCandidate): Decimal {
+function sourceGross(source: LinkableMovement): Decimal {
   return source.grossAmount ?? source.amount;
 }
 
-function sourceFee(source: LinkCandidate): Decimal {
+function sourceFee(source: LinkableMovement): Decimal {
   return sourceGross(source).minus(source.amount);
 }
 
-function syntheticGross(sources: LinkCandidate[]): Decimal {
+function syntheticGross(sources: LinkableMovement[]): Decimal {
   return sources.reduce((sum, source) => sum.plus(sourceGross(source)), parseDecimal('0'));
 }
 
-function syntheticFee(sources: LinkCandidate[]): Decimal {
+function syntheticFee(sources: LinkableMovement[]): Decimal {
   return sources.reduce((maxFee, source) => {
     const fee = sourceFee(source);
     return fee.greaterThan(maxFee) ? fee : maxFee;

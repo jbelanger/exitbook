@@ -15,9 +15,9 @@ override replay, and the persisted link contract.
 
 | Concept                | Key Rule                                                                                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime boundary       | Linking builds candidates in memory from processed transactions; it does not persist a pre-linking shadow table                                        |
-| Candidate unit         | One `LinkCandidate` per inflow or outflow movement                                                                                                     |
-| Candidate amount       | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                           |
+| Runtime boundary       | Linking builds linkable movements in memory from processed transactions; it does not persist a pre-linking shadow table                                |
+| Linkable movement unit | One `LinkableMovement` per inflow or outflow movement                                                                                                  |
+| Matching amount        | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                           |
 | Structural trades      | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                               |
 | Same-hash grouping     | Blockchain transactions group by normalized hash, then by `assetId`                                                                                    |
 | Internal-link topology | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                  |
@@ -25,7 +25,7 @@ override replay, and the persisted link contract.
 | Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                      |
 | Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1` |
 | Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                        |
-| Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides materialize only when exactly one source and one target candidate resolve           |
+| Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides materialize only when exactly one source and one target movement resolve            |
 | Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                               |
 
 ## Goals
@@ -39,17 +39,17 @@ override replay, and the persisted link contract.
 
 - Defining cost-basis accounting behavior on top of links.
 - Inferring ownership inside ambiguous same-hash blockchain groups.
-- Persisting pre-linking candidates or UTXO-adjusted shadow tables.
+- Persisting pre-linking linkable movements or UTXO-adjusted shadow tables.
 - Solving movement-level accounting exclusions.
 
 ## Definitions
 
-### LinkCandidate
+### LinkableMovement
 
 Ephemeral matching input built from processed transactions:
 
 ```ts
-interface LinkCandidate {
+interface LinkableMovement {
   id: number;
   transactionId: number;
   accountId: number;
@@ -75,7 +75,7 @@ Important semantics:
 
 - `amount` is the matching amount.
 - `grossAmount` is only present when it differs from `amount`.
-- `excluded=true` means the candidate exists for observability but strategies must not match it.
+- `excluded=true` means the linkable movement exists for observability but strategies must not match it.
 - `movementFingerprint` is deterministic and position-based within the transaction.
 
 ### Movement Fingerprint
@@ -168,8 +168,8 @@ Grouping is by `assetId`, not by symbol alone.
 
 1. mark the `links` projection as `building`
 2. load processed transactions
-3. build `LinkCandidate[]` plus internal blockchain links in memory
-4. run matching strategies over those candidates
+3. build `LinkableMovement[]` plus internal blockchain links in memory
+4. run matching strategies over those linkable movements
 5. replay link/unlink overrides
 6. persist all non-rejected links by replacement inside one transaction
 7. mark the `links` projection as `fresh`
@@ -177,12 +177,12 @@ Grouping is by `assetId`, not by symbol alone.
 Important boundary rules:
 
 - Linking persists `transaction_links` only.
-- Pre-linking candidates are ephemeral runtime data.
+- Pre-linking linkable movements are ephemeral runtime data.
 - On failure, the projection is marked `failed`.
 
 ### Candidate Building
 
-`buildLinkCandidates()` creates one candidate per inflow and outflow movement.
+`buildLinkableMovements()` creates one linkable movement per inflow and outflow movement.
 
 For every transaction:
 
@@ -198,7 +198,7 @@ Structural trade exclusion:
 - where inflow asset-symbol set and outflow asset-symbol set are disjoint
 - is treated as a structural trade and marked `excluded=true`
 
-Excluded candidates remain in the candidate list but are not eligible for
+Excluded linkable movements remain in the in-memory set but are not eligible for
 strategy matching.
 
 ### Same-Hash Blockchain Reduction
@@ -222,8 +222,8 @@ Reducer rules:
 1. If a group has only pure outflow participants:
    - emit no internal links
    - apply no reductions
-   - leave all ordinary candidates unchanged
-   - later strategies may still consume the unchanged candidates for exact same-hash external-send matching
+   - leave all ordinary linkable movements unchanged
+   - later strategies may still consume the unchanged linkable movements for exact same-hash external-send matching
 2. If any participant has both inflow and outflow for the same asset:
    - treat the group as ambiguous
    - log a warning
@@ -239,7 +239,7 @@ Reducer rules:
    - require every receiver to have exactly one inflow movement for that asset
    - otherwise treat the group as ambiguous and skip it
 5. For the clear internal case:
-   - mark all participants as internal for candidate metadata
+   - mark all participants as internal for linkable-movement metadata
    - create `blockchain_internal` links only for cross-account sender→receiver pairs
    - compute source reduction as:
 
@@ -258,12 +258,12 @@ Internal-link materialization rule:
 
 - the reducer first returns a fingerprint-less `PendingInternalLink`
 - linking upgrades it to a persisted `NewTransactionLink` only after exactly one
-  matching source candidate and one matching target candidate are found
+  matching source movement and one matching target movement are found
 - if either side is ambiguous, linking fails rather than persisting a partial link
 
 ### Strategy Matching
 
-Ordinary strategies operate on non-internal cross-source candidates.
+Ordinary strategies operate on non-internal cross-source linkable movements.
 
 Default order:
 
@@ -277,7 +277,7 @@ Hard filters:
 - source and target cannot come from the same transaction
 - source must be `direction='out'`; target must be `direction='in'`
 - source and target must share `assetSymbol`
-- candidates from the same `sourceName` are skipped
+- linkable movements from the same `sourceName` are skipped
 - explicit address mismatch is a hard veto
 - timing must be within `[-clockSkewToleranceHours, maxTimingWindowHours]`
 - confidence must meet `minConfidenceScore`
@@ -298,17 +298,17 @@ Amount similarity is fee-aware:
 
 Hash-match fast path:
 
-- if normalized hashes match and both sides are blockchain candidates, the pair is skipped here because same-hash blockchain handling owns that case
+- if normalized hashes match and both sides are blockchain linkable movements, the pair is skipped here because same-hash blockchain handling owns that case
 - if normalized hashes match and the pair is not blockchain→blockchain, the pair gets confidence `1.0`
 - multi-target hash matches are allowed only when the summed target amount does not exceed the source amount
 
 Same-hash external outflow fast path:
 
 - only considers pure same-hash blockchain outflow groups with:
-  - at least two source candidates
+  - at least two source movements
   - at least two accounts
   - exactly one shared `toAddress`
-  - no tracked blockchain inflow candidate for the same `(hash, assetId, sourceName)`
+  - no tracked blockchain inflow movement for the same `(hash, assetId, sourceName)`
 - reconstructs the group send amount as:
 
 ```text
@@ -331,7 +331,7 @@ Potential matches are sorted by:
 
 Allocation then applies greedy capacity consumption:
 
-- each `(transactionId, assetSymbol)` source and target starts with capacity equal to its candidate amount
+- each `(transactionId, assetSymbol)` source and target starts with capacity equal to its movement amount
 - accepted matches consume `min(remainingSource, remainingTarget)`
 - matches below `minPartialMatchFraction` of the larger original amount are rejected
 
@@ -389,22 +389,22 @@ Replay behavior:
 
 - if an override fingerprint matches an algorithmic link, update that link's `status`, `reviewedBy`, and `reviewedAt`
 - if a final `reject` state has no matching algorithmic link, do nothing
-- if a final `confirm` state resolves both transactions but no algorithmic link exists, return it as orphaned for candidate-based materialization
+- if a final `confirm` state resolves both transactions but no algorithmic link exists, return it as orphaned for linkable-movement-based materialization
 - if transaction fingerprints cannot be resolved, log and mark the event unresolved
 
 ### Orphaned Confirmed Override Materialization
 
-Confirmed orphaned overrides are materialized from the same candidate set used by
+Confirmed orphaned overrides are materialized from the same linkable movement set used by
 the matcher.
 
 Required behavior:
 
 1. resolve source and target transactions from override fingerprints
-2. find source outflow candidates for the override `assetSymbol`
-3. find target inflow candidates for the override `assetSymbol`
-4. materialize only when exactly one source candidate and one target candidate remain
+2. find source outflow movements for the override `assetSymbol`
+3. find target inflow movements for the override `assetSymbol`
+4. materialize only when exactly one source movement and one target movement remain
 5. derive the persisted link type from the source and target `sourceType`
-6. persist candidate-derived `sourceAssetId`, `targetAssetId`, `sourceAmount`, `targetAmount`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
+6. persist linkable-movement-derived `sourceAssetId`, `targetAssetId`, `sourceAmount`, `targetAmount`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
 7. persist `status='confirmed'`, `confidenceScore=1`, and override metadata
 8. otherwise log and skip materialization
 
@@ -413,7 +413,7 @@ Explicitly forbidden:
 - zero-amount sentinel links
 - missing asset ids
 - missing movement fingerprints
-- raw-movement fallback that bypasses candidate shaping
+- raw-movement fallback that bypasses linkable-movement shaping
 
 ## Data Model
 
@@ -454,7 +454,7 @@ Field semantics:
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildLinkCandidates()"]
+    A["Processed transactions"] --> B["buildLinkableMovements()"]
     B --> C["Same-hash blockchain reduction"]
     C --> D["StrategyRunner"]
     D --> E["createTransactionLink()"]
@@ -468,7 +468,7 @@ graph TD
 
 ## Invariants
 
-- **Ephemeral pre-linking**: Linking does not require a persisted candidate or shadow-movement table.
+- **Ephemeral pre-linking**: Linking does not require a persisted linkable-movement or shadow-movement table.
 - **Strict persisted identity**: Every persisted link has both asset ids and both movement fingerprints.
 - **Positive quantities**: Persisted `sourceAmount` and `targetAmount` are always positive.
 - **Conservative same-hash handling**: Ambiguous same-hash blockchain groups never emit synthetic internal links.

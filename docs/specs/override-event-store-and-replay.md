@@ -20,8 +20,8 @@ events are replayed during `links run`.
 | Resolved link identity  | `resolved-link:v1:${sourceMovementFingerprint}:${targetMovementFingerprint}:${sourceAssetId}:${targetAssetId}` |
 | Replay precedence       | Override replay runs after algorithmic link generation                                                         |
 | Conflict resolution     | Last event wins per link fingerprint                                                                           |
-| Orphaned confirm        | Materialize only when source and target transactions resolve and exactly one source/target candidate exists    |
-| Persisted orphaned link | Uses candidate-derived asset ids, amounts, and movement fingerprints; never zero-amount sentinels              |
+| Orphaned confirm        | Materialize only when source and target transactions resolve and exactly one source/target movement exists     |
+| Persisted orphaned link | Uses linkable-movement-derived asset ids, amounts, and movement fingerprints; never zero-amount sentinels      |
 
 ## Goals
 
@@ -141,8 +141,8 @@ Materialization rules:
 1. resolve source and target transactions from the override transaction
    fingerprints
 2. revalidate the exact movement fingerprints and asset ids captured in the
-   override against the current candidate set
-3. materialize only when both exact candidates resolve
+   override against the current linkable movement set
+3. materialize only when both exact movements resolve
 4. derive link type structurally from source and target `sourceType`
 5. persist:
    - `sourceAssetId`
@@ -236,7 +236,7 @@ graph TD
     E["Processed transactions"] --> D
     D --> F["Update matching links"]
     D --> G["Return orphaned confirms"]
-    G --> H["Resolve orphaned confirm from link candidates"]
+    G --> H["Resolve orphaned confirm from linkable movements"]
     F --> I["Persist non-rejected links"]
     H --> I
 ```

@@ -1,10 +1,10 @@
 import { parseDecimal } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 
-import { createTransactionLink } from '../link-construction.js';
-import { allocateMatches } from '../match-allocation.js';
-import type { LinkCandidate } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../types.js';
+import { createTransactionLink } from '../matching/link-construction.js';
+import { allocateMatches } from '../matching/match-allocation.js';
+import type { LinkableMovement } from '../pre-linking/types.js';
+import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
@@ -16,7 +16,11 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 export class PartialMatchStrategy implements ILinkingStrategy {
   readonly name = 'partial-match';
 
-  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
+  execute(
+    sources: LinkableMovement[],
+    targets: LinkableMovement[],
+    config: MatchingConfig
+  ): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
     const consumedCandidateIds = new Set<number>();
 

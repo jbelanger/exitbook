@@ -9,9 +9,9 @@ import { USRules } from '../jurisdictions/us-rules.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 
-import { calculateCostBasisFromValidatedTransactions } from './cost-basis-calculator.js';
+import { calculateScopedCostBasis } from './cost-basis-calculator.js';
 
-describe('calculateCostBasisFromValidatedTransactions', () => {
+describe('calculateScopedCostBasis', () => {
   const lotMatcher = new LotMatcher();
 
   describe('calculate', () => {
@@ -35,7 +35,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -65,12 +65,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        transactions,
-        config,
-        new CanadaRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -97,7 +92,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -133,7 +128,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -178,12 +173,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        [transactionWithoutPrice],
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis([transactionWithoutPrice], config, new USRules(), lotMatcher);
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -236,12 +226,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        [transaction],
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis([transaction], config, new USRules(), lotMatcher);
 
       // Should succeed - fiat movements without prices are ignored
       const resultValue = assertOk(result);
@@ -262,7 +247,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('only supported for Canada');
@@ -293,7 +278,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -329,7 +314,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -388,7 +373,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -451,12 +436,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        transactions,
-        config,
-        new CanadaRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;
@@ -515,12 +495,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        transactionsWithEUR,
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis(transactionsWithEUR, config, new USRules(), lotMatcher);
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -582,12 +557,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        [transactionWithEURFee],
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis([transactionWithEURFee], config, new USRules(), lotMatcher);
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -662,12 +632,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        transactionsWithUSD,
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis(transactionsWithUSD, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       expect(resultValue.lotsCreated).toBe(1);
@@ -715,12 +680,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2023,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(
-        transactionsWithMultipleEUR,
-        config,
-        new USRules(),
-        lotMatcher
-      );
+      const result = await calculateScopedCostBasis(transactionsWithMultipleEUR, config, new USRules(), lotMatcher);
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -766,7 +726,7 @@ describe('calculateCostBasisFromValidatedTransactions', () => {
         taxYear: 2024,
       };
 
-      const result = await calculateCostBasisFromValidatedTransactions(transactions, config, new USRules(), lotMatcher);
+      const result = await calculateScopedCostBasis(transactions, config, new USRules(), lotMatcher);
 
       const resultValue = assertOk(result);
       const summary = resultValue;

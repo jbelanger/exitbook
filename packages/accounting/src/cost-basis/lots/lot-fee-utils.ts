@@ -9,7 +9,7 @@ import {
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingScopedTransaction } from '../matching/build-accounting-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
 
 import { getVarianceTolerance } from './lot-sorting-utils.js';
 

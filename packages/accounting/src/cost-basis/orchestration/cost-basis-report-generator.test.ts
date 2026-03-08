@@ -9,7 +9,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { FxRateData, IFxRateProvider } from '../../price-enrichment/types.js';
+import type { FxRateData, IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import type { CostBasisCalculation, LotDisposal, LotTransfer } from '../shared/schemas.js';
 
 import { CostBasisReportGenerator } from './cost-basis-report-generator.js';

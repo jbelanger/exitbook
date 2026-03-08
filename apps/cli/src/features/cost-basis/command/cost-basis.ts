@@ -27,7 +27,7 @@ import {
 import type { CostBasisWorkflowResult, CostBasisInput } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
-import { buildCostBasisParamsFromFlags } from './cost-basis-utils.js';
+import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
 
 const logger = getLogger('cost-basis');
 
@@ -180,7 +180,7 @@ async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterReg
 
 async function executeCostBasisCalculateJSON(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
   try {
-    const params = unwrapResult(buildCostBasisParamsFromFlags(options));
+    const params = unwrapResult(buildCostBasisInputFromFlags(options));
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -264,7 +264,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
         }
         params = promptResult;
       } else {
-        params = unwrapResult(buildCostBasisParamsFromFlags(options));
+        params = unwrapResult(buildCostBasisInputFromFlags(options));
       }
 
       // Step 2: Create handler (runs projection + linking + price enrichment prereqs)

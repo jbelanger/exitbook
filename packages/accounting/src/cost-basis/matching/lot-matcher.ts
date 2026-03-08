@@ -19,7 +19,7 @@ import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
   FeeOnlyInternalCarryoverTarget,
-} from './build-accounting-scoped-transactions.js';
+} from './build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferLink, ValidatedScopedTransferSet } from './validated-scoped-transfer-links.js';
 
 /**

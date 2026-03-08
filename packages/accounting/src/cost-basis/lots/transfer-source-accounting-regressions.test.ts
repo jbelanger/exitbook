@@ -12,8 +12,8 @@ import {
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
-} from '../matching/build-accounting-scoped-transactions.js';
-import { buildAccountingScopedTransactions } from '../matching/build-accounting-scoped-transactions.js';
+} from '../matching/build-cost-basis-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferLink } from '../matching/validated-scoped-transfer-links.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
@@ -50,7 +50,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', source: 'kraken', type: 'withdrawal' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
+    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
     const scopedTransaction = assertOk(scopedResult).transactions[0];
     const outflow = scopedTransaction?.movements.outflows[0];
 

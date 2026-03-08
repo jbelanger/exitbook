@@ -4,20 +4,20 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildCostBasisParams,
+  buildCostBasisInput,
   filterTransactionsByDateRange,
   formatCurrency,
   getJurisdictionRules,
   transactionHasAllPrices,
-  validateCostBasisParams,
+  validateCostBasisInput,
   validateTransactionPrices,
 } from './cost-basis-utils.js';
 
 describe('cost-basis-utils', () => {
-  describe('buildCostBasisParams', () => {
+  describe('buildCostBasisInput', () => {
     describe('currency validation', () => {
       it('should accept valid fiat currency', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -29,7 +29,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should accept CAD as valid currency', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'CA',
           taxYear: 2024,
@@ -41,7 +41,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should accept EUR as valid currency', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -53,7 +53,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should accept GBP as valid currency', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -65,7 +65,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should reject invalid fiat currency', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -79,7 +79,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should not silently coerce invalid currency to default', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -90,7 +90,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should use default currency when not provided (US -> USD)', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -101,7 +101,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should use default currency when not provided (CA -> CAD)', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'CA',
           taxYear: 2024,
@@ -114,7 +114,7 @@ describe('cost-basis-utils', () => {
 
     describe('date range handling', () => {
       it('should use default tax year dates when custom dates not provided', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -127,7 +127,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should use custom dates when provided', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -141,7 +141,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if only start date provided', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -153,7 +153,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if only end date provided', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -165,7 +165,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if start date is after end date', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -178,7 +178,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if dates are equal', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -193,7 +193,7 @@ describe('cost-basis-utils', () => {
 
     describe('field validation', () => {
       it('should error if method is invalid', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'random',
           jurisdiction: 'US',
           taxYear: 2024,
@@ -205,7 +205,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if jurisdiction is invalid', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'AU',
           taxYear: 2024,
@@ -217,7 +217,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if tax year is invalid (non-numeric)', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 'invalid',
@@ -228,7 +228,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if tax year is out of range (too old)', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 1999,
@@ -239,7 +239,7 @@ describe('cost-basis-utils', () => {
       });
 
       it('should error if tax year is out of range (too far future)', () => {
-        const result = buildCostBasisParams({
+        const result = buildCostBasisInput({
           method: 'fifo',
           jurisdiction: 'US',
           taxYear: 2101,
@@ -559,9 +559,9 @@ describe('cost-basis-utils', () => {
     });
   });
 
-  describe('validateCostBasisParams', () => {
+  describe('validateCostBasisInput', () => {
     it('should accept valid parameters with US jurisdiction', () => {
-      const result = validateCostBasisParams({
+      const result = validateCostBasisInput({
         config: {
           method: 'fifo',
           jurisdiction: 'US',
@@ -576,7 +576,7 @@ describe('cost-basis-utils', () => {
     });
 
     it('should accept average-cost for CA jurisdiction', () => {
-      const result = validateCostBasisParams({
+      const result = validateCostBasisInput({
         config: {
           method: 'average-cost',
           jurisdiction: 'CA',
@@ -591,7 +591,7 @@ describe('cost-basis-utils', () => {
     });
 
     it('should error when average-cost used with non-CA jurisdiction', () => {
-      const result = validateCostBasisParams({
+      const result = validateCostBasisInput({
         config: {
           method: 'average-cost',
           jurisdiction: 'US',
@@ -607,7 +607,7 @@ describe('cost-basis-utils', () => {
     });
 
     it('should error when specific-id method used (not implemented)', () => {
-      const result = validateCostBasisParams({
+      const result = validateCostBasisInput({
         config: {
           method: 'specific-id',
           jurisdiction: 'US',
@@ -623,7 +623,7 @@ describe('cost-basis-utils', () => {
     });
 
     it('should error for UK jurisdiction (not implemented)', () => {
-      const result = validateCostBasisParams({
+      const result = validateCostBasisInput({
         config: {
           method: 'fifo',
           jurisdiction: 'UK',

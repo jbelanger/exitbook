@@ -3,8 +3,8 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
-import type { IFxRateProvider } from '../../price-enrichment/types.js';
-import { validateCostBasisParams, type CostBasisInput } from '../shared/cost-basis-utils.js';
+import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
+import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
 import type { CostBasisReport } from '../shared/report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../shared/types.js';
 
@@ -42,7 +42,7 @@ export class CostBasisWorkflow {
     params: CostBasisInput,
     transactions: UniversalTransactionData[]
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
-    const validation = validateCostBasisParams(params);
+    const validation = validateCostBasisInput(params);
     if (validation.isErr()) {
       return err(validation.error);
     }

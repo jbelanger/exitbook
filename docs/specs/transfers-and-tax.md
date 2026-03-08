@@ -183,7 +183,7 @@ That means:
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
+    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateScopedTransferLinks"]
     C --> E["Scoped price validation"]
@@ -210,6 +210,7 @@ graph TD
 
 ## Related Specs
 
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md)
 - [Transaction Linking](./transaction-linking.md)
 - [Lot Matcher Transaction Dependency Ordering](./lot-matcher-transaction-dependency-ordering.md)
 - [Fees](./fees.md)

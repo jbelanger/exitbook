@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 
-import { buildAccountingScopedTransactions } from './build-accounting-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from './build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
 
 describe('validateScopedTransferLinks', () => {
@@ -47,7 +47,7 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'wallet', sourceType: 'blockchain', type: 'deposit' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([sourceTx, targetTx], logger);
+    const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
     const scopedTransactions = assertOk(scopedResult).transactions;
     const scopedSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 1);
     const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 2);

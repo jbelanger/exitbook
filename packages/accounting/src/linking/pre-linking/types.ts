@@ -1,8 +1,8 @@
 import type { Currency, TransactionLinkMetadata } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { LinkCandidate } from '../link-candidate.js';
-import type { NewTransactionLink } from '../types.js';
+import type { LinkableMovement } from '../matching/linkable-movement.js';
+import type { NewTransactionLink } from '../shared/types.js';
 
 export interface PendingInternalLink {
   sourceTransactionId: number;
@@ -30,13 +30,13 @@ export interface PendingInternalLink {
 }
 
 /**
- * Result of building link candidates.
+ * Result of building linkable movements.
  */
-export interface LinkCandidateBuildResult {
-  /** Link candidates to pass to matching strategies */
-  candidates: LinkCandidate[];
+export interface LinkableMovementBuildResult {
+  /** Linkable movements to pass to matching strategies */
+  linkableMovements: LinkableMovement[];
   /** Internal blockchain links (same tx hash, different tracked addresses) — always confirmed */
   internalLinks: NewTransactionLink[];
 }
 
-export type { LinkCandidate } from '../link-candidate.js';
+export type { LinkableMovement } from '../matching/linkable-movement.js';

@@ -20,7 +20,7 @@ export interface BlockchainGroupReduction {
   outflowReductions: Map<number, Map<string, Decimal>>;
 
   /**
-   * Transaction IDs that are part of internal groups (for marking isInternal on candidates).
+   * Transaction IDs that are part of internal groups (for marking isInternal on linkable movements).
    */
   internalTxIds: Set<number>;
 }

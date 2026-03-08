@@ -1,9 +1,9 @@
 import { parseDecimal } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 
-import { createTransactionLink } from '../link-construction.js';
-import type { LinkCandidate } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink } from '../types.js';
+import { createTransactionLink } from '../matching/link-construction.js';
+import type { LinkableMovement } from '../pre-linking/types.js';
+import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
 
 import { calculateTimeDifferenceHours, determineLinkType, isTimingValid } from './amount-timing-utils.js';
 import { checkTransactionHashMatch } from './exact-hash-utils.js';
@@ -18,7 +18,11 @@ import type { ILinkingStrategy, StrategyResult } from './types.js';
 export class ExactHashStrategy implements ILinkingStrategy {
   readonly name = 'exact-hash';
 
-  execute(sources: LinkCandidate[], targets: LinkCandidate[], config: MatchingConfig): Result<StrategyResult, Error> {
+  execute(
+    sources: LinkableMovement[],
+    targets: LinkableMovement[],
+    config: MatchingConfig
+  ): Result<StrategyResult, Error> {
     const links: NewTransactionLink[] = [];
     const consumedCandidateIds = new Set<number>();
     const now = new Date();
@@ -27,7 +31,7 @@ export class ExactHashStrategy implements ILinkingStrategy {
       if (!source.blockchainTxHash) continue;
 
       // Find all targets with matching hash
-      const hashTargets: LinkCandidate[] = [];
+      const hashTargets: LinkableMovement[] = [];
       for (const target of targets) {
         if (consumedCandidateIds.has(target.id)) continue;
         if (target.assetSymbol !== source.assetSymbol) continue;

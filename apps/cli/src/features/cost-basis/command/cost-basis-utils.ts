@@ -1,4 +1,4 @@
-import { buildCostBasisParams, type CostBasisInput } from '@exitbook/accounting';
+import { buildCostBasisInput, type CostBasisInput } from '@exitbook/accounting';
 import { err, type Result } from '@exitbook/core';
 
 /**
@@ -14,9 +14,9 @@ export interface CostBasisCommandOptions {
 }
 
 /**
- * Build cost basis parameters from CLI flags
+ * Build cost basis input from CLI flags
  */
-export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions): Result<CostBasisInput, Error> {
+export function buildCostBasisInputFromFlags(options: CostBasisCommandOptions): Result<CostBasisInput, Error> {
   if (!options.method) {
     return err(new Error('--method is required (fifo, lifo, specific-id, average-cost)'));
   }
@@ -27,7 +27,7 @@ export function buildCostBasisParamsFromFlags(options: CostBasisCommandOptions):
     return err(new Error('--tax-year is required (e.g., 2024)'));
   }
 
-  return buildCostBasisParams({
+  return buildCostBasisInput({
     method: options.method,
     jurisdiction: options.jurisdiction,
     taxYear: options.taxYear,

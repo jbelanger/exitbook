@@ -13,12 +13,12 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../linking/types.js';
+import type { TransactionLink } from '../../linking/shared/types.js';
 import { AverageCostStrategy } from '../strategies/average-cost-strategy.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
-import type { AccountingScopedTransaction } from './build-accounting-scoped-transactions.js';
-import { buildAccountingScopedTransactions } from './build-accounting-scoped-transactions.js';
+import type { AccountingScopedTransaction } from './build-cost-basis-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from './build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from './lot-matcher.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
 
@@ -79,7 +79,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const scopedResult = buildAccountingScopedTransactions(rawTransactions, logger);
+    const scopedResult = buildCostBasisScopedTransactions(rawTransactions, logger);
     if (scopedResult.isErr()) {
       return err(scopedResult.error);
     }

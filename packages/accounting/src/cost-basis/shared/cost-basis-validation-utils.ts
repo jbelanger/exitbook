@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
-} from '../matching/build-accounting-scoped-transactions.js';
+} from '../matching/build-cost-basis-scoped-transactions.js';
 
 const logger = getLogger('cost-basis-validation-utils');
 

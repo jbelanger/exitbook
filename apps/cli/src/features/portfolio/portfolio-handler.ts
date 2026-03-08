@@ -7,7 +7,7 @@ import path from 'node:path';
 
 import {
   runCostBasisPipeline,
-  validateCostBasisParams,
+  validateCostBasisInput,
   type CostBasisInput,
   type ICostBasisPersistence,
   type FiatCurrency as AccountingFiatCurrency,
@@ -194,7 +194,7 @@ export class PortfolioHandler {
         },
       };
 
-      const costBasisValidation = validateCostBasisParams(costBasisParams);
+      const costBasisValidation = validateCostBasisInput(costBasisParams);
       if (costBasisValidation.isErr()) {
         return err(costBasisValidation.error);
       }

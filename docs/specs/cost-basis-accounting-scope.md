@@ -1,0 +1,338 @@
+---
+last_verified: 2026-03-08
+status: canonical
+---
+
+# Cost Basis Accounting Scope Specification
+
+> ⚠️ **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
+
+Defines the accounting-owned boundary that cost basis builds from processed transactions before price validation, confirmed-link validation, and lot matching.
+
+## Quick Reference
+
+| Concept                | Key Rule                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| Scoped boundary        | Cost basis builds `AccountingScopedBuildResult` in memory from processed transactions       |
+| Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                    |
+| Ambiguity policy       | Same-hash asset identity collisions or ambiguous topology return `Err`                      |
+| Movement identity      | Scoped inflows/outflows keep `movementFingerprint` plus `rawPosition` from raw source facts |
+| Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`   |
+| Fee-only internal case | Purely internal same-hash groups emit `FeeOnlyInternalCarryover` sidecars                   |
+| Price gating           | Price coverage and hard price validation run on scoped movements and scoped fees            |
+| Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links              |
+| Exclusions seam        | Accounting exclusions belong after scoped build and before downstream validation/matching   |
+
+## Goals
+
+- **Accounting-owned meaning**: Cost basis must derive its own accounting view instead of inferring behavior from linker-era internal-link heuristics.
+- **Deterministic identity**: Scoped movement rewriting must preserve raw movement identity so persisted links can validate without symbol or amount guessing.
+- **Fail-closed safety**: Ambiguous same-hash groups, invalid scoped links, and missing required scoped prices must stop the run rather than degrade silently.
+- **Clean downstream boundary**: Price validation, transfer validation, and lot matching should all consume the same scoped contract.
+
+## Non-Goals
+
+- Defining how persisted `transaction_links` are discovered or suggested upstream.
+- Persisting the scoped accounting view as a database projection.
+- Redesigning raw `transactions` / `transaction_movements`.
+- Applying mixed-transaction accounting exclusions inside the matcher.
+- Reintroducing `blockchain_internal` links as a cost-basis side channel.
+
+## Definitions
+
+### AccountingScopedTransaction
+
+Cost-basis-local transaction shape derived from one `UniversalTransactionData`:
+
+```ts
+interface ScopedAssetMovement extends AssetMovement {
+  movementFingerprint: string;
+  rawPosition: number;
+}
+
+interface ScopedFeeMovement extends FeeMovement {
+  originalTransactionId: number;
+  rawPosition: number;
+}
+
+interface AccountingScopedTransaction {
+  tx: UniversalTransactionData;
+  movements: {
+    inflows: ScopedAssetMovement[];
+    outflows: ScopedAssetMovement[];
+  };
+  fees: ScopedFeeMovement[];
+}
+```
+
+Semantics:
+
+- `tx` remains the immutable raw source fact.
+- `movements` and `fees` are the authoritative accounting input for cost basis.
+- `movementFingerprint` and `rawPosition` always point back to the original raw movement slot, even after scoped rewriting.
+- scoped fees are cloned and normalized separately from raw `tx.fees`.
+
+### FeeOnlyInternalCarryover
+
+Cost-basis-local sidecar for a same-hash internal transfer where no external transfer quantity remains but fee treatment still matters:
+
+```ts
+interface FeeOnlyInternalCarryoverTarget {
+  targetTransactionId: number;
+  targetMovementFingerprint: string;
+  quantity: Decimal;
+}
+
+interface FeeOnlyInternalCarryover {
+  assetId: string;
+  assetSymbol: Currency;
+  fee: ScopedFeeMovement;
+  retainedQuantity: Decimal;
+  sourceTransactionId: number;
+  sourceMovementFingerprint: string;
+  targets: FeeOnlyInternalCarryoverTarget[];
+}
+```
+
+This is not a persisted `TransactionLink`. It exists only inside the cost-basis pipeline.
+
+### AccountingScopedBuildResult
+
+```ts
+interface AccountingScopedBuildResult {
+  transactions: AccountingScopedTransaction[];
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+}
+```
+
+This is the handoff contract for scoped price checks, confirmed-link validation, and lot matching.
+
+### ValidatedScopedTransferSet
+
+Confirmed external links after scoped validation:
+
+```ts
+interface ValidatedScopedTransferLink {
+  isPartialMatch: boolean;
+  link: TransactionLink;
+  sourceAssetId: string;
+  sourceMovementAmount: Decimal;
+  sourceMovementFingerprint: string;
+  targetAssetId: string;
+  targetMovementAmount: Decimal;
+  targetMovementFingerprint: string;
+}
+
+interface ValidatedScopedTransferSet {
+  bySourceMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
+  byTargetMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
+  links: ValidatedScopedTransferLink[];
+}
+```
+
+These indexes are matcher-facing lookup structures, not persistence.
+
+## Behavioral Rules
+
+### Scoped Build
+
+`buildCostBasisScopedTransactions(...)` is the first accounting step after processed transactions are loaded.
+
+For every raw transaction it:
+
+- computes a deterministic transaction fingerprint
+- computes deterministic inflow/outflow movement fingerprints by direction-local position
+- clones inflows, outflows, and fees into scoped arrays
+- clones numeric amounts into new `Decimal` instances
+- preserves raw movement order through `rawPosition`
+
+Raw source facts are never mutated. All same-hash reduction happens against the cloned scoped view.
+
+### Same-Hash Grouping
+
+Only blockchain transactions with a normalized hash, at least one movement, and at least two distinct accounts are considered for same-hash scoping.
+
+Grouping rules:
+
+- group by `(blockchain, normalizedHash)` first
+- then derive one asset group per `assetId`
+- reject any same-hash asset-identity collision:
+  - one `assetId` rendered with multiple symbols
+  - one symbol mapped to multiple `assetId`s
+
+Each participant is summarized with:
+
+- gross inflow amount for the asset
+- gross outflow amount for the asset
+- inflow movement count
+- outflow movement count
+- same-asset on-chain fee amount
+- single-movement fingerprints when exactly one scoped inflow/outflow exists
+
+Non-blockchain transactions and non-grouped transactions pass through unchanged.
+
+### Same-Hash Topology Rules
+
+For each `(blockchain, normalizedHash, assetId)` group:
+
+1. Only pure outflow participants:
+   no scoped rewrite; this is treated as an external send candidate.
+2. Any participant with both inflow and outflow for the asset:
+   return `Err`.
+3. More than one pure outflow participant while inflows exist:
+   return `Err`.
+4. Sender with anything other than exactly one outflow movement:
+   return `Err`.
+5. Any receiver with anything other than exactly one inflow movement:
+   return `Err`.
+
+The error is fail-closed because cost basis cannot safely invent accounting meaning from ambiguous same-hash ownership.
+
+### Internal With External Amount
+
+When a group has exactly one pure outflow participant plus one or more pure inflow participants, and external quantity remains after internal change plus fee deduction:
+
+```text
+scoped gross outflow = raw sender outflow gross - total internal inflows
+scoped net outflow   = scoped gross outflow - deduped same-asset on-chain fee
+```
+
+Behavior:
+
+- remove same-asset inflows from scoped receiver transactions
+- rewrite the sender scoped outflow amount
+- deduplicate same-asset on-chain fees across the group using the maximum fee amount seen
+- remove same-asset on-chain fees from all participants
+- re-add one normalized same-asset on-chain fee to the sender scoped transaction
+
+This keeps fee treatment explicit at the scoped boundary instead of burying it in matcher-local amount heuristics.
+
+### Fee-Only Internal Carryover
+
+When the same-hash group has zero external quantity after internal inflows and deduplicated fee:
+
+- remove the sender scoped outflow for that asset
+- keep receiver scoped inflows in place
+- normalize same-asset on-chain fee ownership onto the sender scoped transaction
+- emit one `FeeOnlyInternalCarryover` with movement-fingerprint-targeted receiver bindings
+
+If internal inflows plus deduplicated fee exceed the sender outflow, return `Err`.
+
+### Scoped Price Validation And Coverage
+
+Price coverage and hard price validation operate on the scoped boundary, not raw processed rows.
+
+Consequences:
+
+- movements removed by same-hash scoping do not require prices
+- fees removed by fee normalization do not require prices
+- surviving scoped inflows, outflows, and fees must still carry complete USD-denominated pricing plus FX audit trail when needed
+
+`validateScopedTransactionPrices(...)` returns the raw transactions whose scoped forms are still price-complete. In soft-exclusion flows, the pipeline must rebuild the scoped result from that filtered raw subset so same-hash reductions and carryovers are recomputed against the surviving transactions.
+
+### Confirmed Scoped Link Validation
+
+`validateScopedTransferLinks(...)` validates confirmed external links against `AccountingScopedTransaction[]`.
+
+Accepted links:
+
+- `status === 'confirmed'`
+- `linkType !== 'blockchain_internal'`
+
+Validation rules:
+
+- both source and target transactions must either both be in scope or both be out of scope
+- a one-sided in-scope link is a hard error
+- source and target movement fingerprints must resolve to exactly one scoped outflow/inflow
+- resolved transaction IDs must match the persisted link endpoints
+- resolved `assetId` values must match `sourceAssetId` / `targetAssetId`
+- resolved symbols must match persisted `assetSymbol`
+- non-partial links must match the full scoped movement amount exactly
+- partial links must each be positive, within movement bounds, and reconcile to the full movement total per fingerprint
+- one movement cannot mix partial and full links
+
+The output is indexed by source and target movement fingerprint so the matcher does not rebuild symbol-based or amount-based lookup heuristics.
+
+### Matcher Handoff
+
+The lot matcher consumes:
+
+1. `AccountingScopedBuildResult`
+2. `ValidatedScopedTransferSet`
+3. jurisdiction rules
+
+At this boundary:
+
+- same-hash internal accounting meaning is already resolved
+- `blockchain_internal` links are no longer part of matcher behavior
+- fee-only internal carryovers participate via local dependency edges and local provenance
+- transfer lookup is movement-fingerprint targeted
+
+The matcher is allowed to treat a scoped outflow or inflow as an ordinary disposal/acquisition only when no validated link or carryover binding targets that movement.
+
+### Exclusions Seam
+
+Accounting exclusions belong after the scoped build and before scoped validation/matching:
+
+```text
+processed transactions
+        ↓
+buildCostBasisScopedTransactions()
+        ↓
+accounting exclusion policy
+        ↓
+scoped price validation / scoped link validation / lot matching
+```
+
+The matcher must not become the place where excluded movements are re-decided.
+
+## Pipeline / Flow
+
+```mermaid
+graph TD
+    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
+    B --> C["AccountingScopedBuildResult"]
+    C --> D["validateScopedTransactionPrices / checkTransactionPriceCoverage"]
+    C --> E["validateScopedTransferLinks"]
+    D --> F["LotMatcher"]
+    E --> F
+    F --> G["Lots / disposals / transfers"]
+```
+
+## Invariants
+
+- **Required**: `tx` remains the immutable raw fact; only scoped clones are rewritten.
+- **Required**: scoped movement identity survives rewriting via `movementFingerprint` and `rawPosition`.
+- **Required**: same-hash grouping keys by `assetId`, not symbol alone.
+- **Required**: ambiguous same-hash groups fail closed.
+- **Required**: same-asset on-chain fee ownership is normalized to one scoped sender fee after same-hash reduction.
+- **Required**: only confirmed external links are eligible for scoped transfer validation.
+- **Required**: partial-link groups reconcile exactly to the scoped movement amount.
+- **Enforced**: price validation, link validation, and lot matching all operate on the scoped boundary.
+
+## Edge Cases & Gotchas
+
+- Same-hash asset identity collisions are hard errors even when linking could have tolerated skipping them.
+- A confirmed link whose endpoints straddle the scoped batch boundary is a hard error.
+- A fee-only internal group keeps receiver inflows alive; removing them would destroy the basis-carryover target.
+- Deduplicated same-asset on-chain fee uses `max(...)`, not sum, across participants.
+- Scoped fee normalization can remove every same-asset fee from receivers and then re-create one normalized sender fee.
+- Soft missing-price exclusion must rebuild the scoped subset; filtering raw transactions without rebuilding can leave stale carryover state.
+
+## Known Limitations (Current Implementation)
+
+- Mixed-transaction user-controlled accounting exclusions are not yet implemented as a first-class scoped policy.
+- The scoped accounting view is ephemeral; it is rebuilt for each cost-basis or price-coverage run.
+- This spec defines the accounting boundary, not jurisdiction-specific lot allocation strategy behavior.
+
+## Related Specs
+
+- [Transaction Linking](./transaction-linking.md) — persisted link contract and link-generation rules
+- [Transfers & Tax](./transfers-and-tax.md) — transfer preservation, fee policy, and tax-facing matcher behavior
+- [Lot Matcher Transaction Dependency Ordering](./lot-matcher-transaction-dependency-ordering.md) — dependency ordering once scoped links and carryovers are prepared
+- [Average Cost Basis](./average-cost-basis.md) — strategy-level disposal allocation after matching
+- [Fees](./fees.md) — fee treatment that applies after scoped fee normalization
+
+---
+
+_Last updated: 2026-03-08_

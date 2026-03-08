@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
-import { buildAccountingScopedTransactions } from '../matching/build-accounting-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 import { getJurisdictionRules, validateScopedTransactionPrices } from '../shared/cost-basis-utils.js';
@@ -47,7 +47,7 @@ export async function runCostBasisPipeline(
   store: ICostBasisPersistence,
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
-  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
@@ -82,7 +82,7 @@ export async function runCostBasisPipeline(
     // fee-only carryovers. After excluding raw transactions we must rebuild the
     // scoped subset so those transfer decisions are recomputed against the
     // surviving transactions rather than leaving dangling carryover state.
-    const priceCompleteScopedResult = buildAccountingScopedTransactions(priceCompleteTransactions, logger);
+    const priceCompleteScopedResult = buildCostBasisScopedTransactions(priceCompleteTransactions, logger);
     if (priceCompleteScopedResult.isErr()) {
       return err(priceCompleteScopedResult.error);
     }

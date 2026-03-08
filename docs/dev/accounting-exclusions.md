@@ -478,13 +478,13 @@ for (const tx of filtered) {
 
 Location: `packages/accounting/src/cost-basis/cost-basis-pipeline.ts`
 
-Filter whole excluded transactions, pass excluded assets to validation, **and forward to `calculateCostBasisFromValidatedTransactions`:**
+Filter whole excluded transactions, pass excluded assets to validation, **and forward to `calculateScopedCostBasis`:**
 
 ```ts
 const inScopeTransactions = transactions.filter((tx) => !isExcludedFromAccounting(tx));
 const validationResult = validateTransactionPrices(inScopeTransactions, config.currency, excludedAssets);
 // ...
-const costBasisResult = await calculateCostBasisFromValidatedTransactions(
+const costBasisResult = await calculateScopedCostBasis(
   validTransactions,
   config,
   rules,
@@ -498,7 +498,7 @@ const costBasisResult = await calculateCostBasisFromValidatedTransactions(
 
 Location: `packages/accounting/src/cost-basis/cost-basis-validation-utils.ts`
 
-`calculateCostBasisFromValidatedTransactions()` calls `assertPriceDataQuality(transactions)` as a defense-in-depth check (`cost-basis-calculator.ts:77`). This function calls `collectPricedEntities(transactions)` which iterates all movements unconditionally. **Without changes, mixed transactions with excluded-asset movements will fail this hard gate even after passing the soft gate above.**
+`calculateScopedCostBasis()` calls `assertPriceDataQuality(transactions)` as a defense-in-depth check (`cost-basis-calculator.ts:77`). This function calls `collectPricedEntities(transactions)` which iterates all movements unconditionally. **Without changes, mixed transactions with excluded-asset movements will fail this hard gate even after passing the soft gate above.**
 
 Update `assertPriceDataQuality` to accept and forward `excludedAssets`:
 
@@ -512,10 +512,10 @@ export function assertPriceDataQuality(
 }
 ```
 
-And update `calculateCostBasisFromValidatedTransactions` to accept and forward it:
+And update `calculateScopedCostBasis` to accept and forward it:
 
 ```ts
-export async function calculateCostBasisFromValidatedTransactions(
+export async function calculateScopedCostBasis(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   rules: IJurisdictionRules,
@@ -529,7 +529,7 @@ export async function calculateCostBasisFromValidatedTransactions(
 }
 ```
 
-The full chain is: `runCostBasisPipeline(excludedAssets)` → `calculateCostBasisFromValidatedTransactions(excludedAssets)` → `assertPriceDataQuality(excludedAssets)` → `collectPricedEntities(excludedAssets)`.
+The full chain is: `runCostBasisPipeline(excludedAssets)` → `calculateScopedCostBasis(excludedAssets)` → `assertPriceDataQuality(excludedAssets)` → `collectPricedEntities(excludedAssets)`.
 
 ### 6. Cost-basis for mixed transactions
 
@@ -605,7 +605,7 @@ Wire exclusion awareness into accounting gates and connect to override store in 
 1. Add shared predicates (`isExcludedFromAccounting`, `buildExcludedAssetSet`, `isExcludedAsset`) to `@exitbook/accounting`
 2. Add movement-level `excludedAssets` parameter to `transactionHasAllPrices()`, `collectPricedEntities()`
 3. Update `checkTransactionPriceCoverage()` to skip excluded transactions and excluded-asset movements
-4. Update `runCostBasisPipeline()` to filter excluded transactions and pass excluded assets to validation and calculator (full chain: `runCostBasisPipeline` → `calculateCostBasisFromValidatedTransactions` → `assertPriceDataQuality` → `collectPricedEntities`)
+4. Update `runCostBasisPipeline()` to filter excluded transactions and pass excluded assets to validation and calculator (full chain: `runCostBasisPipeline` → `calculateScopedCostBasis` → `assertPriceDataQuality` → `collectPricedEntities`)
 5. Replace `isSpamOrExcludedTransaction()` in portfolio-handler with shared predicate
 6. Extend override store schema: add `'asset-exclude'` / `'asset-include'` to `ScopeSchema`, add payload schemas, extend `OverridePayloadSchema` union, update `SCOPE_TO_PAYLOAD_TYPE`
 7. Extend balances projection build to replay exclusion overrides

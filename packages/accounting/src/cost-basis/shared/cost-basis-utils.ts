@@ -15,7 +15,7 @@ import { USRules } from '../jurisdictions/us-rules.js';
 import type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
-} from '../matching/build-accounting-scoped-transactions.js';
+} from '../matching/build-cost-basis-scoped-transactions.js';
 
 import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
 import { getDefaultDateRange } from './cost-basis-config.js';
@@ -136,10 +136,10 @@ function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean
 }
 
 /**
- * Build cost basis params from validated field values.
+ * Build cost basis input from validated field values.
  * Shared logic for CLI flag parsing and other callers.
  */
-export function buildCostBasisParams(fields: {
+export function buildCostBasisInput(fields: {
   endDate?: string | undefined;
   fiatCurrency?: string | undefined;
   jurisdiction: string;
@@ -207,9 +207,9 @@ export function buildCostBasisParams(fields: {
 }
 
 /**
- * Validate cost basis parameters (business rules)
+ * Validate cost basis input (business rules)
  */
-export function validateCostBasisParams(params: CostBasisInput): Result<void, Error> {
+export function validateCostBasisInput(params: CostBasisInput): Result<void, Error> {
   const { config } = params;
 
   if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {

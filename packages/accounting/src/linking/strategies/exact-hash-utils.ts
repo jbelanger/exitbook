@@ -1,4 +1,4 @@
-import type { LinkCandidate } from '../link-candidate.js';
+import type { LinkableMovement } from '../matching/linkable-movement.js';
 
 /**
  * Normalize a blockchain transaction hash by removing log index suffix.
@@ -29,7 +29,7 @@ export function normalizeTransactionHash(txHash: string): string {
  * @param target - Target candidate
  * @returns True if hashes match, undefined if either hash not available
  */
-export function checkTransactionHashMatch(source: LinkCandidate, target: LinkCandidate): boolean | undefined {
+export function checkTransactionHashMatch(source: LinkableMovement, target: LinkableMovement): boolean | undefined {
   const sourceHash = source.blockchainTxHash;
   const targetHash = target.blockchainTxHash;
 

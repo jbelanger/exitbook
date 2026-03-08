@@ -9,7 +9,7 @@ import {
   createPriceAtTxTime,
   createTransactionFromMovements,
 } from '../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../linking/types.js';
+import type { TransactionLink } from '../../linking/shared/types.js';
 import type { LotTransfer } from '../shared/schemas.js';
 
 import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from './lot-creation-utils.js';

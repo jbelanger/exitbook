@@ -46,6 +46,6 @@ export interface ConfirmedExchangeTransactionDraft {
 }
 
 export type ExchangeGroupInterpretation =
-  | { draft: ConfirmedExchangeTransactionDraft; kind: 'confirmed'; }
-  | { diagnostic: ExchangeProcessingDiagnostic; kind: 'ambiguous'; }
-  | { diagnostic: ExchangeProcessingDiagnostic; kind: 'unsupported'; };
+  | { draft: ConfirmedExchangeTransactionDraft; kind: 'confirmed' }
+  | { diagnostic: ExchangeProcessingDiagnostic; kind: 'ambiguous' }
+  | { diagnostic: ExchangeProcessingDiagnostic; kind: 'unsupported' };

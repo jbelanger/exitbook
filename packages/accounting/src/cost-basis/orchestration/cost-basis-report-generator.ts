@@ -11,7 +11,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../price-enrichment/types.js';
+import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
 import { USRules } from '../jurisdictions/us-rules.js';

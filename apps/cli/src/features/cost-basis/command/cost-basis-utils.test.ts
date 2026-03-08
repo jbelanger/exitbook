@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCostBasisParamsFromFlags, type CostBasisCommandOptions } from './cost-basis-utils.js';
+import { buildCostBasisInputFromFlags, type CostBasisCommandOptions } from './cost-basis-utils.js';
 
-describe('buildCostBasisParamsFromFlags', () => {
+describe('buildCostBasisInputFromFlags', () => {
   it('should error if method is missing', () => {
     const options: CostBasisCommandOptions = {
       jurisdiction: 'US',
       taxYear: 2024,
     };
 
-    const result = buildCostBasisParamsFromFlags(options);
+    const result = buildCostBasisInputFromFlags(options);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -23,7 +23,7 @@ describe('buildCostBasisParamsFromFlags', () => {
       taxYear: 2024,
     };
 
-    const result = buildCostBasisParamsFromFlags(options);
+    const result = buildCostBasisInputFromFlags(options);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -37,7 +37,7 @@ describe('buildCostBasisParamsFromFlags', () => {
       jurisdiction: 'US',
     };
 
-    const result = buildCostBasisParamsFromFlags(options);
+    const result = buildCostBasisInputFromFlags(options);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -45,14 +45,14 @@ describe('buildCostBasisParamsFromFlags', () => {
     }
   });
 
-  it('should delegate to buildCostBasisParams when all required fields present', () => {
+  it('should delegate to buildCostBasisInput when all required fields present', () => {
     const options: CostBasisCommandOptions = {
       method: 'fifo',
       jurisdiction: 'US',
       taxYear: 2024,
     };
 
-    const result = buildCostBasisParamsFromFlags(options);
+    const result = buildCostBasisInputFromFlags(options);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -75,7 +75,7 @@ describe('buildCostBasisParamsFromFlags', () => {
       endDate: '2024-12-31',
     };
 
-    const result = buildCostBasisParamsFromFlags(options);
+    const result = buildCostBasisInputFromFlags(options);
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

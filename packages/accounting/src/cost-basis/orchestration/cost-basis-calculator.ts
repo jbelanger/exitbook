@@ -5,9 +5,9 @@ import type { Decimal } from 'decimal.js';
 
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import {
-  buildAccountingScopedTransactions,
+  buildCostBasisScopedTransactions,
   type AccountingScopedBuildResult,
-} from '../matching/build-accounting-scoped-transactions.js';
+} from '../matching/build-cost-basis-scoped-transactions.js';
 import type { LotMatcher } from '../matching/lot-matcher.js';
 import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
@@ -41,7 +41,7 @@ export interface CostBasisSummary {
   lotTransfers: LotTransfer[];
 }
 
-const logger = getLogger('calculateCostBasisFromValidatedTransactions');
+const logger = getLogger('calculateScopedCostBasis');
 
 /**
  * Calculate cost basis for a set of pre-validated transactions.
@@ -56,14 +56,14 @@ const logger = getLogger('calculateCostBasisFromValidatedTransactions');
  * @param lotMatcher - Lot matcher instance
  * @param confirmedLinks - Confirmed transaction links for transfer detection
  */
-export async function calculateCostBasisFromValidatedTransactions(
+export async function calculateScopedCostBasis(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
   rules: IJurisdictionRules,
   lotMatcher: LotMatcher,
   confirmedLinks: TransactionLink[] = []
 ): Promise<Result<CostBasisSummary, Error>> {
-  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }

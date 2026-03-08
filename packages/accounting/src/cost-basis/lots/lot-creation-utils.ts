@@ -1,7 +1,7 @@
 import { isFiat, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { AccountingScopedTransaction } from '../matching/build-accounting-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
 import type { AcquisitionLot } from '../shared/schemas.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';

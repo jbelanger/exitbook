@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../__tests__/test-utils.js';
 import { FifoStrategy } from '../strategies/fifo-strategy.js';
 
-import type { AccountingScopedTransaction } from './build-accounting-scoped-transactions.js';
-import { buildAccountingScopedTransactions } from './build-accounting-scoped-transactions.js';
+import type { AccountingScopedTransaction } from './build-cost-basis-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from './build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from './lot-matcher.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
 
@@ -28,7 +28,7 @@ describe('LotMatcher - Fee Handling', () => {
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const scopedResult = buildAccountingScopedTransactions(transactions, logger);
+    const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
     if (scopedResult.isErr()) {
       return err(scopedResult.error);
     }

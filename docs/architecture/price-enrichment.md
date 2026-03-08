@@ -129,12 +129,12 @@ Runs `inferMultiPass()` again with the newly fetched prices, then propagates pri
 
 ## Key Files
 
-| File                                                                    | Role                                                                       |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `packages/accounting/src/price-enrichment/price-enrichment-utils.ts`    | Multi-pass inference: execution prices, derived ratios, swap recalculation |
-| `packages/accounting/src/price-enrichment/price-calculation-utils.ts`   | Trade extraction and price calculation helpers                             |
-| `packages/accounting/src/price-enrichment/movement-enrichment-utils.ts` | Movement-level price application with priority system                      |
-| `packages/accounting/src/price-enrichment/types.ts`                     | `TransactionGroup` and enrichment result types                             |
-| `apps/cli/src/features/prices/prices-enrich.ts`                         | CLI command registration for the 4-stage pipeline                          |
-| `apps/cli/src/features/prices/prices-enrich-handler.ts`                 | Pipeline orchestration: derive → normalize → fetch → propagate             |
-| `packages/core/src/schemas/universal-transaction.ts`                    | `PriceAtTxTimeSchema` with source and granularity metadata                 |
+| File                                                                               | Role                                                                       |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `packages/accounting/src/price-enrichment/enrichment/price-enrichment-utils.ts`    | Multi-pass inference: execution prices, derived ratios, swap recalculation |
+| `packages/accounting/src/price-enrichment/enrichment/price-calculation-utils.ts`   | Trade extraction and price calculation helpers                             |
+| `packages/accounting/src/price-enrichment/enrichment/movement-enrichment-utils.ts` | Movement-level price application with priority system                      |
+| `packages/accounting/src/price-enrichment/shared/types.ts`                         | `LinkedTransactionGroup` and enrichment result types                       |
+| `apps/cli/src/features/prices/prices-enrich.ts`                                    | CLI command registration for the 4-stage pipeline                          |
+| `apps/cli/src/features/prices/prices-enrich-handler.ts`                            | Pipeline orchestration: derive → normalize → fetch → propagate             |
+| `packages/core/src/schemas/universal-transaction.ts`                               | `PriceAtTxTimeSchema` with source and granularity metadata                 |

@@ -75,7 +75,7 @@ Targets never scan all transfers. They resolve directly through the binding key 
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
+    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateScopedTransferLinks"]
     C --> E["Prepare fee-only carryovers"]
@@ -167,6 +167,7 @@ The matcher no longer returns partial-success asset results.
 
 ## Related Specs
 
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md)
 - [Transfers & Tax](./transfers-and-tax.md)
 - [Fees](./fees.md)
 - [Average Cost Basis](./average-cost-basis.md)

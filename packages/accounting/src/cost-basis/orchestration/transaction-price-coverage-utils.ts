@@ -2,7 +2,7 @@ import { resultDoAsync, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
-import { buildAccountingScopedTransactions } from '../matching/build-accounting-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { filterTransactionsByDateRange, scopedTransactionHasAllPrices } from '../shared/cost-basis-utils.js';
 
 export interface PriceCoverageResult {
@@ -35,7 +35,7 @@ export function checkTransactionPriceCoverage(
       return { complete: true, reason: undefined };
     }
 
-    const scopedResult = buildAccountingScopedTransactions(filtered, logger);
+    const scopedResult = buildCostBasisScopedTransactions(filtered, logger);
     if (scopedResult.isErr()) {
       return yield* scopedResult;
     }

@@ -5,8 +5,8 @@ This document supersedes:
 - [`accounting-exclusions.md`](./accounting-exclusions.md)
 - [`accounting-exclusions-v2.md`](./accounting-exclusions-v2.md)
 
-It assumes the cost-basis refactor in
-[`cost-basis-after-linking-refactor-plan.md`](./cost-basis-after-linking-refactor-plan.md)
+It assumes the accounting-scoped cost-basis boundary defined in
+[`cost-basis-accounting-scope.md`](../specs/cost-basis-accounting-scope.md)
 has landed.
 
 That refactor changed the right place to solve exclusions.
@@ -18,7 +18,7 @@ have. Today the accounting boundary is:
 ```text
 transactions
   ↓
-buildAccountingScopedTransactions()
+buildCostBasisScopedTransactions()
   ↓
 scoped price validation / scoped price coverage
   ↓
@@ -34,7 +34,7 @@ filtering and not from a balances projection.
 
 The current code now has a much cleaner seam for exclusions:
 
-- [`build-accounting-scoped-transactions.ts`](../../packages/accounting/src/cost-basis/build-accounting-scoped-transactions.ts)
+- [`build-cost-basis-scoped-transactions.ts`](../../packages/accounting/src/cost-basis/build-cost-basis-scoped-transactions.ts)
   builds the accounting-owned scoped view.
 - [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts)
   checks price coverage on that scoped view.
@@ -96,7 +96,7 @@ cost-basis concern.
 The important post-refactor change is that accounting no longer validates prices
 or matches lots directly against raw processed movements.
 
-`buildAccountingScopedTransactions()` now:
+`buildCostBasisScopedTransactions()` now:
 
 - clones raw movements and fees into cost-basis-local scoped shapes
 - preserves movement identity with `movementFingerprint` and `rawPosition`
@@ -201,7 +201,7 @@ The post-refactor boundary should be:
 ```text
 transactions from repository
   ↓
-buildAccountingScopedTransactions()
+buildCostBasisScopedTransactions()
   ↓
 applyAccountingExclusionPolicy()
   ↓
@@ -247,7 +247,7 @@ Recommended file:
 - `packages/accounting/src/cost-basis/apply-accounting-exclusion-policy.ts`
 
 This should stay local to accounting just like
-`buildAccountingScopedTransactions()`.
+`buildCostBasisScopedTransactions()`.
 
 ### Scoped exclusion rules
 
@@ -359,7 +359,7 @@ so it becomes:
 
 ```text
 load transactions
-  → buildAccountingScopedTransactions()
+  → buildCostBasisScopedTransactions()
   → applyAccountingExclusionPolicy()
   → scopedTransactionHasAllPrices()
 ```
@@ -373,7 +373,7 @@ Update [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/cost-
 so it becomes:
 
 ```text
-buildAccountingScopedTransactions()
+buildCostBasisScopedTransactions()
   → applyAccountingExclusionPolicy()
   → validateScopedTransactionPrices()
   → missing price policy
