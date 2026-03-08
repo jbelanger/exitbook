@@ -63,7 +63,7 @@ function createTransactionLink(params: {
   asset?: string;
   confidenceScore?: string;
   id: number;
-  linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
+  linkType: 'exchange_to_blockchain' | 'blockchain_to_exchange' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
   sourceAmount?: string;
   sourceTransactionId: number;
   status: 'suggested' | 'confirmed' | 'rejected';

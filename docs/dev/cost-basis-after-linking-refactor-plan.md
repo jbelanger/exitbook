@@ -783,7 +783,7 @@ The next phase should:
 - let price coverage and lot matching operate only on the scoped build result
 
 That follow-up should build on
-[`accounting-exclusions-v2.md`](./accounting-exclusions-v2.md), but with one
+[`accounting-exclusions-v3.md`](./accounting-exclusions-v3.md), but with one
 important rule:
 
 - exclusions belong in the accounting-scoped builder or immediately after it

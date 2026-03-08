@@ -1,5 +1,8 @@
 # Accounting Exclusions & Asset Review
 
+> Archived. Superseded by
+> [`accounting-exclusions-v3.md`](./accounting-exclusions-v3.md).
+
 Follow-up to [projection-system-refactor.md](./projection-system-refactor.md). That doc established the projection lifecycle model. This doc addresses two related gaps:
 
 1. **Balances projection** — persisted calculated vs live balance state, running after processing as a sibling to links

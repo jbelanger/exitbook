@@ -270,7 +270,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('metadata_json', 'text')
     .addCheckConstraint(
       'transaction_links_link_type_valid',
-      sql`link_type IN ('exchange_to_blockchain', 'blockchain_to_blockchain', 'exchange_to_exchange', 'blockchain_internal')`
+      sql`link_type IN ('exchange_to_blockchain', 'blockchain_to_exchange', 'blockchain_to_blockchain', 'exchange_to_exchange', 'blockchain_internal')`
     )
     .addCheckConstraint(
       'transaction_links_confidence_score_valid',

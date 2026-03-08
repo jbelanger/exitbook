@@ -26,6 +26,7 @@ export interface TransactionDetails {
   movements_inflows: AssetMovement[];
   movements_outflows: AssetMovement[];
   source_name: string;
+  source_type: UniversalTransactionData['sourceType'];
   timestamp: string;
   to_address: string | undefined;
 }
@@ -96,6 +97,7 @@ export function mapTransactionToDetails(tx: UniversalTransactionData): Transacti
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
     source_name: tx.source,
+    source_type: tx.sourceType,
     timestamp: tx.datetime,
     to_address: tx.to,
   };
@@ -237,10 +239,11 @@ function formatTransactionDetails(tx: TransactionDetails, label: string): string
 export function formatLinkForDisplay(link: LinkInfo): string {
   const statusIcon = getLinkStatusIcon(link.status);
   const lines: string[] = [];
+  const linkType = formatDisplayLinkType(link);
 
   // Title line with asset symbol
   lines.push(
-    `${statusIcon} Link #${link.id} - ${link.asset_symbol} ${link.link_type.replace(/_/g, ' ')} (${formatConfidence(link.confidence_score)})`
+    `${statusIcon} Link #${link.id} - ${link.asset_symbol} ${linkType} (${formatConfidence(link.confidence_score)})`
   );
 
   // Transaction IDs and amounts
@@ -274,6 +277,29 @@ export function formatLinkForDisplay(link: LinkInfo): string {
   }
 
   return lines.join('\n');
+}
+
+function formatDisplayLinkType(link: LinkInfo): string {
+  const sourceType = link.source_transaction?.source_type;
+  const targetType = link.target_transaction?.source_type;
+
+  if (sourceType === 'blockchain' && targetType === 'exchange') {
+    return 'blockchain to exchange';
+  }
+
+  if (sourceType === 'exchange' && targetType === 'blockchain') {
+    return 'exchange to blockchain';
+  }
+
+  if (sourceType === 'blockchain' && targetType === 'blockchain') {
+    return link.link_type === 'blockchain_internal' ? 'blockchain internal' : 'blockchain to blockchain';
+  }
+
+  if (sourceType === 'exchange' && targetType === 'exchange') {
+    return 'exchange to exchange';
+  }
+
+  return link.link_type.replace(/_/g, ' ');
 }
 
 /**

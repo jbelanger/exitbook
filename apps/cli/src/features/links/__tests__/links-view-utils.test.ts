@@ -3,7 +3,12 @@ import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { filterLinksByConfidence, formatLinkInfo, mapTransactionToDetails } from '../links-view-utils.js';
+import {
+  filterLinksByConfidence,
+  formatLinkForDisplay,
+  formatLinkInfo,
+  mapTransactionToDetails,
+} from '../links-view-utils.js';
 
 import { createMockLink, createMockTransaction } from './test-utils.js';
 
@@ -88,6 +93,7 @@ describe('links-view-utils', () => {
         id: 123,
         external_id: 'tx-123',
         source_name: 'test-source',
+        source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: '0x1234567890abcdef1234567890abcdef12345678',
         to_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
@@ -132,6 +138,7 @@ describe('links-view-utils', () => {
         id: 456,
         external_id: 'tx-456',
         source_name: 'test-source',
+        source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: undefined,
         to_address: undefined,
@@ -235,6 +242,21 @@ describe('links-view-utils', () => {
       expect(result.source_transaction?.id).toBe(1);
       expect(result.target_transaction).toBeDefined();
       expect(result.target_transaction?.id).toBe(2);
+    });
+
+    it('renders blockchain to exchange when transaction details contradict the persisted fallback link type', () => {
+      const link = createMockLink(123, { confidenceScore: 0.85 });
+      const sourceTx = createMockTransaction(1);
+      sourceTx.source = 'bitcoin';
+      sourceTx.sourceType = 'blockchain';
+      const targetTx = createMockTransaction(2);
+      targetTx.source = 'kraken';
+      targetTx.sourceType = 'exchange';
+
+      const formatted = formatLinkForDisplay(formatLinkInfo(link, sourceTx, targetTx));
+
+      expect(formatted).toContain('blockchain to exchange');
+      expect(formatted).not.toContain('exchange to blockchain');
     });
 
     it('should format confirmed link with review information', () => {

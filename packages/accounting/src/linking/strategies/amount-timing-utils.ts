@@ -78,6 +78,10 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
     return 'exchange_to_blockchain';
   }
 
+  if (sourceType === 'blockchain' && targetType === 'exchange') {
+    return 'blockchain_to_exchange';
+  }
+
   if (sourceType === 'blockchain' && targetType === 'blockchain') {
     return 'blockchain_to_blockchain';
   }
@@ -86,7 +90,7 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
     return 'exchange_to_exchange';
   }
 
-  // Shouldn't happen (blockchain → exchange is unusual)
+  // Shouldn't happen for current source types; preserve a deterministic fallback.
   return 'exchange_to_blockchain';
 }
 

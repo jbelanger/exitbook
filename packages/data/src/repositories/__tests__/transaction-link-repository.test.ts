@@ -146,6 +146,20 @@ describe('TransactionLinkRepository', () => {
       expect(fetched?.sourceAmount.toFixed()).toBe('1000000.123456789');
       expect(fetched?.targetAmount.toFixed()).toBe('999999.123456789');
     });
+
+    it('round-trips blockchain_to_exchange link types', async () => {
+      const id = assertOk(
+        await repo.create({
+          ...makeBtcLink(5, 6),
+          linkType: 'blockchain_to_exchange',
+          sourceAssetId: 'blockchain:bitcoin:native',
+          targetAssetId: 'exchange:kraken:btc',
+        })
+      );
+
+      const fetched = assertOk(await repo.findById(id));
+      expect(fetched?.linkType).toBe('blockchain_to_exchange');
+    });
   });
 
   describe('createBatch', () => {

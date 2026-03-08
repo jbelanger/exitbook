@@ -24,6 +24,7 @@ override replay, and the persisted link contract.
 | Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${txFingerprint}:${movementType}:${position}`                       |
 | Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                      |
 | Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1` |
+| Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                        |
 | Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides materialize only when exactly one source and one target candidate resolve           |
 | Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                               |
 
@@ -110,7 +111,12 @@ interface TransactionLink {
   targetAmount: Decimal;
   sourceMovementFingerprint: string;
   targetMovementFingerprint: string;
-  linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange' | 'blockchain_internal';
+  linkType:
+    | 'exchange_to_blockchain'
+    | 'blockchain_to_exchange'
+    | 'blockchain_to_blockchain'
+    | 'exchange_to_exchange'
+    | 'blockchain_internal';
   confidenceScore: Decimal;
   matchCriteria: MatchCriteria;
   status: 'suggested' | 'confirmed' | 'rejected';
@@ -217,6 +223,7 @@ Reducer rules:
    - emit no internal links
    - apply no reductions
    - leave all ordinary candidates unchanged
+   - later strategies may still consume the unchanged candidates for exact same-hash external-send matching
 2. If any participant has both inflow and outflow for the same asset:
    - treat the group as ambiguous
    - log a warning
@@ -258,6 +265,13 @@ Internal-link materialization rule:
 
 Ordinary strategies operate on non-internal cross-source candidates.
 
+Default order:
+
+1. `exact-hash`
+2. `same-hash external outflow`
+3. `amount-timing`
+4. `partial-match`
+
 Hard filters:
 
 - source and target cannot come from the same transaction
@@ -287,6 +301,26 @@ Hash-match fast path:
 - if normalized hashes match and both sides are blockchain candidates, the pair is skipped here because same-hash blockchain handling owns that case
 - if normalized hashes match and the pair is not blockchain→blockchain, the pair gets confidence `1.0`
 - multi-target hash matches are allowed only when the summed target amount does not exceed the source amount
+
+Same-hash external outflow fast path:
+
+- only considers pure same-hash blockchain outflow groups with:
+  - at least two source candidates
+  - at least two accounts
+  - exactly one shared `toAddress`
+  - no tracked blockchain inflow candidate for the same `(hash, assetId, sourceName)`
+- reconstructs the group send amount as:
+
+```text
+group amount =
+  sum(source gross amount)
+  - max(same-hash duplicated fee)
+```
+
+- builds one synthetic group source for scoring only
+- only proceeds when exactly one exchange inflow target matches that synthetic source with `amountSimilarity = 1.0`
+- expands the accepted group match back into pairwise partial links, assigning the single deduplicated fee to one deterministic fee-bearing source and using gross amounts for the remaining sources
+- uses the synthetic group match confidence and status for every expanded link
 
 ### Capacity Allocation And Partial Matches
 
@@ -327,6 +361,10 @@ Persisted metadata rules:
   - `fullSourceAmount`
   - `fullTargetAmount`
   - `consumedAmount`
+- same-hash external outflow expansions additionally store:
+  - `dedupedSameHashFee`
+  - `feeBearingSourceTransactionId`
+  - `sameHashExternalSourceAllocations`
 - score breakdown is stored when available
 - hash-match target excess allowance is recorded in metadata when used
 
@@ -448,6 +486,7 @@ graph TD
 ## Known Limitations (Current Implementation)
 
 - Ambiguous same-hash blockchain groups are intentionally left unmatched rather than approximated.
+- Same-hash external outflow matching only handles exact single-target exchange matches; non-exact groups still fall back to ordinary strategies or remain unmatched.
 - Matching allocation is greedy, not globally optimal.
 - Override fingerprints are still symbol-based; they do not yet use the stricter persisted asset-id pair.
 - Movement fingerprints are stored as plain strings rather than a dedicated fingerprint schema/type.

@@ -193,6 +193,11 @@ describe('candidate-scoring', () => {
       expect(type).toBe('exchange_to_blockchain');
     });
 
+    it('should determine blockchain_to_exchange link type', () => {
+      const type = determineLinkType('blockchain', 'exchange');
+      expect(type).toBe('blockchain_to_exchange');
+    });
+
     it('should determine blockchain_to_blockchain link type', () => {
       const type = determineLinkType('blockchain', 'blockchain');
       expect(type).toBe('blockchain_to_blockchain');
@@ -506,6 +511,30 @@ describe('candidate-scoring', () => {
       // Best match should be first
       expect(matches[0]?.targetMovement.id).toBe(3);
       expect(matches[1]?.targetMovement.id).toBe(2);
+    });
+
+    it('should emit blockchain_to_exchange for blockchain send matched to exchange deposit', () => {
+      const source = createCandidate({
+        sourceName: 'bitcoin',
+        sourceType: 'blockchain',
+        direction: 'out',
+        amount: parseDecimal('1'),
+      });
+      const targets: LinkCandidate[] = [
+        createCandidate({
+          id: 2,
+          sourceName: 'kraken',
+          sourceType: 'exchange',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          amount: parseDecimal('0.9995'),
+          direction: 'in',
+        }),
+      ];
+
+      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.linkType).toBe('blockchain_to_exchange');
     });
   });
 

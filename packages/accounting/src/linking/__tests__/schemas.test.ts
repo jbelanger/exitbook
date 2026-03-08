@@ -16,6 +16,7 @@ describe('schemas', () => {
   describe('LinkTypeSchema', () => {
     it('should validate valid link types', () => {
       expect(LinkTypeSchema.parse('exchange_to_blockchain')).toBe('exchange_to_blockchain');
+      expect(LinkTypeSchema.parse('blockchain_to_exchange')).toBe('blockchain_to_exchange');
       expect(LinkTypeSchema.parse('blockchain_to_blockchain')).toBe('blockchain_to_blockchain');
       expect(LinkTypeSchema.parse('exchange_to_exchange')).toBe('exchange_to_exchange');
     });

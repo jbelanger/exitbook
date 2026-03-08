@@ -316,7 +316,7 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
 
   const { link, sourceTransaction, targetTransaction } = selected;
 
-  const linkType = link.linkType.replace(/_/g, ' ');
+  const linkType = formatLinkTypeDisplay(link, sourceTransaction, targetTransaction);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
   const { iconColor: statusColor } = getStatusDisplay(link.status);
@@ -428,6 +428,30 @@ function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
     matchedAmount: link.sourceAmount.toFixed(),
     detailSummary: `target exceeds source by ${link.targetAmount.minus(link.sourceAmount).toFixed()} ${link.assetSymbol}`,
   };
+}
+
+function formatLinkTypeDisplay(
+  link: TransactionLink,
+  sourceTransaction: LinkWithTransactions['sourceTransaction'],
+  targetTransaction: LinkWithTransactions['targetTransaction']
+): string {
+  if (sourceTransaction?.sourceType === 'blockchain' && targetTransaction?.sourceType === 'exchange') {
+    return 'blockchain to exchange';
+  }
+
+  if (sourceTransaction?.sourceType === 'exchange' && targetTransaction?.sourceType === 'blockchain') {
+    return 'exchange to blockchain';
+  }
+
+  if (sourceTransaction?.sourceType === 'blockchain' && targetTransaction?.sourceType === 'blockchain') {
+    return link.linkType === 'blockchain_internal' ? 'blockchain internal' : 'blockchain to blockchain';
+  }
+
+  if (sourceTransaction?.sourceType === 'exchange' && targetTransaction?.sourceType === 'exchange') {
+    return 'exchange to exchange';
+  }
+
+  return link.linkType.replace(/_/g, ' ');
 }
 
 function renderAmountSummary(display: LinkAmountDisplay) {

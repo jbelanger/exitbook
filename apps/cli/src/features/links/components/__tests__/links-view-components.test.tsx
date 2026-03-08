@@ -108,6 +108,10 @@ describe('LinksViewApp - links mode', () => {
       />
     );
     const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
 
     expect(frame.indexOf('2024-03-15')).toBeLessThan(frame.indexOf('2024-03-16'));
     expect(frame.indexOf('2024-03-16')).toBeLessThan(frame.indexOf('2024-03-17'));
