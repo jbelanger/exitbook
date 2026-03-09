@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-08
+last_verified: 2026-03-09
 status: canonical
 ---
 
@@ -15,7 +15,7 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 | ---------------------- | ------------------------------------------------------------------------------------------- |
 | Scoped boundary        | Cost basis builds `AccountingScopedBuildResult` in memory from processed transactions       |
 | Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                    |
-| Ambiguity policy       | Same-hash asset identity collisions or ambiguous topology return `Err`                      |
+| Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`        |
 | Movement identity      | Scoped inflows/outflows keep `movementFingerprint` plus `rawPosition` from raw source facts |
 | Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`   |
 | Fee-only internal case | Purely internal same-hash groups emit `FeeOnlyInternalCarryover` sidecars                   |
@@ -179,31 +179,31 @@ For each `(blockchain, normalizedHash, assetId)` group:
    no scoped rewrite; this is treated as an external send candidate.
 2. Any participant with both inflow and outflow for the asset:
    return `Err`.
-3. More than one pure outflow participant while inflows exist:
-   return `Err`.
-4. Sender with anything other than exactly one outflow movement:
+3. Pure outflow participants plus pure inflow participants:
+   deterministically allocate external quantity across senders in ascending `txId` order after deduplicating the same-asset fee onto one fee owner.
+4. Any sender with anything other than exactly one outflow movement:
    return `Err`.
 5. Any receiver with anything other than exactly one inflow movement:
    return `Err`.
 
-The error is fail-closed because cost basis cannot safely invent accounting meaning from ambiguous same-hash ownership.
+The error is fail-closed because cost basis cannot safely invent accounting meaning from mixed ownership or multi-movement same-hash groups.
 
 ### Internal With External Amount
 
-When a group has exactly one pure outflow participant plus one or more pure inflow participants, and external quantity remains after internal change plus fee deduction:
+When a group has pure outflow participants plus one or more pure inflow participants, and external quantity remains after internal change plus fee deduction:
 
 ```text
-scoped gross outflow = raw sender outflow gross - total internal inflows
-scoped net outflow   = scoped gross outflow - deduped same-asset on-chain fee
+scoped sender gross outflow = allocated external quantity + allocated fee share
+scoped sender net outflow   = allocated external quantity
 ```
 
 Behavior:
 
 - remove same-asset inflows from scoped receiver transactions
-- rewrite the sender scoped outflow amount
+- rewrite each contributing sender scoped outflow amount
 - deduplicate same-asset on-chain fees across the group using the maximum fee amount seen
 - remove same-asset on-chain fees from all participants
-- re-add one normalized same-asset on-chain fee to the sender scoped transaction
+- re-add one normalized same-asset on-chain fee to the chosen fee-owner transaction
 
 This keeps fee treatment explicit at the scoped boundary instead of burying it in matcher-local amount heuristics.
 
@@ -304,7 +304,7 @@ graph TD
 - **Required**: `tx` remains the immutable raw fact; only scoped clones are rewritten.
 - **Required**: scoped movement identity survives rewriting via `movementFingerprint` and `rawPosition`.
 - **Required**: same-hash grouping keys by `assetId`, not symbol alone.
-- **Required**: ambiguous same-hash groups fail closed.
+- **Required**: mixed or multi-movement same-hash groups fail closed.
 - **Required**: same-asset on-chain fee ownership is normalized to one scoped sender fee after same-hash reduction.
 - **Required**: only confirmed external links are eligible for scoped transfer validation.
 - **Required**: partial-link groups reconcile exactly to the scoped movement amount.

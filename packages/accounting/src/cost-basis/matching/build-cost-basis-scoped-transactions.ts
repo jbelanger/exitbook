@@ -110,7 +110,48 @@ interface InternalFeeOnly {
   }[];
 }
 
-type SameHashDecision = InternalWithExternalAmount | InternalFeeOnly;
+interface SameHashSourceAllocation {
+  txId: number;
+  movementFingerprint: string;
+  externalAmount: Decimal;
+  internalAmount: Decimal;
+  feeDeducted: Decimal;
+}
+
+interface MultiSourceInternalWithExternalAmount {
+  type: 'multi_source_internal_with_external';
+  assetId: string;
+  dedupedFee: Decimal;
+  feeOwnerTxId: number;
+  internalReceiverTxIds: number[];
+  otherParticipantTxIds: number[];
+  sourceAllocations: SameHashSourceAllocation[];
+}
+
+interface MultiSourceInternalFeeOnly {
+  type: 'multi_source_internal_fee_only';
+  assetId: string;
+  assetSymbol: string;
+  dedupedFee: Decimal;
+  feeOwnerTxId: number;
+  otherParticipantTxIds: number[];
+  sourceCarryovers: {
+    retainedQuantity: Decimal;
+    sourceMovementFingerprint: string;
+    sourceTxId: number;
+    targets: {
+      movementFingerprint: string;
+      quantity: Decimal;
+      txId: number;
+    }[];
+  }[];
+}
+
+type SameHashDecision =
+  | InternalWithExternalAmount
+  | InternalFeeOnly
+  | MultiSourceInternalWithExternalAmount
+  | MultiSourceInternalFeeOnly;
 
 // ---------------------------------------------------------------------------
 // Builder entry point
@@ -415,32 +456,21 @@ function reduceSameHashGroupForCostBasis(
     );
   }
 
-  // Rule 3 (ambiguous): multiple pure outflow participants with inflows present
-  if (pureOutflows.length > 1) {
-    return err(
-      new Error(
-        `Ambiguous same-hash group: multiple outflow participants for ${group.assetSymbol} ` +
-          `in hash ${group.normalizedHash} (${group.blockchain}), ` +
-          `outflow txIds: [${pureOutflows.map((p) => p.txId).join(', ')}], ` +
-          `inflow txIds: [${pureInflows.map((p) => p.txId).join(', ')}]`
-      )
-    );
-  }
-
-  // Rule 2: exactly one pure outflow + pure inflows → clearly internal
-  const sender = pureOutflows[0];
-  if (!sender || pureInflows.length === 0) {
+  // Rule 2: pure outflows + pure inflows → internal tracked sibling quantity exists
+  if (pureOutflows.length === 0 || pureInflows.length === 0) {
     return ok(undefined);
   }
 
   // Ambiguity: multi-movement participants
-  if (sender.outflowMovementCount !== 1) {
-    return err(
-      new Error(
-        `Ambiguous same-hash group: sender has ${sender.outflowMovementCount} outflow movements for ${group.assetSymbol} ` +
-          `in hash ${group.normalizedHash} (${group.blockchain}), sender txId: ${sender.txId}`
-      )
-    );
+  for (const sender of pureOutflows) {
+    if (sender.outflowMovementCount !== 1) {
+      return err(
+        new Error(
+          `Ambiguous same-hash group: sender has ${sender.outflowMovementCount} outflow movements for ${group.assetSymbol} ` +
+            `in hash ${group.normalizedHash} (${group.blockchain}), sender txId: ${sender.txId}`
+        )
+      );
+    }
   }
 
   for (const receiver of pureInflows) {
@@ -454,64 +484,255 @@ function reduceSameHashGroupForCostBasis(
     }
   }
 
-  // Compute deduped fee (max across all participants)
+  const planResult = planSameHashSourceAllocations(group, pureOutflows, pureInflows);
+  if (planResult.isErr()) {
+    return err(planResult.error);
+  }
+
+  const { dedupedFee, feeOwnerTxId, externalAmount, sourceAllocations, totalInflows } = planResult.value;
+
+  if (pureOutflows.length === 1) {
+    const sender = pureOutflows[0]!;
+
+    if (externalAmount.gt(0)) {
+      return ok({
+        type: 'internal_with_external',
+        senderTxId: sender.txId,
+        assetId: group.assetId,
+        internalInflowTotal: totalInflows,
+        dedupedFee,
+        internalReceiverTxIds: pureInflows.map((r) => r.txId),
+      });
+    }
+
+    return ok({
+      type: 'internal_fee_only',
+      senderTxId: sender.txId,
+      senderMovementFingerprint: sender.outflowMovementFingerprint!,
+      assetId: group.assetId,
+      assetSymbol: group.assetSymbol,
+      dedupedFee,
+      receivers: pureInflows.map((r) => ({
+        txId: r.txId,
+        movementFingerprint: r.inflowMovementFingerprint!,
+        quantity: r.inflowGrossAmount,
+      })),
+    });
+  }
+
+  if (externalAmount.gt(0)) {
+    return ok({
+      type: 'multi_source_internal_with_external',
+      assetId: group.assetId,
+      dedupedFee,
+      feeOwnerTxId,
+      internalReceiverTxIds: pureInflows.map((receiver) => receiver.txId),
+      otherParticipantTxIds: group.participants
+        .map((participant) => participant.txId)
+        .filter((txId) => txId !== feeOwnerTxId),
+      sourceAllocations,
+    });
+  }
+
+  const carryoverAllocationsResult = allocateSameHashReceiversAcrossSources(sourceAllocations, pureInflows);
+  if (carryoverAllocationsResult.isErr()) {
+    return err(carryoverAllocationsResult.error);
+  }
+
+  return ok({
+    type: 'multi_source_internal_fee_only',
+    assetId: group.assetId,
+    assetSymbol: group.assetSymbol,
+    dedupedFee,
+    feeOwnerTxId,
+    otherParticipantTxIds: group.participants
+      .map((participant) => participant.txId)
+      .filter((txId) => txId !== feeOwnerTxId),
+    sourceCarryovers: carryoverAllocationsResult.value,
+  });
+}
+
+function planSameHashSourceAllocations(
+  group: CostBasisSameHashAssetGroup,
+  pureOutflows: CostBasisSameHashParticipant[],
+  pureInflows: CostBasisSameHashParticipant[]
+): Result<
+  {
+    dedupedFee: Decimal;
+    externalAmount: Decimal;
+    feeOwnerTxId: number;
+    sourceAllocations: SameHashSourceAllocation[];
+    totalInflows: Decimal;
+  },
+  Error
+> {
   let dedupedFee = new Decimal(0);
-  for (const p of group.participants) {
-    if (p.onChainFeeAmount.gt(dedupedFee)) {
-      dedupedFee = p.onChainFeeAmount;
+  for (const participant of group.participants) {
+    if (participant.onChainFeeAmount.gt(dedupedFee)) {
+      dedupedFee = participant.onChainFeeAmount;
     }
   }
 
-  // Compute total internal inflows
+  const feeOwner = [...pureOutflows].sort((left, right) => {
+    const feeComparison = right.onChainFeeAmount.comparedTo(left.onChainFeeAmount);
+    if (feeComparison !== 0) return feeComparison;
+
+    const grossComparison = right.outflowGrossAmount.comparedTo(left.outflowGrossAmount);
+    if (grossComparison !== 0) return grossComparison;
+
+    return left.txId - right.txId;
+  })[0];
+  if (!feeOwner) {
+    return err(new Error(`Same-hash source allocation requires at least one outflow for ${group.normalizedHash}`));
+  }
+
+  const orderedSources = [...pureOutflows].sort((left, right) => left.txId - right.txId);
+  const sourceAllocations: (SameHashSourceAllocation & { sourceCapacity: Decimal })[] = [];
+  let totalSourceCapacity = new Decimal(0);
+
+  for (const source of orderedSources) {
+    const feeDeducted = source.txId === feeOwner.txId ? dedupedFee : new Decimal(0);
+    const sourceCapacity = source.outflowGrossAmount.minus(feeDeducted);
+    if (sourceCapacity.lt(0)) {
+      return err(
+        new Error(
+          `Invalid same-hash group: deduped fee exceeds source outflow for ${group.assetSymbol} ` +
+            `in hash ${group.normalizedHash} (${group.blockchain}), source txId: ${source.txId}, ` +
+            `sourceOutflow=${source.outflowGrossAmount.toFixed()}, dedupedFee=${dedupedFee.toFixed()}`
+        )
+      );
+    }
+
+    sourceAllocations.push({
+      txId: source.txId,
+      movementFingerprint: source.outflowMovementFingerprint!,
+      externalAmount: new Decimal(0),
+      internalAmount: new Decimal(0),
+      feeDeducted,
+      sourceCapacity,
+    });
+    totalSourceCapacity = totalSourceCapacity.plus(sourceCapacity);
+  }
+
   let totalInflows = new Decimal(0);
   for (const receiver of pureInflows) {
     totalInflows = totalInflows.plus(receiver.inflowGrossAmount);
   }
 
-  // Determine if any external transfer quantity remains
-  const externalAmount = sender.outflowGrossAmount.minus(totalInflows).minus(dedupedFee);
-
-  if (externalAmount.gt(0)) {
-    return ok({
-      type: 'internal_with_external',
-      senderTxId: sender.txId,
-      assetId: group.assetId,
-      internalInflowTotal: totalInflows,
-      dedupedFee,
-      internalReceiverTxIds: pureInflows.map((r) => r.txId),
-    });
-  }
-
+  const externalAmount = totalSourceCapacity.minus(totalInflows);
   if (externalAmount.lt(0)) {
     return err(
       new Error(
         `Invalid same-hash group: internal inflows plus deduped fee exceed sender outflow for ${group.assetSymbol} ` +
-          `in hash ${group.normalizedHash} (${group.blockchain}), sender txId: ${sender.txId}, ` +
-          `senderOutflow=${sender.outflowGrossAmount.toFixed()}, internalInflows=${totalInflows.toFixed()}, ` +
+          `in hash ${group.normalizedHash} (${group.blockchain}), ` +
+          `totalSourceCapacity=${totalSourceCapacity.toFixed()}, internalInflows=${totalInflows.toFixed()}, ` +
           `dedupedFee=${dedupedFee.toFixed()}, externalAmount=${externalAmount.toFixed()}`
       )
     );
   }
 
-  // Fee-only internal transfer (exactly zero external amount)
+  let remainingExternal = externalAmount;
+  for (const sourceAllocation of sourceAllocations) {
+    const externalShare = remainingExternal.lte(0)
+      ? new Decimal(0)
+      : Decimal.min(sourceAllocation.sourceCapacity, remainingExternal);
+
+    sourceAllocation.externalAmount = externalShare;
+    sourceAllocation.internalAmount = sourceAllocation.sourceCapacity.minus(externalShare);
+    remainingExternal = remainingExternal.minus(externalShare);
+  }
+
+  if (!remainingExternal.eq(0)) {
+    return err(
+      new Error(
+        `Invalid same-hash group: external allocation did not reconcile for ${group.assetSymbol} ` +
+          `in hash ${group.normalizedHash} (${group.blockchain}), remainingExternal=${remainingExternal.toFixed()}`
+      )
+    );
+  }
+
   return ok({
-    type: 'internal_fee_only',
-    senderTxId: sender.txId,
-    senderMovementFingerprint: sender.outflowMovementFingerprint!,
-    assetId: group.assetId,
-    assetSymbol: group.assetSymbol,
     dedupedFee,
-    receivers: pureInflows.map((r) => ({
-      txId: r.txId,
-      movementFingerprint: r.inflowMovementFingerprint!,
-      quantity: r.inflowGrossAmount,
-    })),
+    externalAmount,
+    feeOwnerTxId: feeOwner.txId,
+    sourceAllocations: sourceAllocations.map(({ sourceCapacity: _sourceCapacity, ...allocation }) => allocation),
+    totalInflows,
   });
 }
 
-// ---------------------------------------------------------------------------
-// Apply a scoping decision to scoped transactions
-// ---------------------------------------------------------------------------
+function allocateSameHashReceiversAcrossSources(
+  sourceAllocations: SameHashSourceAllocation[],
+  pureInflows: CostBasisSameHashParticipant[]
+): Result<
+  {
+    retainedQuantity: Decimal;
+    sourceMovementFingerprint: string;
+    sourceTxId: number;
+    targets: {
+      movementFingerprint: string;
+      quantity: Decimal;
+      txId: number;
+    }[];
+  }[],
+  Error
+> {
+  const orderedSources = sourceAllocations
+    .filter((allocation) => allocation.internalAmount.gt(0))
+    .sort((left, right) => left.txId - right.txId)
+    .map((allocation) => ({
+      ...allocation,
+      remainingQuantity: allocation.internalAmount,
+      targets: [] as {
+        movementFingerprint: string;
+        quantity: Decimal;
+        txId: number;
+      }[],
+    }));
+  const orderedReceivers = [...pureInflows].sort((left, right) => left.txId - right.txId);
+
+  let sourceIndex = 0;
+  for (const receiver of orderedReceivers) {
+    let remainingReceiverQuantity = receiver.inflowGrossAmount;
+
+    while (remainingReceiverQuantity.gt(0)) {
+      const currentSource = orderedSources[sourceIndex];
+      if (!currentSource) {
+        return err(
+          new Error(
+            `Same-hash receiver allocation exhausted source capacity before receiver ${receiver.txId} was satisfied`
+          )
+        );
+      }
+
+      if (currentSource.remainingQuantity.eq(0)) {
+        sourceIndex++;
+        continue;
+      }
+
+      const allocatedQuantity = Decimal.min(currentSource.remainingQuantity, remainingReceiverQuantity);
+      currentSource.targets.push({
+        txId: receiver.txId,
+        movementFingerprint: receiver.inflowMovementFingerprint!,
+        quantity: allocatedQuantity,
+      });
+      currentSource.remainingQuantity = currentSource.remainingQuantity.minus(allocatedQuantity);
+      remainingReceiverQuantity = remainingReceiverQuantity.minus(allocatedQuantity);
+
+      if (currentSource.remainingQuantity.eq(0)) {
+        sourceIndex++;
+      }
+    }
+  }
+
+  return ok(
+    orderedSources.map(({ movementFingerprint, remainingQuantity: _remainingQuantity, targets, ...source }) => ({
+      sourceTxId: source.txId,
+      sourceMovementFingerprint: movementFingerprint,
+      retainedQuantity: source.internalAmount,
+      targets,
+    }))
+  );
+}
 
 function applyDecisionToScopedTransactions(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
@@ -523,7 +744,141 @@ function applyDecisionToScopedTransactions(
     return applyInternalWithExternalAmount(scopedByTxId, decision, logger);
   }
 
-  return applyInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+  if (decision.type === 'internal_fee_only') {
+    return applyInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+  }
+
+  if (decision.type === 'multi_source_internal_with_external') {
+    return applyMultiSourceInternalWithExternalAmount(scopedByTxId, decision, logger);
+  }
+
+  return applyMultiSourceInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+}
+
+function applyMultiSourceInternalWithExternalAmount(
+  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  decision: MultiSourceInternalWithExternalAmount,
+  logger: Logger
+): Result<void, Error> {
+  for (const sourceAllocation of decision.sourceAllocations) {
+    const sourceScoped = scopedByTxId.get(sourceAllocation.txId);
+    if (!sourceScoped) {
+      return err(new Error(`Sender scoped transaction ${sourceAllocation.txId} not found`));
+    }
+
+    if (sourceAllocation.externalAmount.eq(0)) {
+      sourceScoped.movements.outflows = sourceScoped.movements.outflows.filter(
+        (movement) => movement.assetId !== decision.assetId
+      );
+      continue;
+    }
+
+    const sourceOutflowResult = getSingleScopedOutflow(sourceScoped, decision.assetId, sourceAllocation.txId);
+    if (sourceOutflowResult.isErr()) return err(sourceOutflowResult.error);
+    const sourceOutflow = sourceOutflowResult.value;
+
+    sourceOutflow.grossAmount = sourceAllocation.externalAmount.plus(sourceAllocation.feeDeducted);
+    sourceOutflow.netAmount = sourceAllocation.externalAmount;
+  }
+
+  const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
+    scopedByTxId,
+    decision.feeOwnerTxId,
+    decision.otherParticipantTxIds,
+    decision.assetId,
+    decision.dedupedFee
+  );
+  if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
+
+  for (const receiverTxId of decision.internalReceiverTxIds) {
+    const receiverScoped = scopedByTxId.get(receiverTxId);
+    if (!receiverScoped) continue;
+
+    receiverScoped.movements.inflows = receiverScoped.movements.inflows.filter(
+      (movement) => movement.assetId !== decision.assetId
+    );
+  }
+
+  logger.debug(
+    {
+      assetId: decision.assetId,
+      dedupedFee: decision.dedupedFee.toFixed(),
+      feeOwnerTxId: decision.feeOwnerTxId,
+      sourceAllocations: decision.sourceAllocations.map((allocation) => ({
+        txId: allocation.txId,
+        externalAmount: allocation.externalAmount.toFixed(),
+        internalAmount: allocation.internalAmount.toFixed(),
+        feeDeducted: allocation.feeDeducted.toFixed(),
+      })),
+    },
+    'Applied same-hash internal scoping (multi-source with external amount)'
+  );
+
+  return ok(undefined);
+}
+
+function applyMultiSourceInternalFeeOnly(
+  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
+  decision: MultiSourceInternalFeeOnly,
+  logger: Logger
+): Result<void, Error> {
+  for (const sourceCarryover of decision.sourceCarryovers) {
+    const sourceScoped = scopedByTxId.get(sourceCarryover.sourceTxId);
+    if (!sourceScoped) {
+      return err(new Error(`Sender scoped transaction ${sourceCarryover.sourceTxId} not found`));
+    }
+
+    sourceScoped.movements.outflows = sourceScoped.movements.outflows.filter(
+      (movement) => movement.assetId !== decision.assetId
+    );
+  }
+
+  const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
+    scopedByTxId,
+    decision.feeOwnerTxId,
+    decision.otherParticipantTxIds,
+    decision.assetId,
+    decision.dedupedFee
+  );
+  if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
+  const feeOwnerScopedFee = feeNormalizationResult.value;
+
+  if (feeOwnerScopedFee) {
+    for (const sourceCarryover of decision.sourceCarryovers) {
+      feeOnlyInternalCarryovers.push({
+        assetId: decision.assetId,
+        assetSymbol: decision.assetSymbol as Currency,
+        fee:
+          sourceCarryover.sourceTxId === decision.feeOwnerTxId
+            ? feeOwnerScopedFee
+            : {
+                ...feeOwnerScopedFee,
+                amount: new Decimal(0),
+              },
+        retainedQuantity: sourceCarryover.retainedQuantity,
+        sourceTransactionId: sourceCarryover.sourceTxId,
+        sourceMovementFingerprint: sourceCarryover.sourceMovementFingerprint,
+        targets: sourceCarryover.targets.map((target) => ({
+          targetTransactionId: target.txId,
+          targetMovementFingerprint: target.movementFingerprint,
+          quantity: target.quantity,
+        })),
+      });
+    }
+  }
+
+  logger.debug(
+    {
+      assetId: decision.assetId,
+      dedupedFee: decision.dedupedFee.toFixed(),
+      feeOwnerTxId: decision.feeOwnerTxId,
+      sourceCarryoverCount: decision.sourceCarryovers.length,
+    },
+    'Applied same-hash internal scoping (multi-source fee-only carryover)'
+  );
+
+  return ok(undefined);
 }
 
 function applyInternalWithExternalAmount(

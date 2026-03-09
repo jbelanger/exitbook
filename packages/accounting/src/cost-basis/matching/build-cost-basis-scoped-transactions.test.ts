@@ -224,6 +224,68 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       expect(receiverOnChainFees).toHaveLength(0);
     });
+
+    it('should deterministically scope a multi-input bitcoin send with tracked change', () => {
+      const hash = '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96';
+
+      const firstSourceTx = createBlockchainTx(
+        6356,
+        8,
+        '2024-05-31T20:17:28.000Z',
+        'bitcoin',
+        hash,
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.01109536', price: '68000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.00017347', '68000')]
+      );
+      firstSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const secondSourceTx = createBlockchainTx(
+        6360,
+        10,
+        '2024-05-31T20:17:28.000Z',
+        'bitcoin',
+        hash,
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.01012179', price: '68000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.00017347', '68000')]
+      );
+      secondSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const trackedChangeTx = createBlockchainTx(
+        6371,
+        20,
+        '2024-05-31T20:17:28.000Z',
+        'bitcoin',
+        hash,
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.00625144', price: '68000' }],
+        []
+      );
+
+      const result = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, trackedChangeTx], noopLogger);
+      const value = assertOk(result);
+
+      expect(value.feeOnlyInternalCarryovers).toHaveLength(0);
+
+      const firstScoped = value.transactions.find((tx) => tx.tx.id === 6356)!;
+      expect(firstScoped.movements.outflows).toHaveLength(1);
+      expect(firstScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('0.01109536');
+      expect(firstScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.01092189');
+      expect(
+        firstScoped.fees.filter((fee) => fee.assetId === 'blockchain:bitcoin:native' && fee.settlement === 'on-chain')
+      ).toHaveLength(1);
+
+      const secondScoped = value.transactions.find((tx) => tx.tx.id === 6360)!;
+      expect(secondScoped.movements.outflows).toHaveLength(1);
+      expect(secondScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('0.00387035');
+      expect(secondScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.00387035');
+      expect(
+        secondScoped.fees.filter((fee) => fee.assetId === 'blockchain:bitcoin:native' && fee.settlement === 'on-chain')
+      ).toHaveLength(0);
+
+      const trackedChangeScoped = value.transactions.find((tx) => tx.tx.id === 6371)!;
+      expect(trackedChangeScoped.movements.inflows).toHaveLength(0);
+    });
   });
 
   describe('scoped fee normalization', () => {
@@ -447,6 +509,70 @@ describe('buildCostBasisScopedTransactions', () => {
       expect(carryover.retainedQuantity.toFixed()).toBe('1.5');
     });
 
+    it('should emit deterministic carryovers for multi-source fee-only same-hash groups', () => {
+      const sourceOneTx = createBlockchainTx(
+        1,
+        1,
+        '2024-01-01T00:00:00Z',
+        'bitcoin',
+        '0xhashmultisourceinternal',
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '1.0001', price: '50000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0001', '50000')]
+      );
+      sourceOneTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const sourceTwoTx = createBlockchainTx(
+        2,
+        2,
+        '2024-01-01T00:00:00Z',
+        'bitcoin',
+        '0xhashmultisourceinternal',
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '1', price: '50000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0001', '50000')]
+      );
+      sourceTwoTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const receiverTx = createBlockchainTx(
+        3,
+        3,
+        '2024-01-01T00:00:00Z',
+        'bitcoin',
+        '0xhashmultisourceinternal',
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '2', price: '50000' }],
+        []
+      );
+
+      const result = buildCostBasisScopedTransactions([sourceOneTx, sourceTwoTx, receiverTx], noopLogger);
+      const value = assertOk(result);
+
+      const firstScoped = value.transactions.find((tx) => tx.tx.id === 1)!;
+      const secondScoped = value.transactions.find((tx) => tx.tx.id === 2)!;
+      expect(
+        firstScoped.movements.outflows.filter((movement) => movement.assetId === 'blockchain:bitcoin:native')
+      ).toHaveLength(0);
+      expect(
+        secondScoped.movements.outflows.filter((movement) => movement.assetId === 'blockchain:bitcoin:native')
+      ).toHaveLength(0);
+
+      expect(value.feeOnlyInternalCarryovers).toHaveLength(2);
+
+      const firstCarryover = value.feeOnlyInternalCarryovers.find((carryover) => carryover.sourceTransactionId === 1)!;
+      expect(firstCarryover.fee.amount.toFixed()).toBe('0.0001');
+      expect(firstCarryover.retainedQuantity.toFixed()).toBe('1');
+      expect(firstCarryover.targets).toHaveLength(1);
+      expect(firstCarryover.targets[0]!.targetTransactionId).toBe(3);
+      expect(firstCarryover.targets[0]!.quantity.toFixed()).toBe('1');
+
+      const secondCarryover = value.feeOnlyInternalCarryovers.find((carryover) => carryover.sourceTransactionId === 2)!;
+      expect(secondCarryover.fee.amount.toFixed()).toBe('0');
+      expect(secondCarryover.retainedQuantity.toFixed()).toBe('1');
+      expect(secondCarryover.targets).toHaveLength(1);
+      expect(secondCarryover.targets[0]!.targetTransactionId).toBe(3);
+      expect(secondCarryover.targets[0]!.quantity.toFixed()).toBe('1');
+    });
+
     it('should emit a fee-only carryover when only the receiver has the raw fee row', () => {
       const senderTx = createBlockchainTx(
         1,
@@ -624,43 +750,6 @@ describe('buildCostBasisScopedTransactions', () => {
       const error = assertErr(result);
       expect(error.message).toContain('Ambiguous');
       expect(error.message).toContain('inflows and outflows');
-    });
-
-    it('should return Err for multiple-outflow same-hash group', () => {
-      const tx1 = createBlockchainTx(
-        1,
-        1,
-        '2024-01-01T00:00:00Z',
-        'bitcoin',
-        '0xhashmultiout',
-        [],
-        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '1', price: '50000' }]
-      );
-
-      const tx2 = createBlockchainTx(
-        2,
-        2,
-        '2024-01-01T00:00:00Z',
-        'bitcoin',
-        '0xhashmultiout',
-        [],
-        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.5', price: '50000' }]
-      );
-
-      const tx3 = createBlockchainTx(
-        3,
-        3,
-        '2024-01-01T00:00:00Z',
-        'bitcoin',
-        '0xhashmultiout',
-        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.3', price: '50000' }],
-        []
-      );
-
-      const result = buildCostBasisScopedTransactions([tx1, tx2, tx3], noopLogger);
-      const error = assertErr(result);
-      expect(error.message).toContain('Ambiguous');
-      expect(error.message).toContain('multiple outflow');
     });
 
     it('should return Err for multi-movement participant', () => {
