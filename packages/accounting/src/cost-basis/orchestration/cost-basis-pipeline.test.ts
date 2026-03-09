@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createMovement, createTransaction, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
+import { createAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 
 import { runCostBasisPipeline } from './cost-basis-pipeline.js';
@@ -66,5 +67,25 @@ describe('runCostBasisPipeline', () => {
     expect(resultValue.summary.disposalsProcessed).toBe(0);
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
     expect(store.loadCostBasisContext).toHaveBeenCalledOnce();
+  });
+
+  it('prunes excluded assets before price validation in mixed transactions', async () => {
+    const store = stubStore();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+
+    const mixed = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
+      inflows: [createMovement('ETH', '1', '3000'), createMovement('SCAM', '1000')],
+    });
+
+    const result = await runCostBasisPipeline([mixed], defaultConfig, store, {
+      accountingExclusionPolicy: createAccountingExclusionPolicy(['test:scam']),
+      missingPricePolicy: 'error',
+    });
+
+    const resultValue = assertOk(result);
+    expect(resultValue.missingPricesCount).toBe(0);
+    expect(resultValue.priceCompleteTransactions.map((tx) => tx.id)).toEqual([1]);
+    expect(resultValue.summary.calculation.transactionsProcessed).toBe(1);
   });
 });

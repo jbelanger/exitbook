@@ -8,6 +8,7 @@ import path from 'node:path';
 import {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
+  type AccountingExclusionPolicy,
   getPriceCompleteCostBasisTransactions,
   runCanadaAcbEngine,
   runCanadaAcbWorkflow,
@@ -30,6 +31,7 @@ import { getLogger } from '@exitbook/logger';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
+import { loadAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../shared/projection-runtime.js';
 
@@ -96,7 +98,8 @@ export interface PortfolioResult {
 export class PortfolioHandler {
   constructor(
     private readonly db: DataContext,
-    private readonly priceManager: PriceProviderManager
+    private readonly priceManager: PriceProviderManager,
+    private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
   ) {}
 
   /**
@@ -263,6 +266,7 @@ export class PortfolioHandler {
           costBasisParams.config,
           costBasisStore,
           {
+            accountingExclusionPolicy: this.accountingExclusionPolicy,
             // Portfolio is a best-effort holdings view, not a tax filing surface.
             // Keeping the price-complete subset lets us still show open lots and
             // spot-valued positions, while warning that unrealized P&L is incomplete
@@ -475,7 +479,11 @@ export class PortfolioHandler {
       Error
     >
   > {
-    const priceCoverageResult = getPriceCompleteCostBasisTransactions(params.transactionsUpToAsOf, 'CAD');
+    const priceCoverageResult = getPriceCompleteCostBasisTransactions(
+      params.transactionsUpToAsOf,
+      'CAD',
+      this.accountingExclusionPolicy
+    );
     if (priceCoverageResult.isErr()) {
       return err(priceCoverageResult.error);
     }
@@ -499,7 +507,8 @@ export class PortfolioHandler {
     const acbWorkflowResult = await runCanadaAcbWorkflow(
       priceCoverageResult.value.priceCompleteTransactions,
       contextResult.value.confirmedLinks,
-      fxRateProvider
+      fxRateProvider,
+      { accountingExclusionPolicy: this.accountingExclusionPolicy }
     );
     if (acbWorkflowResult.isErr()) {
       return err(acbWorkflowResult.error);
@@ -621,6 +630,11 @@ export async function createPortfolioHandler(
   options: { asOf: Date; isJsonMode: boolean; registry: AdapterRegistry }
 ): Promise<Result<PortfolioHandler, Error>> {
   const dataDir = ctx.dataDir;
+  const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir);
+  if (accountingExclusionPolicyResult.isErr()) {
+    return err(accountingExclusionPolicyResult.error);
+  }
+
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {
     ctx.onAbort(() => {
@@ -639,7 +653,8 @@ export async function createPortfolioHandler(
         prereqAbort = abort;
       },
     },
-    { startDate: new Date(0), endDate: options.asOf }
+    { startDate: new Date(0), endDate: options.asOf },
+    accountingExclusionPolicyResult.value
   );
   if (readyResult.isErr()) {
     return err(readyResult.error);
@@ -659,7 +674,7 @@ export async function createPortfolioHandler(
   ctx.onCleanup(async () => priceManager.destroy());
 
   prereqAbort = undefined;
-  return ok(new PortfolioHandler(database, priceManager));
+  return ok(new PortfolioHandler(database, priceManager, accountingExclusionPolicyResult.value));
 }
 
 function emptyPortfolioResult(

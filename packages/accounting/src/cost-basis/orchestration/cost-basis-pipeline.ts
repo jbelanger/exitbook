@@ -5,6 +5,8 @@ import { getLogger } from '@exitbook/logger';
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
+import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
+import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 import { getJurisdictionRules, validateScopedTransactionPrices } from '../shared/cost-basis-utils.js';
 
@@ -23,6 +25,7 @@ export interface CostBasisPipelineOptions {
    * still useful, as long as the caller warns that unrealized P&L is incomplete.
    */
   missingPricePolicy: MissingPricePolicy;
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
 }
 
 export interface CostBasisPipelineResult {
@@ -52,7 +55,12 @@ export async function runCostBasisPipeline(
     return err(scopedResult.error);
   }
 
-  const validationResult = validateScopedTransactionPrices(scopedResult.value, config.currency);
+  const priceValidatedScopedBuild = applyAccountingExclusionPolicy(
+    scopedResult.value,
+    options.accountingExclusionPolicy
+  ).scopedBuildResult;
+
+  const validationResult = validateScopedTransactionPrices(priceValidatedScopedBuild, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }
@@ -67,7 +75,7 @@ export async function runCostBasisPipeline(
     );
   }
 
-  let priceCompleteScopedBuild = scopedResult.value;
+  let priceCompleteScopedBuild = priceValidatedScopedBuild;
   if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
     logger.warn(
       {
@@ -87,7 +95,10 @@ export async function runCostBasisPipeline(
       return err(priceCompleteScopedResult.error);
     }
 
-    priceCompleteScopedBuild = priceCompleteScopedResult.value;
+    priceCompleteScopedBuild = applyAccountingExclusionPolicy(
+      priceCompleteScopedResult.value,
+      options.accountingExclusionPolicy
+    ).scopedBuildResult;
   }
 
   const rulesResult = getJurisdictionRules(config.jurisdiction);

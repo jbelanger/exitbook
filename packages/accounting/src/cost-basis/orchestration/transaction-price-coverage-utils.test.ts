@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createMovement, createTransaction, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
+import { createAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 
 import { checkTransactionPriceCoverage } from './transaction-price-coverage-utils.js';
 
@@ -88,5 +89,22 @@ describe('checkTransactionPriceCoverage', () => {
     const result = assertOk(await checkTransactionPriceCoverage(stubData([outsideRange, insideRange]), dateRange));
 
     expect(result.complete).toBe(true);
+  });
+
+  it('ignores excluded assets inside mixed transactions when checking coverage', async () => {
+    const mixedTransaction = createTransactionFromMovements(1, '2025-06-15T00:00:00.000Z', {
+      inflows: [createMovement('ETH', '1.0', '3000'), createMovement('SCAM', '1000.0')],
+    });
+
+    const result = assertOk(
+      await checkTransactionPriceCoverage(
+        stubData([mixedTransaction]),
+        dateRange,
+        createAccountingExclusionPolicy(['test:scam'])
+      )
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.reason).toBeUndefined();
   });
 });

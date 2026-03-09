@@ -1,4 +1,5 @@
 import {
+  type AccountingExclusionPolicy,
   checkTransactionPriceCoverage,
   LinkingOrchestrator,
   PriceEnrichmentPipeline,
@@ -287,7 +288,8 @@ async function resetSingleProjection(
 export async function ensureConsumerInputsReady(
   target: ConsumerTarget,
   deps: ProjectionRuntimeDeps,
-  priceConfig?: PricePrereqConfig
+  priceConfig?: PricePrereqConfig,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
   const projectionTarget: ProjectionId = target === 'links-run' ? 'processed-transactions' : 'links';
   const plan = [...rebuildPlan(projectionTarget), projectionTarget];
@@ -311,7 +313,7 @@ export async function ensureConsumerInputsReady(
 
   // Price coverage prereq (not a projection)
   if ((target === 'cost-basis' || target === 'portfolio') && priceConfig) {
-    const pricesResult = await ensureTransactionPricesReady(deps, priceConfig, target);
+    const pricesResult = await ensureTransactionPricesReady(deps, priceConfig, target, accountingExclusionPolicy);
     if (pricesResult.isErr()) return err(pricesResult.error);
   }
 
@@ -325,12 +327,13 @@ export async function ensureConsumerInputsReady(
 async function ensureTransactionPricesReady(
   deps: ProjectionRuntimeDeps,
   config: PricePrereqConfig,
-  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>
+  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
   const { db, isJsonMode, setAbort } = deps;
 
   const data = buildPriceCoverageDataPorts(db);
-  const coverageResult = await checkTransactionPriceCoverage(data, config);
+  const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);
   if (coverageResult.isErr()) return err(coverageResult.error);
 
   if (coverageResult.value.complete) {
@@ -352,7 +355,7 @@ async function ensureTransactionPricesReady(
       const fxRateProvider = new StandardFxRateProvider(priceManager);
       const result = await pipeline.execute({}, priceManager, fxRateProvider);
       if (result.isErr()) return err(result.error);
-      const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target);
+      const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
       if (postCoverageResult.isErr()) return err(postCoverageResult.error);
       logger.info('Price enrichment completed (JSON mode)');
       return ok(undefined);
@@ -401,7 +404,7 @@ async function ensureTransactionPricesReady(
       return err(result.error);
     }
 
-    const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target);
+    const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
     if (postCoverageResult.isErr()) {
       controller.fail(postCoverageResult.error.message);
       return err(postCoverageResult.error);
@@ -427,9 +430,10 @@ async function ensureTransactionPricesReady(
 async function verifyTransactionPriceCoverage(
   data: ReturnType<typeof buildPriceCoverageDataPorts>,
   config: PricePrereqConfig,
-  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>
+  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
-  const coverageResult = await checkTransactionPriceCoverage(data, config);
+  const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);
   if (coverageResult.isErr()) return err(coverageResult.error);
 
   if (!coverageResult.value.complete) {

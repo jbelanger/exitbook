@@ -18,6 +18,8 @@ import type {
 } from '../matching/build-cost-basis-scoped-transactions.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 
+import type { AccountingExclusionPolicy } from './accounting-exclusion-policy.js';
+import { applyAccountingExclusionPolicy } from './accounting-exclusion-policy.js';
 import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
 import { getDefaultDateRange } from './cost-basis-config.js';
 
@@ -393,14 +395,16 @@ export function validateScopedTransactionPrices(
  */
 export function getPriceCompleteCostBasisTransactions(
   transactions: UniversalTransactionData[],
-  requiredCurrency: string
+  requiredCurrency: string,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
   const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
 
-  return validateScopedTransactionPrices(scopedResult.value, requiredCurrency);
+  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
+  return validateScopedTransactionPrices(exclusionApplied.scopedBuildResult, requiredCurrency);
 }
 
 /**

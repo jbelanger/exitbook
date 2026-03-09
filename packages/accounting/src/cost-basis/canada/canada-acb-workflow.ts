@@ -6,6 +6,8 @@ import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import { getJurisdictionConfig } from '../jurisdictions/jurisdiction-configs.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
+import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
+import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { TaxAssetIdentityPolicy } from '../shared/types.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
@@ -20,6 +22,7 @@ export interface CanadaAcbWorkflowResult {
 }
 
 export interface CanadaAcbWorkflowOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   relaxedTaxIdentitySymbols?: readonly string[] | undefined;
   taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
 }
@@ -40,15 +43,20 @@ export async function runCanadaAcbWorkflow(
     return err(scopedResult.error);
   }
 
-  const validatedLinksResult = validateScopedTransferLinks(scopedResult.value.transactions, confirmedLinks);
+  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, options?.accountingExclusionPolicy);
+
+  const validatedLinksResult = validateScopedTransferLinks(
+    exclusionApplied.scopedBuildResult.transactions,
+    confirmedLinks
+  );
   if (validatedLinksResult.isErr()) {
     return err(validatedLinksResult.error);
   }
 
   const inputContextResult = await buildCanadaTaxInputContext(
-    scopedResult.value.transactions,
+    exclusionApplied.scopedBuildResult.transactions,
     validatedLinksResult.value,
-    scopedResult.value.feeOnlyInternalCarryovers,
+    exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
     fxProvider,
     {
       relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,

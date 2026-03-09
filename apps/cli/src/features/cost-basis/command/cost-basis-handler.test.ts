@@ -98,7 +98,7 @@ describe('CostBasisHandler', () => {
       const result = await handler.execute(validParams);
 
       expect(result.isOk()).toBe(true);
-      expect(mockWorkflowExecute).toHaveBeenCalledWith(validParams, []);
+      expect(mockWorkflowExecute).toHaveBeenCalledWith(validParams, [], { excludedAssetIds: new Set<string>() });
     });
 
     it('destroys price manager even when workflow fails', async () => {

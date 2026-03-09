@@ -14,6 +14,7 @@ import type {
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '../canada/canada-tax-types.js';
+import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
 import type { CostBasisReport } from '../shared/report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../shared/types.js';
@@ -60,7 +61,8 @@ export class CostBasisWorkflow {
 
   async execute(
     params: CostBasisInput,
-    transactions: UniversalTransactionData[]
+    transactions: UniversalTransactionData[],
+    accountingExclusionPolicy?: AccountingExclusionPolicy
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const validation = validateCostBasisInput(params);
     if (validation.isErr()) {
@@ -73,13 +75,14 @@ export class CostBasisWorkflow {
     if (config.jurisdiction === 'CA') {
       const filteredResult = this.filterTransactionsForWindow(transactions, config, { lookaheadDays: 30 });
       if (filteredResult.isErr()) return err(filteredResult.error);
-      return this.executeCanadaWorkflow(params, filteredResult.value);
+      return this.executeCanadaWorkflow(params, filteredResult.value, accountingExclusionPolicy);
     }
 
     const filteredResult = this.filterTransactionsForWindow(transactions, config);
     if (filteredResult.isErr()) return err(filteredResult.error);
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
+      accountingExclusionPolicy,
       // Tax reporting must fail closed. Excluding a disposal or transfer because
       // it lacks prices would change realized gain/loss and silently understate
       // the report.
@@ -132,7 +135,8 @@ export class CostBasisWorkflow {
 
   private async executeCanadaWorkflow(
     params: CostBasisInput,
-    transactions: UniversalTransactionData[]
+    transactions: UniversalTransactionData[],
+    accountingExclusionPolicy?: AccountingExclusionPolicy
   ): Promise<Result<CanadaCostBasisWorkflowResult, Error>> {
     if (!this.fxRateProvider) {
       return err(new Error('FX rate provider required for Canada tax valuation'));
@@ -148,6 +152,7 @@ export class CostBasisWorkflow {
       contextResult.value.confirmedLinks,
       this.fxRateProvider,
       {
+        accountingExclusionPolicy,
         taxAssetIdentityPolicy: params.config.taxAssetIdentityPolicy,
       }
     );

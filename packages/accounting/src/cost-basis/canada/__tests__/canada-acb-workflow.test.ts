@@ -3,6 +3,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { createAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 
 import { createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
@@ -403,5 +404,47 @@ describe('runCanadaAcbWorkflow', () => {
     expect(value.acbEngineResult.dispositions[0]?.gainLossCad.toFixed()).toBe('1870');
     expect(value.acbEngineResult.pools[0]?.quantityHeld.toFixed()).toBe('0');
     expect(value.acbEngineResult.pools[0]?.totalAcbCad.toFixed()).toBe('0');
+  });
+
+  it('drops fully excluded assets before building the Canada tax input context', async () => {
+    const fxProvider = createCanadaFxProvider();
+
+    const excludedAcquisition: UniversalTransactionData = {
+      id: 90,
+      accountId: 1,
+      externalId: 'tx-90',
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      source: 'spam-chain',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:spam-chain:0xscam',
+            assetSymbol: 'SCAM' as Currency,
+            grossAmount: parseDecimal('1000'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('0.01'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-01T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const result = await runCanadaAcbWorkflow([excludedAcquisition], [], fxProvider, {
+      accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:spam-chain:0xscam']),
+    });
+    const value = assertOk(result);
+
+    expect(value.inputContext.inputEvents).toEqual([]);
+    expect(value.inputContext.scopedTransactionIds).toEqual([]);
+    expect(value.acbEngineResult.dispositions).toHaveLength(0);
   });
 });

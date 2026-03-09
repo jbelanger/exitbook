@@ -3,6 +3,8 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
+import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { filterTransactionsByDateRange, scopedTransactionHasAllPrices } from '../shared/cost-basis-utils.js';
 
 export interface PriceCoverageResult {
@@ -25,7 +27,8 @@ const logger = getLogger('transaction-price-coverage-utils');
  */
 export function checkTransactionPriceCoverage(
   data: IPriceCoverageData,
-  input: PriceCoverageInput
+  input: PriceCoverageInput,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<PriceCoverageResult, Error>> {
   return resultDoAsync(async function* () {
     const allTransactions = yield* await data.loadTransactions();
@@ -40,8 +43,10 @@ export function checkTransactionPriceCoverage(
       return yield* scopedResult;
     }
 
+    const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
+
     let missingCount = 0;
-    for (const scopedTransaction of scopedResult.value.transactions) {
+    for (const scopedTransaction of exclusionApplied.scopedBuildResult.transactions) {
       const hasPrices = yield* scopedTransactionHasAllPrices(scopedTransaction);
       if (!hasPrices) {
         missingCount++;
@@ -54,7 +59,7 @@ export function checkTransactionPriceCoverage(
 
     return {
       complete: false,
-      reason: `${missingCount} of ${scopedResult.value.transactions.length} transactions missing prices`,
+      reason: `${missingCount} of ${exclusionApplied.scopedBuildResult.transactions.length} transactions missing prices`,
     };
   });
 }

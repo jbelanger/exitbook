@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Scope/domain of the override
  */
-export const ScopeSchema = z.enum(['price', 'fx', 'link', 'unlink']);
+export const ScopeSchema = z.enum(['price', 'fx', 'link', 'unlink', 'asset-exclude', 'asset-include']);
 
 /**
  * Link action type - confirm an existing suggested link
@@ -73,6 +73,24 @@ export const UnlinkOverridePayloadSchema = z.object({
 });
 
 /**
+ * Asset exclusion payload
+ * User excludes an asset from accounting-scoped processing.
+ */
+export const AssetExcludePayloadSchema = z.object({
+  type: z.literal('asset_exclude'),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
+});
+
+/**
+ * Asset inclusion payload
+ * User re-includes a previously excluded asset.
+ */
+export const AssetIncludePayloadSchema = z.object({
+  type: z.literal('asset_include'),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
+});
+
+/**
  * Union of all override payload types
  */
 export const OverridePayloadSchema = z.discriminatedUnion('type', [
@@ -80,6 +98,8 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   FxOverridePayloadSchema,
   LinkOverridePayloadSchema,
   UnlinkOverridePayloadSchema,
+  AssetExcludePayloadSchema,
+  AssetIncludePayloadSchema,
 ]);
 
 /**
@@ -91,6 +111,8 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   fx: 'fx_override',
   link: 'link_override',
   unlink: 'unlink_override',
+  'asset-exclude': 'asset_exclude',
+  'asset-include': 'asset_include',
 };
 
 /**
@@ -129,6 +151,8 @@ export type PriceOverridePayload = z.infer<typeof PriceOverridePayloadSchema>;
 export type FxOverridePayload = z.infer<typeof FxOverridePayloadSchema>;
 export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
+export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
+export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
 

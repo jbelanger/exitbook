@@ -11,6 +11,16 @@ export { getDefaultDateRange } from './cost-basis/shared/cost-basis-config.js';
 
 // Domain types
 export type { AcquisitionLot, LotDisposal, LotTransfer, TaxAssetIdentityPolicy } from './cost-basis/shared/types.js';
+export type {
+  AccountingExclusionApplyResult,
+  AccountingExclusionPolicy,
+} from './cost-basis/shared/accounting-exclusion-policy.js';
+export {
+  applyAccountingExclusionPolicy,
+  createAccountingExclusionPolicy,
+  hasAccountingExclusions,
+  isExcludedAsset,
+} from './cost-basis/shared/accounting-exclusion-policy.js';
 
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';

@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   CostBasisWorkflow,
   StandardFxRateProvider,
+  type AccountingExclusionPolicy,
   type CostBasisInput,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
@@ -11,6 +12,7 @@ import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 
+import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
@@ -21,7 +23,10 @@ export type { CostBasisInput, CostBasisWorkflowResult };
  * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisWorkflow.
  */
 export class CostBasisHandler {
-  constructor(private readonly db: DataContext) {}
+  constructor(
+    private readonly db: DataContext,
+    private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
+  ) {}
 
   async execute(params: CostBasisInput): Promise<Result<CostBasisWorkflowResult, Error>> {
     const store = buildCostBasisPorts(this.db);
@@ -41,7 +46,7 @@ export class CostBasisHandler {
       const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) return err(txResult.error);
 
-      return await workflow.execute(params, txResult.value);
+      return await workflow.execute(params, txResult.value, this.accountingExclusionPolicy);
     } finally {
       await priceManager.destroy();
     }
@@ -64,6 +69,11 @@ export async function createCostBasisHandler(
     });
   }
 
+  const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+  if (accountingExclusionPolicyResult.isErr()) {
+    return err(accountingExclusionPolicyResult.error);
+  }
+
   const { config } = options.params;
   const priceConfig =
     config.startDate && config.endDate ? { startDate: config.startDate, endDate: config.endDate } : undefined;
@@ -79,12 +89,13 @@ export async function createCostBasisHandler(
         prereqAbort = abort;
       },
     },
-    priceConfig
+    priceConfig,
+    accountingExclusionPolicyResult.value
   );
   if (readyResult.isErr()) {
     return err(readyResult.error);
   }
 
   prereqAbort = undefined;
-  return ok(new CostBasisHandler(database));
+  return ok(new CostBasisHandler(database, accountingExclusionPolicyResult.value));
 }
