@@ -14,15 +14,15 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-
-import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import type {
   AccountViewItem,
   AccountsViewState,
   ChildAccountViewItem,
   SessionViewItem,
   TypeCounts,
-} from './accounts-view-state.js';
+} from '../view/accounts-view-state.js';
+
+import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 
 export const ACCOUNT_DETAIL_LINES = 7;
 

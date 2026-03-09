@@ -5,17 +5,18 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { displayCliError } from '../shared/cli-error.js';
-import { renderApp, runCommand } from '../shared/command-runtime.js';
-import { ExitCodes } from '../shared/exit-codes.js';
-import { outputSuccess } from '../shared/json-output.js';
-import { AccountsViewCommandOptionsSchema } from '../shared/schemas.js';
-import type { ViewCommandResult } from '../shared/view-utils.js';
-import { buildViewMeta } from '../shared/view-utils.js';
+import { displayCliError } from '../../shared/cli-error.js';
+import { renderApp, runCommand } from '../../shared/command-runtime.js';
+import { ExitCodes } from '../../shared/exit-codes.js';
+import { outputSuccess } from '../../shared/json-output.js';
+import { AccountsViewCommandOptionsSchema } from '../../shared/schemas.js';
+import type { ViewCommandResult } from '../../shared/view-utils.js';
+import { buildViewMeta } from '../../shared/view-utils.js';
+import { AccountsViewApp } from '../view/accounts-view-components.jsx';
+import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
 
 import { AccountsViewHandler, type ViewAccountsParams } from './accounts-view-handler.js';
 import { toAccountViewItem } from './accounts-view-utils.js';
-import { AccountsViewApp, computeTypeCounts, createAccountsViewState } from './components/index.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -25,7 +26,7 @@ export type CommandOptions = z.infer<typeof AccountsViewCommandOptionsSchema>;
 /**
  * Result data for view accounts command (JSON mode).
  */
-type ViewAccountsCommandResult = ViewCommandResult<import('./components/accounts-view-state.js').AccountViewItem[]>;
+type ViewAccountsCommandResult = ViewCommandResult<AccountViewItem[]>;
 
 /**
  * Register the accounts view subcommand.
