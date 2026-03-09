@@ -234,6 +234,7 @@ export function buildAssetCostBasisItems(
         id: transfer.id,
         date: formatDateString(transfer.transferDate),
         sortTimestamp: transfer.transferDate.toISOString(),
+        direction: 'internal',
         quantity: formatCryptoQuantity(transfer.quantityTransferred),
         asset,
         costBasisPerUnit: costBasisPerUnit.toFixed(2),
@@ -242,7 +243,8 @@ export function buildAssetCostBasisItems(
         targetTransactionId: transfer.targetTransactionId,
         sourceLotId: transfer.sourceLotId,
         sourceAcquisitionDate: sourceLot ? formatDateString(sourceLot.acquisitionDate) : 'unknown',
-        feeUsdValue: transfer.metadata?.cryptoFeeUsdValue?.toFixed(2),
+        feeAmount: transfer.metadata?.cryptoFeeUsdValue?.toFixed(2),
+        feeCurrency: transfer.metadata?.cryptoFeeUsdValue ? 'USD' : undefined,
         fxConversion: converted
           ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
           : undefined,
@@ -321,8 +323,22 @@ export function buildCanadaAssetCostBasisItems(
   const displayDispositions = new Map(
     displayReport?.dispositions.map((disposition) => [disposition.id, disposition]) ?? []
   );
+  const transfersByTaxProperty = new Map<string, CanadaTaxReport['transfers']>();
+  for (const transfer of taxReport.transfers) {
+    const group = transfersByTaxProperty.get(transfer.taxPropertyKey);
+    if (group) {
+      group.push(transfer);
+    } else {
+      transfersByTaxProperty.set(transfer.taxPropertyKey, [transfer]);
+    }
+  }
+  const displayTransfers = new Map(displayReport?.transfers.map((transfer) => [transfer.id, transfer]) ?? []);
 
-  const allTaxProperties = new Set<string>([...acquisitionsByTaxProperty.keys(), ...dispositionsByTaxProperty.keys()]);
+  const allTaxProperties = new Set<string>([
+    ...acquisitionsByTaxProperty.keys(),
+    ...dispositionsByTaxProperty.keys(),
+    ...transfersByTaxProperty.keys(),
+  ]);
 
   const items: AssetCostBasisItem[] = [];
 
@@ -330,6 +346,7 @@ export function buildCanadaAssetCostBasisItems(
     const asset = assetLabelsByTaxPropertyKey.get(taxPropertyKey) ?? taxPropertyKey;
     const assetAcquisitions = acquisitionsByTaxProperty.get(taxPropertyKey) ?? [];
     const assetDispositions = dispositionsByTaxProperty.get(taxPropertyKey) ?? [];
+    const assetTransfers = transfersByTaxProperty.get(taxPropertyKey) ?? [];
     let totalProceeds = new Decimal(0);
     let totalCostBasis = new Decimal(0);
     let totalGainLoss = new Decimal(0);
@@ -394,16 +411,39 @@ export function buildCanadaAssetCostBasisItems(
       };
     });
 
-    // The current Canada report does not carry enough basis provenance to
-    // render trustworthy transfer timeline rows yet, so keep them out of the
-    // UI rather than inventing placeholder amounts.
-    const transferViewItems: TransferViewItem[] = [];
+    const transferViewItems: TransferViewItem[] = assetTransfers.map((transfer) => {
+      const converted = displayTransfers.get(transfer.id);
+      const totalCostBasis = converted ? converted.displayTotalCostBasis : transfer.totalCostBasisCad;
+      const costBasisPerUnit = converted ? converted.displayCostBasisPerUnit : transfer.acbPerUnitCad;
+      const marketValue = converted ? converted.displayMarketValue : transfer.marketValueCad;
+      const feeAdjustment = converted ? converted.displayFeeAdjustment : transfer.feeAdjustmentCad;
+
+      return {
+        type: 'transfer',
+        id: transfer.id,
+        date: formatDateString(transfer.transferredAt),
+        sortTimestamp: transfer.transferredAt.toISOString(),
+        direction: transfer.direction,
+        quantity: formatCryptoQuantity(transfer.quantity),
+        asset,
+        costBasisPerUnit: costBasisPerUnit.toFixed(2),
+        totalCostBasis: totalCostBasis.toFixed(2),
+        marketValue: marketValue.toFixed(2),
+        sourceTransactionId: transfer.sourceTransactionId,
+        targetTransactionId: transfer.targetTransactionId,
+        feeAmount: feeAdjustment.gt(0) ? feeAdjustment.toFixed(2) : undefined,
+        feeCurrency: feeAdjustment.gt(0) ? (displayReport?.displayCurrency ?? taxReport.taxCurrency) : undefined,
+        fxConversion: converted
+          ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
+          : undefined,
+      };
+    });
 
     items.push({
       asset,
       disposalCount: assetDispositions.length,
       lotCount: assetAcquisitions.length,
-      transferCount: transferViewItems.length,
+      transferCount: assetTransfers.length,
       totalProceeds: totalProceeds.toFixed(2),
       totalCostBasis: totalCostBasis.toFixed(2),
       totalGainLoss: totalGainLoss.toFixed(2),

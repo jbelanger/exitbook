@@ -103,18 +103,21 @@ export interface TransferViewItem {
   id: string;
   date: string; // YYYY-MM-DD for display
   sortTimestamp: string; // Full ISO timestamp for ordering
+  direction: 'in' | 'internal' | 'out';
   quantity: string;
   asset: string;
 
   costBasisPerUnit: string;
   totalCostBasis: string;
+  marketValue?: string | undefined;
 
-  sourceTransactionId: number;
-  targetTransactionId: number;
-  sourceLotId: string;
-  sourceAcquisitionDate: string;
+  sourceTransactionId?: number | undefined;
+  targetTransactionId?: number | undefined;
+  sourceLotId?: string | undefined;
+  sourceAcquisitionDate?: string | undefined;
 
-  feeUsdValue?: string | undefined;
+  feeAmount?: string | undefined;
+  feeCurrency?: string | undefined;
 
   // FX conversion (non-USD currency)
   fxConversion?:

@@ -41,12 +41,17 @@ in the Canada slice. Specifically, the current implementation already has:
 - top-level workflow cut-in for `CA`
 - Canada workflow lookahead through `endDate + 30 days` while keeping report
   rows filtered to the requested calculation window
+- Canada transfer rows with settled pooled ACB, source/target provenance, and
+  optional non-CAD display projection
 - link-scoped same-asset transfer fee adjustments when one source movement fans
   out across multiple confirmed links
 
-Still pending from the full greenfield target:
+Lower-priority cleanup that still remains:
 
-- richer Canada transfer presentation in the CLI/report layer
+- split shared config/result currency naming into tax currency vs display
+  currency
+- migrate adjacent Canada consumers like portfolio off the generic lot pipeline
+  if they need the same Canada-owned report boundary
 
 Today `CA` enters the Canada workflow in
 `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`,
@@ -167,7 +172,7 @@ CanadaTaxReportBuilder
   ↓
 optional CanadaDisplayCostBasisReport
   ↓
-CostBasisWorkflowResult (for CA + average-cost today)
+CostBasisWorkflowResult (for CA today)
 ```
 
 Target end-state after the remaining phases:
@@ -274,8 +279,8 @@ Relationship to the current landed Canada slice:
 - `runCanadaAcbWorkflow()` currently returns `CanadaAcbWorkflowResult`
 - that result is the internal ACB-stage output: input context plus ACB engine
   state
-- `CanadaCostBasisWorkflowResult` is the current public boundary for
-  `CA + average-cost`, wrapping the ACB-stage output with tax-report assembly
+- `CanadaCostBasisWorkflowResult` is the current public boundary for `CA`,
+  wrapping the ACB-stage output with tax-report assembly
 - in other words, `CanadaCostBasisWorkflowResult` wraps and supersedes
   `CanadaAcbWorkflowResult` at the host-facing API boundary rather than
   replacing the lower-level ACB workflow step itself
@@ -727,10 +732,9 @@ Implementation notes:
 - allow `--fiat-currency USD|EUR|GBP` to project from CAD tax rows after the
   Canada report is built
 
-Status: landed for `CA + average-cost`, including `CanadaTaxReport`, optional
-`CanadaDisplayCostBasisReport`, Canada-row-based CLI rendering, and
-superficial-loss-adjusted tax summaries. Remaining work is richer transfer
-presentation.
+Status: landed for `CA`, including `CanadaTaxReport`, optional
+`CanadaDisplayCostBasisReport`, Canada-row-based CLI rendering, Canada transfer
+rows, and superficial-loss-adjusted tax summaries.
 
 ### Phase 6: Cutover
 
@@ -761,8 +765,9 @@ Detailed cutover sequence:
    `checkLossDisallowance()`, and `CostBasisReportGenerator`.
 
 Status: landed in `CostBasisWorkflow`. `CA` now branches into the Canada
-workflow there, and unsupported Canada methods are rejected before workflow
-dispatch. Remaining work is richer transfer presentation.
+workflow there, unsupported Canada methods are rejected before workflow
+dispatch, and Canada transfer rows render from Canada tax/report data rather
+than generic lot-transfer records.
 
 ## Test Matrix
 
@@ -828,9 +833,12 @@ Still recommended for later phases:
 If we want Canadian correctness, we should not continue accreting logic onto
 `AverageCostStrategy`, `CanadaRules`, and the existing report generator.
 
-The right continuation from here is to finish the Canada-owned workflow on top
+The right continuation from here is to carry the Canada-owned boundary into
+adjacent consumers on top of
 of the landed identity, CAD valuation, pooled ACB, transfer-fee, and
 superficial-loss foundation, with the next concrete slice being:
 
-- remove remaining `CA` fallback into the generic lot pipeline
-- finish transfer presentation on top of Canada tax rows
+- migrate `apps/cli/src/features/portfolio/portfolio-handler.ts` off
+  `runCostBasisPipeline()` for `CA`
+- split shared `currency` naming into tax currency vs display currency at the
+  public config/result boundary

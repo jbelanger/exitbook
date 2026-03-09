@@ -472,6 +472,33 @@ function getTimelineQuantityLabel(event: TimelineEvent): string {
   return `${event.quantity} ${event.asset}`;
 }
 
+function getTransferLabel(direction: TransferViewItem['direction']): string {
+  switch (direction) {
+    case 'in':
+      return 'transfer in';
+    case 'out':
+      return 'transfer out';
+    case 'internal':
+      return 'transfer';
+  }
+}
+
+function formatTransferTransactionSpan(item: TransferViewItem): string {
+  if (item.sourceTransactionId !== undefined && item.targetTransactionId !== undefined) {
+    return `#${item.sourceTransactionId} → #${item.targetTransactionId}`;
+  }
+
+  if (item.sourceTransactionId !== undefined) {
+    return `#${item.sourceTransactionId}`;
+  }
+
+  if (item.targetTransactionId !== undefined) {
+    return `#${item.targetTransactionId}`;
+  }
+
+  return '';
+}
+
 const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
   const columns = createColumns(state.events, {
@@ -630,12 +657,13 @@ const TransferRow: FC<{ columns: TimelineCols; currency: string; isSelected: boo
 
   const date = item.date;
   const { quantityAsset: quantity, basisOrGainLoss: basis } = columns.format(item);
-  const txIds = `#${item.sourceTransactionId} → #${item.targetTransactionId}`;
+  const txIds = formatTransferTransactionSpan(item);
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
+  const transferLabel = getTransferLabel(item.direction);
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>transfer</Text>{' '}
+      <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>{transferLabel}</Text>{' '}
       <Text color="cyan">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txIds}</Text>
       {fxNote && <Text dimColor>{fxNote}</Text>}
     </SelectableRow>
@@ -820,13 +848,17 @@ const DisposalDetail: FC<{ item: DisposalViewItem; state: CostBasisTimelineState
 
 const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState }> = ({ item, state }) => {
   const displayCurrency = item.fxUnavailable ? 'USD' : state.currency;
+  const transferLabel = getTransferLabel(item.direction);
+  const transferTitle = transferLabel.charAt(0).toUpperCase() + transferLabel.slice(1);
 
   return (
     <FixedHeightDetail
       height={COST_BASIS_TIMELINE_DETAIL_LINES}
       rows={[
         <Text key="title">
-          <Text bold>{'\u25B8'} Transfer</Text>
+          <Text bold>
+            {'\u25B8'} {transferTitle}
+          </Text>
           {'  '}
           <Text dimColor>{item.date}</Text>
           {'  '}
@@ -838,21 +870,30 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
           <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
           <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
         </Text>,
+        item.marketValue ? (
+          <Text key="market-value">
+            {'  '}
+            <Text dimColor>Market Value:</Text> {formatUnsignedCurrency(item.marketValue, displayCurrency)}
+          </Text>
+        ) : undefined,
         <Text key="blank-2"> </Text>,
-        <Text key="source-lot">
-          {'  '}
-          <Text dimColor>Source Lot:</Text> <Text dimColor>acquired</Text>{' '}
-          <Text dimColor>{item.sourceAcquisitionDate}</Text>
-        </Text>,
-        <Text key="transactions">
-          {'  '}
-          <Text dimColor>Transactions:</Text> <Text dimColor>source</Text> #{item.sourceTransactionId}
-          <Text dimColor> · target</Text> #{item.targetTransactionId}
-        </Text>,
-        item.feeUsdValue ? (
+        item.sourceAcquisitionDate ? (
+          <Text key="source-lot">
+            {'  '}
+            <Text dimColor>Source Lot:</Text> <Text dimColor>acquired</Text>{' '}
+            <Text dimColor>{item.sourceAcquisitionDate}</Text>
+          </Text>
+        ) : undefined,
+        item.sourceTransactionId !== undefined || item.targetTransactionId !== undefined ? (
+          <Text key="transactions">
+            {'  '}
+            <Text dimColor>Transactions:</Text> <Text dimColor>{formatTransferTransactionSpan(item)}</Text>
+          </Text>
+        ) : undefined,
+        item.feeAmount && item.feeCurrency ? (
           <Text key="fee">
             {'  '}
-            <Text dimColor>Fee:</Text> USD {item.feeUsdValue}
+            <Text dimColor>Fee Adjustment:</Text> {item.feeCurrency} {item.feeAmount}
           </Text>
         ) : undefined,
         item.fxConversion ? (

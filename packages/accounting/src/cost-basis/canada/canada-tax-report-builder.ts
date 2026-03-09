@@ -13,11 +13,15 @@ import type {
   CanadaDisplayReportAcquisition,
   CanadaDisplayReportDisposition,
   CanadaDisplayReportTransfer,
+  CanadaFeeAdjustmentEvent,
   CanadaTaxInputContext,
+  CanadaTaxInputEvent,
   CanadaTaxReport,
   CanadaTaxReportAcquisition,
   CanadaTaxReportDisposition,
   CanadaTaxReportTransfer,
+  CanadaTransferInEvent,
+  CanadaTransferOutEvent,
 } from './canada-tax-types.js';
 
 const CANADA_CAPITAL_GAINS_INCLUSION_RATE = parseDecimal('0.5');
@@ -32,12 +36,47 @@ function getDateKey(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
 }
 
-function getTransferDirection(kind: 'transfer-in' | 'transfer-out'): 'in' | 'out' {
-  return kind === 'transfer-in' ? 'in' : 'out';
-}
-
 function isWithinCalculationWindow(timestamp: Date, calculation: CanadaCostBasisCalculation): boolean {
   return timestamp.getTime() >= calculation.startDate.getTime() && timestamp.getTime() <= calculation.endDate.getTime();
+}
+
+function getEventPriority(kind: CanadaTaxInputEvent['kind']): number {
+  switch (kind) {
+    case 'transfer-out':
+      return 0;
+    case 'disposition':
+      return 1;
+    case 'acquisition':
+      return 2;
+    case 'transfer-in':
+      return 3;
+    case 'fee-adjustment':
+      return 4;
+    case 'superficial-loss-adjustment':
+      return 5;
+  }
+}
+
+function compareCanadaEvents(
+  left: Pick<CanadaTaxInputEvent, 'eventId' | 'kind' | 'timestamp' | 'transactionId'>,
+  right: Pick<CanadaTaxInputEvent, 'eventId' | 'kind' | 'timestamp' | 'transactionId'>
+): number {
+  const timestampDiff = left.timestamp.getTime() - right.timestamp.getTime();
+  if (timestampDiff !== 0) return timestampDiff;
+
+  const transactionDiff = left.transactionId - right.transactionId;
+  if (transactionDiff !== 0) return transactionDiff;
+
+  const priorityDiff = getEventPriority(left.kind) - getEventPriority(right.kind);
+  if (priorityDiff !== 0) return priorityDiff;
+
+  return left.eventId.localeCompare(right.eventId);
+}
+
+function getSingleTransferDirection(
+  kind: CanadaTransferInEvent['kind'] | CanadaTransferOutEvent['kind']
+): 'in' | 'out' {
+  return kind === 'transfer-in' ? 'in' : 'out';
 }
 
 export function buildCanadaTaxReport(params: {
@@ -111,19 +150,254 @@ export function buildCanadaTaxReport(params: {
       };
     });
   const reportedDispositionIds = new Set(dispositions.map((disposition) => disposition.id));
+  const eventPoolSnapshotsByEventId = new Map(
+    params.acbEngineResult.eventPoolSnapshots.map((snapshot) => [snapshot.eventId, snapshot] as const)
+  );
+  const feeAdjustmentsByLinkId = new Map<number, CanadaFeeAdjustmentEvent[]>();
+  const feeAdjustmentsByRelatedEventId = new Map<string, CanadaFeeAdjustmentEvent[]>();
+  for (const event of params.inputContext.inputEvents) {
+    if (event.kind !== 'fee-adjustment') {
+      continue;
+    }
 
-  const transfers: CanadaTaxReportTransfer[] = params.inputContext.inputEvents
-    .filter((event) => event.kind === 'transfer-in' || event.kind === 'transfer-out')
-    .filter((event) => isWithinCalculationWindow(event.timestamp, params.calculation))
-    .map((event) => ({
-      id: event.eventId,
-      transactionId: event.transactionId,
-      taxPropertyKey: event.taxPropertyKey,
-      assetSymbol: event.assetSymbol,
-      transferredAt: event.timestamp,
-      direction: getTransferDirection(event.kind),
-      quantity: event.quantity,
-    }));
+    if (event.linkId !== undefined) {
+      const group = feeAdjustmentsByLinkId.get(event.linkId);
+      if (group) {
+        group.push(event);
+      } else {
+        feeAdjustmentsByLinkId.set(event.linkId, [event]);
+      }
+    }
+
+    if (event.relatedEventId) {
+      const group = feeAdjustmentsByRelatedEventId.get(event.relatedEventId);
+      if (group) {
+        group.push(event);
+      } else {
+        feeAdjustmentsByRelatedEventId.set(event.relatedEventId, [event]);
+      }
+    }
+  }
+
+  const transferEvents = params.inputContext.inputEvents
+    .filter(
+      (event): event is CanadaTransferInEvent | CanadaTransferOutEvent =>
+        (event.kind === 'transfer-in' || event.kind === 'transfer-out') &&
+        isWithinCalculationWindow(event.timestamp, params.calculation)
+    )
+    .sort(compareCanadaEvents);
+
+  const collectTransferSettlementFeeAdjustments = (
+    baseEvents: (CanadaTransferInEvent | CanadaTransferOutEvent)[],
+    linkId?: number
+  ): CanadaFeeAdjustmentEvent[] => {
+    const settlementEventsById = new Map<string, CanadaFeeAdjustmentEvent>();
+
+    if (linkId !== undefined) {
+      for (const feeAdjustment of feeAdjustmentsByLinkId.get(linkId) ?? []) {
+        settlementEventsById.set(feeAdjustment.eventId, feeAdjustment);
+      }
+    }
+
+    for (const baseEvent of baseEvents) {
+      for (const feeAdjustment of feeAdjustmentsByRelatedEventId.get(baseEvent.eventId) ?? []) {
+        settlementEventsById.set(feeAdjustment.eventId, feeAdjustment);
+      }
+    }
+
+    return [...settlementEventsById.values()];
+  };
+
+  const resolveTransferSettlement = (
+    baseEvents: (CanadaTransferInEvent | CanadaTransferOutEvent)[],
+    linkId?: number
+  ): Result<
+    {
+      feeAdjustments: CanadaFeeAdjustmentEvent[];
+      settledSnapshot: CanadaAcbEngineResult['eventPoolSnapshots'][number];
+    },
+    Error
+  > => {
+    const feeAdjustments = collectTransferSettlementFeeAdjustments(baseEvents, linkId);
+    const baseEventForSnapshot = [...baseEvents].sort(compareCanadaEvents).at(-1);
+    const snapshotEvent =
+      [...feeAdjustments].sort(compareCanadaEvents).at(-1) ?? (baseEventForSnapshot ? baseEventForSnapshot : undefined);
+
+    if (!snapshotEvent) {
+      return err(new Error('Canada transfer row is missing a base event for snapshot resolution'));
+    }
+
+    // Transfer events do not mutate the pooled ACB state. We still snapshot
+    // them so standalone transfers without settlement fee adjustments have a
+    // stable point-in-time pool state to render against.
+    const snapshot = eventPoolSnapshotsByEventId.get(snapshotEvent.eventId);
+    if (!snapshot) {
+      return err(new Error(`Missing Canada pool snapshot for transfer settlement event ${snapshotEvent.eventId}`));
+    }
+
+    return ok({ feeAdjustments, settledSnapshot: snapshot });
+  };
+
+  const buildTransferRow = (params: {
+    assetSymbol: Currency;
+    baseEvents: (CanadaTransferInEvent | CanadaTransferOutEvent)[];
+    direction: CanadaTaxReportTransfer['direction'];
+    id: string;
+    linkId?: number | undefined;
+    marketValueSourceEvent: CanadaTransferInEvent | CanadaTransferOutEvent;
+    quantity: Decimal;
+    sourceTransactionId?: number | undefined;
+    sourceTransferEventId?: string | undefined;
+    targetTransactionId?: number | undefined;
+    targetTransferEventId?: string | undefined;
+    taxPropertyKey: string;
+    transactionId: number;
+    transferredAt: Date;
+  }): Result<CanadaTaxReportTransfer, Error> => {
+    const transferSettlementResult = resolveTransferSettlement(params.baseEvents, params.linkId);
+    if (transferSettlementResult.isErr()) {
+      return err(transferSettlementResult.error);
+    }
+
+    const feeAdjustmentCad = transferSettlementResult.value.feeAdjustments.reduce(
+      (sum, feeAdjustment) => sum.plus(feeAdjustment.valuation.totalValueCad),
+      parseDecimal('0')
+    );
+    const { settledSnapshot } = transferSettlementResult.value;
+
+    return ok({
+      id: params.id,
+      direction: params.direction,
+      sourceTransferEventId: params.sourceTransferEventId,
+      targetTransferEventId: params.targetTransferEventId,
+      sourceTransactionId: params.sourceTransactionId,
+      targetTransactionId: params.targetTransactionId,
+      linkId: params.linkId,
+      transactionId: params.transactionId,
+      taxPropertyKey: params.taxPropertyKey,
+      assetSymbol: params.assetSymbol,
+      transferredAt: params.transferredAt,
+      quantity: params.quantity,
+      // A transfer row carries the pooled ACB assigned to the transferred
+      // quantity, not the pool's full ACB balance.
+      totalCostBasisCad: settledSnapshot.acbPerUnitCad.times(params.quantity),
+      acbPerUnitCad: settledSnapshot.acbPerUnitCad,
+      marketValueCad: params.marketValueSourceEvent.valuation.totalValueCad,
+      feeAdjustmentCad,
+    });
+  };
+
+  const transferGroupsByLinkId = new Map<
+    number,
+    { source?: CanadaTransferOutEvent | undefined; target?: CanadaTransferInEvent | undefined }
+  >();
+  const unlinkedTransferEvents: (CanadaTransferInEvent | CanadaTransferOutEvent)[] = [];
+  for (const transferEvent of transferEvents) {
+    if (transferEvent.linkId === undefined) {
+      unlinkedTransferEvents.push(transferEvent);
+      continue;
+    }
+
+    const group = transferGroupsByLinkId.get(transferEvent.linkId) ?? {};
+    if (transferEvent.kind === 'transfer-out') {
+      group.source = transferEvent;
+    } else {
+      group.target = transferEvent;
+    }
+    transferGroupsByLinkId.set(transferEvent.linkId, group);
+  }
+
+  const transfers: CanadaTaxReportTransfer[] = [];
+  for (const [linkId, group] of [...transferGroupsByLinkId.entries()].sort((left, right) => {
+    const leftEvent = left[1].source ?? left[1].target;
+    const rightEvent = right[1].source ?? right[1].target;
+    if (!leftEvent || !rightEvent) return left[0] - right[0];
+    return compareCanadaEvents(leftEvent, rightEvent);
+  })) {
+    const sourceEvent = group.source;
+    const targetEvent = group.target;
+    if (sourceEvent && targetEvent) {
+      const transferRowResult = buildTransferRow({
+        id: `link:${linkId}:transfer`,
+        direction: 'internal',
+        baseEvents: [sourceEvent, targetEvent],
+        linkId,
+        quantity: targetEvent.quantity,
+        sourceTransactionId: sourceEvent.transactionId,
+        sourceTransferEventId: sourceEvent.eventId,
+        targetTransactionId: targetEvent.transactionId,
+        targetTransferEventId: targetEvent.eventId,
+        transactionId: targetEvent.transactionId,
+        taxPropertyKey: targetEvent.taxPropertyKey,
+        assetSymbol: targetEvent.assetSymbol,
+        transferredAt: sourceEvent.timestamp,
+        marketValueSourceEvent: targetEvent,
+      });
+      if (transferRowResult.isErr()) {
+        return err(transferRowResult.error);
+      }
+
+      transfers.push(transferRowResult.value);
+      continue;
+    }
+
+    const singleEvent = sourceEvent ?? targetEvent;
+    if (!singleEvent) {
+      continue;
+    }
+
+    const transferRowResult = buildTransferRow({
+      id: singleEvent.eventId,
+      direction: getSingleTransferDirection(singleEvent.kind),
+      baseEvents: [singleEvent],
+      linkId,
+      quantity: singleEvent.quantity,
+      sourceTransactionId:
+        singleEvent.kind === 'transfer-out' ? singleEvent.transactionId : singleEvent.sourceTransactionId,
+      sourceTransferEventId: singleEvent.kind === 'transfer-out' ? singleEvent.eventId : undefined,
+      targetTransactionId: singleEvent.kind === 'transfer-in' ? singleEvent.transactionId : undefined,
+      targetTransferEventId: singleEvent.kind === 'transfer-in' ? singleEvent.eventId : undefined,
+      transactionId: singleEvent.transactionId,
+      taxPropertyKey: singleEvent.taxPropertyKey,
+      assetSymbol: singleEvent.assetSymbol,
+      transferredAt: singleEvent.timestamp,
+      marketValueSourceEvent: singleEvent,
+    });
+    if (transferRowResult.isErr()) {
+      return err(transferRowResult.error);
+    }
+
+    transfers.push(transferRowResult.value);
+  }
+
+  for (const transferEvent of unlinkedTransferEvents) {
+    const transferRowResult = buildTransferRow({
+      id: transferEvent.eventId,
+      direction: getSingleTransferDirection(transferEvent.kind),
+      baseEvents: [transferEvent],
+      quantity: transferEvent.quantity,
+      sourceTransactionId:
+        transferEvent.kind === 'transfer-out' ? transferEvent.transactionId : transferEvent.sourceTransactionId,
+      sourceTransferEventId: transferEvent.kind === 'transfer-out' ? transferEvent.eventId : undefined,
+      targetTransactionId: transferEvent.kind === 'transfer-in' ? transferEvent.transactionId : undefined,
+      targetTransferEventId: transferEvent.kind === 'transfer-in' ? transferEvent.eventId : undefined,
+      transactionId: transferEvent.transactionId,
+      taxPropertyKey: transferEvent.taxPropertyKey,
+      assetSymbol: transferEvent.assetSymbol,
+      transferredAt: transferEvent.timestamp,
+      marketValueSourceEvent: transferEvent,
+    });
+    if (transferRowResult.isErr()) {
+      return err(transferRowResult.error);
+    }
+
+    transfers.push(transferRowResult.value);
+  }
+  transfers.sort((left, right) => {
+    const timestampDiff = left.transferredAt.getTime() - right.transferredAt.getTime();
+    if (timestampDiff !== 0) return timestampDiff;
+    return left.id.localeCompare(right.id);
+  });
 
   return ok({
     calculationId: params.calculation.id,
@@ -304,6 +578,10 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversion = conversionResult.value;
     transfers.push({
       ...transfer,
+      displayTotalCostBasis: transfer.totalCostBasisCad.times(conversion.fxRate),
+      displayCostBasisPerUnit: transfer.acbPerUnitCad.times(conversion.fxRate),
+      displayMarketValue: transfer.marketValueCad.times(conversion.fxRate),
+      displayFeeAdjustment: transfer.feeAdjustmentCad.times(conversion.fxRate),
       fxConversion: conversion,
     });
   }

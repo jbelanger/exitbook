@@ -9,6 +9,7 @@ import type {
   CanadaAcquisitionLayer,
   CanadaDispositionEvent,
   CanadaDispositionRecord,
+  CanadaEventPoolSnapshot,
   CanadaFeeAdjustmentEvent,
   CanadaLayerDepletion,
   CanadaSuperficialLossAdjustmentEvent,
@@ -70,6 +71,20 @@ function getOrInitPool(
   }
 
   return ok(pool);
+}
+
+function buildEventPoolSnapshot(event: CanadaTaxInputEvent, pool?: CanadaAcbPoolState): CanadaEventPoolSnapshot {
+  return {
+    eventId: event.eventId,
+    eventKind: event.kind,
+    transactionId: event.transactionId,
+    timestamp: event.timestamp,
+    taxPropertyKey: event.taxPropertyKey,
+    assetSymbol: event.assetSymbol,
+    quantityHeld: pool?.quantityHeld ?? parseDecimal('0'),
+    totalAcbCad: pool?.totalAcbCad ?? parseDecimal('0'),
+    acbPerUnitCad: pool?.acbPerUnitCad ?? parseDecimal('0'),
+  };
 }
 
 function addAcquisitionToPool(pool: CanadaAcbPoolState, event: CanadaAcquisitionEvent): void {
@@ -319,6 +334,7 @@ function applySuperficialLossAdjustmentToPool(
 export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<CanadaAcbEngineResult, Error> {
   const poolsByKey = new Map<string, CanadaAcbPoolState>();
   const dispositions: CanadaDispositionRecord[] = [];
+  const eventPoolSnapshots: CanadaEventPoolSnapshot[] = [];
   let totalProceedsCad = parseDecimal('0');
   let totalCostBasisCad = parseDecimal('0');
   let totalGainLossCad = parseDecimal('0');
@@ -327,6 +343,10 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
     switch (event.kind) {
       case 'transfer-in':
       case 'transfer-out':
+        // Transfers are pool no-ops, but we retain point-in-time snapshots so
+        // report rendering can price standalone transfer rows even when no
+        // settlement fee-adjustment event exists for that transfer.
+        eventPoolSnapshots.push(buildEventPoolSnapshot(event, poolsByKey.get(event.taxPropertyKey)));
         continue;
       case 'acquisition':
       case 'fee-adjustment':
@@ -344,12 +364,14 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
     switch (event.kind) {
       case 'acquisition':
         addAcquisitionToPool(pool, event);
+        eventPoolSnapshots.push(buildEventPoolSnapshot(event, pool));
         continue;
       case 'fee-adjustment': {
         const feeAdjustmentResult = applyFeeAdjustmentToPool(pool, event);
         if (feeAdjustmentResult.isErr()) {
           return err(feeAdjustmentResult.error);
         }
+        eventPoolSnapshots.push(buildEventPoolSnapshot(event, pool));
         continue;
       }
       case 'superficial-loss-adjustment': {
@@ -357,6 +379,7 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
         if (superficialLossAdjustmentResult.isErr()) {
           return err(superficialLossAdjustmentResult.error);
         }
+        eventPoolSnapshots.push(buildEventPoolSnapshot(event, pool));
         continue;
       }
       case 'disposition':
@@ -372,9 +395,11 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
     totalProceedsCad = totalProceedsCad.plus(dispositionResult.value.proceedsCad);
     totalCostBasisCad = totalCostBasisCad.plus(dispositionResult.value.costBasisCad);
     totalGainLossCad = totalGainLossCad.plus(dispositionResult.value.gainLossCad);
+    eventPoolSnapshots.push(buildEventPoolSnapshot(event, pool));
   }
 
   return ok({
+    eventPoolSnapshots,
     pools: [...poolsByKey.values()],
     dispositions,
     totalProceedsCad,

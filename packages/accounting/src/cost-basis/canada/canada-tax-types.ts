@@ -148,11 +148,24 @@ export interface CanadaAcbPoolState {
 }
 
 export interface CanadaAcbEngineResult {
+  eventPoolSnapshots: CanadaEventPoolSnapshot[];
   pools: CanadaAcbPoolState[];
   dispositions: CanadaDispositionRecord[];
   totalProceedsCad: Decimal;
   totalCostBasisCad: Decimal;
   totalGainLossCad: Decimal;
+}
+
+export interface CanadaEventPoolSnapshot {
+  eventId: string;
+  eventKind: CanadaTaxInputEventKind;
+  transactionId: number;
+  timestamp: Date;
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  quantityHeld: Decimal;
+  totalAcbCad: Decimal;
+  acbPerUnitCad: Decimal;
 }
 
 export interface CanadaCostBasisCalculation {
@@ -201,12 +214,21 @@ export interface CanadaTaxReportDisposition {
 
 export interface CanadaTaxReportTransfer {
   id: string;
+  direction: 'in' | 'internal' | 'out';
+  sourceTransferEventId?: string | undefined;
+  targetTransferEventId?: string | undefined;
+  sourceTransactionId?: number | undefined;
+  targetTransactionId?: number | undefined;
+  linkId?: number | undefined;
   transactionId: number;
   taxPropertyKey: string;
   assetSymbol: Currency;
   transferredAt: Date;
-  direction: 'in' | 'out';
   quantity: Decimal;
+  totalCostBasisCad: Decimal;
+  acbPerUnitCad: Decimal;
+  marketValueCad: Decimal;
+  feeAdjustmentCad: Decimal;
 }
 
 export interface CanadaSuperficialLossAdjustment {
@@ -264,6 +286,10 @@ export interface CanadaDisplayReportDisposition extends CanadaTaxReportDispositi
 }
 
 export interface CanadaDisplayReportTransfer extends CanadaTaxReportTransfer {
+  displayTotalCostBasis: Decimal;
+  displayCostBasisPerUnit: Decimal;
+  displayMarketValue: Decimal;
+  displayFeeAdjustment: Decimal;
   fxConversion: CanadaDisplayFxConversion;
 }
 

@@ -193,4 +193,87 @@ describe('cost-basis-view-utils', () => {
     expect(assetLabels).toEqual(['USDC (ca:erc20:ethereum:0xa0b8)', 'USDC (ca:spl:solana:EPjFWdd5)']);
     expect(assetItems.every((item) => item.disposalCount === 1)).toBe(true);
   });
+
+  it('builds Canada transfer timeline rows from report transfers instead of dropping them', () => {
+    const taxReport: CanadaTaxReport = {
+      calculationId: 'calc-3',
+      taxCurrency: 'CAD',
+      acquisitions: [],
+      dispositions: [],
+      transfers: [
+        {
+          id: 'link:10:transfer',
+          direction: 'internal',
+          sourceTransferEventId: 'link:10:transfer-out',
+          targetTransferEventId: 'link:10:transfer-in',
+          sourceTransactionId: 2,
+          targetTransactionId: 3,
+          linkId: 10,
+          transactionId: 3,
+          taxPropertyKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          transferredAt: new Date('2024-01-10T00:00:00Z'),
+          quantity: parseDecimal('1'),
+          totalCostBasisCad: parseDecimal('10025'),
+          acbPerUnitCad: parseDecimal('10025'),
+          marketValueCad: parseDecimal('12000'),
+          feeAdjustmentCad: parseDecimal('25'),
+        },
+      ],
+      superficialLossAdjustments: [],
+      summary: {
+        totalProceedsCad: parseDecimal('0'),
+        totalCostBasisCad: parseDecimal('0'),
+        totalGainLossCad: parseDecimal('0'),
+        totalTaxableGainLossCad: parseDecimal('0'),
+        totalDeniedLossCad: parseDecimal('0'),
+      },
+    };
+
+    const displayReport: CanadaDisplayCostBasisReport = {
+      calculationId: 'calc-3',
+      sourceTaxCurrency: 'CAD',
+      displayCurrency: 'USD' as Currency,
+      acquisitions: [],
+      dispositions: [],
+      transfers: [
+        {
+          ...taxReport.transfers[0]!,
+          displayTotalCostBasis: parseDecimal('7518.75'),
+          displayCostBasisPerUnit: parseDecimal('7518.75'),
+          displayMarketValue: parseDecimal('9000'),
+          displayFeeAdjustment: parseDecimal('18.75'),
+          fxConversion: {
+            sourceTaxCurrency: 'CAD',
+            displayCurrency: 'USD' as Currency,
+            fxRate: parseDecimal('0.75'),
+            fxSource: 'test',
+            fxFetchedAt: new Date('2024-01-10T00:00:00Z'),
+          },
+        },
+      ],
+      summary: {
+        totalProceeds: parseDecimal('0'),
+        totalCostBasis: parseDecimal('0'),
+        totalGainLoss: parseDecimal('0'),
+        totalTaxableGainLoss: parseDecimal('0'),
+        totalDeniedLoss: parseDecimal('0'),
+      },
+    };
+
+    const assetItems = buildCanadaAssetCostBasisItems(taxReport, displayReport);
+
+    expect(assetItems).toHaveLength(1);
+    expect(assetItems[0]?.transferCount).toBe(1);
+    expect(assetItems[0]?.transfers[0]).toMatchObject({
+      direction: 'internal',
+      sourceTransactionId: 2,
+      targetTransactionId: 3,
+      totalCostBasis: '7518.75',
+      costBasisPerUnit: '7518.75',
+      marketValue: '9000.00',
+      feeAmount: '18.75',
+      feeCurrency: 'USD',
+    });
+  });
 });
