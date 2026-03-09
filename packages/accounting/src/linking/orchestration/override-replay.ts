@@ -11,6 +11,7 @@ const logger = getLogger('OverrideReplay');
  */
 interface TransactionWithFingerprint {
   id: number;
+  accountId: number;
   source: string;
   externalId: string;
   [key: string]: unknown;
@@ -36,13 +37,17 @@ interface LinkWithStatus {
 
 /**
  * Build a fingerprint lookup map for transactions
- * Fingerprint format: ${source}:${externalId}
+ * Fingerprint format: tx:v2:${source}:${accountId}:${externalId}
  */
 export function buildFingerprintMap(transactions: TransactionWithFingerprint[]): Map<string, number> {
   const map = new Map<string, number>();
 
   for (const tx of transactions) {
-    const fingerprintResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    const fingerprintResult = computeTxFingerprint({
+      source: tx.source,
+      accountId: tx.accountId,
+      externalId: tx.externalId,
+    });
     if (fingerprintResult.isOk()) {
       map.set(fingerprintResult.value, tx.id);
     }
@@ -58,7 +63,11 @@ function buildTransactionMaps(transactions: TransactionWithFingerprint[]): { fin
   const fingerprintMap = new Map<string, number>();
 
   for (const tx of transactions) {
-    const fingerprintResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    const fingerprintResult = computeTxFingerprint({
+      source: tx.source,
+      accountId: tx.accountId,
+      externalId: tx.externalId,
+    });
     if (fingerprintResult.isOk()) {
       fingerprintMap.set(fingerprintResult.value, tx.id);
     }

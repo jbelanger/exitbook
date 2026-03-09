@@ -72,15 +72,15 @@ describe('buildLinkFromOrphanedOverride', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-1',
-        target_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-3',
+        source_fingerprint: 'tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1',
+        target_fingerprint: 'tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3',
         asset: 'BTC',
         resolved_link_fingerprint:
-          'resolved-link:v1:movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0:movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0:test:btc:test:btc',
+          'resolved-link:v1:movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0:movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0:test:btc:test:btc',
         source_asset_id: 'test:btc',
         target_asset_id: 'test:btc',
-        source_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0',
-        target_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0',
+        source_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0',
+        target_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0',
         source_amount: '6',
         target_amount: '6',
       },
@@ -93,8 +93,8 @@ describe('buildLinkFromOrphanedOverride', () => {
       linkType: 'transfer',
       sourceAssetId: 'test:btc',
       targetAssetId: 'test:btc',
-      sourceMovementFingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0',
-      targetMovementFingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0',
+      sourceMovementFingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0',
+      targetMovementFingerprint: 'movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0',
       sourceAmount: '6',
       targetAmount: '6',
     };
@@ -103,7 +103,7 @@ describe('buildLinkFromOrphanedOverride', () => {
 
     expect(result.sourceAmount.toFixed()).toBe('6');
     expect(result.targetAmount.toFixed()).toBe('6');
-    expect(result.sourceMovementFingerprint).toBe('movement:blockchain:bitcoin:blockchain:bitcoin-1:outflow:0');
-    expect(result.targetMovementFingerprint).toBe('movement:blockchain:bitcoin:blockchain:bitcoin-3:inflow:0');
+    expect(result.sourceMovementFingerprint).toBe('movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0');
+    expect(result.targetMovementFingerprint).toBe('movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0');
   });
 });

@@ -186,11 +186,13 @@ export function createMockTransactionObjects() {
   return {
     source: {
       id: 1,
+      accountId: 1,
       source: 'kraken',
       externalId: 'WITHDRAWAL-123',
     },
     target: {
       id: 2,
+      accountId: 2,
       source: 'blockchain:bitcoin',
       externalId: 'abc123',
     },

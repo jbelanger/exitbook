@@ -209,7 +209,11 @@ export function buildCostBasisScopedTransactions(
 // ---------------------------------------------------------------------------
 
 function cloneScopedTransaction(tx: UniversalTransactionData): Result<AccountingScopedTransaction, Error> {
-  const txFpResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+  const txFpResult = computeTxFingerprint({
+    source: tx.source,
+    accountId: tx.accountId,
+    externalId: tx.externalId,
+  });
   if (txFpResult.isErr()) return err(txFpResult.error);
   const txFp = txFpResult.value;
 

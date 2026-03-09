@@ -249,6 +249,10 @@ export interface CanadaTaxReportSummary {
   totalDeniedLossCad: Decimal;
 }
 
+export interface CanadaTaxReportDisplayContext {
+  transferMarketValueCadByTransferId: Map<string, Decimal>;
+}
+
 export interface CanadaTaxReport {
   calculationId: string;
   taxCurrency: 'CAD';
@@ -257,6 +261,7 @@ export interface CanadaTaxReport {
   transfers: CanadaTaxReportTransfer[];
   superficialLossAdjustments: CanadaSuperficialLossAdjustment[];
   summary: CanadaTaxReportSummary;
+  displayContext: CanadaTaxReportDisplayContext;
 }
 
 export interface CanadaDisplayFxConversion {

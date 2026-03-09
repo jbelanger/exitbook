@@ -69,6 +69,7 @@ function computeScopedMovementFingerprint(
   const txFingerprint = assertOk(
     computeTxFingerprint({
       source: transaction.source,
+      accountId: transaction.accountId,
       externalId: transaction.externalId,
     })
   );

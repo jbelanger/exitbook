@@ -5,8 +5,11 @@ import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from './override
 
 const sourceAssetId = 'exchange:kraken:btc';
 const targetAssetId = 'blockchain:bitcoin:native';
-const sourceMovementFingerprint = 'movement:kraken:WITHDRAWAL-123:outflow:0';
-const targetMovementFingerprint = 'movement:blockchain:bitcoin:abc123:inflow:0';
+const sourceFingerprint = 'tx:v2:kraken:1:WITHDRAWAL-123';
+const targetFingerprint = 'tx:v2:blockchain:bitcoin:2:abc123';
+const unknownTargetFingerprint = 'tx:v2:blockchain:bitcoin:2:unknown';
+const sourceMovementFingerprint = 'movement:tx:v2:kraken:1:WITHDRAWAL-123:outflow:0';
+const targetMovementFingerprint = 'movement:tx:v2:blockchain:bitcoin:2:abc123:inflow:0';
 const resolvedLinkFingerprint = [
   'resolved-link:v1',
   sourceMovementFingerprint,
@@ -15,13 +18,13 @@ const resolvedLinkFingerprint = [
   targetAssetId,
 ].join(':');
 
-function createLinkOverridePayload(targetFingerprint = 'blockchain:bitcoin:abc123'): LinkOverridePayload {
+function createLinkOverridePayload(targetTxFingerprint = targetFingerprint): LinkOverridePayload {
   return {
     type: 'link_override',
     action: 'confirm',
     link_type: 'transfer',
-    source_fingerprint: 'kraken:WITHDRAWAL-123',
-    target_fingerprint: targetFingerprint,
+    source_fingerprint: sourceFingerprint,
+    target_fingerprint: targetTxFingerprint,
     asset: 'BTC',
     resolved_link_fingerprint: resolvedLinkFingerprint,
     source_asset_id: sourceAssetId,
@@ -36,16 +39,16 @@ function createLinkOverridePayload(targetFingerprint = 'blockchain:bitcoin:abc12
 describe('buildFingerprintMap', () => {
   it('should build fingerprint to ID map', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'TRADE-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
-      { id: 3, source: 'coinbase', externalId: 'DEPOSIT-456' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'TRADE-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 3, accountId: 3, source: 'coinbase', externalId: 'DEPOSIT-456' },
     ];
 
     const map = buildFingerprintMap(transactions);
 
-    expect(map.get('kraken:TRADE-123')).toBe(1);
-    expect(map.get('blockchain:bitcoin:abc123')).toBe(2);
-    expect(map.get('coinbase:DEPOSIT-456')).toBe(3);
+    expect(map.get('tx:v2:kraken:1:TRADE-123')).toBe(1);
+    expect(map.get('tx:v2:blockchain:bitcoin:2:abc123')).toBe(2);
+    expect(map.get('tx:v2:coinbase:3:DEPOSIT-456')).toBe(3);
   });
 
   it('should handle empty transaction array', () => {
@@ -58,16 +61,16 @@ describe('buildFingerprintMap', () => {
 describe('resolveTxId', () => {
   it('should resolve transaction ID from fingerprint', () => {
     const map = new Map<string, number>([
-      ['kraken:TRADE-123', 1],
-      ['blockchain:bitcoin:abc123', 2],
+      ['tx:v2:kraken:1:TRADE-123', 1],
+      ['tx:v2:blockchain:bitcoin:2:abc123', 2],
     ]);
 
-    expect(resolveTxId('kraken:TRADE-123', map)).toBe(1);
-    expect(resolveTxId('blockchain:bitcoin:abc123', map)).toBe(2);
+    expect(resolveTxId('tx:v2:kraken:1:TRADE-123', map)).toBe(1);
+    expect(resolveTxId('tx:v2:blockchain:bitcoin:2:abc123', map)).toBe(2);
   });
 
   it('should return null for unknown fingerprint', () => {
-    const map = new Map<string, number>([['kraken:TRADE-123', 1]]);
+    const map = new Map<string, number>([['tx:v2:kraken:1:TRADE-123', 1]]);
 
     expect(resolveTxId('unknown:fingerprint', map)).toBeNull();
   });
@@ -76,8 +79,8 @@ describe('resolveTxId', () => {
 describe('applyLinkOverrides', () => {
   it('should confirm suggested link', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links = [
@@ -124,8 +127,8 @@ describe('applyLinkOverrides', () => {
 
   it('should mark link as rejected for unlink override', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links = [
@@ -172,8 +175,8 @@ describe('applyLinkOverrides', () => {
 
   it('should return orphaned override when transactions exist but algorithm produced no link', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     // Empty links — algorithm didn't produce a match for this pair
@@ -218,7 +221,7 @@ describe('applyLinkOverrides', () => {
   });
 
   it('should handle unresolved link override when transaction not found', () => {
-    const transactions = [{ id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' }];
+    const transactions = [{ id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' }];
 
     const links = [
       {
@@ -234,7 +237,7 @@ describe('applyLinkOverrides', () => {
       },
     ];
 
-    const payload = createLinkOverridePayload('blockchain:bitcoin:unknown');
+    const payload = createLinkOverridePayload(unknownTargetFingerprint);
 
     const overrides: OverrideEvent[] = [
       {
@@ -263,8 +266,8 @@ describe('applyLinkOverrides', () => {
 
   it('should handle empty overrides array', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links = [
@@ -296,8 +299,8 @@ describe('applyLinkOverrides', () => {
 
   it('should not create orphaned link when later unlinked (THE BUG)', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links: {
@@ -343,8 +346,8 @@ describe('applyLinkOverrides', () => {
 
   it('should handle multiple state changes with last event winning', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links = [
@@ -406,8 +409,8 @@ describe('applyLinkOverrides', () => {
 
   it('should apply final confirm state after reject', () => {
     const transactions = [
-      { id: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
+      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
     ];
 
     const links = [

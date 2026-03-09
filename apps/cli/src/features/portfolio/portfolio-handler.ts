@@ -45,6 +45,7 @@ import {
   computeTotalRealizedGainLossAllTime,
   fetchSpotPrices,
   sortPositions,
+  type RealizedGainLossDisplayContext,
 } from './portfolio-utils.js';
 
 const logger = getLogger('PortfolioHandler');
@@ -232,7 +233,9 @@ export class PortfolioHandler {
       let positions: PortfolioPositionItem[];
       let closedPositions: PortfolioPositionItem[];
       let realizedGainLossByAssetId = new Map<string, Decimal>();
-      let realizedGainLossFxRate: Decimal | undefined;
+      let realizedGainLossDisplayContext: RealizedGainLossDisplayContext = {
+        sourceCurrency: 'USD',
+      };
 
       if (jurisdiction === 'CA') {
         const canadaPortfolioResult = await this.buildCanadaPortfolioCostBasis({
@@ -253,7 +256,7 @@ export class PortfolioHandler {
         positions = canadaPortfolioResult.value.positions;
         closedPositions = canadaPortfolioResult.value.closedPositions;
         realizedGainLossByAssetId = canadaPortfolioResult.value.realizedGainLossByPortfolioKey;
-        realizedGainLossFxRate = undefined;
+        realizedGainLossDisplayContext = { sourceCurrency: 'display' };
       } else {
         const pipelineResult = await runCostBasisPipeline(
           transactionsUpToAsOf,
@@ -294,7 +297,10 @@ export class PortfolioHandler {
           }
         }
 
-        realizedGainLossFxRate = effectiveDisplayCurrency === 'USD' ? undefined : fxRate;
+        realizedGainLossDisplayContext = {
+          sourceCurrency: 'USD',
+          ...(effectiveDisplayCurrency !== 'USD' && fxRate ? { usdToDisplayFxRate: fxRate } : {}),
+        };
         const lotAssetByLotId = new Map<string, string>(costBasisSummary.lots.map((lot) => [lot.id, lot.assetId]));
         realizedGainLossByAssetId = new Map<string, Decimal>();
         for (const disposal of costBasisSummary.disposals) {
@@ -313,9 +319,10 @@ export class PortfolioHandler {
           spotPrices,
           openLotsByAssetId,
           accountBreakdown,
-          realizedGainLossFxRate,
+          effectiveDisplayCurrency === 'USD' ? undefined : fxRate,
           asOf,
-          realizedGainLossByAssetId
+          realizedGainLossByAssetId,
+          realizedGainLossDisplayContext
         );
         warnings.push(...built.warnings);
 
@@ -323,7 +330,7 @@ export class PortfolioHandler {
           Object.keys(holdings),
           assetMetadata,
           realizedGainLossByAssetId,
-          realizedGainLossFxRate
+          realizedGainLossDisplayContext
         );
         const aggregatedPositions = aggregatePositionsByAssetSymbol([...built.positions, ...closedPositionsByAssetId]);
         positions = sortPositions(
@@ -377,7 +384,7 @@ export class PortfolioHandler {
         : undefined;
       const totalRealizedGainLossAllTime = computeTotalRealizedGainLossAllTime(
         realizedGainLossByAssetId,
-        realizedGainLossFxRate,
+        realizedGainLossDisplayContext,
         positions.length > 0
       );
 
@@ -532,7 +539,6 @@ export class PortfolioHandler {
 
     const displayReportResult = await buildCanadaDisplayCostBasisReport({
       taxReport: taxReportResult.value,
-      inputContext: acbWorkflowResult.value.inputContext,
       displayCurrency: params.costBasisParams.config.currency as Currency,
       fxProvider: fxRateProvider,
     });

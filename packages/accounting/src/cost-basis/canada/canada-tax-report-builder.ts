@@ -306,6 +306,7 @@ export function buildCanadaTaxReport(params: {
   }
 
   const transfers: CanadaTaxReportTransfer[] = [];
+  const transferMarketValueCadByTransferId = new Map<string, Decimal>();
   for (const [linkId, group] of [...transferGroupsByLinkId.entries()].sort((left, right) => {
     const leftEvent = left[1].source ?? left[1].target;
     const rightEvent = right[1].source ?? right[1].target;
@@ -335,6 +336,7 @@ export function buildCanadaTaxReport(params: {
       }
 
       transfers.push(transferRowResult.value);
+      transferMarketValueCadByTransferId.set(transferRowResult.value.id, targetEvent.valuation.totalValueCad);
       continue;
     }
 
@@ -364,6 +366,7 @@ export function buildCanadaTaxReport(params: {
     }
 
     transfers.push(transferRowResult.value);
+    transferMarketValueCadByTransferId.set(transferRowResult.value.id, singleEvent.valuation.totalValueCad);
   }
 
   for (const transferEvent of unlinkedTransferEvents) {
@@ -387,6 +390,7 @@ export function buildCanadaTaxReport(params: {
     }
 
     transfers.push(transferRowResult.value);
+    transferMarketValueCadByTransferId.set(transferRowResult.value.id, transferEvent.valuation.totalValueCad);
   }
   transfers.sort((left, right) => {
     const timestampDiff = left.transferredAt.getTime() - right.transferredAt.getTime();
@@ -419,6 +423,9 @@ export function buildCanadaTaxReport(params: {
         (sum, disposition) => sum.plus(disposition.deniedLossCad),
         parseDecimal('0')
       ),
+    },
+    displayContext: {
+      transferMarketValueCadByTransferId,
     },
   });
 }
@@ -495,18 +502,9 @@ async function getCadToDisplayConversion(
 export async function buildCanadaDisplayCostBasisReport(params: {
   displayCurrency: Currency;
   fxProvider: IFxRateProvider;
-  inputContext: CanadaTaxInputContext;
   taxReport: CanadaTaxReport;
 }): Promise<Result<CanadaDisplayCostBasisReport, Error>> {
   const conversionCache = new Map<string, CanadaDisplayFxConversion>();
-  const transferEventsById = new Map(
-    params.inputContext.inputEvents
-      .filter(
-        (event): event is CanadaTransferInEvent | CanadaTransferOutEvent =>
-          event.kind === 'transfer-in' || event.kind === 'transfer-out'
-      )
-      .map((event) => [event.eventId, event] as const)
-  );
 
   const acquisitions: CanadaDisplayReportAcquisition[] = [];
   for (const acquisition of params.taxReport.acquisitions) {
@@ -565,18 +563,9 @@ export async function buildCanadaDisplayCostBasisReport(params: {
 
   const transfers: CanadaDisplayReportTransfer[] = [];
   for (const transfer of params.taxReport.transfers) {
-    const marketValueSourceEventId = transfer.targetTransferEventId ?? transfer.sourceTransferEventId;
-    if (!marketValueSourceEventId) {
-      return err(new Error(`Canada transfer ${transfer.id} is missing a source event for display market value`));
-    }
-
-    const marketValueSourceEvent = transferEventsById.get(marketValueSourceEventId);
-    if (!marketValueSourceEvent) {
-      return err(
-        new Error(
-          `Missing Canada transfer event ${marketValueSourceEventId} for display market value on transfer ${transfer.id}`
-        )
-      );
+    const marketValueCad = params.taxReport.displayContext.transferMarketValueCadByTransferId.get(transfer.id);
+    if (marketValueCad === undefined) {
+      return err(new Error(`Canada transfer ${transfer.id} is missing display market value context`));
     }
 
     const conversionResult = await getCadToDisplayConversion(
@@ -596,10 +585,10 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversion = conversionResult.value;
     transfers.push({
       ...transfer,
-      marketValueCad: marketValueSourceEvent.valuation.totalValueCad,
+      marketValueCad,
       displayCarriedAcb: transfer.carriedAcbCad.times(conversion.fxRate),
       displayCarriedAcbPerUnit: transfer.carriedAcbPerUnitCad.times(conversion.fxRate),
-      displayMarketValue: marketValueSourceEvent.valuation.totalValueCad.times(conversion.fxRate),
+      displayMarketValue: marketValueCad.times(conversion.fxRate),
       displayFeeAdjustment: transfer.feeAdjustmentCad.times(conversion.fxRate),
       fxConversion: conversion,
     });

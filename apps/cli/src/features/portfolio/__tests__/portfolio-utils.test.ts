@@ -148,7 +148,7 @@ describe('portfolio-utils', () => {
         ['asset:btc', new Decimal('125.50')],
         ['asset:eth', new Decimal('-25.25')],
       ]),
-      new Decimal('1.25'),
+      { sourceCurrency: 'USD', usdToDisplayFxRate: new Decimal('1.25') },
       false
     );
 
@@ -156,8 +156,8 @@ describe('portfolio-utils', () => {
   });
 
   it('returns undefined realized total only when there is no portfolio context', () => {
-    expect(computeTotalRealizedGainLossAllTime(new Map(), undefined, false)).toBeUndefined();
-    expect(computeTotalRealizedGainLossAllTime(new Map(), undefined, true)).toBe('0.00');
+    expect(computeTotalRealizedGainLossAllTime(new Map(), { sourceCurrency: 'USD' }, false)).toBeUndefined();
+    expect(computeTotalRealizedGainLossAllTime(new Map(), { sourceCurrency: 'USD' }, true)).toBe('0.00');
   });
 
   it('sorts positions by priced > unpriced > negative tiers', () => {
@@ -451,6 +451,7 @@ describe('portfolio-utils', () => {
       dispositions: [],
       transfers: [],
       superficialLossAdjustments: [],
+      displayContext: { transferMarketValueCadByTransferId: new Map() },
       summary: {
         totalProceedsCad: new Decimal('0'),
         totalCostBasisCad: new Decimal('0'),

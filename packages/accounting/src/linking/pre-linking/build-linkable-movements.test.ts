@@ -83,25 +83,25 @@ describe('buildLinkableMovements', () => {
         assetSymbol: 'ETH',
         direction: 'in',
         position: 0,
-        movementFingerprint: 'movement:kraken:kraken-1:inflow:0',
+        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:inflow:0',
       },
       {
         assetSymbol: 'USDT',
         direction: 'in',
         position: 1,
-        movementFingerprint: 'movement:kraken:kraken-1:inflow:1',
+        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:inflow:1',
       },
       {
         assetSymbol: 'BTC',
         direction: 'out',
         position: 0,
-        movementFingerprint: 'movement:kraken:kraken-1:outflow:0',
+        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
       },
       {
         assetSymbol: 'SOL',
         direction: 'out',
         position: 1,
-        movementFingerprint: 'movement:kraken:kraken-1:outflow:1',
+        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:1',
       },
     ]);
   });
@@ -181,8 +181,8 @@ describe('buildLinkableMovements', () => {
       sourceTransactionId: 1,
       targetTransactionId: 2,
       linkType: 'blockchain_internal',
-      sourceMovementFingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0',
-      targetMovementFingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0',
+      sourceMovementFingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0',
+      targetMovementFingerprint: 'movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0',
     });
 
     // Outflow candidate reduced from gross amounts: 5 - 3 - 0.01 = 1.99

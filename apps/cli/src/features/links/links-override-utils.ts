@@ -104,8 +104,16 @@ async function resolveFingerprints(
       return undefined;
     }
 
-    const sourceFp = computeTxFingerprint({ source: sourceTx.source, externalId: sourceTx.externalId });
-    const targetFp = computeTxFingerprint({ source: targetTx.source, externalId: targetTx.externalId });
+    const sourceFp = computeTxFingerprint({
+      source: sourceTx.source,
+      accountId: sourceTx.accountId,
+      externalId: sourceTx.externalId,
+    });
+    const targetFp = computeTxFingerprint({
+      source: targetTx.source,
+      accountId: targetTx.accountId,
+      externalId: targetTx.externalId,
+    });
 
     if (sourceFp.isErr() || targetFp.isErr()) {
       logger.warn('Failed to compute fingerprints for override event');

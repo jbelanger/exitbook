@@ -148,6 +148,7 @@ export interface CreateOverrideEventOptions {
  */
 export interface TransactionFingerprintInput {
   source: string;
+  accountId: number;
   externalId: string;
 }
 
@@ -169,7 +170,7 @@ export interface ResolvedLinkIdentity {
  * Uses position-based identity (not DB row ids) so it survives movement rebuilds.
  */
 export interface MovementFingerprintInput {
-  txFingerprint: string; // source_name:external_id
+  txFingerprint: string; // tx:v2:source_name:account_id:external_id
   movementType: 'inflow' | 'outflow' | 'fee';
   position: number; // 0-based index within movements of this type
 }

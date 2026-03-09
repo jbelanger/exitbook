@@ -223,6 +223,7 @@ describe('PortfolioHandler', () => {
         dispositions: [],
         transfers: [],
         superficialLossAdjustments: [],
+        displayContext: { transferMarketValueCadByTransferId: new Map() },
         summary: {
           totalProceedsCad: new Decimal('0'),
           totalCostBasisCad: new Decimal('0'),

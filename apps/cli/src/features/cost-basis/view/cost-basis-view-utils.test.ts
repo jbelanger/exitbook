@@ -44,6 +44,7 @@ describe('cost-basis-view-utils', () => {
       ],
       transfers: [],
       superficialLossAdjustments: [],
+      displayContext: { transferMarketValueCadByTransferId: new Map() },
       summary: {
         totalProceedsCad: parseDecimal('80'),
         totalCostBasisCad: parseDecimal('100'),
@@ -177,6 +178,7 @@ describe('cost-basis-view-utils', () => {
       ],
       transfers: [],
       superficialLossAdjustments: [],
+      displayContext: { transferMarketValueCadByTransferId: new Map() },
       summary: {
         totalProceedsCad: parseDecimal('155'),
         totalCostBasisCad: parseDecimal('150'),
@@ -220,6 +222,7 @@ describe('cost-basis-view-utils', () => {
         },
       ],
       superficialLossAdjustments: [],
+      displayContext: { transferMarketValueCadByTransferId: new Map() },
       summary: {
         totalProceedsCad: parseDecimal('0'),
         totalCostBasisCad: parseDecimal('0'),

@@ -98,7 +98,11 @@ export function buildPortfolioPositions(
   accountBreakdown: Map<string, AccountBreakdownItem[]>,
   fxRate: Decimal | undefined, // USD -> display currency (undefined if USD)
   asOf: Date,
-  realizedGainLossByAssetIdUsd?: Map<string, Decimal>
+  realizedGainLossByAssetId?: Map<string, Decimal>,
+  realizedGainLossDisplayContext: RealizedGainLossDisplayContext = {
+    sourceCurrency: 'USD',
+    ...(fxRate ? { usdToDisplayFxRate: fxRate } : {}),
+  }
 ): { positions: PortfolioPositionItem[]; warnings: string[] } {
   const positions: PortfolioPositionItem[] = [];
   const warnings: string[] = [];
@@ -183,8 +187,8 @@ export function buildPortfolioPositions(
       }
     }
 
-    const realizedUsd = realizedGainLossByAssetIdUsd?.get(assetId) ?? new Decimal(0);
-    const realizedDisplay = fxRate ? realizedUsd.times(fxRate) : realizedUsd;
+    const realizedAmount = realizedGainLossByAssetId?.get(assetId) ?? new Decimal(0);
+    const realizedDisplay = convertRealizedGainLossToDisplay(realizedAmount, realizedGainLossDisplayContext);
     const realizedGainLossAllTime = realizedDisplay.toFixed(2);
 
     positions.push({
@@ -241,6 +245,26 @@ export interface CanadaPortfolioPositionsResult {
   positions: PortfolioPositionItem[];
   realizedGainLossByPortfolioKey: Map<string, Decimal>;
   warnings: string[];
+}
+
+export type RealizedGainLossDisplayContext =
+  | {
+      sourceCurrency: 'display';
+    }
+  | {
+      sourceCurrency: 'USD';
+      usdToDisplayFxRate?: Decimal | undefined;
+    };
+
+function convertRealizedGainLossToDisplay(
+  realizedAmount: Decimal,
+  displayContext: RealizedGainLossDisplayContext
+): Decimal {
+  if (displayContext.sourceCurrency === 'display') {
+    return realizedAmount;
+  }
+
+  return displayContext.usdToDisplayFxRate ? realizedAmount.times(displayContext.usdToDisplayFxRate) : realizedAmount;
 }
 
 export function convertSpotPricesToDisplayCurrency(
@@ -499,7 +523,8 @@ export function buildCanadaPortfolioPositions(params: {
     pooledAccountBreakdown,
     undefined,
     params.asOf,
-    realizedGainLossByPortfolioKey
+    realizedGainLossByPortfolioKey,
+    { sourceCurrency: 'display' }
   );
 
   const unmatchedHoldings: Record<string, Decimal> = {};
@@ -542,7 +567,7 @@ export function buildCanadaPortfolioPositions(params: {
       Object.keys(holdingsByPortfolioKey),
       assetLabelsByPortfolioKey,
       realizedGainLossByPortfolioKey,
-      undefined
+      { sourceCurrency: 'display' }
     ),
     groupsByPortfolioKey
   );
@@ -740,18 +765,18 @@ export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem
 export function buildClosedPositionsByAssetId(
   holdingAssetIds: string[],
   assetMetadata: Record<string, string>,
-  realizedGainLossByAssetIdUsd: Map<string, Decimal>,
-  fxRate: Decimal | undefined
+  realizedGainLossByAssetId: Map<string, Decimal>,
+  realizedGainLossDisplayContext: RealizedGainLossDisplayContext
 ): PortfolioPositionItem[] {
   const holdingAssetSet = new Set(holdingAssetIds);
   const closedPositions: PortfolioPositionItem[] = [];
 
-  for (const [assetId, realizedUsd] of realizedGainLossByAssetIdUsd.entries()) {
+  for (const [assetId, realizedAmount] of realizedGainLossByAssetId.entries()) {
     if (holdingAssetSet.has(assetId)) {
       continue;
     }
 
-    const realizedDisplay = fxRate ? realizedUsd.times(fxRate) : realizedUsd;
+    const realizedDisplay = convertRealizedGainLossToDisplay(realizedAmount, realizedGainLossDisplayContext);
     closedPositions.push({
       assetId,
       sourceAssetIds: [assetId],
@@ -776,19 +801,19 @@ export function buildClosedPositionsByAssetId(
  * present a true all-time realized total.
  */
 export function computeTotalRealizedGainLossAllTime(
-  realizedGainLossByAssetIdUsd: Map<string, Decimal>,
-  fxRate: Decimal | undefined,
+  realizedGainLossByAssetId: Map<string, Decimal>,
+  realizedGainLossDisplayContext: RealizedGainLossDisplayContext,
   hasVisiblePositions: boolean
 ): string | undefined {
-  if (!hasVisiblePositions && realizedGainLossByAssetIdUsd.size === 0) {
+  if (!hasVisiblePositions && realizedGainLossByAssetId.size === 0) {
     return undefined;
   }
 
-  const totalRealizedUsd = Array.from(realizedGainLossByAssetIdUsd.values()).reduce(
-    (sum, realized) => sum.plus(realized),
+  const totalRealized = Array.from(realizedGainLossByAssetId.values()).reduce(
+    (sum, realizedAmount) => sum.plus(realizedAmount),
     new Decimal(0)
   );
-  const totalRealizedDisplay = fxRate ? totalRealizedUsd.times(fxRate) : totalRealizedUsd;
+  const totalRealizedDisplay = convertRealizedGainLossToDisplay(totalRealized, realizedGainLossDisplayContext);
   return totalRealizedDisplay.toFixed(2);
 }
 

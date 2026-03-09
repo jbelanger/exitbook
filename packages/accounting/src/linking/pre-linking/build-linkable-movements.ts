@@ -51,7 +51,11 @@ export function buildLinkableMovements(
       : undefined;
 
     // Compute tx fingerprint once per transaction for movement fingerprints
-    const txFpResult = computeTxFingerprint({ source: tx.source, externalId: tx.externalId });
+    const txFpResult = computeTxFingerprint({
+      source: tx.source,
+      accountId: tx.accountId,
+      externalId: tx.externalId,
+    });
     if (txFpResult.isErr()) {
       return err(txFpResult.error);
     }

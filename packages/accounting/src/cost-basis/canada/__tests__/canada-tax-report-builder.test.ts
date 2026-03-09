@@ -111,7 +111,6 @@ describe('canada-tax-report-builder', () => {
     const displayReport = assertOk(
       await buildCanadaDisplayCostBasisReport({
         taxReport,
-        inputContext,
         displayCurrency: 'USD' as Currency,
         fxProvider: createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }),
       })

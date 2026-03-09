@@ -91,8 +91,8 @@ describe('LinksConfirmHandler', () => {
           type: 'link_override',
           action: 'confirm',
           link_type: 'transfer',
-          source_fingerprint: 'kraken:WITHDRAWAL-123',
-          target_fingerprint: 'blockchain:bitcoin:abc123',
+          source_fingerprint: 'tx:v2:kraken:1:WITHDRAWAL-123',
+          target_fingerprint: 'tx:v2:blockchain:bitcoin:2:abc123',
           asset: 'BTC',
           resolved_link_fingerprint:
             'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',

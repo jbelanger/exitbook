@@ -74,7 +74,7 @@ describe('LinkingOrchestrator', () => {
       payload: {
         type: 'unlink_override',
         resolved_link_fingerprint:
-          'resolved-link:v1:movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
+          'resolved-link:v1:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0:movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
       },
     };
 
@@ -233,15 +233,15 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:kraken-1',
-        target_fingerprint: 'blockchain:bitcoin:blockchain:bitcoin-2',
+        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
+        target_fingerprint: 'tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2',
         asset: 'BTC',
         resolved_link_fingerprint:
-          'resolved-link:v1:movement:kraken:kraken-1:outflow:0:movement:blockchain:bitcoin:blockchain:bitcoin-2:inflow:0:test:btc:test:btc',
+          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:0:movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2:inflow:0:test:btc:test:btc',
         source_asset_id: 'test:btc',
         target_asset_id: 'test:btc',
-        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:0',
-        target_movement_fingerprint: 'movement:blockchain:bitcoin:blockchain:bitcoin-2:inflow:0',
+        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
+        target_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2:inflow:0',
         source_amount: '10',
         target_amount: '10',
       },
@@ -293,15 +293,15 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:kraken-1',
-        target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
+        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
+        target_fingerprint: 'tx:v2:blockchain:ethereum:1:blockchain:ethereum-2',
         asset: 'USDC',
         resolved_link_fingerprint:
-          'resolved-link:v1:movement:kraken:kraken-1:outflow:9:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:usdc:test:usdc',
+          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:9:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:0:test:usdc:test:usdc',
         source_asset_id: 'test:usdc',
         target_asset_id: 'test:usdc',
-        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:9',
-        target_movement_fingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0',
+        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:9',
+        target_movement_fingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:0',
         source_amount: '100',
         target_amount: '101',
       },
@@ -442,7 +442,7 @@ describe('LinkingOrchestrator', () => {
         payload: {
           type: 'unlink_override',
           resolved_link_fingerprint:
-            'resolved-link:v1:movement:blockchain:ethereum:blockchain:ethereum-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
+            'resolved-link:v1:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0:movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
         },
       };
 
@@ -491,15 +491,15 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'kraken:kraken-1',
-        target_fingerprint: 'blockchain:ethereum:blockchain:ethereum-2',
+        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
+        target_fingerprint: 'tx:v2:blockchain:ethereum:1:blockchain:ethereum-2',
         asset: 'USDC',
         resolved_link_fingerprint:
-          'resolved-link:v1:movement:kraken:kraken-1:outflow:0:movement:blockchain:ethereum:blockchain:ethereum-2:inflow:9:test:usdc:test:usdc',
+          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:0:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:9:test:usdc:test:usdc',
         source_asset_id: 'test:usdc',
         target_asset_id: 'test:usdc',
-        source_movement_fingerprint: 'movement:kraken:kraken-1:outflow:0',
-        target_movement_fingerprint: 'movement:blockchain:ethereum:blockchain:ethereum-2:inflow:9',
+        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
+        target_movement_fingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:9',
         source_amount: '100',
         target_amount: '99',
       },
