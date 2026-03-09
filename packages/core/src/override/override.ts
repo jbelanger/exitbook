@@ -144,7 +144,7 @@ export interface CreateOverrideEventOptions {
 
 /**
  * Transaction fingerprint components
- * Simplified version using source_name:external_id pattern
+ * Simplified version using account-scoped transaction fingerprinting
  */
 export interface TransactionFingerprintInput {
   source: string;

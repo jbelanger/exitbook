@@ -601,6 +601,76 @@ describe('allocateMatches scenarios', () => {
     expect(all[1]!.consumedAmount?.toFixed()).toBe('4');
   });
 
+  it('should keep partial matches suggested when they do not fully cover the target movement', () => {
+    const source1 = createLinkableMovement({ id: 1, amount: parseDecimal('4'), direction: 'out' });
+    const source2 = createLinkableMovement({ id: 2, amount: parseDecimal('3'), direction: 'out' });
+    const target = createLinkableMovement({
+      id: 3,
+      amount: parseDecimal('10'),
+      direction: 'in',
+      sourceName: 'blockchain',
+      sourceType: 'blockchain',
+    });
+
+    const matches: PotentialMatch[] = [
+      {
+        sourceMovement: source1,
+        targetMovement: target,
+        confidenceScore: parseDecimal('0.99'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.7'), timingValid: true, timingHours: 1 },
+        linkType: 'exchange_to_blockchain',
+      },
+      {
+        sourceMovement: source2,
+        targetMovement: target,
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('0.7'), timingValid: true, timingHours: 2 },
+        linkType: 'exchange_to_blockchain',
+      },
+    ];
+
+    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+
+    expect(confirmed).toHaveLength(0);
+    expect(suggested).toHaveLength(2);
+    expect(suggested.map((match) => match.consumedAmount?.toFixed())).toEqual(['4', '3']);
+  });
+
+  it('should auto-confirm partial matches when they fully partition both sides', () => {
+    const source1 = createLinkableMovement({ id: 1, amount: parseDecimal('4'), direction: 'out' });
+    const source2 = createLinkableMovement({ id: 2, amount: parseDecimal('6'), direction: 'out' });
+    const target = createLinkableMovement({
+      id: 3,
+      amount: parseDecimal('10'),
+      direction: 'in',
+      sourceName: 'blockchain',
+      sourceType: 'blockchain',
+    });
+
+    const matches: PotentialMatch[] = [
+      {
+        sourceMovement: source1,
+        targetMovement: target,
+        confidenceScore: parseDecimal('0.99'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('1'), timingValid: true, timingHours: 1 },
+        linkType: 'exchange_to_blockchain',
+      },
+      {
+        sourceMovement: source2,
+        targetMovement: target,
+        confidenceScore: parseDecimal('0.98'),
+        matchCriteria: { assetMatch: true, amountSimilarity: parseDecimal('1'), timingValid: true, timingHours: 2 },
+        linkType: 'exchange_to_blockchain',
+      },
+    ];
+
+    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+
+    expect(confirmed).toHaveLength(2);
+    expect(suggested).toHaveLength(0);
+    expect(confirmed.map((match) => match.consumedAmount?.toFixed())).toEqual(['4', '6']);
+  });
+
   it('should not set consumed amounts for exact 1:1 match', () => {
     const source = createLinkableMovement({ id: 1, amount: parseDecimal('5'), direction: 'out' });
     const target = createLinkableMovement({

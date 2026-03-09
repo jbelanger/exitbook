@@ -211,7 +211,6 @@ export const LinksViewCommandOptionsSchema = z
     status: z.enum(['suggested', 'confirmed', 'rejected', 'gaps']).optional(),
     minConfidence: z.number().min(0).max(1).optional(),
     maxConfidence: z.number().min(0).max(1).optional(),
-    limit: z.number().int().positive().optional(),
     verbose: z.boolean().optional(),
     json: z.boolean().optional(),
   })

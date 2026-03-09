@@ -85,7 +85,6 @@ Examples:
   $ exitbook links view --min-confidence 0.8           # View high-confidence links only
   $ exitbook links view --min-confidence 0.3 --max-confidence 0.7  # Medium confidence range
   $ exitbook links view --verbose                      # Include full transaction details
-  $ exitbook links view --limit 20                     # View latest 20 links
 
 Common Usage:
   - Review deposit/withdrawal matching between exchanges and blockchains
@@ -110,7 +109,6 @@ Confidence Scores:
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected, gaps)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
-    .option('--limit <number>', 'Maximum number of links to return', parseInt)
     .option('--verbose', 'Include full transaction details (asset, amount, addresses)')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
@@ -142,14 +140,13 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     status: options.status,
     minConfidence: options.minConfidence,
     maxConfidence: options.maxConfidence,
-    limit: options.limit ?? 50,
     verbose: options.verbose,
   };
 
   // JSON mode uses structured output functions
   if (isJsonMode) {
     if (isGapsMode) {
-      await executeGapsViewJSON(params);
+      await executeGapsViewJSON();
     } else {
       await executeLinksViewJSON(params);
     }
@@ -159,7 +156,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 
   // Text mode uses Ink for everything (loading, data, errors)
   if (isGapsMode) {
-    await executeGapsViewTUI(params);
+    await executeGapsViewTUI();
   } else {
     await executeLinksViewTUI(params);
   }
@@ -192,10 +189,6 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       }
 
       const totalCount = links.length;
-
-      if (params.limit !== undefined && params.limit > 0) {
-        links = links.slice(0, params.limit);
-      }
 
       const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
 
@@ -244,7 +237,7 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 /**
  * Execute gaps view in TUI mode (read-only)
  */
-async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
+async function executeGapsViewTUI(): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -268,10 +261,6 @@ async function executeGapsViewTUI(params: LinksViewParams): Promise<void> {
       const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
 
       await ctx.closeDatabase();
-
-      if (params.limit !== undefined && params.limit > 0 && analysis.issues.length > params.limit) {
-        analysis.issues = analysis.issues.slice(0, params.limit);
-      }
 
       const initialState = createGapsViewState(analysis);
 
@@ -314,10 +303,6 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
         links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
       }
 
-      if (params.limit !== undefined && params.limit > 0) {
-        links = links.slice(0, params.limit);
-      }
-
       const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo);
       const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
         const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
@@ -350,7 +335,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
 /**
  * Execute gaps view in JSON mode
  */
-async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
+async function executeGapsViewJSON(): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -371,18 +356,13 @@ async function executeGapsViewJSON(params: LinksViewParams): Promise<void> {
 
       const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
 
-      let issues = analysis.issues;
-      if (params.limit !== undefined && params.limit > 0) {
-        issues = issues.slice(0, params.limit);
-      }
-
       const resultData: GapsViewCommandResult = {
-        data: issues,
+        data: analysis.issues,
         meta: {
-          count: issues.length,
+          count: analysis.issues.length,
           offset: 0,
-          limit: params.limit ?? 50,
-          hasMore: issues.length < analysis.summary.total_issues,
+          limit: analysis.issues.length,
+          hasMore: false,
           filters: {
             total_issues: analysis.summary.total_issues,
             uncovered_inflows: analysis.summary.uncovered_inflows,
@@ -419,7 +399,7 @@ function handleLinksViewJSON(result: LinksViewResult, params: LinksViewParams): 
 
   const resultData: LinksViewCommandResult = {
     data: links,
-    meta: buildViewMeta(count, 0, params.limit || 50, count, filters),
+    meta: buildViewMeta(count, 0, count, count, filters),
   };
 
   outputSuccess('links-view', resultData);

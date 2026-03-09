@@ -86,7 +86,7 @@ describe('LinksRejectHandler', () => {
       const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
       expect(appendCall).toBeDefined();
 
-      // Sorted fingerprints: blockchain:bitcoin:abc123 < kraken:WITHDRAWAL-123
+      // Unlink payload only stores the resolved link fingerprint, so tx fingerprint sort order is irrelevant here.
       expect(appendCall?.[0]).toMatchObject({
         scope: 'unlink',
         payload: {

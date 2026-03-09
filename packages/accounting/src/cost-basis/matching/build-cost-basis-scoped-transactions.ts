@@ -122,11 +122,12 @@ interface SameHashSourceAllocation {
   feeDeducted: Decimal;
 }
 
-interface MultiSourceInternalWithExternalAmount {
-  type: 'multi_source_internal_with_external';
+interface MultiSourceScopedExternalAmount {
+  type: 'multi_source_scoped_external_amount';
   assetId: string;
   dedupedFee: Decimal;
   feeOwnerTxId: number;
+  /** Pure inflow participants to remove after external amounts are scoped. */
   internalReceiverTxIds: number[];
   otherParticipantTxIds: number[];
   sourceAllocations: SameHashSourceAllocation[];
@@ -154,7 +155,7 @@ interface MultiSourceInternalFeeOnly {
 type SameHashDecision =
   | InternalWithExternalAmount
   | InternalFeeOnly
-  | MultiSourceInternalWithExternalAmount
+  | MultiSourceScopedExternalAmount
   | MultiSourceInternalFeeOnly;
 
 // ---------------------------------------------------------------------------
@@ -192,7 +193,7 @@ export function buildCostBasisScopedTransactions(
     if (decisionResult.isErr()) return err(decisionResult.error);
 
     const decision = decisionResult.value;
-    if (decision === undefined) continue; // Rule 1 or 4: no action
+    if (decision === undefined) continue;
 
     const applyResult = applyDecisionToScopedTransactions(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
     if (applyResult.isErr()) return err(applyResult.error);
@@ -449,11 +450,6 @@ function reduceSameHashGroupForCostBasis(
     }
   }
 
-  // Rule 1: Only outflows → external send, no action
-  if (pureInflows.length === 0 && mixed.length === 0) {
-    return ok(undefined);
-  }
-
   // Rule 4 (ambiguous): mixed inflow/outflow on same participant
   if (mixed.length > 0) {
     return err(
@@ -465,7 +461,7 @@ function reduceSameHashGroupForCostBasis(
   }
 
   // Rule 2: pure outflows + pure inflows → internal tracked sibling quantity exists
-  if (pureOutflows.length === 0 || pureInflows.length === 0) {
+  if (pureOutflows.length === 0) {
     return ok(undefined);
   }
 
@@ -481,6 +477,29 @@ function reduceSameHashGroupForCostBasis(
     }
   }
 
+  const planResult = planSameHashSourceAllocations(group, pureOutflows, pureInflows);
+  if (planResult.isErr()) {
+    return err(planResult.error);
+  }
+
+  const { dedupedFee, feeOwnerTxId, externalAmount, sourceAllocations, totalInflows } = planResult.value;
+
+  // Rule 1: pure external multi-source send. No tracked internal inflows exist,
+  // but the per-account rows can still duplicate the same on-chain fee.
+  if (pureInflows.length === 0) {
+    return ok({
+      type: 'multi_source_scoped_external_amount',
+      assetId: group.assetId,
+      dedupedFee,
+      feeOwnerTxId,
+      internalReceiverTxIds: [],
+      otherParticipantTxIds: group.participants
+        .map((participant) => participant.txId)
+        .filter((txId) => txId !== feeOwnerTxId),
+      sourceAllocations,
+    });
+  }
+
   for (const receiver of pureInflows) {
     if (receiver.inflowMovementCount !== 1) {
       return err(
@@ -491,13 +510,6 @@ function reduceSameHashGroupForCostBasis(
       );
     }
   }
-
-  const planResult = planSameHashSourceAllocations(group, pureOutflows, pureInflows);
-  if (planResult.isErr()) {
-    return err(planResult.error);
-  }
-
-  const { dedupedFee, feeOwnerTxId, externalAmount, sourceAllocations, totalInflows } = planResult.value;
 
   if (pureOutflows.length === 1) {
     const sender = pureOutflows[0]!;
@@ -530,7 +542,7 @@ function reduceSameHashGroupForCostBasis(
 
   if (externalAmount.gt(0)) {
     return ok({
-      type: 'multi_source_internal_with_external',
+      type: 'multi_source_scoped_external_amount',
       assetId: group.assetId,
       dedupedFee,
       feeOwnerTxId,
@@ -740,16 +752,16 @@ function applyDecisionToScopedTransactions(
     return applyInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
   }
 
-  if (decision.type === 'multi_source_internal_with_external') {
-    return applyMultiSourceInternalWithExternalAmount(scopedByTxId, decision, logger);
+  if (decision.type === 'multi_source_scoped_external_amount') {
+    return applyMultiSourceScopedExternalAmount(scopedByTxId, decision, logger);
   }
 
   return applyMultiSourceInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
 }
 
-function applyMultiSourceInternalWithExternalAmount(
+function applyMultiSourceScopedExternalAmount(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
-  decision: MultiSourceInternalWithExternalAmount,
+  decision: MultiSourceScopedExternalAmount,
   logger: Logger
 ): Result<void, Error> {
   for (const sourceAllocation of decision.sourceAllocations) {
@@ -796,6 +808,7 @@ function applyMultiSourceInternalWithExternalAmount(
       assetId: decision.assetId,
       dedupedFee: decision.dedupedFee.toFixed(),
       feeOwnerTxId: decision.feeOwnerTxId,
+      internalReceiverCount: decision.internalReceiverTxIds.length,
       sourceAllocations: decision.sourceAllocations.map((allocation) => ({
         txId: allocation.txId,
         externalAmount: allocation.externalAmount.toFixed(),
@@ -803,7 +816,7 @@ function applyMultiSourceInternalWithExternalAmount(
         feeDeducted: allocation.feeDeducted.toFixed(),
       })),
     },
-    'Applied same-hash internal scoping (multi-source with external amount)'
+    'Applied same-hash scoped external amount (multi-source)'
   );
 
   return ok(undefined);

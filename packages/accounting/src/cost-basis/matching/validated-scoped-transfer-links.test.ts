@@ -3,7 +3,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
-import { createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
+import { createFeeMovement, createPriceAtTxTime, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 
 import { buildCostBasisScopedTransactions } from './build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
@@ -200,5 +200,201 @@ describe('validateScopedTransferLinks', () => {
     const validated = assertOk(result);
     expect(validated.links).toHaveLength(1);
     expect(validated.links[0]?.link.sourceTransactionId).toBe(11);
+  });
+
+  it('accepts confirmed same-hash external partial links after scoped fee deduplication', () => {
+    const hash = '0xsamehash-external';
+
+    const firstSourceTx = createTransactionFromMovements(
+      20,
+      '2024-06-01T12:00:00Z',
+      {
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.5'),
+            priceAtTxTime: createPriceAtTxTime('65000'),
+          },
+        ],
+      },
+      [createFeeMovement('network', 'on-chain', 'BTC', '0.1', '65000')],
+      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+    );
+    firstSourceTx.accountId = 101;
+    firstSourceTx.externalId = hash;
+    firstSourceTx.blockchain = {
+      name: 'bitcoin',
+      transaction_hash: hash,
+      is_confirmed: true,
+    };
+    firstSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+    const secondSourceTx = createTransactionFromMovements(
+      21,
+      '2024-06-01T12:00:00Z',
+      {
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.6'),
+            priceAtTxTime: createPriceAtTxTime('65000'),
+          },
+        ],
+      },
+      [createFeeMovement('network', 'on-chain', 'BTC', '0.1', '65000')],
+      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+    );
+    secondSourceTx.accountId = 102;
+    secondSourceTx.externalId = hash;
+    secondSourceTx.blockchain = {
+      name: 'bitcoin',
+      transaction_hash: hash,
+      is_confirmed: true,
+    };
+    secondSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+    const targetTx = createTransactionFromMovements(
+      22,
+      '2024-06-01T12:10:00Z',
+      {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('65000'),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', source: 'kraken', sourceType: 'exchange', type: 'deposit' }
+    );
+    targetTx.accountId = 103;
+    targetTx.externalId = `deposit-${hash}`;
+
+    const scopedResult = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, targetTx], logger);
+    const scopedTransactions = assertOk(scopedResult).transactions;
+    const scopedFirstSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 20);
+    const scopedSecondSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 21);
+    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 22);
+
+    expect(scopedFirstSourceTx).toBeDefined();
+    expect(scopedSecondSourceTx).toBeDefined();
+    expect(scopedTargetTx).toBeDefined();
+    expect(scopedFirstSourceTx!.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.5');
+    expect(scopedSecondSourceTx!.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.5');
+
+    const firstSourceMovement = scopedFirstSourceTx!.movements.outflows[0]!;
+    const secondSourceMovement = scopedSecondSourceTx!.movements.outflows[0]!;
+    const targetMovement = scopedTargetTx!.movements.inflows[0]!;
+
+    const result = validateScopedTransferLinks(scopedTransactions, [
+      {
+        id: 301,
+        sourceTransactionId: 20,
+        targetTransactionId: 22,
+        assetSymbol: 'BTC' as Currency,
+        sourceAssetId: firstSourceMovement.assetId,
+        targetAssetId: targetMovement.assetId,
+        sourceAmount: parseDecimal('0.5'),
+        targetAmount: parseDecimal('0.5'),
+        sourceMovementFingerprint: firstSourceMovement.movementFingerprint,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: parseDecimal('0.99'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.1,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-06-01T12:11:00Z'),
+        updatedAt: new Date('2024-06-01T12:11:00Z'),
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '0.5',
+          fullTargetAmount: '1',
+          consumedAmount: '0.5',
+          sameHashExternalGroup: true,
+          dedupedSameHashFee: '0.1',
+          sameHashExternalGroupAmount: '1',
+          sameHashExternalGroupSize: 2,
+          feeBearingSourceTransactionId: 21,
+          sameHashExternalSourceAllocations: [
+            {
+              sourceTransactionId: 20,
+              grossAmount: '0.5',
+              linkedAmount: '0.5',
+              feeDeducted: '0',
+            },
+            {
+              sourceTransactionId: 21,
+              grossAmount: '0.6',
+              linkedAmount: '0.5',
+              feeDeducted: '0.1',
+            },
+          ],
+          blockchainTxHash: hash,
+          sharedToAddress: 'kraken-btc-address',
+        },
+      },
+      {
+        id: 302,
+        sourceTransactionId: 21,
+        targetTransactionId: 22,
+        assetSymbol: 'BTC' as Currency,
+        sourceAssetId: secondSourceMovement.assetId,
+        targetAssetId: targetMovement.assetId,
+        sourceAmount: parseDecimal('0.5'),
+        targetAmount: parseDecimal('0.5'),
+        sourceMovementFingerprint: secondSourceMovement.movementFingerprint,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: parseDecimal('0.99'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.1,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-06-01T12:11:00Z'),
+        updatedAt: new Date('2024-06-01T12:11:00Z'),
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '0.5',
+          fullTargetAmount: '1',
+          consumedAmount: '0.5',
+          sameHashExternalGroup: true,
+          dedupedSameHashFee: '0.1',
+          sameHashExternalGroupAmount: '1',
+          sameHashExternalGroupSize: 2,
+          feeBearingSourceTransactionId: 21,
+          sameHashExternalSourceAllocations: [
+            {
+              sourceTransactionId: 20,
+              grossAmount: '0.5',
+              linkedAmount: '0.5',
+              feeDeducted: '0',
+            },
+            {
+              sourceTransactionId: 21,
+              grossAmount: '0.6',
+              linkedAmount: '0.5',
+              feeDeducted: '0.1',
+            },
+          ],
+          blockchainTxHash: hash,
+          sharedToAddress: 'kraken-btc-address',
+        },
+      },
+    ]);
+
+    const validated = assertOk(result);
+    expect(validated.links).toHaveLength(2);
+    expect(validated.links.map((link) => link.sourceMovementAmount.toFixed())).toEqual(['0.5', '0.5']);
   });
 });

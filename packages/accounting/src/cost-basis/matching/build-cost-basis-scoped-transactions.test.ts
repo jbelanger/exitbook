@@ -289,6 +289,54 @@ describe('buildCostBasisScopedTransactions', () => {
   });
 
   describe('scoped fee normalization', () => {
+    it('should dedupe same-hash fees for pure multi-source external sends', () => {
+      const hash = '0xpureexternal';
+
+      const firstSourceTx = createBlockchainTx(
+        1,
+        11,
+        '2024-01-01T00:00:00Z',
+        'bitcoin',
+        hash,
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.00301222', price: '50000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0000383', '50000')]
+      );
+      firstSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const secondSourceTx = createBlockchainTx(
+        2,
+        22,
+        '2024-01-01T00:00:00Z',
+        'bitcoin',
+        hash,
+        [],
+        [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.00625144', price: '50000' }],
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0000383', '50000')]
+      );
+      secondSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
+
+      const result = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx], noopLogger);
+      const value = assertOk(result);
+
+      const firstScoped = value.transactions.find((tx) => tx.tx.id === 1)!;
+      const secondScoped = value.transactions.find((tx) => tx.tx.id === 2)!;
+
+      expect(firstScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('0.00301222');
+      expect(firstScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.00301222');
+      expect(
+        firstScoped.fees.filter((fee) => fee.assetId === 'blockchain:bitcoin:native' && fee.settlement === 'on-chain')
+      ).toHaveLength(0);
+
+      expect(secondScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('0.00625144');
+      expect(secondScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.00621314');
+      const secondOnChainFees = secondScoped.fees.filter(
+        (fee) => fee.assetId === 'blockchain:bitcoin:native' && fee.settlement === 'on-chain'
+      );
+      expect(secondOnChainFees).toHaveLength(1);
+      expect(secondOnChainFees[0]!.amount.toFixed()).toBe('0.0000383');
+    });
+
     it('should reconcile net/gross after same-hash reduction', () => {
       const senderTx = createBlockchainTx(
         1,

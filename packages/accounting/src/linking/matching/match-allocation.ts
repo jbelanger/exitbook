@@ -340,9 +340,34 @@ export function allocateMatches(
 
   const suggested: PotentialMatch[] = [];
   const confirmed: PotentialMatch[] = [];
+  const makeKey = (txId: number, assetSymbol: string): string => `${txId}:${assetSymbol}`;
+  const consumedBySourceKey = new Map<string, Decimal>();
+  const consumedByTargetKey = new Map<string, Decimal>();
+
+  for (const match of deduplicatedMatches) {
+    const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+    const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
+    const sourceConsumed = match.consumedAmount ?? match.sourceMovement.amount;
+    const targetConsumed = match.consumedAmount ?? match.targetMovement.amount;
+
+    consumedBySourceKey.set(sourceKey, (consumedBySourceKey.get(sourceKey) ?? new Decimal(0)).plus(sourceConsumed));
+    consumedByTargetKey.set(targetKey, (consumedByTargetKey.get(targetKey) ?? new Decimal(0)).plus(targetConsumed));
+  }
 
   // Separate into confirmed vs suggested based on confidence threshold
   for (const match of deduplicatedMatches) {
+    if (match.consumedAmount !== undefined) {
+      const sourceKey = makeKey(match.sourceMovement.transactionId, match.sourceMovement.assetSymbol);
+      const targetKey = makeKey(match.targetMovement.transactionId, match.targetMovement.assetSymbol);
+      const sourceFullyCovered = consumedBySourceKey.get(sourceKey)?.eq(match.sourceMovement.amount) ?? false;
+      const targetFullyCovered = consumedByTargetKey.get(targetKey)?.eq(match.targetMovement.amount) ?? false;
+
+      if (!sourceFullyCovered || !targetFullyCovered) {
+        suggested.push(match);
+        continue;
+      }
+    }
+
     if (shouldAutoConfirm(match, config)) {
       confirmed.push(match);
     } else {
