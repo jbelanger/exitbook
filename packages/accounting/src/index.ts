@@ -15,6 +15,8 @@ export type { AcquisitionLot, LotDisposal, LotTransfer, TaxAssetIdentityPolicy }
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
 export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
+export { buildCostBasisScopedTransactions } from './cost-basis/matching/build-cost-basis-scoped-transactions.js';
+export { validateScopedTransferLinks } from './cost-basis/matching/validated-scoped-transfer-links.js';
 export type {
   CanadaCostBasisWorkflowResult,
   CostBasisWorkflowResult,

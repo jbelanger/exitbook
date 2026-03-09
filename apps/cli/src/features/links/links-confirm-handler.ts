@@ -1,3 +1,5 @@
+import { buildCostBasisScopedTransactions, validateScopedTransferLinks } from '@exitbook/accounting';
+import type { TransactionLink } from '@exitbook/accounting';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
@@ -78,6 +80,11 @@ export class LinksConfirmHandler {
         });
       }
 
+      const confirmabilityResult = await this.validateProspectiveConfirmedLinks(link);
+      if (confirmabilityResult.isErr()) {
+        return err(confirmabilityResult.error);
+      }
+
       // Update link status to confirmed
       const reviewedBy = getDefaultReviewer();
       const updateResult = await this.db.transactionLinks.updateStatus(params.linkId, 'confirmed', reviewedBy);
@@ -120,5 +127,37 @@ export class LinksConfirmHandler {
       logger.error({ error, linkId: params.linkId }, 'Failed to confirm link');
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  private async validateProspectiveConfirmedLinks(link: TransactionLink): Promise<Result<void, Error>> {
+    const transactionsResult = await this.db.transactions.findAll();
+    if (transactionsResult.isErr()) {
+      return err(transactionsResult.error);
+    }
+
+    const confirmedLinksResult = await this.db.transactionLinks.findAll('confirmed');
+    if (confirmedLinksResult.isErr()) {
+      return err(confirmedLinksResult.error);
+    }
+
+    const prospectiveConfirmedLink: TransactionLink = {
+      ...link,
+      status: 'confirmed',
+    };
+
+    const scopedResult = buildCostBasisScopedTransactions(transactionsResult.value, logger);
+    if (scopedResult.isErr()) {
+      return err(scopedResult.error);
+    }
+
+    const validatedResult = validateScopedTransferLinks(scopedResult.value.transactions, [
+      ...confirmedLinksResult.value,
+      prospectiveConfirmedLink,
+    ]);
+    if (validatedResult.isErr()) {
+      return err(new Error(`Link ${link.id} cannot be confirmed: ${validatedResult.error.message}`));
+    }
+
+    return ok(undefined);
   }
 }

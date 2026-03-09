@@ -5,557 +5,318 @@ This document supersedes:
 - [`accounting-exclusions.md`](./accounting-exclusions.md)
 - [`accounting-exclusions-v2.md`](./accounting-exclusions-v2.md)
 
-It assumes the accounting-scoped cost-basis boundary defined in
-[`cost-basis-accounting-scope.md`](../specs/cost-basis-accounting-scope.md)
-has landed.
+This is now a current-state guide, not a future implementation plan. It
+describes what the code does today and where the unfinished exclusion work still
+belongs.
 
-That refactor changed the right place to solve exclusions.
+It assumes the scoped accounting boundary in
+[`cost-basis-accounting-scope.md`](../specs/cost-basis-accounting-scope.md).
 
-The old docs were written when cost basis still reasoned about raw processed
-transactions and linker-era transfer heuristics. That is no longer the code we
-have. Today the accounting boundary is:
+## Snapshot
 
-```text
-transactions
-  ↓
-buildCostBasisScopedTransactions()
-  ↓
-scoped price validation / scoped price coverage
-  ↓
-validated transfer links
-  ↓
-lot matching
-```
+- The only implemented accounting exclusion today is whole-transaction
+  exclusion via `transactions.excluded_from_accounting`.
+- That flag is decided at persistence time and applied by repository default
+  reads.
+- Mixed-transaction or asset-level exclusions do not exist yet.
+- The correct seam for future mixed exclusions is still the accounting-scoped
+  build result produced by
+  [`build-cost-basis-scoped-transactions.ts`](../../packages/accounting/src/cost-basis/matching/build-cost-basis-scoped-transactions.ts).
 
-The exclusions design must start from that boundary, not from raw transaction
-filtering and not from a balances projection.
+## Current Model
 
-## Why v3 Exists
+### 1. Baseline exclusion is a persistence concern
 
-The current code now has a much cleaner seam for exclusions:
+The implemented exclusion primitive is:
 
-- [`build-cost-basis-scoped-transactions.ts`](../../packages/accounting/src/cost-basis/build-cost-basis-scoped-transactions.ts)
-  builds the accounting-owned scoped view.
-- [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts)
-  checks price coverage on that scoped view.
-- [`cost-basis-utils.ts`](../../packages/accounting/src/cost-basis/cost-basis-utils.ts)
-  validates prices on that scoped view.
-- [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/cost-basis-pipeline.ts)
-  runs the scoped pipeline before lot matching.
+- schema column:
+  [`transactions.excluded_from_accounting`](../../packages/data/src/migrations/001_initial_schema.ts)
+- domain field:
+  [`UniversalTransactionData.excludedFromAccounting`](../../packages/core/src/transaction/universal-transaction.ts)
+- repository write rule:
+  [`transaction-repository.ts`](../../packages/data/src/repositories/transaction-repository.ts)
 
-That means the next exclusions phase should no longer thread `excludedAssets`
-through raw movement validators or make balances the owner of exclusion state.
-
-The right model is now:
-
-```text
-baseline whole-transaction exclusion
-        +
-accounting-scoped builder
-        +
-accounting exclusion policy
-        ↓
-pruned accounting-scoped result
-        ↓
-price coverage / price validation / lot matching
-```
-
-## Current Code Reality
-
-### 1. Baseline whole-transaction exclusion already exists
-
-Current persistence already supports whole-transaction exclusion:
-
-- [`001_initial_schema.ts`](../../packages/data/src/migrations/001_initial_schema.ts)
-  defines `transactions.excluded_from_accounting`.
-- [`universal-transaction.ts`](../../packages/core/src/transaction/universal-transaction.ts)
-  exposes `excludedFromAccounting`.
-- [`transaction-repository.ts`](../../packages/data/src/repositories/transaction-repository.ts)
-  persists:
+Current write behavior is:
 
 ```text
 excluded_from_accounting =
   transaction.excludedFromAccounting ?? transaction.isSpam ?? false
 ```
 
-and filters excluded rows by default in `findAll()`, `count()`, and
-`findNeedingPrices()`.
+Important details:
 
-That baseline behavior is already used by:
+- `isSpam: true` auto-excludes by default.
+- `excludedFromAccounting: false` explicitly prevents that auto-exclusion on
+  write.
+- repository reads materialize exclusion as `true | undefined`, not a strict
+  `true | false` round-trip.
 
-- cost basis handler reads via `db.transactions.findAll()`
-- portfolio handler reads via `db.transactions.findAll()`
-- price coverage data adapter reads via `db.transactions.findAll()`
-- linking ports read via `db.transactions.findAll()`
+### 2. Repository defaults already enforce it
 
-So baseline spam/import exclusions are already a persistence concern, not a
-cost-basis concern.
+Current default repository behavior:
 
-### 2. Accounting meaning now lives at the scoped boundary
+- `findAll()` excludes `excluded_from_accounting = true`
+- `count()` excludes `excluded_from_accounting = true`
+- `findNeedingPrices()` excludes `excluded_from_accounting = true`
 
-The important post-refactor change is that accounting no longer validates prices
-or matches lots directly against raw processed movements.
+That means baseline exclusions already affect downstream consumers before
+accounting logic starts.
 
-`buildCostBasisScopedTransactions()` now:
+### 3. These consumers inherit the baseline filter automatically
 
-- clones raw movements and fees into cost-basis-local scoped shapes
-- preserves movement identity with `movementFingerprint` and `rawPosition`
-- reduces same-hash blockchain groups before lot matching
-- emits `feeOnlyInternalCarryovers` as cost-basis-local sidecars
+These paths all read transactions through default repository reads:
 
-Then:
+- cost basis CLI:
+  [`cost-basis-handler.ts`](../../apps/cli/src/features/cost-basis/command/cost-basis-handler.ts)
+- cost basis persistence adapter:
+  [`cost-basis-ports-adapter.ts`](../../packages/data/src/adapters/cost-basis-ports-adapter.ts)
+- portfolio:
+  [`portfolio-handler.ts`](../../apps/cli/src/features/portfolio/portfolio-handler.ts)
+- price coverage:
+  [`transaction-price-coverage-adapter.ts`](../../packages/data/src/adapters/transaction-price-coverage-adapter.ts)
+- price enrichment persistence:
+  [`pricing-ports-adapter.ts`](../../packages/data/src/adapters/pricing-ports-adapter.ts)
+- linking:
+  [`linking-ports-adapter.ts`](../../packages/data/src/adapters/linking-ports-adapter.ts)
 
-- `checkTransactionPriceCoverage()` validates the scoped result
-- `validateScopedTransactionPrices()` validates the scoped result
-- `runCostBasisPipeline()` rebuilds scoped state after soft missing-price
-  exclusion so carryovers stay consistent
+So today:
 
-This is the key change that makes exclusions easier now than they were in v1 or
-v2.
+- excluded transactions do not reach linking
+- excluded transactions do not reach price coverage
+- excluded transactions do not reach cost basis
+- excluded transactions do not reach price-enrichment candidate discovery
+- excluded transactions do not reach portfolio holdings/cost-basis inputs
 
-### 3. What is still missing
+### 4. Some surfaces intentionally opt in to excluded rows
 
-The code still does **not** support user-controlled mixed-transaction
-exclusions.
+These paths explicitly pass `includeExcluded: true` because they are
+observability or operator surfaces, not accounting filters:
 
-Missing pieces:
+- transactions view:
+  [`transactions-view.ts`](../../apps/cli/src/features/transactions/transactions-view.ts)
+- transactions export:
+  [`transactions-export-handler.ts`](../../apps/cli/src/features/transactions/transactions-export-handler.ts)
+- balance verification's excluded-asset handling:
+  [`balance-workflow.ts`](../../packages/ingestion/src/features/balance/balance-workflow.ts)
 
-- no override scope for `asset-exclude` / `asset-include`
-- no strict replay of exclusion policy from the override store
-- no accounting-local `applyAccountingExclusionPolicy()` step
-- no scoped pruning of excluded inflows, outflows, fees, or fee-only carryovers
-- no way to classify a transaction as "still in scope overall, but only after
-  some scoped movements were removed"
+This is why excluded transactions are still visible in transaction tooling even
+though accounting consumers skip them by default.
 
-Example still unsupported as a first-class policy:
+### 5. Override storage is durable, but not for exclusions
 
-- `SCAMTOKEN -> ETH`
-- `SCAMTOKEN` excluded by user policy
-- `ETH` remains included
-- transaction stays in scope overall
-- `SCAMTOKEN` movements and fees do not require prices
-
-That is exactly the case the scoped boundary was created to support next.
-
-### 4. Override storage is better, but exclusion replay still needs its own contract
-
-Current override infrastructure only supports:
+The override store is now durable SQLite storage in
+[`override-store.ts`](../../packages/data/src/overrides/override-store.ts), but
+its schema still only supports:
 
 - `price`
 - `fx`
 - `link`
 - `unlink`
 
-See [`override.ts`](../../packages/core/src/override/override.ts).
+That schema lives in
+[`override.ts`](../../packages/core/src/override/override.ts).
 
-Also, [`override-store.ts`](../../packages/data/src/overrides/override-store.ts)
-is now durable SQLite storage, but that does not by itself define the exclusion
-replay contract.
+So the current state is:
 
-For accounting exclusions, we still need an explicit policy replay surface:
+- override durability is solved
+- link override replay is implemented
+- asset exclusion replay does not exist yet
 
-- only exclusion scopes participate
-- latest event per `asset_id` wins
-- malformed exclusion payloads or invalid scope/type pairings return `Err`
-- accounting does not consume broad "all overrides" behavior by accident
+## Current Accounting Boundary
 
-The main problem is no longer file fragility. The main problem is that asset
-exclusion replay still does not exist as a first-class domain contract.
+The refactor described in
+[`cost-basis-accounting-scope.md`](../specs/cost-basis-accounting-scope.md)
+landed. Cost basis no longer reasons directly about raw movements at the
+matcher boundary.
 
-## v3 Design
+### Generic cost basis and non-CA portfolio flow
 
-### Two exclusion layers
-
-### Layer 1: baseline whole-transaction exclusion
-
-Keep baseline whole-transaction exclusion where it already belongs:
-
-- importer/processor explicit exclusion
-- structured spam classification
-- existing `transactions.excluded_from_accounting` filtering
-
-This is owned by persistence and repository defaults.
-
-This layer should continue to remove entire transactions from:
-
-- linking
-- price enrichment candidate reads
-- cost-basis transaction reads
-- portfolio transaction reads
-
-### Layer 2: accounting exclusion policy on the scoped result
-
-Add a second layer for mixed transactions:
-
-- user excludes one or more `assetId`s
-- transaction still stays in scope if included economic activity remains
-- excluded movements, excluded fees, and excluded carryovers are removed **after
-  scoped build and before price validation**
-
-This second layer belongs in accounting, not in linking and not in balances.
-
-### Scoped application point
-
-The post-refactor boundary should be:
+Current generic pipeline:
 
 ```text
-transactions from repository
+repository findAll()
   ↓
 buildCostBasisScopedTransactions()
-  ↓
-applyAccountingExclusionPolicy()
   ↓
 validateScopedTransactionPrices()
   ↓
+if missingPricePolicy === 'exclude':
+  rebuild scoped state from price-complete raw transactions
+  ↓
 validateScopedTransferLinks()
   ↓
-LotMatcher
+lot matching
 ```
 
-Important rule:
+Relevant code:
 
-- exclusions belong in the accounting-scoped builder phase or immediately after
-  it
-- exclusions do not belong in linking
-- the lot matcher should never receive raw excluded-asset movements and decide
-  policy for itself
+- scoped builder:
+  [`build-cost-basis-scoped-transactions.ts`](../../packages/accounting/src/cost-basis/matching/build-cost-basis-scoped-transactions.ts)
+- pipeline:
+  [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/orchestration/cost-basis-pipeline.ts)
+- calculator:
+  [`cost-basis-calculator.ts`](../../packages/accounting/src/cost-basis/orchestration/cost-basis-calculator.ts)
 
-### Recommended shapes
+### Canada ACB flow
 
-Add accounting-local shapes in `packages/accounting/src/cost-basis`:
-
-```ts
-export interface AccountingExclusionPolicy {
-  excludedAssetIds: Set<string>;
-}
-
-export interface AccountingExclusionApplyResult {
-  scopedBuildResult: AccountingScopedBuildResult;
-  fullyExcludedTransactionIds: Set<number>;
-  partiallyExcludedTransactionIds: Set<number>;
-}
-
-export function applyAccountingExclusionPolicy(
-  scopedBuildResult: AccountingScopedBuildResult,
-  policy: AccountingExclusionPolicy,
-  logger: Logger
-): Result<AccountingExclusionApplyResult, Error>;
-```
-
-Recommended file:
-
-- `packages/accounting/src/cost-basis/apply-accounting-exclusion-policy.ts`
-
-This should stay local to accounting just like
-`buildCostBasisScopedTransactions()`.
-
-### Scoped exclusion rules
-
-`applyAccountingExclusionPolicy()` should:
-
-1. remove scoped inflows whose `assetId` is excluded
-2. remove scoped outflows whose `assetId` is excluded
-3. remove scoped fees whose `assetId` is excluded
-4. remove `feeOnlyInternalCarryovers` whose `assetId` is excluded
-5. drop transactions that have no remaining scoped inflows, outflows, or fees
-6. record whether each dropped transaction became fully excluded because of
-   policy
-7. record mixed transactions where some scoped activity was removed but included
-   scoped activity remains
-8. return `Err` if pruning would leave dangling included-asset state that cannot
-   be reconciled
-
-Important detail:
-
-- effective exclusion by asset policy must be evaluated from the **scoped**
-  accounting view, not by scanning raw processed movements
-
-That is a direct consequence of the cost-basis refactor. Same-hash blockchain
-reduction and fee-only carryover generation already changed what counts as
-accounting-relevant activity. Any later effective exclusion cache must use the
-same scoped interpretation or it will drift from the actual accounting path.
-
-### Fee semantics
-
-Fees follow the same rule as movements.
-
-Included fee:
-
-- transaction remains in scope
-- fee asset is not excluded
-- fee still participates in price validation and cost-basis math
-
-Excluded fee:
-
-- fee asset is excluded by policy
-- fee is removed from the scoped result before price validation
-- fee does not block cost basis
-- fee does not participate in fee conversion or carryover logic
-
-### Override source of truth
-
-User exclusion policy should live in the override store, but not through the
-current permissive replay path.
-
-Required new scopes in [`override.ts`](../../packages/core/src/override/override.ts):
-
-- `asset-exclude`
-- `asset-include`
-
-Required payloads:
-
-```ts
-type AssetExcludePayload = {
-  type: 'asset_exclude';
-  asset_id: string;
-};
-
-type AssetIncludePayload = {
-  type: 'asset_include';
-  asset_id: string;
-};
-```
-
-Required rule:
-
-- accounting exclusion replay must be strict
-- malformed exclusion payloads or invalid scope/type pairing must return `Err`
-- do not reuse broad all-override reads where exclusion replay semantics are
-  still implicit
-
-Recommended implementation:
-
-- add a focused strict replay helper in `packages/data/src/overrides`
-- latest event per `asset_id` wins
-- replay result is `excludedAssetIds: Set<string>`
-
-## What changes now vs later
-
-### What should change in the next exclusions phase
-
-The next phase should solve the mixed-transaction problem directly in the
-scoped accounting path:
-
-- add override scopes for asset include/exclude
-- add strict exclusion replay
-- apply exclusion policy after scoped build
-- make scoped price coverage and scoped price validation consume the pruned
-  result
-- make cost basis consume only the pruned scoped result
-
-### What should not be step zero anymore
-
-The next phase should **not** begin by introducing a balances projection or by
-threading exclusion checks through raw validators.
-
-Those were reasonable earlier guesses, but the refactor changed the best seam.
-
-## Consumer impact
-
-### Price coverage
-
-Update [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts)
-so it becomes:
+Canada does not use `runCostBasisPipeline()`. It has its own scoped workflow:
 
 ```text
-load transactions
-  → buildCostBasisScopedTransactions()
-  → applyAccountingExclusionPolicy()
-  → scopedTransactionHasAllPrices()
-```
-
-The coverage count should be based on the pruned scoped transaction set, not on
-raw transactions.
-
-### Cost basis
-
-Update [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/cost-basis-pipeline.ts)
-so it becomes:
-
-```text
+repository findAll()
+  ↓
 buildCostBasisScopedTransactions()
-  → applyAccountingExclusionPolicy()
-  → validateScopedTransactionPrices()
-  → missing price policy
-  → validateScopedTransferLinks()
-  → lot matching
+  ↓
+validateScopedTransferLinks()
+  ↓
+buildCanadaTaxInputContext()
+  ↓
+ACB engine
 ```
 
-Important distinction:
+Relevant code:
 
-- `missingPricePolicy: 'exclude'` is a portfolio soft-failure mode for missing
-  prices
-- it is **not** the accounting exclusions feature
+- workflow:
+  [`canada-acb-workflow.ts`](../../packages/accounting/src/cost-basis/canada/canada-acb-workflow.ts)
 
-Do not conflate "transaction excluded because prices are missing in soft mode"
-with "transaction or movement excluded by accounting policy."
+This matters because any future mixed exclusion policy must be wired into the
+Canada path too, not only the generic pipeline.
 
-### Portfolio
+### Price coverage flow
 
-Portfolio currently uses two separate paths:
+Current price coverage logic is:
 
-- holdings are built from `calculateBalances(transactionsUpToAsOf)`
-- open lots come from `runCostBasisPipeline(..., { missingPricePolicy: 'exclude' })`
+```text
+repository findAll()
+  ↓
+filterTransactionsByDateRange()
+  ↓
+buildCostBasisScopedTransactions()
+  ↓
+scopedTransactionHasAllPrices()
+```
 
-That means movement-level accounting exclusions in cost basis alone are not
-enough to make portfolio inventory fully exclusion-aware.
+Relevant code:
 
-If user asset exclusions are introduced, portfolio needs one of:
+- coverage orchestration:
+  [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/orchestration/transaction-price-coverage-utils.ts)
+- scoped price predicates:
+  [`cost-basis-utils.ts`](../../packages/accounting/src/cost-basis/shared/cost-basis-utils.ts)
 
-1. exclusion-aware holdings calculation for raw balances, or
-2. a later effective whole-transaction cache plus additional movement-level
-   inventory filtering where mixed transactions remain visible
+This is already scoped-accounting aware, but only after baseline
+whole-transaction exclusion has happened.
 
-This is a real follow-up, not something the doc should hand-wave away.
+## What Is Not Implemented
 
-### Price enrichment
+The unfinished part is still mixed-transaction, asset-level exclusion.
 
-Current enrichment candidate loading uses
-[`findNeedingPrices()`](../../packages/data/src/repositories/transaction-repository.ts),
-which scans raw movements and fees of non-excluded transactions.
+These pieces do not exist in the current code:
 
-That is still safe if exclusions are applied only in price coverage and cost
-basis, but it may over-fetch prices for movements that would later be pruned by
-accounting exclusion policy.
+- no override scopes for `asset-exclude` / `asset-include`
+- no asset exclusion payloads in
+  [`override.ts`](../../packages/core/src/override/override.ts)
+- no strict asset-exclusion replay helper in
+  [`override-store.ts`](../../packages/data/src/overrides/override-store.ts)
+- no accounting-local `applyAccountingExclusionPolicy(...)`
+- no scoped pruning of inflows, outflows, fees, or
+  `feeOnlyInternalCarryovers`
+- no handling for "transaction remains in scope after excluded movements were
+  removed"
 
-Initial recommendation:
+Still unsupported example:
 
-- correctness first: make coverage and cost basis exclusion-aware
-- accept temporary over-fetch in enrichment if needed
-- optimize enrichment later if it becomes noisy or expensive
+- user wants to exclude `SCAMTOKEN`
+- transaction is `SCAMTOKEN -> ETH`
+- `ETH` should remain in accounting
+- `SCAMTOKEN` legs and fees should stop blocking prices
 
-### Balance verification
+That behavior is still absent.
 
-Current balance verification already has special handling for excluded
-transactions in
-[`balance-workflow.ts`](../../packages/ingestion/src/features/balance/balance-workflow.ts).
+## What Older Docs Proposed But The Code Still Does Not Have
 
-That path:
+The following ideas remain unimplemented:
 
-- loads transactions with `includeExcluded: true`
+- no `asset_balances` projection
+- no `assets review` command
+- no exclusion freshness graph or rebuild flow
+- no derived effective exclusion cache split such as
+  `excluded_from_accounting_base` vs `excluded_from_accounting`
+
+Current balance verification is still on-demand workflow logic, not a balances
+projection. It:
+
+- calculates balances from the default non-excluded transaction set
+- separately loads excluded transactions with `includeExcluded: true`
 - subtracts excluded inflow amounts from live balances
-- filters scam assets from comparison
+- removes scam asset IDs from comparison
 
-This is still compatible with baseline whole-transaction exclusion. It is not a
-replacement for movement-level accounting exclusions.
+That behavior is compatible with today's whole-transaction exclusion model. It
+is not a mixed-transaction exclusion system.
 
-## Effective whole-transaction cache is a follow-up
+## Terminology Pitfalls In Current Code
 
-v2 assumed the next exclusions phase should immediately add a derived effective
-transaction exclusion cache plus freshness tracking.
+### `missingPricePolicy: 'exclude'` is not accounting exclusion
 
-That is no longer the best first step.
+In [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/orchestration/cost-basis-pipeline.ts),
+`missingPricePolicy: 'exclude'` means:
 
-The best first step now is:
+- drop raw transactions that fail scoped price validation
+- rebuild the scoped set from the surviving raw transactions
+- continue for best-effort portfolio-style reporting
 
-- get scoped exclusion policy working in price coverage and cost basis
-- prove mixed-transaction behavior is correct
-- only then decide whether repository-level consumers need an effective cache
+It does not mean:
 
-If a later phase does introduce effective whole-transaction caching from user
-asset policy, then it should:
+- user policy replay
+- asset-level accounting exclusion
+- partial scoped pruning inside a mixed transaction
 
-1. split baseline from effective exclusion:
-   - `excluded_from_accounting_base`
-   - `excluded_from_accounting`
-2. compute effective exclusion from the **scoped** view, not raw movements
-3. treat baseline spam/import exclusion as non-overridable by ordinary
-   `asset-include`
-4. add freshness tracking only when there is actually derived exclusion state to
-   prove fresh
+### Linking's `excluded` flag is not `excludedFromAccounting`
 
-In other words: keep the schema split and freshness ideas from v2 as a later
-phase, but do not make them the prerequisite for solving the main accounting
-problem.
+In
+[`build-linkable-movements.ts`](../../packages/accounting/src/linking/pre-linking/build-linkable-movements.ts),
+`LinkableMovement.excluded` means "excluded from linking because this looks like
+a structural trade."
 
-## Implementation Order
+It does not mean "excluded from accounting."
 
-### Phase 1: add exclusion policy replay
+That naming overlap is easy to misread when revisiting this area.
 
-1. Extend [`override.ts`](../../packages/core/src/override/override.ts) with
-   `asset-exclude` and `asset-include`.
-2. Add payload schemas and scope-to-payload mapping.
-3. Add a strict exclusion replay helper under
-   [`packages/data/src/overrides/`](../../packages/data/src/overrides/).
-4. Return `excludedAssetIds: Set<string>`.
+## If We Resume The Feature
 
-### Phase 2: add scoped exclusion application
+The next implementation should start from the scoped accounting seam that
+already exists.
 
-1. Add
-   `packages/accounting/src/cost-basis/apply-accounting-exclusion-policy.ts`.
-2. Add focused tests under
-   [`packages/accounting/src/cost-basis/__tests__/`](../../packages/accounting/src/cost-basis/__tests__/)
-   for:
-   - fully excluded transaction
-   - mixed transaction
-   - excluded fee
-   - excluded fee-only carryover
-   - same-hash scoped groups after pruning
-   - dangling-state failure
+Do this:
 
-### Phase 3: wire accounting consumers
+1. Extend
+   [`override.ts`](../../packages/core/src/override/override.ts) with
+   `asset-exclude` / `asset-include` plus payload schemas.
+2. Add a strict replay helper in
+   [`packages/data/src/overrides/`](../../packages/data/src/overrides/) that
+   returns `excludedAssetIds: Set<string>`.
+3. Add accounting-local policy application immediately after
+   `buildCostBasisScopedTransactions()`.
+4. Wire that policy into
+   [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/orchestration/transaction-price-coverage-utils.ts),
+   [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/orchestration/cost-basis-pipeline.ts),
+   and
+   [`canada-acb-workflow.ts`](../../packages/accounting/src/cost-basis/canada/canada-acb-workflow.ts).
 
-1. Update
-   [`transaction-price-coverage-utils.ts`](../../packages/accounting/src/cost-basis/transaction-price-coverage-utils.ts).
-2. Update
-   [`cost-basis-pipeline.ts`](../../packages/accounting/src/cost-basis/cost-basis-pipeline.ts).
-3. Update CLI composition so cost-basis and portfolio load exclusion policy once
-   and pass it into accounting.
-4. Keep accounting pure: accounting accepts policy, it does not read the
-   override store itself.
+Do not start with:
 
-### Phase 4: tighten reporting and warnings
+- a balances projection
+- repository-level mixed-asset filtering
+- linking-local exclusion logic
+- another cache layer before scoped policy exists
 
-1. Warn on mixed transactions where excluded and included scoped activity
-   coexist.
-2. Surface counts of fully excluded and partially excluded transactions where
-   useful.
-3. Keep output terminology precise:
-   - baseline excluded
-   - policy excluded
-   - missing-price soft excluded
+## Locked Decisions
 
-### Phase 5: only then evaluate cache/freshness work
+These are the current code-aligned decisions:
 
-1. Decide whether any repository-level consumers need user-policy-driven whole
-   transaction filtering.
-2. If yes, add baseline/effective split and derived cache sync.
-3. If no, keep exclusion policy ephemeral in the accounting path.
-
-## Locked decisions
-
-1. The authoritative boundary for movement-level exclusions is the
-   accounting-scoped build result.
-2. Baseline whole-transaction spam/import exclusion stays in persistence.
-3. Linking does not gain movement-level exclusion logic.
-4. Balances do not become the source of truth for accounting exclusions.
-5. Accounting exclusion replay must fail closed; permissive skip-invalid replay
-   is not acceptable here.
-6. `missingPricePolicy: 'exclude'` remains separate from accounting exclusion
-   policy.
-
-## Naming
-
-Prefer:
-
-- `AccountingExclusionPolicy`
-- `applyAccountingExclusionPolicy`
-- `excludedAssetIds`
-- `fullyExcludedTransactionIds`
-- `partiallyExcludedTransactionIds`
-- `baseline exclusion`
-- `policy exclusion`
-
-Avoid:
-
-- `reviewed assets`
-- `effective excluded asset set` when the code really means user policy
-- `exclude transaction` for the portfolio soft missing-price path
-
-## Non-Goals
-
-- redesigning linking
-- introducing balances as a prerequisite for accounting
-- solving every portfolio inventory concern in the same patch as cost-basis
-  exclusions
-- redesigning price enrichment before the scoped exclusion path works
+1. Whole-transaction exclusion stays in persistence.
+2. Mixed-transaction exclusion, when implemented, belongs in accounting after
+   scoped build.
+3. The source of truth for future user policy should be the override store, not
+   balances or linking state.
+4. `missingPricePolicy: 'exclude'` remains a separate soft-failure path.
+5. Canada and generic cost basis must both consume the same exclusion policy at
+   the scoped boundary.

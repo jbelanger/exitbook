@@ -7,6 +7,7 @@ import { LinksConfirmHandler } from '../links-confirm-handler.js';
 import type { LinksConfirmParams } from '../links-confirm-handler.js';
 
 import {
+  createConfirmableTransferFixture,
   createMockDataContext,
   createMockLink,
   createMockLinkRepository,
@@ -44,10 +45,13 @@ describe('LinksConfirmHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, { status: 'suggested' });
+      const fixture = createConfirmableTransferFixture();
+      const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
@@ -71,10 +75,16 @@ describe('LinksConfirmHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, { status: 'suggested' });
+      const fixture = createConfirmableTransferFixture();
+      const suggestedLink = fixture.link;
+      const expectedResolvedLinkFingerprint =
+        `resolved-link:v1:${suggestedLink.sourceMovementFingerprint}:${suggestedLink.targetMovementFingerprint}:` +
+        `${suggestedLink.sourceAssetId}:${suggestedLink.targetAssetId}`;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
@@ -94,12 +104,11 @@ describe('LinksConfirmHandler', () => {
           source_fingerprint: 'tx:v2:kraken:1:WITHDRAWAL-123',
           target_fingerprint: 'tx:v2:blockchain:bitcoin:2:abc123',
           asset: 'BTC',
-          resolved_link_fingerprint:
-            'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+          resolved_link_fingerprint: expectedResolvedLinkFingerprint,
           source_asset_id: 'exchange:source:btc',
           target_asset_id: 'blockchain:target:btc',
-          source_movement_fingerprint: 'movement:exchange:source:1:btc:outflow:0',
-          target_movement_fingerprint: 'movement:blockchain:target:2:btc:inflow:0',
+          source_movement_fingerprint: suggestedLink.sourceMovementFingerprint,
+          target_movement_fingerprint: suggestedLink.targetMovementFingerprint,
           source_amount: '1',
           target_amount: '1',
         },
@@ -111,10 +120,13 @@ describe('LinksConfirmHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, { status: 'suggested' });
+      const fixture = createConfirmableTransferFixture();
+      const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
@@ -210,10 +222,13 @@ describe('LinksConfirmHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, { status: 'suggested' });
+      const fixture = createConfirmableTransferFixture();
+      const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
       mockLinkRepository.updateStatus.mockResolvedValue(err(new Error('Update failed')));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
 
       const result = await handler.execute(params);
 
@@ -226,10 +241,13 @@ describe('LinksConfirmHandler', () => {
         linkId: 123,
       };
 
-      const suggestedLink = createMockLink(123, { status: 'suggested' });
+      const fixture = createConfirmableTransferFixture();
+      const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
       mockLinkRepository.updateStatus.mockResolvedValue(ok(false));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
 
       const result = await handler.execute(params);
 
@@ -248,6 +266,39 @@ describe('LinksConfirmHandler', () => {
 
       const error = assertErr(result);
       expect(error.message).toBe('Unexpected error');
+    });
+
+    it('should reject confirming a partial link that does not fully reconcile the target movement', async () => {
+      const params: LinksConfirmParams = {
+        linkId: 123,
+      };
+
+      const fixture = createConfirmableTransferFixture({
+        sourceAmount: '4',
+        targetAmount: '10',
+      });
+      const partialLink = {
+        ...fixture.link,
+        sourceAmount: fixture.link.sourceAmount,
+        targetAmount: fixture.link.sourceAmount,
+        metadata: {
+          partialMatch: true as const,
+          fullSourceAmount: '4',
+          fullTargetAmount: '10',
+          consumedAmount: '4',
+        },
+      };
+
+      mockLinkRepository.findById.mockResolvedValue(ok(partialLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([]));
+      mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
+
+      const result = await handler.execute(params);
+
+      const error = assertErr(result);
+      expect(error.message).toContain('cannot be confirmed');
+      expect(error.message).toContain('does not reconcile with scoped movement amount');
+      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,6 @@
 import type { TransactionLink } from '@exitbook/accounting';
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, computeTxFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
@@ -199,15 +199,140 @@ export function createMockTransactionObjects() {
   };
 }
 
+export function createConfirmableTransferFixture(
+  overrides: {
+    sourceAmount?: string;
+    status?: 'suggested' | 'confirmed' | 'rejected';
+    targetAmount?: string;
+  } = {}
+): {
+  link: TransactionLink;
+  sourceTransaction: UniversalTransactionData;
+  targetTransaction: UniversalTransactionData;
+  transactions: UniversalTransactionData[];
+} {
+  const sourceAmount = overrides.sourceAmount ?? '1';
+  const targetAmount = overrides.targetAmount ?? sourceAmount;
+
+  const sourceTransaction: UniversalTransactionData = {
+    id: 1,
+    accountId: 1,
+    externalId: 'WITHDRAWAL-123',
+    source: 'kraken',
+    sourceType: 'exchange',
+    datetime: '2024-01-01T12:00:00Z',
+    timestamp: Date.parse('2024-01-01T12:00:00Z'),
+    status: 'success',
+    movements: {
+      inflows: [],
+      outflows: [
+        {
+          assetId: 'exchange:source:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossAmount: parseDecimal(sourceAmount),
+          netAmount: parseDecimal(sourceAmount),
+        },
+      ],
+    },
+    fees: [],
+    operation: {
+      category: 'transfer',
+      type: 'withdrawal',
+    },
+  };
+
+  const targetTransaction: UniversalTransactionData = {
+    id: 2,
+    accountId: 2,
+    externalId: 'abc123',
+    source: 'bitcoin',
+    sourceType: 'blockchain',
+    datetime: '2024-01-01T12:30:00Z',
+    timestamp: Date.parse('2024-01-01T12:30:00Z'),
+    status: 'success',
+    movements: {
+      inflows: [
+        {
+          assetId: 'blockchain:target:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossAmount: parseDecimal(targetAmount),
+          netAmount: parseDecimal(targetAmount),
+        },
+      ],
+      outflows: [],
+    },
+    fees: [],
+    operation: {
+      category: 'transfer',
+      type: 'deposit',
+    },
+  };
+
+  const sourceTxFingerprintResult = computeTxFingerprint({
+    source: sourceTransaction.source,
+    accountId: sourceTransaction.accountId,
+    externalId: sourceTransaction.externalId,
+  });
+  if (sourceTxFingerprintResult.isErr()) {
+    throw sourceTxFingerprintResult.error;
+  }
+
+  const targetTxFingerprintResult = computeTxFingerprint({
+    source: targetTransaction.source,
+    accountId: targetTransaction.accountId,
+    externalId: targetTransaction.externalId,
+  });
+  if (targetTxFingerprintResult.isErr()) {
+    throw targetTxFingerprintResult.error;
+  }
+
+  const sourceMovementFingerprintResult = computeMovementFingerprint({
+    txFingerprint: sourceTxFingerprintResult.value,
+    movementType: 'outflow',
+    position: 0,
+  });
+  if (sourceMovementFingerprintResult.isErr()) {
+    throw sourceMovementFingerprintResult.error;
+  }
+
+  const targetMovementFingerprintResult = computeMovementFingerprint({
+    txFingerprint: targetTxFingerprintResult.value,
+    movementType: 'inflow',
+    position: 0,
+  });
+  if (targetMovementFingerprintResult.isErr()) {
+    throw targetMovementFingerprintResult.error;
+  }
+
+  const link: TransactionLink = {
+    ...createMockLink(123, { status: overrides.status ?? 'suggested' }),
+    sourceAssetId: 'exchange:source:btc',
+    targetAssetId: 'blockchain:target:btc',
+    sourceAmount: parseDecimal(sourceAmount),
+    targetAmount: parseDecimal(targetAmount),
+    sourceMovementFingerprint: sourceMovementFingerprintResult.value,
+    targetMovementFingerprint: targetMovementFingerprintResult.value,
+  };
+
+  return {
+    link,
+    transactions: [sourceTransaction, targetTransaction],
+    sourceTransaction,
+    targetTransaction,
+  };
+}
+
 /**
  * Create a mock transaction links repository
  */
 export function createMockLinkRepository(): {
+  findAll: Mock;
   findById: Mock;
   updateStatus: Mock;
 } {
   return {
     findById: vi.fn(),
+    findAll: vi.fn(),
     updateStatus: vi.fn(),
   };
 }
@@ -216,9 +341,11 @@ export function createMockLinkRepository(): {
  * Create a mock transactions repository
  */
 export function createMockTransactionRepository(): {
+  findAll: Mock;
   findById: Mock;
 } {
   return {
+    findAll: vi.fn(),
     findById: vi.fn(),
   };
 }
