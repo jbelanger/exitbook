@@ -11,6 +11,7 @@ import type {
   CanadaDispositionRecord,
   CanadaFeeAdjustmentEvent,
   CanadaLayerDepletion,
+  CanadaSuperficialLossAdjustmentEvent,
   CanadaTaxInputEvent,
   CanadaTaxInputContext,
 } from './canada-tax-types.js';
@@ -31,6 +32,8 @@ function getEventPriority(kind: CanadaTaxInputEvent['kind']): number {
       return 3;
     case 'fee-adjustment':
       return 4;
+    case 'superficial-loss-adjustment':
+      return 5;
   }
 }
 
@@ -295,6 +298,24 @@ function applyFeeAdjustmentToPool(pool: CanadaAcbPoolState, event: CanadaFeeAdju
   }
 }
 
+function applySuperficialLossAdjustmentToPool(
+  pool: CanadaAcbPoolState,
+  event: CanadaSuperficialLossAdjustmentEvent
+): Result<void, Error> {
+  if (pool.quantityHeld.lte(0)) {
+    return err(
+      new Error(
+        `Cannot apply superficial loss adjustment ${event.eventId} to ${pool.taxPropertyKey} without existing holdings`
+      )
+    );
+  }
+
+  pool.totalAcbCad = pool.totalAcbCad.plus(event.deniedLossCad);
+  pool.acbPerUnitCad = pool.totalAcbCad.dividedBy(pool.quantityHeld);
+  rebalanceRemainingLayerCosts(pool);
+  return ok(undefined);
+}
+
 export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<CanadaAcbEngineResult, Error> {
   const poolsByKey = new Map<string, CanadaAcbPoolState>();
   const dispositions: CanadaDispositionRecord[] = [];
@@ -309,6 +330,7 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
         continue;
       case 'acquisition':
       case 'fee-adjustment':
+      case 'superficial-loss-adjustment':
       case 'disposition':
         break;
     }
@@ -327,6 +349,13 @@ export function runCanadaAcbEngine(context: CanadaTaxInputContext): Result<Canad
         const feeAdjustmentResult = applyFeeAdjustmentToPool(pool, event);
         if (feeAdjustmentResult.isErr()) {
           return err(feeAdjustmentResult.error);
+        }
+        continue;
+      }
+      case 'superficial-loss-adjustment': {
+        const superficialLossAdjustmentResult = applySuperficialLossAdjustmentToPool(pool, event);
+        if (superficialLossAdjustmentResult.isErr()) {
+          return err(superficialLossAdjustmentResult.error);
         }
         continue;
       }

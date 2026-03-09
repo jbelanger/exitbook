@@ -36,14 +36,16 @@ in the Canada slice. Specifically, the current implementation already has:
 - transaction-time CAD `CanadaTaxValuation`
 - transfer-aware `CanadaTaxInputContextBuilder`
 - pooled `CanadaAcbEngine`
+- `CanadaSuperficialLossEngine` with denied-loss carry-forward into later ACB
 - `CanadaTaxReport` plus optional `CanadaDisplayCostBasisReport`
 - top-level workflow cut-in for `CA + average-cost`
+- Canada workflow lookahead through `endDate + 30 days` while keeping report
+  rows filtered to the requested calculation window
 - link-scoped same-asset transfer fee adjustments when one source movement fans
   out across multiple confirmed links
 
 Still pending from the full greenfield target:
 
-- superficial loss engine and adjustment events
 - full `CA`-only cutover so `fifo` and `lifo` no longer fall back to the
   generic lot pipeline
 - richer Canada transfer presentation in the CLI/report layer
@@ -157,6 +159,10 @@ CanadaTaxEvent[]
   ↓
 CanadaAcbEngine
   ↓
+CanadaSuperficialLossEngine
+  ↓
+CanadaAcbEngine (with superficial-loss adjustment events)
+  ↓
 CanadaTaxReportBuilder
   ↓
 optional CanadaDisplayCostBasisReport
@@ -179,12 +185,18 @@ CanadaAcbEngine
   ↓
 CanadaSuperficialLossEngine
   ↓
+CanadaAcbEngine (with superficial-loss adjustment events)
+  ↓
 CanadaTaxReportBuilder
   ↓
 optional DisplayReportBuilder
   ↓
 CostBasisWorkflowResult
 ```
+
+The landed workflow also takes a report-end pool snapshot from the adjusted
+Canada event stream so post-period reacquisitions can deny in-period losses
+without leaking future acquisition rows into the report.
 
 ### Boundary Split
 
@@ -376,7 +388,8 @@ Each acquisition layer currently carries:
   ACB
 
 The pool is the authoritative Canadian accounting state. Superficial-loss
-pending state is still future work.
+carry-forward now lands as explicit adjustment events rather than a separate
+pending-state structure.
 
 ### `CanadaTaxReport`
 
@@ -674,8 +687,8 @@ Implement:
 
 Do not implement superficial loss as a shortcut in this phase.
 
-Status: landed for pooled ACB plus transfer-fee adjustments. Superficial loss is
-still separate future work.
+Status: landed for pooled ACB plus transfer-fee adjustments. Superficial loss
+now layers on top of this engine rather than changing the Phase 3 pool model.
 
 ### Phase 4: Superficial loss engine
 
@@ -691,6 +704,11 @@ Design constraints:
 - replace the boolean `checkLossDisallowance()` model for the Canada path
 - attach denied loss to explicit substituted-property rows
 - compute taxable gain/loss after adjustments, not before
+
+Status: landed for the current Canada slice. The workflow now evaluates
+superficial loss over a `+30 day` lookahead window, records explicit
+substituted-property attachments, and re-runs pooled ACB with the carried
+forward denied loss.
 
 ### Phase 5: Reporting split
 
@@ -710,8 +728,9 @@ Implementation notes:
   Canada report is built
 
 Status: landed for `CA + average-cost`, including `CanadaTaxReport`, optional
-`CanadaDisplayCostBasisReport`, and Canada-row-based CLI rendering. Remaining
-work is richer transfer presentation and superficial-loss-adjusted reporting.
+`CanadaDisplayCostBasisReport`, Canada-row-based CLI rendering, and
+superficial-loss-adjusted tax summaries. Remaining work is richer transfer
+presentation.
 
 ### Phase 6: Cutover
 
@@ -732,9 +751,8 @@ Detailed cutover sequence:
    jurisdiction logic.
 3. Load confirmed links once through
    `packages/accounting/src/ports/cost-basis-persistence.ts`.
-4. For `CA + average-cost`, run `runCanadaAcbWorkflow()`, then the Canada
-   report builder. Add the superficial loss engine between those two steps in
-   the next phase.
+4. For `CA + average-cost`, run `runCanadaAcbWorkflow()`, then the superficial
+   loss engine, then the Canada report builder.
 5. Build any non-CAD display projection from the Canada report rather than from
    USD-origin calculations.
 6. Reject `fifo`, `lifo`, and `specific-id` for `CA` in validation and prompts
@@ -744,8 +762,8 @@ Detailed cutover sequence:
    `checkLossDisallowance()`, and `CostBasisReportGenerator`.
 
 Status: partially landed. `CA + average-cost` now branches into the Canada
-workflow. Remaining cutover work is to remove `CA` fallback into the generic
-pipeline for unsupported methods and finish the superficial-loss phase.
+workflow with superficial loss and report assembly. Remaining cutover work is
+to remove `CA` fallback into the generic pipeline for unsupported methods.
 
 ## Test Matrix
 
@@ -812,9 +830,8 @@ If we want Canadian correctness, we should not continue accreting logic onto
 `AverageCostStrategy`, `CanadaRules`, and the existing report generator.
 
 The right continuation from here is to finish the Canada-owned workflow on top
-of the landed identity, CAD valuation, pooled ACB, and transfer-fee foundation,
-with the next concrete slice being:
+of the landed identity, CAD valuation, pooled ACB, transfer-fee, and
+superficial-loss foundation, with the next concrete slice being:
 
-- land the superficial loss engine
 - remove remaining `CA` fallback into the generic lot pipeline
 - finish transfer presentation on top of Canada tax rows

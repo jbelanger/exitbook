@@ -15,8 +15,18 @@ export interface CanadaTaxValuation {
   fxTimestamp?: Date | undefined;
 }
 
-export type CanadaTaxInputEventKind = 'acquisition' | 'disposition' | 'transfer-in' | 'transfer-out' | 'fee-adjustment';
-export type CanadaTaxEventProvenanceKind = 'scoped-movement' | 'validated-link' | 'fee-only-carryover';
+export type CanadaTaxInputEventKind =
+  | 'acquisition'
+  | 'disposition'
+  | 'transfer-in'
+  | 'transfer-out'
+  | 'fee-adjustment'
+  | 'superficial-loss-adjustment';
+export type CanadaTaxEventProvenanceKind =
+  | 'scoped-movement'
+  | 'validated-link'
+  | 'fee-only-carryover'
+  | 'superficial-loss-engine';
 export type CanadaFeeAdjustmentType = 'add-to-pool-cost' | 'same-asset-transfer-fee-add-to-basis';
 
 export interface CanadaEventProvenance {
@@ -73,12 +83,20 @@ export interface CanadaFeeAdjustmentEvent extends CanadaBaseTaxEvent {
   relatedEventId?: string | undefined;
 }
 
+export interface CanadaSuperficialLossAdjustmentEvent extends CanadaBaseTaxEvent {
+  kind: 'superficial-loss-adjustment';
+  deniedLossCad: Decimal;
+  deniedQuantity: Decimal;
+  relatedDispositionEventId: string;
+}
+
 export type CanadaTaxInputEvent =
   | CanadaAcquisitionEvent
   | CanadaDispositionEvent
   | CanadaTransferInEvent
   | CanadaTransferOutEvent
-  | CanadaFeeAdjustmentEvent;
+  | CanadaFeeAdjustmentEvent
+  | CanadaSuperficialLossAdjustmentEvent;
 
 export interface CanadaTaxInputContext {
   taxCurrency: 'CAD';
@@ -176,6 +194,7 @@ export interface CanadaTaxReportDisposition {
   proceedsCad: Decimal;
   costBasisCad: Decimal;
   gainLossCad: Decimal;
+  deniedLossCad: Decimal;
   taxableGainLossCad: Decimal;
   acbPerUnitCad: Decimal;
 }
@@ -192,9 +211,12 @@ export interface CanadaTaxReportTransfer {
 
 export interface CanadaSuperficialLossAdjustment {
   id: string;
+  adjustedAt: Date;
+  assetSymbol: Currency;
   deniedLossCad: Decimal;
   deniedQuantity: Decimal;
   relatedDispositionId: string;
+  taxPropertyKey: string;
   substitutedPropertyAcquisitionId: string;
 }
 
@@ -235,6 +257,7 @@ export interface CanadaDisplayReportDisposition extends CanadaTaxReportDispositi
   displayProceeds: Decimal;
   displayCostBasis: Decimal;
   displayGainLoss: Decimal;
+  displayDeniedLoss: Decimal;
   displayTaxableGainLoss: Decimal;
   displayAcbPerUnit: Decimal;
   fxConversion: CanadaDisplayFxConversion;

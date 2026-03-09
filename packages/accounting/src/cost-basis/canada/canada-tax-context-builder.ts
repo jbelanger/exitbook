@@ -100,6 +100,8 @@ function getEventPriority(kind: CanadaTaxInputEvent['kind']): number {
       return 3;
     case 'fee-adjustment':
       return 4;
+    case 'superficial-loss-adjustment':
+      return 5;
   }
 }
 

@@ -200,8 +200,12 @@ describe('buildCanadaTaxInputContext', () => {
     expect(
       context.inputEvents
         .filter(
-          (event): event is Exclude<(typeof context.inputEvents)[number], { kind: 'fee-adjustment' }> =>
-            event.kind !== 'fee-adjustment'
+          (
+            event
+          ): event is Exclude<
+            (typeof context.inputEvents)[number],
+            { kind: 'fee-adjustment' | 'superficial-loss-adjustment' }
+          > => event.kind !== 'fee-adjustment' && event.kind !== 'superficial-loss-adjustment'
         )
         .map((event) => event.quantity.toFixed())
     ).toEqual(['1', '1']);

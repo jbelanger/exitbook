@@ -4,11 +4,14 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
+import { runCanadaAcbEngine } from '../canada/canada-acb-engine.js';
 import { runCanadaAcbWorkflow } from '../canada/canada-acb-workflow.js';
+import { runCanadaSuperficialLossEngine } from '../canada/canada-superficial-loss-engine.js';
 import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../canada/canada-tax-report-builder.js';
 import type {
   CanadaCostBasisCalculation,
   CanadaDisplayCostBasisReport,
+  CanadaTaxInputContext,
   CanadaTaxReport,
 } from '../canada/canada-tax-types.js';
 import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
@@ -67,12 +70,14 @@ export class CostBasisWorkflow {
     const { config } = params;
     logger.debug({ config }, 'Starting cost basis calculation');
 
-    const filteredResult = this.filterTransactionsForWindow(transactions, config);
-    if (filteredResult.isErr()) return err(filteredResult.error);
-
     if (config.jurisdiction === 'CA' && config.method === 'average-cost') {
+      const filteredResult = this.filterTransactionsForWindow(transactions, config, { lookaheadDays: 30 });
+      if (filteredResult.isErr()) return err(filteredResult.error);
       return this.executeCanadaWorkflow(params, filteredResult.value);
     }
+
+    const filteredResult = this.filterTransactionsForWindow(transactions, config);
+    if (filteredResult.isErr()) return err(filteredResult.error);
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
       // Tax reporting must fail closed. Excluding a disposal or transfer because
@@ -151,10 +156,35 @@ export class CostBasisWorkflow {
     }
 
     const calculation = this.buildCanadaCalculation(params, acbWorkflowResult.value.inputContext);
+    const superficialLossResult = runCanadaSuperficialLossEngine({
+      inputContext: acbWorkflowResult.value.inputContext,
+      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
+    });
+    if (superficialLossResult.isErr()) {
+      return err(superficialLossResult.error);
+    }
+
+    const augmentedInputContext = this.appendCanadaAdjustmentEvents(
+      acbWorkflowResult.value.inputContext,
+      superficialLossResult.value.adjustmentEvents
+    );
+    const adjustedAcbEngineResult = runCanadaAcbEngine(augmentedInputContext);
+    if (adjustedAcbEngineResult.isErr()) {
+      return err(adjustedAcbEngineResult.error);
+    }
+
+    const poolSnapshotContext = this.filterCanadaInputContextToReportEnd(augmentedInputContext, params.config.endDate);
+    const poolSnapshotResult = runCanadaAcbEngine(poolSnapshotContext);
+    if (poolSnapshotResult.isErr()) {
+      return err(poolSnapshotResult.error);
+    }
+
     const taxReportResult = buildCanadaTaxReport({
       calculation,
       inputContext: acbWorkflowResult.value.inputContext,
-      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
+      acbEngineResult: adjustedAcbEngineResult.value,
+      poolSnapshot: poolSnapshotResult.value,
+      superficialLossEngineResult: superficialLossResult.value,
     });
     if (taxReportResult.isErr()) {
       return err(taxReportResult.error);
@@ -218,7 +248,8 @@ export class CostBasisWorkflow {
    */
   private filterTransactionsForWindow(
     transactions: UniversalTransactionData[],
-    config: CostBasisInput['config']
+    config: CostBasisInput['config'],
+    options?: { lookaheadDays?: number | undefined }
   ): Result<UniversalTransactionData[], Error> {
     if (!config.startDate || !config.endDate) {
       return err(new Error('Start date and end date must be defined'));
@@ -234,13 +265,37 @@ export class CostBasisWorkflow {
     // Pre-period acquisitions are needed to build the lot pool — e.g. a 2023 buy
     // must exist so a 2024 transfer/disposal can match against it.
     // The calculator filters output disposals to [startDate, endDate] for reporting.
-    const transactionsUpToEndDate = transactions.filter((tx) => new Date(tx.timestamp) <= config.endDate);
+    const reportEndDate = new Date(config.endDate);
+    const calculationEndDate = new Date(reportEndDate);
+    calculationEndDate.setUTCDate(calculationEndDate.getUTCDate() + (options?.lookaheadDays ?? 0));
+
+    const transactionsUpToEndDate = transactions.filter((tx) => new Date(tx.timestamp) <= calculationEndDate);
 
     if (transactionsUpToEndDate.length === 0) {
-      return err(new Error(`No transactions found on or before ${config.endDate.toISOString().split('T')[0]}`));
+      return err(new Error(`No transactions found on or before ${calculationEndDate.toISOString().split('T')[0]}`));
     }
 
     return ok(transactionsUpToEndDate);
+  }
+
+  private appendCanadaAdjustmentEvents(
+    inputContext: CanadaTaxInputContext,
+    adjustmentEvents: CanadaTaxInputContext['inputEvents']
+  ): CanadaTaxInputContext {
+    return {
+      ...inputContext,
+      inputEvents: [...inputContext.inputEvents, ...adjustmentEvents],
+    };
+  }
+
+  private filterCanadaInputContextToReportEnd(
+    inputContext: CanadaTaxInputContext,
+    reportEndDate: Date
+  ): CanadaTaxInputContext {
+    return {
+      ...inputContext,
+      inputEvents: inputContext.inputEvents.filter((event) => event.timestamp.getTime() <= reportEndDate.getTime()),
+    };
   }
 
   private async generateReport(

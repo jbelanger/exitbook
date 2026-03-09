@@ -71,6 +71,7 @@ export type {
   CanadaTaxValuation,
 } from './cost-basis/canada/canada-tax-types.js';
 export { runCanadaAcbEngine } from './cost-basis/canada/canada-acb-engine.js';
+export { runCanadaSuperficialLossEngine } from './cost-basis/canada/canada-superficial-loss-engine.js';
 export {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
@@ -87,6 +88,7 @@ export type {
   CanadaDisplayReportSummary,
   CanadaDisplayReportTransfer,
   CanadaDispositionRecord,
+  CanadaSuperficialLossAdjustmentEvent,
   CanadaSuperficialLossAdjustment,
   CanadaTaxReport,
   CanadaTaxReportAcquisition,
@@ -94,3 +96,7 @@ export type {
   CanadaTaxReportSummary,
   CanadaTaxReportTransfer,
 } from './cost-basis/canada/canada-tax-types.js';
+export type {
+  CanadaSuperficialLossDispositionAdjustment,
+  CanadaSuperficialLossEngineResult,
+} from './cost-basis/canada/canada-superficial-loss-types.js';

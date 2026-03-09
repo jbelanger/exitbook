@@ -4,6 +4,7 @@ import type { Decimal } from 'decimal.js';
 
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 
+import type { CanadaSuperficialLossEngineResult } from './canada-superficial-loss-types.js';
 import type {
   CanadaAcbEngineResult,
   CanadaCostBasisCalculation,
@@ -17,7 +18,6 @@ import type {
   CanadaTaxReportAcquisition,
   CanadaTaxReportDisposition,
   CanadaTaxReportTransfer,
-  CanadaTaxInputEvent,
 } from './canada-tax-types.js';
 
 const CANADA_CAPITAL_GAINS_INCLUSION_RATE = parseDecimal('0.5');
@@ -32,23 +32,35 @@ function getDateKey(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
 }
 
-function getTransferDirection(kind: CanadaTaxInputEvent['kind']): 'in' | 'out' {
+function getTransferDirection(kind: 'transfer-in' | 'transfer-out'): 'in' | 'out' {
   return kind === 'transfer-in' ? 'in' : 'out';
+}
+
+function isWithinCalculationWindow(timestamp: Date, calculation: CanadaCostBasisCalculation): boolean {
+  return timestamp.getTime() >= calculation.startDate.getTime() && timestamp.getTime() <= calculation.endDate.getTime();
 }
 
 export function buildCanadaTaxReport(params: {
   acbEngineResult: CanadaAcbEngineResult;
   calculation: CanadaCostBasisCalculation;
   inputContext: CanadaTaxInputContext;
+  poolSnapshot: CanadaAcbEngineResult;
+  superficialLossEngineResult?: CanadaSuperficialLossEngineResult | undefined;
 }): Result<CanadaTaxReport, Error> {
   const acquisitionEvents = new Map(
     params.inputContext.inputEvents
       .filter((event) => event.kind === 'acquisition')
       .map((event) => [event.eventId, event] as const)
   );
+  const deniedLossByDispositionEventId = new Map(
+    params.superficialLossEngineResult?.dispositionAdjustments.map((adjustment) => [
+      adjustment.dispositionEventId,
+      adjustment,
+    ]) ?? []
+  );
 
   const acquisitions: CanadaTaxReportAcquisition[] = [];
-  for (const pool of params.acbEngineResult.pools) {
+  for (const pool of params.poolSnapshot.pools) {
     for (const layer of pool.acquisitionLayers) {
       const acquisitionEvent = acquisitionEvents.get(layer.acquisitionEventId);
       if (!acquisitionEvent) {
@@ -75,23 +87,34 @@ export function buildCanadaTaxReport(params: {
     }
   }
 
-  const dispositions: CanadaTaxReportDisposition[] = params.acbEngineResult.dispositions.map((disposition) => ({
-    id: disposition.dispositionEventId,
-    dispositionEventId: disposition.dispositionEventId,
-    transactionId: disposition.transactionId,
-    taxPropertyKey: disposition.taxPropertyKey,
-    assetSymbol: disposition.assetSymbol,
-    disposedAt: disposition.disposedAt,
-    quantityDisposed: disposition.quantityDisposed,
-    proceedsCad: disposition.proceedsCad,
-    costBasisCad: disposition.costBasisCad,
-    gainLossCad: disposition.gainLossCad,
-    taxableGainLossCad: calculateTaxableGainLoss(disposition.gainLossCad),
-    acbPerUnitCad: disposition.acbPerUnitCad,
-  }));
+  const dispositions: CanadaTaxReportDisposition[] = params.acbEngineResult.dispositions
+    .filter((disposition) => isWithinCalculationWindow(disposition.disposedAt, params.calculation))
+    .map((disposition) => {
+      const deniedLossCad =
+        deniedLossByDispositionEventId.get(disposition.dispositionEventId)?.deniedLossCad ?? parseDecimal('0');
+      const allowableGainLossCad = disposition.gainLossCad.plus(deniedLossCad);
+
+      return {
+        id: disposition.dispositionEventId,
+        dispositionEventId: disposition.dispositionEventId,
+        transactionId: disposition.transactionId,
+        taxPropertyKey: disposition.taxPropertyKey,
+        assetSymbol: disposition.assetSymbol,
+        disposedAt: disposition.disposedAt,
+        quantityDisposed: disposition.quantityDisposed,
+        proceedsCad: disposition.proceedsCad,
+        costBasisCad: disposition.costBasisCad,
+        gainLossCad: disposition.gainLossCad,
+        deniedLossCad,
+        taxableGainLossCad: calculateTaxableGainLoss(allowableGainLossCad),
+        acbPerUnitCad: disposition.acbPerUnitCad,
+      };
+    });
+  const reportedDispositionIds = new Set(dispositions.map((disposition) => disposition.id));
 
   const transfers: CanadaTaxReportTransfer[] = params.inputContext.inputEvents
     .filter((event) => event.kind === 'transfer-in' || event.kind === 'transfer-out')
+    .filter((event) => isWithinCalculationWindow(event.timestamp, params.calculation))
     .map((event) => ({
       id: event.eventId,
       transactionId: event.transactionId,
@@ -108,16 +131,25 @@ export function buildCanadaTaxReport(params: {
     acquisitions,
     dispositions,
     transfers,
-    superficialLossAdjustments: [],
+    superficialLossAdjustments:
+      params.superficialLossEngineResult?.superficialLossAdjustments.filter((adjustment) =>
+        reportedDispositionIds.has(adjustment.relatedDispositionId)
+      ) ?? [],
     summary: {
-      totalProceedsCad: params.acbEngineResult.totalProceedsCad,
-      totalCostBasisCad: params.acbEngineResult.totalCostBasisCad,
-      totalGainLossCad: params.acbEngineResult.totalGainLossCad,
+      totalProceedsCad: dispositions.reduce((sum, disposition) => sum.plus(disposition.proceedsCad), parseDecimal('0')),
+      totalCostBasisCad: dispositions.reduce(
+        (sum, disposition) => sum.plus(disposition.costBasisCad),
+        parseDecimal('0')
+      ),
+      totalGainLossCad: dispositions.reduce((sum, disposition) => sum.plus(disposition.gainLossCad), parseDecimal('0')),
       totalTaxableGainLossCad: dispositions.reduce(
         (sum, disposition) => sum.plus(disposition.taxableGainLossCad),
         parseDecimal('0')
       ),
-      totalDeniedLossCad: parseDecimal('0'),
+      totalDeniedLossCad: dispositions.reduce(
+        (sum, disposition) => sum.plus(disposition.deniedLossCad),
+        parseDecimal('0')
+      ),
     },
   });
 }
@@ -246,6 +278,7 @@ export async function buildCanadaDisplayCostBasisReport(params: {
       displayProceeds: disposition.proceedsCad.times(conversion.fxRate),
       displayCostBasis: disposition.costBasisCad.times(conversion.fxRate),
       displayGainLoss: disposition.gainLossCad.times(conversion.fxRate),
+      displayDeniedLoss: disposition.deniedLossCad.times(conversion.fxRate),
       displayTaxableGainLoss: disposition.taxableGainLossCad.times(conversion.fxRate),
       displayAcbPerUnit: disposition.acbPerUnitCad.times(conversion.fxRate),
       fxConversion: conversion,
@@ -295,11 +328,14 @@ export async function buildCanadaDisplayCostBasisReport(params: {
         (sum, disposition) => sum.plus(disposition.displayGainLoss),
         parseDecimal('0')
       ),
+      totalDeniedLoss: dispositions.reduce(
+        (sum, disposition) => sum.plus(disposition.displayDeniedLoss),
+        parseDecimal('0')
+      ),
       totalTaxableGainLoss: dispositions.reduce(
         (sum, disposition) => sum.plus(disposition.displayTaxableGainLoss),
         parseDecimal('0')
       ),
-      totalDeniedLoss: parseDecimal('0'),
     },
   });
 }
