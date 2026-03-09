@@ -41,7 +41,11 @@ export type { LinkStatus, MatchCriteria, TransactionLink } from './linking/share
 export { hasImpliedFeeLinkMetadata, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Cost basis utilities
-export { buildCostBasisInput, validateCostBasisInput } from './cost-basis/shared/cost-basis-utils.js';
+export {
+  buildCostBasisInput,
+  getPriceCompleteCostBasisTransactions,
+  validateCostBasisInput,
+} from './cost-basis/shared/cost-basis-utils.js';
 export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/shared/cost-basis-utils.js';
 
 // Transaction price coverage

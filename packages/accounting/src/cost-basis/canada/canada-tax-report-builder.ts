@@ -244,7 +244,6 @@ export function buildCanadaTaxReport(params: {
     direction: CanadaTaxReportTransfer['direction'];
     id: string;
     linkId?: number | undefined;
-    marketValueSourceEvent: CanadaTransferInEvent | CanadaTransferOutEvent;
     quantity: Decimal;
     sourceTransactionId?: number | undefined;
     sourceTransferEventId?: string | undefined;
@@ -279,10 +278,9 @@ export function buildCanadaTaxReport(params: {
       transferredAt: params.transferredAt,
       quantity: params.quantity,
       // A transfer row carries the pooled ACB assigned to the transferred
-      // quantity, not the pool's full ACB balance.
-      totalCostBasisCad: settledSnapshot.acbPerUnitCad.times(params.quantity),
-      acbPerUnitCad: settledSnapshot.acbPerUnitCad,
-      marketValueCad: params.marketValueSourceEvent.valuation.totalValueCad,
+      // quantity, not the pool's full ACB balance and not a disposition cost.
+      carriedAcbCad: settledSnapshot.acbPerUnitCad.times(params.quantity),
+      carriedAcbPerUnitCad: settledSnapshot.acbPerUnitCad,
       feeAdjustmentCad,
     });
   };
@@ -331,7 +329,6 @@ export function buildCanadaTaxReport(params: {
         taxPropertyKey: targetEvent.taxPropertyKey,
         assetSymbol: targetEvent.assetSymbol,
         transferredAt: sourceEvent.timestamp,
-        marketValueSourceEvent: targetEvent,
       });
       if (transferRowResult.isErr()) {
         return err(transferRowResult.error);
@@ -361,7 +358,6 @@ export function buildCanadaTaxReport(params: {
       taxPropertyKey: singleEvent.taxPropertyKey,
       assetSymbol: singleEvent.assetSymbol,
       transferredAt: singleEvent.timestamp,
-      marketValueSourceEvent: singleEvent,
     });
     if (transferRowResult.isErr()) {
       return err(transferRowResult.error);
@@ -385,7 +381,6 @@ export function buildCanadaTaxReport(params: {
       taxPropertyKey: transferEvent.taxPropertyKey,
       assetSymbol: transferEvent.assetSymbol,
       transferredAt: transferEvent.timestamp,
-      marketValueSourceEvent: transferEvent,
     });
     if (transferRowResult.isErr()) {
       return err(transferRowResult.error);
@@ -500,9 +495,18 @@ async function getCadToDisplayConversion(
 export async function buildCanadaDisplayCostBasisReport(params: {
   displayCurrency: Currency;
   fxProvider: IFxRateProvider;
+  inputContext: CanadaTaxInputContext;
   taxReport: CanadaTaxReport;
 }): Promise<Result<CanadaDisplayCostBasisReport, Error>> {
   const conversionCache = new Map<string, CanadaDisplayFxConversion>();
+  const transferEventsById = new Map(
+    params.inputContext.inputEvents
+      .filter(
+        (event): event is CanadaTransferInEvent | CanadaTransferOutEvent =>
+          event.kind === 'transfer-in' || event.kind === 'transfer-out'
+      )
+      .map((event) => [event.eventId, event] as const)
+  );
 
   const acquisitions: CanadaDisplayReportAcquisition[] = [];
   for (const acquisition of params.taxReport.acquisitions) {
@@ -561,6 +565,20 @@ export async function buildCanadaDisplayCostBasisReport(params: {
 
   const transfers: CanadaDisplayReportTransfer[] = [];
   for (const transfer of params.taxReport.transfers) {
+    const marketValueSourceEventId = transfer.targetTransferEventId ?? transfer.sourceTransferEventId;
+    if (!marketValueSourceEventId) {
+      return err(new Error(`Canada transfer ${transfer.id} is missing a source event for display market value`));
+    }
+
+    const marketValueSourceEvent = transferEventsById.get(marketValueSourceEventId);
+    if (!marketValueSourceEvent) {
+      return err(
+        new Error(
+          `Missing Canada transfer event ${marketValueSourceEventId} for display market value on transfer ${transfer.id}`
+        )
+      );
+    }
+
     const conversionResult = await getCadToDisplayConversion(
       params.displayCurrency,
       transfer.transferredAt,
@@ -578,9 +596,10 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversion = conversionResult.value;
     transfers.push({
       ...transfer,
-      displayTotalCostBasis: transfer.totalCostBasisCad.times(conversion.fxRate),
-      displayCostBasisPerUnit: transfer.acbPerUnitCad.times(conversion.fxRate),
-      displayMarketValue: transfer.marketValueCad.times(conversion.fxRate),
+      marketValueCad: marketValueSourceEvent.valuation.totalValueCad,
+      displayCarriedAcb: transfer.carriedAcbCad.times(conversion.fxRate),
+      displayCarriedAcbPerUnit: transfer.carriedAcbPerUnitCad.times(conversion.fxRate),
+      displayMarketValue: marketValueSourceEvent.valuation.totalValueCad.times(conversion.fxRate),
       displayFeeAdjustment: transfer.feeAdjustmentCad.times(conversion.fxRate),
       fxConversion: conversion,
     });

@@ -6,8 +6,16 @@
 import path from 'node:path';
 
 import {
+  buildCanadaDisplayCostBasisReport,
+  buildCanadaTaxReport,
+  getPriceCompleteCostBasisTransactions,
+  runCanadaAcbEngine,
+  runCanadaAcbWorkflow,
+  runCanadaSuperficialLossEngine,
   runCostBasisPipeline,
+  StandardFxRateProvider,
   validateCostBasisInput,
+  type CanadaCostBasisCalculation,
   type CostBasisInput,
   type ICostBasisPersistence,
   type FiatCurrency as AccountingFiatCurrency,
@@ -25,11 +33,14 @@ import { Decimal } from 'decimal.js';
 import type { CommandContext, CommandDatabase } from '../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../shared/projection-runtime.js';
 
-import type { PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
+import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
   aggregatePositionsByAssetSymbol,
   buildAccountAssetBalances,
+  buildCanadaPortfolioPositions,
+  buildClosedPositionsByAssetId,
   buildPortfolioPositions,
+  convertSpotPricesToDisplayCurrency,
   computeNetFiatInUsd,
   computeTotalRealizedGainLossAllTime,
   fetchSpotPrices,
@@ -159,6 +170,7 @@ export class PortfolioHandler {
 
       const warnings: string[] = [...fiatFlowWarnings];
       let fxRate: Decimal | undefined;
+      let effectiveDisplayCurrency = displayCurrency;
       if (displayCurrency !== 'USD') {
         const fxResult = await this.priceManager.fetchPrice({
           assetSymbol: displayCurrency,
@@ -171,6 +183,7 @@ export class PortfolioHandler {
             `FX rate for ${displayCurrency} unavailable at ${asOf.toISOString()} — showing USD values instead`
           );
           logger.warn({ displayCurrency, error: fxResult.error.message }, 'Failed to fetch FX rate, using USD');
+          effectiveDisplayCurrency = 'USD' as Currency;
         } else {
           fxRate = new Decimal(1).div(fxResult.value.data.price);
           logger.debug({ displayCurrency, fxRate: fxRate.toFixed(6) }, 'FX rate fetched');
@@ -179,6 +192,10 @@ export class PortfolioHandler {
       const totalNetFiatIn = (
         fxRate ? fiatFlowComputation.netFiatInUsd.times(fxRate) : fiatFlowComputation.netFiatInUsd
       ).toFixed(2);
+      const displaySpotPrices = convertSpotPricesToDisplayCurrency(
+        spotPrices,
+        effectiveDisplayCurrency === 'USD' ? undefined : fxRate
+      );
 
       const startDate = new Date(0);
       const endDate = asOf;
@@ -187,7 +204,7 @@ export class PortfolioHandler {
         config: {
           method,
           jurisdiction,
-          currency: 'USD' as AccountingFiatCurrency,
+          currency: effectiveDisplayCurrency as AccountingFiatCurrency,
           taxYear: asOf.getUTCFullYear(),
           startDate,
           endDate,
@@ -200,66 +217,6 @@ export class PortfolioHandler {
       }
 
       const costBasisStore: ICostBasisPersistence = buildCostBasisPorts(this.db);
-      const pipelineResult = await runCostBasisPipeline(transactionsUpToAsOf, costBasisParams.config, costBasisStore, {
-        // Portfolio is a best-effort holdings view, not a tax filing surface.
-        // Keeping the price-complete subset lets us still show open lots and
-        // spot-valued positions, while warning that unrealized P&L is incomplete
-        // until the excluded transactions are enriched with prices.
-        missingPricePolicy: 'exclude',
-      });
-      if (pipelineResult.isErr()) {
-        return err(pipelineResult.error);
-      }
-
-      const { summary: costBasisSummary, missingPricesCount, priceCompleteTransactions } = pipelineResult.value;
-
-      if (missingPricesCount > 0) {
-        const priceCompleteTransactionIds = new Set(priceCompleteTransactions.map((tx) => tx.id));
-        const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !priceCompleteTransactionIds.has(tx.id));
-        const spamOrExcludedCount = excludedForMissingPrices.filter((tx) => isSpamOrExcludedTransaction(tx)).length;
-
-        const warning =
-          spamOrExcludedCount > 0
-            ? `${missingPricesCount} transactions missing prices were excluded from cost basis (including ${spamOrExcludedCount} spam/excluded transactions) — unrealized P&L may be incomplete`
-            : `${missingPricesCount} transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete`;
-
-        warnings.push(warning);
-
-        logger.warn(
-          {
-            missingPricesCount,
-            spamOrExcludedCount,
-            excludedTransactionIds: excludedForMissingPrices.slice(0, 10).map((tx) => tx.id),
-          },
-          'Excluding transactions with missing prices from portfolio cost basis calculation'
-        );
-      }
-
-      const openLotsByAssetId = new Map<string, typeof costBasisSummary.lots>();
-      for (const lot of costBasisSummary.lots) {
-        if (lot.remainingQuantity.lte(0)) {
-          continue;
-        }
-        const existing = openLotsByAssetId.get(lot.assetId);
-        if (existing) {
-          existing.push(lot);
-        } else {
-          openLotsByAssetId.set(lot.assetId, [lot]);
-        }
-      }
-
-      const lotAssetByLotId = new Map<string, string>(costBasisSummary.lots.map((lot) => [lot.id, lot.assetId]));
-      const realizedGainLossByAssetIdUsd = new Map<string, Decimal>();
-      for (const disposal of costBasisSummary.disposals) {
-        const assetId = lotAssetByLotId.get(disposal.lotId);
-        if (!assetId) {
-          logger.warn({ disposalId: disposal.id, lotId: disposal.lotId }, 'Disposal references missing lot');
-          continue;
-        }
-        const existing = realizedGainLossByAssetIdUsd.get(assetId) ?? new Decimal(0);
-        realizedGainLossByAssetIdUsd.set(assetId, existing.plus(disposal.gainLoss));
-      }
-
       const accountsResult = await this.db.accounts.findAll();
       if (accountsResult.isErr()) {
         return err(accountsResult.error);
@@ -272,38 +229,117 @@ export class PortfolioHandler {
       );
 
       const accountBreakdown = buildAccountAssetBalances(transactionsUpToAsOf, accountMetadataById);
-      const built = buildPortfolioPositions(
-        holdings,
-        assetMetadata,
-        spotPrices,
-        openLotsByAssetId,
-        accountBreakdown,
-        fxRate,
-        asOf,
-        realizedGainLossByAssetIdUsd
-      );
-      warnings.push(...built.warnings);
+      let positions: PortfolioPositionItem[];
+      let closedPositions: PortfolioPositionItem[];
+      let realizedGainLossByAssetId = new Map<string, Decimal>();
+      let realizedGainLossFxRate: Decimal | undefined;
 
-      const closedPositionsByAssetId = buildClosedPositionsByAssetId(
-        Object.keys(holdings),
-        assetMetadata,
-        realizedGainLossByAssetIdUsd,
-        fxRate
-      );
-      const aggregatedPositions = aggregatePositionsByAssetSymbol([...built.positions, ...closedPositionsByAssetId]);
-      const positions = sortPositions(
-        aggregatedPositions.filter((position) => !new Decimal(position.quantity).isZero()),
-        'value'
-      );
-      const closedPositions = sortPositions(
-        aggregatedPositions
-          .filter((position) => new Decimal(position.quantity).isZero())
-          .map((position) => ({
-            ...position,
-            isClosedPosition: true,
-          })),
-        'value'
-      );
+      if (jurisdiction === 'CA') {
+        const canadaPortfolioResult = await this.buildCanadaPortfolioCostBasis({
+          accountBreakdown,
+          asOf,
+          assetMetadata,
+          costBasisStore,
+          costBasisParams,
+          holdings,
+          spotPrices: displaySpotPrices,
+          transactionsUpToAsOf,
+        });
+        if (canadaPortfolioResult.isErr()) {
+          return err(canadaPortfolioResult.error);
+        }
+
+        warnings.push(...canadaPortfolioResult.value.warnings);
+        positions = canadaPortfolioResult.value.positions;
+        closedPositions = canadaPortfolioResult.value.closedPositions;
+        realizedGainLossByAssetId = canadaPortfolioResult.value.realizedGainLossByPortfolioKey;
+        realizedGainLossFxRate = undefined;
+      } else {
+        const pipelineResult = await runCostBasisPipeline(
+          transactionsUpToAsOf,
+          costBasisParams.config,
+          costBasisStore,
+          {
+            // Portfolio is a best-effort holdings view, not a tax filing surface.
+            // Keeping the price-complete subset lets us still show open lots and
+            // spot-valued positions, while warning that unrealized P&L is incomplete
+            // until the excluded transactions are enriched with prices.
+            missingPricePolicy: 'exclude',
+          }
+        );
+        if (pipelineResult.isErr()) {
+          return err(pipelineResult.error);
+        }
+
+        const { summary: costBasisSummary, missingPricesCount, priceCompleteTransactions } = pipelineResult.value;
+        const missingPriceWarning = this.buildMissingPriceWarning(
+          transactionsUpToAsOf,
+          priceCompleteTransactions,
+          missingPricesCount
+        );
+        if (missingPriceWarning) {
+          warnings.push(missingPriceWarning);
+        }
+
+        const openLotsByAssetId = new Map<string, typeof costBasisSummary.lots>();
+        for (const lot of costBasisSummary.lots) {
+          if (lot.remainingQuantity.lte(0)) {
+            continue;
+          }
+          const existing = openLotsByAssetId.get(lot.assetId);
+          if (existing) {
+            existing.push(lot);
+          } else {
+            openLotsByAssetId.set(lot.assetId, [lot]);
+          }
+        }
+
+        realizedGainLossFxRate = effectiveDisplayCurrency === 'USD' ? undefined : fxRate;
+        const lotAssetByLotId = new Map<string, string>(costBasisSummary.lots.map((lot) => [lot.id, lot.assetId]));
+        realizedGainLossByAssetId = new Map<string, Decimal>();
+        for (const disposal of costBasisSummary.disposals) {
+          const assetId = lotAssetByLotId.get(disposal.lotId);
+          if (!assetId) {
+            logger.warn({ disposalId: disposal.id, lotId: disposal.lotId }, 'Disposal references missing lot');
+            continue;
+          }
+          const existing = realizedGainLossByAssetId.get(assetId) ?? new Decimal(0);
+          realizedGainLossByAssetId.set(assetId, existing.plus(disposal.gainLoss));
+        }
+
+        const built = buildPortfolioPositions(
+          holdings,
+          assetMetadata,
+          spotPrices,
+          openLotsByAssetId,
+          accountBreakdown,
+          realizedGainLossFxRate,
+          asOf,
+          realizedGainLossByAssetId
+        );
+        warnings.push(...built.warnings);
+
+        const closedPositionsByAssetId = buildClosedPositionsByAssetId(
+          Object.keys(holdings),
+          assetMetadata,
+          realizedGainLossByAssetId,
+          realizedGainLossFxRate
+        );
+        const aggregatedPositions = aggregatePositionsByAssetSymbol([...built.positions, ...closedPositionsByAssetId]);
+        positions = sortPositions(
+          aggregatedPositions.filter((position) => !new Decimal(position.quantity).isZero()),
+          'value'
+        );
+        closedPositions = sortPositions(
+          aggregatedPositions
+            .filter((position) => new Decimal(position.quantity).isZero())
+            .map((position) => ({
+              ...position,
+              isClosedPosition: true,
+            })),
+          'value'
+        );
+      }
 
       const pricedPositions = positions.filter(
         (position): position is PortfolioPositionItem & { currentValue: string } =>
@@ -340,8 +376,8 @@ export class PortfolioHandler {
         ? totalUnrealizedDecimal.div(totalCostDecimal).times(100).toFixed(1)
         : undefined;
       const totalRealizedGainLossAllTime = computeTotalRealizedGainLossAllTime(
-        realizedGainLossByAssetIdUsd,
-        fxRate,
+        realizedGainLossByAssetId,
+        realizedGainLossFxRate,
         positions.length > 0
       );
 
@@ -372,7 +408,7 @@ export class PortfolioHandler {
         asOf: asOf.toISOString(),
         method,
         jurisdiction,
-        displayCurrency,
+        displayCurrency: effectiveDisplayCurrency,
         meta: {
           totalAssets: positions.length,
           pricedAssets,
@@ -383,6 +419,189 @@ export class PortfolioHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  private buildMissingPriceWarning(
+    transactionsUpToAsOf: UniversalTransactionData[],
+    priceCompleteTransactions: UniversalTransactionData[],
+    missingPricesCount: number
+  ): string | undefined {
+    if (missingPricesCount === 0) {
+      return undefined;
+    }
+
+    const priceCompleteTransactionIds = new Set(priceCompleteTransactions.map((tx) => tx.id));
+    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !priceCompleteTransactionIds.has(tx.id));
+    const spamOrExcludedCount = excludedForMissingPrices.filter((tx) => isSpamOrExcludedTransaction(tx)).length;
+
+    logger.warn(
+      {
+        missingPricesCount,
+        spamOrExcludedCount,
+        excludedTransactionIds: excludedForMissingPrices.slice(0, 10).map((tx) => tx.id),
+      },
+      'Excluding transactions with missing prices from portfolio cost basis calculation'
+    );
+
+    return spamOrExcludedCount > 0
+      ? `${missingPricesCount} transactions missing prices were excluded from cost basis (including ${spamOrExcludedCount} spam/excluded transactions) — unrealized P&L may be incomplete`
+      : `${missingPricesCount} transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete`;
+  }
+
+  private async buildCanadaPortfolioCostBasis(params: {
+    accountBreakdown: Map<string, AccountBreakdownItem[]>;
+    asOf: Date;
+    assetMetadata: Record<string, string>;
+    costBasisParams: CostBasisInput;
+    costBasisStore: ICostBasisPersistence;
+    holdings: Record<string, Decimal>;
+    spotPrices: Map<string, SpotPriceResult>;
+    transactionsUpToAsOf: UniversalTransactionData[];
+  }): Promise<
+    Result<
+      {
+        closedPositions: PortfolioPositionItem[];
+        positions: PortfolioPositionItem[];
+        realizedGainLossByPortfolioKey: Map<string, Decimal>;
+        warnings: string[];
+      },
+      Error
+    >
+  > {
+    const priceCoverageResult = getPriceCompleteCostBasisTransactions(params.transactionsUpToAsOf, 'CAD');
+    if (priceCoverageResult.isErr()) {
+      return err(priceCoverageResult.error);
+    }
+
+    const warnings: string[] = [];
+    const missingPriceWarning = this.buildMissingPriceWarning(
+      params.transactionsUpToAsOf,
+      priceCoverageResult.value.priceCompleteTransactions,
+      priceCoverageResult.value.missingPricesCount
+    );
+    if (missingPriceWarning) {
+      warnings.push(missingPriceWarning);
+    }
+
+    const contextResult = await params.costBasisStore.loadCostBasisContext();
+    if (contextResult.isErr()) {
+      return err(contextResult.error);
+    }
+
+    const fxRateProvider = new StandardFxRateProvider(this.priceManager);
+    const acbWorkflowResult = await runCanadaAcbWorkflow(
+      priceCoverageResult.value.priceCompleteTransactions,
+      contextResult.value.confirmedLinks,
+      fxRateProvider
+    );
+    if (acbWorkflowResult.isErr()) {
+      return err(acbWorkflowResult.error);
+    }
+
+    const calculation = this.buildCanadaCalculation(params.costBasisParams, acbWorkflowResult.value.inputContext);
+    const superficialLossResult = runCanadaSuperficialLossEngine({
+      inputContext: acbWorkflowResult.value.inputContext,
+      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
+    });
+    if (superficialLossResult.isErr()) {
+      return err(superficialLossResult.error);
+    }
+
+    const adjustedInputContext = {
+      ...acbWorkflowResult.value.inputContext,
+      inputEvents: [
+        ...acbWorkflowResult.value.inputContext.inputEvents,
+        ...superficialLossResult.value.adjustmentEvents,
+      ],
+    };
+    const adjustedAcbEngineResult = runCanadaAcbEngine(adjustedInputContext);
+    if (adjustedAcbEngineResult.isErr()) {
+      return err(adjustedAcbEngineResult.error);
+    }
+
+    const taxReportResult = buildCanadaTaxReport({
+      calculation,
+      inputContext: acbWorkflowResult.value.inputContext,
+      acbEngineResult: adjustedAcbEngineResult.value,
+      poolSnapshot: adjustedAcbEngineResult.value,
+      superficialLossEngineResult: superficialLossResult.value,
+    });
+    if (taxReportResult.isErr()) {
+      return err(taxReportResult.error);
+    }
+
+    const displayReportResult = await buildCanadaDisplayCostBasisReport({
+      taxReport: taxReportResult.value,
+      inputContext: acbWorkflowResult.value.inputContext,
+      displayCurrency: params.costBasisParams.config.currency as Currency,
+      fxProvider: fxRateProvider,
+    });
+    if (displayReportResult.isErr()) {
+      return err(displayReportResult.error);
+    }
+    const displayReport = displayReportResult.value;
+
+    const built = buildCanadaPortfolioPositions({
+      accountBreakdown: params.accountBreakdown,
+      asOf: params.asOf,
+      assetMetadata: params.assetMetadata,
+      displayReport,
+      holdings: params.holdings,
+      inputContext: acbWorkflowResult.value.inputContext,
+      spotPricesByAssetId: params.spotPrices,
+      taxReport: taxReportResult.value,
+    });
+    warnings.push(...built.warnings);
+
+    const aggregatedPositions = aggregatePositionsByAssetSymbol([...built.positions, ...built.closedPositions]);
+    const positions = sortPositions(
+      aggregatedPositions.filter((position) => !new Decimal(position.quantity).isZero()),
+      'value'
+    );
+    const closedPositions = sortPositions(
+      aggregatedPositions
+        .filter((position) => new Decimal(position.quantity).isZero())
+        .map((position) => ({
+          ...position,
+          isClosedPosition: true,
+        })),
+      'value'
+    );
+
+    logger.info(
+      {
+        assetsProcessed: calculation.assetsProcessed.length,
+        effectiveDisplayCurrency: params.costBasisParams.config.currency,
+        positions: positions.length,
+      },
+      'Canada portfolio cost basis calculation completed'
+    );
+
+    return ok({
+      positions,
+      closedPositions,
+      realizedGainLossByPortfolioKey: built.realizedGainLossByPortfolioKey,
+      warnings,
+    });
+  }
+
+  private buildCanadaCalculation(
+    params: CostBasisInput,
+    inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
+  ): CanadaCostBasisCalculation {
+    return {
+      id: globalThis.crypto.randomUUID(),
+      calculationDate: new Date(),
+      method: 'average-cost',
+      jurisdiction: 'CA',
+      taxYear: params.config.taxYear,
+      displayCurrency: params.config.currency as Currency,
+      taxCurrency: 'CAD',
+      startDate: params.config.startDate,
+      endDate: params.config.endDate,
+      transactionsProcessed: inputContext.scopedTransactionIds.length,
+      assetsProcessed: [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))],
+    };
   }
 }
 
@@ -461,38 +680,6 @@ function emptyPortfolioResult(
   };
 }
 
-function buildClosedPositionsByAssetId(
-  holdingAssetIds: string[],
-  assetMetadata: Record<string, string>,
-  realizedGainLossByAssetIdUsd: Map<string, Decimal>,
-  fxRate: Decimal | undefined
-): PortfolioPositionItem[] {
-  const holdingAssetSet = new Set(holdingAssetIds);
-  const closedPositions: PortfolioPositionItem[] = [];
-
-  for (const [assetId, realizedUsd] of realizedGainLossByAssetIdUsd.entries()) {
-    if (holdingAssetSet.has(assetId)) {
-      continue;
-    }
-
-    const realizedDisplay = fxRate ? realizedUsd.times(fxRate) : realizedUsd;
-    closedPositions.push({
-      assetId,
-      sourceAssetIds: [assetId],
-      assetSymbol: assetMetadata[assetId] ?? assetId,
-      quantity: '0.00000000',
-      isNegative: false,
-      isClosedPosition: true,
-      priceStatus: 'unavailable',
-      realizedGainLossAllTime: realizedDisplay.toFixed(2),
-      openLots: [],
-      accountBreakdown: [],
-    });
-  }
-
-  return closedPositions;
-}
-
 function validatePortfolioParams(params: PortfolioHandlerParams): Result<
   {
     asOf: Date;
@@ -519,6 +706,12 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
     );
   }
   const jurisdiction = params.jurisdiction as PortfolioJurisdiction;
+
+  if (jurisdiction === 'CA' && method !== 'average-cost') {
+    return err(
+      new Error(`Canada (CA) portfolio cost basis currently supports only average-cost (ACB). Received '${method}'.`)
+    );
+  }
 
   if (method === 'average-cost' && jurisdiction !== 'CA') {
     return err(new Error('Average Cost (ACB) is only supported for Canada (CA).'));

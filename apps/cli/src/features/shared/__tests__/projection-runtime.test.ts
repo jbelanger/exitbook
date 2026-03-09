@@ -121,4 +121,28 @@ describe('projection-runtime', () => {
     expect(mockPipelineExecute).toHaveBeenCalledOnce();
     expect(mockCheckTransactionPriceCoverage).toHaveBeenCalledTimes(2);
   });
+
+  it('allows portfolio readiness to continue when price coverage remains incomplete after enrichment', async () => {
+    mockCheckTransactionPriceCoverage
+      .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }))
+      .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }));
+
+    const result = await ensureConsumerInputsReady(
+      'portfolio',
+      {
+        db: {} as never,
+        registry: {} as never,
+        dataDir: '/tmp',
+        isJsonMode: true,
+      },
+      {
+        startDate: new Date('2025-01-01T00:00:00.000Z'),
+        endDate: new Date('2025-12-31T23:59:59.999Z'),
+      }
+    );
+
+    assertOk(result);
+    expect(mockPipelineExecute).toHaveBeenCalledOnce();
+    expect(mockCheckTransactionPriceCoverage).toHaveBeenCalledTimes(2);
+  });
 });

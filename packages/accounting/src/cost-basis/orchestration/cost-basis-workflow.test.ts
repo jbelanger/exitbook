@@ -147,7 +147,9 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.taxReport.summary.totalGainLossCad.toFixed()).toBe('2000');
     expect(result.value.taxReport.summary.totalDeniedLossCad.toFixed()).toBe('0');
     expect(result.value.taxReport.summary.totalTaxableGainLossCad.toFixed()).toBe('1000');
-    expect(result.value.displayReport).toBeUndefined();
+    expect(result.value.displayReport?.displayCurrency).toBe('CAD');
+    expect(result.value.displayReport?.summary.totalProceeds.toFixed()).toBe('12000');
+    expect(result.value.displayReport?.summary.totalCostBasis.toFixed()).toBe('10000');
   });
 
   it('builds a display report for non-CAD Canada output without entering the generic USD report path', async () => {

@@ -39,6 +39,8 @@ in the Canada slice. Specifically, the current implementation already has:
 - `CanadaSuperficialLossEngine` with denied-loss carry-forward into later ACB
 - `CanadaTaxReport` plus optional `CanadaDisplayCostBasisReport`
 - top-level workflow cut-in for `CA`
+- portfolio `CA` as-of cost basis routed through the Canada ACB/report path
+  instead of `runCostBasisPipeline()`
 - Canada workflow lookahead through `endDate + 30 days` while keeping report
   rows filtered to the requested calculation window
 - Canada transfer rows with settled pooled ACB, source/target provenance, and
@@ -50,8 +52,6 @@ Lower-priority cleanup that still remains:
 
 - split shared config/result currency naming into tax currency vs display
   currency
-- migrate adjacent Canada consumers like portfolio off the generic lot pipeline
-  if they need the same Canada-owned report boundary
 
 Today `CA` enters the Canada workflow in
 `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`,
@@ -418,6 +418,13 @@ Required fields:
 - `totalTaxableGainLossCad`
 - `totalDeniedLossCad`
 
+Transfer rows carry the pooled ACB assigned to the moved quantity:
+
+- `carriedAcbCad`
+- `carriedAcbPerUnitCad`
+
+They do not carry market value. Market value is display-only data.
+
 ### `CanadaDisplayCostBasisReport`
 
 Optional non-tax projection for CLI/UI/JSON display.
@@ -429,6 +436,9 @@ Minimal shape for Phase 5:
 - `dispositions`
 - `transfers`
 - `summary`
+
+Display transfer rows may include informational market value alongside converted
+carried ACB because that boundary is presentation-only.
 
 Rules:
 
@@ -833,12 +843,10 @@ Still recommended for later phases:
 If we want Canadian correctness, we should not continue accreting logic onto
 `AverageCostStrategy`, `CanadaRules`, and the existing report generator.
 
-The right continuation from here is to carry the Canada-owned boundary into
-adjacent consumers on top of
-of the landed identity, CAD valuation, pooled ACB, transfer-fee, and
-superficial-loss foundation, with the next concrete slice being:
+The right continuation from here is to keep tightening the shared public
+surface on top of the landed identity, CAD valuation, pooled ACB,
+transfer-fee, and superficial-loss foundation, with the next concrete slice
+being:
 
-- migrate `apps/cli/src/features/portfolio/portfolio-handler.ts` off
-  `runCostBasisPipeline()` for `CA`
 - split shared `currency` naming into tax currency vs display currency at the
   public config/result boundary

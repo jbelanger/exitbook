@@ -190,18 +190,15 @@ export class CostBasisWorkflow {
       return err(taxReportResult.error);
     }
 
-    let displayReport: CanadaDisplayCostBasisReport | undefined;
-    if (params.config.currency !== 'CAD') {
-      const displayReportResult = await buildCanadaDisplayCostBasisReport({
-        taxReport: taxReportResult.value,
-        displayCurrency: params.config.currency as Currency,
-        fxProvider: this.fxRateProvider,
-      });
-      if (displayReportResult.isErr()) {
-        return err(displayReportResult.error);
-      }
-      displayReport = displayReportResult.value;
+    const displayReportResult = await buildCanadaDisplayCostBasisReport({
+      taxReport: taxReportResult.value,
+      displayCurrency: params.config.currency as Currency,
+      fxProvider: this.fxRateProvider,
+    });
+    if (displayReportResult.isErr()) {
+      return err(displayReportResult.error);
     }
+    const displayReport = displayReportResult.value;
 
     logger.info(
       {
@@ -216,7 +213,7 @@ export class CostBasisWorkflow {
       kind: 'canada-workflow',
       calculation,
       taxReport: taxReportResult.value,
-      ...(displayReport ? { displayReport } : {}),
+      displayReport,
     });
   }
 

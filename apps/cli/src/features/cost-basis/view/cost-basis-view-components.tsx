@@ -499,6 +499,10 @@ function formatTransferTransactionSpan(item: TransferViewItem): string {
   return '';
 }
 
+function getTransferBasisLabel(jurisdiction: string): string {
+  return jurisdiction === 'CA' ? 'carried ACB' : 'carried basis';
+}
+
 const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_TIMELINE_CHROME_LINES);
   const columns = createColumns(state.events, {
@@ -570,6 +574,7 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
             key={event.id}
             item={event}
             currency={state.currency}
+            jurisdiction={state.jurisdiction}
             isSelected={isSelected}
             columns={columns}
           />
@@ -648,11 +653,13 @@ const DisposalRow: FC<{
   );
 };
 
-const TransferRow: FC<{ columns: TimelineCols; currency: string; isSelected: boolean; item: TransferViewItem }> = ({
-  item,
-  isSelected,
-  columns,
-}) => {
+const TransferRow: FC<{
+  columns: TimelineCols;
+  currency: string;
+  isSelected: boolean;
+  item: TransferViewItem;
+  jurisdiction: string;
+}> = ({ item, isSelected, columns, jurisdiction }) => {
   const marker = '→';
 
   const date = item.date;
@@ -660,11 +667,13 @@ const TransferRow: FC<{ columns: TimelineCols; currency: string; isSelected: boo
   const txIds = formatTransferTransactionSpan(item);
   const fxNote = item.fxUnavailable ? ' (FX unavailable)' : '';
   const transferLabel = getTransferLabel(item.direction);
+  const transferBasisLabel = getTransferBasisLabel(jurisdiction);
 
   return (
     <SelectableRow isSelected={isSelected}>
       <Text color="cyan">{marker}</Text> <Text dimColor>{date}</Text> <Text dimColor>{transferLabel}</Text>{' '}
-      <Text color="cyan">{quantity}</Text> <Text dimColor>basis</Text> {basis} <Text dimColor>{txIds}</Text>
+      <Text color="cyan">{quantity}</Text> <Text dimColor>{transferBasisLabel}</Text> {basis}{' '}
+      <Text dimColor>{txIds}</Text>
       {fxNote && <Text dimColor>{fxNote}</Text>}
     </SelectableRow>
   );
@@ -850,6 +859,7 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
   const displayCurrency = item.fxUnavailable ? 'USD' : state.currency;
   const transferLabel = getTransferLabel(item.direction);
   const transferTitle = transferLabel.charAt(0).toUpperCase() + transferLabel.slice(1);
+  const transferBasisLabel = state.jurisdiction === 'CA' ? 'Carried ACB:' : 'Carried Basis:';
 
   return (
     <FixedHeightDetail
@@ -867,7 +877,7 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
         <Text key="blank-1"> </Text>,
         <Text key="cost-basis">
           {'  '}
-          <Text dimColor>Cost Basis:</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
+          <Text dimColor>{transferBasisLabel}</Text> {formatUnsignedCurrency(item.totalCostBasis, displayCurrency)}
           <Text dimColor> ({formatUnsignedCurrency(item.costBasisPerUnit, displayCurrency)}/unit)</Text>
         </Text>,
         item.marketValue ? (

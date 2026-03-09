@@ -16,6 +16,7 @@ import type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
 } from '../matching/build-cost-basis-scoped-transactions.js';
+import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 
 import type { CostBasisConfig, FiatCurrency } from './cost-basis-config.js';
 import { getDefaultDateRange } from './cost-basis-config.js';
@@ -385,6 +386,21 @@ export function validateScopedTransactionPrices(
   }
 
   return ok({ priceCompleteTransactions, missingPricesCount });
+}
+
+/**
+ * Return the raw transaction subset that survives scoped price validation.
+ */
+export function getPriceCompleteCostBasisTransactions(
+  transactions: UniversalTransactionData[],
+  requiredCurrency: string
+): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
+  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
+  if (scopedResult.isErr()) {
+    return err(scopedResult.error);
+  }
+
+  return validateScopedTransactionPrices(scopedResult.value, requiredCurrency);
 }
 
 /**

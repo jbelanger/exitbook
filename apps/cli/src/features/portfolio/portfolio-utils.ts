@@ -2,7 +2,12 @@
  * Portfolio utility functions (pure).
  */
 
-import type { AcquisitionLot } from '@exitbook/accounting';
+import type {
+  AcquisitionLot,
+  CanadaDisplayCostBasisReport,
+  CanadaTaxInputContext,
+  CanadaTaxReport,
+} from '@exitbook/accounting';
 import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager, PriceQuery } from '@exitbook/price-providers';
@@ -224,6 +229,332 @@ export function buildPortfolioPositions(
   return { positions, warnings };
 }
 
+interface CanadaPortfolioAssetGroup {
+  assetLabel: string;
+  assetSymbol: string;
+  portfolioKey: string;
+  sourceAssetIds: string[];
+}
+
+export interface CanadaPortfolioPositionsResult {
+  closedPositions: PortfolioPositionItem[];
+  positions: PortfolioPositionItem[];
+  realizedGainLossByPortfolioKey: Map<string, Decimal>;
+  warnings: string[];
+}
+
+export function convertSpotPricesToDisplayCurrency(
+  spotPrices: Map<string, SpotPriceResult>,
+  fxRate: Decimal | undefined
+): Map<string, SpotPriceResult> {
+  if (!fxRate) {
+    return new Map(spotPrices);
+  }
+
+  return new Map(
+    [...spotPrices.entries()].map(([assetId, result]) => [
+      assetId,
+      'price' in result ? { price: result.price.times(fxRate) } : result,
+    ])
+  );
+}
+
+function getPositionSourceAssetIds(position: PortfolioPositionItem): string[] {
+  return position.sourceAssetIds ?? [position.assetId];
+}
+
+function mergeAccountBreakdownItems(items: AccountBreakdownItem[]): AccountBreakdownItem[] {
+  const merged = new Map<string, AccountBreakdownItem>();
+
+  for (const item of items) {
+    const key = `${item.accountId}:${item.sourceName}:${item.accountType}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity = new Decimal(existing.quantity).plus(item.quantity).toFixed(8);
+    } else {
+      merged.set(key, { ...item });
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+function buildCanadaPortfolioAssetGroups(inputContext: CanadaTaxInputContext): Map<string, CanadaPortfolioAssetGroup> {
+  const groupsByTaxPropertyKey = new Map<
+    string,
+    { assetSymbol: string; portfolioKey: string; sourceAssetIds: Set<string> }
+  >();
+
+  for (const event of inputContext.inputEvents) {
+    const existing = groupsByTaxPropertyKey.get(event.taxPropertyKey);
+    if (existing) {
+      existing.sourceAssetIds.add(event.assetId);
+      continue;
+    }
+
+    groupsByTaxPropertyKey.set(event.taxPropertyKey, {
+      portfolioKey: `canada-pool:${event.taxPropertyKey}`,
+      assetSymbol: event.assetSymbol,
+      sourceAssetIds: new Set([event.assetId]),
+    });
+  }
+
+  const taxPropertyCountBySymbol = new Map<string, number>();
+  for (const group of groupsByTaxPropertyKey.values()) {
+    taxPropertyCountBySymbol.set(group.assetSymbol, (taxPropertyCountBySymbol.get(group.assetSymbol) ?? 0) + 1);
+  }
+
+  return new Map(
+    [...groupsByTaxPropertyKey.entries()].map(([taxPropertyKey, group]) => [
+      taxPropertyKey,
+      {
+        portfolioKey: group.portfolioKey,
+        assetSymbol: group.assetSymbol,
+        assetLabel:
+          (taxPropertyCountBySymbol.get(group.assetSymbol) ?? 0) > 1
+            ? `${group.assetSymbol} (${taxPropertyKey})`
+            : group.assetSymbol,
+        sourceAssetIds: Array.from(group.sourceAssetIds),
+      },
+    ])
+  );
+}
+
+function pickPooledSpotPrice(
+  sourceAssetIds: string[],
+  spotPricesByAssetId: Map<string, SpotPriceResult>
+): SpotPriceResult | undefined {
+  for (const assetId of sourceAssetIds) {
+    const price = spotPricesByAssetId.get(assetId);
+    if (price && 'price' in price) {
+      return price;
+    }
+  }
+
+  for (const assetId of sourceAssetIds) {
+    const price = spotPricesByAssetId.get(assetId);
+    if (price) {
+      return price;
+    }
+  }
+
+  return undefined;
+}
+
+function createCanadaPortfolioLot(params: {
+  acquisitionDate: Date;
+  assetId: string;
+  assetSymbol: Currency;
+  costBasisPerUnit: Decimal;
+  id: string;
+  quantity: Decimal;
+  remainingQuantity: Decimal;
+  totalCostBasis: Decimal;
+  transactionId: number;
+}): AcquisitionLot {
+  return {
+    id: params.id,
+    calculationId: 'ca-portfolio',
+    acquisitionTransactionId: params.transactionId,
+    assetId: params.assetId,
+    assetSymbol: params.assetSymbol,
+    quantity: params.quantity,
+    costBasisPerUnit: params.costBasisPerUnit,
+    totalCostBasis: params.totalCostBasis,
+    acquisitionDate: params.acquisitionDate,
+    method: 'average-cost',
+    remainingQuantity: params.remainingQuantity,
+    status: 'open',
+    createdAt: params.acquisitionDate,
+    updatedAt: params.acquisitionDate,
+  };
+}
+
+function attachSourceAssetIds(
+  positions: PortfolioPositionItem[],
+  groupsByPortfolioKey: Map<string, CanadaPortfolioAssetGroup>
+): PortfolioPositionItem[] {
+  return positions.map((position) => {
+    const group = groupsByPortfolioKey.get(position.assetId);
+    if (!group) {
+      return position;
+    }
+
+    return {
+      ...position,
+      sourceAssetIds: group.sourceAssetIds,
+    };
+  });
+}
+
+export function buildCanadaPortfolioPositions(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  asOf: Date;
+  assetMetadata: Record<string, string>;
+  displayReport?: CanadaDisplayCostBasisReport | undefined;
+  holdings: Record<string, Decimal>;
+  inputContext: CanadaTaxInputContext;
+  spotPricesByAssetId: Map<string, SpotPriceResult>;
+  taxReport: CanadaTaxReport;
+}): CanadaPortfolioPositionsResult {
+  const assetGroups = buildCanadaPortfolioAssetGroups(params.inputContext);
+  const groupsByPortfolioKey = new Map([...assetGroups.values()].map((group) => [group.portfolioKey, group] as const));
+
+  const holdingsByPortfolioKey: Record<string, Decimal> = {};
+  const assetLabelsByPortfolioKey: Record<string, string> = {};
+  const pooledSpotPrices = new Map<string, SpotPriceResult>();
+  const pooledAccountBreakdown = new Map<string, AccountBreakdownItem[]>();
+  const matchedAssetIds = new Set<string>();
+
+  for (const group of assetGroups.values()) {
+    let quantityHeld = new Decimal(0);
+    const breakdownItems: AccountBreakdownItem[] = [];
+
+    for (const assetId of group.sourceAssetIds) {
+      const balance = params.holdings[assetId];
+      if (balance) {
+        quantityHeld = quantityHeld.plus(balance);
+      }
+
+      const accountItems = params.accountBreakdown.get(assetId);
+      if (accountItems) {
+        breakdownItems.push(...accountItems);
+      }
+
+      matchedAssetIds.add(assetId);
+    }
+
+    if (!quantityHeld.isZero()) {
+      holdingsByPortfolioKey[group.portfolioKey] = quantityHeld;
+    }
+
+    assetLabelsByPortfolioKey[group.portfolioKey] = group.assetLabel;
+
+    const pooledSpotPrice = pickPooledSpotPrice(group.sourceAssetIds, params.spotPricesByAssetId);
+    if (pooledSpotPrice) {
+      pooledSpotPrices.set(group.portfolioKey, pooledSpotPrice);
+    }
+
+    const mergedBreakdown = mergeAccountBreakdownItems(breakdownItems);
+    if (mergedBreakdown.length > 0) {
+      pooledAccountBreakdown.set(group.portfolioKey, mergedBreakdown);
+    }
+  }
+
+  const displayAcquisitionsById = new Map(
+    params.displayReport?.acquisitions.map((acquisition) => [acquisition.id, acquisition]) ?? []
+  );
+  const openLotsByPortfolioKey = new Map<string, AcquisitionLot[]>();
+  for (const acquisition of params.taxReport.acquisitions) {
+    if (acquisition.remainingQuantity.lte(0)) {
+      continue;
+    }
+
+    const group = assetGroups.get(acquisition.taxPropertyKey);
+    if (!group) {
+      continue;
+    }
+
+    const displayAcquisition = displayAcquisitionsById.get(acquisition.id);
+    const lot = createCanadaPortfolioLot({
+      id: acquisition.id,
+      assetId: group.portfolioKey,
+      assetSymbol: acquisition.assetSymbol,
+      quantity: acquisition.quantityAcquired,
+      remainingQuantity: acquisition.remainingQuantity,
+      transactionId: acquisition.transactionId,
+      acquisitionDate: acquisition.acquiredAt,
+      costBasisPerUnit: displayAcquisition?.displayCostBasisPerUnit ?? acquisition.costBasisPerUnitCad,
+      totalCostBasis: displayAcquisition?.displayTotalCost ?? acquisition.totalCostCad,
+    });
+
+    const existing = openLotsByPortfolioKey.get(group.portfolioKey);
+    if (existing) {
+      existing.push(lot);
+    } else {
+      openLotsByPortfolioKey.set(group.portfolioKey, [lot]);
+    }
+  }
+
+  const displayDispositionsById = new Map(
+    params.displayReport?.dispositions.map((disposition) => [disposition.id, disposition]) ?? []
+  );
+  const realizedGainLossByPortfolioKey = new Map<string, Decimal>();
+  for (const disposition of params.taxReport.dispositions) {
+    const group = assetGroups.get(disposition.taxPropertyKey);
+    if (!group) {
+      continue;
+    }
+
+    const realizedGainLoss = displayDispositionsById.get(disposition.id)?.displayGainLoss ?? disposition.gainLossCad;
+    const existing = realizedGainLossByPortfolioKey.get(group.portfolioKey) ?? new Decimal(0);
+    realizedGainLossByPortfolioKey.set(group.portfolioKey, existing.plus(realizedGainLoss));
+  }
+
+  const builtCanada = buildPortfolioPositions(
+    holdingsByPortfolioKey,
+    assetLabelsByPortfolioKey,
+    pooledSpotPrices,
+    openLotsByPortfolioKey,
+    pooledAccountBreakdown,
+    undefined,
+    params.asOf,
+    realizedGainLossByPortfolioKey
+  );
+
+  const unmatchedHoldings: Record<string, Decimal> = {};
+  const unmatchedAssetMetadata: Record<string, string> = {};
+  const unmatchedSpotPrices = new Map<string, SpotPriceResult>();
+  const unmatchedAccountBreakdown = new Map<string, AccountBreakdownItem[]>();
+
+  for (const [assetId, quantity] of Object.entries(params.holdings)) {
+    if (matchedAssetIds.has(assetId)) {
+      continue;
+    }
+
+    unmatchedHoldings[assetId] = quantity;
+    unmatchedAssetMetadata[assetId] = params.assetMetadata[assetId] ?? assetId;
+
+    const spotPrice = params.spotPricesByAssetId.get(assetId);
+    if (spotPrice) {
+      unmatchedSpotPrices.set(assetId, spotPrice);
+    }
+
+    const accountItems = params.accountBreakdown.get(assetId);
+    if (accountItems) {
+      unmatchedAccountBreakdown.set(assetId, accountItems);
+    }
+  }
+
+  const builtUnmatched = buildPortfolioPositions(
+    unmatchedHoldings,
+    unmatchedAssetMetadata,
+    unmatchedSpotPrices,
+    new Map(),
+    unmatchedAccountBreakdown,
+    undefined,
+    params.asOf
+  );
+
+  const positions = attachSourceAssetIds(builtCanada.positions, groupsByPortfolioKey).concat(builtUnmatched.positions);
+  const closedPositions = attachSourceAssetIds(
+    buildClosedPositionsByAssetId(
+      Object.keys(holdingsByPortfolioKey),
+      assetLabelsByPortfolioKey,
+      realizedGainLossByPortfolioKey,
+      undefined
+    ),
+    groupsByPortfolioKey
+  );
+
+  return {
+    positions,
+    closedPositions,
+    realizedGainLossByPortfolioKey,
+    warnings: [...builtCanada.warnings, ...builtUnmatched.warnings],
+  };
+}
+
 /**
  * Aggregate portfolio positions by asset symbol for display.
  *
@@ -250,12 +581,12 @@ export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem
       const single = group[0]!;
       aggregated.push({
         ...single,
-        sourceAssetIds: [single.assetId],
+        sourceAssetIds: getPositionSourceAssetIds(single),
       });
       continue;
     }
 
-    const sourceAssetIds = Array.from(new Set(group.map((position) => position.assetId)));
+    const sourceAssetIds = Array.from(new Set(group.flatMap((position) => getPositionSourceAssetIds(position))));
     const assetSymbol = group[0]!.assetSymbol;
 
     const netQuantity = group.reduce((sum, position) => sum.plus(position.quantity), new Decimal(0));
@@ -404,6 +735,38 @@ export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem
 
   applyAllocationPercentages(aggregated);
   return aggregated;
+}
+
+export function buildClosedPositionsByAssetId(
+  holdingAssetIds: string[],
+  assetMetadata: Record<string, string>,
+  realizedGainLossByAssetIdUsd: Map<string, Decimal>,
+  fxRate: Decimal | undefined
+): PortfolioPositionItem[] {
+  const holdingAssetSet = new Set(holdingAssetIds);
+  const closedPositions: PortfolioPositionItem[] = [];
+
+  for (const [assetId, realizedUsd] of realizedGainLossByAssetIdUsd.entries()) {
+    if (holdingAssetSet.has(assetId)) {
+      continue;
+    }
+
+    const realizedDisplay = fxRate ? realizedUsd.times(fxRate) : realizedUsd;
+    closedPositions.push({
+      assetId,
+      sourceAssetIds: [assetId],
+      assetSymbol: assetMetadata[assetId] ?? assetId,
+      quantity: '0.00000000',
+      isNegative: false,
+      isClosedPosition: true,
+      priceStatus: 'unavailable',
+      realizedGainLossAllTime: realizedDisplay.toFixed(2),
+      openLots: [],
+      accountBreakdown: [],
+    });
+  }
+
+  return closedPositions;
 }
 
 /**

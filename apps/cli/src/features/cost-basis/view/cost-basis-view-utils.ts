@@ -413,9 +413,9 @@ export function buildCanadaAssetCostBasisItems(
 
     const transferViewItems: TransferViewItem[] = assetTransfers.map((transfer) => {
       const converted = displayTransfers.get(transfer.id);
-      const totalCostBasis = converted ? converted.displayTotalCostBasis : transfer.totalCostBasisCad;
-      const costBasisPerUnit = converted ? converted.displayCostBasisPerUnit : transfer.acbPerUnitCad;
-      const marketValue = converted ? converted.displayMarketValue : transfer.marketValueCad;
+      const totalCostBasis = converted ? converted.displayCarriedAcb : transfer.carriedAcbCad;
+      const costBasisPerUnit = converted ? converted.displayCarriedAcbPerUnit : transfer.carriedAcbPerUnitCad;
+      const marketValue = converted?.displayMarketValue;
       const feeAdjustment = converted ? converted.displayFeeAdjustment : transfer.feeAdjustmentCad;
 
       return {
@@ -428,7 +428,7 @@ export function buildCanadaAssetCostBasisItems(
         asset,
         costBasisPerUnit: costBasisPerUnit.toFixed(2),
         totalCostBasis: totalCostBasis.toFixed(2),
-        marketValue: marketValue.toFixed(2),
+        marketValue: marketValue?.toFixed(2),
         sourceTransactionId: transfer.sourceTransactionId,
         targetTransactionId: transfer.targetTransactionId,
         feeAmount: feeAdjustment.gt(0) ? feeAdjustment.toFixed(2) : undefined,

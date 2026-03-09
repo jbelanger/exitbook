@@ -214,9 +214,8 @@ describe('cost-basis-view-utils', () => {
           assetSymbol: 'BTC' as Currency,
           transferredAt: new Date('2024-01-10T00:00:00Z'),
           quantity: parseDecimal('1'),
-          totalCostBasisCad: parseDecimal('10025'),
-          acbPerUnitCad: parseDecimal('10025'),
-          marketValueCad: parseDecimal('12000'),
+          carriedAcbCad: parseDecimal('10025'),
+          carriedAcbPerUnitCad: parseDecimal('10025'),
           feeAdjustmentCad: parseDecimal('25'),
         },
       ],
@@ -239,8 +238,9 @@ describe('cost-basis-view-utils', () => {
       transfers: [
         {
           ...taxReport.transfers[0]!,
-          displayTotalCostBasis: parseDecimal('7518.75'),
-          displayCostBasisPerUnit: parseDecimal('7518.75'),
+          marketValueCad: parseDecimal('12000'),
+          displayCarriedAcb: parseDecimal('7518.75'),
+          displayCarriedAcbPerUnit: parseDecimal('7518.75'),
           displayMarketValue: parseDecimal('9000'),
           displayFeeAdjustment: parseDecimal('18.75'),
           fxConversion: {

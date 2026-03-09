@@ -431,9 +431,12 @@ export const PortfolioCommandOptionsSchema = z
       if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
         return false;
       }
+      if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
+        return false;
+      }
       return true;
     },
     {
-      message: 'average-cost method is only valid with CA jurisdiction',
+      message: 'CA portfolio uses only average-cost, and average-cost is only valid with CA jurisdiction',
     }
   );

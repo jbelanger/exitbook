@@ -104,21 +104,22 @@ describe('canada-tax-report-builder', () => {
       linkId: 10,
     });
     expect(taxReport.transfers[0]?.quantity.toFixed()).toBe('1');
-    expect(taxReport.transfers[0]?.totalCostBasisCad.toFixed()).toBe('10025');
-    expect(taxReport.transfers[0]?.acbPerUnitCad.toFixed()).toBe('10025');
-    expect(taxReport.transfers[0]?.marketValueCad.toFixed()).toBe('12000');
+    expect(taxReport.transfers[0]?.carriedAcbCad.toFixed()).toBe('10025');
+    expect(taxReport.transfers[0]?.carriedAcbPerUnitCad.toFixed()).toBe('10025');
     expect(taxReport.transfers[0]?.feeAdjustmentCad.toFixed()).toBe('25');
 
     const displayReport = assertOk(
       await buildCanadaDisplayCostBasisReport({
         taxReport,
+        inputContext,
         displayCurrency: 'USD' as Currency,
         fxProvider: createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }),
       })
     );
 
-    expect(displayReport.transfers[0]?.displayTotalCostBasis.toFixed()).toBe('7518.75');
-    expect(displayReport.transfers[0]?.displayCostBasisPerUnit.toFixed()).toBe('7518.75');
+    expect(displayReport.transfers[0]?.marketValueCad.toFixed()).toBe('12000');
+    expect(displayReport.transfers[0]?.displayCarriedAcb.toFixed()).toBe('7518.75');
+    expect(displayReport.transfers[0]?.displayCarriedAcbPerUnit.toFixed()).toBe('7518.75');
     expect(displayReport.transfers[0]?.displayMarketValue.toFixed()).toBe('9000');
     expect(displayReport.transfers[0]?.displayFeeAdjustment.toFixed()).toBe('18.75');
   });
@@ -166,8 +167,7 @@ describe('canada-tax-report-builder', () => {
       sourceTransactionId: 2,
       targetTransactionId: 3,
     });
-    expect(taxReport.transfers[0]?.totalCostBasisCad.toFixed()).toBe('10000');
-    expect(taxReport.transfers[0]?.marketValueCad.toFixed()).toBe('11000');
+    expect(taxReport.transfers[0]?.carriedAcbCad.toFixed()).toBe('10000');
     expect(taxReport.transfers[0]?.feeAdjustmentCad.toFixed()).toBe('0');
   });
 });

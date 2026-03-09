@@ -1,4 +1,9 @@
-import type { AcquisitionLot } from '@exitbook/accounting';
+import type {
+  AcquisitionLot,
+  CanadaDisplayCostBasisReport,
+  CanadaTaxInputContext,
+  CanadaTaxReport,
+} from '@exitbook/accounting';
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -6,8 +11,10 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregatePositionsByAssetSymbol,
   buildPortfolioPositions,
+  buildCanadaPortfolioPositions,
   buildAssetIdsBySymbol,
   buildTransactionItems,
+  convertSpotPricesToDisplayCurrency,
   computeNetFiatInUsd,
   computeTotalRealizedGainLossAllTime,
   filterTransactionsForAssets,
@@ -323,6 +330,225 @@ describe('portfolio-utils', () => {
     expect(aggregated).toHaveLength(1);
     expect(aggregated[0]?.quantity).toBe('0.00000711');
     expect(aggregated[0]?.avgCostPerUnit).toBe('2.75');
+  });
+
+  it('preserves precomputed source asset ids when aggregating a single pooled position', () => {
+    const aggregated = aggregatePositionsByAssetSymbol([
+      {
+        assetId: 'canada-pool:ca:btc',
+        sourceAssetIds: ['exchange:kraken:btc', 'blockchain:bitcoin:native'],
+        assetSymbol: 'BTC',
+        quantity: '1.00000000',
+        isNegative: false,
+        spotPricePerUnit: '9000.00',
+        currentValue: '9000.00',
+        allocationPct: '100.0',
+        priceStatus: 'ok',
+        totalCostBasis: '7500.00',
+        avgCostPerUnit: '7500.00',
+        unrealizedGainLoss: '1500.00',
+        unrealizedPct: '20.0',
+        openLots: [],
+        accountBreakdown: [],
+      },
+    ]);
+
+    expect(aggregated).toHaveLength(1);
+    expect(aggregated[0]?.sourceAssetIds).toEqual(['exchange:kraken:btc', 'blockchain:bitcoin:native']);
+  });
+
+  it('builds pooled Canada portfolio positions from tax-property data', () => {
+    const inputContext: CanadaTaxInputContext = {
+      taxCurrency: 'CAD',
+      scopedTransactionIds: [1, 2],
+      validatedTransferLinkIds: [],
+      feeOnlyInternalCarryoverSourceTransactionIds: [],
+      inputEvents: [
+        {
+          kind: 'acquisition',
+          provenanceKind: 'scoped-movement',
+          eventId: 'evt-1',
+          transactionId: 1,
+          timestamp: new Date('2024-01-01T00:00:00.000Z'),
+          assetId: 'exchange:kraken:btc',
+          assetIdentityKey: 'btc',
+          taxPropertyKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          quantity: new Decimal('0.6'),
+          valuation: {
+            taxCurrency: 'CAD',
+            storagePriceAmount: new Decimal('10000'),
+            storagePriceCurrency: 'USD' as Currency,
+            quotedPriceAmount: new Decimal('10000'),
+            quotedPriceCurrency: 'USD' as Currency,
+            unitValueCad: new Decimal('10000'),
+            totalValueCad: new Decimal('6000'),
+            valuationSource: 'usd-to-cad-fx',
+            fxRateToCad: new Decimal('1'),
+            fxSource: 'test',
+            fxTimestamp: new Date('2024-01-01T00:00:00.000Z'),
+          },
+        },
+        {
+          kind: 'acquisition',
+          provenanceKind: 'scoped-movement',
+          eventId: 'evt-2',
+          transactionId: 2,
+          timestamp: new Date('2024-02-01T00:00:00.000Z'),
+          assetId: 'blockchain:bitcoin:native',
+          assetIdentityKey: 'btc',
+          taxPropertyKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          quantity: new Decimal('0.4'),
+          valuation: {
+            taxCurrency: 'CAD',
+            storagePriceAmount: new Decimal('10000'),
+            storagePriceCurrency: 'USD' as Currency,
+            quotedPriceAmount: new Decimal('10000'),
+            quotedPriceCurrency: 'USD' as Currency,
+            unitValueCad: new Decimal('10000'),
+            totalValueCad: new Decimal('4000'),
+            valuationSource: 'usd-to-cad-fx',
+            fxRateToCad: new Decimal('1'),
+            fxSource: 'test',
+            fxTimestamp: new Date('2024-02-01T00:00:00.000Z'),
+          },
+        },
+      ],
+    };
+
+    const taxReport: CanadaTaxReport = {
+      calculationId: 'calc-1',
+      taxCurrency: 'CAD',
+      acquisitions: [
+        {
+          id: 'layer-1',
+          acquisitionEventId: 'evt-1',
+          transactionId: 1,
+          taxPropertyKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          acquiredAt: new Date('2024-01-01T00:00:00.000Z'),
+          quantityAcquired: new Decimal('0.6'),
+          remainingQuantity: new Decimal('0.6'),
+          totalCostCad: new Decimal('6000'),
+          remainingAllocatedAcbCad: new Decimal('6000'),
+          costBasisPerUnitCad: new Decimal('10000'),
+        },
+        {
+          id: 'layer-2',
+          acquisitionEventId: 'evt-2',
+          transactionId: 2,
+          taxPropertyKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          acquiredAt: new Date('2024-02-01T00:00:00.000Z'),
+          quantityAcquired: new Decimal('0.4'),
+          remainingQuantity: new Decimal('0.4'),
+          totalCostCad: new Decimal('4000'),
+          remainingAllocatedAcbCad: new Decimal('4000'),
+          costBasisPerUnitCad: new Decimal('10000'),
+        },
+      ],
+      dispositions: [],
+      transfers: [],
+      superficialLossAdjustments: [],
+      summary: {
+        totalProceedsCad: new Decimal('0'),
+        totalCostBasisCad: new Decimal('0'),
+        totalGainLossCad: new Decimal('0'),
+        totalTaxableGainLossCad: new Decimal('0'),
+        totalDeniedLossCad: new Decimal('0'),
+      },
+    };
+
+    const displayReport: CanadaDisplayCostBasisReport = {
+      calculationId: 'calc-1',
+      sourceTaxCurrency: 'CAD',
+      displayCurrency: 'USD' as Currency,
+      acquisitions: [
+        {
+          ...taxReport.acquisitions[0]!,
+          displayCostBasisPerUnit: new Decimal('7500'),
+          displayTotalCost: new Decimal('4500'),
+          displayRemainingAllocatedCost: new Decimal('4500'),
+          fxConversion: {
+            sourceTaxCurrency: 'CAD',
+            displayCurrency: 'USD' as Currency,
+            fxRate: new Decimal('0.75'),
+            fxSource: 'test',
+            fxFetchedAt: new Date('2024-01-01T00:00:00.000Z'),
+          },
+        },
+        {
+          ...taxReport.acquisitions[1]!,
+          displayCostBasisPerUnit: new Decimal('7500'),
+          displayTotalCost: new Decimal('3000'),
+          displayRemainingAllocatedCost: new Decimal('3000'),
+          fxConversion: {
+            sourceTaxCurrency: 'CAD',
+            displayCurrency: 'USD' as Currency,
+            fxRate: new Decimal('0.75'),
+            fxSource: 'test',
+            fxFetchedAt: new Date('2024-02-01T00:00:00.000Z'),
+          },
+        },
+      ],
+      dispositions: [],
+      transfers: [],
+      summary: {
+        totalProceeds: new Decimal('0'),
+        totalCostBasis: new Decimal('0'),
+        totalGainLoss: new Decimal('0'),
+        totalTaxableGainLoss: new Decimal('0'),
+        totalDeniedLoss: new Decimal('0'),
+      },
+    };
+
+    const result = buildCanadaPortfolioPositions({
+      holdings: {
+        'exchange:kraken:btc': new Decimal('0.6'),
+        'blockchain:bitcoin:native': new Decimal('0.4'),
+      },
+      assetMetadata: {
+        'exchange:kraken:btc': 'BTC',
+        'blockchain:bitcoin:native': 'BTC',
+      },
+      spotPricesByAssetId: convertSpotPricesToDisplayCurrency(
+        new Map([
+          ['exchange:kraken:btc', { price: new Decimal('9000') }],
+          ['blockchain:bitcoin:native', { price: new Decimal('9000') }],
+        ]),
+        undefined
+      ),
+      accountBreakdown: new Map([
+        [
+          'exchange:kraken:btc',
+          [{ accountId: 1, sourceName: 'kraken', accountType: 'exchange-api', quantity: '0.60000000' }],
+        ],
+        [
+          'blockchain:bitcoin:native',
+          [{ accountId: 2, sourceName: 'bitcoin', accountType: 'blockchain', quantity: '0.40000000' }],
+        ],
+      ]),
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+      inputContext,
+      taxReport,
+      displayReport,
+    });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.closedPositions).toEqual([]);
+    expect(result.positions).toHaveLength(1);
+    expect(result.positions[0]).toMatchObject({
+      assetId: 'canada-pool:ca:btc',
+      assetSymbol: 'BTC',
+      quantity: '1.00000000',
+      totalCostBasis: '7500.00',
+      avgCostPerUnit: '7500.00',
+      currentValue: '9000.00',
+      unrealizedGainLoss: '1500.00',
+    });
+    expect(result.positions[0]?.sourceAssetIds).toEqual(['exchange:kraken:btc', 'blockchain:bitcoin:native']);
+    expect(result.positions[0]?.accountBreakdown).toHaveLength(2);
   });
 
   it('builds positions and emits warning for unpriced assets', () => {

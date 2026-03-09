@@ -225,9 +225,8 @@ export interface CanadaTaxReportTransfer {
   assetSymbol: Currency;
   transferredAt: Date;
   quantity: Decimal;
-  totalCostBasisCad: Decimal;
-  acbPerUnitCad: Decimal;
-  marketValueCad: Decimal;
+  carriedAcbCad: Decimal;
+  carriedAcbPerUnitCad: Decimal;
   feeAdjustmentCad: Decimal;
 }
 
@@ -286,8 +285,9 @@ export interface CanadaDisplayReportDisposition extends CanadaTaxReportDispositi
 }
 
 export interface CanadaDisplayReportTransfer extends CanadaTaxReportTransfer {
-  displayTotalCostBasis: Decimal;
-  displayCostBasisPerUnit: Decimal;
+  marketValueCad: Decimal;
+  displayCarriedAcb: Decimal;
+  displayCarriedAcbPerUnit: Decimal;
   displayMarketValue: Decimal;
   displayFeeAdjustment: Decimal;
   fxConversion: CanadaDisplayFxConversion;

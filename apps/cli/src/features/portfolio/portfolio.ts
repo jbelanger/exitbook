@@ -29,7 +29,10 @@ export function registerPortfolioCommand(program: Command, registry: AdapterRegi
   program
     .command('portfolio')
     .description('View current portfolio holdings, allocation, and unrealized P&L')
-    .option('--method <method>', 'Cost basis method: fifo, lifo, average-cost (default: fifo)')
+    .option(
+      '--method <method>',
+      'Cost basis method: fifo, lifo, average-cost (default: fifo; CA defaults to average-cost)'
+    )
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US (default: US)')
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
@@ -209,9 +212,11 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, registry: A
 }
 
 function normalizeOptions(options: PortfolioCommandOptions): NormalizedPortfolioOptions {
+  const jurisdiction = (options.jurisdiction ?? 'US').toUpperCase();
+
   return {
-    method: (options.method ?? 'fifo').toLowerCase(),
-    jurisdiction: (options.jurisdiction ?? 'US').toUpperCase(),
+    method: (options.method ?? (jurisdiction === 'CA' ? 'average-cost' : 'fifo')).toLowerCase(),
+    jurisdiction,
     displayCurrency: (options.fiatCurrency ?? 'USD').toUpperCase(),
     asOf: options.asOf ? new Date(options.asOf) : new Date(),
   };

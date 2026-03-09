@@ -326,11 +326,11 @@ This gives the complete lifecycle — where the asset was acquired, how it moved
 
 ### Event Types
 
-| Type        | Marker | Meaning                                            |
-| ----------- | ------ | -------------------------------------------------- |
-| Acquisition | `+`    | New lot created (buy, receive, reward, airdrop)    |
-| Disposal    | `−`    | Quantity sold/spent from a lot                     |
-| Transfer    | `→`    | Cost basis carried between transactions via a link |
+| Type        | Marker | Meaning                                             |
+| ----------- | ------ | --------------------------------------------------- |
+| Acquisition | `+`    | New lot created (buy, receive, reward, airdrop)     |
+| Disposal    | `−`    | Quantity sold/spent from a lot                      |
+| Transfer    | `→`    | Carried basis moved between transactions via a link |
 
 ### Visual Example (Canadian)
 
@@ -475,7 +475,7 @@ Value column by event type:
 
 - **Acquisition**: `basis {currency} {totalCostBasis}` — total cost basis of the lot
 - **Disposal**: `{sign}{currency} {gainLoss}` — capital gain or loss
-- **Transfer**: `basis {currency} {totalCostBasis}` — cost basis carried over
+- **Transfer**: `basis {currency} {totalCostBasis}` — carried basis / ACB carried over
 
 ### Timeline Row Colors
 

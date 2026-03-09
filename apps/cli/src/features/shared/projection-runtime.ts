@@ -311,7 +311,7 @@ export async function ensureConsumerInputsReady(
 
   // Price coverage prereq (not a projection)
   if ((target === 'cost-basis' || target === 'portfolio') && priceConfig) {
-    const pricesResult = await ensureTransactionPricesReady(deps, priceConfig);
+    const pricesResult = await ensureTransactionPricesReady(deps, priceConfig, target);
     if (pricesResult.isErr()) return err(pricesResult.error);
   }
 
@@ -324,7 +324,8 @@ export async function ensureConsumerInputsReady(
 
 async function ensureTransactionPricesReady(
   deps: ProjectionRuntimeDeps,
-  config: PricePrereqConfig
+  config: PricePrereqConfig,
+  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>
 ): Promise<Result<void, Error>> {
   const { db, isJsonMode, setAbort } = deps;
 
@@ -351,7 +352,7 @@ async function ensureTransactionPricesReady(
       const fxRateProvider = new StandardFxRateProvider(priceManager);
       const result = await pipeline.execute({}, priceManager, fxRateProvider);
       if (result.isErr()) return err(result.error);
-      const postCoverageResult = await verifyTransactionPriceCoverage(data, config);
+      const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target);
       if (postCoverageResult.isErr()) return err(postCoverageResult.error);
       logger.info('Price enrichment completed (JSON mode)');
       return ok(undefined);
@@ -400,7 +401,7 @@ async function ensureTransactionPricesReady(
       return err(result.error);
     }
 
-    const postCoverageResult = await verifyTransactionPriceCoverage(data, config);
+    const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target);
     if (postCoverageResult.isErr()) {
       controller.fail(postCoverageResult.error.message);
       return err(postCoverageResult.error);
@@ -425,12 +426,21 @@ async function ensureTransactionPricesReady(
 
 async function verifyTransactionPriceCoverage(
   data: ReturnType<typeof buildPriceCoverageDataPorts>,
-  config: PricePrereqConfig
+  config: PricePrereqConfig,
+  target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>
 ): Promise<Result<void, Error>> {
   const coverageResult = await checkTransactionPriceCoverage(data, config);
   if (coverageResult.isErr()) return err(coverageResult.error);
 
   if (!coverageResult.value.complete) {
+    if (target === 'portfolio') {
+      logger.warn(
+        { reason: coverageResult.value.reason },
+        'Price coverage remains incomplete after enrichment; allowing portfolio to continue with exclusions'
+      );
+      return ok(undefined);
+    }
+
     return err(
       new Error(
         `Price coverage remains incomplete after enrichment: ${coverageResult.value.reason ?? 'unknown reason'}`
