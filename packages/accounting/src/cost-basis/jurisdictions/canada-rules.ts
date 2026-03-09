@@ -25,6 +25,7 @@ export class CanadaRules implements IJurisdictionRules {
   private readonly config: JurisdictionConfig = {
     code: 'CA',
     sameAssetTransferFeePolicy: 'add-to-basis',
+    taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
   };
 
   /**

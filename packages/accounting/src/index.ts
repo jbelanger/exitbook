@@ -10,7 +10,7 @@ export type { FiatCurrency } from './cost-basis/shared/cost-basis-config.js';
 export { getDefaultDateRange } from './cost-basis/shared/cost-basis-config.js';
 
 // Domain types
-export type { AcquisitionLot, LotDisposal, LotTransfer } from './cost-basis/shared/types.js';
+export type { AcquisitionLot, LotDisposal, LotTransfer, TaxAssetIdentityPolicy } from './cost-basis/shared/types.js';
 
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
@@ -57,3 +57,19 @@ export type {
   PricesEnrichResult,
 } from './price-enrichment/orchestration/price-enrichment-pipeline.js';
 export { StandardFxRateProvider } from './price-enrichment/fx/standard-fx-rate-provider.js';
+export { buildCanadaTaxInputContext } from './cost-basis/canada/canada-tax-context-builder.js';
+export { runCanadaAcbWorkflow } from './cost-basis/canada/canada-acb-workflow.js';
+export type { CanadaAcbWorkflowOptions, CanadaAcbWorkflowResult } from './cost-basis/canada/canada-acb-workflow.js';
+export type {
+  CanadaTaxInputEvent,
+  CanadaTaxInputEventKind,
+  CanadaTaxInputContext,
+  CanadaTaxValuation,
+} from './cost-basis/canada/canada-tax-types.js';
+export { runCanadaAcbEngine } from './cost-basis/canada/canada-acb-engine.js';
+export type {
+  CanadaAcbEngineResult,
+  CanadaAcbPoolState,
+  CanadaAcquisitionLayer,
+  CanadaDispositionRecord,
+} from './cost-basis/canada/canada-tax-types.js';

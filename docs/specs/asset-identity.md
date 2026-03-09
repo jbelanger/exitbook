@@ -1,5 +1,5 @@
 ---
-last_verified: 2025-12-22
+last_verified: 2026-03-09
 status: updated
 ---
 
@@ -7,7 +7,11 @@ status: updated
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
 
-Define a unique asset identity that prevents symbol collisions across chains, contracts, and exchanges, and make that identity the key for balances, pricing, and cost basis.
+Define a unique storage asset identity that prevents symbol collisions across
+chains, contracts, and exchanges, and make that identity the key for balances,
+pricing, and generic lot tracking. Tax workflows may derive a second
+jurisdiction-owned pooling identity from imported facts when `assetId` is too
+specific for the tax method.
 
 ## Quick Reference
 
@@ -15,6 +19,7 @@ Define a unique asset identity that prevents symbol collisions across chains, co
 | ------------------------ | --------------------------------------------------------------- |
 | `assetSymbol`            | Display label (e.g., `USDC`, `ETH`)                             |
 | `assetId`                | Unique identity key used for math and storage                   |
+| `assetIdentityKey`       | Derived tax-pooling identity used only inside tax workflows     |
 | `assetRef`               | Chain/exchange reference (contract, mint, denom, currency code) |
 | `assetNamespace`         | `blockchain` / `exchange` / `fiat`                              |
 | `asset` (legacy)         | Replace with `assetSymbol` + `assetId`                          |
@@ -55,6 +60,26 @@ assetSymbol: string; // Display symbol (e.g., USDC)
 Additional metadata (contract/mint/denom/network) should be fetched from
 TokenMetadata or derived by parsing `assetId`. Do not duplicate token metadata
 on movements/fees beyond what is needed for display.
+
+### Derived Tax Asset Identity
+
+Some tax workflows need an identity that is broader than storage identity.
+
+- Input: imported facts such as `assetId`, `assetSymbol`, and jurisdiction
+  policy
+- Output: a derived `assetIdentityKey` used only for tax pooling
+- Storage rule: do not persist this as a raw transaction field unless it becomes
+  a genuinely shared domain fact across capabilities
+
+Current Canada implementation:
+
+- keeps exchange assets and blockchain natives symbol-based
+- keeps on-chain tokens strict by default
+- allows a relaxed symbol-collapse policy for imported-data-only cases like
+  `USDC`
+
+This derived identity belongs in accounting workflow code, not on raw movement
+schemas.
 
 ### Asset ID Format
 
@@ -140,6 +165,15 @@ exchange:coinbase:usdc
 - Lots are keyed by `assetId`.
 - Queries by symbol should resolve to a set of `assetId`s for display filters.
 
+### Jurisdiction-Owned Tax Pooling
+
+- Jurisdiction-owned tax workflows may derive an `assetIdentityKey` from
+  `assetId` + `assetSymbol` + policy.
+- This derived key is allowed to pool multiple `assetId`s together when the tax
+  method requires a broader identity than storage.
+- Do not use a tax-pooling key for balances, provider identity, or same-hash
+  scoping.
+
 ## Data Model Changes (High-Level)
 
 - `AssetMovement` and `FeeMovement` include `assetId` + `assetSymbol` (no duplicated token metadata).
@@ -170,4 +204,4 @@ exchange:coinbase:usdc
 
 ---
 
-_Last updated: 2025-12-22_
+_Last updated: 2026-03-09_

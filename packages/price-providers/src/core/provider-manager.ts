@@ -279,7 +279,7 @@ export class PriceProviderManager {
       {
         assetSymbol: priceData.assetSymbol,
         stablecoin,
-        originalPrice: priceData.price.toFixed(),
+        quotedPrice: priceData.price.toFixed(),
         originalProvider: providerName,
       },
       'Converting stablecoin-denominated price to USD'

@@ -292,6 +292,8 @@ describe('createNormalizedPrice', () => {
     // Verify price converted to USD
     expect(result.price.currency.toString()).toBe('USD');
     expect(result.price.amount.toFixed()).toBe('43200'); // 40000 * 1.08
+    expect(result.quotedPrice?.amount.toFixed()).toBe('40000');
+    expect(result.quotedPrice?.currency.toString()).toBe('EUR');
 
     // Verify FX metadata populated
     expect(result.fxRateToUSD?.toString()).toBe('1.08');

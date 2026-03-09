@@ -12,6 +12,7 @@ export const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 export const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
 export const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
+export const TaxAssetIdentityPolicySchema = z.enum(['strict', 'relaxed-stablecoin-symbols']);
 
 export const VarianceToleranceSchema = z.object({
   warn: z.number().nonnegative(),
@@ -21,6 +22,7 @@ export const VarianceToleranceSchema = z.object({
 export const JurisdictionConfigSchema = z.object({
   code: JurisdictionSchema,
   sameAssetTransferFeePolicy: SameAssetTransferFeePolicySchema,
+  taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema,
   varianceTolerance: VarianceToleranceSchema.optional(),
 });
 
@@ -36,6 +38,7 @@ export const CostBasisConfigSchema = z.object({
   startDate: DateSchema.optional(),
   endDate: DateSchema.optional(),
   specificLotSelectionStrategy: z.enum(['minimize-gain', 'maximize-loss']).optional(),
+  taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema.optional(),
 });
 
 export const AcquisitionLotSchema = z.object({
@@ -143,4 +146,5 @@ export type LotStatus = z.infer<typeof LotStatusSchema>;
 export type CalculationStatus = z.infer<typeof CalculationStatusSchema>;
 export type JurisdictionConfig = z.infer<typeof JurisdictionConfigSchema>;
 export type SameAssetTransferFeePolicy = z.infer<typeof SameAssetTransferFeePolicySchema>;
+export type TaxAssetIdentityPolicy = z.infer<typeof TaxAssetIdentityPolicySchema>;
 export type VarianceTolerance = z.infer<typeof VarianceToleranceSchema>;

@@ -21,6 +21,7 @@ export class USRules implements IJurisdictionRules {
   private readonly config: JurisdictionConfig = {
     code: 'US',
     sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict',
   };
 
   /**

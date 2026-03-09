@@ -13,18 +13,22 @@ export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
   US: {
     code: 'US',
     sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict',
   },
   CA: {
     code: 'CA',
     sameAssetTransferFeePolicy: 'add-to-basis',
+    taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
   },
   UK: {
     code: 'UK',
     sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict',
   },
   EU: {
     code: 'EU',
     sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict',
   },
 };
 

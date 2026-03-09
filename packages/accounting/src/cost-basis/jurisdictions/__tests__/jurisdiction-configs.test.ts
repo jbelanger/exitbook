@@ -17,6 +17,7 @@ describe('jurisdiction-configs', () => {
       if (!config) return;
       expect(config.code).toBe('US');
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
+      expect(config.taxAssetIdentityPolicy).toBe('strict');
     });
 
     it('should have correct fee policies for CA', () => {
@@ -25,6 +26,7 @@ describe('jurisdiction-configs', () => {
       if (!config) return;
       expect(config.code).toBe('CA');
       expect(config.sameAssetTransferFeePolicy).toBe('add-to-basis');
+      expect(config.taxAssetIdentityPolicy).toBe('relaxed-stablecoin-symbols');
     });
 
     it('should have correct fee policies for UK', () => {
@@ -33,6 +35,7 @@ describe('jurisdiction-configs', () => {
       if (!config) return;
       expect(config.code).toBe('UK');
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
+      expect(config.taxAssetIdentityPolicy).toBe('strict');
     });
 
     it('should have correct fee policies for EU', () => {
@@ -41,6 +44,7 @@ describe('jurisdiction-configs', () => {
       if (!config) return;
       expect(config.code).toBe('EU');
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
+      expect(config.taxAssetIdentityPolicy).toBe('strict');
     });
   });
 
@@ -50,6 +54,7 @@ describe('jurisdiction-configs', () => {
       expect(config).toBeDefined();
       expect(config?.code).toBe('US');
       expect(config?.sameAssetTransferFeePolicy).toBe('disposal');
+      expect(config?.taxAssetIdentityPolicy).toBe('strict');
     });
 
     it('should return undefined for invalid jurisdiction code', () => {
@@ -77,6 +82,10 @@ describe('jurisdiction-configs', () => {
       expect(us?.sameAssetTransferFeePolicy).toBe('disposal');
       expect(uk?.sameAssetTransferFeePolicy).toBe('disposal');
       expect(eu?.sameAssetTransferFeePolicy).toBe('disposal');
+      expect(ca?.taxAssetIdentityPolicy).toBe('relaxed-stablecoin-symbols');
+      expect(us?.taxAssetIdentityPolicy).toBe('strict');
+      expect(uk?.taxAssetIdentityPolicy).toBe('strict');
+      expect(eu?.taxAssetIdentityPolicy).toBe('strict');
     });
   });
 });

@@ -76,7 +76,7 @@ Examples that must pool together for Canada:
 Examples that must not pool together:
 
 - BTC and WBTC
-- Ethereum USDC and Solana USDC
+- under a strict token policy, Ethereum USDC and Solana USDC
 - distinct tokens that merely share a symbol
 
 This requires a dedicated tax identity, not reuse of the storage identity.
@@ -118,7 +118,7 @@ full transaction history
   +
 confirmed links
   ↓
-CanadaTaxContextBuilder
+CanadaTaxInputContextBuilder
   ↓
 CanadaTaxEvent[]
   ↓
@@ -214,22 +214,23 @@ The pool is the authoritative Canadian accounting state.
 
 ## Foundational Design Decisions
 
-### 1. Add tax identity explicitly
+### 1. Resolve tax identity explicitly
 
-Add a shared canonical asset hint to the transaction model.
+Do not persist a Canada-specific canonical id on raw transactions.
 
-Preferred shape in
-`packages/core/src/transaction/universal-transaction.ts`:
+Instead, resolve tax identity inside accounting from imported facts:
 
-- `assetCanonicalId?: string | undefined`
-
-This field is not the same as `assetId`.
+- `assetId`
+- `assetSymbol`
+- jurisdiction identity policy
 
 Rules:
 
 - `assetId` stays storage/provider-facing
-- `assetCanonicalId` is economic-asset-facing
-- Canada derives `taxPropertyKey` from `assetCanonicalId`
+- accounting resolves an economic/tax identity key from imported facts
+- Canada derives `taxPropertyKey` from that resolved identity
+- the identity policy must be explicit so strict and relaxed behaviors are testable
+- relaxed symbol collapse is allowed for imported-data-only cases like `USDC`
 - if Canada cannot derive `taxPropertyKey`, the workflow fails closed
 
 ### 2. Build CAD valuations before cost basis
@@ -325,7 +326,7 @@ Input:
 
 Output:
 
-- `CanadaTaxContext`
+- `CanadaTaxInputContext`
 - `CanadaTaxEvent[]`
 
 Pseudo-code:
@@ -401,9 +402,10 @@ Optional display conversions happen later and cannot change taxable results.
 
 Implement:
 
-- `assetCanonicalId`
+- `resolveTaxAssetIdentity()`
+- `TaxAssetIdentityPolicy`
 - `resolveCanadaTaxPropertyKey()`
-- fail-closed validation for missing Canada tax identity
+- fail-closed validation for unresolvable Canada tax identity
 
 Do this before any Canada math rewrite.
 
@@ -459,6 +461,8 @@ Minimum required cases:
 
 - BTC bought on two exchanges pools into one Canadian ACB
 - BTC moved from exchange to self-custody does not create a separate pool
+- relaxed identity policy collapses exchange and on-chain `USDC` into one pool key
+- strict identity policy keeps on-chain `USDC` token ids separate from exchange `USDC`
 - CAD valuation differs from USD due to FX movement between buy and sell dates
 - transfer fee increases ACB when policy requires it
 - superficial loss with full denial
@@ -467,15 +471,15 @@ Minimum required cases:
 - later disposal of substituted property realizes the carried-forward denied
   loss
 - mixed transactions with excluded assets do not corrupt Canada pool state
-- missing Canada tax identity fails closed with explicit error
+- unresolvable Canada tax identity fails closed with explicit error
 - missing CAD valuation fails closed with explicit error
 
 ## Open Questions
 
 These are design questions, not reasons to block the document:
 
-- whether `assetCanonicalId` should be mandatory globally or only required for
-  jurisdictions that need economic pooling
+- whether relaxed symbol-collapse should remain a jurisdiction policy or become a
+  user-visible configuration
 - whether affiliated-person modeling should land in the first Canada slice or
   remain an explicit unsupported limitation
 - whether Canada transfer-fee policy should stay in accounting config or be
@@ -485,8 +489,8 @@ These are design questions, not reasons to block the document:
 
 These renames should happen as part of implementation:
 
-- `assetId` -> keep as-is for storage identity; introduce `taxPropertyKey` for
-  tax pooling
+- `assetId` -> keep as-is for storage identity; introduce resolved
+  `assetIdentityKey` + `taxPropertyKey` for tax pooling
 - `currency` in cost-basis config -> split into `taxCurrency` and
   `displayCurrency`
 - `CostBasisReportGenerator` -> replace with `CanadaTaxReportBuilder` and
