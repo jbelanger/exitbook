@@ -1,7 +1,12 @@
-import { parseDecimal } from '@exitbook/core';
-import { ok, type Result } from '@exitbook/core';
+import { err, ok, parseDecimal, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
+import {
+  allocateSameHashUtxoAmountInTxOrder,
+  planSameHashUtxoSourceCapacities,
+  type SameHashUtxoCapacityPlan,
+  type SameHashUtxoSourceAllocation,
+} from '../../shared/same-hash-utxo-allocation.js';
 import { createTransactionLink } from '../matching/link-construction.js';
 import { shouldAutoConfirm } from '../matching/match-allocation.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
@@ -27,8 +32,8 @@ interface SameHashExternalOutflowGroup {
 interface ResolvedGroupMatch {
   groupAmount: Decimal;
   groupMatch: PotentialMatch;
-  linkedAmounts: Map<number, Decimal>;
   siblingInflowAmount: Decimal;
+  sourceAllocations: SameHashUtxoSourceAllocation[];
   status: 'confirmed' | 'suggested';
 }
 
@@ -54,21 +59,33 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
     const exchangeTargets = targets.filter((target) => target.sourceType === 'exchange' && target.direction === 'in');
 
     for (const group of buildGroups(sources, targets)) {
-      const dedupedFee = syntheticFee(group.sources);
-      const sourceCapacities = deriveSourceCapacities(group.sources);
-      const resolvedMatch = resolveGroupMatch(group, exchangeTargets, config, sourceCapacities);
+      const capacityPlanResult = planSameHashUtxoSourceCapacities(
+        group.sources.map((source) => ({
+          txId: source.transactionId,
+          grossAmount: sourceGross(source),
+          feeAmount: sourceFee(source),
+        }))
+      );
+      if (capacityPlanResult.isErr()) {
+        return err(capacityPlanResult.error);
+      }
+
+      const resolvedMatchResult = resolveGroupMatch(group, exchangeTargets, config, capacityPlanResult.value);
+      if (resolvedMatchResult.isErr()) {
+        return err(resolvedMatchResult.error);
+      }
+      const resolvedMatch = resolvedMatchResult.value;
       if (!resolvedMatch) continue;
 
-      const allocations = buildSourceAllocations(group.sources, sourceCapacities, resolvedMatch.linkedAmounts);
+      const allocations = buildSourceAllocations(resolvedMatch.sourceAllocations);
       const feeBearingAllocation =
         allocations.find((allocation) => allocation.feeDeducted !== '0') ??
-        allocations.sort((left, right) => left.sourceTransactionId - right.sourceTransactionId)[0];
+        [...allocations].sort((left, right) => left.sourceTransactionId - right.sourceTransactionId)[0];
       if (!feeBearingAllocation) continue;
       const expandedMatches = buildExpandedMatches(
         resolvedMatch.groupMatch,
         group.sources,
-        sourceCapacities,
-        resolvedMatch.linkedAmounts
+        resolvedMatch.sourceAllocations
       );
 
       for (const match of expandedMatches) {
@@ -80,7 +97,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
         const link = linkResult.value;
         const metadata: TransactionLinkMetadata = {
           ...link.metadata,
-          dedupedSameHashFee: dedupedFee.toFixed(),
+          dedupedSameHashFee: capacityPlanResult.value.dedupedFee.toFixed(),
           sameHashExternalGroup: true,
           sameHashExternalGroupAmount: resolvedMatch.groupAmount.toFixed(),
           sameHashExternalGroupSize: group.sources.length,
@@ -176,22 +193,22 @@ function resolveGroupMatch(
   group: SameHashExternalOutflowGroup,
   exchangeTargets: LinkableMovement[],
   config: MatchingConfig,
-  sourceCapacities: Map<number, Decimal>
-): ResolvedGroupMatch | undefined {
+  sourceCapacityPlan: SameHashUtxoCapacityPlan
+): Result<ResolvedGroupMatch | undefined, Error> {
   const siblingInflowAmount = sumMovementGrossAmounts(group.siblingInflows);
-  const totalSourceCapacity = sumDecimalMap(sourceCapacities);
+  const totalSourceCapacity = sourceCapacityPlan.totalCapacity;
   if (siblingInflowAmount.gt(totalSourceCapacity)) {
-    return undefined;
+    return ok(undefined);
   }
 
   const groupAmount = totalSourceCapacity.minus(siblingInflowAmount);
   if (groupAmount.lte(0)) {
-    return undefined;
+    return ok(undefined);
   }
 
-  const linkedAmounts = allocateResidualAcrossSources(group.sources, sourceCapacities, groupAmount);
-  if (!linkedAmounts) {
-    return undefined;
+  const sourceAllocations = allocateSameHashUtxoAmountInTxOrder(sourceCapacityPlan.capacities, groupAmount);
+  if (!sourceAllocations) {
+    return ok(undefined);
   }
 
   const requireAddressMatch = group.siblingInflows.length > 0;
@@ -209,18 +226,18 @@ function resolveGroupMatch(
   });
 
   if (exactMatches.length !== 1) {
-    return undefined;
+    return ok(undefined);
   }
 
   const groupMatch = exactMatches[0]!;
-  return {
+  return ok({
     groupAmount,
     groupMatch,
-    linkedAmounts,
     siblingInflowAmount,
+    sourceAllocations,
     status:
       group.siblingInflows.length > 0 ? 'suggested' : shouldAutoConfirm(groupMatch, config) ? 'confirmed' : 'suggested',
-  };
+  });
 }
 
 function buildSyntheticSource(group: SameHashExternalOutflowGroup, amount: Decimal): LinkableMovement {
@@ -237,12 +254,13 @@ function buildSyntheticSource(group: SameHashExternalOutflowGroup, amount: Decim
 function buildExpandedMatches(
   groupMatch: PotentialMatch,
   sources: LinkableMovement[],
-  sourceCapacities: Map<number, Decimal>,
-  linkedAmounts: Map<number, Decimal>
+  sourceAllocations: SameHashUtxoSourceAllocation[]
 ): PotentialMatch[] {
+  const allocationsByTxId = new Map(sourceAllocations.map((allocation) => [allocation.txId, allocation] as const));
+
   return sources.flatMap((source) => {
-    const consumedAmount = linkedAmounts.get(source.id)!;
-    if (consumedAmount.lte(0)) {
+    const allocation = allocationsByTxId.get(source.transactionId);
+    if (!allocation || allocation.allocatedAmount.lte(0)) {
       return [];
     }
 
@@ -251,78 +269,26 @@ function buildExpandedMatches(
         ...groupMatch,
         sourceMovement: {
           ...source,
-          amount: sourceCapacities.get(source.id)!,
+          amount: allocation.capacityAmount,
         },
-        consumedAmount,
+        consumedAmount: allocation.allocatedAmount,
       },
     ];
   });
 }
 
-function deriveSourceCapacities(sources: LinkableMovement[]): Map<number, Decimal> {
-  const dedupedFee = syntheticFee(sources);
-  const feeBearer = [...sources].sort((left, right) => {
-    const feeComparison = sourceFee(right).comparedTo(sourceFee(left));
-    if (feeComparison !== 0) return feeComparison;
-
-    // Put the synthetic fee on the largest gross leg to minimize distortion in the expanded pairwise links.
-    const grossComparison = sourceGross(right).comparedTo(sourceGross(left));
-    if (grossComparison !== 0) return grossComparison;
-
-    return left.transactionId - right.transactionId || left.id - right.id;
-  })[0]!;
-
-  const sourceCapacities = new Map<number, Decimal>();
-  for (const source of sources) {
-    const grossAmount = sourceGross(source);
-    const amount = source.id === feeBearer.id ? grossAmount.minus(dedupedFee) : grossAmount;
-    sourceCapacities.set(source.id, amount);
-  }
-
-  return sourceCapacities;
-}
-
-function buildSourceAllocations(
-  sources: LinkableMovement[],
-  sourceCapacities: Map<number, Decimal>,
-  linkedAmounts: Map<number, Decimal>
-): SameHashExternalSourceAllocation[] {
-  return sources.map((source) => {
-    const grossAmount = sourceGross(source);
-    const sourceCapacity = sourceCapacities.get(source.id)!;
-    const linkedAmount = linkedAmounts.get(source.id)!;
-    const unlinkedAmount = sourceCapacity.minus(linkedAmount);
+function buildSourceAllocations(sourceAllocations: SameHashUtxoSourceAllocation[]): SameHashExternalSourceAllocation[] {
+  return sourceAllocations.map((allocation) => {
+    const unlinkedAmount = allocation.unallocatedAmount;
 
     return {
-      sourceTransactionId: source.transactionId,
-      grossAmount: grossAmount.toFixed(),
-      linkedAmount: linkedAmount.toFixed(),
-      feeDeducted: grossAmount.minus(sourceCapacity).toFixed(),
+      sourceTransactionId: allocation.txId,
+      grossAmount: allocation.grossAmount.toFixed(),
+      linkedAmount: allocation.allocatedAmount.toFixed(),
+      feeDeducted: allocation.feeDeducted.toFixed(),
       ...(unlinkedAmount.gt(0) ? { unlinkedAmount: unlinkedAmount.toFixed() } : {}),
     };
   });
-}
-
-function allocateResidualAcrossSources(
-  sources: LinkableMovement[],
-  sourceCapacities: Map<number, Decimal>,
-  targetAmount: Decimal
-): Map<number, Decimal> | undefined {
-  let remaining = targetAmount;
-  const linkedAmounts = new Map<number, Decimal>();
-
-  for (const source of sources) {
-    const sourceCapacity = sourceCapacities.get(source.id);
-    if (!sourceCapacity) {
-      return undefined;
-    }
-
-    const linkedAmount = remaining.lte(0) ? parseDecimal('0') : Decimal.min(sourceCapacity, remaining);
-    linkedAmounts.set(source.id, linkedAmount);
-    remaining = remaining.minus(linkedAmount);
-  }
-
-  return remaining.eq(0) ? linkedAmounts : undefined;
 }
 
 function sourceGross(source: LinkableMovement): Decimal {
@@ -339,17 +305,6 @@ function syntheticGross(sources: LinkableMovement[]): Decimal {
 
 function sumMovementGrossAmounts(movements: LinkableMovement[]): Decimal {
   return movements.reduce((sum, movement) => sum.plus(sourceGross(movement)), parseDecimal('0'));
-}
-
-function sumDecimalMap(amounts: Map<number, Decimal>): Decimal {
-  return [...amounts.values()].reduce((sum, amount) => sum.plus(amount), parseDecimal('0'));
-}
-
-function syntheticFee(sources: LinkableMovement[]): Decimal {
-  return sources.reduce((maxFee, source) => {
-    const fee = sourceFee(source);
-    return fee.greaterThan(maxFee) ? fee : maxFee;
-  }, parseDecimal('0'));
 }
 
 function targetEndpointMatchesAddress(expectedAddress: string, target: LinkableMovement): boolean {

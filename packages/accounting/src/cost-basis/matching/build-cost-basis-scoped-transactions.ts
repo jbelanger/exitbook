@@ -4,6 +4,10 @@ import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
 import { normalizeTransactionHash } from '../../linking/strategies/exact-hash-utils.js';
+import {
+  allocateSameHashUtxoAmountInTxOrder,
+  planSameHashUtxoSourceCapacities,
+} from '../../shared/same-hash-utxo-allocation.js';
 
 // ---------------------------------------------------------------------------
 // Types — cost-basis-local, not shared
@@ -573,89 +577,73 @@ function planSameHashSourceAllocations(
     }
   }
 
-  const feeOwner = [...pureOutflows].sort((left, right) => {
-    const feeComparison = right.onChainFeeAmount.comparedTo(left.onChainFeeAmount);
-    if (feeComparison !== 0) return feeComparison;
-
-    const grossComparison = right.outflowGrossAmount.comparedTo(left.outflowGrossAmount);
-    if (grossComparison !== 0) return grossComparison;
-
-    return left.txId - right.txId;
-  })[0];
-  if (!feeOwner) {
-    return err(new Error(`Same-hash source allocation requires at least one outflow for ${group.normalizedHash}`));
-  }
-
-  const orderedSources = [...pureOutflows].sort((left, right) => left.txId - right.txId);
-  const sourceAllocations: (SameHashSourceAllocation & { sourceCapacity: Decimal })[] = [];
-  let totalSourceCapacity = new Decimal(0);
-
-  for (const source of orderedSources) {
-    const feeDeducted = source.txId === feeOwner.txId ? dedupedFee : new Decimal(0);
-    const sourceCapacity = source.outflowGrossAmount.minus(feeDeducted);
-    if (sourceCapacity.lt(0)) {
-      return err(
-        new Error(
-          `Invalid same-hash group: deduped fee exceeds source outflow for ${group.assetSymbol} ` +
-            `in hash ${group.normalizedHash} (${group.blockchain}), source txId: ${source.txId}, ` +
-            `sourceOutflow=${source.outflowGrossAmount.toFixed()}, dedupedFee=${dedupedFee.toFixed()}`
-        )
-      );
-    }
-
-    sourceAllocations.push({
+  const capacityPlanResult = planSameHashUtxoSourceCapacities(
+    pureOutflows.map((source) => ({
       txId: source.txId,
-      movementFingerprint: source.outflowMovementFingerprint!,
-      externalAmount: new Decimal(0),
-      internalAmount: new Decimal(0),
-      feeDeducted,
-      sourceCapacity,
-    });
-    totalSourceCapacity = totalSourceCapacity.plus(sourceCapacity);
+      grossAmount: source.outflowGrossAmount,
+      feeAmount: source.onChainFeeAmount,
+    })),
+    { dedupedFeeAmount: dedupedFee }
+  );
+  if (capacityPlanResult.isErr()) {
+    return err(
+      new Error(
+        `Same-hash source allocation failed for ${group.assetSymbol} in hash ${group.normalizedHash} ` +
+          `(${group.blockchain}): ${capacityPlanResult.error.message}`
+      )
+    );
   }
+  const capacityPlan = capacityPlanResult.value;
+  const outflowsByTxId = new Map(pureOutflows.map((source) => [source.txId, source] as const));
 
   let totalInflows = new Decimal(0);
   for (const receiver of pureInflows) {
     totalInflows = totalInflows.plus(receiver.inflowGrossAmount);
   }
 
-  const externalAmount = totalSourceCapacity.minus(totalInflows);
+  const externalAmount = capacityPlan.totalCapacity.minus(totalInflows);
   if (externalAmount.lt(0)) {
     return err(
       new Error(
         `Invalid same-hash group: internal inflows plus deduped fee exceed sender outflow for ${group.assetSymbol} ` +
           `in hash ${group.normalizedHash} (${group.blockchain}), ` +
-          `totalSourceCapacity=${totalSourceCapacity.toFixed()}, internalInflows=${totalInflows.toFixed()}, ` +
-          `dedupedFee=${dedupedFee.toFixed()}, externalAmount=${externalAmount.toFixed()}`
+          `totalSourceCapacity=${capacityPlan.totalCapacity.toFixed()}, internalInflows=${totalInflows.toFixed()}, ` +
+          `dedupedFee=${capacityPlan.dedupedFee.toFixed()}, externalAmount=${externalAmount.toFixed()}`
       )
     );
   }
 
-  let remainingExternal = externalAmount;
-  for (const sourceAllocation of sourceAllocations) {
-    const externalShare = remainingExternal.lte(0)
-      ? new Decimal(0)
-      : Decimal.min(sourceAllocation.sourceCapacity, remainingExternal);
-
-    sourceAllocation.externalAmount = externalShare;
-    sourceAllocation.internalAmount = sourceAllocation.sourceCapacity.minus(externalShare);
-    remainingExternal = remainingExternal.minus(externalShare);
-  }
-
-  if (!remainingExternal.eq(0)) {
+  const sourceAllocations = allocateSameHashUtxoAmountInTxOrder(capacityPlan.capacities, externalAmount);
+  if (!sourceAllocations) {
     return err(
       new Error(
         `Invalid same-hash group: external allocation did not reconcile for ${group.assetSymbol} ` +
-          `in hash ${group.normalizedHash} (${group.blockchain}), remainingExternal=${remainingExternal.toFixed()}`
+          `in hash ${group.normalizedHash} (${group.blockchain}), externalAmount=${externalAmount.toFixed()}`
       )
     );
   }
 
+  const mappedSourceAllocations: SameHashSourceAllocation[] = [];
+  for (const allocation of sourceAllocations) {
+    const source = outflowsByTxId.get(allocation.txId);
+    if (!source?.outflowMovementFingerprint) {
+      return err(new Error(`Same-hash source tx ${allocation.txId} not found while mapping allocations`));
+    }
+
+    mappedSourceAllocations.push({
+      txId: allocation.txId,
+      movementFingerprint: source.outflowMovementFingerprint,
+      externalAmount: allocation.allocatedAmount,
+      internalAmount: allocation.unallocatedAmount,
+      feeDeducted: allocation.feeDeducted,
+    });
+  }
+
   return ok({
-    dedupedFee,
+    dedupedFee: capacityPlan.dedupedFee,
     externalAmount,
-    feeOwnerTxId: feeOwner.txId,
-    sourceAllocations: sourceAllocations.map(({ sourceCapacity: _sourceCapacity, ...allocation }) => allocation),
+    feeOwnerTxId: capacityPlan.feeOwnerTxId,
+    sourceAllocations: mappedSourceAllocations,
     totalInflows,
   });
 }
