@@ -30,7 +30,8 @@ initLogger({
 // flush() is synchronous (BufferedSink.drain → appendFileSync), safe in 'exit' handler
 process.on('exit', () => flushLoggers());
 
-import { registerAccountsCommand } from './features/accounts/accounts.js';
+import { registerAccountsCommand } from './features/accounts/command/accounts.js';
+//import { registerAssetsCommand } from './features/assets/assets.js';
 import { registerBalanceCommand } from './features/balance/balance.js';
 import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
 import { registerClearCommand } from './features/clear/clear.js';
@@ -56,6 +57,7 @@ async function main() {
   registerReprocessCommand(program, adapterRegistry);
   registerLinksCommand(program, adapterRegistry);
   registerAccountsCommand(program);
+  //registerAssetsCommand(program);
   registerTransactionsCommand(program);
   registerPricesCommand(program);
   registerClearCommand(program);

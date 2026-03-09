@@ -338,6 +338,32 @@ export const PricesSetFxCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
 });
 
+const AssetSelectionCommandOptionsSchema = z
+  .object({
+    assetId: z.string().min(1).optional(),
+    symbol: z.string().min(1).optional(),
+  })
+  .refine((data) => Boolean(data.assetId || data.symbol), {
+    message: 'Either --asset-id or --symbol is required',
+  })
+  .refine((data) => !(data.assetId && data.symbol), {
+    message: 'Specify only one of --asset-id or --symbol',
+  });
+
+export const AssetsExcludeCommandOptionsSchema = AssetSelectionCommandOptionsSchema.extend({
+  reason: z.string().min(1).optional(),
+  json: z.boolean().optional(),
+});
+
+export const AssetsIncludeCommandOptionsSchema = AssetSelectionCommandOptionsSchema.extend({
+  reason: z.string().min(1).optional(),
+  json: z.boolean().optional(),
+});
+
+export const AssetsExclusionsCommandOptionsSchema = z.object({
+  json: z.boolean().optional(),
+});
+
 /**
  * Cost-basis command options
  */

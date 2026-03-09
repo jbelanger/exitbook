@@ -47,7 +47,7 @@ describe('calculateScopedCostBasis', () => {
       expect(summary.calculation.status).toBe('completed');
     });
 
-    it('should apply Canadian 50% inclusion rate', async () => {
+    it('should reject non-average-cost methods for Canada', async () => {
       const transactions: UniversalTransactionData[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'ETH' as Currency, amount: '10', price: '2000' }]),
         createTransaction(
@@ -67,10 +67,8 @@ describe('calculateScopedCostBasis', () => {
 
       const result = await calculateScopedCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
-      const resultValue = assertOk(result);
-      const summary = resultValue;
-      expect(summary.totalCapitalGainLoss.toString()).toBe('5000'); // (2500 - 2000) * 10
-      expect(summary.totalTaxableGainLoss.toString()).toBe('2500'); // Canada: 50% inclusion
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Canada (CA) cost basis currently supports only average-cost (ACB)');
     });
 
     it('should work with LIFO method', async () => {
@@ -393,7 +391,7 @@ describe('calculateScopedCostBasis', () => {
       expect(disposal!.gainLoss.toString()).toBe('-20000');
     });
 
-    it('should handle superficial loss with multi-asset fees (Canada)', async () => {
+    it('should reject Canada scenarios that attempt to use fifo matching', async () => {
       const transactions: UniversalTransactionData[] = [
         // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
         createTransactionWithFee(
@@ -438,20 +436,8 @@ describe('calculateScopedCostBasis', () => {
 
       const result = await calculateScopedCostBasis(transactions, config, new CanadaRules(), lotMatcher);
 
-      const resultValue = assertOk(result);
-      const summary = resultValue;
-
-      // Fee allocation: BTC gets $40 (2/3), ETH gets $20 (1/3)
-      // BTC cost basis: $40,000 + $40 = $40,040
-      // ETH cost basis: $20,000 + $20 = $20,020
-
-      // BTC loss should be disallowed (superficial loss), no taxable loss
-      // ETH gain should still be taxable (not affected by BTC superficial loss)
-      // ETH proceeds: $25,000
-      // ETH cost basis: $20,020
-      // ETH gain: $4,980
-      // Canada 50% inclusion: $2,490
-      expect(summary.totalTaxableGainLoss.toNumber()).toBeCloseTo(2490, 0);
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('Canada (CA) cost basis currently supports only average-cost (ACB)');
     });
 
     it('should reject transactions with non-USD prices (EUR)', async () => {
