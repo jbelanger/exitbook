@@ -20,8 +20,9 @@ import {
 } from '../view/cost-basis-view-state.js';
 import {
   buildAssetCostBasisItems,
-  sortAssetsByAbsGainLoss,
+  buildCanadaAssetCostBasisItems,
   computeSummaryTotals,
+  sortAssetsByAbsGainLoss,
 } from '../view/cost-basis-view-utils.js';
 
 import type { CostBasisWorkflowResult, CostBasisInput } from './cost-basis-handler.js';
@@ -63,30 +64,31 @@ interface CostBasisCommandResult {
   };
   assets: {
     asset: string;
-    avgHoldingDays: number;
+    avgHoldingDays?: number | undefined;
     disposalCount: number;
     disposals: {
-      acquisitionDate: string;
-      acquisitionTransactionId: number;
+      acquisitionDate?: string | undefined;
+      acquisitionTransactionId?: number | undefined;
       asset: string;
       costBasisPerUnit: string;
       date: string;
       disposalTransactionId: number;
       fxConversion?: { fxRate: string; fxSource: string } | undefined;
       gainLoss: string;
-      holdingPeriodDays: number;
+      holdingPeriodDays?: number | undefined;
       id: string;
       isGain: boolean;
       proceedsPerUnit: string;
       quantityDisposed: string;
       sortTimestamp: string;
+      taxableGainLoss?: string | undefined;
       taxTreatmentCategory?: string | undefined;
       totalCostBasis: string;
       totalProceeds: string;
       type: 'disposal';
     }[];
     isGain: boolean;
-    longestHoldingDays: number;
+    longestHoldingDays?: number | undefined;
     longTermCount?: number | undefined;
     longTermGainLoss?: string | undefined;
     lotCount: number;
@@ -107,7 +109,7 @@ interface CostBasisCommandResult {
       transactionId: number;
       type: 'acquisition';
     }[];
-    shortestHoldingDays: number;
+    shortestHoldingDays?: number | undefined;
     shortTermCount?: number | undefined;
     shortTermGainLoss?: string | undefined;
     totalCostBasis: string;
@@ -134,6 +136,12 @@ interface CostBasisCommandResult {
       type: 'transfer';
     }[];
   }[];
+}
+
+interface CostBasisPresentationModel {
+  assetItems: ReturnType<typeof sortAssetsByAbsGainLoss>;
+  context: CalculationContext;
+  summary: CostBasisCommandResult['summary'];
 }
 
 /**
@@ -210,38 +218,17 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, registry: 
 }
 
 function outputCostBasisJSON(costBasisResult: CostBasisWorkflowResult): void {
-  const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
-  const currency = summary.calculation.config.currency;
-  const jurisdiction = summary.calculation.config.jurisdiction;
-
-  // Build detailed asset breakdown (same as TUI)
-  const assetItems = buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report);
-  const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
-  const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
+  const presentation = buildPresentationModel(costBasisResult);
 
   const resultData: CostBasisCommandResult = {
-    calculationId: summary.calculation.id,
-    method: summary.calculation.config.method,
-    jurisdiction,
-    taxYear: summary.calculation.config.taxYear,
-    currency,
-    dateRange: {
-      startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
-      endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
-    },
-    summary: {
-      lotsCreated: summary.lotsCreated,
-      disposalsProcessed: summary.disposalsProcessed,
-      assetsProcessed: summary.assetsProcessed,
-      transactionsProcessed: summary.calculation.transactionsProcessed,
-      totalProceeds: summaryTotals.totalProceeds,
-      totalCostBasis: summaryTotals.totalCostBasis,
-      totalGainLoss: summaryTotals.totalGainLoss,
-      totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
-      ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
-      ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
-    },
-    assets: sortedAssets,
+    calculationId: presentation.context.calculationId,
+    method: presentation.context.method,
+    jurisdiction: presentation.context.jurisdiction,
+    taxYear: presentation.context.taxYear,
+    currency: presentation.context.currency,
+    dateRange: presentation.context.dateRange,
+    summary: presentation.summary,
+    assets: presentation.assetItems,
   };
 
   outputSuccess('cost-basis', resultData);
@@ -285,31 +272,17 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
       }
 
       const costBasisResult = result.value;
-      const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
-      const calculation = summary.calculation;
-      const currency = calculation.config.currency;
-      const jurisdiction = calculation.config.jurisdiction;
+      const presentation = buildPresentationModel(costBasisResult);
 
-      const assetItems = buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report);
-      const sortedAssets = sortAssetsByAbsGainLoss(assetItems);
-      const summaryTotals = computeSummaryTotals(sortedAssets, jurisdiction);
-
-      const context: CalculationContext = {
-        calculationId: calculation.id,
-        method: calculation.config.method,
-        jurisdiction,
-        taxYear: calculation.config.taxYear,
-        currency,
-        dateRange: {
-          startDate: calculation.startDate?.toISOString().split('T')[0] ?? '',
-          endDate: calculation.endDate?.toISOString().split('T')[0] ?? '',
-        },
-      };
-
-      const initialState = createCostBasisAssetState(context, sortedAssets, summaryTotals, {
-        totalDisposals: summary.disposalsProcessed,
-        totalLots: summary.lotsCreated,
-      });
+      const initialState = createCostBasisAssetState(
+        presentation.context,
+        presentation.assetItems,
+        presentation.summary,
+        {
+          totalDisposals: presentation.summary.disposalsProcessed,
+          totalLots: presentation.summary.lotsCreated,
+        }
+      );
 
       const finalState = resolveAssetFilter(initialState, options.asset);
 
@@ -352,4 +325,76 @@ function resolveAssetFilter(
 
   const assetItem = state.assets[assetIndex]!;
   return createCostBasisTimelineState(assetItem, state, assetIndex);
+}
+
+function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
+  if (costBasisResult.kind === 'generic-pipeline') {
+    const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
+    const currency = summary.calculation.config.currency;
+    const jurisdiction = summary.calculation.config.jurisdiction;
+    const assetItems = sortAssetsByAbsGainLoss(
+      buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report)
+    );
+    const summaryTotals = computeSummaryTotals(assetItems, jurisdiction);
+
+    return {
+      assetItems,
+      context: {
+        calculationId: summary.calculation.id,
+        method: summary.calculation.config.method,
+        jurisdiction,
+        taxYear: summary.calculation.config.taxYear,
+        currency,
+        dateRange: {
+          startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
+          endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
+        },
+      },
+      summary: {
+        lotsCreated: summary.lotsCreated,
+        disposalsProcessed: summary.disposalsProcessed,
+        assetsProcessed: summary.assetsProcessed,
+        transactionsProcessed: summary.calculation.transactionsProcessed,
+        totalProceeds: summaryTotals.totalProceeds,
+        totalCostBasis: summaryTotals.totalCostBasis,
+        totalGainLoss: summaryTotals.totalGainLoss,
+        totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
+        ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
+        ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
+      },
+    };
+  }
+
+  const currency = costBasisResult.displayReport?.displayCurrency ?? costBasisResult.taxReport.taxCurrency;
+  const assetItems = sortAssetsByAbsGainLoss(
+    buildCanadaAssetCostBasisItems(costBasisResult.taxReport, costBasisResult.displayReport)
+  );
+  const summary = costBasisResult.displayReport?.summary;
+
+  return {
+    assetItems,
+    context: {
+      calculationId: costBasisResult.calculation.id,
+      method: costBasisResult.calculation.method,
+      jurisdiction: costBasisResult.calculation.jurisdiction,
+      taxYear: costBasisResult.calculation.taxYear,
+      currency,
+      dateRange: {
+        startDate: costBasisResult.calculation.startDate.toISOString().split('T')[0] ?? '',
+        endDate: costBasisResult.calculation.endDate.toISOString().split('T')[0] ?? '',
+      },
+    },
+    summary: {
+      lotsCreated: costBasisResult.taxReport.acquisitions.length,
+      disposalsProcessed: costBasisResult.taxReport.dispositions.length,
+      assetsProcessed: costBasisResult.calculation.assetsProcessed,
+      transactionsProcessed: costBasisResult.calculation.transactionsProcessed,
+      totalProceeds: (summary?.totalProceeds ?? costBasisResult.taxReport.summary.totalProceedsCad).toFixed(2),
+      totalCostBasis: (summary?.totalCostBasis ?? costBasisResult.taxReport.summary.totalCostBasisCad).toFixed(2),
+      totalGainLoss: (summary?.totalGainLoss ?? costBasisResult.taxReport.summary.totalGainLossCad).toFixed(2),
+      totalTaxableGainLoss: (
+        summary?.totalTaxableGainLoss ?? costBasisResult.taxReport.summary.totalTaxableGainLossCad
+      ).toFixed(2),
+    },
+  };
 }

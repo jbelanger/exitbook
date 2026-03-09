@@ -36,15 +36,30 @@ in the Canada slice. Specifically, the current implementation already has:
 - transaction-time CAD `CanadaTaxValuation`
 - transfer-aware `CanadaTaxInputContextBuilder`
 - pooled `CanadaAcbEngine`
+- `CanadaTaxReport` plus optional `CanadaDisplayCostBasisReport`
+- top-level workflow cut-in for `CA + average-cost`
 - link-scoped same-asset transfer fee adjustments when one source movement fans
   out across multiple confirmed links
 
 Still pending from the full greenfield target:
 
 - superficial loss engine and adjustment events
-- Canada-native report builder
-- top-level cost-basis workflow cutover so `CA` uses only the Canada slice end
-  to end
+- full `CA`-only cutover so `fifo` and `lifo` no longer fall back to the
+  generic lot pipeline
+- richer Canada transfer presentation in the CLI/report layer
+
+Today `CA + average-cost` already enters the Canada workflow.
+The remaining generic lot-pipeline path is still active for:
+
+- non-CA jurisdictions
+- `CA` requests that still select `fifo` or `lifo`
+
+That generic path still goes through:
+
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-pipeline.ts`
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-calculator.ts`
+- `packages/accounting/src/cost-basis/shared/gain-loss-utils.ts`
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-report-generator.ts`
 
 ## Goals
 
@@ -61,8 +76,7 @@ Still pending from the full greenfield target:
 - Solving business-income treatment for active trading.
 - Solving multi-taxpayer household modeling in the first phase.
 - Reusing FIFO/LIFO abstractions for the Canadian path if they weaken the model.
-- Adding backward-compatibility layers for the current CA implementation beyond
-  a temporary dispatch wrapper during migration.
+- Keeping the generic CA lot-pipeline path as a permanent compatibility layer.
 
 ## Current Model Problems
 
@@ -143,7 +157,11 @@ CanadaTaxEvent[]
   ↓
 CanadaAcbEngine
   ↓
-CanadaAcbWorkflowResult
+CanadaTaxReportBuilder
+  ↓
+optional CanadaDisplayCostBasisReport
+  ↓
+CostBasisWorkflowResult (for CA + average-cost today)
 ```
 
 Target end-state after the remaining phases:
@@ -163,6 +181,8 @@ CanadaSuperficialLossEngine
   ↓
 CanadaTaxReportBuilder
   ↓
+optional DisplayReportBuilder
+  ↓
 CostBasisWorkflowResult
 ```
 
@@ -176,14 +196,111 @@ Keep these existing responsibilities:
 
 Replace these Canada-specific responsibilities:
 
-- `average-cost` strategy
+- `average-cost` strategy dispatch inside the generic pipeline
+- `LotMatcher` as the authoritative Canada calculator
 - generic gain/loss disallowance helpers
-- post-hoc display-currency tax report generation
+- `CostBasisReportGenerator` as the source of Canadian tax output
+
+### Workflow Dispatch Target
+
+`CostBasisWorkflow` remains the host-facing shell.
+The jurisdiction dispatch moves inside the workflow:
+
+```ts
+if (config.jurisdiction === 'CA') {
+  assert config.method === 'average-cost'
+  load confirmed links once
+  runCanadaAcbWorkflow(...)
+  runCanadaSuperficialLossEngine(...)
+  buildCanadaTaxReport(...)
+  optionally build display report from CAD tax rows
+  return canada workflow result
+}
+
+return run generic lot pipeline for non-CA jurisdictions
+```
+
+The important boundary is that `CA` must not enter `runCostBasisPipeline()` once
+cutover lands.
+
+## Workflow And Report Boundary
+
+The current generic public result shape is lot-oriented:
+
+- `summary`
+- `lots`
+- `disposals`
+- `lotTransfers`
+- optional `report`
+
+That is the wrong authority boundary for Canada because it makes a USD-origin
+display report look like the tax result.
+
+Recommended cutover boundary:
+
+```ts
+type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
+
+interface CanadaCostBasisWorkflowResult {
+  kind: 'canada-workflow';
+  calculation: {
+    id: string;
+    jurisdiction: 'CA';
+    method: 'average-cost';
+    taxYear: number;
+    startDate: Date;
+    endDate: Date;
+    transactionsProcessed: number;
+  };
+  taxReport: CanadaTaxReport;
+  displayReport?: CanadaDisplayCostBasisReport;
+}
+```
+
+Relationship to the current landed Canada slice:
+
+- `runCanadaAcbWorkflow()` currently returns `CanadaAcbWorkflowResult`
+- that result is the internal ACB-stage output: input context plus ACB engine
+  state
+- `CanadaCostBasisWorkflowResult` is the current public boundary for
+  `CA + average-cost`, wrapping the ACB-stage output with tax-report assembly
+- in other words, `CanadaCostBasisWorkflowResult` wraps and supersedes
+  `CanadaAcbWorkflowResult` at the host-facing API boundary rather than
+  replacing the lower-level ACB workflow step itself
+
+Rules for this boundary:
+
+- `taxReport` is the authoritative tax output
+- `displayReport` is optional and derived from `taxReport`
+- display conversion may change presentation currency, never tax math
+- raw Canada engine artifacts stay internal or debug-only, not CLI-facing
+- non-CA jurisdictions may keep the generic lot-pipeline result temporarily
+  during migration
+- do not back-project Canada into `LotDisposal` or `ConvertedLotDisposal` just
+  to preserve the old shape
 
 ## Core Domain Types
 
 Create Canada-owned tax shapes in
 `packages/accounting/src/cost-basis/canada/canada-tax-types.ts`.
+
+### `CanadaCostBasisCalculation`
+
+Current workflow-level metadata for the Canada result.
+
+Current fields:
+
+- `id`
+- `calculationDate`
+- `method: 'average-cost'`
+- `jurisdiction: 'CA'`
+- `taxYear`
+- `displayCurrency`
+- `taxCurrency: 'CAD'`
+- `startDate`
+- `endDate`
+- `transactionsProcessed`
+- `assetsProcessed`
 
 ### `CanadaTaxPropertyKey`
 
@@ -261,6 +378,47 @@ Each acquisition layer currently carries:
 The pool is the authoritative Canadian accounting state. Superficial-loss
 pending state is still future work.
 
+### `CanadaTaxReport`
+
+Authoritative CRA-facing output for the Canada workflow.
+
+Required fields:
+
+- `calculationId`
+- `taxCurrency: 'CAD'`
+- `acquisitions`
+- `dispositions`
+- `superficialLossAdjustments`
+- `transfers`
+- `summary`
+
+`summary` should carry tax-native totals:
+
+- `totalProceedsCad`
+- `totalCostBasisCad`
+- `totalGainLossCad`
+- `totalTaxableGainLossCad`
+- `totalDeniedLossCad`
+
+### `CanadaDisplayCostBasisReport`
+
+Optional non-tax projection for CLI/UI/JSON display.
+
+Minimal shape for Phase 5:
+
+- `displayCurrency`
+- `sourceTaxCurrency`
+- `dispositions`
+- `transfers`
+- `summary`
+
+Rules:
+
+- source rows come from `CanadaTaxReport`, not from raw transactions
+- display conversion starts from CAD tax amounts for Canada
+- conversion metadata remains attached for auditability
+- this report may be omitted entirely when display currency is already `CAD`
+
 ## Foundational Design Decisions
 
 ### 1. Resolve tax identity explicitly
@@ -335,28 +493,43 @@ packages/accounting/src/cost-basis/canada/
   __tests__/
     canada-tax-context-builder.test.ts
     canada-acb-engine.test.ts
+    canada-acb-workflow.test.ts
+    test-utils.ts
 ```
 
 Planned follow-ons:
 
 ```text
 packages/accounting/src/cost-basis/canada/
-  canada-tax-valuation-utils.ts
-  canada-acb-pool-utils.ts
   canada-superficial-loss-types.ts
   canada-superficial-loss-engine.ts
-  canada-tax-report-builder.ts
   __tests__/
     canada-superficial-loss-engine.test.ts
-    canada-acb-workflow.test.ts
+    canada-tax-report-builder.test.ts
 ```
 
-Shared/core changes:
+Shared/report boundary changes:
+
+```text
+packages/accounting/src/cost-basis/shared/report-types.ts
+packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts
+packages/accounting/src/cost-basis/orchestration/cost-basis-report-generator.ts
+apps/cli/src/features/cost-basis/command/cost-basis.ts
+apps/cli/src/features/cost-basis/view/cost-basis-view-utils.ts
+apps/cli/src/features/cost-basis/view/cost-basis-view-state.ts
+```
+
+Shared/core touchpoints:
 
 ```text
 packages/core/src/transaction/universal-transaction.ts
-packages/core/src/money/tax-property-key-utils.ts
 packages/core/src/money/asset-id-utils.ts
+```
+
+Aspirational core extractions only if the logic proves reusable outside Canada:
+
+```text
+packages/core/src/money/tax-property-key-utils.ts
 ```
 
 Orchestration changes:
@@ -455,6 +628,15 @@ It should contain:
 
 Optional display conversions happen later and cannot change taxable results.
 
+The report builder should consume:
+
+- workflow calculation metadata
+- `CanadaTaxInputContext`
+- `CanadaAcbEngineResult`
+- `CanadaSuperficialLossEngineResult`
+
+It should not consume generic lot-matcher output types.
+
 ## Migration Plan
 
 ### Phase 1: Identity foundation
@@ -504,6 +686,12 @@ Implement:
 - ACB carry-forward adjustments
 - audit trail output
 
+Design constraints:
+
+- replace the boolean `checkLossDisallowance()` model for the Canada path
+- attach denied loss to explicit substituted-property rows
+- compute taxable gain/loss after adjustments, not before
+
 ### Phase 5: Reporting split
 
 Replace the current CA report path with:
@@ -511,15 +699,53 @@ Replace the current CA report path with:
 - `CanadaTaxReportBuilder` for CAD tax output
 - optional display conversion builder for non-tax UI needs
 
+Implementation notes:
+
+- add `CanadaTaxReport` as the authoritative Canada result
+- treat the existing `CostBasisReport` as display-only or retire it
+- do not derive Canada summaries from `CostBasisReportGenerator`
+- move CLI/JSON/TUI asset rendering to consume Canada tax rows instead of
+  `lots` plus `disposals` plus `lotTransfers`
+- allow `--fiat-currency USD|EUR|GBP` to project from CAD tax rows after the
+  Canada report is built
+
+Status: landed for `CA + average-cost`, including `CanadaTaxReport`, optional
+`CanadaDisplayCostBasisReport`, and Canada-row-based CLI rendering. Remaining
+work is richer transfer presentation and superficial-loss-adjusted reporting.
+
 ### Phase 6: Cutover
 
 Change workflow dispatch so:
 
 - `CA` uses the new Canada workflow
-- non-CA jurisdictions continue using the legacy generic pipeline until their
+- non-CA jurisdictions continue using the generic lot pipeline until their
   own jurisdiction slices exist
 
-Remove the legacy Canada warning path once the new workflow is default.
+Detailed cutover sequence:
+
+1. Branch early in
+   `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+   on `config.jurisdiction === 'CA'`.
+2. Keep
+   `apps/cli/src/features/cost-basis/command/cost-basis-handler.ts`
+   unchanged except for constructor/wiring fallout; the handler does not need
+   jurisdiction logic.
+3. Load confirmed links once through
+   `packages/accounting/src/ports/cost-basis-persistence.ts`.
+4. For `CA + average-cost`, run `runCanadaAcbWorkflow()`, then the Canada
+   report builder. Add the superficial loss engine between those two steps in
+   the next phase.
+5. Build any non-CAD display projection from the Canada report rather than from
+   USD-origin calculations.
+6. Reject `fifo`, `lifo`, and `specific-id` for `CA` in validation and prompts
+   once the Canada path is the only CA path; the current generic-pipeline
+   fallback should be removed rather than kept as a compatibility mode.
+7. Remove `CA` use of `AverageCostStrategy`, `CanadaRules`,
+   `checkLossDisallowance()`, and `CostBasisReportGenerator`.
+
+Status: partially landed. `CA + average-cost` now branches into the Canada
+workflow. Remaining cutover work is to remove `CA` fallback into the generic
+pipeline for unsupported methods and finish the superficial-loss phase.
 
 ## Test Matrix
 
@@ -538,6 +764,13 @@ Minimum required cases:
 - reacquisition inside window but no holding at day `+30` does not deny
 - later disposal of substituted property realizes the carried-forward denied
   loss
+- `CA` workflow dispatch bypasses `runCostBasisPipeline()` entirely
+- `CA` result summary is sourced from `CanadaTaxReport`, not a USD-origin
+  converted report
+- `CA` with `--fiat-currency USD` converts from CAD tax rows without changing
+  `CanadaTaxReport.summary`
+- `CA` rejects `fifo` and `lifo` after cutover
+- non-CA jurisdictions continue to use the generic pipeline unchanged
 - mixed transactions with excluded assets do not corrupt Canada pool state
 - unresolvable Canada tax identity fails closed with explicit error
 - missing CAD valuation fails closed with explicit error
@@ -568,6 +801,8 @@ Still recommended for later phases:
   `displayCurrency`
 - replace `CostBasisReportGenerator` with `CanadaTaxReportBuilder` and
   `DisplayReportBuilder`
+- retire or rename `CostBasisReport` once non-CA paths no longer treat it as a
+  mixed tax/display artifact
 - replace `isLossDisallowed()` with a richer adjustment workflow; the current
   name overstates what the function actually proves
 
@@ -578,5 +813,8 @@ If we want Canadian correctness, we should not continue accreting logic onto
 
 The right continuation from here is to finish the Canada-owned workflow on top
 of the landed identity, CAD valuation, pooled ACB, and transfer-fee foundation,
-then cut `CA` over once superficial loss and Canada-native reporting are in
-place.
+with the next concrete slice being:
+
+- land the superficial loss engine
+- remove remaining `CA` fallback into the generic lot pipeline
+- finish transfer presentation on top of Canada tax rows

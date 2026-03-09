@@ -136,3 +136,128 @@ export interface CanadaAcbEngineResult {
   totalCostBasisCad: Decimal;
   totalGainLossCad: Decimal;
 }
+
+export interface CanadaCostBasisCalculation {
+  id: string;
+  calculationDate: Date;
+  method: 'average-cost';
+  jurisdiction: 'CA';
+  taxYear: number;
+  displayCurrency: Currency;
+  taxCurrency: 'CAD';
+  startDate: Date;
+  endDate: Date;
+  transactionsProcessed: number;
+  assetsProcessed: string[];
+}
+
+export interface CanadaTaxReportAcquisition {
+  id: string;
+  acquisitionEventId: string;
+  transactionId: number;
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  acquiredAt: Date;
+  quantityAcquired: Decimal;
+  remainingQuantity: Decimal;
+  totalCostCad: Decimal;
+  remainingAllocatedAcbCad: Decimal;
+  costBasisPerUnitCad: Decimal;
+}
+
+export interface CanadaTaxReportDisposition {
+  id: string;
+  dispositionEventId: string;
+  transactionId: number;
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  disposedAt: Date;
+  quantityDisposed: Decimal;
+  proceedsCad: Decimal;
+  costBasisCad: Decimal;
+  gainLossCad: Decimal;
+  taxableGainLossCad: Decimal;
+  acbPerUnitCad: Decimal;
+}
+
+export interface CanadaTaxReportTransfer {
+  id: string;
+  transactionId: number;
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  transferredAt: Date;
+  direction: 'in' | 'out';
+  quantity: Decimal;
+}
+
+export interface CanadaSuperficialLossAdjustment {
+  id: string;
+  deniedLossCad: Decimal;
+  deniedQuantity: Decimal;
+  relatedDispositionId: string;
+  substitutedPropertyAcquisitionId: string;
+}
+
+export interface CanadaTaxReportSummary {
+  totalProceedsCad: Decimal;
+  totalCostBasisCad: Decimal;
+  totalGainLossCad: Decimal;
+  totalTaxableGainLossCad: Decimal;
+  totalDeniedLossCad: Decimal;
+}
+
+export interface CanadaTaxReport {
+  calculationId: string;
+  taxCurrency: 'CAD';
+  acquisitions: CanadaTaxReportAcquisition[];
+  dispositions: CanadaTaxReportDisposition[];
+  transfers: CanadaTaxReportTransfer[];
+  superficialLossAdjustments: CanadaSuperficialLossAdjustment[];
+  summary: CanadaTaxReportSummary;
+}
+
+export interface CanadaDisplayFxConversion {
+  sourceTaxCurrency: 'CAD';
+  displayCurrency: Currency;
+  fxRate: Decimal;
+  fxSource: string;
+  fxFetchedAt: Date;
+}
+
+export interface CanadaDisplayReportAcquisition extends CanadaTaxReportAcquisition {
+  displayCostBasisPerUnit: Decimal;
+  displayTotalCost: Decimal;
+  displayRemainingAllocatedCost: Decimal;
+  fxConversion: CanadaDisplayFxConversion;
+}
+
+export interface CanadaDisplayReportDisposition extends CanadaTaxReportDisposition {
+  displayProceeds: Decimal;
+  displayCostBasis: Decimal;
+  displayGainLoss: Decimal;
+  displayTaxableGainLoss: Decimal;
+  displayAcbPerUnit: Decimal;
+  fxConversion: CanadaDisplayFxConversion;
+}
+
+export interface CanadaDisplayReportTransfer extends CanadaTaxReportTransfer {
+  fxConversion: CanadaDisplayFxConversion;
+}
+
+export interface CanadaDisplayReportSummary {
+  totalProceeds: Decimal;
+  totalCostBasis: Decimal;
+  totalGainLoss: Decimal;
+  totalTaxableGainLoss: Decimal;
+  totalDeniedLoss: Decimal;
+}
+
+export interface CanadaDisplayCostBasisReport {
+  calculationId: string;
+  sourceTaxCurrency: 'CAD';
+  displayCurrency: Currency;
+  acquisitions: CanadaDisplayReportAcquisition[];
+  dispositions: CanadaDisplayReportDisposition[];
+  transfers: CanadaDisplayReportTransfer[];
+  summary: CanadaDisplayReportSummary;
+}

@@ -4,6 +4,13 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
+import { runCanadaAcbWorkflow } from '../canada/canada-acb-workflow.js';
+import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../canada/canada-tax-report-builder.js';
+import type {
+  CanadaCostBasisCalculation,
+  CanadaDisplayCostBasisReport,
+  CanadaTaxReport,
+} from '../canada/canada-tax-types.js';
 import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
 import type { CostBasisReport } from '../shared/report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../shared/types.js';
@@ -17,13 +24,23 @@ const logger = getLogger('CostBasisWorkflow');
 /**
  * Result of the cost basis workflow.
  */
-export interface CostBasisWorkflowResult {
+export interface GenericCostBasisWorkflowResult {
+  kind: 'generic-pipeline';
   summary: CostBasisSummary;
   report?: CostBasisReport | undefined;
   lots: AcquisitionLot[];
   disposals: LotDisposal[];
   lotTransfers: LotTransfer[];
 }
+
+export interface CanadaCostBasisWorkflowResult {
+  kind: 'canada-workflow';
+  calculation: CanadaCostBasisCalculation;
+  taxReport: CanadaTaxReport;
+  displayReport?: CanadaDisplayCostBasisReport | undefined;
+}
+
+export type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
 
 /**
  * Orchestrates cost basis calculation — validates params, fetches/filters
@@ -52,6 +69,10 @@ export class CostBasisWorkflow {
 
     const filteredResult = this.filterTransactionsForWindow(transactions, config);
     if (filteredResult.isErr()) return err(filteredResult.error);
+
+    if (config.jurisdiction === 'CA' && config.method === 'average-cost') {
+      return this.executeCanadaWorkflow(params, filteredResult.value);
+    }
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
       // Tax reporting must fail closed. Excluding a disposal or transfer because
@@ -95,12 +116,100 @@ export class CostBasisWorkflow {
     }
 
     return ok({
+      kind: 'generic-pipeline',
       summary,
       report,
       lots,
       disposals,
       lotTransfers,
     });
+  }
+
+  private async executeCanadaWorkflow(
+    params: CostBasisInput,
+    transactions: UniversalTransactionData[]
+  ): Promise<Result<CanadaCostBasisWorkflowResult, Error>> {
+    if (!this.fxRateProvider) {
+      return err(new Error('FX rate provider required for Canada tax valuation'));
+    }
+
+    const contextResult = await this.store.loadCostBasisContext();
+    if (contextResult.isErr()) {
+      return err(contextResult.error);
+    }
+
+    const acbWorkflowResult = await runCanadaAcbWorkflow(
+      transactions,
+      contextResult.value.confirmedLinks,
+      this.fxRateProvider,
+      {
+        taxAssetIdentityPolicy: params.config.taxAssetIdentityPolicy,
+      }
+    );
+    if (acbWorkflowResult.isErr()) {
+      return err(acbWorkflowResult.error);
+    }
+
+    const calculation = this.buildCanadaCalculation(params, acbWorkflowResult.value.inputContext);
+    const taxReportResult = buildCanadaTaxReport({
+      calculation,
+      inputContext: acbWorkflowResult.value.inputContext,
+      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
+    });
+    if (taxReportResult.isErr()) {
+      return err(taxReportResult.error);
+    }
+
+    let displayReport: CanadaDisplayCostBasisReport | undefined;
+    if (params.config.currency !== 'CAD') {
+      const displayReportResult = await buildCanadaDisplayCostBasisReport({
+        taxReport: taxReportResult.value,
+        displayCurrency: params.config.currency as Currency,
+        fxProvider: this.fxRateProvider,
+      });
+      if (displayReportResult.isErr()) {
+        return err(displayReportResult.error);
+      }
+      displayReport = displayReportResult.value;
+    }
+
+    logger.info(
+      {
+        calculationId: calculation.id,
+        dispositionsProcessed: taxReportResult.value.dispositions.length,
+        assetsProcessed: calculation.assetsProcessed.length,
+      },
+      'Canada cost basis calculation completed'
+    );
+
+    return ok({
+      kind: 'canada-workflow',
+      calculation,
+      taxReport: taxReportResult.value,
+      ...(displayReport ? { displayReport } : {}),
+    });
+  }
+
+  private buildCanadaCalculation(
+    params: CostBasisInput,
+    inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
+  ): CanadaCostBasisCalculation {
+    const calculationDate = new Date();
+    const assetsProcessed = [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))];
+
+    return {
+      id: globalThis.crypto.randomUUID(),
+      calculationDate,
+      method: 'average-cost',
+      jurisdiction: 'CA',
+      taxYear: params.config.taxYear,
+      displayCurrency: params.config.currency as Currency,
+      taxCurrency: 'CAD',
+      startDate: params.config.startDate,
+      endDate: params.config.endDate,
+      transactionsProcessed: inputContext.scopedTransactionIds.length,
+      assetsProcessed,
+    };
   }
 
   /**

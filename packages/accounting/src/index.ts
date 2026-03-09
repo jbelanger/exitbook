@@ -15,7 +15,11 @@ export type { AcquisitionLot, LotDisposal, LotTransfer, TaxAssetIdentityPolicy }
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
 export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
-export type { CostBasisWorkflowResult } from './cost-basis/orchestration/cost-basis-workflow.js';
+export type {
+  CanadaCostBasisWorkflowResult,
+  CostBasisWorkflowResult,
+  GenericCostBasisWorkflowResult,
+} from './cost-basis/orchestration/cost-basis-workflow.js';
 
 // Reports
 export type {
@@ -67,9 +71,26 @@ export type {
   CanadaTaxValuation,
 } from './cost-basis/canada/canada-tax-types.js';
 export { runCanadaAcbEngine } from './cost-basis/canada/canada-acb-engine.js';
+export {
+  buildCanadaDisplayCostBasisReport,
+  buildCanadaTaxReport,
+} from './cost-basis/canada/canada-tax-report-builder.js';
 export type {
   CanadaAcbEngineResult,
   CanadaAcbPoolState,
   CanadaAcquisitionLayer,
+  CanadaCostBasisCalculation,
+  CanadaDisplayCostBasisReport,
+  CanadaDisplayFxConversion,
+  CanadaDisplayReportAcquisition,
+  CanadaDisplayReportDisposition,
+  CanadaDisplayReportSummary,
+  CanadaDisplayReportTransfer,
   CanadaDispositionRecord,
+  CanadaSuperficialLossAdjustment,
+  CanadaTaxReport,
+  CanadaTaxReportAcquisition,
+  CanadaTaxReportDisposition,
+  CanadaTaxReportSummary,
+  CanadaTaxReportTransfer,
 } from './cost-basis/canada/canada-tax-types.js';

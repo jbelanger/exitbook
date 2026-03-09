@@ -23,9 +23,10 @@ export interface AssetCostBasisItem {
   longTermCount?: number | undefined;
 
   // Holding period stats
-  avgHoldingDays: number;
-  shortestHoldingDays: number;
-  longestHoldingDays: number;
+  avgHoldingDays?: number | undefined;
+  shortestHoldingDays?: number | undefined;
+  longestHoldingDays?: number | undefined;
+  hasHoldingPeriodData?: true | undefined;
 
   // Timeline data for drill-down
   disposals: DisposalViewItem[];
@@ -47,14 +48,15 @@ export interface DisposalViewItem {
   costBasisPerUnit: string;
   totalCostBasis: string;
   gainLoss: string;
+  taxableGainLoss?: string | undefined;
   isGain: boolean;
 
-  holdingPeriodDays: number;
+  holdingPeriodDays?: number | undefined;
   taxTreatmentCategory?: string | undefined; // US only: 'short_term' | 'long_term'
 
   // Lot context
-  acquisitionDate: string;
-  acquisitionTransactionId: number;
+  acquisitionDate?: string | undefined;
+  acquisitionTransactionId?: number | undefined;
   disposalTransactionId: number;
 
   // FX conversion (non-USD currency)

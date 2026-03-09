@@ -4,6 +4,8 @@
 
 import type {
   AcquisitionLot,
+  CanadaDisplayCostBasisReport,
+  CanadaTaxReport,
   ConvertedAcquisitionLot,
   ConvertedLotDisposal,
   ConvertedLotTransfer,
@@ -203,6 +205,7 @@ export function buildAssetCostBasisItems(
         costBasisPerUnit: costBasisPerUnit.toFixed(2),
         totalCostBasis: costBasis.toFixed(2),
         gainLoss: gainLoss.toFixed(2),
+        taxableGainLoss: computeTaxableAmount(gainLoss, jurisdiction).toFixed(2),
         isGain: gainLoss.gte(0),
         holdingPeriodDays: disposal.holdingPeriodDays,
         taxTreatmentCategory: disposal.taxTreatmentCategory,
@@ -260,9 +263,14 @@ export function buildAssetCostBasisItems(
       totalGainLoss: totalGainLoss.toFixed(2),
       totalTaxableGainLoss: totalTaxableGainLoss.toFixed(2),
       isGain: totalGainLoss.gte(0),
-      avgHoldingDays: assetDisposals.length > 0 ? Math.round(totalHoldingDays / assetDisposals.length) : 0,
-      shortestHoldingDays: shortestHolding === Infinity ? 0 : shortestHolding,
-      longestHoldingDays: longestHolding,
+      ...(assetDisposals.length > 0
+        ? {
+            avgHoldingDays: Math.round(totalHoldingDays / assetDisposals.length),
+            shortestHoldingDays: shortestHolding === Infinity ? 0 : shortestHolding,
+            longestHoldingDays: longestHolding,
+            hasHoldingPeriodData: true as const,
+          }
+        : {}),
       disposals: disposalViewItems,
       lots: acquisitionViewItems,
       transfers: transferViewItems,
@@ -280,6 +288,155 @@ export function buildAssetCostBasisItems(
   }
 
   return items;
+}
+
+export function buildCanadaAssetCostBasisItems(
+  taxReport: CanadaTaxReport,
+  displayReport?: CanadaDisplayCostBasisReport
+): AssetCostBasisItem[] {
+  const assetLabelsByTaxPropertyKey = buildCanadaAssetLabels(taxReport);
+  const acquisitionsByTaxProperty = new Map<string, CanadaTaxReport['acquisitions']>();
+  for (const acquisition of taxReport.acquisitions) {
+    const group = acquisitionsByTaxProperty.get(acquisition.taxPropertyKey);
+    if (group) {
+      group.push(acquisition);
+    } else {
+      acquisitionsByTaxProperty.set(acquisition.taxPropertyKey, [acquisition]);
+    }
+  }
+
+  const dispositionsByTaxProperty = new Map<string, CanadaTaxReport['dispositions']>();
+  for (const disposition of taxReport.dispositions) {
+    const group = dispositionsByTaxProperty.get(disposition.taxPropertyKey);
+    if (group) {
+      group.push(disposition);
+    } else {
+      dispositionsByTaxProperty.set(disposition.taxPropertyKey, [disposition]);
+    }
+  }
+
+  const displayAcquisitions = new Map(
+    displayReport?.acquisitions.map((acquisition) => [acquisition.id, acquisition]) ?? []
+  );
+  const displayDispositions = new Map(
+    displayReport?.dispositions.map((disposition) => [disposition.id, disposition]) ?? []
+  );
+
+  const allTaxProperties = new Set<string>([...acquisitionsByTaxProperty.keys(), ...dispositionsByTaxProperty.keys()]);
+
+  const items: AssetCostBasisItem[] = [];
+
+  for (const taxPropertyKey of allTaxProperties) {
+    const asset = assetLabelsByTaxPropertyKey.get(taxPropertyKey) ?? taxPropertyKey;
+    const assetAcquisitions = acquisitionsByTaxProperty.get(taxPropertyKey) ?? [];
+    const assetDispositions = dispositionsByTaxProperty.get(taxPropertyKey) ?? [];
+    let totalProceeds = new Decimal(0);
+    let totalCostBasis = new Decimal(0);
+    let totalGainLoss = new Decimal(0);
+    let totalTaxableGainLoss = new Decimal(0);
+
+    const acquisitionViewItems: AcquisitionViewItem[] = assetAcquisitions.map((acquisition) => {
+      const converted = displayAcquisitions.get(acquisition.id);
+      const totalCost = converted ? converted.displayTotalCost : acquisition.totalCostCad;
+      const costBasisPerUnit = converted ? converted.displayCostBasisPerUnit : acquisition.costBasisPerUnitCad;
+
+      return {
+        type: 'acquisition',
+        id: acquisition.id,
+        date: formatDateString(acquisition.acquiredAt),
+        sortTimestamp: acquisition.acquiredAt.toISOString(),
+        quantity: formatCryptoQuantity(acquisition.quantityAcquired),
+        asset,
+        costBasisPerUnit: costBasisPerUnit.toFixed(2),
+        totalCostBasis: totalCost.toFixed(2),
+        transactionId: acquisition.transactionId,
+        lotId: acquisition.acquisitionEventId,
+        remainingQuantity: formatCryptoQuantity(acquisition.remainingQuantity),
+        status: deriveCanadaAcquisitionStatus(acquisition.remainingQuantity, acquisition.quantityAcquired),
+        fxConversion: converted
+          ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
+          : undefined,
+      };
+    });
+
+    const disposalViewItems: DisposalViewItem[] = assetDispositions.map((disposition) => {
+      const converted = displayDispositions.get(disposition.id);
+      const proceeds = converted ? converted.displayProceeds : disposition.proceedsCad;
+      const costBasis = converted ? converted.displayCostBasis : disposition.costBasisCad;
+      const gainLoss = converted ? converted.displayGainLoss : disposition.gainLossCad;
+      const taxableGainLoss = converted ? converted.displayTaxableGainLoss : disposition.taxableGainLossCad;
+
+      totalProceeds = totalProceeds.plus(proceeds);
+      totalCostBasis = totalCostBasis.plus(costBasis);
+      totalGainLoss = totalGainLoss.plus(gainLoss);
+      totalTaxableGainLoss = totalTaxableGainLoss.plus(taxableGainLoss);
+
+      return {
+        type: 'disposal',
+        id: disposition.id,
+        date: formatDateString(disposition.disposedAt),
+        sortTimestamp: disposition.disposedAt.toISOString(),
+        quantityDisposed: formatCryptoQuantity(disposition.quantityDisposed),
+        asset,
+        proceedsPerUnit: disposition.quantityDisposed.isZero()
+          ? '0.00'
+          : proceeds.dividedBy(disposition.quantityDisposed).toFixed(2),
+        totalProceeds: proceeds.toFixed(2),
+        costBasisPerUnit: (converted ? converted.displayAcbPerUnit : disposition.acbPerUnitCad).toFixed(2),
+        totalCostBasis: costBasis.toFixed(2),
+        gainLoss: gainLoss.toFixed(2),
+        taxableGainLoss: taxableGainLoss.toFixed(2),
+        isGain: gainLoss.gte(0),
+        disposalTransactionId: disposition.transactionId,
+        fxConversion: converted
+          ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
+          : undefined,
+      };
+    });
+
+    // The current Canada report does not carry enough basis provenance to
+    // render trustworthy transfer timeline rows yet, so keep them out of the
+    // UI rather than inventing placeholder amounts.
+    const transferViewItems: TransferViewItem[] = [];
+
+    items.push({
+      asset,
+      disposalCount: assetDispositions.length,
+      lotCount: assetAcquisitions.length,
+      transferCount: transferViewItems.length,
+      totalProceeds: totalProceeds.toFixed(2),
+      totalCostBasis: totalCostBasis.toFixed(2),
+      totalGainLoss: totalGainLoss.toFixed(2),
+      totalTaxableGainLoss: totalTaxableGainLoss.toFixed(2),
+      isGain: totalGainLoss.gte(0),
+      disposals: disposalViewItems,
+      lots: acquisitionViewItems,
+      transfers: transferViewItems,
+    });
+  }
+
+  return items;
+}
+
+function buildCanadaAssetLabels(taxReport: CanadaTaxReport): Map<string, string> {
+  const assetSymbolsByTaxPropertyKey = new Map<string, string>();
+  const taxPropertyCountByAssetSymbol = new Map<string, number>();
+
+  for (const row of [...taxReport.acquisitions, ...taxReport.dispositions, ...taxReport.transfers]) {
+    if (assetSymbolsByTaxPropertyKey.has(row.taxPropertyKey)) {
+      continue;
+    }
+
+    assetSymbolsByTaxPropertyKey.set(row.taxPropertyKey, row.assetSymbol);
+    taxPropertyCountByAssetSymbol.set(row.assetSymbol, (taxPropertyCountByAssetSymbol.get(row.assetSymbol) ?? 0) + 1);
+  }
+
+  return new Map(
+    [...assetSymbolsByTaxPropertyKey.entries()].map(([taxPropertyKey, assetSymbol]) => [
+      taxPropertyKey,
+      (taxPropertyCountByAssetSymbol.get(assetSymbol) ?? 0) > 1 ? `${assetSymbol} (${taxPropertyKey})` : assetSymbol,
+    ])
+  );
 }
 
 // ─── Sorting ────────────────────────────────────────────────────────────────
@@ -359,6 +516,7 @@ export function computeSummaryTotals(
   let proceeds = new Decimal(0);
   let costBasis = new Decimal(0);
   let gainLoss = new Decimal(0);
+  let taxable = new Decimal(0);
   let shortTerm = new Decimal(0);
   let longTerm = new Decimal(0);
 
@@ -366,11 +524,10 @@ export function computeSummaryTotals(
     proceeds = proceeds.plus(asset.totalProceeds);
     costBasis = costBasis.plus(asset.totalCostBasis);
     gainLoss = gainLoss.plus(asset.totalGainLoss);
+    taxable = taxable.plus(asset.totalTaxableGainLoss);
     if (asset.shortTermGainLoss) shortTerm = shortTerm.plus(asset.shortTermGainLoss);
     if (asset.longTermGainLoss) longTerm = longTerm.plus(asset.longTermGainLoss);
   }
-
-  const taxable = computeTaxableAmount(gainLoss, jurisdiction);
 
   return {
     totalProceeds: proceeds.toFixed(2),
@@ -388,4 +545,16 @@ export function computeSummaryTotals(
 /** Format a Date to YYYY-MM-DD string */
 function formatDateString(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
+}
+
+function deriveCanadaAcquisitionStatus(remainingQuantity: Decimal, quantityAcquired: Decimal): string {
+  if (remainingQuantity.lte(0)) {
+    return 'fully_disposed';
+  }
+
+  if (remainingQuantity.gte(quantityAcquired)) {
+    return 'open';
+  }
+
+  return 'partially_disposed';
 }

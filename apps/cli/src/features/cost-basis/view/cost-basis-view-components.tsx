@@ -376,14 +376,21 @@ function buildAssetDetailRows(selected: AssetCostBasisItem, state: CostBasisAsse
 
   rows.push(
     <Text key="blank-3"> </Text>,
-    <Text key="holding">
-      {'  '}
-      <Text dimColor>Holding:</Text> <Text dimColor>avg</Text> {selected.avgHoldingDays} <Text dimColor>days</Text>
-      <Text dimColor> · shortest</Text> {selected.shortestHoldingDays}
-      <Text dimColor>d</Text>
-      <Text dimColor> · longest</Text> {selected.longestHoldingDays}
-      <Text dimColor>d</Text>
-    </Text>,
+    selected.hasHoldingPeriodData ? (
+      <Text key="holding">
+        {'  '}
+        <Text dimColor>Holding:</Text> <Text dimColor>avg</Text> {selected.avgHoldingDays} <Text dimColor>days</Text>
+        <Text dimColor> · shortest</Text> {selected.shortestHoldingDays}
+        <Text dimColor>d</Text>
+        <Text dimColor> · longest</Text> {selected.longestHoldingDays}
+        <Text dimColor>d</Text>
+      </Text>
+    ) : (
+      <Text key="holding-unavailable">
+        {'  '}
+        <Text dimColor>Holding:</Text> <Text dimColor>not tracked in pooled ACB output</Text>
+      </Text>
+    ),
     <Text key="blank-4"> </Text>,
     <Text key="lots">
       {'  '}
@@ -479,7 +486,8 @@ const TimelineList: FC<{ state: CostBasisTimelineState; terminalHeight: number }
       minWidth: 15,
     },
     holding: {
-      format: (event) => (event.type === 'disposal' ? `held ${event.holdingPeriodDays}d` : ''),
+      format: (event) =>
+        event.type === 'disposal' && event.holdingPeriodDays !== undefined ? `held ${event.holdingPeriodDays}d` : '',
       align: 'right',
       minWidth: 12,
     },
@@ -760,25 +768,41 @@ const DisposalDetail: FC<{ item: DisposalViewItem; state: CostBasisTimelineState
             {'  '}
             <Text dimColor>Taxable: </Text>{' '}
             <Text color={gainLossColor}>
-              {formatSignedCurrency(computeDisposalTaxable(item.gainLoss, state.jurisdiction), state.currency)}
+              {formatSignedCurrency(item.taxableGainLoss ?? item.gainLoss, state.currency)}
             </Text>
           </Text>
         ) : undefined,
-        <Text key="lot">
-          {'  '}
-          <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{item.acquisitionDate}</Text>
-          <Text dimColor> · held</Text> {item.holdingPeriodDays} <Text dimColor>days</Text>
-          {taxCategory && (
-            <>
-              <Text dimColor> · </Text>
-              <Text color={taxCategory === 'long-term' ? 'green' : 'yellow'}>{taxCategory}</Text>
-            </>
-          )}
-        </Text>,
+        item.acquisitionDate && item.holdingPeriodDays !== undefined ? (
+          <Text key="lot">
+            {'  '}
+            <Text dimColor>Lot:</Text> <Text dimColor>acquired</Text> <Text dimColor>{item.acquisitionDate}</Text>
+            <Text dimColor> · held</Text> {item.holdingPeriodDays} <Text dimColor>days</Text>
+            {taxCategory && (
+              <>
+                <Text dimColor> · </Text>
+                <Text color={taxCategory === 'long-term' ? 'green' : 'yellow'}>{taxCategory}</Text>
+              </>
+            )}
+          </Text>
+        ) : (
+          <Text key="pool">
+            {'  '}
+            <Text dimColor>Tax pool:</Text> <Text dimColor>Canadian ACB pooled disposition</Text>
+          </Text>
+        ),
         <Text key="transactions">
           {'  '}
-          <Text dimColor>Transactions:</Text> <Text dimColor>acquired</Text> #{item.acquisitionTransactionId}
-          <Text dimColor> · disposed</Text> #{item.disposalTransactionId}
+          <Text dimColor>Transactions:</Text>
+          {item.acquisitionTransactionId !== undefined ? (
+            <>
+              {' '}
+              <Text dimColor>acquired</Text> #{item.acquisitionTransactionId}
+              <Text dimColor> · </Text>
+            </>
+          ) : (
+            ' '
+          )}
+          <Text dimColor>disposed</Text> #{item.disposalTransactionId}
         </Text>,
         item.fxConversion ? (
           <Text key="fx">
@@ -856,14 +880,6 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
 function getTaxRule(jurisdiction: string): string {
   if (jurisdiction === 'CA') return '50% inclusion';
   return 'full amount';
-}
-
-function computeDisposalTaxable(gainLoss: string, jurisdiction: string): string {
-  if (jurisdiction === 'CA') {
-    const value = parseFloat(gainLoss);
-    return (value * 0.5).toFixed(2);
-  }
-  return gainLoss;
 }
 
 function formatLotStatus(status: string): string {
