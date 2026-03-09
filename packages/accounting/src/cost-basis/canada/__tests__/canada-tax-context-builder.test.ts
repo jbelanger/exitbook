@@ -4,7 +4,17 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildCanadaTestInputContext, createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
+import { getJurisdictionConfig } from '../../jurisdictions/jurisdiction-configs.js';
+import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
+import type { ValidatedScopedTransferSet } from '../../matching/validated-scoped-transfer-links.js';
+import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
+
+import {
+  buildCanadaTestInputContext,
+  createCanadaFxProvider,
+  createConfirmedTransferLink,
+  noopLogger,
+} from './test-utils.js';
 
 describe('buildCanadaTaxInputContext', () => {
   it('uses preserved quoted CAD price without fetching USD->CAD FX', async () => {
@@ -298,7 +308,323 @@ describe('buildCanadaTaxInputContext', () => {
     expect(feeAdjustment?.valuation.totalValueCad.toFixed()).toBe('500');
   });
 
-  it('supports relaxed and strict USDC identity policies from the same imported facts', async () => {
+  it('allocates same-asset network fees once across internal transfer and residual disposition shares', async () => {
+    const fxProvider = createCanadaFxProvider();
+    const withdrawal: UniversalTransactionData = {
+      id: 25,
+      accountId: 1,
+      externalId: 'tx-25',
+      datetime: '2024-02-12T12:00:00Z',
+      timestamp: Date.parse('2024-02-12T12:00:00Z'),
+      source: 'kraken',
+      sourceType: 'exchange',
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1.2'),
+            netAmount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+              source: 'exchange-execution',
+              fetchedAt: new Date('2024-02-12T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC' as Currency,
+          amount: parseDecimal('0.2'),
+          scope: 'network',
+          settlement: 'on-chain',
+          priceAtTxTime: {
+            price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+            source: 'exchange-execution',
+            fetchedAt: new Date('2024-02-12T12:00:00Z'),
+            granularity: 'exact',
+          },
+        },
+      ],
+      operation: { category: 'transfer', type: 'withdrawal' },
+    };
+
+    const deposit: UniversalTransactionData = {
+      id: 26,
+      accountId: 2,
+      externalId: 'tx-26',
+      datetime: '2024-02-12T12:05:00Z',
+      timestamp: Date.parse('2024-02-12T12:05:00Z'),
+      source: 'bitcoin',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.4'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+              source: 'link-propagated',
+              fetchedAt: new Date('2024-02-12T12:05:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const confirmedLink = createConfirmedTransferLink({
+      id: 250,
+      sourceAmount: '0.4',
+      sourceAssetId: 'exchange:kraken:btc',
+      sourceTransaction: withdrawal,
+      targetAmount: '0.4',
+      targetAssetId: 'blockchain:bitcoin:native',
+      targetTransaction: deposit,
+      assetSymbol: 'BTC' as Currency,
+      metadata: {
+        partialMatch: true,
+        fullSourceAmount: '1',
+        fullTargetAmount: '0.4',
+        consumedAmount: '0.4',
+      },
+    });
+
+    const scopedResult = buildCostBasisScopedTransactions([withdrawal, deposit], noopLogger);
+    const scoped = assertOk(scopedResult);
+    const canadaConfig = getJurisdictionConfig('CA');
+    if (!canadaConfig) {
+      throw new Error('Canada jurisdiction config is not registered');
+    }
+
+    const sourceMovementFingerprint = confirmedLink.sourceMovementFingerprint;
+    const targetMovementFingerprint = confirmedLink.targetMovementFingerprint;
+    const validatedLink = {
+      isPartialMatch: true,
+      link: confirmedLink,
+      sourceAssetId: 'exchange:kraken:btc',
+      sourceMovementAmount: parseDecimal('1'),
+      sourceMovementFingerprint,
+      targetAssetId: 'blockchain:bitcoin:native',
+      targetMovementAmount: parseDecimal('0.4'),
+      targetMovementFingerprint,
+    };
+    const validatedTransfers: ValidatedScopedTransferSet = {
+      links: [validatedLink],
+      bySourceMovementFingerprint: new Map([[sourceMovementFingerprint, [validatedLink]]]),
+      byTargetMovementFingerprint: new Map([[targetMovementFingerprint, [validatedLink]]]),
+    };
+
+    const result = await buildCanadaTaxInputContext(
+      scoped.transactions,
+      validatedTransfers,
+      scoped.feeOnlyInternalCarryovers,
+      fxProvider,
+      {
+        taxAssetIdentityPolicy: canadaConfig.taxAssetIdentityPolicy,
+        relaxedTaxIdentitySymbols: canadaConfig.relaxedTaxIdentitySymbols,
+      }
+    );
+    const context = assertOk(result);
+    const disposition = context.inputEvents.find(
+      (event): event is Extract<(typeof context.inputEvents)[number], { kind: 'disposition' }> =>
+        event.kind === 'disposition'
+    );
+    const feeAdjustment = context.inputEvents.find(
+      (event): event is Extract<(typeof context.inputEvents)[number], { kind: 'fee-adjustment' }> =>
+        event.kind === 'fee-adjustment'
+    );
+
+    expect(context.inputEvents.map((event) => event.kind)).toEqual([
+      'transfer-out',
+      'disposition',
+      'fee-adjustment',
+      'transfer-in',
+    ]);
+    expect(disposition?.quantity.toFixed()).toBe('0.6');
+    expect(disposition?.proceedsReductionCad?.toFixed()).toBe('12');
+    expect(feeAdjustment?.quantityReduced?.toFixed()).toBe('0.08');
+    expect(feeAdjustment?.valuation.totalValueCad.toFixed()).toBe('8');
+    expect(
+      disposition && feeAdjustment
+        ? disposition.proceedsReductionCad?.plus(feeAdjustment.valuation.totalValueCad).toFixed()
+        : undefined
+    ).toBe('20');
+  });
+
+  it('emits link-scoped same-asset fee adjustments when one source movement fans out to multiple links', async () => {
+    const fxProvider = createCanadaFxProvider();
+    const withdrawal: UniversalTransactionData = {
+      id: 27,
+      accountId: 1,
+      externalId: 'tx-27',
+      datetime: '2024-02-13T12:00:00Z',
+      timestamp: Date.parse('2024-02-13T12:00:00Z'),
+      source: 'kraken',
+      sourceType: 'exchange',
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1.02'),
+            netAmount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+              source: 'exchange-execution',
+              fetchedAt: new Date('2024-02-13T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC' as Currency,
+          amount: parseDecimal('0.02'),
+          scope: 'network',
+          settlement: 'on-chain',
+          priceAtTxTime: {
+            price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+            source: 'exchange-execution',
+            fetchedAt: new Date('2024-02-13T12:00:00Z'),
+            granularity: 'exact',
+          },
+        },
+      ],
+      operation: { category: 'transfer', type: 'withdrawal' },
+    };
+
+    const firstDeposit: UniversalTransactionData = {
+      id: 28,
+      accountId: 2,
+      externalId: 'tx-28',
+      datetime: '2024-02-13T12:05:00Z',
+      timestamp: Date.parse('2024-02-13T12:05:00Z'),
+      source: 'bitcoin',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.4'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+              source: 'link-propagated',
+              fetchedAt: new Date('2024-02-13T12:05:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const secondDeposit: UniversalTransactionData = {
+      id: 29,
+      accountId: 3,
+      externalId: 'tx-29',
+      datetime: '2024-02-13T12:06:00Z',
+      timestamp: Date.parse('2024-02-13T12:06:00Z'),
+      source: 'bitcoin',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.6'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
+              source: 'link-propagated',
+              fetchedAt: new Date('2024-02-13T12:06:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const firstLink = createConfirmedTransferLink({
+      id: 270,
+      sourceAmount: '0.4',
+      sourceAssetId: 'exchange:kraken:btc',
+      sourceTransaction: withdrawal,
+      targetAmount: '0.4',
+      targetAssetId: 'blockchain:bitcoin:native',
+      targetTransaction: firstDeposit,
+      assetSymbol: 'BTC' as Currency,
+      metadata: {
+        partialMatch: true,
+        fullSourceAmount: '1',
+        fullTargetAmount: '0.4',
+        consumedAmount: '0.4',
+      },
+    });
+    const secondLink = createConfirmedTransferLink({
+      id: 271,
+      sourceAmount: '0.6',
+      sourceAssetId: 'exchange:kraken:btc',
+      sourceTransaction: withdrawal,
+      targetAmount: '0.6',
+      targetAssetId: 'blockchain:bitcoin:native',
+      targetTransaction: secondDeposit,
+      assetSymbol: 'BTC' as Currency,
+      metadata: {
+        partialMatch: true,
+        fullSourceAmount: '1',
+        fullTargetAmount: '0.6',
+        consumedAmount: '0.6',
+      },
+    });
+
+    const result = await buildCanadaTestInputContext(
+      [withdrawal, firstDeposit, secondDeposit],
+      [firstLink, secondLink],
+      fxProvider
+    );
+    const context = assertOk(result);
+    const feeAdjustments = context.inputEvents.filter(
+      (event): event is Extract<(typeof context.inputEvents)[number], { kind: 'fee-adjustment' }> =>
+        event.kind === 'fee-adjustment'
+    );
+
+    expect(feeAdjustments).toHaveLength(2);
+    expect(feeAdjustments.map((event) => event.linkId)).toEqual([270, 271]);
+    expect(feeAdjustments.map((event) => event.relatedEventId)).toEqual([
+      'link:270:transfer-out',
+      'link:271:transfer-out',
+    ]);
+    expect(feeAdjustments.map((event) => event.targetMovementFingerprint)).toEqual([
+      firstLink.targetMovementFingerprint,
+      secondLink.targetMovementFingerprint,
+    ]);
+    expect(feeAdjustments.map((event) => event.feeQuantity.toFixed())).toEqual(['0.008', '0.012']);
+    expect(feeAdjustments.map((event) => event.valuation.totalValueCad.toFixed())).toEqual(['0.8', '1.2']);
+  });
+
+  it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
     const fxProvider = createCanadaFxProvider();
     const exchangeAcquisition: UniversalTransactionData = {
       id: 30,
@@ -363,7 +689,8 @@ describe('buildCanadaTaxInputContext', () => {
     expect(new Set(relaxedContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(new Set(['ca:usdc']));
 
     const strictResult = await buildCanadaTestInputContext([exchangeAcquisition, chainAcquisition], [], fxProvider, {
-      taxAssetIdentityPolicy: 'strict',
+      relaxedTaxIdentitySymbols: [],
+      taxAssetIdentityPolicy: 'strict-onchain-tokens',
     });
     const strictContext = assertOk(strictResult);
     expect(new Set(strictContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(

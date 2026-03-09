@@ -86,6 +86,7 @@ export function createConfirmedTransferLink(params: {
   assetSymbol: Currency;
   id: number;
   linkType?: TransactionLink['linkType'];
+  metadata?: TransactionLink['metadata'] | undefined;
   sourceAmount: string;
   sourceAssetId: string;
   sourcePosition?: number;
@@ -125,6 +126,7 @@ export function createConfirmedTransferLink(params: {
     status: 'confirmed',
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
+    ...(params.metadata ? { metadata: params.metadata } : {}),
   };
 }
 
@@ -132,7 +134,10 @@ export async function buildCanadaTestInputContext(
   transactions: UniversalTransactionData[],
   confirmedLinks: TransactionLink[],
   fxProvider: IFxRateProvider,
-  options?: { taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined }
+  options?: {
+    relaxedTaxIdentitySymbols?: readonly string[] | undefined;
+    taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
+  }
 ) {
   const canadaConfig = getJurisdictionConfig('CA');
   if (!canadaConfig) {
@@ -146,6 +151,7 @@ export async function buildCanadaTestInputContext(
 
   return buildCanadaTaxInputContext(scoped.transactions, validatedLinks, scoped.feeOnlyInternalCarryovers, fxProvider, {
     taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
+    relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
   });
 }
 

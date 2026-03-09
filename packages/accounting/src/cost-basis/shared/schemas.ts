@@ -12,7 +12,7 @@ export const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 export const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
 export const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
-export const TaxAssetIdentityPolicySchema = z.enum(['strict', 'relaxed-stablecoin-symbols']);
+export const TaxAssetIdentityPolicySchema = z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']);
 
 export const VarianceToleranceSchema = z.object({
   warn: z.number().nonnegative(),
@@ -23,6 +23,7 @@ export const JurisdictionConfigSchema = z.object({
   code: JurisdictionSchema,
   sameAssetTransferFeePolicy: SameAssetTransferFeePolicySchema,
   taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema,
+  relaxedTaxIdentitySymbols: z.array(z.string().min(1)),
   varianceTolerance: VarianceToleranceSchema.optional(),
 });
 

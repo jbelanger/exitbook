@@ -3,6 +3,7 @@ import type { Decimal } from 'decimal.js';
 import type { JurisdictionConfig } from '../shared/types.js';
 
 import type { IJurisdictionRules } from './base-rules.js';
+import { requireJurisdictionConfig } from './jurisdiction-configs.js';
 
 /**
  * Canada tax rules
@@ -22,11 +23,7 @@ export class CanadaRules implements IJurisdictionRules {
   /**
    * Jurisdiction configuration
    */
-  private readonly config: JurisdictionConfig = {
-    code: 'CA',
-    sameAssetTransferFeePolicy: 'add-to-basis',
-    taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
-  };
+  private readonly config = requireJurisdictionConfig('CA');
 
   /**
    * Capital gains inclusion rate (50% as of 2024)

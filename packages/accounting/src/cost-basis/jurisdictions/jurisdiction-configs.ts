@@ -13,22 +13,26 @@ export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
   US: {
     code: 'US',
     sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict',
+    taxAssetIdentityPolicy: 'strict-onchain-tokens',
+    relaxedTaxIdentitySymbols: [],
   },
   CA: {
     code: 'CA',
     sameAssetTransferFeePolicy: 'add-to-basis',
     taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
+    relaxedTaxIdentitySymbols: ['usdc'],
   },
   UK: {
     code: 'UK',
     sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict',
+    taxAssetIdentityPolicy: 'strict-onchain-tokens',
+    relaxedTaxIdentitySymbols: [],
   },
   EU: {
     code: 'EU',
     sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict',
+    taxAssetIdentityPolicy: 'strict-onchain-tokens',
+    relaxedTaxIdentitySymbols: [],
   },
 };
 
@@ -40,4 +44,13 @@ export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
  */
 export function getJurisdictionConfig(code: string): JurisdictionConfig | undefined {
   return JURISDICTION_CONFIGS[code] ?? undefined;
+}
+
+export function requireJurisdictionConfig(code: JurisdictionConfig['code']): JurisdictionConfig {
+  const config = getJurisdictionConfig(code);
+  if (!config) {
+    throw new Error(`Jurisdiction config ${code} is not registered`);
+  }
+
+  return config;
 }

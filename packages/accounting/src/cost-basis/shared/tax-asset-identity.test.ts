@@ -11,7 +11,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'exchange:kraken:btc',
         assetSymbol: 'BTC' as Currency,
       },
-      'strict'
+      {
+        policy: 'strict-onchain-tokens',
+        relaxedSymbolIdentities: [],
+      }
     );
 
     expect(assertOk(result).identityKey).toBe('btc');
@@ -23,7 +26,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC' as Currency,
       },
-      'strict'
+      {
+        policy: 'strict-onchain-tokens',
+        relaxedSymbolIdentities: [],
+      }
     );
 
     expect(assertOk(result).identityKey).toBe('btc');
@@ -36,7 +42,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId,
         assetSymbol: 'USDC' as Currency,
       },
-      'strict'
+      {
+        policy: 'strict-onchain-tokens',
+        relaxedSymbolIdentities: [],
+      }
     );
 
     expect(assertOk(result).identityKey).toBe(assetId);
@@ -48,7 +57,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         assetSymbol: 'USDC' as Currency,
       },
-      'relaxed-stablecoin-symbols'
+      {
+        policy: 'relaxed-stablecoin-symbols',
+        relaxedSymbolIdentities: ['usdc'],
+      }
     );
 
     expect(assertOk(result).identityKey).toBe('usdc');
@@ -60,7 +72,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'fiat:usd',
         assetSymbol: 'USD' as Currency,
       },
-      'strict'
+      {
+        policy: 'strict-onchain-tokens',
+        relaxedSymbolIdentities: [],
+      }
     );
 
     expect(assertErr(result).message).toContain('non-fiat asset');

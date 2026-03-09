@@ -64,6 +64,16 @@ describe('runCanadaAcbEngine', () => {
     expect(value.pools[0]?.quantityHeld.toFixed()).toBe('1');
     expect(value.pools[0]?.totalAcbCad.toFixed()).toBe('12550');
     expect(value.pools[0]?.acbPerUnitCad.toFixed()).toBe('12550');
+    expect(value.pools[0]?.acquisitionLayers.map((layer) => layer.remainingQuantity.toFixed())).toEqual(['0.5', '0.5']);
+    expect(value.pools[0]?.acquisitionLayers.map((layer) => layer.remainingAllocatedAcbCad.toFixed())).toEqual([
+      '6275',
+      '6275',
+    ]);
+    expect(
+      value.pools[0]?.acquisitionLayers
+        .reduce((sum, layer) => sum.plus(layer.remainingAllocatedAcbCad), parseDecimal('0'))
+        .toFixed()
+    ).toBe('12550');
   });
 
   it('fails closed when disposal exceeds holdings', () => {

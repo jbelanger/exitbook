@@ -27,6 +27,25 @@ workflow with its own:
 - superficial loss adjustments
 - tax-native reporting
 
+## Status
+
+The identity, CAD valuation, pooled ACB, and transfer-fee foundation now exist
+in the Canada slice. Specifically, the current implementation already has:
+
+- explicit `taxAssetIdentityPolicy` plus `relaxedTaxIdentitySymbols`
+- transaction-time CAD `CanadaTaxValuation`
+- transfer-aware `CanadaTaxInputContextBuilder`
+- pooled `CanadaAcbEngine`
+- link-scoped same-asset transfer fee adjustments when one source movement fans
+  out across multiple confirmed links
+
+Still pending from the full greenfield target:
+
+- superficial loss engine and adjustment events
+- Canada-native report builder
+- top-level cost-basis workflow cutover so `CA` uses only the Canada slice end
+  to end
+
 ## Goals
 
 - Compute Canadian gains and losses in CAD at transaction time, not by
@@ -111,7 +130,23 @@ recompute taxable amounts.
 
 ## Greenfield Architecture
 
-The Canada path should become a dedicated vertical slice:
+Current landed shape:
+
+```text
+full transaction history
+  +
+confirmed links
+  ↓
+CanadaTaxInputContextBuilder
+  ↓
+CanadaTaxEvent[]
+  ↓
+CanadaAcbEngine
+  ↓
+CanadaAcbWorkflowResult
+```
+
+Target end-state after the remaining phases:
 
 ```text
 full transaction history
@@ -168,25 +203,32 @@ venue.
 
 Carries transaction-time valuation in CAD.
 
-Required fields:
+Current fields:
 
 - `taxCurrency: 'CAD'`
+- `storagePriceAmount`
+- `storagePriceCurrency`
+- `quotedPriceAmount`
+- `quotedPriceCurrency`
 - `unitValueCad`
 - `totalValueCad`
-- `fxRate`
-- `fxSource`
-- `valuedAt`
 - `valuationSource`
+- optional `fxRateToCad`
+- optional `fxSource`
+- optional `fxTimestamp`
 
 ### `CanadaTaxEvent`
 
-Discriminated union:
+Current discriminated union:
 
 - `acquisition`
 - `disposition`
 - `transfer-out`
 - `transfer-in`
 - `fee-adjustment`
+
+Planned follow-on event kind:
+
 - `superficial-loss-adjustment`
 
 Every event carries:
@@ -207,10 +249,17 @@ Required fields:
 - `quantityHeld`
 - `totalAcbCad`
 - `acbPerUnitCad`
-- `openAcquisitionLayers`
-- `pendingSuperficialAdjustments`
+- `acquisitionLayers`
 
-The pool is the authoritative Canadian accounting state.
+Each acquisition layer currently carries:
+
+- historical `totalCostCad`
+- `remainingQuantity`
+- `remainingAllocatedAcbCad` as the layer's current audit projection of pooled
+  ACB
+
+The pool is the authoritative Canadian accounting state. Superficial-loss
+pending state is still future work.
 
 ## Foundational Design Decisions
 
@@ -272,27 +321,34 @@ The engine must:
 - attach that denied amount to substituted property
 - keep the audit trail for later disposal
 
-## Proposed File Layout
+## File Layout
 
-New Canada slice:
+Implemented foundation:
 
 ```text
 packages/accounting/src/cost-basis/canada/
   canada-tax-types.ts
   canada-tax-identity-utils.ts
   canada-tax-context-builder.ts
-  canada-tax-valuation-utils.ts
-  canada-acb-pool-utils.ts
   canada-acb-engine.ts
-  canada-superficial-loss-types.ts
-  canada-superficial-loss-engine.ts
-  canada-tax-report-builder.ts
-  canada-cost-basis-workflow.ts
+  canada-acb-workflow.ts
   __tests__/
     canada-tax-context-builder.test.ts
     canada-acb-engine.test.ts
+```
+
+Planned follow-ons:
+
+```text
+packages/accounting/src/cost-basis/canada/
+  canada-tax-valuation-utils.ts
+  canada-acb-pool-utils.ts
+  canada-superficial-loss-types.ts
+  canada-superficial-loss-engine.ts
+  canada-tax-report-builder.ts
+  __tests__/
     canada-superficial-loss-engine.test.ts
-    canada-cost-basis-workflow.test.ts
+    canada-acb-workflow.test.ts
 ```
 
 Shared/core changes:
@@ -348,6 +404,9 @@ Rules:
 - same-property owned transfers preserve pool economics
 - transfer fees apply according to Canadian policy
 - transfer events must not split identical-property pools by venue
+- same-asset transfer fee adjustments must preserve link provenance; if one
+  source movement maps to multiple confirmed links, emit one fee-adjustment
+  event per link rather than attributing the full adjustment to the first link
 
 ### Step 3: Update ACB pools
 
@@ -409,6 +468,8 @@ Implement:
 
 Do this before any Canada math rewrite.
 
+Status: landed, including jurisdiction-configured relaxed symbol overrides.
+
 ### Phase 2: CAD valuation foundation
 
 Implement:
@@ -419,6 +480,8 @@ Implement:
 
 At the end of this phase, Canada events should already be expressed in CAD.
 
+Status: landed.
+
 ### Phase 3: ACB pool engine
 
 Implement:
@@ -428,6 +491,9 @@ Implement:
 - transfer preservation
 
 Do not implement superficial loss as a shortcut in this phase.
+
+Status: landed for pooled ACB plus transfer-fee adjustments. Superficial loss is
+still separate future work.
 
 ### Phase 4: Superficial loss engine
 
@@ -465,6 +531,8 @@ Minimum required cases:
 - strict identity policy keeps on-chain `USDC` token ids separate from exchange `USDC`
 - CAD valuation differs from USD due to FX movement between buy and sell dates
 - transfer fee increases ACB when policy requires it
+- same source movement split across two confirmed links emits distinct
+  fee-adjustment events with correct `linkId` provenance
 - superficial loss with full denial
 - superficial loss with partial denial
 - reacquisition inside window but no holding at day `+30` does not deny
@@ -485,17 +553,22 @@ These are design questions, not reasons to block the document:
 - whether Canada transfer-fee policy should stay in accounting config or be
   fully embedded in the Canada workflow
 
-## Naming Recommendations
+## Naming Decisions
 
-These renames should happen as part of implementation:
+Applied or current names in the landed slice:
 
-- `assetId` -> keep as-is for storage identity; introduce resolved
-  `assetIdentityKey` + `taxPropertyKey` for tax pooling
-- `currency` in cost-basis config -> split into `taxCurrency` and
+- keep `assetId` for storage identity; use `assetIdentityKey` and
+  `taxPropertyKey` for tax pooling
+- use `remainingAllocatedAcbCad` for the layer-level projection of pooled ACB;
+  `remainingCostCad` was too easy to misread as historical layer cost
+
+Still recommended for later phases:
+
+- split `currency` in cost-basis config into `taxCurrency` and
   `displayCurrency`
-- `CostBasisReportGenerator` -> replace with `CanadaTaxReportBuilder` and
+- replace `CostBasisReportGenerator` with `CanadaTaxReportBuilder` and
   `DisplayReportBuilder`
-- `isLossDisallowed()` -> replace with a richer adjustment workflow; the current
+- replace `isLossDisallowed()` with a richer adjustment workflow; the current
   name overstates what the function actually proves
 
 ## Recommendation
@@ -503,6 +576,7 @@ These renames should happen as part of implementation:
 If we want Canadian correctness, we should not continue accreting logic onto
 `AverageCostStrategy`, `CanadaRules`, and the existing report generator.
 
-The correct move is to create a Canada-owned tax workflow on top of the
-existing accounting-scoped transaction boundary, then migrate CLI dispatch to
-that workflow once identity and CAD valuation primitives are in place.
+The right continuation from here is to finish the Canada-owned workflow on top
+of the landed identity, CAD valuation, pooled ACB, and transfer-fee foundation,
+then cut `CA` over once superficial loss and Canada-native reporting are in
+place.

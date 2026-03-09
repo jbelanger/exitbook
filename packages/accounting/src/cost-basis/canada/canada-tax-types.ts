@@ -98,6 +98,7 @@ export interface CanadaAcquisitionLayer {
   quantityAcquired: Decimal;
   remainingQuantity: Decimal;
   totalCostCad: Decimal;
+  remainingAllocatedAcbCad: Decimal;
 }
 
 export interface CanadaLayerDepletion {

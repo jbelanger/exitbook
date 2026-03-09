@@ -3,6 +3,7 @@ import type { Decimal } from 'decimal.js';
 import type { JurisdictionConfig } from '../shared/types.js';
 
 import type { IJurisdictionRules } from './base-rules.js';
+import { requireJurisdictionConfig } from './jurisdiction-configs.js';
 
 /**
  * United States tax rules
@@ -18,11 +19,7 @@ export class USRules implements IJurisdictionRules {
   /**
    * Jurisdiction configuration
    */
-  private readonly config: JurisdictionConfig = {
-    code: 'US',
-    sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict',
-  };
+  private readonly config = requireJurisdictionConfig('US');
 
   /**
    * Long-term holding period threshold: 365 days (1 year)

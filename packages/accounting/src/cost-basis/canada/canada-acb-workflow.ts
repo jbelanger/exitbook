@@ -20,6 +20,7 @@ export interface CanadaAcbWorkflowResult {
 }
 
 export interface CanadaAcbWorkflowOptions {
+  relaxedTaxIdentitySymbols?: readonly string[] | undefined;
   taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
 }
 
@@ -27,7 +28,7 @@ export async function runCanadaAcbWorkflow(
   transactions: UniversalTransactionData[],
   confirmedLinks: TransactionLink[],
   fxProvider: IFxRateProvider,
-  options?: CanadaAcbWorkflowOptions  
+  options?: CanadaAcbWorkflowOptions
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   const canadaConfig = getJurisdictionConfig('CA');
   if (!canadaConfig) {
@@ -50,6 +51,7 @@ export async function runCanadaAcbWorkflow(
     scopedResult.value.feeOnlyInternalCarryovers,
     fxProvider,
     {
+      relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
       taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
     }
   );

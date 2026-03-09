@@ -17,23 +17,28 @@ export interface ResolvedTaxAssetIdentity {
  * The relaxed policy intentionally collapses selected symbols across venues and
  * chains so tax pooling can run from imported facts alone.
  */
-const RELAXED_SYMBOL_IDENTITIES = new Set<string>(['usdc']);
+export interface TaxAssetIdentityResolutionConfig {
+  policy: TaxAssetIdentityPolicy;
+  relaxedSymbolIdentities: readonly string[];
+}
 
 function normalizeIdentitySymbol(assetSymbol: Currency): string {
   return assetSymbol.trim().toLowerCase();
 }
 
-function shouldRelaxBlockchainTokenIdentity(assetSymbol: Currency, policy: TaxAssetIdentityPolicy): boolean {
-  if (policy !== 'relaxed-stablecoin-symbols') {
+function shouldRelaxBlockchainTokenIdentity(assetSymbol: Currency, config: TaxAssetIdentityResolutionConfig): boolean {
+  if (config.policy !== 'relaxed-stablecoin-symbols') {
     return false;
   }
 
-  return RELAXED_SYMBOL_IDENTITIES.has(normalizeIdentitySymbol(assetSymbol));
+  return config.relaxedSymbolIdentities
+    .map((symbol) => symbol.trim().toLowerCase())
+    .includes(normalizeIdentitySymbol(assetSymbol));
 }
 
 export function resolveTaxAssetIdentity(
   input: TaxAssetIdentityInput,
-  policy: TaxAssetIdentityPolicy
+  config: TaxAssetIdentityResolutionConfig
 ): Result<ResolvedTaxAssetIdentity, Error> {
   if (isFiat(input.assetSymbol)) {
     return err(new Error(`Tax asset identity requires a non-fiat asset, received ${input.assetSymbol}`));
@@ -57,7 +62,7 @@ export function resolveTaxAssetIdentity(
         return ok({ identityKey: symbolIdentity });
       }
 
-      if (shouldRelaxBlockchainTokenIdentity(input.assetSymbol, policy)) {
+      if (shouldRelaxBlockchainTokenIdentity(input.assetSymbol, config)) {
         return ok({ identityKey: symbolIdentity });
       }
 

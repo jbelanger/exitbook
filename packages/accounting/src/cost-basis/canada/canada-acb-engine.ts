@@ -81,12 +81,38 @@ function addAcquisitionToPool(pool: CanadaAcbPoolState, event: CanadaAcquisition
     quantityAcquired: event.quantity,
     remainingQuantity: event.quantity,
     totalCostCad,
+    remainingAllocatedAcbCad: totalCostCad,
   };
 
   pool.acquisitionLayers.push(layer);
   pool.quantityHeld = pool.quantityHeld.plus(event.quantity);
   pool.totalAcbCad = pool.totalAcbCad.plus(totalCostCad);
   pool.acbPerUnitCad = pool.quantityHeld.isZero() ? parseDecimal('0') : pool.totalAcbCad.dividedBy(pool.quantityHeld);
+  rebalanceRemainingLayerCosts(pool);
+}
+
+function rebalanceRemainingLayerCosts(pool: CanadaAcbPoolState): void {
+  const openLayers = pool.acquisitionLayers.filter((layer) => layer.remainingQuantity.gt(0));
+
+  for (const layer of pool.acquisitionLayers) {
+    if (layer.remainingQuantity.lte(0)) {
+      layer.remainingAllocatedAcbCad = parseDecimal('0');
+    }
+  }
+
+  if (pool.quantityHeld.isZero()) {
+    return;
+  }
+
+  let allocatedCostCad = parseDecimal('0');
+  for (const [index, layer] of openLayers.entries()) {
+    const isLastLayer = index === openLayers.length - 1;
+    const remainingAllocatedAcbCad = isLastLayer
+      ? normalizeDecimal(pool.totalAcbCad.minus(allocatedCostCad))
+      : normalizeDecimal(pool.totalAcbCad.times(layer.remainingQuantity).dividedBy(pool.quantityHeld));
+    layer.remainingAllocatedAcbCad = remainingAllocatedAcbCad;
+    allocatedCostCad = allocatedCostCad.plus(remainingAllocatedAcbCad);
+  }
 }
 
 function depleteLayersProRata(
@@ -171,6 +197,7 @@ function applyDispositionToPool(
   pool.quantityHeld = normalizeDecimal(pool.quantityHeld.minus(event.quantity));
   pool.totalAcbCad = normalizeDecimal(Decimal.max(parseDecimal('0'), pool.totalAcbCad.minus(costBasisCad)));
   pool.acbPerUnitCad = pool.quantityHeld.isZero() ? parseDecimal('0') : pool.totalAcbCad.dividedBy(pool.quantityHeld);
+  rebalanceRemainingLayerCosts(pool);
 
   return ok({
     dispositionEventId: event.eventId,
@@ -198,6 +225,7 @@ function applyAddToPoolCostAdjustment(pool: CanadaAcbPoolState, event: CanadaFee
 
   pool.totalAcbCad = pool.totalAcbCad.plus(event.valuation.totalValueCad);
   pool.acbPerUnitCad = pool.totalAcbCad.dividedBy(pool.quantityHeld);
+  rebalanceRemainingLayerCosts(pool);
   return ok(undefined);
 }
 
@@ -246,6 +274,7 @@ function applySameAssetTransferFeeAdjustment(
   pool.quantityHeld = nextQuantityHeld;
   pool.totalAcbCad = nextTotalAcbCad;
   pool.acbPerUnitCad = pool.quantityHeld.isZero() ? parseDecimal('0') : pool.totalAcbCad.dividedBy(pool.quantityHeld);
+  rebalanceRemainingLayerCosts(pool);
 
   return ok(undefined);
 }
