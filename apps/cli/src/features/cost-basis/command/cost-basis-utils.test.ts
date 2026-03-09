@@ -67,7 +67,7 @@ describe('buildCostBasisInputFromFlags', () => {
 
   it('should pass through fiatCurrency and date overrides', () => {
     const options: CostBasisCommandOptions = {
-      method: 'fifo',
+      method: 'average-cost',
       jurisdiction: 'CA',
       taxYear: 2024,
       fiatCurrency: 'EUR',
@@ -82,6 +82,21 @@ describe('buildCostBasisInputFromFlags', () => {
       expect(result.value.config.currency).toBe('EUR');
       expect(result.value.config.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
       expect(result.value.config.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
+    }
+  });
+
+  it('should error when CA is requested with fifo', () => {
+    const options: CostBasisCommandOptions = {
+      method: 'fifo',
+      jurisdiction: 'CA',
+      taxYear: 2024,
+    };
+
+    const result = buildCostBasisInputFromFlags(options);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('supports only average-cost');
     }
   });
 });

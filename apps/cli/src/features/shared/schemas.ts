@@ -342,16 +342,34 @@ export const PricesSetFxCommandOptionsSchema = z.object({
 /**
  * Cost-basis command options
  */
-export const CostBasisCommandOptionsSchema = z.object({
-  method: z.string().optional(),
-  jurisdiction: z.string().optional(),
-  taxYear: z.string().optional(),
-  fiatCurrency: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  asset: z.string().optional(),
-  json: z.boolean().optional(),
-});
+export const CostBasisCommandOptionsSchema = z
+  .object({
+    method: z.string().optional(),
+    jurisdiction: z.string().optional(),
+    taxYear: z.string().optional(),
+    fiatCurrency: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    asset: z.string().optional(),
+    json: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'average-cost method is only valid with CA jurisdiction',
+        path: ['method'],
+      });
+    }
+
+    if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'CA jurisdiction currently supports only average-cost (ACB)',
+        path: ['method'],
+      });
+    }
+  });
 
 /**
  * Accounts view command options

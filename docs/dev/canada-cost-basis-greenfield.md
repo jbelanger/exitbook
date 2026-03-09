@@ -38,7 +38,7 @@ in the Canada slice. Specifically, the current implementation already has:
 - pooled `CanadaAcbEngine`
 - `CanadaSuperficialLossEngine` with denied-loss carry-forward into later ACB
 - `CanadaTaxReport` plus optional `CanadaDisplayCostBasisReport`
-- top-level workflow cut-in for `CA + average-cost`
+- top-level workflow cut-in for `CA`
 - Canada workflow lookahead through `endDate + 30 days` while keeping report
   rows filtered to the requested calculation window
 - link-scoped same-asset transfer fee adjustments when one source movement fans
@@ -46,15 +46,15 @@ in the Canada slice. Specifically, the current implementation already has:
 
 Still pending from the full greenfield target:
 
-- full `CA`-only cutover so `fifo` and `lifo` no longer fall back to the
-  generic lot pipeline
 - richer Canada transfer presentation in the CLI/report layer
 
-Today `CA + average-cost` already enters the Canada workflow.
-The remaining generic lot-pipeline path is still active for:
+Today `CA` enters the Canada workflow in
+`packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`,
+and non-`average-cost` Canada requests are rejected in shared validation and
+CLI prompts.
+The remaining generic lot-pipeline path in that workflow is still active for:
 
 - non-CA jurisdictions
-- `CA` requests that still select `fifo` or `lifo`
 
 That generic path still goes through:
 
@@ -751,19 +751,18 @@ Detailed cutover sequence:
    jurisdiction logic.
 3. Load confirmed links once through
    `packages/accounting/src/ports/cost-basis-persistence.ts`.
-4. For `CA + average-cost`, run `runCanadaAcbWorkflow()`, then the superficial
+4. For `CA`, run `runCanadaAcbWorkflow()`, then the superficial
    loss engine, then the Canada report builder.
 5. Build any non-CAD display projection from the Canada report rather than from
    USD-origin calculations.
-6. Reject `fifo`, `lifo`, and `specific-id` for `CA` in validation and prompts
-   once the Canada path is the only CA path; the current generic-pipeline
-   fallback should be removed rather than kept as a compatibility mode.
+6. Reject `fifo`, `lifo`, and `specific-id` for `CA` in validation and prompts;
+   the Canada path should be the only `CA` path.
 7. Remove `CA` use of `AverageCostStrategy`, `CanadaRules`,
    `checkLossDisallowance()`, and `CostBasisReportGenerator`.
 
-Status: partially landed. `CA + average-cost` now branches into the Canada
-workflow with superficial loss and report assembly. Remaining cutover work is
-to remove `CA` fallback into the generic pipeline for unsupported methods.
+Status: landed in `CostBasisWorkflow`. `CA` now branches into the Canada
+workflow there, and unsupported Canada methods are rejected before workflow
+dispatch. Remaining work is richer transfer presentation.
 
 ## Test Matrix
 

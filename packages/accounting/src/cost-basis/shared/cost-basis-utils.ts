@@ -56,6 +56,23 @@ function validateJurisdiction(jurisdiction: string): Result<CostBasisConfig['jur
   return ok(jurisdiction as CostBasisConfig['jurisdiction']);
 }
 
+function validateMethodJurisdictionCombination(
+  method: CostBasisConfig['method'],
+  jurisdiction: CostBasisConfig['jurisdiction']
+): Result<void, Error> {
+  if (jurisdiction === 'CA' && method !== 'average-cost') {
+    return err(new Error(`Canada (CA) cost basis currently supports only average-cost (ACB). Received '${method}'.`));
+  }
+
+  if (method === 'average-cost' && jurisdiction !== 'CA') {
+    return err(
+      new Error('Average Cost (ACB) is only supported for Canada (CA). For other jurisdictions, use FIFO or LIFO.')
+    );
+  }
+
+  return ok(undefined);
+}
+
 /**
  * Validate fiat currency
  */
@@ -155,6 +172,9 @@ export function buildCostBasisInput(fields: {
   if (jurisdictionResult.isErr()) return err(jurisdictionResult.error);
   const jurisdiction = jurisdictionResult.value;
 
+  const combinationResult = validateMethodJurisdictionCombination(method, jurisdiction);
+  if (combinationResult.isErr()) return err(combinationResult.error);
+
   const taxYearResult = validateTaxYear(fields.taxYear);
   if (taxYearResult.isErr()) return err(taxYearResult.error);
   const taxYear = taxYearResult.value;
@@ -212,11 +232,8 @@ export function buildCostBasisInput(fields: {
 export function validateCostBasisInput(params: CostBasisInput): Result<void, Error> {
   const { config } = params;
 
-  if (config.method === 'average-cost' && config.jurisdiction !== 'CA') {
-    return err(
-      new Error('Average Cost (ACB) is only supported for Canada (CA). For other jurisdictions, use FIFO or LIFO.')
-    );
-  }
+  const combinationResult = validateMethodJurisdictionCombination(config.method, config.jurisdiction);
+  if (combinationResult.isErr()) return err(combinationResult.error);
 
   if (config.method === 'specific-id') {
     return err(

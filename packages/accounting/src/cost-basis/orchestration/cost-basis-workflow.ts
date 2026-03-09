@@ -70,7 +70,7 @@ export class CostBasisWorkflow {
     const { config } = params;
     logger.debug({ config }, 'Starting cost basis calculation');
 
-    if (config.jurisdiction === 'CA' && config.method === 'average-cost') {
+    if (config.jurisdiction === 'CA') {
       const filteredResult = this.filterTransactionsForWindow(transactions, config, { lookaheadDays: 30 });
       if (filteredResult.isErr()) return err(filteredResult.error);
       return this.executeCanadaWorkflow(params, filteredResult.value);

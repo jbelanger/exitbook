@@ -4,7 +4,7 @@ import {
   type FiatCurrency,
   type ValidatedCostBasisConfig,
 } from '@exitbook/accounting';
-import { Box, render, Text, useInput } from 'ink';
+import { Box, render, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 
 import { ConfirmPrompt } from '../../../ui/shared/ConfirmPrompt.jsx';
@@ -18,7 +18,6 @@ type Method = 'fifo' | 'lifo' | 'average-cost';
 type PromptStep =
   | 'jurisdiction'
   | 'method'
-  | 'cra-warning'
   | 'tax-year'
   | 'currency'
   | 'use-custom-dates'
@@ -47,17 +46,26 @@ const jurisdictionOptions: SelectOption[] = [
 ];
 
 function buildMethodOptions(jurisdiction: Jurisdiction): SelectOption[] {
-  const craHint = jurisdiction === 'CA' ? 'Not CRA-compliant for identical properties' : undefined;
-  const options: SelectOption[] = [
-    { label: 'FIFO (First In, First Out)', value: 'fifo', hint: craHint },
-    { label: 'LIFO (Last In, First Out)', value: 'lifo', hint: craHint },
-  ];
+  const options: SelectOption[] =
+    jurisdiction === 'CA'
+      ? [
+          {
+            label: 'Average Cost (ACB)',
+            value: 'average-cost',
+            hint: 'CRA pooled Adjusted Cost Base workflow',
+          },
+        ]
+      : [
+          { label: 'FIFO (First In, First Out)', value: 'fifo' },
+          { label: 'LIFO (Last In, First Out)', value: 'lifo' },
+        ];
 
-  if (jurisdiction === 'CA') {
+  if (jurisdiction !== 'CA') {
     options.push({
       label: 'Average Cost (ACB)',
       value: 'average-cost',
-      hint: 'Canadian Adjusted Cost Base - ACB adjustment for denied losses not automated',
+      hint: 'Canada only',
+      disabled: true,
     });
   }
 
@@ -77,39 +85,6 @@ const currencyOptions: SelectOption[] = [
   { label: 'Euro (EUR)', value: 'EUR' },
   { label: 'British Pound (GBP)', value: 'GBP' },
 ];
-
-// ─── CRA Warning component ──────────────────────────────────────────────────
-
-interface CraWarningProps {
-  method: string;
-  onContinue: () => void;
-  onCancel: () => void;
-}
-
-const CraWarning: FC<CraWarningProps> = ({ method, onContinue, onCancel }) => {
-  useInput((input, key) => {
-    if (key.escape || (key.ctrl && input === 'c')) {
-      onCancel();
-      return;
-    }
-    if (key.return) {
-      onContinue();
-    }
-  });
-
-  return (
-    <Box flexDirection="column">
-      <Text color="yellow">{'  '}Tax Compliance Warning</Text>
-      <Text>{'  '}CRA generally requires Average Cost (ACB) for identical properties</Text>
-      <Text>
-        {'  '}like cryptocurrencies. Using {method.toUpperCase()} may not be compliant
-      </Text>
-      <Text>{'  '}with Canadian tax regulations.</Text>
-      <Text>{'  '}Consult a tax professional to determine the appropriate method.</Text>
-      <Text dimColor>{'  '}Press Enter to continue...</Text>
-    </Box>
-  );
-};
 
 // ─── Main prompt app ─────────────────────────────────────────────────────────
 
@@ -134,15 +109,6 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
   const handleMethod = (value: string): void => {
     const method = value as Method;
     setAnswers((prev) => ({ ...prev, method }));
-    // Show CRA warning for CA + non-ACB
-    if (answers.jurisdiction === 'CA' && (method === 'fifo' || method === 'lifo')) {
-      setStep('cra-warning');
-    } else {
-      setStep('tax-year');
-    }
-  };
-
-  const handleCraWarningContinue = (): void => {
     setStep('tax-year');
   };
 
@@ -230,16 +196,8 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
         <SelectPrompt
           message="Select cost basis calculation method:"
           options={buildMethodOptions(answers.jurisdiction!)}
-          initialValue="fifo"
+          initialValue={answers.jurisdiction === 'CA' ? 'average-cost' : 'fifo'}
           onSubmit={handleMethod}
-          onCancel={onCancel}
-        />
-      )}
-
-      {step === 'cra-warning' && (
-        <CraWarning
-          method={answers.method!}
-          onContinue={handleCraWarningContinue}
           onCancel={onCancel}
         />
       )}

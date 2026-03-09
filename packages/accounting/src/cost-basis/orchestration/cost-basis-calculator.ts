@@ -83,9 +83,8 @@ export async function calculateCostBasisFromScopedTransactions(
   }
 
   if (config.jurisdiction === 'CA' && config.method !== 'average-cost') {
-    logger.warn(
-      { jurisdiction: config.jurisdiction, method: config.method },
-      'CRA generally requires Average Cost (ACB) for identical properties. Using FIFO/LIFO may not be compliant with Canadian tax regulations.'
+    return err(
+      new Error(`Canada (CA) cost basis currently supports only average-cost (ACB). Received '${config.method}'.`)
     );
   }
 

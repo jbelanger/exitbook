@@ -30,7 +30,7 @@ describe('cost-basis-utils', () => {
 
       it('should accept CAD as valid currency', () => {
         const result = buildCostBasisInput({
-          method: 'fifo',
+          method: 'average-cost',
           jurisdiction: 'CA',
           taxYear: 2024,
           fiatCurrency: 'CAD',
@@ -102,7 +102,7 @@ describe('cost-basis-utils', () => {
 
       it('should use default currency when not provided (CA -> CAD)', () => {
         const result = buildCostBasisInput({
-          method: 'fifo',
+          method: 'average-cost',
           jurisdiction: 'CA',
           taxYear: 2024,
         });
@@ -247,6 +247,17 @@ describe('cost-basis-utils', () => {
 
         const resultError = assertErr(result);
         expect(resultError.message).toContain('out of reasonable range');
+      });
+
+      it('should error when Canada uses a non-average-cost method', () => {
+        const result = buildCostBasisInput({
+          method: 'fifo',
+          jurisdiction: 'CA',
+          taxYear: 2024,
+        });
+
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain('supports only average-cost');
       });
     });
   });
@@ -604,6 +615,22 @@ describe('cost-basis-utils', () => {
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Average Cost (ACB) is only supported for Canada');
+    });
+
+    it('should error when Canada uses fifo', () => {
+      const result = validateCostBasisInput({
+        config: {
+          method: 'fifo',
+          jurisdiction: 'CA',
+          taxYear: 2024,
+          currency: 'CAD',
+          startDate: new Date('2024-01-01'),
+          endDate: new Date('2024-12-31'),
+        },
+      });
+
+      const resultError = assertErr(result);
+      expect(resultError.message).toContain('supports only average-cost');
     });
 
     it('should error when specific-id method used (not implemented)', () => {

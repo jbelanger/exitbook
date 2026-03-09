@@ -203,6 +203,28 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.displayReport?.summary.totalTaxableGainLoss.toFixed()).toBe('750');
   });
 
+  it('rejects non-average-cost requests for Canada before any generic pipeline fallback', async () => {
+    const workflow = new CostBasisWorkflow(createStore());
+    const result = await workflow.execute(
+      {
+        config: {
+          method: 'fifo',
+          jurisdiction: 'CA',
+          taxYear: 2024,
+          currency: 'CAD',
+          startDate: new Date('2024-01-01T00:00:00Z'),
+          endDate: new Date('2024-12-31T23:59:59Z'),
+        },
+      },
+      []
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('supports only average-cost');
+    }
+  });
+
   it('uses post-period lookahead transactions for Canada superficial-loss evaluation without reporting them as in-period rows', async () => {
     const transactions = [
       createAcquisitionTransaction({
