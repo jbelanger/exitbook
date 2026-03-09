@@ -133,6 +133,7 @@ export const BlockfrostTransactionDetailsSchema = z
       )
       .nullish(),
     deposit: z.string().regex(/^\d+$/, 'Deposit must be a numeric string (lovelace)').nullish(),
+    treasury_donation: z.string().regex(/^\d+$/, 'Treasury donation must be a numeric string (lovelace)').nullish(),
   })
   .strict();
 
