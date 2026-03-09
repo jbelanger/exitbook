@@ -6,6 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { analyzeLinkGaps } from '../links-gap-utils.js';
 
 describe('analyzeLinkGaps', () => {
+  const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';
+  const serviceInAddress = '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed';
+  const serviceOutAddress = '0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef';
+
   const createMockTransaction = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData => ({
     id: 1,
     accountId: 1,
@@ -102,6 +106,47 @@ describe('analyzeLinkGaps', () => {
       operation: {
         category: 'transfer',
         type: 'withdrawal',
+      },
+      ...overrides,
+    });
+
+  const createBlockchainSwap = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
+    createMockTransaction({
+      id: 41,
+      accountId: 1,
+      externalId: 'eth-swap',
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      datetime: '2026-02-05T04:08:59.000Z',
+      timestamp: Date.parse('2026-02-05T04:08:59.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:aave',
+            assetSymbol: 'AAVE' as Currency,
+            grossAmount: parseDecimal('1.9'),
+            netAmount: parseDecimal('1.9'),
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:rsr',
+            assetSymbol: 'RSR' as Currency,
+            grossAmount: parseDecimal('135000'),
+            netAmount: parseDecimal('135000'),
+          },
+        ],
+      },
+      operation: {
+        category: 'trade',
+        type: 'swap',
       },
       ...overrides,
     });
@@ -234,6 +279,161 @@ describe('analyzeLinkGaps', () => {
       outflowOccurrences: 1,
       outflowMissingAmount: '0.5',
     });
+  });
+
+  it('should suppress nearby one-sided blockchain flows when they look like a service-mediated cross-asset flow', () => {
+    const syrupDeposit = createBlockchainDeposit({
+      id: 101,
+      accountId: 7,
+      externalId: 'syrup-deposit',
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      datetime: '2026-02-05T03:51:35.000Z',
+      timestamp: Date.parse('2026-02-05T03:51:35.000Z'),
+      from: serviceInAddress,
+      to: selfAddress,
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'syrup-deposit-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:syrup',
+            assetSymbol: 'SYRUP' as Currency,
+            grossAmount: parseDecimal('829.908183876325994303'),
+            netAmount: parseDecimal('829.908183876325994303'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+    const swap = createBlockchainSwap({
+      id: 102,
+      accountId: 7,
+      externalId: 'service-swap',
+      datetime: '2026-02-05T04:08:59.000Z',
+      timestamp: Date.parse('2026-02-05T04:08:59.000Z'),
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'service-swap-hash',
+        is_confirmed: true,
+      },
+    });
+    const rsrWithdrawal = createBlockchainWithdrawal({
+      id: 103,
+      accountId: 7,
+      externalId: 'rsr-withdrawal',
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      datetime: '2026-02-05T04:38:47.000Z',
+      timestamp: Date.parse('2026-02-05T04:38:47.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'rsr-withdrawal-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:rsr',
+            assetSymbol: 'RSR' as Currency,
+            grossAmount: parseDecimal('134544.8442'),
+            netAmount: parseDecimal('134544.8442'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([syrupDeposit, swap, rsrWithdrawal], []);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should keep one-sided blockchain flows when no nearby swap supports service-flow suppression', () => {
+    const syrupDeposit = createBlockchainDeposit({
+      id: 111,
+      accountId: 7,
+      externalId: 'syrup-deposit-no-swap',
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      datetime: '2026-02-05T03:51:35.000Z',
+      timestamp: Date.parse('2026-02-05T03:51:35.000Z'),
+      from: serviceInAddress,
+      to: selfAddress,
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'syrup-deposit-no-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:syrup',
+            assetSymbol: 'SYRUP' as Currency,
+            grossAmount: parseDecimal('829.908183876325994303'),
+            netAmount: parseDecimal('829.908183876325994303'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+    const rsrWithdrawal = createBlockchainWithdrawal({
+      id: 112,
+      accountId: 7,
+      externalId: 'rsr-withdrawal-no-swap',
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      datetime: '2026-02-05T04:38:47.000Z',
+      timestamp: Date.parse('2026-02-05T04:38:47.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'rsr-withdrawal-no-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:rsr',
+            assetSymbol: 'RSR' as Currency,
+            grossAmount: parseDecimal('134544.8442'),
+            netAmount: parseDecimal('134544.8442'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([syrupDeposit, rsrWithdrawal], []);
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.summary.unmatched_outflows).toBe(1);
+    expect(analysis.summary.assets).toStrictEqual([
+      {
+        assetSymbol: 'RSR',
+        inflowOccurrences: 0,
+        inflowMissingAmount: '0',
+        outflowOccurrences: 1,
+        outflowMissingAmount: '134544.8442',
+      },
+      {
+        assetSymbol: 'SYRUP',
+        inflowOccurrences: 1,
+        inflowMissingAmount: '829.908183876325994303',
+        outflowOccurrences: 0,
+        outflowMissingAmount: '0',
+      },
+    ]);
   });
 
   it('should treat confirmed links as coverage for withdrawals', () => {

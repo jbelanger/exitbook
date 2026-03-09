@@ -4,6 +4,8 @@ import type { TransactionLink } from '@exitbook/accounting';
 import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
+
 /**
  * Link gap issue details.
  */
@@ -51,6 +53,16 @@ export interface LinkGapAnalysis {
   };
 }
 
+interface OneSidedBlockchainActivity {
+  assetSymbol: string;
+  blockchainName: string;
+  direction: LinkGapDirection;
+  selfAddress: string | undefined;
+  timestampMs: number;
+  totalAmount: Decimal;
+  transaction: UniversalTransactionData;
+}
+
 /**
  * Find the highest confidence score from a list of links.
  */
@@ -66,6 +78,189 @@ function findHighestConfidence(links: TransactionLink[]): string | undefined {
     }
   }
   return highest.times(100).toFixed();
+}
+
+function normalizeAddress(address: string | undefined): string | undefined {
+  const normalized = address?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function buildPositiveAssetTotals(
+  movements: { assetSymbol: string; grossAmount: Decimal; netAmount?: Decimal | undefined }[]
+): Map<string, Decimal> {
+  const totals = new Map<string, Decimal>();
+
+  for (const movement of movements) {
+    const amount = movement.netAmount ?? movement.grossAmount;
+    if (!amount || amount.lte(0)) {
+      continue;
+    }
+
+    const assetKey = movement.assetSymbol.toUpperCase();
+    const current = totals.get(assetKey) ?? parseDecimal('0');
+    totals.set(assetKey, current.plus(amount));
+  }
+
+  return totals;
+}
+
+function getSingleAssetEntry(assetTotals: Map<string, Decimal>): [string, Decimal] | undefined {
+  if (assetTotals.size !== 1) {
+    return undefined;
+  }
+
+  return assetTotals.entries().next().value as [string, Decimal];
+}
+
+function getOneSidedBlockchainActivity(
+  tx: UniversalTransactionData,
+  mintingTypes: ReadonlySet<string>
+): OneSidedBlockchainActivity | undefined {
+  if (!tx.blockchain) {
+    return undefined;
+  }
+
+  const inflowTotals = buildPositiveAssetTotals(tx.movements.inflows ?? []);
+  const outflowTotals = buildPositiveAssetTotals(tx.movements.outflows ?? []);
+
+  if (outflowTotals.size === 0 && inflowTotals.size > 0 && !mintingTypes.has(tx.operation.type)) {
+    const entry = getSingleAssetEntry(inflowTotals);
+    if (!entry) {
+      return undefined;
+    }
+
+    const [assetSymbol, totalAmount] = entry;
+    return {
+      assetSymbol,
+      blockchainName: tx.blockchain.name,
+      direction: 'inflow',
+      selfAddress: normalizeAddress(tx.to),
+      timestampMs: tx.timestamp,
+      totalAmount,
+      transaction: tx,
+    };
+  }
+
+  const isTransferSend =
+    tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer');
+
+  if (inflowTotals.size === 0 && outflowTotals.size > 0 && isTransferSend) {
+    const entry = getSingleAssetEntry(outflowTotals);
+    if (!entry) {
+      return undefined;
+    }
+
+    const [assetSymbol, totalAmount] = entry;
+    return {
+      assetSymbol,
+      blockchainName: tx.blockchain.name,
+      direction: 'outflow',
+      selfAddress: normalizeAddress(tx.from),
+      timestampMs: tx.timestamp,
+      totalAmount,
+      transaction: tx,
+    };
+  }
+
+  return undefined;
+}
+
+function hasFullConfirmedCoverage(
+  activity: OneSidedBlockchainActivity,
+  confirmedLinksByTarget: Map<number, TransactionLink[]>,
+  confirmedLinksBySource: Map<number, TransactionLink[]>
+): boolean {
+  const txId = activity.transaction.id;
+  if (txId === undefined) {
+    return false;
+  }
+
+  const relevantLinks =
+    activity.direction === 'inflow'
+      ? (confirmedLinksByTarget.get(txId) ?? [])
+      : (confirmedLinksBySource.get(txId) ?? []);
+
+  const confirmedAmount = relevantLinks
+    .filter((link) => link.assetSymbol.toUpperCase() === activity.assetSymbol)
+    .reduce(
+      (sum, link) => sum.plus(activity.direction === 'inflow' ? link.targetAmount : link.sourceAmount),
+      parseDecimal('0')
+    );
+
+  return confirmedAmount.greaterThanOrEqualTo(activity.totalAmount);
+}
+
+function hasMatchingSelfAddress(tx: UniversalTransactionData, selfAddress: string): boolean {
+  return normalizeAddress(tx.from) === selfAddress || normalizeAddress(tx.to) === selfAddress;
+}
+
+function isNearbySwapTransaction(tx: UniversalTransactionData, activity: OneSidedBlockchainActivity): boolean {
+  if (
+    !tx.blockchain ||
+    tx.id === activity.transaction.id ||
+    tx.accountId !== activity.transaction.accountId ||
+    tx.blockchain.name !== activity.blockchainName
+  ) {
+    return false;
+  }
+
+  if (Math.abs(tx.timestamp - activity.timestampMs) > LIKELY_SERVICE_FLOW_WINDOW_MS) {
+    return false;
+  }
+
+  if (tx.operation.category !== 'trade' || tx.operation.type !== 'swap') {
+    return false;
+  }
+
+  const selfAddress = activity.selfAddress;
+  if (selfAddress === undefined) {
+    return false;
+  }
+
+  return hasMatchingSelfAddress(tx, selfAddress);
+}
+
+function buildSuppressedGapTransactionIds(
+  transactions: UniversalTransactionData[],
+  confirmedLinksByTarget: Map<number, TransactionLink[]>,
+  confirmedLinksBySource: Map<number, TransactionLink[]>,
+  mintingTypes: ReadonlySet<string>
+): Set<number> {
+  const uncoveredActivities = transactions
+    .map((tx) => getOneSidedBlockchainActivity(tx, mintingTypes))
+    .filter((activity): activity is OneSidedBlockchainActivity => activity !== undefined)
+    .filter(
+      (activity) =>
+        activity.selfAddress !== undefined &&
+        activity.transaction.id !== undefined &&
+        !hasFullConfirmedCoverage(activity, confirmedLinksByTarget, confirmedLinksBySource)
+    );
+
+  const suppressedTxIds = new Set<number>();
+
+  for (const activity of uncoveredActivities) {
+    const hasNearbySwap = transactions.some((tx) => isNearbySwapTransaction(tx, activity));
+    if (!hasNearbySwap) {
+      continue;
+    }
+
+    const hasNearbyOppositeUncoveredTransfer = uncoveredActivities.some(
+      (other) =>
+        other.transaction.id !== activity.transaction.id &&
+        other.transaction.accountId === activity.transaction.accountId &&
+        other.blockchainName === activity.blockchainName &&
+        other.selfAddress === activity.selfAddress &&
+        other.direction !== activity.direction &&
+        other.assetSymbol !== activity.assetSymbol &&
+        Math.abs(other.timestampMs - activity.timestampMs) <= LIKELY_SERVICE_FLOW_WINDOW_MS
+    );
+
+    if (hasNearbyOppositeUncoveredTransfer && activity.transaction.id !== undefined) {
+      suppressedTxIds.add(activity.transaction.id);
+    }
+  }
+
+  return suppressedTxIds;
 }
 
 /**
@@ -119,26 +314,25 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
   };
 
   const mintingTypes = new Set(['reward', 'airdrop']);
+  const suppressedTxIds = buildSuppressedGapTransactionIds(
+    transactions,
+    confirmedLinksByTarget,
+    confirmedLinksBySource,
+    mintingTypes
+  );
 
   for (const tx of transactions) {
+    if (tx.id !== undefined && suppressedTxIds.has(tx.id)) {
+      continue;
+    }
+
     const isBlockchainTx = Boolean(tx.blockchain);
     const inflows = tx.movements.inflows ?? [];
     const outflows = tx.movements.outflows ?? [];
 
     // --- Inflow analysis (missing provenance) ---
     if (isBlockchainTx && inflows.length > 0 && outflows.length === 0 && !mintingTypes.has(tx.operation.type)) {
-      const inflowTotals = new Map<string, Decimal>();
-
-      for (const inflow of inflows) {
-        const amount = inflow.netAmount ?? inflow.grossAmount;
-        if (!amount || amount.lte(0)) {
-          continue;
-        }
-
-        const assetKey = inflow.assetSymbol.toUpperCase();
-        const current = inflowTotals.get(assetKey) ?? parseDecimal('0');
-        inflowTotals.set(assetKey, current.plus(amount));
-      }
+      const inflowTotals = buildPositiveAssetTotals(inflows);
 
       for (const [assetKey, totalAmount] of inflowTotals.entries()) {
         const confirmedForTx = (confirmedLinksByTarget.get(tx.id) ?? []).filter(
@@ -195,18 +389,7 @@ export function analyzeLinkGaps(transactions: UniversalTransactionData[], links:
       tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer');
 
     if (outflows.length > 0 && inflows.length === 0 && isTransferSend) {
-      const outflowTotals = new Map<string, Decimal>();
-
-      for (const outflow of outflows) {
-        const amount = outflow.netAmount ?? outflow.grossAmount;
-        if (!amount || amount.lte(0)) {
-          continue;
-        }
-
-        const assetKey = outflow.assetSymbol.toUpperCase();
-        const current = outflowTotals.get(assetKey) ?? parseDecimal('0');
-        outflowTotals.set(assetKey, current.plus(amount));
-      }
+      const outflowTotals = buildPositiveAssetTotals(outflows);
 
       for (const [assetKey, totalAmount] of outflowTotals.entries()) {
         const confirmedForTx = (confirmedLinksBySource.get(tx.id) ?? []).filter(
