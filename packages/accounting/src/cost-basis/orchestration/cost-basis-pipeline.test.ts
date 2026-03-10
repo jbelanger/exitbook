@@ -1,8 +1,14 @@
-import { ok } from '@exitbook/core';
+import type { AssetMovement, Currency } from '@exitbook/core';
+import { ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createMovement, createTransaction, createTransactionFromMovements } from '../../__tests__/test-utils.js';
+import {
+  createMovement,
+  createPriceAtTxTime,
+  createTransaction,
+  createTransactionFromMovements,
+} from '../../__tests__/test-utils.js';
 import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
 import { createAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
@@ -21,6 +27,15 @@ const defaultConfig: CostBasisConfig = {
 function stubStore(): ICostBasisPersistence {
   return {
     loadCostBasisContext: vi.fn(),
+  };
+}
+
+function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amount: string): AssetMovement {
+  return {
+    assetId,
+    assetSymbol: assetSymbol as Currency,
+    grossAmount: parseDecimal(amount),
+    priceAtTxTime: createPriceAtTxTime('1'),
   };
 }
 
@@ -87,5 +102,35 @@ describe('runCostBasisPipeline', () => {
     expect(resultValue.missingPricesCount).toBe(0);
     expect(resultValue.priceCompleteTransactions.map((tx) => tx.id)).toEqual([1]);
     expect(resultValue.summary.calculation.transactionsProcessed).toBe(1);
+  });
+
+  it('fails closed when same-chain blockchain tokens share a symbol across multiple asset IDs', async () => {
+    const store = stubStore();
+    const first = createTransactionFromMovements(
+      1,
+      '2025-01-10T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xaaa', 'USDC', '10')],
+      },
+      [],
+      { source: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+    );
+    const second = createTransactionFromMovements(
+      2,
+      '2025-01-11T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xbbb', 'USDC', '5')],
+      },
+      [],
+      { source: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+    );
+
+    const result = await runCostBasisPipeline([first, second], defaultConfig, store, {
+      missingPricePolicy: 'error',
+    });
+
+    expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).not.toHaveBeenCalled();
   });
 });

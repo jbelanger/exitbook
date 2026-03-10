@@ -8,6 +8,7 @@ import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-s
 import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
+import { assertNoAmbiguousScopedBlockchainSymbols } from '../shared/ambiguous-asset-review.js';
 import type { TaxAssetIdentityPolicy } from '../shared/types.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
@@ -44,6 +45,13 @@ export async function runCanadaAcbWorkflow(
   }
 
   const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, options?.accountingExclusionPolicy);
+
+  const ambiguityReviewResult = assertNoAmbiguousScopedBlockchainSymbols(
+    exclusionApplied.scopedBuildResult.transactions
+  );
+  if (ambiguityReviewResult.isErr()) {
+    return err(ambiguityReviewResult.error);
+  }
 
   const validatedLinksResult = validateScopedTransferLinks(
     exclusionApplied.scopedBuildResult.transactions,

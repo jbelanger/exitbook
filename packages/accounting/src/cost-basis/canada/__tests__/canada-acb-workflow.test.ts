@@ -1,6 +1,6 @@
 import type { UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { createAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -9,6 +9,72 @@ import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 import { createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
 
 describe('runCanadaAcbWorkflow', () => {
+  it('fails closed when same-chain blockchain tokens share a symbol across multiple asset IDs', async () => {
+    const fxProvider = createCanadaFxProvider();
+
+    const first: UniversalTransactionData = {
+      id: 1,
+      accountId: 1,
+      externalId: 'tx-1',
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      source: 'arbitrum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:arbitrum:0xaaa',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-01T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const second: UniversalTransactionData = {
+      id: 2,
+      accountId: 1,
+      externalId: 'tx-2',
+      datetime: '2024-01-02T12:00:00Z',
+      timestamp: Date.parse('2024-01-02T12:00:00Z'),
+      source: 'arbitrum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:arbitrum:0xbbb',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('5'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-02T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'withdrawal' },
+    };
+
+    const result = await runCanadaAcbWorkflow([first, second], [], fxProvider);
+
+    expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
+  });
+
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {
     const fxProvider = createCanadaFxProvider();
 
