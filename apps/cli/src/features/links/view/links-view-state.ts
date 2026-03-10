@@ -26,6 +26,11 @@ export interface TransferProposalWithTransactions {
   transferProposalKey?: string | undefined;
 }
 
+export interface LinksViewProposalFilters {
+  maxConfidence?: number | undefined;
+  minConfidence?: number | undefined;
+}
+
 /**
  * Status counts for header
  */
@@ -96,9 +101,10 @@ export function createLinksViewState(
   links: LinkWithTransactions[],
   statusFilter?: LinkStatus,
   verbose = false,
-  totalCount?: number
+  totalCount?: number,
+  proposalFilters?: LinksViewProposalFilters
 ): LinksViewLinksState {
-  const proposals = buildTransferProposalItems(links)
+  const allProposals = buildTransferProposalItems(links)
     .map((proposal) => ({
       legs: proposal.items,
       proposalKey: proposal.proposalKey,
@@ -117,6 +123,27 @@ export function createLinksViewState(
 
       return left.representativeLink.id - right.representativeLink.id;
     });
+  const proposals = allProposals.filter((proposal) => {
+    if (statusFilter !== undefined && proposal.status !== statusFilter) {
+      return false;
+    }
+
+    if (proposalFilters?.minConfidence === undefined && proposalFilters?.maxConfidence === undefined) {
+      return true;
+    }
+
+    return proposal.legs.some((leg) => {
+      const confidenceScore = leg.link.confidenceScore.toNumber();
+      if (proposalFilters?.minConfidence !== undefined && confidenceScore < proposalFilters.minConfidence) {
+        return false;
+      }
+      if (proposalFilters?.maxConfidence !== undefined && confidenceScore > proposalFilters.maxConfidence) {
+        return false;
+      }
+
+      return true;
+    });
+  });
 
   // Calculate counts
   const counts = proposals.reduce(
@@ -137,7 +164,7 @@ export function createLinksViewState(
     selectedIndex: 0,
     scrollOffset: 0,
     statusFilter,
-    totalCount: totalCount ?? proposals.length,
+    totalCount: totalCount ?? allProposals.length,
     pendingAction: undefined,
     error: undefined,
     verbose,

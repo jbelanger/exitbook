@@ -170,20 +170,14 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       const txRepo = database.transactions;
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const linksResult = await linkRepo.findAll(params.status as LinkStatus);
+      const linksResult = await linkRepo.findAll();
       if (linksResult.isErr()) {
         console.error('\n⚠ Error:', linksResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      let links = linksResult.value;
-
-      if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
-        links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
-      }
-
-      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
+      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(linksResult.value, txRepo);
 
       const confirmHandler = new LinksConfirmHandler(database, overrideStore);
       const rejectHandler = new LinksRejectHandler(database, overrideStore);
@@ -216,7 +210,12 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       const initialState = createLinksViewState(
         linksWithTransactions,
         params.status as LinkStatus,
-        params.verbose ?? false
+        params.verbose ?? false,
+        undefined,
+        {
+          maxConfidence: params.maxConfidence,
+          minConfidence: params.minConfidence,
+        }
       );
 
       await renderApp((unmount) =>

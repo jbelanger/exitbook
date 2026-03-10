@@ -4,10 +4,32 @@
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
-import { resolveTransferProposal } from '../transfer-proposals.js';
 
 import { getGapsChromeLines, LINKS_CHROME_LINES } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';
+
+function getConfirmActionableLinkIds(state: Extract<LinksViewState, { mode: 'links' }>): number[] {
+  const selected = state.proposals[state.selectedIndex];
+  if (!selected) {
+    return [];
+  }
+
+  const hasRejectedLeg = selected.legs.some((leg) => leg.link.status === 'rejected');
+  if (hasRejectedLeg) {
+    return [];
+  }
+
+  return selected.legs.filter((leg) => leg.link.status === 'suggested').map((leg) => leg.link.id);
+}
+
+function getRejectActionableLinkIds(state: Extract<LinksViewState, { mode: 'links' }>): number[] {
+  const selected = state.proposals[state.selectedIndex];
+  if (!selected) {
+    return [];
+  }
+
+  return selected.legs.filter((leg) => leg.link.status !== 'rejected').map((leg) => leg.link.id);
+}
 
 /**
  * Action types for state updates
@@ -140,26 +162,22 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
       }
 
       const selected = state.proposals[state.selectedIndex];
-      if (!selected || selected.status !== 'suggested') {
+      const actionableLinkIds = getConfirmActionableLinkIds(state);
+      if (!selected || actionableLinkIds.length === 0) {
         return {
           ...state,
-          error: 'Can only confirm suggested proposals',
+          error: 'Can only confirm proposals with suggested links and no rejected legs',
         };
       }
-
-      const transferProposal = resolveTransferProposal(
-        selected.representativeLink,
-        state.proposals.flatMap((proposal) => proposal.legs.map((leg) => leg.link))
-      );
 
       return {
         ...state,
         pendingAction: {
-          affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
-          linkId: selected.representativeLink.id,
+          affectedLinkIds: actionableLinkIds,
+          linkId: actionableLinkIds[0]!,
           action: 'confirm',
           proposalKey: selected.proposalKey,
-          transferProposalKey: transferProposal.transferProposalKey,
+          transferProposalKey: selected.transferProposalKey,
         },
         error: undefined,
       };
@@ -171,26 +189,22 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
       }
 
       const selected = state.proposals[state.selectedIndex];
-      if (!selected || selected.status !== 'suggested') {
+      const actionableLinkIds = getRejectActionableLinkIds(state);
+      if (!selected || actionableLinkIds.length === 0) {
         return {
           ...state,
-          error: 'Can only reject suggested proposals',
+          error: 'Can only reject suggested or confirmed proposals',
         };
       }
-
-      const transferProposal = resolveTransferProposal(
-        selected.representativeLink,
-        state.proposals.flatMap((proposal) => proposal.legs.map((leg) => leg.link))
-      );
 
       return {
         ...state,
         pendingAction: {
-          affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
-          linkId: selected.representativeLink.id,
+          affectedLinkIds: actionableLinkIds,
+          linkId: actionableLinkIds[0]!,
           action: 'reject',
           proposalKey: selected.proposalKey,
-          transferProposalKey: transferProposal.transferProposalKey,
+          transferProposalKey: selected.transferProposalKey,
         },
         error: undefined,
       };

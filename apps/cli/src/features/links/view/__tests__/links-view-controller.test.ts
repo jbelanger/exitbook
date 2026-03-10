@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createMockGapAnalysis, createMockLinksBatch } from '../../__tests__/test-utils.js';
+import { createMockGapAnalysis, createMockLink, createMockLinksBatch } from '../../__tests__/test-utils.js';
 import { handleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
 import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
 
@@ -170,6 +170,50 @@ describe('linksViewReducer', () => {
     }
   });
 
+  it('confirms the remaining suggested legs in a mixed proposal', () => {
+    const links = [
+      {
+        link: createMockLink(1, {
+          status: 'confirmed',
+          metadata: {
+            transferProposalKey: 'partial-target:v1:target',
+          },
+        }),
+        sourceTransaction: undefined,
+        targetTransaction: undefined,
+      },
+      {
+        link: createMockLink(2, {
+          sourceTransactionId: 3,
+          status: 'suggested',
+          sourceMovementFingerprint: 'movement:exchange:source:3:btc:outflow:0',
+          metadata: {
+            transferProposalKey: 'partial-target:v1:target',
+          },
+        }),
+        sourceTransaction: undefined,
+        targetTransaction: undefined,
+      },
+    ];
+    const state = createLinksViewState(links, 'suggested');
+
+    expect(state.proposals).toHaveLength(1);
+    expect(state.proposals[0]?.legs.map((leg) => leg.link.id)).toEqual([1, 2]);
+
+    const newState = linksViewReducer(state, { type: 'CONFIRM_SELECTED' });
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toEqual({
+        affectedLinkIds: [2],
+        linkId: 2,
+        action: 'confirm',
+        proposalKey: 'partial-target:v1:target',
+        transferProposalKey: 'partial-target:v1:target',
+      });
+      expect(newState.error).toBeUndefined();
+    }
+  });
+
   it('rejects suggested link', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
@@ -190,6 +234,26 @@ describe('linksViewReducer', () => {
     }
   });
 
+  it('allows rejecting confirmed proposals', () => {
+    const links = createMockLinksBatch();
+    const state = createLinksViewState(links);
+    state.selectedIndex = 0; // confirmed link
+
+    const newState = linksViewReducer(state, { type: 'REJECT_SELECTED' });
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toEqual({
+        affectedLinkIds: [1],
+        linkId: 1,
+        action: 'reject',
+        proposalKey:
+          'single:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:1:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+        transferProposalKey: undefined,
+      });
+      expect(newState.error).toBeUndefined();
+    }
+  });
+
   it('prevents confirming non-suggested link', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
@@ -199,20 +263,20 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toBeUndefined();
-      expect(newState.error).toBe('Can only confirm suggested proposals');
+      expect(newState.error).toBe('Can only confirm proposals with suggested links and no rejected legs');
     }
   });
 
-  it('prevents rejecting non-suggested link', () => {
+  it('prevents rejecting fully rejected proposals', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
-    state.selectedIndex = 0; // confirmed link
+    state.selectedIndex = 3; // rejected link
 
     const newState = linksViewReducer(state, { type: 'REJECT_SELECTED' });
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toBeUndefined();
-      expect(newState.error).toBe('Can only reject suggested proposals');
+      expect(newState.error).toBe('Can only reject suggested or confirmed proposals');
     }
   });
 

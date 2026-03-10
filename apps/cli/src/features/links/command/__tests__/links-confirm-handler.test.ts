@@ -153,6 +153,7 @@ describe('LinksConfirmHandler', () => {
       });
 
       mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([confirmedLink]));
 
       const result = await handler.execute(params);
 
@@ -179,13 +180,89 @@ describe('LinksConfirmHandler', () => {
       });
 
       mockLinkRepository.findById.mockResolvedValue(ok(rejectedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([rejectedLink]));
 
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toContain('previously rejected');
+      expect(error.message).toContain('contains rejected links');
 
       expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
+    });
+
+    it('should confirm only actionable proposal legs when the selected leg is already confirmed', async () => {
+      const params: LinksConfirmParams = {
+        linkId: 123,
+      };
+
+      const fixture = createConfirmableTransferFixture({
+        sourceAmount: '5',
+        targetAmount: '10',
+      });
+      const confirmedLink = {
+        ...fixture.link,
+        id: 123,
+        status: 'confirmed' as const,
+        reviewedBy: 'cli-user',
+        reviewedAt: new Date('2024-01-02T12:00:00Z'),
+        targetAmount: fixture.link.sourceAmount,
+        metadata: {
+          partialMatch: true as const,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          transferProposalKey: 'partial-target:v1:target',
+        },
+      };
+      const suggestedLink = {
+        ...fixture.link,
+        id: 124,
+        sourceTransactionId: 3,
+        sourceMovementFingerprint: 'movement:tx:v2:kraken:1:WITHDRAWAL-456:outflow:0',
+        sourceAmount: fixture.link.sourceAmount,
+        targetAmount: fixture.link.sourceAmount,
+        metadata: {
+          partialMatch: true as const,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          transferProposalKey: 'partial-target:v1:target',
+        },
+      };
+      const additionalSourceTx = {
+        ...fixture.sourceTransaction,
+        id: 3,
+        externalId: 'WITHDRAWAL-456',
+      };
+
+      mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([confirmedLink, suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(1));
+      mockTransactionRepository.findAll.mockResolvedValue(
+        ok([fixture.sourceTransaction, additionalSourceTx, fixture.targetTransaction])
+      );
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        if (id === 3) {
+          return Promise.resolve(
+            ok({
+              ...mockSourceTx,
+              id: 3,
+              externalId: 'WITHDRAWAL-456',
+            })
+          );
+        }
+        return Promise.resolve(ok(undefined));
+      });
+
+      const result = await handler.execute(params);
+
+      const confirmResult = assertOk(result);
+      expect(confirmResult.affectedLinkIds).toEqual([124]);
+      expect(confirmResult.affectedLinkCount).toBe(1);
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([124], 'confirmed', 'cli-user');
+      expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
     });
 
     it('should return error if link not found', async () => {

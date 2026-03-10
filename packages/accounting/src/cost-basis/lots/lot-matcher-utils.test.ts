@@ -355,8 +355,8 @@ describe('lot-matcher-utils', () => {
         [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000')]
       );
 
-      const firstFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows[0]!));
-      const secondFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows[1]!));
+      const firstFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows![0]!));
+      const secondFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows![1]!));
 
       expect(firstFee.amount.toFixed()).toBe('0.00025');
       expect(secondFee.amount.toFixed()).toBe('0.00025');

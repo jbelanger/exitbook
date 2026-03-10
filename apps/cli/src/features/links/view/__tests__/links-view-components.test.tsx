@@ -168,10 +168,27 @@ describe('LinksViewApp - links mode', () => {
     expect(frame).toContain('r reject');
   });
 
-  it('hides confirm/reject controls for non-suggested links', () => {
+  it('shows reject controls for confirmed links', () => {
     const links = createMockLinks();
     const state = createLinksViewState(links);
     state.selectedIndex = 0; // confirmed link
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).not.toContain('c confirm');
+    expect(frame).toContain('r reject');
+  });
+
+  it('hides confirm/reject controls for rejected links', () => {
+    const links = createMockLinks();
+    const state = createLinksViewState(links);
+    state.selectedIndex = 3; // rejected link
 
     const { lastFrame } = render(
       <LinksViewApp

@@ -661,11 +661,18 @@ const TransactionLine: FC<{
  */
 const LinksControlsBar: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const selected = state.proposals[state.selectedIndex];
-  const canAction = selected?.status === 'suggested';
+  const canConfirm =
+    selected !== undefined &&
+    selected.legs.some((leg) => leg.link.status === 'suggested') &&
+    selected.legs.every((leg) => leg.link.status !== 'rejected');
+  const canReject = selected !== undefined && selected.legs.some((leg) => leg.link.status !== 'rejected');
 
   return (
     <Text dimColor>
-      ↑↓/j/k · ^U/^D page · Home/End{canAction && ' · c confirm proposal · r reject proposal'} · q/esc quit
+      ↑↓/j/k · ^U/^D page · Home/End
+      {canConfirm && ' · c confirm proposal'}
+      {canReject && ' · r reject proposal'}
+      {' · q/esc quit'}
     </Text>
   );
 };

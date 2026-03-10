@@ -11,7 +11,7 @@ import { getLogger } from '@exitbook/logger';
 import { resolveTransferProposal } from '../transfer-proposals.js';
 
 import { writeLinkOverrideEvent, writeUnlinkOverrideEvent } from './links-override-utils.js';
-import { getDefaultReviewer, validateLinkStatusForConfirm, validateLinkStatusForReject } from './links-utils.js';
+import { getDefaultReviewer } from './links-utils.js';
 
 const logger = getLogger('TransferProposalReviewService');
 
@@ -62,27 +62,6 @@ export class TransferProposalReviewService {
 
       const reviewedBy = getDefaultReviewer();
 
-      const statusValidation =
-        targetStatus === 'confirmed'
-          ? validateLinkStatusForConfirm(selectedLink.status)
-          : validateLinkStatusForReject(selectedLink.status);
-      if (statusValidation.isErr()) {
-        return err(statusValidation.error);
-      }
-
-      if (!statusValidation.value) {
-        logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
-        return ok({
-          affectedLinkCount: 1,
-          affectedLinkIds: [selectedLink.id],
-          linkId: selectedLink.id,
-          newStatus: targetStatus,
-          reviewedBy: selectedLink.reviewedBy ?? reviewedBy,
-          reviewedAt: selectedLink.reviewedAt ?? new Date(),
-          transferProposalKey: selectedLink.metadata?.transferProposalKey,
-        });
-      }
-
       const allLinksResult = await this.db.transactionLinks.findAll();
       if (allLinksResult.isErr()) {
         return err(allLinksResult.error);
@@ -90,6 +69,10 @@ export class TransferProposalReviewService {
 
       const allLinks = allLinksResult.value;
       const transferProposal = resolveTransferProposal(selectedLink, allLinks);
+      const actionableLinks = transferProposal.links.filter((candidate) =>
+        targetStatus === 'confirmed' ? candidate.status === 'suggested' : candidate.status !== 'rejected'
+      );
+      const actionableIds = actionableLinks.map((candidate) => candidate.id);
 
       if (targetStatus === 'confirmed') {
         const rejectedLinks = transferProposal.links.filter((candidate) => candidate.status === 'rejected');
@@ -101,18 +84,37 @@ export class TransferProposalReviewService {
           );
         }
 
+        if (actionableLinks.length === 0) {
+          logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
+          return ok({
+            affectedLinkCount: 1,
+            affectedLinkIds: [selectedLink.id],
+            linkId: selectedLink.id,
+            newStatus: targetStatus,
+            reviewedBy: selectedLink.reviewedBy ?? reviewedBy,
+            reviewedAt: selectedLink.reviewedAt ?? new Date(),
+            transferProposalKey: transferProposal.transferProposalKey,
+          });
+        }
+
         const confirmabilityResult = await this.validateProposalConfirmability(transferProposal.links, allLinks);
         if (confirmabilityResult.isErr()) {
           return err(new Error(`Link ${selectedLink.id} cannot be confirmed: ${confirmabilityResult.error.message}`));
         }
-      } else if (selectedLink.status === 'confirmed') {
+      } else if (actionableLinks.some((candidate) => candidate.status === 'confirmed')) {
         logger.info({ linkId }, 'Rejecting previously confirmed transfer proposal');
+      } else if (actionableLinks.length === 0) {
+        logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
+        return ok({
+          affectedLinkCount: 1,
+          affectedLinkIds: [selectedLink.id],
+          linkId: selectedLink.id,
+          newStatus: targetStatus,
+          reviewedBy: selectedLink.reviewedBy ?? reviewedBy,
+          reviewedAt: selectedLink.reviewedAt ?? new Date(),
+          transferProposalKey: transferProposal.transferProposalKey,
+        });
       }
-
-      const actionableLinks = transferProposal.links.filter((candidate) =>
-        targetStatus === 'confirmed' ? candidate.status === 'suggested' : candidate.status !== 'rejected'
-      );
-      const actionableIds = actionableLinks.map((candidate) => candidate.id);
 
       const updateResult = await this.db.executeInTransaction(async (tx) => {
         const updatedRowsResult = await tx.transactionLinks.updateStatuses(actionableIds, targetStatus, reviewedBy);
@@ -136,7 +138,7 @@ export class TransferProposalReviewService {
 
       logger.info(
         {
-          affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
+          affectedLinkIds: actionableIds,
           linkId,
           targetStatus,
           transferProposalKey: transferProposal.transferProposalKey,
@@ -144,7 +146,7 @@ export class TransferProposalReviewService {
         'Transfer proposal reviewed successfully'
       );
 
-      await this.writeOverrideEvents(transferProposal.links, targetStatus);
+      await this.writeOverrideEvents(actionableLinks, targetStatus);
 
       const transactionDetailResult = await this.loadTransactionDetails(selectedLink);
       if (transactionDetailResult.isErr()) {
@@ -152,8 +154,8 @@ export class TransferProposalReviewService {
       }
 
       return ok({
-        affectedLinkCount: transferProposal.links.length,
-        affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
+        affectedLinkCount: actionableLinks.length,
+        affectedLinkIds: actionableIds,
         linkId,
         newStatus: targetStatus,
         reviewedBy,

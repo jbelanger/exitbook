@@ -134,6 +134,7 @@ describe('LinksRejectHandler', () => {
       });
 
       mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
+      mockLinkQueries.findAll.mockResolvedValue(ok([rejectedLink]));
 
       const result = await handler.execute(params);
 
@@ -146,6 +147,63 @@ describe('LinksRejectHandler', () => {
       expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
       // Should not write override for idempotent no-op
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
+    });
+
+    it('should reject only actionable proposal legs when the selected leg is already rejected', async () => {
+      const params: LinksRejectParams = {
+        linkId: 123,
+      };
+
+      const rejectedLink = createMockLink(123, {
+        status: 'rejected',
+        reviewedBy: 'cli-user',
+        reviewedAt: new Date('2024-01-02T12:00:00Z'),
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          transferProposalKey: 'partial-target:v1:target',
+        },
+      });
+      const suggestedLink = createMockLink(124, {
+        sourceTransactionId: 3,
+        status: 'suggested',
+        sourceMovementFingerprint: 'movement:exchange:source:3:btc:outflow:0',
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          transferProposalKey: 'partial-target:v1:target',
+        },
+      });
+
+      mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
+      mockLinkQueries.findAll.mockResolvedValue(ok([rejectedLink, suggestedLink]));
+      mockLinkQueries.updateStatuses.mockResolvedValue(ok(1));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        if (id === 3) {
+          return Promise.resolve(
+            ok({
+              ...mockSourceTx,
+              id: 3,
+              externalId: 'WITHDRAWAL-456',
+            })
+          );
+        }
+        return Promise.resolve(ok(undefined));
+      });
+
+      const result = await handler.execute(params);
+
+      const rejectResult = assertOk(result);
+      expect(rejectResult.affectedLinkIds).toEqual([124]);
+      expect(rejectResult.affectedLinkCount).toBe(1);
+      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([124], 'rejected', 'cli-user');
+      expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
     });
 
     it('should successfully reject a confirmed link (override auto-confirmation)', async () => {
