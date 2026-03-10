@@ -14,7 +14,6 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
 import {
-  calculateChromeLines,
   calculateVisibleRows,
   type Columns,
   createColumns,
@@ -23,47 +22,34 @@ import {
   SelectableRow,
 } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../command/links-gap-utils.js';
+import { resolveLinkReviewScope } from '../links-review-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
+import {
+  GAP_DETAIL_LINES,
+  GAP_TOP_ASSET_LIMIT,
+  getGapsChromeLines,
+  LINK_DETAIL_LINES,
+  LINKS_CHROME_LINES,
+} from './links-view-layout.js';
 import type {
   LinkWithTransactions,
   LinksViewGapsState,
   LinksViewLinksState,
   LinksViewState,
 } from './links-view-state.js';
-
-export const LINK_DETAIL_LINES = 7;
-export const GAP_DETAIL_LINES = 9;
-
-export const LINKS_CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1, // blank line
-  header: 1, // "Links · N total"
-  afterHeader: 1, // blank line
-  divider: 1, // separator line
-  detail: LINK_DETAIL_LINES, // link detail panel
-  beforeControls: 1, // blank line
-  controls: 1, // control hints
-  buffer: 1, // bottom margin
-});
-
-export const GAPS_CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1, // blank line
-  header: 1, // "Balance Gaps · N issues"
-  afterHeader: 1, // blank line
-  listScrollIndicators: 2, // "▲/▼ N more above/below"
-  divider: 1, // separator line
-  detail: GAP_DETAIL_LINES, // gap detail panel (transactions, suggestions)
-  beforeControls: 1, // blank line
-  controls: 1, // control hints
-  buffer: 1, // bottom margin
-});
+const GAP_ROW_ASSET_SYMBOL_MAX_WIDTH = 18;
+const GAP_SUMMARY_ASSET_SYMBOL_MAX_WIDTH = 14;
 
 /**
  * Main links view app component
  */
 export const LinksViewApp: FC<{
   initialState: LinksViewState;
-  onAction?: (linkId: number, action: 'confirm' | 'reject') => Promise<void>;
+  onAction?: (
+    linkId: number,
+    action: 'confirm' | 'reject'
+  ) => Promise<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }>;
   onQuit: () => void;
 }> = ({ initialState, onAction, onQuit }) => {
   // Set up state management
@@ -76,7 +62,15 @@ export const LinksViewApp: FC<{
 
   // Handle keyboard input
   useInput((input, key) => {
-    handleKeyboardInput(input, key, dispatch, onQuit, terminalHeight, state.mode);
+    handleKeyboardInput(
+      input,
+      key,
+      dispatch,
+      onQuit,
+      terminalHeight,
+      state.mode,
+      state.mode === 'gaps' ? state.linkAnalysis.summary.assets.length : 0
+    );
   });
 
   // Handle pending actions with useEffect (links mode only)
@@ -85,9 +79,12 @@ export const LinksViewApp: FC<{
       const { linkId, action } = state.pendingAction;
 
       void onAction(linkId, action)
-        .then(() => {
-          const newStatus = action === 'confirm' ? 'confirmed' : 'rejected';
-          dispatch({ type: 'ACTION_SUCCESS', linkId, newStatus });
+        .then((result) => {
+          dispatch({
+            type: 'ACTION_SUCCESS',
+            affectedLinkIds: result.affectedLinkIds,
+            newStatus: result.newStatus,
+          });
         })
         .catch((error: unknown) => {
           dispatch({ type: 'SET_ERROR', error: error instanceof Error ? error.message : String(error) });
@@ -321,18 +318,26 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   return (
     <FixedHeightDetail
       height={LINK_DETAIL_LINES}
-      rows={buildLinkDetailRows(selected, verbose)}
+      rows={buildLinkDetailRows(selected, verbose, links)}
     />
   );
 };
 
-function buildLinkDetailRows(selected: LinkWithTransactions, verbose: boolean): ReactElement[] {
+function buildLinkDetailRows(
+  selected: LinkWithTransactions,
+  verbose: boolean,
+  links: LinkWithTransactions[]
+): ReactElement[] {
   const { link, sourceTransaction, targetTransaction } = selected;
   const linkType = formatLinkTypeDisplay(link, sourceTransaction, targetTransaction);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
   const { iconColor: statusColor } = getStatusDisplay(link.status);
   const amountDisplay = getLinkAmountDisplay(link);
+  const reviewScope = resolveLinkReviewScope(
+    link,
+    links.map((candidate) => candidate.link)
+  );
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
@@ -388,6 +393,18 @@ function buildLinkDetailRows(selected: LinkWithTransactions, verbose: boolean): 
       {formatMatchCriteria(link.matchCriteria)}
     </Text>
   );
+
+  if (reviewScope.links.length > 1) {
+    rows.push(
+      <Text key="proposal">
+        {'  '}
+        <Text dimColor>Proposal: </Text>
+        {reviewScope.links.length} related legs review together <Text dimColor>(</Text>
+        {reviewScope.links.map((candidate) => candidate.id).join(', ')}
+        <Text dimColor>)</Text>
+      </Text>
+    );
+  }
 
   if (amountDisplay.detailSummary) {
     rows.push(
@@ -526,8 +543,19 @@ const TransactionLine: FC<{
 const LinksControlsBar: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const selected = state.links[state.selectedIndex];
   const canAction = selected?.link.status === 'suggested';
+  const reviewScope = selected
+    ? resolveLinkReviewScope(
+        selected.link,
+        state.links.map((item) => item.link)
+      )
+    : undefined;
+  const actionLabel = reviewScope && reviewScope.links.length > 1 ? 'proposal' : 'link';
 
-  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End{canAction && ' · c confirm · r reject'} · q/esc quit</Text>;
+  return (
+    <Text dimColor>
+      ↑↓/j/k · ^U/^D page · Home/End{canAction && ` · c confirm ${actionLabel} · r reject ${actionLabel}`} · q/esc quit
+    </Text>
+  );
 };
 
 /**
@@ -583,7 +611,7 @@ const GapsView: FC<{
       <Text> </Text>
       <GapsHeader state={state} />
       <Text> </Text>
-      <AssetBreakdown assets={linkAnalysis.summary.assets} />
+      <GapTopAssets assets={linkAnalysis.summary.assets} />
       <Text> </Text>
       <GapList
         state={state}
@@ -602,86 +630,123 @@ const GapsView: FC<{
  */
 const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
   const { summary } = state.linkAnalysis;
+  const readyToReview = state.linkAnalysis.issues.filter((issue) => issue.suggestedCount > 0).length;
+  const needsInvestigation = summary.total_issues - readyToReview;
 
   return (
-    <Box>
+    <Box flexDirection="column">
       <Text bold>Transaction Links (gaps)</Text>
-      <Text> </Text>
-      <Text color={summary.uncovered_inflows > 0 ? 'yellow' : 'green'}>
-        {summary.uncovered_inflows} uncovered inflow{summary.uncovered_inflows !== 1 ? 's' : ''}
-      </Text>
-      <Text dimColor> · </Text>
-      <Text color={summary.unmatched_outflows > 0 ? 'yellow' : 'green'}>
-        {summary.unmatched_outflows} unmatched outflow{summary.unmatched_outflows !== 1 ? 's' : ''}
+      <Text>
+        <Text color="yellow">{summary.total_issues} gaps</Text>
+        <Text dimColor> · </Text>
+        <Text color={summary.uncovered_inflows > 0 ? 'green' : 'dim'}>
+          {summary.uncovered_inflows} uncovered inflow{summary.uncovered_inflows !== 1 ? 's' : ''}
+        </Text>
+        <Text dimColor> · </Text>
+        <Text color={summary.unmatched_outflows > 0 ? 'yellow' : 'dim'}>
+          {summary.unmatched_outflows} unmatched outflow{summary.unmatched_outflows !== 1 ? 's' : ''}
+        </Text>
+        <Text dimColor> · </Text>
+        <Text color={readyToReview > 0 ? 'green' : 'dim'}>{readyToReview} ready to review</Text>
+        <Text dimColor> · </Text>
+        <Text color={needsInvestigation > 0 ? 'yellow' : 'dim'}>{needsInvestigation} manual review</Text>
+        <Text dimColor> · </Text>
+        <Text dimColor>
+          {summary.affected_assets} asset{summary.affected_assets !== 1 ? 's' : ''}
+        </Text>
       </Text>
     </Box>
   );
 };
 
 /**
- * Asset breakdown component - per-asset summary
+ * Top assets summary component
  */
-const AssetBreakdown: FC<{ assets: LinkGapAssetSummary[] }> = ({ assets }) => {
+const GapTopAssets: FC<{ assets: LinkGapAssetSummary[] }> = ({ assets }) => {
   if (assets.length === 0) {
     return null;
   }
 
   return (
-    <Box flexDirection="column">
-      <Text bold>{'  '}Asset Breakdown</Text>
-      {assets.map((asset) => (
-        <AssetBreakdownRow
-          key={asset.assetSymbol}
-          asset={asset}
-        />
-      ))}
-    </Box>
-  );
-};
-
-/**
- * Single asset breakdown row
- */
-const AssetBreakdownRow: FC<{ asset: LinkGapAssetSummary }> = ({ asset }) => {
-  const parts: React.ReactNode[] = [];
-
-  if (asset.inflowOccurrences > 0) {
-    parts.push(
-      <Text key="inflow">
-        {asset.inflowOccurrences} inflow{asset.inflowOccurrences !== 1 ? 's' : ''} missing{' '}
-        <Text color="green">{asset.inflowMissingAmount}</Text> {asset.assetSymbol}
-      </Text>
-    );
-  }
-
-  if (asset.outflowOccurrences > 0) {
-    if (parts.length > 0) {
-      parts.push(
-        <Text
-          key="sep"
-          dimColor
-        >
-          {' '}
-          ·{' '}
-        </Text>
-      );
-    }
-    parts.push(
-      <Text key="outflow">
-        {asset.outflowOccurrences} outflow{asset.outflowOccurrences !== 1 ? 's' : ''} unmatched for{' '}
-        <Text color="green">{asset.outflowMissingAmount}</Text> {asset.assetSymbol}
-      </Text>
-    );
-  }
-
-  return (
     <Text>
-      {'    '}
-      {asset.assetSymbol.padEnd(8)}
-      {parts}
+      {'  '}
+      <Text bold>Top Assets: </Text>
+      {assets.slice(0, GAP_TOP_ASSET_LIMIT).map((asset, index) => {
+        const totalOccurrences = asset.inflowOccurrences + asset.outflowOccurrences;
+        return (
+          <Text key={asset.assetSymbol}>
+            {index > 0 && <Text dimColor> · </Text>}
+            <Text color="cyan">{truncateText(asset.assetSymbol, GAP_SUMMARY_ASSET_SYMBOL_MAX_WIDTH)}</Text>{' '}
+            <Text color="yellow">{totalOccurrences}</Text>
+          </Text>
+        );
+      })}
+      {assets.length > GAP_TOP_ASSET_LIMIT && (
+        <>
+          <Text dimColor> · </Text>
+          <Text dimColor>+{assets.length - GAP_TOP_ASSET_LIMIT} more</Text>
+        </>
+      )}
     </Text>
   );
 };
+
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  if (maxLength <= 3) {
+    return value.slice(0, maxLength);
+  }
+
+  return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function formatCompactAmount(amount: string): string {
+  const num = Number.parseFloat(amount);
+  if (Number.isNaN(num)) {
+    return amount;
+  }
+
+  const formatted = num.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+
+  if (formatted === '0' && num !== 0) {
+    return num.toExponential(2);
+  }
+
+  return formatted;
+}
+
+function formatGapRowTimestamp(timestamp: string): string {
+  return timestamp.substring(0, 16).replace('T', ' ');
+}
+
+function getGapSuggestionColor(issue: LinkGapIssue): string {
+  if (issue.suggestedCount === 0) {
+    return 'yellow';
+  }
+
+  return issue.highestSuggestedConfidencePercent
+    ? getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)
+    : 'green';
+}
+
+function renderGapSuggestionSummary(issue: LinkGapIssue): ReactElement {
+  if (issue.suggestedCount === 0) {
+    return <Text color="yellow">manual review</Text>;
+  }
+
+  return (
+    <Text color={getGapSuggestionColor(issue)}>
+      {issue.suggestedCount} suggestion{issue.suggestedCount !== 1 ? 's' : ''}
+      {issue.highestSuggestedConfidencePercent ? ` (${issue.highestSuggestedConfidencePercent}%)` : ''}
+    </Text>
+  );
+}
 
 /**
  * Gap list component with scrolling support
@@ -690,12 +755,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
   const { linkAnalysis, selectedIndex, scrollOffset } = state;
   const issues = linkAnalysis.issues;
 
-  const visibleRows = calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
-  const columns = createColumns(issues, {
-    txId: { format: (issue) => `#${issue.transactionId}`, align: 'right', minWidth: 6 },
-    source: { format: (issue) => issue.blockchain ?? issue.source, minWidth: 10 },
-    asset: { format: (issue) => issue.assetSymbol, minWidth: 5 },
-  });
+  const visibleRows = calculateVisibleRows(terminalHeight, getGapsChromeLines(linkAnalysis.summary.assets.length));
 
   const startIndex = scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, issues.length);
@@ -718,7 +778,6 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
             key={`${issue.transactionId}-${issue.assetSymbol}-${issue.direction}`}
             issue={issue}
             isSelected={actualIndex === selectedIndex}
-            columns={columns}
           />
         );
       })}
@@ -735,21 +794,30 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
  * Individual gap row component
  */
 const GapRow: FC<{
-  columns: Columns<LinkGapIssue, 'txId' | 'source' | 'asset'>;
   isSelected: boolean;
   issue: LinkGapIssue;
-}> = ({ issue, isSelected, columns }) => {
-  const { txId, source, asset } = columns.format(issue);
-  const timestamp = issue.timestamp.substring(0, 16).replace('T', ' ');
+}> = ({ issue, isSelected }) => {
+  const source = issue.blockchain ?? issue.source;
+  const timestamp = formatGapRowTimestamp(issue.timestamp);
   const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
-  const coverage = formatCoverage(issue.confirmedCoveragePercent);
+  const coverage = parseFloat(issue.confirmedCoveragePercent);
+  const hasPartialCoverage = coverage > 0 && coverage < 100;
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color="yellow">⚠</Text> {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text> {asset}{' '}
-      <Text color={dirColor}>{dir}</Text> <Text color="green">{issue.missingAmount}</Text> <Text dimColor>of</Text>{' '}
-      <Text>{issue.totalAmount}</Text> {coverage}
+      <Text color="yellow">⚠</Text> #{issue.transactionId} <Text color="cyan">{source}</Text>{' '}
+      <Text dimColor>{timestamp}</Text> <Text color={dirColor}>{dir}</Text>{' '}
+      <Text color="green">{formatCompactAmount(issue.missingAmount)}</Text>{' '}
+      {truncateText(issue.assetSymbol, GAP_ROW_ASSET_SYMBOL_MAX_WIDTH)} <Text dimColor>missing</Text>
+      {hasPartialCoverage && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color={getCoverageColor(coverage)}>{formatCoverage(issue.confirmedCoveragePercent)}</Text>
+        </>
+      )}
+      <Text dimColor> · </Text>
+      {renderGapSuggestionSummary(issue)}
     </SelectableRow>
   );
 };
@@ -792,37 +860,58 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
     </Text>,
     <Text key="missing">
       {'  '}
-      <Text dimColor>Missing: </Text>
-      <Text color="green">{issue.missingAmount}</Text> {issue.assetSymbol} <Text dimColor>of</Text> {issue.totalAmount}{' '}
-      {issue.assetSymbol} {directionLabel} <Text dimColor>(</Text>
+      <Text dimColor>Gap: </Text>
+      <Text color="green">{issue.missingAmount}</Text> {issue.assetSymbol} {directionLabel} <Text dimColor>of</Text>{' '}
+      {issue.totalAmount} {issue.assetSymbol}
+    </Text>,
+    <Text key="coverage">
+      {'  '}
+      <Text dimColor>Coverage: </Text>
       <Text color={coverageColor}>{issue.confirmedCoveragePercent}%</Text>
-      <Text dimColor> confirmed coverage)</Text>
+      <Text dimColor> confirmed</Text>
     </Text>,
     <Text key="matches">
       {'  '}
-      <Text dimColor>Suggested matches: </Text>
+      <Text dimColor>Readiness: </Text>
       {issue.suggestedCount > 0 ? (
         <Text>
-          <Text color="green">{issue.suggestedCount}</Text>
+          <Text color={getGapSuggestionColor(issue)}>{issue.suggestedCount}</Text>
+          <Text dimColor> suggested candidate{issue.suggestedCount !== 1 ? 's' : ''}</Text>
           {issue.highestSuggestedConfidencePercent && (
             <Text>
-              {' '}
-              (best{' '}
               <Text color={getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)}>
-                {issue.highestSuggestedConfidencePercent}%
+                {' '}
+                · best {issue.highestSuggestedConfidencePercent}%
               </Text>{' '}
-              confidence)
             </Text>
           )}
         </Text>
       ) : (
-        <Text dimColor>none</Text>
+        <Text color="yellow">no suggested candidates</Text>
       )}
     </Text>,
-    <Text key="action">
+    <Text key="external">
       {'  '}
-      <Text dimColor>Action: </Text>
+      <Text dimColor>External: </Text>
+      {issue.externalId}
+    </Text>,
+    <Text key="next">
+      {'  '}
+      <Text dimColor>Next: </Text>
       {actionText}
+    </Text>,
+    <Text key="hint">
+      {'  '}
+      <Text dimColor>Review queue: </Text>
+      {issue.suggestedCount > 0 ? (
+        <Text>
+          switch to <Text dimColor>`exitbook links view --status suggested`</Text> after refreshing links
+        </Text>
+      ) : (
+        <Text>
+          capture the counterparty first, then re-run <Text dimColor>`exitbook links run`</Text>
+        </Text>
+      )}
     </Text>,
   ];
 }

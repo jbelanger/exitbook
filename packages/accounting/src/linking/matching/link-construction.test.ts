@@ -375,6 +375,7 @@ describe('link-construction', () => {
       expect(link.metadata?.['fullSourceAmount']).toBe('10');
       expect(link.metadata?.['fullTargetAmount']).toBe('5');
       expect(link.metadata?.['consumedAmount']).toBe('5');
+      expect(link.metadata?.['reviewGroupKey']).toBe(`partial-source:v1:${source.movementFingerprint}`);
       expect(link.metadata?.['impliedFee']).toBeUndefined();
     });
 
@@ -400,6 +401,7 @@ describe('link-construction', () => {
       const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
       expect(link.metadata?.['impliedFee']).toBeUndefined();
       expect(link.metadata?.['partialMatch']).toBe(true);
+      expect(link.metadata?.['reviewGroupKey']).toBe(`partial-target:v1:${target.movementFingerprint}`);
     });
 
     it('should include variance metadata for 1:1 match (no consumed amounts)', () => {

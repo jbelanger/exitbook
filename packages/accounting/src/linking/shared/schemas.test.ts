@@ -154,7 +154,12 @@ describe('schemas', () => {
         reviewedAt: new Date('2024-01-02T12:00:00Z'),
         createdAt: new Date('2024-01-01T12:00:00Z'),
         updatedAt: new Date('2024-01-02T12:00:00Z'),
-        metadata: { variance: '0.0005', variancePct: '0.05', impliedFee: '0.0005' },
+        metadata: {
+          variance: '0.0005',
+          variancePct: '0.05',
+          impliedFee: '0.0005',
+          reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
+        },
       };
 
       const result = TransactionLinkSchema.parse(link);
@@ -171,7 +176,12 @@ describe('schemas', () => {
       expect(result.status).toBe('confirmed');
       expect(result.reviewedBy).toBe('user-123');
       expect(result.reviewedAt).toBeInstanceOf(Date);
-      expect(result.metadata).toEqual({ variance: '0.0005', variancePct: '0.05', impliedFee: '0.0005' });
+      expect(result.metadata).toEqual({
+        variance: '0.0005',
+        variancePct: '0.05',
+        impliedFee: '0.0005',
+        reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
+      });
     });
 
     it('should validate link without optional fields', () => {

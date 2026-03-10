@@ -355,11 +355,14 @@ describe('LinksViewApp - gaps mode', () => {
     const frame = lastFrame();
 
     expect(frame).toContain('Transaction Links (gaps)');
+    expect(frame).toContain('3 gaps');
     expect(frame).toContain('2 uncovered inflows');
     expect(frame).toContain('1 unmatched outflow');
+    expect(frame).toContain('2 ready to review');
+    expect(frame).toContain('1 manual review');
   });
 
-  it('renders asset breakdown', () => {
+  it('renders top assets summary', () => {
     const state = createGapsViewState(createMockGapAnalysis());
     const { lastFrame } = render(
       <LinksViewApp
@@ -369,11 +372,9 @@ describe('LinksViewApp - gaps mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain('Asset Breakdown');
-    expect(frame).toContain('2 inflows missing');
-    expect(frame).toContain('3.5');
-    expect(frame).toContain('1 outflow unmatched for');
-    expect(frame).toContain('1.2');
+    expect(frame).toContain('Top Assets:');
+    expect(frame).toContain('ETH');
+    expect(frame).toContain('3');
   });
 
   it('renders gap rows with correct formatting', () => {
@@ -395,6 +396,28 @@ describe('LinksViewApp - gaps mode', () => {
     expect(frame).toContain('OUT');
   });
 
+  it('uses scientific notation for tiny non-zero gap amounts in the row summary', () => {
+    const analysis = createMockGapAnalysis();
+    analysis.issues[0] = {
+      ...analysis.issues[0]!,
+      assetSymbol: 'INJ',
+      missingAmount: '0.000000000000000001',
+      totalAmount: '0.000000000000000001',
+    };
+
+    const state = createGapsViewState(analysis);
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('1.00e-18');
+    expect(frame).toContain('INJ');
+  });
+
   it('renders detail panel for selected gap', () => {
     const state = createGapsViewState(createMockGapAnalysis());
     const { lastFrame } = render(
@@ -405,11 +428,11 @@ describe('LinksViewApp - gaps mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain('Missing:');
+    expect(frame).toContain('Gap:');
     expect(frame).toContain('1.5');
     expect(frame).toContain('inflow');
-    expect(frame).toContain('Suggested matches:');
-    expect(frame).toContain('Action:');
+    expect(frame).toContain('Readiness:');
+    expect(frame).toContain('Next:');
     expect(frame).toContain('exitbook links run');
   });
 

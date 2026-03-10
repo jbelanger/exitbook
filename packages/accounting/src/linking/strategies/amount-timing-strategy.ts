@@ -6,6 +6,7 @@ import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
+import { filterUnsupportedSameHashExternalPartials } from './hash-partial-feasibility-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
 
 /**
@@ -35,8 +36,11 @@ export class AmountTimingStrategy implements ILinkingStrategy {
       return ok({ links, consumedCandidateIds });
     }
 
+    // Drop partial hash groups that cannot survive scoped same-hash fee deduplication.
+    const feasibleMatches = filterUnsupportedSameHashExternalPartials(allMatches);
+
     // Capacity-based deduplication
-    const { suggested, confirmed } = allocateMatches(allMatches, config);
+    const { suggested, confirmed } = allocateMatches(feasibleMatches, config);
 
     const now = new Date();
 

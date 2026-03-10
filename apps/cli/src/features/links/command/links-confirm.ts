@@ -23,6 +23,8 @@ export type LinksConfirmCommandOptions = z.infer<typeof LinksConfirmCommandOptio
  * Result data for links confirm command (JSON mode).
  */
 interface LinksConfirmCommandResult {
+  affectedLinkCount: number;
+  affectedLinkIds: number[];
   linkId: number;
   newStatus: 'confirmed';
   reviewedBy: string;
@@ -112,6 +114,8 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
 function handleLinksConfirmSuccess(
   isJsonMode: boolean,
   result: {
+    affectedLinkCount: number;
+    affectedLinkIds: number[];
     asset?: string | undefined;
     confidence?: string | undefined;
     linkId: number;
@@ -137,6 +141,7 @@ function handleLinksConfirmSuccess(
       const { unmount } = render(
         React.createElement(LinkActionResult, {
           action: 'confirmed',
+          affectedLinkCount: result.affectedLinkCount,
           linkId: result.linkId,
           asset: result.asset,
           sourceAmount: result.sourceAmount,
@@ -150,11 +155,13 @@ function handleLinksConfirmSuccess(
       setTimeout(() => unmount(), 100);
     } else {
       // Fallback for missing data
-      console.log(`✓ Link ${result.linkId} confirmed successfully.`);
+      console.log(`✓ ${result.affectedLinkCount > 1 ? 'Proposal' : 'Link'} ${result.linkId} confirmed successfully.`);
     }
   }
 
   const resultData: LinksConfirmCommandResult = {
+    affectedLinkCount: result.affectedLinkCount,
+    affectedLinkIds: result.affectedLinkIds,
     linkId: result.linkId,
     newStatus: result.newStatus,
     reviewedBy: result.reviewedBy,

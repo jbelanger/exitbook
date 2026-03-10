@@ -23,6 +23,8 @@ export type LinksRejectCommandOptions = z.infer<typeof LinksRejectCommandOptions
  * Result data for links reject command (JSON mode).
  */
 interface LinksRejectCommandResult {
+  affectedLinkCount: number;
+  affectedLinkIds: number[];
   linkId: number;
   newStatus: 'rejected';
   reviewedBy: string;
@@ -112,6 +114,8 @@ async function executeLinksRejectCommand(linkIdArg: string, rawOptions: unknown)
 function handleLinksRejectSuccess(
   isJsonMode: boolean,
   result: {
+    affectedLinkCount: number;
+    affectedLinkIds: number[];
     asset?: string | undefined;
     confidence?: string | undefined;
     linkId: number;
@@ -137,6 +141,7 @@ function handleLinksRejectSuccess(
       const { unmount } = render(
         React.createElement(LinkActionResult, {
           action: 'rejected',
+          affectedLinkCount: result.affectedLinkCount,
           linkId: result.linkId,
           asset: result.asset,
           sourceAmount: result.sourceAmount,
@@ -150,11 +155,13 @@ function handleLinksRejectSuccess(
       setTimeout(() => unmount(), 100);
     } else {
       // Fallback for missing data
-      console.log(`✗ Link ${result.linkId} rejected successfully.`);
+      console.log(`✗ ${result.affectedLinkCount > 1 ? 'Proposal' : 'Link'} ${result.linkId} rejected successfully.`);
     }
   }
 
   const resultData: LinksRejectCommandResult = {
+    affectedLinkCount: result.affectedLinkCount,
+    affectedLinkIds: result.affectedLinkIds,
     linkId: result.linkId,
     newStatus: result.newStatus,
     reviewedBy: result.reviewedBy,

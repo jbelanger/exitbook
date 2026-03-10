@@ -17,10 +17,13 @@ export function createMockLink(
   overrides: {
     assetSymbol?: Currency;
     confidenceScore?: number | Decimal;
+    metadata?: TransactionLink['metadata'];
     reviewedAt?: Date;
     reviewedBy?: string;
+    sourceMovementFingerprint?: string;
     sourceTransactionId?: number;
     status?: 'suggested' | 'confirmed' | 'rejected';
+    targetMovementFingerprint?: string;
     targetTransactionId?: number;
   } = {}
 ): TransactionLink {
@@ -37,8 +40,8 @@ export function createMockLink(
     targetAssetId: 'blockchain:target:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
-    sourceMovementFingerprint: 'movement:exchange:source:1:btc:outflow:0',
-    targetMovementFingerprint: 'movement:blockchain:target:2:btc:inflow:0',
+    sourceMovementFingerprint: overrides.sourceMovementFingerprint ?? 'movement:exchange:source:1:btc:outflow:0',
+    targetMovementFingerprint: overrides.targetMovementFingerprint ?? 'movement:blockchain:target:2:btc:inflow:0',
     linkType: 'exchange_to_blockchain',
     confidenceScore: confidenceDecimal,
     matchCriteria: {
@@ -53,7 +56,7 @@ export function createMockLink(
     reviewedAt: overrides.reviewedAt,
     createdAt: new Date('2024-01-01T12:00:00Z'),
     updatedAt: new Date('2024-01-01T12:00:00Z'),
-    metadata: undefined,
+    metadata: overrides.metadata,
   };
 }
 
@@ -329,11 +332,13 @@ export function createMockLinkRepository(): {
   findAll: Mock;
   findById: Mock;
   updateStatus: Mock;
+  updateStatuses: Mock;
 } {
   return {
     findById: vi.fn(),
     findAll: vi.fn(),
     updateStatus: vi.fn(),
+    updateStatuses: vi.fn(),
   };
 }
 
@@ -374,9 +379,18 @@ export function createMockDataContext(
     transactions?: ReturnType<typeof createMockTransactionRepository>;
   } = {}
 ): DataContext {
+  const transactionLinks = overrides.transactionLinks ?? createMockLinkRepository();
+  const transactions = overrides.transactions ?? createMockTransactionRepository();
+
   return {
-    transactionLinks: overrides.transactionLinks ?? createMockLinkRepository(),
-    transactions: overrides.transactions ?? createMockTransactionRepository(),
+    transactionLinks,
+    transactions,
+    executeInTransaction: vi.fn(async (fn: (tx: DataContext) => Promise<unknown>) =>
+      fn({
+        transactionLinks,
+        transactions,
+      } as unknown as DataContext)
+    ),
   } as unknown as DataContext;
 }
 

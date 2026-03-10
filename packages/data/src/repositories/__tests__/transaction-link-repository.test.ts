@@ -114,12 +114,22 @@ describe('TransactionLinkRepository', () => {
         targetAmount: parseDecimal('9.95'),
         linkType: 'blockchain_to_blockchain',
         status: 'suggested',
-        metadata: { variance: '0.05', variancePct: '0.50', impliedFee: '0.05' },
+        metadata: {
+          variance: '0.05',
+          variancePct: '0.50',
+          impliedFee: '0.05',
+          reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
+        },
       };
 
       const id = assertOk(await repo.create(link));
       const fetched = assertOk(await repo.findById(id));
-      expect(fetched?.metadata).toEqual({ variance: '0.05', variancePct: '0.50', impliedFee: '0.05' });
+      expect(fetched?.metadata).toEqual({
+        variance: '0.05',
+        variancePct: '0.50',
+        impliedFee: '0.05',
+        reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
+      });
     });
 
     it('preserves very small amounts without precision loss', async () => {
@@ -227,6 +237,30 @@ describe('TransactionLinkRepository', () => {
       expect(found?.assetSymbol).toBe('BTC');
       expect(found?.sourceAmount.toFixed()).toBe('1');
       expect(found?.targetAmount.toFixed()).toBe('0.9995');
+    });
+  });
+
+  describe('updateStatuses', () => {
+    it('updates multiple rows in one call', async () => {
+      const firstId = assertOk(
+        await repo.create({
+          ...makeBtcLink(1, 2),
+          status: 'suggested',
+        })
+      );
+      const secondId = assertOk(
+        await repo.create({
+          ...makeBtcLink(3, 4),
+          status: 'suggested',
+        })
+      );
+
+      const updatedRows = assertOk(await repo.updateStatuses([firstId, secondId], 'confirmed', 'cli-user'));
+      expect(updatedRows).toBe(2);
+
+      const links = assertOk(await repo.findAll('confirmed'));
+      expect(links.map((link) => link.id)).toEqual([firstId, secondId]);
+      expect(links.every((link) => link.reviewedBy === 'cli-user')).toBe(true);
     });
   });
 

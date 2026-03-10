@@ -4,8 +4,9 @@
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import { resolveLinkReviewScope } from '../links-review-utils.js';
 
-import { GAPS_CHROME_LINES, LINKS_CHROME_LINES } from './links-view-components.jsx';
+import { getGapsChromeLines, LINKS_CHROME_LINES } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';
 
 /**
@@ -20,7 +21,7 @@ export type LinksViewAction =
   | { type: 'END'; visibleRows: number }
   | { type: 'CONFIRM_SELECTED' }
   | { type: 'REJECT_SELECTED' }
-  | { linkId: number; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS' }
+  | { affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS' }
   | { type: 'CLEAR_ERROR' }
   | { error: string; type: 'SET_ERROR' };
 
@@ -146,11 +147,18 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         };
       }
 
+      const reviewScope = resolveLinkReviewScope(
+        selected.link,
+        state.links.map((item) => item.link)
+      );
+
       return {
         ...state,
         pendingAction: {
+          affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
           linkId: selected.link.id,
           action: 'confirm',
+          reviewGroupKey: reviewScope.reviewGroupKey,
         },
         error: undefined,
       };
@@ -169,11 +177,18 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         };
       }
 
+      const reviewScope = resolveLinkReviewScope(
+        selected.link,
+        state.links.map((item) => item.link)
+      );
+
       return {
         ...state,
         pendingAction: {
+          affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
           linkId: selected.link.id,
           action: 'reject',
+          reviewGroupKey: reviewScope.reviewGroupKey,
         },
         error: undefined,
       };
@@ -184,9 +199,12 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         return state;
       }
 
-      const updatedLinks = state.links.map((item) =>
-        item.link.id === action.linkId ? { ...item, link: { ...item.link, status: action.newStatus } } : item
-      );
+      const affectedLinkIds = new Set(action.affectedLinkIds);
+      const updatedLinks = state.links
+        .map((item) =>
+          affectedLinkIds.has(item.link.id) ? { ...item, link: { ...item.link, status: action.newStatus } } : item
+        )
+        .filter((item) => state.statusFilter === undefined || item.link.status === state.statusFilter);
 
       const updatedCounts = updatedLinks.reduce(
         (acc, item) => {
@@ -203,6 +221,8 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         ...state,
         links: updatedLinks,
         counts: updatedCounts,
+        selectedIndex: normalizeSelectedIndex(state.selectedIndex, updatedLinks.length),
+        scrollOffset: normalizeScrollOffset(state.scrollOffset, updatedLinks.length),
         pendingAction: undefined,
         error: undefined,
       };
@@ -237,6 +257,22 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
   }
 }
 
+function normalizeSelectedIndex(selectedIndex: number, itemCount: number): number {
+  if (itemCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(selectedIndex, itemCount - 1);
+}
+
+function normalizeScrollOffset(scrollOffset: number, itemCount: number): number {
+  if (itemCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(scrollOffset, itemCount - 1);
+}
+
 /**
  * Handle keyboard input
  */
@@ -255,12 +291,13 @@ export function handleKeyboardInput(
   dispatch: (action: LinksViewAction) => void,
   onQuit: () => void,
   terminalHeight: number,
-  mode: 'links' | 'gaps' = 'links'
+  mode: 'links' | 'gaps' = 'links',
+  gapAssetCount = 0
 ): void {
   const visibleRows =
     mode === 'links'
       ? calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES)
-      : calculateVisibleRows(terminalHeight, GAPS_CHROME_LINES);
+      : calculateVisibleRows(terminalHeight, getGapsChromeLines(gapAssetCount));
 
   // Quit
   if (input === 'q' || key.escape) {

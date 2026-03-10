@@ -159,8 +159,10 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toEqual({
+        affectedLinkIds: [3],
         linkId: 3,
         action: 'confirm',
+        reviewGroupKey: undefined,
       });
       expect(newState.error).toBeUndefined();
     }
@@ -175,8 +177,10 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toEqual({
+        affectedLinkIds: [3],
         linkId: 3,
         action: 'reject',
+        reviewGroupKey: undefined,
       });
       expect(newState.error).toBeUndefined();
     }
@@ -211,7 +215,7 @@ describe('linksViewReducer', () => {
   it('sets error message', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
-    state.pendingAction = { linkId: 3, action: 'confirm' };
+    state.pendingAction = { affectedLinkIds: [3], linkId: 3, action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'SET_ERROR', error: 'Network error' });
     expect(newState.mode).toBe('links');
@@ -225,7 +229,7 @@ describe('linksViewReducer', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
-    state.pendingAction = { linkId: 3, action: 'confirm' };
+    state.pendingAction = { affectedLinkIds: [3], linkId: 3, action: 'confirm' };
 
     const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
     expect(newState.mode).toBe('links');
@@ -275,6 +279,24 @@ describe('linksViewReducer - gaps mode', () => {
     expect(newState).toBe(state); // Exact same reference
   });
 
+  it('removes confirmed rows when filtered to suggested', () => {
+    const links = createMockLinksBatch().filter((link) => link.link.status === 'suggested');
+    const state = createLinksViewState(links, 'suggested');
+
+    const newState = linksViewReducer(state, {
+      type: 'ACTION_SUCCESS',
+      affectedLinkIds: [3],
+      newStatus: 'confirmed',
+    });
+
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.links).toHaveLength(0);
+      expect(newState.selectedIndex).toBe(0);
+      expect(newState.scrollOffset).toBe(0);
+    }
+  });
+
   it('REJECT_SELECTED is a no-op in gaps mode', () => {
     const state = createGapsViewState(createMockGapAnalysis());
 
@@ -301,7 +323,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow up key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 10 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 9 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -330,7 +352,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow down key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 10 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 9 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -359,7 +381,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim k key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 10 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 9 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -388,7 +410,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim j key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 10 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 9 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -575,9 +597,9 @@ describe('handleKeyboardInput', () => {
       24,
       'links'
     );
-    expect(receivedVisibleRows).toBe(10);
+    expect(receivedVisibleRows).toBe(9);
 
-    // Gaps mode: terminalHeight(24) - 18 = 6
+    // Gaps mode with one summary asset: terminalHeight(24) - 19 = 5
     handleKeyboardInput(
       'j',
       {
@@ -593,8 +615,9 @@ describe('handleKeyboardInput', () => {
       dispatch,
       onQuit,
       24,
-      'gaps'
+      'gaps',
+      1
     );
-    expect(receivedVisibleRows).toBe(6);
+    expect(receivedVisibleRows).toBe(5);
   });
 });

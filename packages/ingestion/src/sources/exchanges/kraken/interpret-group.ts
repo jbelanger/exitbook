@@ -135,6 +135,37 @@ function hasBalancedSameAssetOpposingPair(
   return Array.from(signedAmountByAsset.values()).every((amount) => amount.isZero()) && signedFeeTotal.isZero();
 }
 
+function isNetZeroTransferReversalPair(
+  interpretedEvents: InterpretedKrakenEvent[],
+  inflows: ExchangeMovementDraft[],
+  outflows: ExchangeMovementDraft[]
+): boolean {
+  if (interpretedEvents.length !== 2) {
+    return false;
+  }
+
+  if (!hasBalancedSameAssetOpposingPair(interpretedEvents, inflows, outflows)) {
+    return false;
+  }
+
+  const providerTypes = new Set(interpretedEvents.map((event) => event.event.providerType));
+  if (providerTypes.size !== 1) {
+    return false;
+  }
+
+  const [providerType] = providerTypes;
+  if (providerType !== 'deposit' && providerType !== 'withdrawal') {
+    return false;
+  }
+
+  const assetSymbols = new Set(interpretedEvents.map((event) => event.event.assetSymbol));
+  if (assetSymbols.size !== 1) {
+    return false;
+  }
+
+  return interpretedEvents.some((event) => event.feeAmount.isNegative());
+}
+
 function interpretKrakenEvent(event: ExchangeProviderEvent): Result<InterpretedKrakenEvent, Error> {
   const amount = parseDecimal(event.rawAmount);
   const feeAmount = parseDecimal(event.rawFee ?? '0');
@@ -246,6 +277,37 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
   const overlappingAssetIds = consolidatedInflows
     .map((movement) => movement.assetId)
     .filter((assetId) => consolidatedOutflows.some((movement) => movement.assetId === assetId));
+
+  if (
+    overlappingAssetIds.length > 0 &&
+    isNetZeroTransferReversalPair(interpretedEvents, consolidatedInflows, consolidatedOutflows)
+  ) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'provider_reversal_pair',
+        'warning',
+        'Kraken group is a net-zero transfer reversal pair, so it was skipped instead of materialized.',
+        {
+          inflows: consolidatedInflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          nettedToZero: true,
+          outflows: consolidatedOutflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          providerTypes: interpretedEvents.map((event) => event.event.providerType),
+          rawFees: interpretedEvents.map((event) => ({
+            eventId: event.event.providerEventId,
+            fee: event.event.rawFee ?? '0',
+          })),
+        }
+      ),
+    };
+  }
 
   if (
     overlappingAssetIds.length > 0 &&

@@ -3,6 +3,8 @@ import { err, ok } from '@exitbook/core';
 import { DataContext, type OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
+import { resolveLinkReviewScope } from '../links-review-utils.js';
+
 import { writeUnlinkOverrideEvent } from './links-override-utils.js';
 import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';
 
@@ -20,6 +22,8 @@ export interface LinksRejectParams {
  */
 export interface LinksRejectResult {
   linkId: number;
+  affectedLinkIds: number[];
+  affectedLinkCount: number;
   newStatus: 'rejected';
   reviewedBy: string;
   reviewedAt: Date;
@@ -70,6 +74,8 @@ export class LinksRejectHandler {
       if (!validationResult.value) {
         logger.warn({ linkId: params.linkId }, 'Link is already rejected');
         return ok({
+          affectedLinkCount: 1,
+          affectedLinkIds: [link.id],
           linkId: link.id,
           newStatus: 'rejected',
           reviewedBy: link.reviewedBy ?? getDefaultReviewer(),
@@ -77,29 +83,50 @@ export class LinksRejectHandler {
         });
       }
 
-      // Allow rejecting confirmed links (including auto-confirmed ones)
-      // Users must be able to override incorrect auto-confirmations
+      const reviewedBy = getDefaultReviewer();
+      const allLinksResult = await this.db.transactionLinks.findAll();
+      if (allLinksResult.isErr()) {
+        return err(allLinksResult.error);
+      }
+
+      const reviewScope = resolveLinkReviewScope(link, allLinksResult.value);
+      const actionableLinks = reviewScope.links.filter((candidate) => candidate.status !== 'rejected');
+      const actionableIds = actionableLinks.map((candidate) => candidate.id);
+
       if (link.status === 'confirmed') {
         logger.info({ linkId: params.linkId }, 'Rejecting previously confirmed link');
       }
 
-      // Update link status to rejected
-      const reviewedBy = getDefaultReviewer();
-      const updateResult = await this.db.transactionLinks.updateStatus(params.linkId, 'rejected', reviewedBy);
+      const updateResult = await this.db.executeInTransaction(async (tx) => {
+        const updatedRowsResult = await tx.transactionLinks.updateStatuses(actionableIds, 'rejected', reviewedBy);
+        if (updatedRowsResult.isErr()) {
+          return err(updatedRowsResult.error);
+        }
 
+        if (updatedRowsResult.value !== actionableIds.length) {
+          return err(
+            new Error(
+              `Failed to update review group for link ${params.linkId}: expected ${actionableIds.length} rows, updated ${updatedRowsResult.value}`
+            )
+          );
+        }
+
+        return ok(undefined);
+      });
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
 
-      if (!updateResult.value) {
-        return err(new Error(`Failed to update link ${params.linkId}`));
-      }
-
-      logger.info({ linkId: params.linkId }, 'Link rejected successfully');
+      logger.info(
+        { affectedLinkIds: reviewScope.links.map((candidate) => candidate.id), linkId: params.linkId },
+        'Link review group rejected successfully'
+      );
 
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
-        await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, link);
+        for (const reviewLink of reviewScope.links) {
+          await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, reviewLink);
+        }
       }
 
       // Fetch transaction details for rich display
@@ -110,6 +137,8 @@ export class LinksRejectHandler {
       const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;
 
       return ok({
+        affectedLinkCount: reviewScope.links.length,
+        affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
         linkId: params.linkId,
         newStatus: 'rejected',
         reviewedBy,

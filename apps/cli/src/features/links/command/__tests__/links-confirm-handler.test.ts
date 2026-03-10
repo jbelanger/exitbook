@@ -48,8 +48,8 @@ describe('LinksConfirmHandler', () => {
       const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(1));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
@@ -61,12 +61,14 @@ describe('LinksConfirmHandler', () => {
 
       const confirmResult = assertOk(result);
       expect(confirmResult.linkId).toBe(123);
+      expect(confirmResult.affectedLinkCount).toBe(1);
+      expect(confirmResult.affectedLinkIds).toEqual([123]);
       expect(confirmResult.newStatus).toBe('confirmed');
       expect(confirmResult.reviewedBy).toBe('cli-user');
       expect(confirmResult.reviewedAt).toBeInstanceOf(Date);
 
       expect(mockLinkRepository.findById).toHaveBeenCalledWith(123);
-      expect(mockLinkRepository.updateStatus).toHaveBeenCalledWith(123, 'confirmed', 'cli-user');
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user');
     });
 
     it('should write link_override event after successful confirm', async () => {
@@ -81,8 +83,8 @@ describe('LinksConfirmHandler', () => {
         `${suggestedLink.sourceAssetId}:${suggestedLink.targetAssetId}`;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(1));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
@@ -123,8 +125,8 @@ describe('LinksConfirmHandler', () => {
       const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(true));
+      mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(1));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
       mockTransactionRepository.findById.mockImplementation((id: number) => {
         if (id === 1) return Promise.resolve(ok(mockSourceTx));
@@ -160,7 +162,7 @@ describe('LinksConfirmHandler', () => {
       expect(confirmResult.reviewedBy).toBe('cli-user');
 
       // Should not call updateStatus for already confirmed links
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
       // Should not write override for idempotent no-op
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
     });
@@ -183,7 +185,7 @@ describe('LinksConfirmHandler', () => {
       const error = assertErr(result);
       expect(error.message).toContain('previously rejected');
 
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should return error if link not found', async () => {
@@ -198,7 +200,7 @@ describe('LinksConfirmHandler', () => {
       const error = assertErr(result);
       expect(error.message).toContain('not found');
 
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should return error if findById fails', async () => {
@@ -225,8 +227,8 @@ describe('LinksConfirmHandler', () => {
       const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
-      mockLinkRepository.updateStatus.mockResolvedValue(err(new Error('Update failed')));
+      mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(err(new Error('Update failed')));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
 
       const result = await handler.execute(params);
@@ -244,14 +246,14 @@ describe('LinksConfirmHandler', () => {
       const suggestedLink = fixture.link;
 
       mockLinkRepository.findById.mockResolvedValue(ok(suggestedLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
-      mockLinkRepository.updateStatus.mockResolvedValue(ok(false));
+      mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(0));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
 
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toContain('Failed to update link');
+      expect(error.message).toContain('Failed to update review group');
     });
 
     it('should handle exceptions gracefully', async () => {
@@ -289,7 +291,7 @@ describe('LinksConfirmHandler', () => {
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(partialLink));
-      mockLinkRepository.findAll.mockResolvedValue(ok([]));
+      mockLinkRepository.findAll.mockResolvedValue(ok([partialLink]));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
 
       const result = await handler.execute(params);
@@ -297,7 +299,80 @@ describe('LinksConfirmHandler', () => {
       const error = assertErr(result);
       expect(error.message).toContain('cannot be confirmed');
       expect(error.message).toContain('does not reconcile with scoped movement amount');
-      expect(mockLinkRepository.updateStatus).not.toHaveBeenCalled();
+      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
+    });
+
+    it('should confirm all related proposal legs together', async () => {
+      const params: LinksConfirmParams = {
+        linkId: 123,
+      };
+
+      const fixture = createConfirmableTransferFixture({
+        sourceAmount: '5',
+        targetAmount: '10',
+      });
+      const firstLink = {
+        ...fixture.link,
+        id: 123,
+        sourceAmount: fixture.link.sourceAmount,
+        targetAmount: fixture.link.sourceAmount,
+        metadata: {
+          partialMatch: true as const,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          reviewGroupKey: 'partial-target:v1:target',
+        },
+      };
+      const secondLink = {
+        ...fixture.link,
+        id: 124,
+        sourceTransactionId: 3,
+        sourceMovementFingerprint: 'movement:tx:v2:kraken:1:WITHDRAWAL-456:outflow:0',
+        sourceAmount: fixture.link.sourceAmount,
+        targetAmount: fixture.link.sourceAmount,
+        metadata: {
+          partialMatch: true as const,
+          fullSourceAmount: '5',
+          fullTargetAmount: '10',
+          consumedAmount: '5',
+          reviewGroupKey: 'partial-target:v1:target',
+        },
+      };
+      const additionalSourceTx = {
+        ...fixture.sourceTransaction,
+        id: 3,
+        externalId: 'WITHDRAWAL-456',
+      };
+
+      mockLinkRepository.findById.mockResolvedValue(ok(firstLink));
+      mockLinkRepository.findAll.mockResolvedValue(ok([firstLink, secondLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(2));
+      mockTransactionRepository.findAll.mockResolvedValue(
+        ok([fixture.sourceTransaction, additionalSourceTx, fixture.targetTransaction])
+      );
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        if (id === 3) {
+          return Promise.resolve(
+            ok({
+              ...mockSourceTx,
+              id: 3,
+              externalId: 'WITHDRAWAL-456',
+            })
+          );
+        }
+        return Promise.resolve(ok(undefined));
+      });
+
+      const result = await handler.execute(params);
+
+      const confirmResult = assertOk(result);
+      expect(confirmResult.affectedLinkIds).toEqual([123, 124]);
+      expect(confirmResult.affectedLinkCount).toBe(2);
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123, 124], 'confirmed', 'cli-user');
+      expect(mockOverrideStore.append).toHaveBeenCalledTimes(2);
     });
   });
 });

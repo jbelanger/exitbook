@@ -7,9 +7,9 @@ import { interpretKrakenGroup } from '../interpret-group.js';
 import { normalizeKrakenProviderEvent } from '../normalize-provider-event.js';
 import { KrakenProcessor } from '../processor.js';
 
-import ambiguousSameAssetOpposingPair from './fixtures/ambiguous-same-asset-opposing-pair.json' with { type: 'json' };
 import cleanDeposit from './fixtures/clean-deposit.json' with { type: 'json' };
 import cleanWithdrawal from './fixtures/clean-withdrawal.json' with { type: 'json' };
+import netZeroTransferReversalPair from './fixtures/net-zero-transfer-reversal-pair.json' with { type: 'json' };
 
 function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLedgerEntry>[] {
   return rows.map((row) => ({
@@ -19,8 +19,8 @@ function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLe
 }
 
 describe('KrakenProcessor', () => {
-  test('returns an explicit ambiguity diagnostic for balanced same-asset opposing pairs', () => {
-    const normalized = (ambiguousSameAssetOpposingPair as KrakenLedgerEntry[]).map((row) => {
+  test('returns a warning diagnostic for net-zero transfer reversal pairs', () => {
+    const normalized = (netZeroTransferReversalPair as KrakenLedgerEntry[]).map((row) => {
       const result = normalizeKrakenProviderEvent(row, row.id);
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) {
@@ -36,28 +36,28 @@ describe('KrakenProcessor', () => {
     }
 
     const interpretation = interpretKrakenGroup(group);
-    expect(interpretation.kind).toBe('ambiguous');
-    if (interpretation.kind !== 'ambiguous') {
+    expect(interpretation.kind).toBe('unsupported');
+    if (interpretation.kind !== 'unsupported') {
       return;
     }
 
-    expect(interpretation.diagnostic.code).toBe('ambiguous_same_asset_opposing_pair');
-    expect(interpretation.diagnostic.severity).toBe('error');
+    expect(interpretation.diagnostic.code).toBe('provider_reversal_pair');
+    expect(interpretation.diagnostic.severity).toBe('warning');
     expect(interpretation.diagnostic.evidence['nettedToZero']).toBe(true);
     expect(interpretation.diagnostic.providerEventIds).toEqual(['KRKN_EVT_AKT_OUT', 'KRKN_EVT_AKT_IN']);
   });
 
-  test('fails closed on balanced same-asset opposing pairs', async () => {
+  test('skips net-zero transfer reversal pairs without failing the batch', async () => {
     const processor = new KrakenProcessor();
 
-    const result = await processor.process(toInputs(ambiguousSameAssetOpposingPair as KrakenLedgerEntry[]));
+    const result = await processor.process(toInputs(netZeroTransferReversalPair as KrakenLedgerEntry[]));
 
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) {
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
       return;
     }
 
-    expect(result.error.message).toContain('ambiguous_same_asset_opposing_pair');
+    expect(result.value).toEqual([]);
   });
 
   test('processes clean deposits', async () => {

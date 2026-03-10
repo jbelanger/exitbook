@@ -190,17 +190,28 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       const confirmHandler = new LinksConfirmHandler(database, overrideStore);
       const rejectHandler = new LinksRejectHandler(database, overrideStore);
 
-      const handleAction = async (linkId: number, action: 'confirm' | 'reject'): Promise<void> => {
+      const handleAction = async (
+        linkId: number,
+        action: 'confirm' | 'reject'
+      ): Promise<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }> => {
         if (action === 'confirm') {
           const result = await confirmHandler.execute({ linkId });
           if (result.isErr()) {
             throw result.error;
           }
+          return {
+            affectedLinkIds: result.value.affectedLinkIds,
+            newStatus: result.value.newStatus,
+          };
         } else {
           const result = await rejectHandler.execute({ linkId });
           if (result.isErr()) {
             throw result.error;
           }
+          return {
+            affectedLinkIds: result.value.affectedLinkIds,
+            newStatus: result.value.newStatus,
+          };
         }
       };
 

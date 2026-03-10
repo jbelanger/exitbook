@@ -7,6 +7,7 @@ import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
+import { filterUnsupportedSameHashExternalPartials } from './hash-partial-feasibility-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
 
 /**
@@ -41,7 +42,8 @@ export class PartialMatchStrategy implements ILinkingStrategy {
       return ok({ links, consumedCandidateIds });
     }
 
-    const { suggested } = allocateMatches(allMatches, relaxedConfig);
+    const feasibleMatches = filterUnsupportedSameHashExternalPartials(allMatches);
+    const { suggested } = allocateMatches(feasibleMatches, relaxedConfig);
 
     const now = new Date();
 

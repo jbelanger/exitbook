@@ -7,6 +7,7 @@ import type { FC } from 'react';
 
 interface LinkActionResultProps {
   action: 'confirmed' | 'rejected';
+  affectedLinkCount?: number | undefined;
   linkId: number;
   asset: string;
   sourceAmount: string;
@@ -23,6 +24,7 @@ interface LinkActionResultProps {
  */
 export const LinkActionResult: FC<LinkActionResultProps> = ({
   action,
+  affectedLinkCount,
   linkId,
   asset,
   sourceAmount,
@@ -41,6 +43,7 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
       <Text color="green">{sourceAmount}</Text> <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text>{' '}
       <Text dimColor>·</Text> <Text color="cyan">{sourceName}</Text> <Text dimColor>→</Text>{' '}
       <Text color="cyan">{targetName}</Text> <Text dimColor>({confidence})</Text>
+      {affectedLinkCount !== undefined && affectedLinkCount > 1 && <Text dimColor> · {affectedLinkCount} legs</Text>}
     </Text>
   );
 };

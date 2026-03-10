@@ -300,6 +300,33 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
+  async updateStatuses(ids: number[], status: LinkStatus, reviewedBy: string): Promise<Result<number, Error>> {
+    try {
+      if (ids.length === 0) {
+        return ok(0);
+      }
+
+      const now = new Date().toISOString();
+      const result = await this.db
+        .updateTable('transaction_links')
+        .set({
+          status,
+          reviewed_by: reviewedBy,
+          reviewed_at: now,
+          updated_at: now,
+        })
+        .where('id', 'in', ids)
+        .executeTakeFirst();
+
+      const updatedRows = Number(result.numUpdatedRows ?? 0);
+      this.logger.debug({ ids, status, updatedRows }, 'Updated transaction link statuses');
+      return ok(updatedRows);
+    } catch (error) {
+      this.logger.error({ error, ids, status }, 'Failed to update transaction link statuses');
+      return wrapError(error, 'Failed to update transaction link statuses');
+    }
+  }
+
   async count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
     try {
       const accountIds = filters?.accountIds;
