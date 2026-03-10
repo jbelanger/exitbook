@@ -8,7 +8,7 @@ import {
   formatLinkForDisplay,
   formatLinkInfo,
   mapTransactionToDetails,
-} from '../links-view-utils.js';
+} from '../command/links-view-utils.js';
 
 import { createMockLink, createMockTransaction } from './test-utils.js';
 

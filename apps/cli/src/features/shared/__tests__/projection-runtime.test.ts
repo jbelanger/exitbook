@@ -51,7 +51,7 @@ vi.mock('@exitbook/accounting', async () => {
   };
 });
 
-vi.mock('../../prices/prices-utils.js', () => ({
+vi.mock('../../prices/command/prices-utils.js', () => ({
   createDefaultPriceProviderManager: mockCreateDefaultPriceProviderManager,
 }));
 

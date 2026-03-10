@@ -3,8 +3,8 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { LinksConfirmHandler } from '../links-confirm-handler.js';
-import type { LinksConfirmParams } from '../links-confirm-handler.js';
+import { LinksConfirmHandler } from '../command/links-confirm-handler.js';
+import type { LinksConfirmParams } from '../command/links-confirm-handler.js';
 
 import {
   createConfirmableTransferFixture,

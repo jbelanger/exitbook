@@ -6,8 +6,8 @@ import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceAssetDiagnosticsSummary } from '../balance-diagnostics.js';
 import { getExchangeCredentialsFromEnv } from '../command/balance-utils.js';
+import type { BalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 
 import type {
   AccountOfflineItem,

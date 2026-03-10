@@ -4,7 +4,7 @@ import type { DataContext } from '@exitbook/data';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
-import { ProcessHandler } from '../reprocess-handler.js';
+import { ProcessHandler } from '../command/reprocess-handler.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({

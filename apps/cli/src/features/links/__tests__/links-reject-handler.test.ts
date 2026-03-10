@@ -3,8 +3,8 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { LinksRejectHandler } from '../links-reject-handler.js';
-import type { LinksRejectParams } from '../links-reject-handler.js';
+import { LinksRejectHandler } from '../command/links-reject-handler.js';
+import type { LinksRejectParams } from '../command/links-reject-handler.js';
 
 import {
   createMockDataContext,

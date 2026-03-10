@@ -2,7 +2,11 @@ import type { LinkStatus } from '@exitbook/accounting';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { getDefaultReviewer, validateLinkStatusForConfirm, validateLinkStatusForReject } from '../links-utils.js';
+import {
+  getDefaultReviewer,
+  validateLinkStatusForConfirm,
+  validateLinkStatusForReject,
+} from '../command/links-utils.js';
 
 describe('links-utils', () => {
   describe('getDefaultReviewer', () => {

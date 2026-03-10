@@ -4,7 +4,7 @@ import type { AdapterRegistry } from '@exitbook/ingestion';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
-import { buildImportParams, type ImportCommandOptions } from '../import-utils.js';
+import { buildImportParams, type ImportCommandOptions } from '../command/import-utils.js';
 
 function createTestRegistry(): AdapterRegistry {
   return {

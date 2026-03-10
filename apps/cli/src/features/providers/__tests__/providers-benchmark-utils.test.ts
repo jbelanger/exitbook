@@ -7,7 +7,7 @@ import {
   parseCustomRates,
   parseMaxRate,
   parseNumRequests,
-} from '../providers-benchmark-utils.js';
+} from '../command/providers-benchmark-utils.js';
 
 describe('providers-benchmark-utils', () => {
   describe('parseMaxRate', () => {

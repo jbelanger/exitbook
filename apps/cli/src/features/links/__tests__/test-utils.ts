@@ -6,8 +6,8 @@ import type { DataContext } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { vi, type Mock } from 'vitest';
 
-import type { LinkWithTransactions } from '../components/links-view-state.js';
-import type { LinkGapAnalysis } from '../links-gap-utils.js';
+import type { LinkGapAnalysis } from '../command/links-gap-utils.js';
+import type { LinkWithTransactions } from '../view/links-view-state.js';
 
 /**
  * Create a mock transaction link with sensible defaults

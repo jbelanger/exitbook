@@ -34,9 +34,9 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
-import { LinksRunMonitor } from '../links/components/links-run-components.jsx';
-import { PricesEnrichMonitor } from '../prices/components/prices-enrich-components.jsx';
-import { createDefaultPriceProviderManager } from '../prices/prices-utils.js';
+import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
+import { createDefaultPriceProviderManager } from '../prices/command/prices-utils.js';
+import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
 import { createProviderManagerWithStats } from './provider-manager-factory.js';
 

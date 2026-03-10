@@ -3,8 +3,8 @@ import { loadExplorerConfig, type ProviderRegistry } from '@exitbook/blockchain-
 import { ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { benchmarkRateLimit } from '../benchmark-tool.js';
-import { ProvidersBenchmarkHandler } from '../providers-benchmark-handler.js';
+import { benchmarkRateLimit } from '../command/benchmark-tool.js';
+import { ProvidersBenchmarkHandler } from '../command/providers-benchmark-handler.js';
 
 // Mock dependencies
 vi.mock('@exitbook/blockchain-providers', async () => {
@@ -15,7 +15,7 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   };
 });
 
-vi.mock('../benchmark-tool.js', () => ({
+vi.mock('../command/benchmark-tool.js', () => ({
   benchmarkRateLimit: vi.fn(),
 }));
 

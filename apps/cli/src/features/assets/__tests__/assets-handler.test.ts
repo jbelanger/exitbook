@@ -4,14 +4,14 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AssetsHandler } from '../assets-handler.js';
+import { AssetsHandler } from '../command/assets-handler.js';
 
 function createTransaction(params: {
   externalId?: string | undefined;
-  fees?: { amount: string; assetId: string; assetSymbol: string; }[] | undefined;
+  fees?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
   id: number;
-  inflows?: { amount: string; assetId: string; assetSymbol: string; }[] | undefined;
-  outflows?: { amount: string; assetId: string; assetSymbol: string; }[] | undefined;
+  inflows?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
+  outflows?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
 }): UniversalTransactionData {
   const inflows = params.inflows ?? [];
   const outflows = params.outflows ?? [];

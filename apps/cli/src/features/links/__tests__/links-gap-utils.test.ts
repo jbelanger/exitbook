@@ -3,7 +3,7 @@ import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { analyzeLinkGaps } from '../links-gap-utils.js';
+import { analyzeLinkGaps } from '../command/links-gap-utils.js';
 
 describe('analyzeLinkGaps', () => {
   const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';

@@ -7,7 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { createProviderManagerWithStats } from '../../shared/provider-manager-factory.js';
-import { buildBalanceAssetDiagnosticsSummary } from '../balance-diagnostics.js';
+import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { AssetOfflineItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
   sortAccountsByVerificationPriority,

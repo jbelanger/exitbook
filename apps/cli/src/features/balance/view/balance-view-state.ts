@@ -4,7 +4,7 @@
 
 import type { AccountType } from '@exitbook/core';
 
-import type { DateRange } from '../balance-diagnostics.js';
+import type { DateRange } from '../shared/balance-diagnostics.js';
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────────
 

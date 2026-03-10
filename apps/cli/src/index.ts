@@ -31,18 +31,18 @@ initLogger({
 process.on('exit', () => flushLoggers());
 
 import { registerAccountsCommand } from './features/accounts/command/accounts.js';
-import { registerAssetsCommand } from './features/assets/assets.js';
+import { registerAssetsCommand } from './features/assets/command/assets.js';
 import { registerBalanceCommand } from './features/balance/command/balance.js';
-import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
+import { registerBlockchainsCommand } from './features/blockchains/command/blockchains.js';
 import { registerClearCommand } from './features/clear/command/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/command/cost-basis.js';
-import { registerImportCommand } from './features/import/import.js';
-import { registerLinksCommand } from './features/links/links.js';
-import { registerPortfolioCommand } from './features/portfolio/portfolio.js';
-import { registerPricesCommand } from './features/prices/prices.js';
-import { registerProvidersCommand } from './features/providers/providers.js';
-import { registerReprocessCommand } from './features/reprocess/reprocess.js';
-import { registerTransactionsCommand } from './features/transactions/transactions.js';
+import { registerImportCommand } from './features/import/command/import.js';
+import { registerLinksCommand } from './features/links/command/links.js';
+import { registerPortfolioCommand } from './features/portfolio/command/portfolio.js';
+import { registerPricesCommand } from './features/prices/command/prices.js';
+import { registerProvidersCommand } from './features/providers/command/providers.js';
+import { registerReprocessCommand } from './features/reprocess/command/reprocess.js';
+import { registerTransactionsCommand } from './features/transactions/command/transactions.js';
 
 // Construct registry once at startup — duplicate registrations throw at construction time
 const adapterRegistry = new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters);
