@@ -5,7 +5,13 @@ import { Decimal } from 'decimal.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, ScoreComponent } from '../shared/types.js';
 
+import { areLinkingAssetsEquivalent } from './asset-equivalence-utils.js';
 import { checkTransactionHashMatch } from './exact-hash-utils.js';
+
+const MIGRATION_ASSET_BASE = parseDecimal('0.1');
+const MIGRATION_HASH_BONUS = parseDecimal('0.1');
+const MIGRATION_CONFIDENCE_CAP = parseDecimal('0.94');
+const MIGRATION_MIN_AMOUNT_SIMILARITY = parseDecimal('0.999');
 
 /**
  * Calculate amount similarity between two amounts (0-1 score)
@@ -160,13 +166,18 @@ export function calculateConfidenceScore(criteria: MatchCriteria): {
   const breakdown: ScoreComponent[] = [];
   let score = parseDecimal('0');
 
-  // Asset match is mandatory (30% weight) — hard veto if false
-  if (!criteria.assetMatch) {
+  // Asset equivalence is mandatory unless this is a suspected migration candidate.
+  if (!criteria.assetMatch && criteria.suspectedMigration !== true) {
     return { score: parseDecimal('0'), breakdown: [] };
   }
 
-  const assetBase = parseDecimal('0.3');
-  breakdown.push({ signal: 'asset_match', weight: assetBase, value: parseDecimal('1'), contribution: assetBase });
+  const assetBase = criteria.assetMatch ? parseDecimal('0.3') : MIGRATION_ASSET_BASE;
+  breakdown.push({
+    signal: criteria.assetMatch ? 'asset_match' : 'suspected_migration_asset',
+    weight: assetBase,
+    value: parseDecimal('1'),
+    contribution: assetBase,
+  });
   score = score.plus(assetBase);
 
   // Amount similarity (40% weight)
@@ -218,11 +229,19 @@ export function calculateConfidenceScore(criteria: MatchCriteria): {
     return { score: parseDecimal('0'), breakdown: [] };
   }
 
+  if (criteria.suspectedMigration === true && criteria.hashMatch === true) {
+    breakdown.push({
+      signal: 'migration_hash_bonus',
+      weight: MIGRATION_HASH_BONUS,
+      value: parseDecimal('1'),
+      contribution: MIGRATION_HASH_BONUS,
+    });
+    score = score.plus(MIGRATION_HASH_BONUS);
+  }
+
   // Clamp to [0, 1] and round to 6 decimal places for deterministic threshold comparisons
-  score = Decimal.min(Decimal.max(score, parseDecimal('0')), parseDecimal('1')).toDecimalPlaces(
-    6,
-    Decimal.ROUND_HALF_UP
-  );
+  const maxScore = criteria.suspectedMigration === true ? MIGRATION_CONFIDENCE_CAP : parseDecimal('1');
+  score = Decimal.min(Decimal.max(score, parseDecimal('0')), maxScore).toDecimalPlaces(6, Decimal.ROUND_HALF_UP);
 
   return { score, breakdown };
 }
@@ -269,9 +288,10 @@ export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, targ
 export function buildMatchCriteria(
   source: LinkableMovement,
   target: LinkableMovement,
-  config: MatchingConfig
+  config: MatchingConfig,
+  hashMatch?: boolean
 ): MatchCriteria {
-  const assetMatch = source.assetSymbol === target.assetSymbol;
+  const assetMatch = areLinkingAssetsEquivalent(source, target);
   const amountSimilarity = calculateFeeAwareAmountSimilarity(source, target);
   const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
   const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
@@ -283,7 +303,44 @@ export function buildMatchCriteria(
     timingValid,
     timingHours,
     addressMatch,
+    hashMatch,
   };
+}
+
+function isLikelyCrossSourceTokenMigration(
+  source: LinkableMovement,
+  target: LinkableMovement,
+  criteria: MatchCriteria
+): boolean {
+  if (criteria.assetMatch) {
+    return false;
+  }
+
+  if (criteria.hashMatch !== true) {
+    return false;
+  }
+
+  if (criteria.amountSimilarity.lessThan(MIGRATION_MIN_AMOUNT_SIMILARITY)) {
+    return false;
+  }
+
+  if (!criteria.timingValid) {
+    return false;
+  }
+
+  if (criteria.addressMatch === false) {
+    return false;
+  }
+
+  const isExchangeBlockchainPair =
+    (source.sourceType === 'exchange' && target.sourceType === 'blockchain') ||
+    (source.sourceType === 'blockchain' && target.sourceType === 'exchange');
+
+  if (!isExchangeBlockchainPair) {
+    return false;
+  }
+
+  return source.sourceName !== target.sourceName;
 }
 
 /**
@@ -310,7 +367,6 @@ export function scoreAndFilterMatches(
     if (source.transactionId === target.transactionId) continue;
 
     // Quick filters
-    if (source.assetSymbol !== target.assetSymbol) continue;
     if (source.direction !== 'out' || target.direction !== 'in') continue;
 
     // Same-source guard: matching within the same source is meaningless for transfer linking.
@@ -328,7 +384,9 @@ export function scoreAndFilterMatches(
     // detectInternalBlockchainTransfers — skip heuristic matching for these pairs entirely.
     if (hashMatch === true && bothAreBlockchain) continue;
 
-    if (hashMatch === true && !bothAreBlockchain) {
+    const assetMatch = areLinkingAssetsEquivalent(source, target);
+
+    if (hashMatch === true && !bothAreBlockchain && assetMatch) {
       // Perfect match - same blockchain transaction hash
       // For multi-output scenarios (one source → multiple targets with same hash):
       // Validate that sum of all target amounts doesn't exceed source amount
@@ -337,7 +395,7 @@ export function scoreAndFilterMatches(
       // Use checkTransactionHashMatch to ensure consistent log-index handling
       const targetsWithSameHash = targets.filter((t) => {
         if (t.transactionId === source.transactionId) return false; // Exclude self
-        if (t.assetSymbol !== source.assetSymbol) return false;
+        if (!areLinkingAssetsEquivalent(source, t)) return false;
         if (t.direction !== 'in') return false;
 
         // Use checkTransactionHashMatch to ensure same log-index rules are applied
@@ -399,7 +457,16 @@ export function scoreAndFilterMatches(
     }
 
     // Build criteria for normal (non-hash) matching
-    const criteria = buildMatchCriteria(source, target, config);
+    const criteria = buildMatchCriteria(source, target, config, hashMatch === true ? true : undefined);
+    const suspectedMigration = isLikelyCrossSourceTokenMigration(source, target, criteria);
+
+    if (!criteria.assetMatch && !suspectedMigration) {
+      continue;
+    }
+
+    if (suspectedMigration) {
+      criteria.suspectedMigration = true;
+    }
 
     // Enforce timing validity as a hard threshold
     // Target must come after source and be within the time window

@@ -62,6 +62,7 @@ describe('schemas', () => {
     it('should validate criteria without optional addressMatch', () => {
       const criteria = {
         assetMatch: false,
+        suspectedMigration: true,
         amountSimilarity: parseDecimal('0.85'),
         timingValid: true,
         timingHours: 2.0,
@@ -69,6 +70,7 @@ describe('schemas', () => {
 
       const result = MatchCriteriaSchema.parse(criteria);
       expect(result.assetMatch).toBe(false);
+      expect(result.suspectedMigration).toBe(true);
       expect(result.amountSimilarity.toFixed()).toBe('0.85');
       expect(result.addressMatch).toBeUndefined();
     });
@@ -144,6 +146,7 @@ describe('schemas', () => {
           amountSimilarity: parseDecimal('1.0'),
           timingValid: true,
           timingHours: 1.5,
+          suspectedMigration: false,
           addressMatch: true,
         },
         status: 'confirmed',

@@ -6,6 +6,7 @@ import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
 
 import { calculateTimeDifferenceHours, determineLinkType, isTimingValid } from './amount-timing-utils.js';
+import { areLinkingAssetsEquivalent } from './asset-equivalence-utils.js';
 import { checkTransactionHashMatch } from './exact-hash-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
 
@@ -34,7 +35,7 @@ export class ExactHashStrategy implements ILinkingStrategy {
       const hashTargets: LinkableMovement[] = [];
       for (const target of targets) {
         if (consumedCandidateIds.has(target.id)) continue;
-        if (target.assetSymbol !== source.assetSymbol) continue;
+        if (!areLinkingAssetsEquivalent(source, target)) continue;
 
         // Same-source guard
         if (source.sourceName === target.sourceName) continue;

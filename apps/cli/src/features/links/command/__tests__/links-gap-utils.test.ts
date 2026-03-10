@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Account, Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +9,14 @@ describe('analyzeLinkGaps', () => {
   const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';
   const serviceInAddress = '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed';
   const serviceOutAddress = '0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef';
+
+  const createMockAccount = (
+    overrides: Partial<Pick<Account, 'id' | 'identifier' | 'userId'>> = {}
+  ): Pick<Account, 'id' | 'identifier' | 'userId'> => ({
+    id: overrides.id ?? 1,
+    identifier: overrides.identifier ?? selfAddress,
+    userId: overrides.userId ?? 1,
+  });
 
   const createMockTransaction = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData => ({
     id: 1,
@@ -221,8 +229,8 @@ describe('analyzeLinkGaps', () => {
         sourceTransactionId: 5,
         targetTransactionId: 11,
         assetSymbol: 'BTC',
-        sourceAssetId: 'exchange:source:btc',
-        targetAssetId: 'blockchain:target:btc',
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
         sourceAmount: '0.8',
         targetAmount: '0.8',
         linkType: 'exchange_to_blockchain',
@@ -238,6 +246,54 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.assets).toHaveLength(0);
   });
 
+  it('should treat confirmed migration links as coverage based on asset ids even when symbols differ', () => {
+    const renderDeposit = createBlockchainDeposit({
+      id: 8813,
+      externalId: 'render-deposit',
+      source: 'ethereum',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'render-migration-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('19.5536'),
+            netAmount: parseDecimal('19.5536'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+    });
+    const links: TransactionLink[] = [
+      createMockLink({
+        id: 1,
+        sourceTransactionId: 9005,
+        targetTransactionId: 8813,
+        assetSymbol: 'RNDR',
+        sourceAssetId: 'exchange:kucoin:rndr',
+        targetAssetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+        sourceAmount: '19.5536',
+        targetAmount: '19.5536',
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: '1',
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps([renderDeposit], links);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
   it('should ignore reward transactions', () => {
     const transactions: UniversalTransactionData[] = [
       createBlockchainDeposit({
@@ -245,6 +301,25 @@ describe('analyzeLinkGaps', () => {
         operation: {
           category: 'staking',
           type: 'reward',
+        },
+      }),
+    ];
+    const links: TransactionLink[] = [];
+
+    const analysis = analyzeLinkGaps(transactions, links);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
+  it('should ignore staking inflow transactions such as unstake returns', () => {
+    const transactions: UniversalTransactionData[] = [
+      createBlockchainDeposit({
+        id: 23,
+        operation: {
+          category: 'staking',
+          type: 'unstake',
         },
       }),
     ];
@@ -436,6 +511,165 @@ describe('analyzeLinkGaps', () => {
     ]);
   });
 
+  it('should suppress cross-chain one-sided blockchain flows for the same user when they look like a service-mediated swap', () => {
+    const nearWithdrawal = createBlockchainWithdrawal({
+      id: 8941,
+      accountId: 86,
+      externalId: 'near-withdrawal',
+      source: 'near',
+      datetime: '2026-02-18T23:09:37.281Z',
+      timestamp: Date.parse('2026-02-18T23:09:37.281Z'),
+      from: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
+      to: 'swap.near-intent-service',
+      blockchain: {
+        name: 'near',
+        transaction_hash: 'near-withdrawal-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:near:native',
+            assetSymbol: 'NEAR' as Currency,
+            grossAmount: parseDecimal('71.1104447677142475'),
+            netAmount: parseDecimal('71.1104447677142475'),
+          },
+        ],
+      },
+    });
+
+    const ethereumDeposit = createBlockchainDeposit({
+      id: 8865,
+      accountId: 50,
+      externalId: 'ethereum-deposit',
+      source: 'ethereum',
+      datetime: '2026-02-18T23:09:59.000Z',
+      timestamp: Date.parse('2026-02-18T23:09:59.000Z'),
+      from: '0x2cff890f0378a11913b6129b2e97417a2c302680',
+      to: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'ethereum-deposit-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('70.320942'),
+            netAmount: parseDecimal('70.320942'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+    });
+
+    const analysis = analyzeLinkGaps([nearWithdrawal, ethereumDeposit], [], {
+      accounts: [
+        createMockAccount({
+          id: 86,
+          identifier: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
+          userId: 1,
+        }),
+        createMockAccount({
+          id: 50,
+          identifier: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          userId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should not suppress cross-chain one-sided blockchain flows across different users', () => {
+    const nearWithdrawal = createBlockchainWithdrawal({
+      id: 8941,
+      accountId: 86,
+      externalId: 'near-withdrawal-different-user',
+      source: 'near',
+      datetime: '2026-02-18T23:09:37.281Z',
+      timestamp: Date.parse('2026-02-18T23:09:37.281Z'),
+      from: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
+      to: 'swap.near-intent-service',
+      blockchain: {
+        name: 'near',
+        transaction_hash: 'near-withdrawal-different-user-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:near:native',
+            assetSymbol: 'NEAR' as Currency,
+            grossAmount: parseDecimal('71.1104447677142475'),
+            netAmount: parseDecimal('71.1104447677142475'),
+          },
+        ],
+      },
+    });
+
+    const ethereumDeposit = createBlockchainDeposit({
+      id: 8865,
+      accountId: 50,
+      externalId: 'ethereum-deposit-different-user',
+      source: 'ethereum',
+      datetime: '2026-02-18T23:09:59.000Z',
+      timestamp: Date.parse('2026-02-18T23:09:59.000Z'),
+      from: '0x2cff890f0378a11913b6129b2e97417a2c302680',
+      to: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'ethereum-deposit-different-user-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('70.320942'),
+            netAmount: parseDecimal('70.320942'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+    });
+
+    const analysis = analyzeLinkGaps([nearWithdrawal, ethereumDeposit], [], {
+      accounts: [
+        createMockAccount({
+          id: 86,
+          identifier: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
+          userId: 1,
+        }),
+        createMockAccount({
+          id: 50,
+          identifier: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          userId: 2,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.summary.unmatched_outflows).toBe(1);
+  });
+
   it('should treat confirmed links as coverage for withdrawals', () => {
     const withdrawal = createBlockchainWithdrawal({ id: 22, externalId: 'btc-outflow-2' });
     const transactions: UniversalTransactionData[] = [withdrawal];
@@ -445,8 +679,8 @@ describe('analyzeLinkGaps', () => {
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 42,
         assetSymbol: 'BTC',
-        sourceAssetId: 'blockchain:source:btc',
-        targetAssetId: 'blockchain:target:btc',
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
         sourceAmount: '0.5',
         targetAmount: '0.5',
         linkType: 'blockchain_to_blockchain',
@@ -494,8 +728,8 @@ describe('analyzeLinkGaps', () => {
         sourceTransactionId: withdrawal.id ?? 0,
         targetTransactionId: 77,
         assetSymbol: 'ETH',
-        sourceAssetId: 'exchange:source:eth',
-        targetAssetId: 'blockchain:target:eth',
+        sourceAssetId: 'test:eth',
+        targetAssetId: 'test:eth',
         sourceAmount: '5',
         targetAmount: '5',
         linkType: 'exchange_to_blockchain',

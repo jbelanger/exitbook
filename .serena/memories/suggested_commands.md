@@ -24,7 +24,7 @@ pnpm vitest run packages/blockchain-providers/src/blockchains/bitcoin
 
 ```bash
 # Import
-pnpm run dev import --exchange kraken --csv-dir ./exports/kraken
+pnpm run dev import --exchange kucoin --csv-dir ./exports/kucoin
 pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 pnpm run dev import --blockchain bitcoin --address bc1q...
 

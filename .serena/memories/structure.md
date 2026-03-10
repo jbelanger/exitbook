@@ -36,6 +36,7 @@
 - `token-metadata.db` — token metadata cache
 - `prices.db` — price cache
 - `providers.db` — provider health / circuit breaker stats
+- `overrides.db` — user overriden data
 
 ### Provider Registration
 

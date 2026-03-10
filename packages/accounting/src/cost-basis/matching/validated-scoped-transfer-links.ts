@@ -127,26 +127,6 @@ export function validateScopedTransferLinks(
       );
     }
 
-    if (sourceRef.movement.assetSymbol !== link.assetSymbol) {
-      return err(
-        new Error(
-          `Confirmed transfer link ${link.id} source symbol mismatch: ` +
-            `scoped movement ${link.sourceMovementFingerprint} has symbol ${sourceRef.movement.assetSymbol}, ` +
-            `link has ${link.assetSymbol}`
-        )
-      );
-    }
-
-    if (targetRef.movement.assetSymbol !== link.assetSymbol) {
-      return err(
-        new Error(
-          `Confirmed transfer link ${link.id} target symbol mismatch: ` +
-            `scoped movement ${link.targetMovementFingerprint} has symbol ${targetRef.movement.assetSymbol}, ` +
-            `link has ${link.assetSymbol}`
-        )
-      );
-    }
-
     const isPartialMatch = isPartialMatchLinkMetadata(link.metadata);
     const sourceMovementAmount = getTransferMovementAmount(sourceRef.movement);
     const targetMovementAmount = getTransferMovementAmount(targetRef.movement);

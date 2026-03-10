@@ -238,6 +238,7 @@ async function executeGapsViewTUI(): Promise<void> {
       const database = await ctx.database();
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
+      const accountRepo = database.accounts;
 
       const transactionsResult = await txRepo.findAll();
       if (transactionsResult.isErr()) {
@@ -253,7 +254,16 @@ async function executeGapsViewTUI(): Promise<void> {
         return;
       }
 
-      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
+      const accountsResult = await accountRepo.findAll();
+      if (accountsResult.isErr()) {
+        console.error('\n⚠ Error:', accountsResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value, {
+        accounts: accountsResult.value,
+      });
 
       await ctx.closeDatabase();
 
@@ -336,6 +346,7 @@ async function executeGapsViewJSON(): Promise<void> {
       const database = await ctx.database();
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
+      const accountRepo = database.accounts;
 
       const transactionsResult = await txRepo.findAll();
       if (transactionsResult.isErr()) {
@@ -349,7 +360,15 @@ async function executeGapsViewJSON(): Promise<void> {
         return;
       }
 
-      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value);
+      const accountsResult = await accountRepo.findAll();
+      if (accountsResult.isErr()) {
+        displayCliError('links-view', accountsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value, {
+        accounts: accountsResult.value,
+      });
 
       const resultData: GapsViewCommandResult = {
         data: analysis.issues,

@@ -33,6 +33,7 @@ export const MatchCriteriaSchema = z.object({
   amountSimilarity: UnitIntervalDecimalSchema,
   timingValid: z.boolean(),
   timingHours: z.number(),
+  suspectedMigration: z.boolean().optional(),
   addressMatch: z.boolean().optional(),
   hashMatch: z.boolean().optional(),
 });

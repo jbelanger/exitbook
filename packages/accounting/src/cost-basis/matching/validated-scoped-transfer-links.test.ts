@@ -397,4 +397,93 @@ describe('validateScopedTransferLinks', () => {
     expect(validated.links).toHaveLength(2);
     expect(validated.links.map((link) => link.sourceMovementAmount.toFixed())).toEqual(['0.5', '0.5']);
   });
+
+  it('accepts confirmed links when source and target symbols differ but asset ids reconcile', () => {
+    const sourceTx = createTransactionFromMovements(
+      50,
+      '2024-05-20T20:14:07Z',
+      {
+        outflows: [
+          {
+            assetId: 'exchange:kucoin:rndr',
+            assetSymbol: 'RNDR' as Currency,
+            grossAmount: parseDecimal('19.5536'),
+            netAmount: parseDecimal('19.5536'),
+            priceAtTxTime: createPriceAtTxTime('10'),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', source: 'kucoin', type: 'withdrawal' }
+    );
+    sourceTx.externalId = '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b';
+
+    const targetTx = createTransactionFromMovements(
+      51,
+      '2024-05-20T20:15:11Z',
+      {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('19.5536'),
+            priceAtTxTime: createPriceAtTxTime('10'),
+          },
+        ],
+      },
+      [],
+      { category: 'transfer', source: 'ethereum', sourceType: 'blockchain', type: 'deposit' }
+    );
+    targetTx.externalId = sourceTx.externalId;
+    targetTx.blockchain = {
+      name: 'ethereum',
+      transaction_hash: sourceTx.externalId,
+      is_confirmed: true,
+    };
+
+    const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
+    const scopedTransactions = assertOk(scopedResult).transactions;
+    const scopedSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 50);
+    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 51);
+
+    expect(scopedSourceTx).toBeDefined();
+    expect(scopedTargetTx).toBeDefined();
+
+    const sourceMovement = scopedSourceTx!.movements.outflows[0]!;
+    const targetMovement = scopedTargetTx!.movements.inflows[0]!;
+
+    const result = validateScopedTransferLinks(scopedTransactions, [
+      {
+        id: 401,
+        sourceTransactionId: 50,
+        targetTransactionId: 51,
+        assetSymbol: 'RNDR' as Currency,
+        sourceAssetId: sourceMovement.assetId,
+        targetAssetId: targetMovement.assetId,
+        sourceAmount: parseDecimal('19.5536'),
+        targetAmount: parseDecimal('19.5536'),
+        sourceMovementFingerprint: sourceMovement.movementFingerprint,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('0.94'),
+        matchCriteria: {
+          assetMatch: false,
+          suspectedMigration: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.017777777777777778,
+          hashMatch: true,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-05-20T20:16:00Z'),
+        updatedAt: new Date('2024-05-20T20:16:00Z'),
+      },
+    ]);
+
+    const validated = assertOk(result);
+    expect(validated.links).toHaveLength(1);
+    expect(validated.links[0]?.link.targetAssetId).toBe(
+      'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24'
+    );
+  });
 });

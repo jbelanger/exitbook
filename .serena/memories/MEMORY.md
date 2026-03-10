@@ -9,11 +9,9 @@ Cryptocurrency portfolio tracker. Imports from exchange CSVs/APIs and on-chain d
 - **Runtime**: Node.js ≥24, pnpm ≥10.6.2, TypeScript 5.x (ESM)
 - **Database**: SQLite via Kysely ORM; auto-migrated via `initializeDatabase()`
 - **Validation**: Zod schemas (runtime); `exactOptionalPropertyTypes` enabled
-- **Error handling**: neverthrow (`Result<T, Error>`) — no throws
+- **Error handling**: custom Result (`Result<T, Error>`) and helpers resultDo, resultTry — no throws
 - **Logging**: Pino via `@exitbook/logger` (`getLogger('component-name')`)
 - **Math**: Decimal.js — use `.toFixed()` (not `.toString()`)
-- **CLI**: Commander
-- **Exchanges**: ccxt-based clients
 - **Testing**: Vitest
 - **Linting/Formatting**: ESLint + Prettier + Husky
 

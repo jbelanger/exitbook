@@ -386,6 +386,29 @@ describe('candidate-scoring', () => {
       expect(score1.greaterThan(score2)).toBe(true);
     });
 
+    it('should cap suspected migration confidence below auto-confirm threshold', () => {
+      const criteria = {
+        assetMatch: false,
+        suspectedMigration: true,
+        amountSimilarity: parseDecimal('1.0'),
+        timingValid: true,
+        timingHours: 0.1,
+        addressMatch: true,
+        hashMatch: true,
+      };
+
+      const { score, breakdown } = calculateConfidenceScore(criteria);
+      expect(score.toFixed()).toBe('0.94');
+      expect(breakdown.map((c) => c.signal)).toEqual([
+        'suspected_migration_asset',
+        'amount_similarity',
+        'timing_valid',
+        'timing_close_bonus',
+        'address_match',
+        'migration_hash_bonus',
+      ]);
+    });
+
     it('should produce breakdown with correct weights and contributions', () => {
       const criteria = {
         assetMatch: true,
@@ -454,6 +477,7 @@ describe('candidate-scoring', () => {
           sourceName: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T14:00:00Z'),
+          assetId: 'test:eth',
           assetSymbol: 'ETH' as Currency, // Different asset
           amount: parseDecimal('0.99'),
           direction: 'in',
@@ -465,6 +489,81 @@ describe('candidate-scoring', () => {
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetMovement.id).toBe(2);
       expect(matches[0]?.linkType).toBe('exchange_to_blockchain');
+    });
+
+    it('should surface same-hash mismatched assets as suspected migration candidates', () => {
+      const migrationSource = createLinkableMovement({
+        id: 9005,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        assetId: 'exchange:kucoin:rndr',
+        assetSymbol: 'RNDR' as Currency,
+        amount: parseDecimal('19.5536'),
+        direction: 'out',
+        timestamp: new Date('2024-05-20T20:14:07.000Z'),
+        toAddress: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+        blockchainTxHash: '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b',
+      });
+      const targets: LinkableMovement[] = [
+        createLinkableMovement({
+          id: 8813,
+          transactionId: 8813,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+          assetSymbol: 'RENDER' as Currency,
+          amount: parseDecimal('19.5536'),
+          direction: 'in',
+          timestamp: new Date('2024-05-20T20:15:11.000Z'),
+          fromAddress: '0xd91efec7e42f80156d1d9f660a69847188950747',
+          toAddress: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          blockchainTxHash: '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b',
+        }),
+      ];
+
+      const criteria = buildMatchCriteria(migrationSource, targets[0]!, DEFAULT_MATCHING_CONFIG);
+      expect(criteria.assetMatch).toBe(false);
+
+      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.targetMovement.id).toBe(8813);
+      expect(matches[0]?.confidenceScore.toFixed()).toBe('0.94');
+      expect(matches[0]?.matchCriteria.suspectedMigration).toBe(true);
+      expect(matches[0]?.matchCriteria.hashMatch).toBe(true);
+    });
+
+    it('should not treat mismatched assets without a hash match as migration candidates', () => {
+      const migrationSource = createLinkableMovement({
+        id: 9005,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        assetId: 'exchange:kucoin:rndr',
+        assetSymbol: 'RNDR' as Currency,
+        amount: parseDecimal('19.5536'),
+        direction: 'out',
+        timestamp: new Date('2024-05-20T20:14:07.000Z'),
+        toAddress: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+        blockchainTxHash: '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b',
+      });
+      const targets: LinkableMovement[] = [
+        createLinkableMovement({
+          id: 8813,
+          transactionId: 8813,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+          assetSymbol: 'RENDER' as Currency,
+          amount: parseDecimal('19.5536'),
+          direction: 'in',
+          timestamp: new Date('2024-05-20T20:15:11.000Z'),
+          fromAddress: '0xd91efec7e42f80156d1d9f660a69847188950747',
+          toAddress: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          blockchainTxHash: '0xotherhash',
+        }),
+      ];
+
+      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
+      expect(matches).toHaveLength(0);
     });
 
     it('should filter by minimum confidence', () => {
@@ -482,6 +581,35 @@ describe('candidate-scoring', () => {
       const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
 
       // Should not match due to low confidence
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should not match unrelated assets with similar timing and amounts', () => {
+      const migrationSource = createLinkableMovement({
+        id: 9005,
+        sourceName: 'kucoin',
+        sourceType: 'exchange',
+        assetId: 'exchange:kucoin:rndr',
+        assetSymbol: 'RNDR' as Currency,
+        amount: parseDecimal('19.5536'),
+        direction: 'out',
+        timestamp: new Date('2024-05-20T20:14:07.000Z'),
+      });
+      const targets: LinkableMovement[] = [
+        createLinkableMovement({
+          id: 8813,
+          transactionId: 8813,
+          sourceName: 'ethereum',
+          sourceType: 'blockchain',
+          assetId: 'blockchain:ethereum:0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE',
+          assetSymbol: 'SHIB' as Currency,
+          amount: parseDecimal('19.5536'),
+          direction: 'in',
+          timestamp: new Date('2024-05-20T20:15:11.000Z'),
+        }),
+      ];
+
+      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
       expect(matches).toHaveLength(0);
     });
 
@@ -1389,12 +1517,8 @@ describe('candidate-scoring', () => {
 
       const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
 
-      // Should NOT create hash matches (sum exceeds source)
-      // Should fall back to heuristic matching if any
-      const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
-      expect(hashMatches).toHaveLength(0);
-
-      // May still have heuristic matches with lower confidence
+      // Should NOT create perfect hash matches (sum exceeds source)
+      // but the normalized hash can still survive as a heuristic signal.
       for (const match of matches) {
         expect(match.confidenceScore.toNumber()).toBeLessThan(1.0);
       }
