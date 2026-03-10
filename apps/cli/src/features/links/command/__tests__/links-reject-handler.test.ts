@@ -239,7 +239,7 @@ describe('LinksRejectHandler', () => {
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toContain('Failed to update review group');
+      expect(error.message).toContain('Failed to update transfer proposal');
     });
 
     it('should handle exceptions gracefully', async () => {
@@ -267,7 +267,7 @@ describe('LinksRejectHandler', () => {
           fullSourceAmount: '5',
           fullTargetAmount: '10',
           consumedAmount: '5',
-          reviewGroupKey: 'partial-target:v1:target',
+          transferProposalKey: 'partial-target:v1:target',
         },
       });
       const secondLink = createMockLink(124, {
@@ -278,7 +278,7 @@ describe('LinksRejectHandler', () => {
           fullSourceAmount: '5',
           fullTargetAmount: '10',
           consumedAmount: '5',
-          reviewGroupKey: 'partial-target:v1:target',
+          transferProposalKey: 'partial-target:v1:target',
         },
       });
 

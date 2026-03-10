@@ -1,6 +1,8 @@
 import { ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
+import type { AccountingScopedTransaction } from '../../cost-basis/matching/build-cost-basis-scoped-transactions.js';
+import { filterConfirmableTransferProposals } from '../../cost-basis/matching/transfer-proposal-confirmability.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
 import type { ILinkingStrategy } from '../strategies/types.js';
@@ -27,7 +29,8 @@ export class StrategyRunner {
   constructor(
     private readonly strategies: ILinkingStrategy[],
     private readonly logger: Logger,
-    private readonly config: MatchingConfig
+    private readonly config: MatchingConfig,
+    private readonly scopedTransactions: AccountingScopedTransaction[]
   ) {}
 
   run(linkableMovements: LinkableMovement[]): Result<StrategyRunnerResult, Error> {
@@ -70,24 +73,30 @@ export class StrategyRunner {
         continue;
       }
 
-      const { links, consumedCandidateIds } = result.value;
+      const confirmableLinks = filterConfirmableTransferProposals(
+        this.scopedTransactions,
+        allLinks.filter((link) => link.status === 'confirmed'),
+        result.value.links,
+        this.logger
+      );
+      const consumedCandidateIds = collectConsumedCandidateIds(confirmableLinks, sources, targets, this.logger);
 
       // Add consumed IDs to claimed set
       for (const id of consumedCandidateIds) {
         claimedIds.add(id);
       }
 
-      allLinks.push(...links);
+      allLinks.push(...confirmableLinks);
       allStats.push({
         strategyName: strategy.name,
-        linksProduced: links.length,
+        linksProduced: confirmableLinks.length,
         candidatesConsumed: consumedCandidateIds.size,
       });
 
       this.logger.info(
         {
           strategy: strategy.name,
-          linksProduced: links.length,
+          linksProduced: confirmableLinks.length,
           candidatesConsumed: consumedCandidateIds.size,
           remainingSourceCandidates: allSources.filter((m) => !claimedIds.has(m.id)).length,
           remainingTargetCandidates: allTargets.filter((m) => !claimedIds.has(m.id)).length,
@@ -108,4 +117,46 @@ export class StrategyRunner {
       unmatchedTargetCandidateCount,
     });
   }
+}
+
+function collectConsumedCandidateIds(
+  links: NewTransactionLink[],
+  sources: LinkableMovement[],
+  targets: LinkableMovement[],
+  logger: Logger
+): Set<number> {
+  const sourceIdsByFingerprint = new Map(sources.map((movement) => [movement.movementFingerprint, movement.id]));
+  const targetIdsByFingerprint = new Map(targets.map((movement) => [movement.movementFingerprint, movement.id]));
+  const consumedCandidateIds = new Set<number>();
+
+  for (const link of links) {
+    const sourceId = sourceIdsByFingerprint.get(link.sourceMovementFingerprint);
+    const targetId = targetIdsByFingerprint.get(link.targetMovementFingerprint);
+
+    if (sourceId === undefined) {
+      logger.warn(
+        {
+          sourceMovementFingerprint: link.sourceMovementFingerprint,
+          targetMovementFingerprint: link.targetMovementFingerprint,
+        },
+        'Unable to map linked source movement fingerprint back to a candidate id'
+      );
+    } else {
+      consumedCandidateIds.add(sourceId);
+    }
+
+    if (targetId === undefined) {
+      logger.warn(
+        {
+          sourceMovementFingerprint: link.sourceMovementFingerprint,
+          targetMovementFingerprint: link.targetMovementFingerprint,
+        },
+        'Unable to map linked target movement fingerprint back to a candidate id'
+      );
+    } else {
+      consumedCandidateIds.add(targetId);
+    }
+  }
+
+  return consumedCandidateIds;
 }

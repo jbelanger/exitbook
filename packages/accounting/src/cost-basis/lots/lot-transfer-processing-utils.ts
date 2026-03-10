@@ -7,7 +7,7 @@ import type { ValidatedScopedTransferLink } from '../matching/validated-scoped-t
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../shared/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
-import { collectFiatFees, extractCryptoFee, validateOutflowFees } from './lot-fee-utils.js';
+import { collectFiatFees, extractAllocatedCryptoFee, validateOutflowFees } from './lot-fee-utils.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
@@ -93,7 +93,7 @@ export function processTransferSource(
     );
   }
 
-  const cryptoFeeResult = extractCryptoFee(transaction, outflow.assetId);
+  const cryptoFeeResult = extractAllocatedCryptoFee(transaction, outflow);
   if (cryptoFeeResult.isErr()) {
     return err(cryptoFeeResult.error);
   }

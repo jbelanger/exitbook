@@ -189,7 +189,7 @@ export function createTransactionLink(
     metadata.fullSourceAmount = match.sourceMovement.amount.toFixed();
     metadata.fullTargetAmount = match.targetMovement.amount.toFixed();
     metadata.consumedAmount = sourceAmount.toFixed();
-    metadata.reviewGroupKey = buildReviewGroupKey(match);
+    metadata.transferProposalKey = buildTransferProposalKey(match);
   } else {
     // 1:1 match: variance/implied fee (original behavior, unchanged)
     const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
@@ -235,7 +235,7 @@ export function createTransactionLink(
   });
 }
 
-function buildReviewGroupKey(match: PotentialMatch): string {
+function buildTransferProposalKey(match: PotentialMatch): string {
   const sourceFingerprint = match.sourceMovement.movementFingerprint;
   const targetFingerprint = match.targetMovement.movementFingerprint;
   const sourceAmount = match.sourceMovement.amount;

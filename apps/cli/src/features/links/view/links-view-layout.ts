@@ -6,7 +6,7 @@ import { calculateChromeLines } from '../../../ui/shared/index.js';
 
 export const GAP_TOP_ASSET_LIMIT = 5;
 
-export const LINK_DETAIL_LINES = 8;
+export const LINK_DETAIL_LINES = 10;
 export const GAP_DETAIL_LINES = 7;
 
 export const LINKS_CHROME_LINES = calculateChromeLines({

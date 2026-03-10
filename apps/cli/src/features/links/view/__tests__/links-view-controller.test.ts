@@ -162,7 +162,9 @@ describe('linksViewReducer', () => {
         affectedLinkIds: [3],
         linkId: 3,
         action: 'confirm',
-        reviewGroupKey: undefined,
+        proposalKey:
+          'single:v1:movement:exchange:source:3:btc:outflow:0:movement:blockchain:target:3:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+        transferProposalKey: undefined,
       });
       expect(newState.error).toBeUndefined();
     }
@@ -180,7 +182,9 @@ describe('linksViewReducer', () => {
         affectedLinkIds: [3],
         linkId: 3,
         action: 'reject',
-        reviewGroupKey: undefined,
+        proposalKey:
+          'single:v1:movement:exchange:source:3:btc:outflow:0:movement:blockchain:target:3:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+        transferProposalKey: undefined,
       });
       expect(newState.error).toBeUndefined();
     }
@@ -195,7 +199,7 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toBeUndefined();
-      expect(newState.error).toBe('Can only confirm suggested links');
+      expect(newState.error).toBe('Can only confirm suggested proposals');
     }
   });
 
@@ -208,14 +212,20 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toBeUndefined();
-      expect(newState.error).toBe('Can only reject suggested links');
+      expect(newState.error).toBe('Can only reject suggested proposals');
     }
   });
 
   it('sets error message', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
-    state.pendingAction = { affectedLinkIds: [3], linkId: 3, action: 'confirm' };
+    state.pendingAction = {
+      affectedLinkIds: [3],
+      linkId: 3,
+      action: 'confirm',
+      proposalKey:
+        'single:v1:movement:exchange:source:3:btc:outflow:0:movement:blockchain:target:3:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+    };
 
     const newState = linksViewReducer(state, { type: 'SET_ERROR', error: 'Network error' });
     expect(newState.mode).toBe('links');
@@ -229,7 +239,13 @@ describe('linksViewReducer', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.error = 'Something went wrong';
-    state.pendingAction = { affectedLinkIds: [3], linkId: 3, action: 'confirm' };
+    state.pendingAction = {
+      affectedLinkIds: [3],
+      linkId: 3,
+      action: 'confirm',
+      proposalKey:
+        'single:v1:movement:exchange:source:3:btc:outflow:0:movement:blockchain:target:3:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+    };
 
     const newState = linksViewReducer(state, { type: 'CLEAR_ERROR' });
     expect(newState.mode).toBe('links');
@@ -291,7 +307,7 @@ describe('linksViewReducer - gaps mode', () => {
 
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
-      expect(newState.links).toHaveLength(0);
+      expect(newState.proposals).toHaveLength(0);
       expect(newState.selectedIndex).toBe(0);
       expect(newState.scrollOffset).toBe(0);
     }
@@ -323,7 +339,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow up key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 9 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 7 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -352,7 +368,7 @@ describe('handleKeyboardInput', () => {
   it('handles arrow down key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 9 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 7 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -381,7 +397,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim k key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 9 });
+      expect(action).toEqual({ type: 'NAVIGATE_UP', visibleRows: 7 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -410,7 +426,7 @@ describe('handleKeyboardInput', () => {
   it('handles vim j key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
-      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 9 });
+      expect(action).toEqual({ type: 'NAVIGATE_DOWN', visibleRows: 7 });
       actionReceived = true;
     };
     const onQuit = () => {
@@ -579,7 +595,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    // Links mode: terminalHeight(24) - 14 = 10
+    // Links mode: terminalHeight(24) - 17 = 7
     handleKeyboardInput(
       'j',
       {
@@ -597,7 +613,7 @@ describe('handleKeyboardInput', () => {
       24,
       'links'
     );
-    expect(receivedVisibleRows).toBe(9);
+    expect(receivedVisibleRows).toBe(7);
 
     // Gaps mode with one summary asset: terminalHeight(24) - 19 = 5
     handleKeyboardInput(

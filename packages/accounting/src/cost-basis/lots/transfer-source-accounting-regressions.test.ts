@@ -114,6 +114,87 @@ describe('transfer source accounting regressions', () => {
     ).toBe('1.5');
   });
 
+  it('uses the modeled transfer amount when same-asset fees are stored as separate movements', () => {
+    const rawTransaction = createTransactionFromMovements(
+      12,
+      '2024-03-03T00:00:00Z',
+      {
+        outflows: [
+          {
+            assetId: 'test:tfuel',
+            assetSymbol: 'TFUEL' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('0.08628'),
+          },
+        ],
+      },
+      [createFeeMovement('platform', 'balance', 'TFUEL', '11.5', '0.08628')],
+      { category: 'transfer', source: 'kucoin', type: 'withdrawal' }
+    );
+
+    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedTransaction = assertOk(scopedResult).transactions[0];
+    const outflow = scopedTransaction?.movements.outflows[0];
+
+    expect(scopedTransaction).toBeDefined();
+    expect(outflow).toBeDefined();
+
+    const validatedLink: ValidatedScopedTransferLink = {
+      isPartialMatch: false,
+      link: {
+        id: 502,
+        sourceTransactionId: 12,
+        targetTransactionId: 22,
+        assetSymbol: 'TFUEL' as Currency,
+        sourceAssetId: 'test:tfuel',
+        targetAssetId: 'test:tfuel',
+        sourceAmount: parseDecimal('1'),
+        targetAmount: parseDecimal('1'),
+        sourceMovementFingerprint: outflow!.movementFingerprint,
+        targetMovementFingerprint: 'target:movement:1',
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('99'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-03-03T00:00:00Z'),
+        updatedAt: new Date('2024-03-03T00:00:00Z'),
+      },
+      sourceAssetId: 'test:tfuel',
+      sourceMovementAmount: parseDecimal('1'),
+      sourceMovementFingerprint: outflow!.movementFingerprint,
+      targetAssetId: 'test:tfuel',
+      targetMovementAmount: parseDecimal('1'),
+      targetMovementFingerprint: 'target:movement:1',
+    };
+
+    const result = processTransferSource(
+      scopedTransaction!,
+      outflow!,
+      [validatedLink],
+      [
+        createLot('11111111-1111-4111-8111-111111111111', 'TFUEL', '10', '0.05', new Date('2024-01-01T00:00:00Z')),
+        createLot('22222222-2222-4222-8222-222222222222', 'TFUEL', '10', '0.06', new Date('2024-01-02T00:00:00Z')),
+      ],
+      new FifoStrategy(),
+      '55555555-5555-4555-8555-555555555555',
+      { sameAssetTransferFeePolicy: 'disposal' }
+    );
+
+    const value = assertOk(result);
+
+    expect(
+      value.transfers.reduce((sum, transfer) => sum.plus(transfer.quantityTransferred), parseDecimal('0')).toFixed()
+    ).toBe('1');
+    expect(
+      value.disposals.reduce((sum, disposal) => sum.plus(disposal.quantityDisposed), parseDecimal('0')).toFixed()
+    ).toBe('11.5');
+  });
+
   it('keeps fee-only carryover fee disposal on the remaining lots after retained quantity matching', () => {
     const rawSourceTransaction = createTransactionFromMovements(11, '2024-03-02T00:00:00Z', {}, [], {
       category: 'transfer',

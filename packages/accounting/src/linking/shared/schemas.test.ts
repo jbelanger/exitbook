@@ -158,7 +158,7 @@ describe('schemas', () => {
           variance: '0.0005',
           variancePct: '0.05',
           impliedFee: '0.0005',
-          reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
+          transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
         },
       };
 
@@ -180,7 +180,7 @@ describe('schemas', () => {
         variance: '0.0005',
         variancePct: '0.05',
         impliedFee: '0.0005',
-        reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
+        transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
       });
     });
 

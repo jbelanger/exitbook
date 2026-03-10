@@ -4,6 +4,10 @@ import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import {
+  buildCostBasisScopedTransactions,
+  type AccountingScopedTransaction,
+} from '../../cost-basis/matching/build-cost-basis-scoped-transactions.js';
 import type { ILinkingPersistence } from '../../ports/linking-persistence.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildMatchingConfig } from '../matching/matching-config.js';
@@ -101,13 +105,16 @@ export class LinkingOrchestrator {
         });
 
         // 3–5. Match + overrides (pure computation, no I/O)
+        const scopedTransactions = (yield* buildCostBasisScopedTransactions(transactions, logger)).transactions;
+
         const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = yield* self.runMatching(
           linkableMovements,
           internalLinks,
           params,
           overrides,
           transactions,
-          txById
+          txById,
+          scopedTransactions
         );
 
         // 7. Persist links
@@ -166,7 +173,8 @@ export class LinkingOrchestrator {
     params: LinkingRunParams,
     overrides: OverrideEvent[],
     transactions: UniversalTransactionData[],
-    txById: Map<number, UniversalTransactionData>
+    txById: Map<number, UniversalTransactionData>,
+    scopedTransactions: AccountingScopedTransaction[]
   ): Result<
     {
       confirmedCount: number;
@@ -186,7 +194,7 @@ export class LinkingOrchestrator {
         autoConfirmThreshold: params.autoConfirmThreshold,
       });
 
-      const runner = new StrategyRunner(defaultStrategies(), logger, config);
+      const runner = new StrategyRunner(defaultStrategies(), logger, config, scopedTransactions);
       const strategyResult = yield* runner.run(linkableMovements);
       const allLinks = [...internalLinks, ...strategyResult.links];
 

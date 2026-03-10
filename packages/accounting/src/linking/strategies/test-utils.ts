@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
 
 import { createLinkableMovement } from '../shared/test-utils.js';
 
@@ -77,4 +77,120 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
   ];
 
   return { sources, targets };
+}
+
+export function createImpossibleMultiSourceAdaHashPartialTransactions(): UniversalTransactionData[] {
+  return [
+    createTransferTransaction({
+      accountId: 61,
+      amount: '1021.211168',
+      datetime: '2024-07-25T20:32:02.000Z',
+      externalId: 'cardano-8930',
+      fees: '0.191373',
+      grossAmount: '1021.402541',
+      id: 8930,
+      source: 'cardano',
+      sourceType: 'blockchain',
+    }),
+    createTransferTransaction({
+      accountId: 63,
+      amount: '974.843208',
+      datetime: '2024-07-25T20:32:02.000Z',
+      externalId: 'cardano-8935',
+      fees: '0.191373',
+      grossAmount: '975.034581',
+      id: 8935,
+      source: 'cardano',
+      sourceType: 'blockchain',
+    }),
+    createTransferTransaction({
+      accountId: 65,
+      amount: '672.756869',
+      datetime: '2024-07-25T20:32:02.000Z',
+      externalId: 'cardano-8937',
+      fees: '0.191373',
+      grossAmount: '672.948242',
+      id: 8937,
+      source: 'cardano',
+      sourceType: 'blockchain',
+    }),
+    createTransferTransaction({
+      accountId: 90,
+      amount: '2679.718442',
+      datetime: '2024-07-25T20:35:47.000Z',
+      externalId: 'kucoin-9021',
+      id: 9021,
+      operationType: 'deposit',
+      source: 'kucoin',
+      sourceType: 'exchange',
+    }),
+  ];
+}
+
+function createTransferTransaction(params: {
+  accountId: number;
+  amount: string;
+  datetime: string;
+  externalId: string;
+  fees?: string | undefined;
+  grossAmount?: string | undefined;
+  id: number;
+  operationType?: 'withdrawal' | 'deposit' | undefined;
+  source: string;
+  sourceType: 'blockchain' | 'exchange';
+}): UniversalTransactionData {
+  const grossAmount = parseDecimal(params.grossAmount ?? params.amount);
+  const netAmount = parseDecimal(params.amount);
+  const feeAmount = params.fees ? parseDecimal(params.fees) : undefined;
+
+  return {
+    id: params.id,
+    accountId: params.accountId,
+    externalId: params.externalId,
+    source: params.source,
+    sourceType: params.sourceType,
+    datetime: params.datetime,
+    timestamp: Date.parse(params.datetime),
+    status: 'success',
+    movements: {
+      inflows:
+        params.operationType === 'deposit'
+          ? [
+              {
+                assetId: params.sourceType === 'exchange' ? 'exchange:kucoin:ada' : 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount,
+                netAmount,
+              },
+            ]
+          : [],
+      outflows:
+        params.operationType === 'deposit'
+          ? []
+          : [
+              {
+                assetId: 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount,
+                netAmount,
+              },
+            ],
+    },
+    fees:
+      feeAmount !== undefined
+        ? [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              amount: feeAmount,
+              scope: 'network',
+              settlement: 'on-chain',
+            },
+          ]
+        : [],
+    operation: {
+      category: 'transfer',
+      type: params.operationType ?? 'withdrawal',
+    },
+  };
 }

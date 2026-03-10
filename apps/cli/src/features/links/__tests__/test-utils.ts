@@ -135,7 +135,11 @@ export function createMockLinkWithTransactions(
     link: createMockLink(id, {
       assetSymbol: overrides.assetSymbol ?? ('BTC' as Currency),
       confidenceScore: confidence,
+      sourceMovementFingerprint: `movement:exchange:source:${id}:btc:outflow:0`,
+      sourceTransactionId: id * 10 + 1,
       status: overrides.status ?? 'suggested',
+      targetMovementFingerprint: `movement:blockchain:target:${id}:btc:inflow:0`,
+      targetTransactionId: id * 10 + 2,
       ...(overrides.reviewedBy !== undefined && { reviewedBy: overrides.reviewedBy }),
       ...(overrides.reviewedAt !== undefined && { reviewedAt: overrides.reviewedAt }),
     }),

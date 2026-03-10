@@ -10,6 +10,7 @@ import {
   type MatchCriteria,
   type TransactionLink,
 } from '@exitbook/accounting';
+import { Decimal } from 'decimal.js';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
@@ -22,7 +23,6 @@ import {
   SelectableRow,
 } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../command/links-gap-utils.js';
-import { resolveLinkReviewScope } from '../links-review-utils.js';
 
 import { handleKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
@@ -34,12 +34,14 @@ import {
 } from './links-view-layout.js';
 import type {
   LinkWithTransactions,
+  TransferProposalWithTransactions,
   LinksViewGapsState,
   LinksViewLinksState,
   LinksViewState,
 } from './links-view-state.js';
 const GAP_ROW_ASSET_SYMBOL_MAX_WIDTH = 18;
 const GAP_SUMMARY_ASSET_SYMBOL_MAX_WIDTH = 14;
+const MAX_MULTI_LEG_DETAIL_ROWS = 3;
 
 /**
  * Main links view app component
@@ -123,7 +125,7 @@ const LinksView: FC<{
   terminalWidth: number;
 }> = ({ state, terminalHeight, terminalWidth }) => {
   // Empty state
-  if (state.links.length === 0) {
+  if (state.proposals.length === 0) {
     return <LinksEmptyState state={state} />;
   }
 
@@ -213,34 +215,30 @@ const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
  * Link list component with scrolling support
  */
 const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const { links, selectedIndex, scrollOffset } = state;
+  const { proposals, selectedIndex, scrollOffset } = state;
 
   const visibleRows = calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES);
-  const columns = createColumns(links, {
+  const columns = createColumns(proposals, {
     date: {
-      format: (item) => formatLinkDate(item),
+      format: (proposal) => formatLinkDate(proposal.representativeLeg),
       minWidth: 10,
       maxWidth: 10,
     },
-    asset: { format: (item) => item.link.assetSymbol, minWidth: 5 },
-    status: { format: (item) => item.link.status, minWidth: 9 },
+    asset: { format: (proposal) => proposal.representativeLink.assetSymbol, minWidth: 5 },
+    status: { format: (proposal) => proposal.status, minWidth: 9 },
     sourceTarget: {
-      format: (item) => {
-        const sourceName = item.sourceTransaction?.source || 'unknown';
-        const targetName = item.targetTransaction?.source || 'unknown';
-        return `${sourceName} → ${targetName}`;
-      },
+      format: (proposal) => formatProposalRoute(proposal),
       minWidth: 30,
       maxWidth: 50,
     },
   });
 
   const startIndex = scrollOffset;
-  const endIndex = Math.min(startIndex + visibleRows, links.length);
-  const visibleLinks = links.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + visibleRows, proposals.length);
+  const visibleProposals = proposals.slice(startIndex, endIndex);
 
   const hasMoreAbove = startIndex > 0;
-  const hasMoreBelow = endIndex < links.length;
+  const hasMoreBelow = endIndex < proposals.length;
 
   return (
     <Box flexDirection="column">
@@ -249,12 +247,12 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
           {'  '}▲ {startIndex} more above
         </Text>
       )}
-      {visibleLinks.map((item, windowIndex) => {
+      {visibleProposals.map((proposal, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
         return (
           <LinkRow
-            key={item.link.id}
-            item={item}
+            key={proposal.proposalKey}
+            proposal={proposal}
             isSelected={actualIndex === selectedIndex}
             columns={columns}
           />
@@ -262,7 +260,7 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
       })}
       {hasMoreBelow && (
         <Text dimColor>
-          {'  '}▼ {links.length - endIndex} more below
+          {'  '}▼ {proposals.length - endIndex} more below
         </Text>
       )}
     </Box>
@@ -273,25 +271,25 @@ const LinkList: FC<{ state: LinksViewLinksState; terminalHeight: number }> = ({ 
  * Individual link row component
  */
 const LinkRow: FC<{
-  columns: Columns<LinkWithTransactions, 'date' | 'asset' | 'status' | 'sourceTarget'>;
+  columns: Columns<TransferProposalWithTransactions, 'date' | 'asset' | 'status' | 'sourceTarget'>;
   isSelected: boolean;
-  item: LinkWithTransactions;
-}> = ({ item, isSelected, columns }) => {
-  const { link } = item;
+  proposal: TransferProposalWithTransactions;
+}> = ({ proposal, isSelected, columns }) => {
+  const { date, asset, status, sourceTarget } = columns.format(proposal);
+  const amountDisplay = getProposalAmountDisplay(proposal);
+  const confidence = formatProposalConfidence(proposal);
+  const legCountSuffix = proposal.legs.length > 1 ? ` · ${proposal.legs.length} legs` : '';
 
-  const { date, asset, status, sourceTarget } = columns.format(item);
-  const amountDisplay = getLinkAmountDisplay(link);
-  const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
+  const { icon, iconColor } = getStatusDisplay(proposal.status);
 
-  const { icon, iconColor } = getStatusDisplay(link.status);
-
-  if (link.status === 'rejected') {
+  if (proposal.status === 'rejected') {
     return (
       <SelectableRow
         dimWhenUnselected
         isSelected={isSelected}
       >
-        {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget} {confidence} {status}
+        {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget}
+        <Text dimColor>{legCountSuffix}</Text> {confidence} {status}
       </SelectableRow>
     );
   }
@@ -299,7 +297,8 @@ const LinkRow: FC<{
   return (
     <SelectableRow isSelected={isSelected}>
       <Text color={iconColor}>{icon}</Text> {date} {asset} {renderAmountSummary(amountDisplay)}{' '}
-      <Text color="cyan">{sourceTarget}</Text> {confidence} {status}
+      <Text color="cyan">{sourceTarget}</Text>
+      <Text dimColor>{legCountSuffix}</Text> {confidence} {status}
     </SelectableRow>
   );
 };
@@ -308,8 +307,8 @@ const LinkRow: FC<{
  * Detail panel component - shows selected link details (links mode)
  */
 const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
-  const { links, selectedIndex, verbose } = state;
-  const selected = links[selectedIndex];
+  const { proposals, selectedIndex, verbose } = state;
+  const selected = proposals[selectedIndex];
 
   if (!selected) {
     return null;
@@ -318,30 +317,34 @@ const LinkDetailPanel: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   return (
     <FixedHeightDetail
       height={LINK_DETAIL_LINES}
-      rows={buildLinkDetailRows(selected, verbose, links)}
+      rows={buildProposalDetailRows(selected, verbose)}
     />
   );
 };
 
-function buildLinkDetailRows(
-  selected: LinkWithTransactions,
-  verbose: boolean,
-  links: LinkWithTransactions[]
+function buildProposalDetailRows(selected: TransferProposalWithTransactions, verbose: boolean): ReactElement[] {
+  if (selected.legs.length === 1) {
+    return buildSingleLegDetailRows(selected.legs[0]!, selected, verbose);
+  }
+
+  return buildMultiLegDetailRows(selected);
+}
+
+function buildSingleLegDetailRows(
+  selectedLeg: LinkWithTransactions,
+  proposal: TransferProposalWithTransactions,
+  verbose: boolean
 ): ReactElement[] {
-  const { link, sourceTransaction, targetTransaction } = selected;
+  const { link, sourceTransaction, targetTransaction } = selectedLeg;
   const linkType = formatLinkTypeDisplay(link, sourceTransaction, targetTransaction);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
-  const { iconColor: statusColor } = getStatusDisplay(link.status);
-  const amountDisplay = getLinkAmountDisplay(link);
-  const reviewScope = resolveLinkReviewScope(
-    link,
-    links.map((candidate) => candidate.link)
-  );
+  const { iconColor: statusColor } = getStatusDisplay(proposal.status);
+  const amountDisplay = getProposalAmountDisplay(proposal);
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
-      <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{link.status}</Text>
+      <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{proposal.status}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
     <TransactionLine
@@ -394,17 +397,71 @@ function buildLinkDetailRows(
     </Text>
   );
 
-  if (reviewScope.links.length > 1) {
+  if (amountDisplay.detailSummary) {
     rows.push(
-      <Text key="proposal">
+      <Text key="summary">
         {'  '}
-        <Text dimColor>Proposal: </Text>
-        {reviewScope.links.length} related legs review together <Text dimColor>(</Text>
-        {reviewScope.links.map((candidate) => candidate.id).join(', ')}
-        <Text dimColor>)</Text>
+        <Text dimColor>{amountDisplay.detailLabel ?? 'Summary:'} </Text>
+        {amountDisplay.detailSummary}
       </Text>
     );
   }
+
+  return rows;
+}
+
+function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): ReactElement[] {
+  const representativeLeg = proposal.representativeLeg;
+  const representativeLink = representativeLeg.link;
+  const confidence = formatProposalConfidence(proposal);
+  const confidenceColor = getProposalConfidenceColor(proposal);
+  const { iconColor: statusColor } = getStatusDisplay(proposal.status);
+  const amountDisplay = getProposalAmountDisplay(proposal);
+  const visibleLegs = proposal.legs.slice(0, MAX_MULTI_LEG_DETAIL_ROWS);
+  const rows: ReactElement[] = [
+    <Text key="title">
+      <Text bold>▸ {representativeLink.id}</Text> {representativeLink.assetSymbol}{' '}
+      <Text dimColor>transfer proposal</Text> <Text color={confidenceColor}>{confidence}</Text>{' '}
+      <Text color={statusColor}>{proposal.status}</Text>
+    </Text>,
+    <Text key="blank-1"> </Text>,
+    <Text key="scope">
+      {'  '}
+      <Text dimColor>Scope: </Text>
+      {proposal.legs.length} legs review together <Text dimColor>(</Text>
+      {proposal.legs.map((leg) => leg.link.id).join(', ')}
+      <Text dimColor>)</Text>
+    </Text>,
+    ...visibleLegs.map((leg, index) => (
+      <Text key={`leg-${leg.link.id}`}>
+        {'  '}
+        <Text dimColor>Leg {index + 1}: </Text>#{leg.link.id}{' '}
+        <Text color="cyan">{leg.sourceTransaction?.source ?? 'unknown'}</Text>{' '}
+        <Text dimColor>{leg.sourceTransaction?.datetime ?? '?'}</Text> <Text color="yellow">OUT</Text>{' '}
+        <Text color="green">{leg.link.sourceAmount.toFixed()}</Text> {leg.link.assetSymbol} <Text dimColor>→</Text>{' '}
+        <Text color="cyan">{leg.targetTransaction?.source ?? 'unknown'}</Text>{' '}
+        <Text dimColor>{leg.targetTransaction?.datetime ?? '?'}</Text> <Text color="green">IN</Text>{' '}
+        <Text color="green">{leg.link.targetAmount.toFixed()}</Text> {leg.link.assetSymbol}
+      </Text>
+    )),
+  ];
+
+  if (proposal.legs.length > visibleLegs.length) {
+    rows.push(
+      <Text key="more">
+        {'  '}
+        <Text dimColor>+{proposal.legs.length - visibleLegs.length} more legs</Text>
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="match">
+      {'  '}
+      <Text dimColor>Match: </Text>
+      {formatMatchCriteria(representativeLink.matchCriteria)}
+    </Text>
+  );
 
   if (amountDisplay.detailSummary) {
     rows.push(
@@ -425,8 +482,30 @@ interface LinkAmountDisplay {
   matchedAmount: string;
 }
 
-function getLinkAmountDisplay(link: TransactionLink): LinkAmountDisplay {
+function getProposalAmountDisplay(proposal: TransferProposalWithTransactions): LinkAmountDisplay {
+  const link = proposal.representativeLink;
   const metadata = link.metadata;
+
+  if (proposal.legs.length > 1) {
+    const totalMatchedAmount = proposal.legs.reduce((sum, leg) => sum.plus(leg.link.sourceAmount), new Decimal(0));
+    const sameHashSummary =
+      isSameHashExternalLinkMetadata(metadata) &&
+      metadata.sameHashMixedExternalGroup === true &&
+      typeof metadata.sameHashTrackedSiblingInflowAmount === 'string' &&
+      typeof metadata.sameHashTrackedSiblingInflowCount === 'number'
+        ? `same-hash mixed group: ${metadata.sameHashExternalGroupAmount} ${link.assetSymbol} to exchange ` +
+          `after ${metadata.sameHashTrackedSiblingInflowAmount} ${link.assetSymbol} to ` +
+          `${metadata.sameHashTrackedSiblingInflowCount} ${
+            metadata.sameHashTrackedSiblingInflowCount === 1 ? 'tracked sibling inflow' : 'tracked sibling inflows'
+          }`
+        : undefined;
+
+    return {
+      detailLabel: 'Summary:',
+      matchedAmount: totalMatchedAmount.toFixed(),
+      detailSummary: sameHashSummary ?? `${proposal.legs.length} linked legs between ${formatProposalRoute(proposal)}`,
+    };
+  }
 
   if (
     isSameHashExternalLinkMetadata(metadata) &&
@@ -505,6 +584,46 @@ function formatLinkTypeDisplay(
   return link.linkType.replace(/_/g, ' ');
 }
 
+function formatProposalRoute(proposal: TransferProposalWithTransactions): string {
+  const sourceNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.sourceTransaction?.source ?? 'unknown'));
+  const targetNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.targetTransaction?.source ?? 'unknown'));
+
+  return `${formatProposalEndpoint(sourceNames)} → ${formatProposalEndpoint(targetNames)}`;
+}
+
+function formatProposalEndpoint(names: string[]): string {
+  if (names.length === 0) {
+    return 'unknown';
+  }
+
+  if (names.length === 1) {
+    return names[0]!;
+  }
+
+  return `${names[0]!} +${names.length - 1}`;
+}
+
+function uniqueNonEmptyValues(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
+}
+
+function formatProposalConfidence(proposal: TransferProposalWithTransactions): string {
+  const confidenceValues = proposal.legs.map((leg) => leg.link.confidenceScore.toNumber());
+  const min = Math.min(...confidenceValues);
+  const max = Math.max(...confidenceValues);
+
+  if (Math.abs(max - min) < 0.000001) {
+    return formatConfidenceScore(max);
+  }
+
+  return `${(min * 100).toFixed(1)}-${(max * 100).toFixed(1)}%`;
+}
+
+function getProposalConfidenceColor(proposal: TransferProposalWithTransactions): string {
+  const confidenceValues = proposal.legs.map((leg) => leg.link.confidenceScore.toNumber());
+  return getConfidenceColor(Math.min(...confidenceValues));
+}
+
 function renderAmountSummary(display: LinkAmountDisplay) {
   return (
     <>
@@ -541,19 +660,12 @@ const TransactionLine: FC<{
  * Controls bar component - keyboard hints (links mode)
  */
 const LinksControlsBar: FC<{ state: LinksViewLinksState }> = ({ state }) => {
-  const selected = state.links[state.selectedIndex];
-  const canAction = selected?.link.status === 'suggested';
-  const reviewScope = selected
-    ? resolveLinkReviewScope(
-        selected.link,
-        state.links.map((item) => item.link)
-      )
-    : undefined;
-  const actionLabel = reviewScope && reviewScope.links.length > 1 ? 'proposal' : 'link';
+  const selected = state.proposals[state.selectedIndex];
+  const canAction = selected?.status === 'suggested';
 
   return (
     <Text dimColor>
-      ↑↓/j/k · ^U/^D page · Home/End{canAction && ` · c confirm ${actionLabel} · r reject ${actionLabel}`} · q/esc quit
+      ↑↓/j/k · ^U/^D page · Home/End{canAction && ' · c confirm proposal · r reject proposal'} · q/esc quit
     </Text>
   );
 };

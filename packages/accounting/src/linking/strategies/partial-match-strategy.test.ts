@@ -6,18 +6,8 @@ import { DEFAULT_MATCHING_CONFIG } from '../matching/matching-config.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 import { PartialMatchStrategy } from './partial-match-strategy.js';
-import { createImpossibleMultiSourceAdaHashPartialScenario } from './test-utils.js';
 
 describe('PartialMatchStrategy', () => {
-  it('suppresses multi-source hash partial suggestions that cannot survive same-hash fee deduplication', () => {
-    const strategy = new PartialMatchStrategy();
-    const { sources, targets } = createImpossibleMultiSourceAdaHashPartialScenario();
-
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
-
-    expect(result.links).toHaveLength(0);
-  });
-
   it('keeps hash partial suggestions when only one source carries the fee and capacity reconciles', () => {
     const strategy = new PartialMatchStrategy();
     const hash = '0xvalid';

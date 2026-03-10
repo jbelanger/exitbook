@@ -26,6 +26,10 @@ export {
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
 export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
 export { buildCostBasisScopedTransactions } from './cost-basis/matching/build-cost-basis-scoped-transactions.js';
+export {
+  filterConfirmableTransferProposals,
+  validateTransferProposalConfirmability,
+} from './cost-basis/matching/transfer-proposal-confirmability.js';
 export { validateScopedTransferLinks } from './cost-basis/matching/validated-scoped-transfer-links.js';
 export type {
   CanadaCostBasisWorkflowResult,
@@ -50,6 +54,12 @@ export type { LinkingEvent } from './linking/orchestration/linking-events.js';
 
 // Transaction linking
 export type { LinkStatus, MatchCriteria, TransactionLink } from './linking/shared/types.js';
+export {
+  deriveTransferProposalStatus,
+  getExplicitTransferProposalKey,
+  getTransferProposalGroupKey,
+  groupLinksByTransferProposal,
+} from './linking/shared/transfer-proposals.js';
 export { hasImpliedFeeLinkMetadata, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Cost basis utilities

@@ -48,8 +48,8 @@ export function calculateTransferDisposalAmount(
   cryptoFee: { amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined },
   feePolicy: 'disposal' | 'add-to-basis'
 ): { transferDisposalQuantity: Decimal } {
-  const netTransferAmount = outflow.grossAmount.minus(cryptoFee.amount);
-  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : netTransferAmount;
+  const linkedTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : linkedTransferAmount;
 
   return { transferDisposalQuantity };
 }

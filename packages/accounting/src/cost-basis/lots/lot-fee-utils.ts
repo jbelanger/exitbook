@@ -79,6 +79,77 @@ export function extractCryptoFee(
   }
 }
 
+export function extractAllocatedCryptoFee(
+  transaction: CostBasisTransactionLike,
+  outflow: AssetMovement
+): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
+  const totalFeeResult = extractCryptoFee(transaction, outflow.assetId);
+  if (totalFeeResult.isErr()) {
+    return err(totalFeeResult.error);
+  }
+
+  const totalFee = totalFeeResult.value;
+  if (totalFee.amount.isZero()) {
+    return ok(totalFee);
+  }
+
+  const sameAssetOutflows = getTransactionMovements(transaction).outflows.filter(
+    (candidateOutflow) => candidateOutflow.assetId === outflow.assetId
+  );
+  if (sameAssetOutflows.length <= 1) {
+    return ok(totalFee);
+  }
+
+  const outflowIndex = sameAssetOutflows.indexOf(outflow);
+  if (outflowIndex === -1) {
+    return err(
+      new Error(
+        `Failed to allocate crypto fee for asset ${outflow.assetId}: current outflow not found in transaction movements`
+      )
+    );
+  }
+
+  const zero = parseDecimal('0');
+  const transferBases = sameAssetOutflows.map(
+    (candidateOutflow) => candidateOutflow.netAmount ?? candidateOutflow.grossAmount
+  );
+  const totalTransferBase = transferBases.reduce((sum, transferBase) => sum.plus(transferBase), zero);
+  if (totalTransferBase.lte(0)) {
+    return err(
+      new Error(
+        `Failed to allocate crypto fee for asset ${outflow.assetId}: same-asset outflows must have positive transfer amounts`
+      )
+    );
+  }
+
+  const modeledFeeShares = sameAssetOutflows.map((candidateOutflow, index) => {
+    const modeledFee = candidateOutflow.grossAmount.minus(transferBases[index]!);
+    return modeledFee.gt(0) ? modeledFee : zero;
+  });
+  const totalModeledFee = modeledFeeShares.reduce((sum, modeledFee) => sum.plus(modeledFee), zero);
+
+  if (totalModeledFee.gt(0)) {
+    const modeledScale = totalModeledFee.gt(totalFee.amount)
+      ? totalFee.amount.dividedBy(totalModeledFee)
+      : parseDecimal('1');
+
+    let allocatedAmount = modeledFeeShares[outflowIndex]!.times(modeledScale);
+
+    const remainingFee = totalFee.amount.minus(totalModeledFee.times(modeledScale));
+    if (remainingFee.gt(0)) {
+      allocatedAmount = allocatedAmount.plus(
+        remainingFee.times(transferBases[outflowIndex]!).dividedBy(totalTransferBase)
+      );
+    }
+
+    return ok({ ...totalFee, amount: allocatedAmount });
+  }
+
+  const allocatedAmount = totalFee.amount.times(transferBases[outflowIndex]!).dividedBy(totalTransferBase);
+
+  return ok({ ...totalFee, amount: allocatedAmount });
+}
+
 /**
  * Extract only on-chain fees for a specific asset from a transaction.
  * Per ADR-005, only fees with settlement='on-chain' reduce the netAmount.

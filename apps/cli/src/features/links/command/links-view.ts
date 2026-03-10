@@ -183,8 +183,6 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
         links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
       }
 
-      const totalCount = links.length;
-
       const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(links, txRepo);
 
       const confirmHandler = new LinksConfirmHandler(database, overrideStore);
@@ -218,8 +216,7 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
       const initialState = createLinksViewState(
         linksWithTransactions,
         params.status as LinkStatus,
-        params.verbose ?? false,
-        totalCount
+        params.verbose ?? false
       );
 
       await renderApp((unmount) =>

@@ -17,6 +17,7 @@ import { calculateNetProceeds } from './lot-disposal-utils.js';
 import {
   calculateFeesInFiat,
   collectFiatFees,
+  extractAllocatedCryptoFee,
   extractCryptoFee,
   extractOnChainFees,
   validateOutflowFees,
@@ -325,6 +326,42 @@ describe('lot-matcher-utils', () => {
       const resultValue = assertOk(result);
       expect(resultValue.amount.toFixed()).toBe('0');
       expect(resultValue.feeType).toBe('none');
+    });
+  });
+
+  describe('extractAllocatedCryptoFee', () => {
+    it('should allocate same-asset fee across batched outflows using modeled net amounts', () => {
+      const tx = createTransactionFromMovements(
+        1,
+        '2024-01-01T00:00:00Z',
+        {
+          outflows: [
+            {
+              assetId: 'test:btc',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('0.99975'),
+              priceAtTxTime: createPriceAtTxTime('50000'),
+            },
+            {
+              assetId: 'test:btc',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('0.99975'),
+              priceAtTxTime: createPriceAtTxTime('50000'),
+            },
+          ],
+        },
+        [createFeeMovement('network', 'on-chain', 'BTC', '0.0005', '50000')]
+      );
+
+      const firstFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows[0]!));
+      const secondFee = assertOk(extractAllocatedCryptoFee(tx, tx.movements.outflows[1]!));
+
+      expect(firstFee.amount.toFixed()).toBe('0.00025');
+      expect(secondFee.amount.toFixed()).toBe('0.00025');
+      expect(firstFee.feeType).toBe('network');
+      expect(secondFee.feeType).toBe('network');
     });
   });
 
@@ -849,7 +886,13 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return net amount for disposal policy', () => {
-      const outflow = createMovement('BTC', '1', '50000');
+      const outflow: AssetMovement = {
+        assetId: 'test:btc',
+        assetSymbol: 'BTC' as Currency,
+        grossAmount: parseDecimal('1'),
+        netAmount: parseDecimal('0.999'),
+        priceAtTxTime: createPriceAtTxTime('50000'),
+      };
       const cryptoFee = {
         amount: parseDecimal('0.001'),
         feeType: 'network',
@@ -859,6 +902,19 @@ describe('lot-matcher-utils', () => {
       const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
 
       expect(result.transferDisposalQuantity.toFixed()).toBe('0.999');
+    });
+
+    it('should preserve gross amount when fees are tracked separately from the transfer amount', () => {
+      const outflow = createMovement('BTC', '1', '50000');
+      const cryptoFee = {
+        amount: parseDecimal('0.001'),
+        feeType: 'network',
+        priceAtTxTime: createPriceAtTxTime('50000'),
+      };
+
+      const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
+
+      expect(result.transferDisposalQuantity.toFixed()).toBe('1');
     });
 
     it('should handle zero fee', () => {

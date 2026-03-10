@@ -6,6 +6,7 @@ import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
 import type { UniversalTransactionData } from '@exitbook/core';
 
 import type { LinkGapAnalysis } from '../command/links-gap-utils.js';
+import { buildTransferProposalItems } from '../transfer-proposals.js';
 
 /**
  * Link with associated transaction data for display
@@ -14,6 +15,15 @@ export interface LinkWithTransactions {
   link: TransactionLink;
   sourceTransaction: UniversalTransactionData | undefined;
   targetTransaction: UniversalTransactionData | undefined;
+}
+
+export interface TransferProposalWithTransactions {
+  legs: LinkWithTransactions[];
+  proposalKey: string;
+  representativeLeg: LinkWithTransactions;
+  representativeLink: TransactionLink;
+  status: LinkStatus;
+  transferProposalKey?: string | undefined;
 }
 
 /**
@@ -32,7 +42,7 @@ export interface LinksViewLinksState {
   mode: 'links';
 
   // Data
-  links: LinkWithTransactions[];
+  proposals: TransferProposalWithTransactions[];
   counts: LinkStatusCounts;
 
   // Navigation
@@ -51,7 +61,8 @@ export interface LinksViewLinksState {
         action: 'confirm' | 'reject';
         affectedLinkIds: number[];
         linkId: number;
-        reviewGroupKey?: string | undefined;
+        proposalKey: string;
+        transferProposalKey?: string | undefined;
       }
     | undefined;
 
@@ -87,21 +98,30 @@ export function createLinksViewState(
   verbose = false,
   totalCount?: number
 ): LinksViewLinksState {
-  const sortedLinks = [...links].sort((left, right) => {
-    const leftTime = getLinkDisplayTime(left);
-    const rightTime = getLinkDisplayTime(right);
+  const proposals = buildTransferProposalItems(links)
+    .map((proposal) => ({
+      legs: proposal.items,
+      proposalKey: proposal.proposalKey,
+      representativeLeg: proposal.representativeItem,
+      representativeLink: proposal.representativeLink,
+      status: proposal.status,
+      transferProposalKey: proposal.transferProposalKey,
+    }))
+    .sort((left, right) => {
+      const leftTime = getProposalDisplayTime(left);
+      const rightTime = getProposalDisplayTime(right);
 
-    if (leftTime !== rightTime) {
-      return leftTime - rightTime;
-    }
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
 
-    return left.link.id - right.link.id;
-  });
+      return left.representativeLink.id - right.representativeLink.id;
+    });
 
   // Calculate counts
-  const counts = sortedLinks.reduce(
-    (acc, item) => {
-      const status = item.link.status;
+  const counts = proposals.reduce(
+    (acc, proposal) => {
+      const status = proposal.status;
       if (status === 'confirmed') acc.confirmed += 1;
       else if (status === 'suggested') acc.suggested += 1;
       else if (status === 'rejected') acc.rejected += 1;
@@ -112,30 +132,34 @@ export function createLinksViewState(
 
   return {
     mode: 'links',
-    links: sortedLinks,
+    proposals,
     counts,
     selectedIndex: 0,
     scrollOffset: 0,
     statusFilter,
-    totalCount,
+    totalCount: totalCount ?? proposals.length,
     pendingAction: undefined,
     error: undefined,
     verbose,
   };
 }
 
-function getLinkDisplayTime(item: LinkWithTransactions): number {
-  const sourceTime = item.sourceTransaction?.datetime ? Date.parse(item.sourceTransaction.datetime) : Number.NaN;
+function getProposalDisplayTime(item: TransferProposalWithTransactions): number {
+  const sourceTime = item.representativeLeg.sourceTransaction?.datetime
+    ? Date.parse(item.representativeLeg.sourceTransaction.datetime)
+    : Number.NaN;
   if (!Number.isNaN(sourceTime)) {
     return sourceTime;
   }
 
-  const targetTime = item.targetTransaction?.datetime ? Date.parse(item.targetTransaction.datetime) : Number.NaN;
+  const targetTime = item.representativeLeg.targetTransaction?.datetime
+    ? Date.parse(item.representativeLeg.targetTransaction.datetime)
+    : Number.NaN;
   if (!Number.isNaN(targetTime)) {
     return targetTime;
   }
 
-  return item.link.createdAt.getTime();
+  return item.representativeLink.createdAt.getTime();
 }
 
 /**

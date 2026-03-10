@@ -1,14 +1,8 @@
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { DataContext, type OverrideStore } from '@exitbook/data';
-import { getLogger } from '@exitbook/logger';
 
-import { resolveLinkReviewScope } from '../links-review-utils.js';
-
-import { writeUnlinkOverrideEvent } from './links-override-utils.js';
-import { getDefaultReviewer, validateLinkStatusForReject } from './links-utils.js';
-
-const logger = getLogger('LinksRejectHandler');
+import { TransferProposalReviewService } from './transfer-proposal-review-service.js';
 
 /**
  * Parameters for links reject command.
@@ -34,125 +28,31 @@ export interface LinksRejectResult {
   sourceName?: string | undefined;
   targetName?: string | undefined;
   confidence?: string | undefined;
+  transferProposalKey?: string | undefined;
 }
 
 /**
  * Handler for rejecting transaction links.
  */
 export class LinksRejectHandler {
-  constructor(
-    private readonly db: DataContext,
-    private readonly overrideStore?: OverrideStore | undefined
-  ) {}
+  private readonly reviewService: TransferProposalReviewService;
+
+  constructor(db: DataContext, overrideStore?: OverrideStore  ) {
+    this.reviewService = new TransferProposalReviewService(db, overrideStore);
+  }
 
   /**
    * Execute the links reject command.
    */
   async execute(params: LinksRejectParams): Promise<Result<LinksRejectResult, Error>> {
-    try {
-      // Fetch the link
-      const linkResult = await this.db.transactionLinks.findById(params.linkId);
-
-      if (linkResult.isErr()) {
-        return err(linkResult.error);
-      }
-
-      const link = linkResult.value;
-
-      if (!link) {
-        return err(new Error(`Link with ID ${params.linkId} not found`));
-      }
-
-      // Validate if link can be rejected
-      const validationResult = validateLinkStatusForReject(link.status);
-
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // If already rejected (idempotent), return success with existing data
-      if (!validationResult.value) {
-        logger.warn({ linkId: params.linkId }, 'Link is already rejected');
-        return ok({
-          affectedLinkCount: 1,
-          affectedLinkIds: [link.id],
-          linkId: link.id,
-          newStatus: 'rejected',
-          reviewedBy: link.reviewedBy ?? getDefaultReviewer(),
-          reviewedAt: link.reviewedAt ?? new Date(),
-        });
-      }
-
-      const reviewedBy = getDefaultReviewer();
-      const allLinksResult = await this.db.transactionLinks.findAll();
-      if (allLinksResult.isErr()) {
-        return err(allLinksResult.error);
-      }
-
-      const reviewScope = resolveLinkReviewScope(link, allLinksResult.value);
-      const actionableLinks = reviewScope.links.filter((candidate) => candidate.status !== 'rejected');
-      const actionableIds = actionableLinks.map((candidate) => candidate.id);
-
-      if (link.status === 'confirmed') {
-        logger.info({ linkId: params.linkId }, 'Rejecting previously confirmed link');
-      }
-
-      const updateResult = await this.db.executeInTransaction(async (tx) => {
-        const updatedRowsResult = await tx.transactionLinks.updateStatuses(actionableIds, 'rejected', reviewedBy);
-        if (updatedRowsResult.isErr()) {
-          return err(updatedRowsResult.error);
-        }
-
-        if (updatedRowsResult.value !== actionableIds.length) {
-          return err(
-            new Error(
-              `Failed to update review group for link ${params.linkId}: expected ${actionableIds.length} rows, updated ${updatedRowsResult.value}`
-            )
-          );
-        }
-
-        return ok(undefined);
-      });
-      if (updateResult.isErr()) {
-        return err(updateResult.error);
-      }
-
-      logger.info(
-        { affectedLinkIds: reviewScope.links.map((candidate) => candidate.id), linkId: params.linkId },
-        'Link review group rejected successfully'
-      );
-
-      // Write override event for durability across reprocessing
-      if (this.overrideStore) {
-        for (const reviewLink of reviewScope.links) {
-          await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, reviewLink);
-        }
-      }
-
-      // Fetch transaction details for rich display
-      const sourceTxResult = await this.db.transactions.findById(link.sourceTransactionId);
-      const targetTxResult = await this.db.transactions.findById(link.targetTransactionId);
-
-      const sourceTx = sourceTxResult.isOk() ? sourceTxResult.value : undefined;
-      const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;
-
-      return ok({
-        affectedLinkCount: reviewScope.links.length,
-        affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
-        linkId: params.linkId,
-        newStatus: 'rejected',
-        reviewedBy,
-        reviewedAt: new Date(),
-        asset: link.assetSymbol,
-        sourceAmount: link.sourceAmount.toFixed(),
-        targetAmount: link.targetAmount.toFixed(),
-        sourceName: sourceTx?.source ?? 'unknown',
-        targetName: targetTx?.source ?? 'unknown',
-        confidence: `${(link.confidenceScore.toNumber() * 100).toFixed(1)}%`,
-      });
-    } catch (error) {
-      logger.error({ error, linkId: params.linkId }, 'Failed to reject link');
-      return err(error instanceof Error ? error : new Error(String(error)));
+    const result = await this.reviewService.reject(params.linkId);
+    if (result.isErr()) {
+      return err(result.error);
     }
+
+    return ok({
+      ...result.value,
+      newStatus: 'rejected',
+    });
   }
 }

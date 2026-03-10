@@ -13,4 +13,5 @@ export {
   type LinksViewLinksState,
   type LinksViewState,
   type LinkWithTransactions,
+  type TransferProposalWithTransactions,
 } from './links-view-state.js';

@@ -4,7 +4,7 @@
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
-import { resolveLinkReviewScope } from '../links-review-utils.js';
+import { resolveTransferProposal } from '../transfer-proposals.js';
 
 import { getGapsChromeLines, LINKS_CHROME_LINES } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';
@@ -29,7 +29,7 @@ export type LinksViewAction =
  * Get the item count for the current mode
  */
 function getItemCount(state: LinksViewState): number {
-  return state.mode === 'links' ? state.links.length : state.linkAnalysis.issues.length;
+  return state.mode === 'links' ? state.proposals.length : state.linkAnalysis.issues.length;
 }
 
 /**
@@ -139,26 +139,27 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         return state;
       }
 
-      const selected = state.links[state.selectedIndex];
-      if (!selected || selected.link.status !== 'suggested') {
+      const selected = state.proposals[state.selectedIndex];
+      if (!selected || selected.status !== 'suggested') {
         return {
           ...state,
-          error: 'Can only confirm suggested links',
+          error: 'Can only confirm suggested proposals',
         };
       }
 
-      const reviewScope = resolveLinkReviewScope(
-        selected.link,
-        state.links.map((item) => item.link)
+      const transferProposal = resolveTransferProposal(
+        selected.representativeLink,
+        state.proposals.flatMap((proposal) => proposal.legs.map((leg) => leg.link))
       );
 
       return {
         ...state,
         pendingAction: {
-          affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
-          linkId: selected.link.id,
+          affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
+          linkId: selected.representativeLink.id,
           action: 'confirm',
-          reviewGroupKey: reviewScope.reviewGroupKey,
+          proposalKey: selected.proposalKey,
+          transferProposalKey: transferProposal.transferProposalKey,
         },
         error: undefined,
       };
@@ -169,26 +170,27 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
         return state;
       }
 
-      const selected = state.links[state.selectedIndex];
-      if (!selected || selected.link.status !== 'suggested') {
+      const selected = state.proposals[state.selectedIndex];
+      if (!selected || selected.status !== 'suggested') {
         return {
           ...state,
-          error: 'Can only reject suggested links',
+          error: 'Can only reject suggested proposals',
         };
       }
 
-      const reviewScope = resolveLinkReviewScope(
-        selected.link,
-        state.links.map((item) => item.link)
+      const transferProposal = resolveTransferProposal(
+        selected.representativeLink,
+        state.proposals.flatMap((proposal) => proposal.legs.map((leg) => leg.link))
       );
 
       return {
         ...state,
         pendingAction: {
-          affectedLinkIds: reviewScope.links.map((candidate) => candidate.id),
-          linkId: selected.link.id,
+          affectedLinkIds: transferProposal.links.map((candidate) => candidate.id),
+          linkId: selected.representativeLink.id,
           action: 'reject',
-          reviewGroupKey: reviewScope.reviewGroupKey,
+          proposalKey: selected.proposalKey,
+          transferProposalKey: transferProposal.transferProposalKey,
         },
         error: undefined,
       };
@@ -200,15 +202,31 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
       }
 
       const affectedLinkIds = new Set(action.affectedLinkIds);
-      const updatedLinks = state.links
-        .map((item) =>
-          affectedLinkIds.has(item.link.id) ? { ...item, link: { ...item.link, status: action.newStatus } } : item
-        )
-        .filter((item) => state.statusFilter === undefined || item.link.status === state.statusFilter);
+      const updatedProposals = state.proposals
+        .map((proposal) => {
+          const isAffected = proposal.legs.some((leg) => affectedLinkIds.has(leg.link.id));
+          if (!isAffected) {
+            return proposal;
+          }
 
-      const updatedCounts = updatedLinks.reduce(
-        (acc, item) => {
-          const status = item.link.status;
+          const updatedLegs = proposal.legs.map((leg) =>
+            affectedLinkIds.has(leg.link.id) ? { ...leg, link: { ...leg.link, status: action.newStatus } } : leg
+          );
+          const updatedRepresentativeLeg = updatedLegs[0] ?? proposal.representativeLeg;
+
+          return {
+            ...proposal,
+            status: action.newStatus,
+            representativeLeg: updatedRepresentativeLeg,
+            representativeLink: updatedRepresentativeLeg.link,
+            legs: updatedLegs,
+          };
+        })
+        .filter((proposal) => state.statusFilter === undefined || proposal.status === state.statusFilter);
+
+      const updatedCounts = updatedProposals.reduce(
+        (acc, proposal) => {
+          const status = proposal.status;
           if (status === 'confirmed') acc.confirmed += 1;
           else if (status === 'suggested') acc.suggested += 1;
           else if (status === 'rejected') acc.rejected += 1;
@@ -219,10 +237,10 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
 
       return {
         ...state,
-        links: updatedLinks,
+        proposals: updatedProposals,
         counts: updatedCounts,
-        selectedIndex: normalizeSelectedIndex(state.selectedIndex, updatedLinks.length),
-        scrollOffset: normalizeScrollOffset(state.scrollOffset, updatedLinks.length),
+        selectedIndex: normalizeSelectedIndex(state.selectedIndex, updatedProposals.length),
+        scrollOffset: normalizeScrollOffset(state.scrollOffset, updatedProposals.length),
         pendingAction: undefined,
         error: undefined,
       };

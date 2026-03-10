@@ -118,7 +118,7 @@ describe('TransactionLinkRepository', () => {
           variance: '0.05',
           variancePct: '0.50',
           impliedFee: '0.05',
-          reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
+          transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
         },
       };
 
@@ -128,7 +128,7 @@ describe('TransactionLinkRepository', () => {
         variance: '0.05',
         variancePct: '0.50',
         impliedFee: '0.05',
-        reviewGroupKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
+        transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
       });
     });
 
