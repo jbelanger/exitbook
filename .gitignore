@@ -166,3 +166,5 @@ commands.txt
 # SQLite WAL files (Write-Ahead Logging)
 *.db-shm
 *.db-wal
+
+environment.toml

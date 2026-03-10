@@ -1,7 +1,7 @@
 import {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
-  getPriceCompleteCostBasisTransactions,
+  getCostBasisRebuildTransactions,
   runCanadaAcbEngine,
   runCanadaAcbWorkflow,
   runCanadaSuperficialLossEngine,
@@ -26,7 +26,7 @@ vi.mock('@exitbook/accounting', async () => {
         getRateFromUSD: vi.fn(),
       };
     }),
-    getPriceCompleteCostBasisTransactions: vi.fn(),
+    getCostBasisRebuildTransactions: vi.fn(),
     runCostBasisPipeline: vi.fn(),
     runCanadaAcbWorkflow: vi.fn(),
     runCanadaSuperficialLossEngine: vi.fn(),
@@ -132,8 +132,8 @@ describe('PortfolioHandler', () => {
       loadCostBasisContext: vi.fn().mockResolvedValue(ok({ confirmedLinks: [] })),
     } as never);
 
-    vi.mocked(getPriceCompleteCostBasisTransactions).mockReturnValue(
-      ok({ missingPricesCount: 0, priceCompleteTransactions: [tx] })
+    vi.mocked(getCostBasisRebuildTransactions).mockReturnValue(
+      ok({ missingPricesCount: 0, rebuildTransactions: [tx] })
     );
 
     vi.mocked(runCanadaAcbWorkflow).mockResolvedValue(
@@ -283,7 +283,7 @@ describe('PortfolioHandler', () => {
           disposals: [],
         },
         missingPricesCount: 0,
-        priceCompleteTransactions: [tx],
+        rebuildTransactions: [tx],
       } as never)
     );
 

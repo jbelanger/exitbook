@@ -107,6 +107,78 @@ export function createFee(
 }
 
 /**
+ * Creates a blockchain UniversalTransactionData with a tx hash.
+ */
+export function createBlockchainTx(params: {
+  accountId: number;
+  datetime: string;
+  externalId: string;
+  fees?: FeeMovement[] | undefined;
+  id: number;
+  inflows?: AssetMovement[] | undefined;
+  outflows?: AssetMovement[] | undefined;
+  txHash: string;
+}): UniversalTransactionData {
+  return {
+    id: params.id,
+    accountId: params.accountId,
+    externalId: params.externalId,
+    datetime: params.datetime,
+    timestamp: new Date(params.datetime).getTime(),
+    source: 'bitcoin',
+    sourceType: 'blockchain',
+    status: 'success',
+    movements: {
+      inflows: params.inflows ?? [],
+      outflows: params.outflows ?? [],
+    },
+    fees: params.fees ?? [],
+    operation: {
+      category: 'transfer',
+      type: 'transfer',
+    },
+    blockchain: {
+      name: 'bitcoin',
+      transaction_hash: params.txHash,
+      is_confirmed: true,
+    },
+  };
+}
+
+/**
+ * Creates an exchange UniversalTransactionData.
+ */
+export function createExchangeTx(params: {
+  accountId: number;
+  datetime: string;
+  externalId: string;
+  id: number;
+  inflows?: AssetMovement[] | undefined;
+  source: string;
+  type: 'buy' | 'deposit';
+}): UniversalTransactionData {
+  return {
+    id: params.id,
+    accountId: params.accountId,
+    externalId: params.externalId,
+    datetime: params.datetime,
+    timestamp: new Date(params.datetime).getTime(),
+    source: params.source,
+    sourceType: 'exchange',
+    status: 'success',
+    movements: {
+      inflows: params.inflows ?? [],
+      outflows: [],
+    },
+    fees: [],
+    operation: {
+      category: 'transfer',
+      type: params.type,
+    },
+  };
+}
+
+/**
  * Creates a UniversalTransactionData with common defaults.
  * Inflows and outflows are specified as convenience objects with price.
  */

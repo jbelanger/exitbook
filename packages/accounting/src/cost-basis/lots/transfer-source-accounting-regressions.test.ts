@@ -205,6 +205,7 @@ describe('transfer source accounting regressions', () => {
 
     const sourceTransaction: AccountingScopedTransaction = {
       tx: rawSourceTransaction,
+      rebuildDependencyTransactionIds: [],
       movements: { inflows: [], outflows: [] },
       fees: [],
     };

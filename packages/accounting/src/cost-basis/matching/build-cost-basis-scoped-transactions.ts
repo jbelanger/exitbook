@@ -25,6 +25,12 @@ export interface ScopedFeeMovement extends FeeMovement {
 
 export interface AccountingScopedTransaction {
   tx: UniversalTransactionData;
+  /**
+   * Raw transaction ids that must accompany this scoped transaction when
+   * rebuilding after price filtering, because same-hash scoping consumed
+   * sibling rows to produce the current scoped shape.
+   */
+  rebuildDependencyTransactionIds: number[];
   movements: {
     inflows: ScopedAssetMovement[];
     outflows: ScopedAssetMovement[];
@@ -49,6 +55,7 @@ export interface FeeOnlyInternalCarryover {
 }
 
 export interface AccountingScopedBuildResult {
+  inputTransactions: UniversalTransactionData[];
   transactions: AccountingScopedTransaction[];
   feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
 }
@@ -200,6 +207,7 @@ export function buildCostBasisScopedTransactions(
   }
 
   return ok({
+    inputTransactions: transactions,
     transactions: [...scopedByTxId.values()],
     feeOnlyInternalCarryovers,
   });
@@ -265,7 +273,7 @@ function cloneScopedTransaction(tx: UniversalTransactionData): Result<Accounting
     });
   }
 
-  return ok({ tx, movements: { inflows, outflows }, fees });
+  return ok({ tx, rebuildDependencyTransactionIds: [], movements: { inflows, outflows }, fees });
 }
 
 // ---------------------------------------------------------------------------
@@ -759,6 +767,25 @@ function applyDecisionToScopedTransactions(
   return applyMultiSourceInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
 }
 
+function addScopedRebuildDependencies(
+  scopedTransaction: AccountingScopedTransaction,
+  dependencyTransactionIds: number[]
+): void {
+  const existing = new Set(scopedTransaction.rebuildDependencyTransactionIds);
+  for (const dependencyTransactionId of dependencyTransactionIds) {
+    if (dependencyTransactionId === scopedTransaction.tx.id) {
+      continue;
+    }
+
+    if (existing.has(dependencyTransactionId)) {
+      continue;
+    }
+
+    existing.add(dependencyTransactionId);
+    scopedTransaction.rebuildDependencyTransactionIds.push(dependencyTransactionId);
+  }
+}
+
 function applyMultiSourceScopedExternalAmount(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
   decision: MultiSourceScopedExternalAmount,
@@ -769,6 +796,8 @@ function applyMultiSourceScopedExternalAmount(
     if (!sourceScoped) {
       return err(new Error(`Sender scoped transaction ${sourceAllocation.txId} not found`));
     }
+
+    addScopedRebuildDependencies(sourceScoped, decision.internalReceiverTxIds);
 
     if (sourceAllocation.externalAmount.eq(0)) {
       sourceScoped.movements.outflows = sourceScoped.movements.outflows.filter(
@@ -834,6 +863,11 @@ function applyMultiSourceInternalFeeOnly(
       return err(new Error(`Sender scoped transaction ${sourceCarryover.sourceTxId} not found`));
     }
 
+    addScopedRebuildDependencies(
+      sourceScoped,
+      sourceCarryover.targets.map((target) => target.txId)
+    );
+
     sourceScoped.movements.outflows = sourceScoped.movements.outflows.filter(
       (movement) => movement.assetId !== decision.assetId
     );
@@ -896,6 +930,8 @@ function applyInternalWithExternalAmount(
     return err(new Error(`Sender scoped transaction ${decision.senderTxId} not found`));
   }
 
+  addScopedRebuildDependencies(senderScoped, decision.internalReceiverTxIds);
+
   const senderOutflowResult = getSingleScopedOutflow(senderScoped, decision.assetId, decision.senderTxId);
   if (senderOutflowResult.isErr()) return err(senderOutflowResult.error);
   const senderOutflow = senderOutflowResult.value;
@@ -945,6 +981,11 @@ function applyInternalFeeOnly(
   if (!senderScoped) {
     return err(new Error(`Sender scoped transaction ${decision.senderTxId} not found`));
   }
+
+  addScopedRebuildDependencies(
+    senderScoped,
+    decision.receivers.map((receiver) => receiver.txId)
+  );
 
   // Remove the source outflow movement (no external transfer quantity)
   senderScoped.movements.outflows = senderScoped.movements.outflows.filter((m) => m.assetId !== decision.assetId);

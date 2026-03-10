@@ -357,13 +357,13 @@ export function validateTransactionPrices(
 
 /**
  * Validate scoped transactions for cost basis price completeness.
- * Returns the original raw transactions that still survive at the scoped boundary.
+ * Returns the raw rebuild subset needed to reproduce the surviving scoped view.
  */
 export function validateScopedTransactionPrices(
   scopedBuildResult: AccountingScopedBuildResult,
   requiredCurrency: string
-): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
-  const priceCompleteTransactions: UniversalTransactionData[] = [];
+): Result<{ missingPricesCount: number; rebuildTransactions: UniversalTransactionData[] }, Error> {
+  const rebuildTransactionIds = new Set<number>();
   let missingPricesCount = 0;
 
   for (const scopedTransaction of scopedBuildResult.transactions) {
@@ -373,13 +373,16 @@ export function validateScopedTransactionPrices(
     }
 
     if (hasAllPricesResult.value) {
-      priceCompleteTransactions.push(scopedTransaction.tx);
+      rebuildTransactionIds.add(scopedTransaction.tx.id);
+      for (const dependencyTransactionId of scopedTransaction.rebuildDependencyTransactionIds) {
+        rebuildTransactionIds.add(dependencyTransactionId);
+      }
     } else {
       missingPricesCount++;
     }
   }
 
-  if (priceCompleteTransactions.length === 0) {
+  if (rebuildTransactionIds.size === 0) {
     return err(
       new Error(
         `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
@@ -387,17 +390,26 @@ export function validateScopedTransactionPrices(
     );
   }
 
-  return ok({ priceCompleteTransactions, missingPricesCount });
+  const rebuildTransactions = scopedBuildResult.inputTransactions.filter((tx) => rebuildTransactionIds.has(tx.id));
+  if (rebuildTransactions.length !== rebuildTransactionIds.size) {
+    const foundIds = new Set(rebuildTransactions.map((tx) => tx.id));
+    const missingTransactionIds = [...rebuildTransactionIds].filter((txId) => !foundIds.has(txId));
+    return err(
+      new Error(`Scoped rebuild transactions missing from the input set: [${missingTransactionIds.join(', ')}]`)
+    );
+  }
+
+  return ok({ rebuildTransactions, missingPricesCount });
 }
 
 /**
- * Return the raw transaction subset that survives scoped price validation.
+ * Return the raw rebuild subset required for the price-complete scoped view.
  */
-export function getPriceCompleteCostBasisTransactions(
+export function getCostBasisRebuildTransactions(
   transactions: UniversalTransactionData[],
   requiredCurrency: string,
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<{ missingPricesCount: number; priceCompleteTransactions: UniversalTransactionData[] }, Error> {
+): Result<{ missingPricesCount: number; rebuildTransactions: UniversalTransactionData[] }, Error> {
   const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);

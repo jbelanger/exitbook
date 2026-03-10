@@ -44,12 +44,14 @@ describe('accounting-exclusion-policy', () => {
       inflows: [createMovement('ETH', '1', '3000'), createMovement('SCAM', '1000')],
     });
     const scopedBuildResult = assertOk(buildCostBasisScopedTransactions([transaction], noopLogger));
+    scopedBuildResult.transactions[0]!.rebuildDependencyTransactionIds.push(99);
 
     const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
 
     expect(result.fullyExcludedTransactionIds.size).toBe(0);
     expect(result.partiallyExcludedTransactionIds.has(1)).toBe(true);
     expect(result.scopedBuildResult.transactions).toHaveLength(1);
+    expect(result.scopedBuildResult.transactions[0]?.rebuildDependencyTransactionIds).toEqual([99]);
     expect(result.scopedBuildResult.transactions[0]?.movements.inflows.map((movement) => movement.assetId)).toEqual([
       'test:eth',
     ]);

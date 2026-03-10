@@ -32,8 +32,11 @@ export interface CostBasisPipelineOptions {
 export interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
-  /** Transactions that survived price validation and were included in matching. */
-  priceCompleteTransactions: UniversalTransactionData[];
+  /**
+   * Raw transactions carried forward into the final scoped rebuild. This can
+   * include same-hash internal dependencies consumed by scoped reductions.
+   */
+  rebuildTransactions: UniversalTransactionData[];
 }
 
 const logger = getLogger('cost-basis-pipeline');
@@ -71,7 +74,8 @@ export async function runCostBasisPipeline(
     return err(validationResult.error);
   }
 
-  const { priceCompleteTransactions, missingPricesCount } = validationResult.value;
+  const { rebuildTransactions, missingPricesCount } = validationResult.value;
+
   if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
     return err(
       new Error(
@@ -81,13 +85,13 @@ export async function runCostBasisPipeline(
     );
   }
 
-  let priceCompleteScopedBuild = priceValidatedScopedBuild;
+  let rebuildScopedBuild = priceValidatedScopedBuild;
   if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
     logger.warn(
       {
         missingPricesCount,
         originalTransactionsCount: transactions.length,
-        priceCompleteTransactionsCount: priceCompleteTransactions.length,
+        rebuildTransactionsCount: rebuildTransactions.length,
       },
       'Excluding transactions with missing prices from the soft cost-basis pipeline'
     );
@@ -96,13 +100,13 @@ export async function runCostBasisPipeline(
     // fee-only carryovers. After excluding raw transactions we must rebuild the
     // scoped subset so those transfer decisions are recomputed against the
     // surviving transactions rather than leaving dangling carryover state.
-    const priceCompleteScopedResult = buildCostBasisScopedTransactions(priceCompleteTransactions, logger);
-    if (priceCompleteScopedResult.isErr()) {
-      return err(priceCompleteScopedResult.error);
+    const rebuildScopedResult = buildCostBasisScopedTransactions(rebuildTransactions, logger);
+    if (rebuildScopedResult.isErr()) {
+      return err(rebuildScopedResult.error);
     }
 
-    priceCompleteScopedBuild = applyAccountingExclusionPolicy(
-      priceCompleteScopedResult.value,
+    rebuildScopedBuild = applyAccountingExclusionPolicy(
+      rebuildScopedResult.value,
       options.accountingExclusionPolicy
     ).scopedBuildResult;
   }
@@ -123,7 +127,7 @@ export async function runCostBasisPipeline(
   const lotMatcher = new LotMatcher();
 
   const costBasisResult = await calculateCostBasisFromScopedTransactions(
-    priceCompleteScopedBuild,
+    rebuildScopedBuild,
     config,
     rules,
     lotMatcher,
@@ -133,5 +137,5 @@ export async function runCostBasisPipeline(
     return err(costBasisResult.error);
   }
 
-  return ok({ summary: costBasisResult.value, missingPricesCount, priceCompleteTransactions });
+  return ok({ summary: costBasisResult.value, missingPricesCount, rebuildTransactions });
 }

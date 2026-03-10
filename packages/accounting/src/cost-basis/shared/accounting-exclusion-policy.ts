@@ -75,6 +75,7 @@ export function applyAccountingExclusionPolicy(
 
     transactions.push({
       tx: scopedTransaction.tx,
+      rebuildDependencyTransactionIds: [...scopedTransaction.rebuildDependencyTransactionIds],
       movements: {
         inflows,
         outflows,
@@ -89,6 +90,7 @@ export function applyAccountingExclusionPolicy(
 
   return {
     scopedBuildResult: {
+      inputTransactions: scopedBuildResult.inputTransactions,
       transactions,
       feeOnlyInternalCarryovers,
     },

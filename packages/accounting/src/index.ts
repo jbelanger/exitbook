@@ -65,7 +65,7 @@ export { hasImpliedFeeLinkMetadata, isPartialMatchLinkMetadata, isSameHashExtern
 // Cost basis utilities
 export {
   buildCostBasisInput,
-  getPriceCompleteCostBasisTransactions,
+  getCostBasisRebuildTransactions,
   validateCostBasisInput,
 } from './cost-basis/shared/cost-basis-utils.js';
 export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/shared/cost-basis-utils.js';

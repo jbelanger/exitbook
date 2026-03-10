@@ -14,6 +14,11 @@ The goal is:
   `accounts view`
 - keep exclusion policy explicit: exclude from accounting, not hide from UI
 
+This document is subordinate to the stronger suspicious-asset review direction.
+`assets view` must surface "needs review" assets and their warning context
+prominently. Include/exclude remains accounting policy; it must not become the
+only asset-review affordance.
+
 ## Goals
 
 - Persist only the current balance snapshot.
@@ -24,12 +29,15 @@ The goal is:
 - Make live provider fetches explicit through a refresh command.
 - Reuse the existing `projection_state` lifecycle model.
 - Add a TUI that lets a user inspect assets and toggle include/exclude quickly.
+- Make suspicious and ambiguous assets obvious in `assets view`, with review
+  state kept separate from accounting exclusion state.
 
 ## Non-Goals
 
 - Storing balance history.
 - Introducing a third asset catalog table in this phase.
 - Making accounting exclusions come from the balance projection.
+- Reducing suspicious-asset review to `excluded_from_accounting`.
 - Rewriting portfolio to depend on the balance projection.
 - Forcing all asset query logic into a new package in the same phase.
 
@@ -224,6 +232,8 @@ It should be a real browsing surface with:
 - detail panel
 - drill-down
 - inline include/exclude toggle
+- strong `needs review` / warning visibility that is separate from
+  include/exclude state
 
 ## Data Model
 
@@ -333,6 +343,9 @@ Notes:
 - `excluded_from_accounting` is a denormalized convenience flag, derived from
   override replay when the snapshot is written
 - no history foreign key is needed because the snapshot is current-state only
+- suspicious-asset review state must not be owned by these rows; if it is ever
+  denormalized here for read performance, the source of truth still belongs to
+  token metadata / asset review state
 
 ### What does not stay on `accounts`
 
@@ -473,7 +486,7 @@ exitbook assets exclusions
 Add:
 
 ```text
-exitbook assets view [--all] [--excluded] [--json]
+exitbook assets view [--all] [--excluded] [--needs-review] [--json]
 ```
 
 Behavior:
@@ -482,6 +495,8 @@ Behavior:
 - `--all` includes zero-balance historical assets seen in processed
   transactions
 - `--excluded` filters to accounting-excluded assets
+- `--needs-review` filters to suspicious or ambiguous assets that need user
+  review
 
 ### UX Pattern
 
@@ -509,22 +524,24 @@ Each row should show:
 - current quantity across all scopes
 - account count
 - exclusion state
+- review state
 - verification signal
 
 Example row shape:
 
 ```text
-> BTC      1.48230000   3 accts   included   verified
-  USDC   2500.00000000  2 accts   excluded   warning
-  XYZ        0.00000000 1 acct    excluded   historical
+> BTC      1.48230000   3 accts   included   clear          verified
+  USDC   2500.00000000  2 accts   included   needs-review   warning
+  XYZ        0.00000000 1 acct    excluded   reviewed       historical
 ```
 
 Suggested row ordering:
 
 1. currently held, non-zero assets
-2. excluded assets with current holdings
-3. excluded historical zero-balance assets
-4. included historical zero-balance assets
+2. currently held assets that need review
+3. excluded assets with current holdings
+4. excluded historical zero-balance assets
+5. included historical zero-balance assets
 
 Within a bucket:
 
@@ -539,6 +556,8 @@ The selected asset detail should show:
 - all seen symbols for the asset id
 - current total quantity
 - included/excluded state
+- review state
+- short warning summary when the asset needs review
 - affected account list with per-account quantities
 - transaction count / movement count from `collectKnownAssets()`
 - if verification is mismatched or stale, a short reason
@@ -549,7 +568,7 @@ Example detail:
 ▸ BTC   1.48230000
 
   Asset ID: blockchain:bitcoin:native
-  Status: included · verified
+  Status: included · clear · verified
   Accounts: bitcoin (0.48), kraken (1.00)
   Seen in: 124 txs · 201 movements
   Last refresh: 2026-03-10 14:22
@@ -563,7 +582,7 @@ Use:
 
 - `x` toggle include/exclude for selected asset
 - `enter` drill into per-account holdings for the selected asset
-- `tab` cycle filters: held / all / excluded / mismatched / stale
+- `tab` cycle filters: held / all / excluded / needs-review / mismatched / stale
 - `s` cycle sorting if needed later
 - `q` / `esc` quit or go back
 
@@ -587,7 +606,10 @@ Build the asset view read model by combining:
    - snapshot freshness and summary state
 3. override replay
    - included/excluded state
-4. `collectKnownAssets(transactions)`
+4. token metadata / asset review state
+   - suspicious / ambiguous review status
+   - warning reasons to summarize in the detail panel
+5. `collectKnownAssets(transactions)`
    - transaction count
    - movement count
    - alternate symbols
@@ -597,6 +619,8 @@ This produces one read model with:
 - current holdings
 - historical asset knowledge
 - exclusion policy
+- review state
+- warning context
 - verification signal
 
 without introducing another stored projection.
@@ -860,8 +884,9 @@ Handler responsibilities:
 1. load stored current asset rows from `balance_snapshot_assets`
 2. load snapshot summaries from `balance_snapshots`
 3. load excluded asset ids from override replay
-4. load known historical asset stats with `collectKnownAssets(...)`
-5. build `AssetViewItem[]`
+4. load suspicious / ambiguous asset review state and warning summaries
+5. load known historical asset stats with `collectKnownAssets(...)`
+6. build `AssetViewItem[]`
 
 Suggested `AssetViewItem` shape:
 
@@ -873,6 +898,8 @@ interface AssetViewItem {
   currentQuantity: string;
   isHeld: boolean;
   excludedFromAccounting: boolean;
+  reviewState: 'clear' | 'needs-review' | 'reviewed';
+  reviewSummary?: string;
   accountCount: number;
   transactionCount: number;
   movementCount: number;
@@ -990,6 +1017,8 @@ Test:
 
 - held vs historical rows
 - excluded toggle behavior
+- needs-review rows sort and filter correctly
+- suspicious asset detail shows review summary
 - ambiguity handling for symbol lookups stays intact
 - drill-down account list
 
@@ -1030,6 +1059,9 @@ Reason:
 - it simplifies `balance view` and `assets view`
 - it does not replace override policy ownership
 
+This must not be interpreted as "excluded means reviewed" or "included means
+safe." Review state stays separate.
+
 ### 3. Should `assets view` live in a new package?
 
 Recommendation:
@@ -1050,6 +1082,8 @@ Reason:
   prefer `lastRefreshAt`.
 - The current `assets` feature is action-first, not view-first. That is why it
   feels incomplete in TUI terms.
+- `excluded_from_accounting` and `needs review` are different concepts. Any UI
+  that collapses them into one state would be a product smell.
 - The repo already has a strong asset browsing precedent in `portfolio`; adding
   a completely different `assets view` interaction model would be a UX smell.
 - Child account rows currently risk implying verification semantics that really

@@ -9,7 +9,7 @@ import {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
   type AccountingExclusionPolicy,
-  getPriceCompleteCostBasisTransactions,
+  getCostBasisRebuildTransactions,
   runCanadaAcbEngine,
   runCanadaAcbWorkflow,
   runCanadaSuperficialLossEngine,
@@ -278,10 +278,10 @@ export class PortfolioHandler {
           return err(pipelineResult.error);
         }
 
-        const { summary: costBasisSummary, missingPricesCount, priceCompleteTransactions } = pipelineResult.value;
+        const { summary: costBasisSummary, missingPricesCount, rebuildTransactions } = pipelineResult.value;
         const missingPriceWarning = this.buildMissingPriceWarning(
           transactionsUpToAsOf,
-          priceCompleteTransactions,
+          rebuildTransactions,
           missingPricesCount
         );
         if (missingPriceWarning) {
@@ -434,15 +434,15 @@ export class PortfolioHandler {
 
   private buildMissingPriceWarning(
     transactionsUpToAsOf: UniversalTransactionData[],
-    priceCompleteTransactions: UniversalTransactionData[],
+    rebuildTransactions: UniversalTransactionData[],
     missingPricesCount: number
   ): string | undefined {
     if (missingPricesCount === 0) {
       return undefined;
     }
 
-    const priceCompleteTransactionIds = new Set(priceCompleteTransactions.map((tx) => tx.id));
-    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !priceCompleteTransactionIds.has(tx.id));
+    const rebuildTransactionIds = new Set(rebuildTransactions.map((tx) => tx.id));
+    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !rebuildTransactionIds.has(tx.id));
     const spamOrExcludedCount = excludedForMissingPrices.filter((tx) => isSpamOrExcludedTransaction(tx)).length;
 
     logger.warn(
@@ -479,7 +479,7 @@ export class PortfolioHandler {
       Error
     >
   > {
-    const priceCoverageResult = getPriceCompleteCostBasisTransactions(
+    const priceCoverageResult = getCostBasisRebuildTransactions(
       params.transactionsUpToAsOf,
       'CAD',
       this.accountingExclusionPolicy
@@ -491,7 +491,7 @@ export class PortfolioHandler {
     const warnings: string[] = [];
     const missingPriceWarning = this.buildMissingPriceWarning(
       params.transactionsUpToAsOf,
-      priceCoverageResult.value.priceCompleteTransactions,
+      priceCoverageResult.value.rebuildTransactions,
       priceCoverageResult.value.missingPricesCount
     );
     if (missingPriceWarning) {
@@ -505,7 +505,7 @@ export class PortfolioHandler {
 
     const fxRateProvider = new StandardFxRateProvider(this.priceManager);
     const acbWorkflowResult = await runCanadaAcbWorkflow(
-      priceCoverageResult.value.priceCompleteTransactions,
+      priceCoverageResult.value.rebuildTransactions,
       contextResult.value.confirmedLinks,
       fxRateProvider,
       { accountingExclusionPolicy: this.accountingExclusionPolicy }

@@ -213,6 +213,7 @@ describe('buildCostBasisScopedTransactions', () => {
       expect(senderScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('1.5');
       // Net should be gross - fee: 1.5 - 0.001 = 1.499
       expect(senderScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('1.499');
+      expect(senderScoped.rebuildDependencyTransactionIds).toEqual([2]);
 
       // Receiver inflow should be removed (internal)
       const receiverScoped = value.transactions.find((t) => t.tx.id === 2)!;
@@ -603,6 +604,8 @@ describe('buildCostBasisScopedTransactions', () => {
       expect(
         secondScoped.movements.outflows.filter((movement) => movement.assetId === 'blockchain:bitcoin:native')
       ).toHaveLength(0);
+      expect(firstScoped.rebuildDependencyTransactionIds).toEqual([3]);
+      expect(secondScoped.rebuildDependencyTransactionIds).toEqual([3]);
 
       expect(value.feeOnlyInternalCarryovers).toHaveLength(2);
 

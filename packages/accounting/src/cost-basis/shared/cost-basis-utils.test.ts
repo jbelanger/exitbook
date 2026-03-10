@@ -1,12 +1,22 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
+  createBlockchainTx,
+  createExchangeTx,
+  createFeeMovement,
+  createMovement,
+  createPriceAtTxTime,
+} from '../../__tests__/test-utils.js';
+
+import {
   buildCostBasisInput,
   filterTransactionsByDateRange,
   formatCurrency,
+  getCostBasisRebuildTransactions,
   getJurisdictionRules,
   transactionHasAllPrices,
   validateCostBasisInput,
@@ -541,6 +551,106 @@ describe('cost-basis-utils', () => {
       const resultValue = assertOk(result);
       expect(resultValue.priceCompleteTransactions).toHaveLength(2);
       expect(resultValue.missingPricesCount).toBe(0);
+    });
+  });
+
+  describe('getCostBasisRebuildTransactions', () => {
+    it('keeps same-hash internal dependencies needed to rebuild the scoped subset', () => {
+      const hash = '45ec1d9a069424a0c969507f82300f9ef4102ebb0f1921d89b2d50390862c131';
+      const networkFee = {
+        ...createFeeMovement('network', 'on-chain', 'BTC', '0.00003821', '63074.01'),
+        assetId: 'blockchain:bitcoin:native',
+      };
+
+      const acquisition = createExchangeTx({
+        id: 10,
+        accountId: 50,
+        datetime: '2025-01-01T00:00:00.000Z',
+        externalId: 'acq-10',
+        source: 'kraken',
+        type: 'buy',
+        inflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.05'),
+            netAmount: parseDecimal('0.05'),
+            priceAtTxTime: createPriceAtTxTime('63074.01'),
+          },
+        ],
+      });
+
+      const sender = createBlockchainTx({
+        id: 11,
+        accountId: 3,
+        datetime: '2025-05-08T10:14:40.000Z',
+        externalId: hash,
+        txHash: hash,
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.01037'),
+            netAmount: parseDecimal('0.01033179'),
+            priceAtTxTime: createPriceAtTxTime('63074.01'),
+          },
+        ],
+        fees: [networkFee],
+      });
+
+      const internalReceiver = createBlockchainTx({
+        id: 12,
+        accountId: 10,
+        datetime: '2025-05-08T10:14:40.000Z',
+        externalId: hash,
+        txHash: hash,
+        inflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.01012179'),
+            netAmount: parseDecimal('0.01012179'),
+            priceAtTxTime: createPriceAtTxTime('63074.01'),
+          },
+        ],
+      });
+
+      const exchangeDeposit = createExchangeTx({
+        id: 13,
+        accountId: 90,
+        datetime: '2025-05-08T10:16:45.000Z',
+        externalId: hash,
+        source: 'kucoin',
+        type: 'deposit',
+        inflows: [
+          {
+            assetId: 'exchange:kucoin:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.00021'),
+            netAmount: parseDecimal('0.00021'),
+            priceAtTxTime: createPriceAtTxTime('63074.01'),
+          },
+        ],
+      });
+
+      const missingPriceTx = createExchangeTx({
+        id: 99,
+        accountId: 60,
+        datetime: '2025-05-09T00:00:00.000Z',
+        externalId: 'missing-99',
+        source: 'kraken',
+        type: 'buy',
+        inflows: [createMovement('ETH', '2')],
+      });
+
+      const result = getCostBasisRebuildTransactions(
+        [acquisition, sender, internalReceiver, exchangeDeposit, missingPriceTx],
+        'USD'
+      );
+
+      const resultValue = assertOk(result);
+      expect(resultValue.missingPricesCount).toBe(1);
+      expect(resultValue.rebuildTransactions.map((tx) => tx.id)).toEqual([10, 11, 12, 13]);
     });
   });
 
