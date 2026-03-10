@@ -6,7 +6,7 @@ import {
   formatPriceCoverageListForDisplay,
   type PriceCoverageInfo,
   type ViewPricesResult,
-} from '../command/prices-view-utils.js';
+} from '../prices-view-utils.ts';
 
 describe('formatCoveragePercentage', () => {
   it('should format 0% correctly', () => {

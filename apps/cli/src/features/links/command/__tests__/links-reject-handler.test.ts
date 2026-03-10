@@ -3,17 +3,15 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { LinksRejectHandler } from '../command/links-reject-handler.js';
-import type { LinksRejectParams } from '../command/links-reject-handler.js';
-
 import {
-  createMockDataContext,
-  createMockLink,
   createMockLinkRepository,
-  createMockOverrideStore,
-  createMockTransactionObjects,
   createMockTransactionRepository,
-} from './test-utils.js';
+  createMockOverrideStore,
+  createMockDataContext,
+  createMockTransactionObjects,
+  createMockLink,
+} from '../../__tests__/test-utils.ts';
+import { LinksRejectHandler, type LinksRejectParams } from '../links-reject-handler.ts';
 
 describe('LinksRejectHandler', () => {
   let handler: LinksRejectHandler;

@@ -22,7 +22,7 @@ import {
   computeWeightedAvgCost,
   filterTransactionsForAsset,
   sortPositions,
-} from '../command/portfolio-utils.js';
+} from '../portfolio-utils.ts';
 
 function createLot(params: {
   assetId?: string | undefined;

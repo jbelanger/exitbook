@@ -3,14 +3,13 @@ import type { UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { createMockLink, createMockTransaction } from '../../__tests__/test-utils.ts';
 import {
   filterLinksByConfidence,
   formatLinkForDisplay,
   formatLinkInfo,
   mapTransactionToDetails,
-} from '../command/links-view-utils.js';
-
-import { createMockLink, createMockTransaction } from './test-utils.js';
+} from '../links-view-utils.ts';
 
 describe('links-view-utils', () => {
   describe('filterLinksByConfidence', () => {

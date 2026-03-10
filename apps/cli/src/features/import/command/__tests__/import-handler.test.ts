@@ -4,7 +4,7 @@ import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/in
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { ImportHandler } from '../command/import-handler.js';
+import { ImportHandler } from '../import-handler.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({

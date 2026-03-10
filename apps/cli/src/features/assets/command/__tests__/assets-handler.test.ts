@@ -4,7 +4,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AssetsHandler } from '../command/assets-handler.js';
+import { AssetsHandler } from '../assets-handler.js';
 
 function createTransaction(params: {
   externalId?: string | undefined;

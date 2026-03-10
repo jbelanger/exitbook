@@ -5,8 +5,8 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-import { ExportHandler } from '../command/transactions-export-handler.js';
-import type { ExportHandlerParams } from '../command/transactions-export-utils.js';
+import { ExportHandler } from '../transactions-export-handler.js';
+import type { ExportHandlerParams } from '../transactions-export-utils.js';
 
 describe('ExportHandler', () => {
   let mockTransactionRepository: {

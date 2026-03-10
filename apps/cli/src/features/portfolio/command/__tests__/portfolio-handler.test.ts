@@ -14,7 +14,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { PortfolioHandler } from '../command/portfolio-handler.js';
+import { PortfolioHandler } from '../portfolio-handler.ts';
 
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');

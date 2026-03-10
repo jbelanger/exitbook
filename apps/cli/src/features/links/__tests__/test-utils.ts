@@ -6,7 +6,7 @@ import type { DataContext } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { vi, type Mock } from 'vitest';
 
-import type { LinkGapAnalysis } from '../command/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../command/links-gap-utils.ts';
 import type { LinkWithTransactions } from '../view/links-view-state.js';
 
 /**

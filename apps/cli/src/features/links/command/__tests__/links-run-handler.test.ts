@@ -5,7 +5,7 @@ import { assertErr } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { LinksRunHandler } from '../command/links-run-handler.js';
+import { LinksRunHandler } from '../links-run-handler.js';
 
 describe('LinksRunHandler', () => {
   let mockOrchestrator: { execute: Mock };

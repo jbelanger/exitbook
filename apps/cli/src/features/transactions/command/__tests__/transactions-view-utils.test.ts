@@ -2,7 +2,7 @@ import { type Currency, parseDecimal, type UniversalTransactionData } from '@exi
 import type { Result } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { applyTransactionFilters, type ViewTransactionsParams } from '../command/transactions-view-utils.js';
+import { applyTransactionFilters, type ViewTransactionsParams } from '../transactions-view-utils.js';
 
 // Test data helper
 function createTestTransaction(overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData {

@@ -11,7 +11,7 @@ import {
   convertToJSON,
   parseSinceDate,
   type ExportCommandOptions,
-} from '../command/transactions-export-utils.js';
+} from '../transactions-export-utils.js';
 
 describe('export-utils', () => {
   describe('parseSinceDate', () => {
