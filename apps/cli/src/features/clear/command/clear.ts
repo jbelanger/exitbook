@@ -2,13 +2,15 @@ import type { AccountRepository } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { displayCliError } from '../shared/cli-error.js';
-import { renderApp, runCommand } from '../shared/command-runtime.js';
-import { ExitCodes } from '../shared/exit-codes.js';
-import { outputSuccess } from '../shared/json-output.js';
-import { handleCancellation, promptConfirm } from '../shared/prompts.js';
-import { ClearCommandOptionsSchema } from '../shared/schemas.js';
-import { createSpinner, stopSpinner, type SpinnerWrapper } from '../shared/spinner.js';
+import { displayCliError } from '../../shared/cli-error.js';
+import { renderApp, runCommand } from '../../shared/command-runtime.js';
+import { ExitCodes } from '../../shared/exit-codes.js';
+import { outputSuccess } from '../../shared/json-output.js';
+import { handleCancellation, promptConfirm } from '../../shared/prompts.js';
+import { ClearCommandOptionsSchema } from '../../shared/schemas.js';
+import { createSpinner, stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
+import { ClearViewApp } from '../view/clear-view-components.jsx';
+import { createClearViewState } from '../view/clear-view-state.js';
 
 import {
   createClearHandler,
@@ -17,7 +19,6 @@ import {
   type ClearResult,
   type FlatDeletionPreview,
 } from './clear-handler.js';
-import { ClearViewApp, createClearViewState } from './components/index.js';
 
 /**
  * Clear command result data.

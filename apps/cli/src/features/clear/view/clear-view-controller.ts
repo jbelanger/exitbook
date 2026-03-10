@@ -4,7 +4,7 @@
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
-import type { FlatDeletionPreview } from '../clear-handler.js';
+import type { FlatDeletionPreview } from '../command/clear-handler.js';
 
 import { CHROME_LINES } from './clear-view-components.jsx';
 import type { ClearViewState } from './clear-view-state.js';

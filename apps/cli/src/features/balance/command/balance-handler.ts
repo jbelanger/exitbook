@@ -4,21 +4,18 @@ import { buildBalancePorts, type DataContext } from '@exitbook/data';
 import { BalanceWorkflow, calculateBalances, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
-import type { EventRelay } from '../../ui/shared/event-relay.js';
-import type { CommandContext } from '../shared/command-runtime.js';
-import { createProviderManagerWithStats } from '../shared/provider-manager-factory.js';
-
-import { buildBalanceAssetDiagnosticsSummary } from './balance-diagnostics.js';
+import type { EventRelay } from '../../../ui/shared/event-relay.js';
+import type { CommandContext } from '../../shared/command-runtime.js';
+import { createProviderManagerWithStats } from '../../shared/provider-manager-factory.js';
+import { buildBalanceAssetDiagnosticsSummary } from '../balance-diagnostics.js';
+import type { AssetOfflineItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
+  sortAccountsByVerificationPriority,
+  resolveAccountCredentials,
+  sortAssetsByStatus,
   buildAssetDiagnostics,
   buildAssetOfflineItem,
-  resolveAccountCredentials,
-  sortAccountsByVerificationPriority,
-  sortAssetsByStatus,
-  type AssetComparisonItem,
-  type AssetOfflineItem,
-  type BalanceEvent,
-} from './components/index.js';
+} from '../view/balance-view-utils.js';
 
 const logger = getLogger('BalanceHandler');
 

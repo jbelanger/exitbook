@@ -330,7 +330,7 @@ graph TD
 - [Transaction Linking](./transaction-linking.md) — persisted link contract and link-generation rules
 - [Transfers & Tax](./transfers-and-tax.md) — transfer preservation, fee policy, and tax-facing matcher behavior
 - [Lot Matcher Transaction Dependency Ordering](./lot-matcher-transaction-dependency-ordering.md) — dependency ordering once scoped links and carryovers are prepared
-- [Average Cost Basis](./average-cost-basis.md) — strategy-level disposal allocation after matching
+- [Average Cost Basis](./average-cost-basis.md) — Canada-specific workflow from scoped boundary to CAD tax output
 - [Fees](./fees.md) — fee treatment that applies after scoped fee normalization
 
 ---

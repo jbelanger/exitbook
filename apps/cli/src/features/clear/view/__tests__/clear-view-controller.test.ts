@@ -4,13 +4,13 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { clearViewReducer, type ClearViewAction } from '../components/clear-view-controller.js';
+import { clearViewReducer, type ClearViewAction } from '../clear-view-controller.js';
 import {
   buildCategoryItems,
   calculateTotalToDelete,
   createClearViewState,
   getActivePreview,
-} from '../components/clear-view-state.js';
+} from '../clear-view-state.js';
 
 // Mock previewWithoutRaw has zero raw counts (matching actual service behavior)
 const mockPreviewWithoutRaw = {

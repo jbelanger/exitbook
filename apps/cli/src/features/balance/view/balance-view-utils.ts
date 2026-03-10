@@ -6,15 +6,16 @@ import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceAssetDiagnosticsSummary } from './balance-diagnostics.js';
-import { getExchangeCredentialsFromEnv } from './balance-utils.js';
+import type { BalanceAssetDiagnosticsSummary } from '../balance-diagnostics.js';
+import { getExchangeCredentialsFromEnv } from '../command/balance-utils.js';
+
 import type {
   AccountOfflineItem,
   AccountVerificationItem,
   AssetComparisonItem,
   AssetDiagnostics,
   AssetOfflineItem,
-} from './components/balance-view-state.js';
+} from './balance-view-state.js';
 
 // ─── Diagnostics Builder ─────────────────────────────────────────────────────
 

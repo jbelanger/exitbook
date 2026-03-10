@@ -15,7 +15,7 @@ import {
   getSelectionCursor,
   StatusIcon,
 } from '../../../ui/shared/index.js';
-import type { ClearHandler, ClearParams, FlatDeletionPreview } from '../clear-handler.js';
+import type { ClearHandler, ClearParams, FlatDeletionPreview } from '../command/clear-handler.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
 import {
@@ -36,7 +36,7 @@ export const CHROME_LINES = calculateChromeLines({
   controls: 1, // control hints
   buffer: 4, // bottom margin
 });
-import { formatCount, getCategoryDescription } from '../clear-view-utils.js';
+import { formatCount, getCategoryDescription } from './clear-view-utils.js';
 
 /**
  * Main clear view app component

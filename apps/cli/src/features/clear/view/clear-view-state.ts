@@ -2,7 +2,7 @@
  * Clear view state model and pure functions
  */
 
-import type { FlatDeletionPreview } from '../clear-handler.js';
+import type { FlatDeletionPreview } from '../command/clear-handler.js';
 
 /**
  * Phase progression: preview → confirming → executing → complete/error

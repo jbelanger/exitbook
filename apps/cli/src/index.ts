@@ -32,9 +32,9 @@ process.on('exit', () => flushLoggers());
 
 import { registerAccountsCommand } from './features/accounts/command/accounts.js';
 import { registerAssetsCommand } from './features/assets/assets.js';
-import { registerBalanceCommand } from './features/balance/balance.js';
+import { registerBalanceCommand } from './features/balance/command/balance.js';
 import { registerBlockchainsCommand } from './features/blockchains/blockchains.js';
-import { registerClearCommand } from './features/clear/clear.js';
+import { registerClearCommand } from './features/clear/command/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/command/cost-basis.js';
 import { registerImportCommand } from './features/import/import.js';
 import { registerLinksCommand } from './features/links/links.js';

@@ -2,26 +2,24 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { EventRelay } from '../../ui/shared/event-relay.js';
-import { displayCliError } from '../shared/cli-error.js';
-import { renderApp, runCommand } from '../shared/command-runtime.js';
-import { ExitCodes } from '../shared/exit-codes.js';
-import { outputSuccess } from '../shared/json-output.js';
-import { BalanceCommandOptionsSchema } from '../shared/schemas.js';
-import { isJsonMode } from '../shared/utils.js';
-
-import { createBalanceHandler } from './balance-handler.js';
+import { EventRelay } from '../../../ui/shared/event-relay.js';
+import { displayCliError } from '../../shared/cli-error.js';
+import { renderApp, runCommand } from '../../shared/command-runtime.js';
+import { ExitCodes } from '../../shared/exit-codes.js';
+import { outputSuccess } from '../../shared/json-output.js';
+import { BalanceCommandOptionsSchema } from '../../shared/schemas.js';
+import { isJsonMode } from '../../shared/utils.js';
+import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
-  BalanceApp,
-  buildAccountOfflineItem,
   createBalanceAssetState,
   createBalanceOfflineState,
-  createBalanceVerificationState,
-  sortAssetsOffline,
-  sortAssetsByStatus,
   type AccountVerificationItem,
+  createBalanceVerificationState,
   type BalanceEvent,
-} from './components/index.js';
+} from '../view/balance-view-state.js';
+import { sortAssetsOffline, buildAccountOfflineItem, sortAssetsByStatus } from '../view/balance-view-utils.js';
+
+import { createBalanceHandler } from './balance-handler.js';
 
 /**
  * Balance command options validated by Zod at CLI boundary

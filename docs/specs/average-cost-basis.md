@@ -1,187 +1,547 @@
 ---
-last_verified: 2026-01-22
-status: draft
+last_verified: 2026-03-09
+status: canonical
 ---
 
-# Average Cost Basis (ACB) Specification
+# Canada Average Cost Basis Specification
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
 
-Defines the Canadian Average Cost Basis (ACB) cost-basis strategy used to match disposals to pooled acquisition lots with deterministic, pro-rata allocation and strict accounting validation.
+Defines the current Canada (`jurisdiction === 'CA'`) cost-basis workflow. Despite the filename, this is no longer just a strategy-level matching spec. It covers the Canada-owned tax pipeline from scoped accounting inputs through CAD valuation, pooled ACB, superficial-loss carry-forward, and CAD-first reporting.
 
 ## Quick Reference
 
-| Concept       | Key Rule                                                        |
-| ------------- | --------------------------------------------------------------- |
-| `ACB`         | Pooled cost basis per unit across all open lots for an asset    |
-| `Allocation`  | Disposals are distributed pro-rata by remaining quantity        |
-| `CA-only`     | Average-cost is allowed only when jurisdiction is `CA`          |
-| `Determinism` | Lots are sorted by acquisition date, then id, before allocation |
-| `Tolerance`   | Tiny rounding drift is allowed; real deviations hard-fail       |
+| Concept                | Key Rule                                                                                                                                                                          |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Tax currency`         | All Canada tax math is performed in `CAD` at transaction time                                                                                                                     |
+| `Pooling key`          | Pooling uses `taxPropertyKey = ca:${assetIdentityKey}`, not storage `assetId`                                                                                                     |
+| `Workflow split`       | `CA` branches before `runCostBasisPipeline()` and uses the Canada workflow                                                                                                        |
+| `Input contract`       | Canada builds `CanadaTaxInputContext` from accounting-scoped transactions, validated links, and fee-only carryovers                                                               |
+| `Transfers`            | Owned-account transfers preserve pooled economics and emit transfer rows, not gains/losses                                                                                        |
+| `Fees`                 | Acquisition and transfer-target fiat fees increase pool cost; eligible on-chain disposition fees reduce proceeds; same-asset transfer fees become explicit pool-adjustment events |
+| `Superficial loss`     | Loss denials are computed over a `±30` calendar-day window and carried forward into surviving reacquisition layers                                                                |
+| `Authoritative output` | `CanadaTaxReport` is the tax-native result; `CanadaDisplayCostBasisReport` is derived presentation only                                                                           |
 
 ## Goals
 
-- **Canada accuracy**: Implement CRA-style pooled ACB per asset across all holdings for a single taxpayer.
-- **Determinism**: Produce identical results regardless of input lot order.
-- **Accounting integrity**: Sum of allocations equals disposal quantity (within a tiny tolerance).
-- **Auditability**: Fail loudly on precision or allocation bugs with explicit errors.
-
-## CRA Compliance Note
-
-The CRA generally requires the Average Cost method for "identical properties" including cryptocurrencies. While the system technically allows Canadian users to select FIFO/LIFO for flexibility, users are warned that these methods may not be compliant with Canadian tax regulations. Consult a tax professional to determine the appropriate method for your situation.
+- **CAD-native tax math**: Compute Canadian proceeds, ACB, gains, denied losses, and taxable amounts in CAD at transaction time.
+- **Explicit tax identity**: Pool identical property across venues and accounts using accounting-owned tax identity rules instead of storage identity.
+- **Stateful compliance logic**: Model superficial loss and transfer-fee consequences as ACB state changes, not as reporting annotations.
+- **Auditability**: Preserve valuation provenance, link provenance, and layer-level pool history needed to explain tax results.
 
 ## Non-Goals
 
-- Automated ACB adjustments for denied losses (superficial loss carry-forward).
-- Specific-lot identification or other basis methods beyond FIFO/LIFO/ACB.
-- Multi-taxpayer pooling (single taxpayer scope only).
-- Cross-asset pooling (pooling is per asset identity).
+- Business-income treatment for active trading.
+- Multi-taxpayer or affiliated-person household modeling.
+- Reusing the legacy generic lot-pipeline result shape for Canada tax authority.
+- Supporting `fifo`, `lifo`, or `specific-id` for `CA`.
+
+## Workflow Boundary
+
+`CostBasisWorkflow` is the host-facing shell. For Canada it returns a dedicated result shape instead of the generic lot-pipeline output:
+
+```ts
+type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
+
+interface CanadaCostBasisWorkflowResult {
+  kind: 'canada-workflow';
+  calculation: CanadaCostBasisCalculation;
+  taxReport: CanadaTaxReport;
+  displayReport?: CanadaDisplayCostBasisReport;
+}
+```
+
+Current behavior:
+
+- `config.jurisdiction === 'CA'` branches before `runCostBasisPipeline()`.
+- Canada requires an `IFxRateProvider` because tax valuation is CAD-native.
+- The workflow includes all transactions on or before the effective calculation end date so pre-period acquisitions can seed the pool correctly.
+- The workflow expands the transaction window to `endDate + 30 days` so post-period reacquisitions can deny in-period losses.
+- Report rows are still filtered to the requested calculation window.
+- `displayReport` is typed as optional, but the current workflow always builds one, including an identity-CAD projection when `displayCurrency === 'CAD'`.
 
 ## Definitions
 
-### ACB Pool
+### Tax Asset Identity
 
-The pooled cost basis per unit for a single asset, derived from all open lots:
+Canada does not pool by storage `assetId` alone. It resolves a tax identity from imported facts:
 
+```ts
+type TaxIdentityInput = {
+  assetId: string;
+  assetSymbol: Currency;
+};
 ```
-totalRemainingQty = sum(lot.remainingQuantity)
-totalBasis = sum(lot.remainingQuantity * lot.costBasisPerUnit)
-pooledCostPerUnit = totalBasis / totalRemainingQty
+
+Rules:
+
+- resolution uses `resolveTaxAssetIdentity(...)`
+- behavior is controlled by `taxAssetIdentityPolicy`
+- `relaxedTaxIdentitySymbols` allows explicit symbol collapse for imported-data-only assets such as `USDC`
+- unresolved Canada tax identity is a hard error
+
+### Canada Tax Property Key
+
+The pooling key used by the Canada engine:
+
+```ts
+taxPropertyKey = `ca:${assetIdentityKey}`;
 ```
 
-### Open Lot
+Examples:
 
-An acquisition lot whose `remainingQuantity` is greater than 0. Only open lots participate in ACB pooling and disposal allocation.
+- `ca:btc`
+- `ca:eth`
+- `ca:erc20:ethereum:0xa0b8...`
+- `ca:spl:solana:EPjF...`
 
-### Disposal Allocation
+### Canada Tax Valuation
 
-Given a disposal quantity, distribute across open lots pro-rata by each lot's remaining quantity, then apply the pooled cost basis per unit to each resulting lot disposal.
+Transaction-time CAD valuation attached to every Canada event:
 
-### Deterministic Ordering
+```ts
+interface CanadaTaxValuation {
+  taxCurrency: 'CAD';
+  storagePriceAmount: Decimal;
+  storagePriceCurrency: Currency;
+  quotedPriceAmount: Decimal;
+  quotedPriceCurrency: Currency;
+  unitValueCad: Decimal;
+  totalValueCad: Decimal;
+  valuationSource: 'quoted-price' | 'stored-price' | 'usd-to-cad-fx' | 'fiat-to-cad-fx';
+  fxRateToCad?: Decimal;
+  fxSource?: string;
+  fxTimestamp?: Date;
+}
+```
 
-Open lots are sorted by `acquisitionDate` (oldest first), then by `id` (ascending). The last lot receives the remainder so allocation is stable across input orderings.
+### Canada Tax Input Event
 
-### Tolerance
+The Canada workflow operates on explicit tax events, not generic lot-matcher disposals:
 
-A relative numeric threshold used to tolerate rounding drift during pro-rata allocation. Scales with the smaller of pool size or disposal quantity to handle accumulated rounding without masking real bugs. Currently set to `max(1e-18, min(totalRemainingQty, disposal.quantity) * 1e-10)`. If drift exceeds tolerance, allocation fails hard.
+```ts
+type CanadaTaxInputEvent =
+  | CanadaAcquisitionEvent
+  | CanadaDispositionEvent
+  | CanadaTransferInEvent
+  | CanadaTransferOutEvent
+  | CanadaFeeAdjustmentEvent
+  | CanadaSuperficialLossAdjustmentEvent;
+```
+
+Every event carries:
+
+- `eventId`
+- `transactionId`
+- `timestamp`
+- `assetId`
+- `assetIdentityKey`
+- `taxPropertyKey`
+- `assetSymbol`
+- `valuation`
+- provenance metadata such as `linkId`, `movementFingerprint`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
+
+### Canada ACB Pool
+
+One live pool exists per `taxPropertyKey`:
+
+```ts
+interface CanadaAcbPoolState {
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  quantityHeld: Decimal;
+  totalAcbCad: Decimal;
+  acbPerUnitCad: Decimal;
+  acquisitionLayers: CanadaAcquisitionLayer[];
+}
+```
+
+Each acquisition layer retains:
+
+- original acquisition identity and timestamp
+- `quantityAcquired`
+- `remainingQuantity`
+- historical `totalCostCad`
+- `remainingAllocatedAcbCad`, which is the current audit projection of pooled ACB assigned to the still-open portion of that layer
+
+### Canada Tax Report
+
+The authoritative tax output for the Canada workflow:
+
+```ts
+interface CanadaTaxReport {
+  calculationId: string;
+  taxCurrency: 'CAD';
+  acquisitions: CanadaTaxReportAcquisition[];
+  dispositions: CanadaTaxReportDisposition[];
+  transfers: CanadaTaxReportTransfer[];
+  superficialLossAdjustments: CanadaSuperficialLossAdjustment[];
+  summary: CanadaTaxReportSummary;
+  displayContext: CanadaTaxReportDisplayContext;
+}
+```
+
+Key summary fields:
+
+- `totalProceedsCad`
+- `totalCostBasisCad`
+- `totalGainLossCad`
+- `totalTaxableGainLossCad`
+- `totalDeniedLossCad`
+
+### Canada Display Report
+
+The optional presentation projection for CLI, JSON, or UI display:
+
+```ts
+interface CanadaDisplayCostBasisReport {
+  calculationId: string;
+  sourceTaxCurrency: 'CAD';
+  displayCurrency: Currency;
+  acquisitions: CanadaDisplayReportAcquisition[];
+  dispositions: CanadaDisplayReportDisposition[];
+  transfers: CanadaDisplayReportTransfer[];
+  summary: CanadaDisplayReportSummary;
+}
+```
+
+This report never recalculates tax results. It only converts CAD tax rows into a display currency.
 
 ## Behavioral Rules
 
-### Jurisdiction Gating
+### Jurisdiction Gating And Dispatch
 
 - `average-cost` is allowed only when `jurisdiction === 'CA'`.
-- Enforced in both CLI validation and service layer (defense in depth).
+- Unsupported Canada methods are rejected before workflow dispatch.
+- Non-CA jurisdictions continue to use the generic lot pipeline.
+- Canada loads confirmed links once from persistence and keeps the rest of the workflow inside the accounting capability.
 
-### Pro-Rata Allocation
+### CAD Valuation Happens Before Cost Basis
 
-1. Filter to open lots (`remainingQuantity > 0`).
-2. Sort open lots deterministically.
-3. Compute pooled ACB per unit across all open lots.
-4. Allocate disposal quantity pro-rata by lot remaining quantities.
-5. The final lot receives the exact remainder.
+Canada tax valuation is built before any ACB math:
 
-### Precision & Validation
+- if `quotedPrice.currency === 'CAD'`, use the quoted CAD price directly
+- else if `price.currency === 'CAD'`, use the stored CAD price directly
+- else if `price.currency === 'USD'`, fetch `USD -> CAD` from the FX provider
+- else if `price.currency` is another fiat currency, normalize `fiat -> USD -> CAD`
+- else fail closed because Canada tax valuation requires fiat-denominated price data
 
-- Decimal.js precision is set to 28 significant digits (configured in `@exitbook/core/utils/decimal-utils`).
-- Relative tolerance is allowed for rounding drift (currently `max(1e-18, min(totalRemainingQty, disposal.quantity) * 1e-10)`).
-- Tolerance scales with the smaller of pool size or disposal quantity to prevent masking allocation bugs.
-- Allocation may not exceed a lot's remaining quantity beyond tolerance.
-- Any deviation beyond tolerance hard-fails with a descriptive error.
-- Zero-quantity disposals return no disposal records.
+Additional rules:
 
-### Holding Period
+- non-fiat movements require `priceAtTxTime`
+- crypto-denominated fees that participate in accounting require `priceAtTxTime`
+- fiat fees may use identity pricing such as `1 CAD = 1 CAD`
 
-Holding period days are computed per lot disposal using the original lot acquisition date, preserving loss-disallowance behavior.
+### Event Projection Uses The Accounting-Scoped Boundary
+
+Canada consumes:
+
+1. `AccountingScopedTransaction[]`
+2. `ValidatedScopedTransferSet`
+3. `FeeOnlyInternalCarryover[]`
+
+Movement projection rules:
+
+- fiat asset movements do not create Canada pool events
+- an unlinked inflow becomes one `acquisition`
+- an unlinked outflow becomes one `disposition`
+- a linked inflow emits one `transfer-in` per validated link plus an `acquisition` for any residual quantity
+- a linked outflow emits one `transfer-out` per validated link plus a `disposition` for any residual quantity
+- linked quantity is based on transfer-comparable movement quantity: `netAmount ?? grossAmount`
+- linked quantity may not exceed the projected movement quantity
+
+Event ordering is deterministic:
+
+1. `timestamp`
+2. `transactionId`
+3. kind priority:
+   `transfer-out`, `disposition`, `acquisition`, `transfer-in`, `fee-adjustment`, `superficial-loss-adjustment`
+4. `eventId`
+
+### Fee-Only Carryovers Rewrite Internal Targets
+
+For same-hash internal transfers whose external quantity is zero and only fee treatment remains:
+
+- the scoped builder emits a `FeeOnlyInternalCarryover`
+- the Canada context builder rewrites the target acquisition event into a `transfer-in`
+- the carryover keeps provenance through `sourceTransactionId`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
+- proportional fiat fees from source and target sides are converted into `add-to-pool-cost` fee-adjustment events attached to the transfer target
+
+### Generic Fee Adjustments
+
+All scoped transaction fees are valued in CAD before adjustment logic runs.
+
+Acquisition-side rules:
+
+- fees on transactions that create acquisition events increase ACB
+- if one transaction yields multiple acquisition events, CAD fee value is allocated across them by their CAD movement value
+- if movement CAD value is zero, allocation falls back to equal splitting
+
+Disposition-side rules:
+
+- only on-chain fees reduce proceeds
+- if one transaction yields multiple disposition events, residual eligible fee CAD is allocated across them by CAD movement value
+- same-asset transfer fee amounts reserved for transfer fee-adjustment events are excluded from ordinary proceeds reduction to avoid double counting
+
+### Transfer Fee Adjustments
+
+Validated transfer target fee rules:
+
+- proportional fiat fees from the source and target transactions are collected with `collectFiatFees(...)`
+- they become `fee-adjustment` events with `adjustmentType: 'add-to-pool-cost'`
+- these adjustments attach to the target-side pool and preserve `linkId` and movement-fingerprint provenance
+
+Same-asset transfer fee rules:
+
+- source-side crypto fees in the transferred asset are extracted with `extractCryptoFee(...)`
+- only the internally transferred portion of the fee is capitalized into the transferred property
+- for a source movement linked to multiple confirmed targets, the builder emits one same-asset fee-adjustment event per link
+- each same-asset fee-adjustment carries:
+  - `adjustmentType: 'same-asset-transfer-fee-add-to-basis'`
+  - `quantityReduced`, which removes quantity from the source pool
+  - `relatedEventId`, usually the linked `transfer-out`
+  - `linkId` plus source/target movement fingerprints when link-scoped
+
+### Canada ACB Pool Engine
+
+`runCanadaAcbEngine(...)` is the authoritative pool-state calculator.
+
+Acquisition behavior:
+
+- add `quantity`
+- add `valuation.totalValueCad + costBasisAdjustmentCad`
+- create a new acquisition layer
+- recompute `acbPerUnitCad`
+- rebalance `remainingAllocatedAcbCad` across open layers
+
+Disposition behavior:
+
+- require `quantity <= pool.quantityHeld`
+- `costBasisCad = pool.acbPerUnitCad * quantity`
+- `proceedsCad = valuation.totalValueCad - proceedsReductionCad`
+- `gainLossCad = proceedsCad - costBasisCad`
+- reduce `quantityHeld`
+- reduce `totalAcbCad`
+- deplete acquisition layers pro-rata by remaining quantity
+- rebalance `remainingAllocatedAcbCad`
+
+Transfer behavior:
+
+- `transfer-in` and `transfer-out` are pool no-ops
+- the engine still captures point-in-time pool snapshots for those events so transfer rows can render carried ACB later
+
+Fee-adjustment behavior:
+
+- `add-to-pool-cost` increases `totalAcbCad` without changing quantity
+- `same-asset-transfer-fee-add-to-basis`:
+  - requires positive `quantityReduced`
+  - depletes that quantity from open layers pro-rata
+  - removes the associated ACB from the pool
+  - adds the fee's CAD value back into `totalAcbCad`
+  - errors if this would leave positive ACB with zero quantity
+
+Superficial-loss adjustment behavior:
+
+- `superficial-loss-adjustment` increases `totalAcbCad`
+- it does not change quantity
+- it is applied only after the superficial-loss engine creates the explicit adjustment event
+
+### Layer Depletion Is Still Pro-Rata
+
+Although Canada is no longer modeled through the generic `AverageCostStrategy`, the Canada pool engine still depletes acquisition layers pro-rata for audit purposes:
+
+- open layers are sorted by `acquiredAt`, then `layerId`
+- each layer receives a proportional share of disposed quantity
+- the final layer receives the exact remainder
+- drift beyond `1e-18` is a hard error
+
+This layer bookkeeping is for auditability. The authoritative tax state remains the pool totals.
+
+### Superficial Loss Is A Separate Engine
+
+`runCanadaSuperficialLossEngine(...)` runs after the first Canada ACB pass.
+
+Rules:
+
+- only negative-gain dispositions are evaluated
+- the window starts at `startOfUtcDay(disposedAt - 30 days)`
+- the cutoff is `endOfUtcDay(disposedAt + 30 days)`
+- the engine reruns ACB on all input events up to the cutoff to observe pool state at window end
+- eligible substituted-property layers must:
+  - belong to the same `taxPropertyKey`
+  - have `remainingQuantity > 0` at the cutoff
+  - have `acquiredAt` inside the superficial-loss window
+- `deniedQuantity = min(disposition.quantityDisposed, substitutedQuantity)`
+- `deniedLossCad = abs(disposition.gainLossCad) * deniedQuantity / disposition.quantityDisposed`
+
+Outputs:
+
+- one `CanadaSuperficialLossDispositionAdjustment` per denied disposition
+- one explicit `CanadaSuperficialLossAdjustmentEvent` per denied disposition, timestamped at the window cutoff
+- one or more `CanadaSuperficialLossAdjustment` rows allocating denied quantity and denied loss across eligible remaining acquisition layers
+
+After that:
+
+- the workflow appends the adjustment events to the Canada input context
+- reruns `runCanadaAcbEngine(...)`
+- uses the adjusted result as the authoritative disposition and pool state
+
+### Reporting Is CAD-Native
+
+`buildCanadaTaxReport(...)` consumes:
+
+- workflow calculation metadata
+- the original Canada input context
+- the adjusted ACB engine result
+- a second ACB snapshot filtered to the requested report end date
+- superficial-loss engine output
+
+Report rules:
+
+- `taxReport` is the authoritative Canada tax output
+- dispositions are filtered to `startDate <= disposedAt <= endDate`
+- superficial-loss adjustments are filtered to reported dispositions only
+- acquisitions come from the report-end pool snapshot, not from the lookahead window
+- transfer rows are built from Canada transfer events and settled using event pool snapshots plus linked fee-adjustment events
+- transfer rows carry pooled ACB, not market value, as tax authority
+- summary totals are recomputed from the reported disposition rows so lookahead-only activity cannot leak into the published tax summary
+
+Taxable capital gain rule:
+
+```ts
+taxableGainLossCad = (gainLossCad + deniedLossCad) * 0.5;
+```
+
+This uses the current Canada capital-gains inclusion rate hardcoded in the report builder.
+
+### Display Conversion Is Derived Only From Tax Rows
+
+`buildCanadaDisplayCostBasisReport(...)` converts from the tax report only:
+
+- source currency is always `CAD`
+- conversion is cached by `(displayCurrency, calendar date)`
+- `CAD` uses an identity conversion
+- `USD` uses `getRateToUSD('CAD', timestamp)`
+- other display currencies use `CAD -> USD -> displayCurrency`
+
+Converted fields:
+
+- acquisitions: cost basis per unit, total cost, remaining allocated cost
+- dispositions: proceeds, cost basis, gain/loss, denied loss, taxable gain/loss, ACB per unit
+- transfers: carried ACB, carried ACB per unit, informational market value, fee adjustment
+- summary totals are recomputed from converted disposition rows
+
+Display conversion may change presentation. It must never change CAD tax amounts or Canada tax summary math.
 
 ## Data Model
 
-### Entities Used
+### Canada Input Context
 
-No schema changes. The strategy emits standard `LotDisposal` records and relies on existing `AcquisitionLot` fields.
-
-#### Key Fields (Behavioral Semantics)
-
-- `AcquisitionLot.remainingQuantity`: Determines pro-rata weights.
-- `AcquisitionLot.acquisitionDate`: Used for holding period calculation.
-- `LotDisposal.costBasisPerUnit`: Set to pooled ACB per unit for all disposals in a match.
-- `LotDisposal.quantityDisposed`: Pro-rata allocation for each lot.
-
-## Algorithm (Pseudo-code)
-
+```ts
+interface CanadaTaxInputContext {
+  taxCurrency: 'CAD';
+  scopedTransactionIds: number[];
+  validatedTransferLinkIds: number[];
+  feeOnlyInternalCarryoverSourceTransactionIds: number[];
+  inputEvents: CanadaTaxInputEvent[];
+}
 ```
-if disposal.quantity == 0:
-  return []
 
-lots = openLots.filter(remainingQuantity > 0)
-sort lots by acquisitionDate asc, then id asc
+### Canada Disposition Record
 
-totalRemainingQty = sum(lot.remainingQuantity)
-if disposal.quantity > totalRemainingQty:
-  throw insufficient lots
-
-totalBasis = sum(lot.remainingQuantity * lot.costBasisPerUnit)
-pooledCostPerUnit = totalBasis / totalRemainingQty
-
-toleranceBase = min(totalRemainingQty, disposal.quantity)
-tolerance = max(1e-18, toleranceBase * 1e-10)
-totalAllocated = 0
-
-for each lot in lots:
-  if last lot:
-    qty = disposal.quantity - totalAllocated
-    if qty < -tolerance: throw over-allocation
-    if qty < 0: qty = 0
-    if qty > lot.remainingQuantity + tolerance: throw over-capacity
-    if qty > lot.remainingQuantity: qty = lot.remainingQuantity
-  else:
-    qty = disposal.quantity * (lot.remainingQuantity / totalRemainingQty)
-    if qty > lot.remainingQuantity + tolerance: throw over-capacity
-    if qty > lot.remainingQuantity: qty = lot.remainingQuantity
-
-  if qty == 0: continue
-  totalAllocated += qty
-  emit disposal record with costBasisPerUnit = pooledCostPerUnit
-
-if abs(totalAllocated - disposal.quantity) > tolerance:
-  throw allocation mismatch
+```ts
+interface CanadaDispositionRecord {
+  dispositionEventId: string;
+  transactionId: number;
+  taxPropertyKey: string;
+  assetSymbol: Currency;
+  disposedAt: Date;
+  quantityDisposed: Decimal;
+  proceedsCad: Decimal;
+  costBasisCad: Decimal;
+  gainLossCad: Decimal;
+  acbPerUnitCad: Decimal;
+  layerDepletions: CanadaLayerDepletion[];
+}
 ```
+
+### Canada Transfer Row
+
+```ts
+interface CanadaTaxReportTransfer {
+  id: string;
+  direction: 'in' | 'internal' | 'out';
+  linkId?: number;
+  taxPropertyKey: string;
+  quantity: Decimal;
+  carriedAcbCad: Decimal;
+  carriedAcbPerUnitCad: Decimal;
+  feeAdjustmentCad: Decimal;
+}
+```
+
+Semantics:
+
+- `direction: 'internal'` means both source and target transfer events were present for one confirmed link
+- `direction: 'in'` or `'out'` means only one side is represented in the current report window
+- `feeAdjustmentCad` is derived from linked or related Canada fee-adjustment events, not from market value
 
 ## Pipeline / Flow
 
 ```mermaid
 graph TD
-    A[Transactions] --> B[LotMatcher]
-    B --> C[AverageCostStrategy]
-    C --> D[LotDisposals + Updated Lots]
-    D --> E[Gain/Loss Calculation]
+    A["Processed transactions"] --> B["Accounting scoped build"]
+    B --> C["Validated scoped transfer links"]
+    B --> D["Fee-only internal carryovers"]
+    C --> E["CanadaTaxInputContextBuilder"]
+    D --> E
+    E --> F["CanadaTaxInputContext (CAD events)"]
+    F --> G["CanadaAcbEngine"]
+    G --> H["CanadaSuperficialLossEngine"]
+    H --> I["Append superficial-loss-adjustment events"]
+    I --> J["CanadaAcbEngine (adjusted)"]
+    I --> K["CanadaAcbEngine filtered to report end"]
+    J --> L["CanadaTaxReportBuilder"]
+    K --> L
+    L --> M["CanadaTaxReport"]
+    M --> N["CanadaDisplayCostBasisReport"]
 ```
 
 ## Invariants
 
-- **Required**: `sum(quantityDisposed) == disposal.quantity` within tolerance.
-- **Required**: `quantityDisposed <= lot.remainingQuantity` within tolerance.
-- **Required**: All ACB disposals use the same pooled cost basis per unit.
-- **Enforced**: Strategy hard-fails on violations with descriptive errors.
+- **Required**: Canada tax currency is always `CAD`.
+- **Required**: `CA` must bypass `runCostBasisPipeline()` and the generic `CostBasisReportGenerator`.
+- **Required**: `taxPropertyKey` must be derivable from explicit tax identity rules or the workflow fails closed.
+- **Required**: Canada dispositions compute proceeds and cost basis from CAD values before any display conversion.
+- **Required**: transfer events do not directly mutate pooled ACB state.
+- **Required**: same-asset transfer fee capitalization is represented by explicit fee-adjustment events.
+- **Required**: superficial-loss denial mutates future ACB through explicit adjustment events.
+- **Required**: `displayReport` is derived from `taxReport`, never the reverse.
 
 ## Edge Cases & Gotchas
 
-- **Zero disposal**: Returns an empty disposal list (no records).
-- **No open lots**: Throws error if disposal is non-zero.
-- **Dust rounding**: Tiny drift is tolerated; non-trivial drift fails hard.
-- **Order dependence**: Eliminated by deterministic sorting before allocation.
+- **Strict vs relaxed identity**: exchange `USDC` and on-chain `USDC` can either pool together or stay separate depending on `taxAssetIdentityPolicy` and `relaxedTaxIdentitySymbols`.
+- **Lookahead without row leakage**: post-period reacquisitions within `endDate + 30 days` can deny an in-period loss, but the future acquisition itself is excluded from report rows because acquisitions are snapped at report end.
+- **Acquisitions are layer rows, not just open lots**: the tax report acquisition section is built from report-end pool layers and includes depleted layers with `remainingQuantity = 0`.
+- **Transfer rows can be one-sided**: when only one side of a transfer falls in the reporting window, the tax report emits an `in` or `out` row instead of `internal`.
+- **Shared config naming is still generic**: public config still uses `currency`, but in the Canada workflow that field means display currency, not tax currency.
+- **Result optionality is looser than behavior**: `displayReport` is optional in the type but currently always returned for Canada workflow executions.
 
 ## Known Limitations (Current Implementation)
 
-- **ACB adjustment for denied losses** is not automated (CLI warning).
-- **Specific-ID** is not implemented.
-- **Non-CA jurisdictions** cannot use average-cost.
+- Multi-taxpayer and affiliated-person superficial-loss modeling are not implemented.
+- The Canada inclusion rate is hardcoded to `0.5` in the report builder.
+- Public config and result naming still mix generic `currency` terminology with Canada-specific `taxCurrency` and `displayCurrency`.
+- Non-CA jurisdictions still rely on the generic lot pipeline, so public cost-basis results remain a union of two different authority shapes.
 
 ## Related Specs
 
-- [Transfers & Tax](./transfers-and-tax.md) — transfer fee policy and tax treatment context
-- [Fees](./fees.md) — fee handling for cost basis calculations
-- [Asset Identity](./asset-identity.md) — asset identity impacts pooling scope
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — scoped transaction boundary consumed by the Canada context builder
+- [Transfers & Tax](./transfers-and-tax.md) — validated-link semantics, fee-only carryovers, and transfer fee treatment
+- [Fees](./fees.md) — raw fee semantics that feed Canada fee-adjustment rules
+- [Asset Identity](./asset-identity.md) — storage identity vs economic identity context for pooling
+- [Price Derivation](./price-derivation.md) — price provenance feeding Canada tax valuation
 
 ---
 
-_Last updated: 2026-01-22_
+_Last updated: 2026-03-09_
