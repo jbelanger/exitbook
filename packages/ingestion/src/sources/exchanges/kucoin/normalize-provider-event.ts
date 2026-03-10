@@ -9,7 +9,7 @@ import {
   parseKucoinCurrency,
   parseKucoinTradePair,
   trimToUndefined,
-} from './processor-utils.js';
+} from './csv-row-parsing.js';
 import type { KucoinCsvRow, KucoinCsvRowType } from './types.js';
 
 export interface KucoinProviderMetadataBase extends Record<string, unknown> {

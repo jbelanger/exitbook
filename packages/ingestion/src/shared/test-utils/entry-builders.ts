@@ -7,117 +7,12 @@ import type {
   SubstrateTransaction,
   XrpTransaction,
 } from '@exitbook/blockchain-providers';
-import type { Currency } from '@exitbook/core';
-
-import type { ExchangeLedgerEntry } from '../../sources/exchanges/shared/schemas.js';
-import type { LedgerEntryWithRaw } from '../../sources/exchanges/shared/strategies/grouping.js';
 
 import { TEST_TIMESTAMPS } from './test-constants.js';
 
-/**
- * Fluent builder for creating ExchangeLedgerEntry test data.
- *
- * @example
- * const entry = new ExchangeEntryBuilder()
- *   .withId('E1')
- *   .withCorrelationId('SWAP001')
- *   .withAmount('-1000')
- *   .withAsset('USD')
- *   .withFee('2.5')
- *   .build();
- */
 export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
-
-export class ExchangeEntryBuilder {
-  private entry: ExchangeLedgerEntry = {
-    id: 'ENTRY001',
-    correlationId: 'REF001',
-    timestamp: TEST_TIMESTAMPS.jan2024,
-    type: 'test',
-    assetSymbol: 'USD' as Currency,
-    amount: '0',
-    status: 'success',
-  };
-
-  withId(id: string): this {
-    this.entry.id = id;
-    return this;
-  }
-
-  withCorrelationId(correlationId: string): this {
-    this.entry.correlationId = correlationId;
-    return this;
-  }
-
-  withTimestamp(timestamp: number): this {
-    this.entry.timestamp = timestamp;
-    return this;
-  }
-
-  withType(type: string): this {
-    this.entry.type = type;
-    return this;
-  }
-
-  withAssetSymbol(assetSymbol: string): this {
-    this.entry.assetSymbol = assetSymbol as Currency;
-    return this;
-  }
-
-  withAmount(amount: string): this {
-    this.entry.amount = amount;
-    return this;
-  }
-
-  withFee(fee: string): this {
-    this.entry.fee = fee;
-    return this;
-  }
-
-  withFeeCurrency(feeCurrency: string): this {
-    this.entry.feeCurrency = feeCurrency as Currency;
-    return this;
-  }
-
-  withStatus(status: 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'success'): this {
-    this.entry.status = status;
-    return this;
-  }
-
-  build(): ExchangeLedgerEntry {
-    return { ...this.entry };
-  }
-}
-
-/**
- * Wraps an ExchangeLedgerEntry in LedgerEntryWithRaw format.
- * Useful for exchange processor tests that expect this wrapper format.
- */
-export function wrapEntry(entry: ExchangeLedgerEntry): LedgerEntryWithRaw<ExchangeLedgerEntry> {
-  return {
-    raw: entry,
-    normalized: entry,
-    eventId: entry.id,
-  };
-}
-
-/**
- * Creates a LedgerEntryWithRaw wrapper for any type of data.
- * Generic version for custom test data types.
- */
-export function createRawTransactionWithMetadata<T>(
-  raw: T,
-  normalized: ExchangeLedgerEntry,
-  eventId?: string
-): LedgerEntryWithRaw<T> {
-  return {
-    raw,
-    normalized,
-    eventId: eventId ?? normalized.id,
-  };
-}
 
 /**
  * Fluent builder for creating BitcoinTransaction test data.

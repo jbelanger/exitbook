@@ -1,0 +1,48 @@
+[
+  {
+    "id": "CB_SWAP_IN_001",
+    "type": "advanced_trade_fill",
+    "created_at": "2025-08-01T02:28:03Z",
+    "status": "completed",
+    "amount": {
+      "amount": "26.77",
+      "currency": "ONDO"
+    },
+    "native_amount": {
+      "amount": "24.68",
+      "currency": "USD"
+    },
+    "advanced_trade_fill": {
+      "order_id": "CB_ORDER_001",
+      "order_side": "buy",
+      "product_id": "ONDO-USDC",
+      "commission": "0.2962121916",
+      "fill_price": "0.92209"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_003/transactions/CB_SWAP_IN_001"
+  },
+  {
+    "id": "CB_SWAP_OUT_001",
+    "type": "advanced_trade_fill",
+    "created_at": "2025-08-01T02:28:03Z",
+    "status": "completed",
+    "amount": {
+      "amount": "-24.6843493",
+      "currency": "USDC"
+    },
+    "native_amount": {
+      "amount": "-24.68",
+      "currency": "USD"
+    },
+    "advanced_trade_fill": {
+      "order_id": "CB_ORDER_001",
+      "order_side": "buy",
+      "product_id": "ONDO-USDC",
+      "commission": "0.2962121916",
+      "fill_price": "0.92209"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_004/transactions/CB_SWAP_OUT_001"
+  }
+]

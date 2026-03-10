@@ -5,9 +5,10 @@ import type { z } from 'zod';
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 import {
-  materializeProcessedTransaction,
   RawExchangeProcessorInputSchema,
-  type ExchangeProcessingDiagnostic,
+  buildExchangeProcessingFailureError,
+  collectExchangeProcessingBatchResult,
+  logExchangeProcessingDiagnostics,
   type RawExchangeProcessorInput,
 } from '../shared-v2/index.js';
 
@@ -42,54 +43,14 @@ export class CoinbaseProcessor extends BaseTransactionProcessor<RawExchangeProce
     }
 
     const groups = buildCoinbaseCorrelationGroups(providerEvents);
-    const transactions: ProcessedTransaction[] = [];
-    const diagnostics: ExchangeProcessingDiagnostic[] = [];
+    const batchResult = collectExchangeProcessingBatchResult(groups, interpretCoinbaseGroup);
+    logExchangeProcessingDiagnostics(this.logger, batchResult.diagnostics);
 
-    for (const group of groups) {
-      const interpretation = interpretCoinbaseGroup(group);
-
-      if (interpretation.kind === 'confirmed') {
-        transactions.push(materializeProcessedTransaction(interpretation.draft));
-        continue;
-      }
-
-      diagnostics.push(interpretation.diagnostic);
+    const failure = buildExchangeProcessingFailureError('Coinbase', groups.length, batchResult.diagnostics);
+    if (failure) {
+      return err(failure);
     }
 
-    for (const diagnostic of diagnostics) {
-      const logContext = {
-        code: diagnostic.code,
-        correlationKey: diagnostic.correlationKey,
-        evidence: diagnostic.evidence,
-        providerEventIds: diagnostic.providerEventIds,
-      };
-
-      if (diagnostic.severity === 'error') {
-        this.logger.error(logContext, diagnostic.message);
-        continue;
-      }
-
-      if (diagnostic.severity === 'warning') {
-        this.logger.warn(logContext, diagnostic.message);
-        continue;
-      }
-
-      this.logger.info(logContext, diagnostic.message);
-    }
-
-    const blockingDiagnostics = diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
-    if (blockingDiagnostics.length > 0) {
-      const errorSummary = blockingDiagnostics
-        .map((diagnostic) => `[${diagnostic.correlationKey}] ${diagnostic.code}: ${diagnostic.message}`)
-        .join('; ');
-
-      return err(
-        new Error(
-          `Coinbase processing cannot proceed: ${blockingDiagnostics.length}/${groups.length} group(s) were ambiguous or invalid. ${errorSummary}`
-        )
-      );
-    }
-
-    return ok(transactions);
+    return ok(batchResult.transactions);
   }
 }

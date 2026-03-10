@@ -1,0 +1,48 @@
+[
+  {
+    "id": "CB_AMBIG_IN_001",
+    "type": "advanced_trade_fill",
+    "created_at": "2025-09-01T10:00:00Z",
+    "status": "completed",
+    "amount": {
+      "amount": "100.00",
+      "currency": "USDC"
+    },
+    "native_amount": {
+      "amount": "100.00",
+      "currency": "USD"
+    },
+    "advanced_trade_fill": {
+      "order_id": "CB_AMBIG_ORDER_001",
+      "order_side": "buy",
+      "product_id": "USDC-USDC",
+      "commission": "0",
+      "fill_price": "1.0"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_005/transactions/CB_AMBIG_IN_001"
+  },
+  {
+    "id": "CB_AMBIG_OUT_001",
+    "type": "advanced_trade_fill",
+    "created_at": "2025-09-01T10:00:00Z",
+    "status": "completed",
+    "amount": {
+      "amount": "-100.00",
+      "currency": "USDC"
+    },
+    "native_amount": {
+      "amount": "-100.00",
+      "currency": "USD"
+    },
+    "advanced_trade_fill": {
+      "order_id": "CB_AMBIG_ORDER_001",
+      "order_side": "buy",
+      "product_id": "USDC-USDC",
+      "commission": "0",
+      "fill_price": "1.0"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_006/transactions/CB_AMBIG_OUT_001"
+  }
+]

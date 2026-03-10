@@ -5,7 +5,7 @@
  * - Assertion helpers for Result types, movements, fees, and operations
  * - Mock factories for port interfaces, services, and provider managers
  * - Test constants for addresses and blockchain configs
- * - Entry builders for creating test data with fluent API
+ * - Transaction builders for blockchain test data plus generic type helpers
  *
  * @example
  * ```typescript
@@ -14,7 +14,6 @@
  *   expectMovement,
  *   expectFee,
  *   createMockBatchSource,
- *   ExchangeEntryBuilder,
  *   BITCOIN_ADDRESSES,
  * } from '@tests/test-utils';
  *
@@ -26,12 +25,6 @@
  * // Use mock factories
  * const mockBatchSource = createMockBatchSource();
  * mockBatchSource.countPending.mockResolvedValue(ok(5));
- *
- * // Use builders
- * const entry = new ExchangeEntryBuilder()
- *   .withAmount('-1000')
- *   .withAsset('USD')
- *   .build();
  *
  * // Use constants
  * const userAddress = BITCOIN_ADDRESSES.user;
@@ -76,9 +69,6 @@ export {
 // Entry builders
 export {
   type DeepPartial,
-  ExchangeEntryBuilder,
-  wrapEntry,
-  createRawTransactionWithMetadata,
   BitcoinTransactionBuilder,
   CosmosTransactionBuilder,
   EvmTransactionBuilder,

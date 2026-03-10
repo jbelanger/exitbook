@@ -108,6 +108,8 @@ describe('BlockCypherApiClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    delete process.env['BLOCKCYPHER_API_KEY'];
     resetMockHttpClient(mockHttp);
 
     const config = providerRegistry.createDefaultConfig('bitcoin', 'blockcypher');
@@ -693,26 +695,17 @@ describe('BlockCypherApiClient', () => {
 
   describe('API key handling', () => {
     it('should append token param when API key is set via env', async () => {
-      const originalEnv = process.env['BLOCKCYPHER_API_KEY'];
-      process.env['BLOCKCYPHER_API_KEY'] = 'test-api-key';
+      vi.stubEnv('BLOCKCYPHER_API_KEY', 'test-api-key');
 
-      try {
-        const config = providerRegistry.createDefaultConfig('bitcoin', 'blockcypher');
-        const clientWithKey = new BlockCypherApiClient(config);
-        injectMockHttpClient(clientWithKey, mockHttp);
+      const config = providerRegistry.createDefaultConfig('bitcoin', 'blockcypher');
+      const clientWithKey = new BlockCypherApiClient(config);
+      injectMockHttpClient(clientWithKey, mockHttp);
 
-        mockHttp.get.mockResolvedValue(ok(buildAddressResponse()));
+      mockHttp.get.mockResolvedValue(ok(buildAddressResponse()));
 
-        expectOk(await clientWithKey.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
+      expectOk(await clientWithKey.execute({ type: 'getAddressBalances', address: TEST_ADDRESS }));
 
-        expect(mockHttp.get).toHaveBeenCalledWith(expect.stringContaining('token=test-api-key'), expect.anything());
-      } finally {
-        if (originalEnv === undefined) {
-          delete process.env['BLOCKCYPHER_API_KEY'];
-        } else {
-          process.env['BLOCKCYPHER_API_KEY'] = originalEnv;
-        }
-      }
+      expect(mockHttp.get).toHaveBeenCalledWith(expect.stringContaining('token=test-api-key'), expect.anything());
     });
 
     it('should not append token param when no API key is set', async () => {

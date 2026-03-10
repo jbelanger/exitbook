@@ -2,9 +2,9 @@ import { describe, expect, test } from 'vitest';
 
 import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
 import { buildKucoinCorrelationGroups } from '../build-correlation-groups.js';
+import { KucoinCsvProcessor } from '../csv-processor.js';
 import { interpretKucoinGroup } from '../interpret-group.js';
 import { normalizeKucoinProviderEvent } from '../normalize-provider-event.js';
-import { KucoinProcessor } from '../processor-csv.js';
 import type { CsvSpotOrderRow, KucoinCsvRow } from '../types.js';
 
 import convertMarketFixture from './fixtures/csv-convert-market.json' with { type: 'json' };
@@ -31,7 +31,7 @@ function toInputs(rows: KucoinCsvRow[]): RawExchangeProcessorInput<KucoinCsvRow>
   }));
 }
 
-describe('KucoinProcessor', () => {
+describe('KucoinCsvProcessor', () => {
   test('normalizes spot order rows into provider-native trade events', () => {
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
@@ -101,7 +101,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('processes fixture deposits', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
 
     const result = await processor.process(toInputs(depositFixture as KucoinCsvRow[]));
 
@@ -126,7 +126,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('processes fixture withdrawals', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
 
     const result = await processor.process(toInputs(withdrawalFixture as KucoinCsvRow[]));
 
@@ -151,7 +151,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('processes fixture convert market pairs', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
 
     const result = await processor.process(toInputs(convertMarketFixture as KucoinCsvRow[]));
 
@@ -175,7 +175,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('skips unsupported account history transfer rows without failing the batch', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
 
     const result = await processor.process(toInputs(unsupportedAccountHistoryFixture as KucoinCsvRow[]));
 
@@ -188,7 +188,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('fails malformed rows instead of inventing transactions', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
     const malformedRow = {
       _rowType: 'spot_order',
       Symbol: 'BTC-USDT',
@@ -205,7 +205,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('fails unknown row types explicitly', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
     const unknownRow = {
       _rowType: 'unknown_type',
       data: 'test',
@@ -222,7 +222,7 @@ describe('KucoinProcessor', () => {
   });
 
   test('processes mixed deposit and trade rows in one batch', async () => {
-    const processor = new KucoinProcessor();
+    const processor = new KucoinCsvProcessor();
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
       UID: 'user123',

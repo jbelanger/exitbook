@@ -12,6 +12,13 @@ interface TypeSpecificIds {
   transfer_id?: string;
 }
 
+export type CoinbaseCorrelationSource = 'event_id' | 'id' | 'order_id' | 'trade_id' | 'transfer_id';
+
+export interface CoinbaseCorrelationEvidence {
+  correlationKey: string;
+  correlationSource: CoinbaseCorrelationSource;
+}
+
 /**
  * Map Coinbase status to universal status format
  */
@@ -44,7 +51,7 @@ export function mapCoinbaseStatus(status: string | undefined): Result<Transactio
  * Different transaction types store correlation IDs in different locations
  * within their type-specific nested objects.
  */
-export function extractCorrelationId(rawInfo: RawCoinbaseLedgerEntry): string {
+export function extractCorrelationEvidence(rawInfo: RawCoinbaseLedgerEntry): CoinbaseCorrelationEvidence {
   const typeSpecificData: TypeSpecificIds | undefined =
     (rawInfo.advanced_trade_fill as TypeSpecificIds | undefined) ??
     (rawInfo.buy as TypeSpecificIds | undefined) ??
@@ -53,20 +60,27 @@ export function extractCorrelationId(rawInfo: RawCoinbaseLedgerEntry): string {
     (rawInfo.trade as TypeSpecificIds | undefined);
 
   if (typeSpecificData) {
-    // Priority order for correlation IDs:
-    // 1. id - Used by buy, sell, trade types to group related entries
-    // 2. order_id - Used by advanced_trade_fill to group multiple fills
-    // 3. trade_id - Groups entries from same trade execution
-    // 4. transfer_id - Groups entries from same transfer
-    return (
-      typeSpecificData.id ??
-      typeSpecificData.order_id ??
-      typeSpecificData.trade_id ??
-      typeSpecificData.transfer_id ??
-      rawInfo.id
-    );
+    if (typeSpecificData.id) {
+      return { correlationKey: typeSpecificData.id, correlationSource: 'id' };
+    }
+
+    if (typeSpecificData.order_id) {
+      return { correlationKey: typeSpecificData.order_id, correlationSource: 'order_id' };
+    }
+
+    if (typeSpecificData.trade_id) {
+      return { correlationKey: typeSpecificData.trade_id, correlationSource: 'trade_id' };
+    }
+
+    if (typeSpecificData.transfer_id) {
+      return { correlationKey: typeSpecificData.transfer_id, correlationSource: 'transfer_id' };
+    }
   }
 
   // Fall back to transaction id for non-correlated entries
-  return rawInfo.id;
+  return { correlationKey: rawInfo.id, correlationSource: 'event_id' };
+}
+
+export function extractCorrelationId(rawInfo: RawCoinbaseLedgerEntry): string {
+  return extractCorrelationEvidence(rawInfo).correlationKey;
 }

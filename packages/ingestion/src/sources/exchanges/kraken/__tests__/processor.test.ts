@@ -19,7 +19,7 @@ function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLe
 }
 
 describe('KrakenProcessor', () => {
-  test('returns an explicit warning diagnostic for balanced same-asset opposing pairs', () => {
+  test('returns an explicit ambiguity diagnostic for balanced same-asset opposing pairs', () => {
     const normalized = (ambiguousSameAssetOpposingPair as KrakenLedgerEntry[]).map((row) => {
       const result = normalizeKrakenProviderEvent(row, row.id);
       expect(result.isOk()).toBe(true);
@@ -36,27 +36,28 @@ describe('KrakenProcessor', () => {
     }
 
     const interpretation = interpretKrakenGroup(group);
-    expect(interpretation.kind).toBe('unsupported');
-    if (interpretation.kind !== 'unsupported') {
+    expect(interpretation.kind).toBe('ambiguous');
+    if (interpretation.kind !== 'ambiguous') {
       return;
     }
 
-    expect(interpretation.diagnostic.code).toBe('balanced_same_asset_opposing_pair');
-    expect(interpretation.diagnostic.severity).toBe('warning');
+    expect(interpretation.diagnostic.code).toBe('ambiguous_same_asset_opposing_pair');
+    expect(interpretation.diagnostic.severity).toBe('error');
+    expect(interpretation.diagnostic.evidence['nettedToZero']).toBe(true);
     expect(interpretation.diagnostic.providerEventIds).toEqual(['KRKN_EVT_AKT_OUT', 'KRKN_EVT_AKT_IN']);
   });
 
-  test('skips balanced same-asset opposing pairs without failing the batch', async () => {
+  test('fails closed on balanced same-asset opposing pairs', async () => {
     const processor = new KrakenProcessor();
 
     const result = await processor.process(toInputs(ambiguousSameAssetOpposingPair as KrakenLedgerEntry[]));
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) {
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
       return;
     }
 
-    expect(result.value).toHaveLength(0);
+    expect(result.error.message).toContain('ambiguous_same_asset_opposing_pair');
   });
 
   test('processes clean deposits', async () => {

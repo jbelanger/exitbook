@@ -2,12 +2,22 @@ import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
 import type { DeepPartial } from '../../../../shared/test-utils/index.js';
-import type { RawExchangeInput } from '../../shared/strategies/index.js';
+import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
+import { buildCoinbaseCorrelationGroups } from '../build-correlation-groups.js';
+import { interpretCoinbaseGroup } from '../interpret-group.js';
+import { normalizeCoinbaseProviderEvent } from '../normalize-provider-event.js';
 import { CoinbaseProcessor } from '../processor.js';
+
+import ambiguousSameAssetOpposingPair from './fixtures/ambiguous-same-asset-opposing-pair.json' with { type: 'json' };
+import cleanDepositFixture from './fixtures/clean-deposit.json' with { type: 'json' };
+import cleanSwapFixture from './fixtures/clean-swap.json' with { type: 'json' };
+import cleanWithdrawalFixture from './fixtures/clean-withdrawal.json' with { type: 'json' };
 
 const CREATED_AT = '2026-01-01T14:36:55.000Z';
 
-function buildEntry(overrides?: DeepPartial<RawCoinbaseLedgerEntry>): RawExchangeInput<RawCoinbaseLedgerEntry> {
+function buildEntry(
+  overrides?: DeepPartial<RawCoinbaseLedgerEntry>
+): RawExchangeProcessorInput<RawCoinbaseLedgerEntry> {
   const base: RawCoinbaseLedgerEntry = {
     id: 'entry-1',
     type: 'advanced_trade_fill',
@@ -31,6 +41,162 @@ function buildEntry(overrides?: DeepPartial<RawCoinbaseLedgerEntry>): RawExchang
 function createProcessor() {
   return new CoinbaseProcessor();
 }
+
+function toInputs(rows: RawCoinbaseLedgerEntry[]): RawExchangeProcessorInput<RawCoinbaseLedgerEntry>[] {
+  return rows.map((row) => ({
+    raw: row,
+    eventId: row.id,
+  }));
+}
+
+describe('CoinbaseProcessor - Fixture-backed Processing', () => {
+  test('normalizes Coinbase fixture deposits into provider events', () => {
+    const [row] = cleanDepositFixture as RawCoinbaseLedgerEntry[];
+    expect(row).toBeDefined();
+    if (!row) {
+      return;
+    }
+
+    const result = normalizeCoinbaseProviderEvent(row, row.id);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    expect(result.value.providerType).toBe('send');
+    expect(result.value.providerHints.directionHint).toBe('credit');
+    expect(result.value.providerHints.hashHint).toBe('0xcoinbasefixturedeposit0001');
+    expect(result.value.assetSymbol).toBe('ETH');
+  });
+
+  test('returns an ambiguity diagnostic for same-asset opposing fixture pairs', () => {
+    const normalized = (ambiguousSameAssetOpposingPair as RawCoinbaseLedgerEntry[]).map((row) => {
+      const result = normalizeCoinbaseProviderEvent(row, row.id);
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+      return result.value;
+    });
+
+    const [group] = buildCoinbaseCorrelationGroups(normalized);
+    expect(group).toBeDefined();
+    if (!group) {
+      return;
+    }
+
+    const interpretation = interpretCoinbaseGroup(group);
+    expect(interpretation.kind).toBe('ambiguous');
+    if (interpretation.kind !== 'ambiguous') {
+      return;
+    }
+
+    expect(interpretation.diagnostic.code).toBe('ambiguous_same_asset_opposing_pair');
+    expect(interpretation.diagnostic.severity).toBe('error');
+    expect(interpretation.diagnostic.providerEventIds).toEqual(['CB_AMBIG_IN_001', 'CB_AMBIG_OUT_001']);
+  });
+
+  test('processes clean deposit fixtures', async () => {
+    const processor = createProcessor();
+
+    const result = await processor.process(toInputs(cleanDepositFixture as RawCoinbaseLedgerEntry[]));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'transfer', type: 'deposit' });
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('ETH');
+    expect(transaction.blockchain?.transaction_hash).toBe('0xcoinbasefixturedeposit0001');
+  });
+
+  test('processes clean withdrawal fixtures', async () => {
+    const processor = createProcessor();
+
+    const result = await processor.process(toInputs(cleanWithdrawalFixture as RawCoinbaseLedgerEntry[]));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('HNT');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.05427504');
+    expect(transaction.to).toBe('CB_SOL_DESTINATION_001');
+  });
+
+  test('processes clean swap fixtures', async () => {
+    const processor = createProcessor();
+
+    const result = await processor.process(toInputs(cleanSwapFixture as RawCoinbaseLedgerEntry[]));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'trade', type: 'swap' });
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('ONDO');
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('USDC');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.2962121916');
+  });
+
+  test('fails closed on ambiguous same-asset fixture pairs', async () => {
+    const processor = createProcessor();
+
+    const result = await processor.process(toInputs(ambiguousSameAssetOpposingPair as RawCoinbaseLedgerEntry[]));
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.message).toContain('ambiguous_same_asset_opposing_pair');
+  });
+
+  test('fails unsupported multi-leg fund flows instead of materializing a conservative transfer', async () => {
+    const processor = createProcessor();
+
+    const multiLegEntries = [
+      buildEntry({
+        id: 'multi-out-1',
+        type: 'advanced_trade_fill',
+        amount: { amount: '-100.00', currency: 'USDC' },
+        advanced_trade_fill: { order_id: 'ORDER-MULTI' } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
+      }),
+      buildEntry({
+        id: 'multi-in-1',
+        type: 'advanced_trade_fill',
+        amount: { amount: '0.04', currency: 'ETH' },
+        advanced_trade_fill: { order_id: 'ORDER-MULTI' } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
+      }),
+      buildEntry({
+        id: 'multi-in-2',
+        type: 'advanced_trade_fill',
+        amount: { amount: '10.00', currency: 'USD' },
+        advanced_trade_fill: { order_id: 'ORDER-MULTI' } as RawCoinbaseLedgerEntry['advanced_trade_fill'],
+      }),
+    ];
+
+    const result = await processor.process(multiLegEntries);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.message).toContain('unsupported_multi_leg_pattern');
+  });
+});
 
 describe('CoinbaseProcessor - Interest/Staking Rewards', () => {
   test('classifies interest transactions as staking rewards', async () => {

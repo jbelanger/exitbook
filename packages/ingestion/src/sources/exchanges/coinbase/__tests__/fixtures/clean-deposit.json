@@ -1,0 +1,23 @@
+[
+  {
+    "id": "CB_DEP_EVT_001",
+    "type": "send",
+    "created_at": "2024-12-18T20:42:28Z",
+    "status": "completed",
+    "amount": {
+      "amount": "0.260000000000000000",
+      "currency": "ETH"
+    },
+    "native_amount": {
+      "amount": "959.23",
+      "currency": "USD"
+    },
+    "network": {
+      "hash": "0xcoinbasefixturedeposit0001",
+      "network_name": "ethereum",
+      "status": "confirmed"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_001/transactions/CB_DEP_EVT_001"
+  }
+]

@@ -252,17 +252,18 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
     hasBalancedSameAssetOpposingPair(interpretedEvents, consolidatedInflows, consolidatedOutflows)
   ) {
     return {
-      kind: 'unsupported',
+      kind: 'ambiguous',
       diagnostic: diagnostic(
         group,
-        'balanced_same_asset_opposing_pair',
-        'warning',
-        'Kraken group netted to zero across the same asset and fees, so it was skipped as non-accounting provider noise.',
+        'ambiguous_same_asset_opposing_pair',
+        'error',
+        'Kraken group netted to zero across the same asset, but the opposing rows are still ambiguous without decisive transfer evidence.',
         {
           inflows: consolidatedInflows.map((movement) => ({
             assetId: movement.assetId,
             amount: movement.grossAmount,
           })),
+          nettedToZero: true,
           outflows: consolidatedOutflows.map((movement) => ({
             assetId: movement.assetId,
             amount: movement.grossAmount,
@@ -293,6 +294,7 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
             assetId: movement.assetId,
             amount: movement.grossAmount,
           })),
+          nettedToZero: false,
           overlappingAssetIds,
         }
       ),

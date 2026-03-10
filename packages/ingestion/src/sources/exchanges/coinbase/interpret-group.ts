@@ -1,4 +1,4 @@
-import { buildExchangeAssetId, parseDecimal, type Currency, type TransactionNote } from '@exitbook/core';
+import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
 import type {
@@ -13,6 +13,7 @@ import type {
 
 interface CoinbaseProviderMetadata extends Record<string, unknown> {
   correlationKey: string;
+  correlationSource: 'event_id' | 'id' | 'order_id' | 'trade_id' | 'transfer_id';
   entryType: string;
   feeEmbeddedInAmount: boolean;
   feeSettlementHint: 'balance' | 'on-chain' | 'none';
@@ -181,13 +182,41 @@ function resolveGroupStatus(events: ExchangeProviderEvent[]) {
   return 'success' as const;
 }
 
+function isTransferLikeEntryType(entryType: string): boolean {
+  return (
+    entryType === 'fiat_deposit' ||
+    entryType === 'fiat_withdrawal' ||
+    entryType === 'send' ||
+    entryType === 'transaction'
+  );
+}
+
+function hasExplicitTransferEvidence(group: ExchangeCorrelationGroup, events: InterpretedCoinbaseEvent[]): boolean {
+  if (events.length === 0 || events.some((event) => !isTransferLikeEntryType(event.metadata.entryType))) {
+    return false;
+  }
+
+  if (events.some((event) => event.metadata.correlationSource === 'transfer_id')) {
+    return true;
+  }
+
+  if (
+    group.events.some(
+      (event) => Boolean(event.providerHints.addressHint?.trim()) || Boolean(event.providerHints.hashHint?.trim())
+    )
+  ) {
+    return true;
+  }
+
+  return events.some((event) => event.metadata.correlationKey !== event.event.providerEventId);
+}
+
 function buildDraft(
   group: ExchangeCorrelationGroup,
   operation: ConfirmedExchangeTransactionDraft['operation'],
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[],
-  fees: ExchangeFeeDraft[],
-  notes?: TransactionNote[]
+  fees: ExchangeFeeDraft[]
 ): ConfirmedExchangeTransactionDraft {
   const primaryEvent = group.events[0];
   if (!primaryEvent) {
@@ -208,7 +237,6 @@ function buildDraft(
       outflows,
     },
     fees,
-    ...(notes && notes.length > 0 ? { notes } : {}),
     ...(blockchainEvent?.providerHints.addressHint?.trim()
       ? { to: blockchainEvent.providerHints.addressHint.trim() }
       : {}),
@@ -317,14 +345,49 @@ export function interpretCoinbaseGroup(group: ExchangeCorrelationGroup): Exchang
 
   if (consolidatedOutflows.length === 1 && consolidatedInflows.length === 1) {
     const sameAsset = consolidatedOutflows[0]?.assetId === consolidatedInflows[0]?.assetId;
+    if (!sameAsset) {
+      return {
+        kind: 'confirmed',
+        draft: buildDraft(
+          group,
+          { category: 'trade', type: 'swap' },
+          consolidatedInflows,
+          consolidatedOutflows,
+          consolidatedFees
+        ),
+      };
+    }
+
+    if (hasExplicitTransferEvidence(group, interpretedEvents)) {
+      return {
+        kind: 'confirmed',
+        draft: buildDraft(
+          group,
+          { category: 'transfer', type: 'transfer' },
+          consolidatedInflows,
+          consolidatedOutflows,
+          consolidatedFees
+        ),
+      };
+    }
+
     return {
-      kind: 'confirmed',
-      draft: buildDraft(
+      kind: 'ambiguous',
+      diagnostic: diagnostic(
         group,
-        sameAsset ? { category: 'transfer', type: 'transfer' } : { category: 'trade', type: 'swap' },
-        consolidatedInflows,
-        consolidatedOutflows,
-        consolidatedFees
+        'ambiguous_same_asset_opposing_pair',
+        'error',
+        'Coinbase group contains same-asset inflow and outflow rows without decisive transfer evidence.',
+        {
+          correlationSource: interpretedEvents.map((event) => event.metadata.correlationSource),
+          entryTypes: interpretedEvents.map((event) => event.metadata.entryType),
+          inflows: consolidatedInflows.map((movement) => ({ assetId: movement.assetId, amount: movement.grossAmount })),
+          outflows: consolidatedOutflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          providerEventIds: group.events.map((event) => event.providerEventId),
+        }
       ),
     };
   }
@@ -356,26 +419,19 @@ export function interpretCoinbaseGroup(group: ExchangeCorrelationGroup): Exchang
     };
   }
 
-  const note: TransactionNote = {
-    type: 'classification_uncertain',
-    severity: 'info',
-    message: `Coinbase group ${group.correlationKey} has complex multi-leg fund flow and was materialized conservatively as a transfer.`,
-    metadata: {
-      inflows: consolidatedInflows.map((movement) => ({ assetId: movement.assetId, amount: movement.grossAmount })),
-      outflows: consolidatedOutflows.map((movement) => ({ assetId: movement.assetId, amount: movement.grossAmount })),
-      providerEventIds: group.events.map((event) => event.providerEventId),
-    },
-  };
-
   return {
-    kind: 'confirmed',
-    draft: buildDraft(
+    kind: 'unsupported',
+    diagnostic: diagnostic(
       group,
-      { category: 'transfer', type: 'transfer' },
-      consolidatedInflows,
-      consolidatedOutflows,
-      consolidatedFees,
-      [note]
+      'unsupported_multi_leg_pattern',
+      'error',
+      'Coinbase group has a complex multi-leg fund flow that is not yet supported by the provider-owned interpreter.',
+      {
+        entryTypes: interpretedEvents.map((event) => event.metadata.entryType),
+        inflows: consolidatedInflows.map((movement) => ({ assetId: movement.assetId, amount: movement.grossAmount })),
+        outflows: consolidatedOutflows.map((movement) => ({ assetId: movement.assetId, amount: movement.grossAmount })),
+        providerEventIds: group.events.map((event) => event.providerEventId),
+      }
     ),
   };
 }

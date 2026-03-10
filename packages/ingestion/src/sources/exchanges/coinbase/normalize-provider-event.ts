@@ -4,12 +4,14 @@ import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 
 import type { ExchangeProviderEvent } from '../shared-v2/index.js';
 
-import { extractCorrelationId, mapCoinbaseStatus } from './coinbase-utils.js';
+import type { CoinbaseCorrelationSource } from './coinbase-utils.js';
+import { extractCorrelationEvidence, mapCoinbaseStatus } from './coinbase-utils.js';
 
 type CoinbaseFeeSettlementHint = 'balance' | 'on-chain' | 'none';
 
 interface CoinbaseProviderMetadata extends Record<string, unknown> {
   correlationKey: string;
+  correlationSource: CoinbaseCorrelationSource;
   entryType: string;
   feeEmbeddedInAmount: boolean;
   feeSettlementHint: CoinbaseFeeSettlementHint;
@@ -106,10 +108,11 @@ export function normalizeCoinbaseProviderEvent(
     feeCurrency = feeCurrencyResult.value;
   }
 
-  const correlationKey = extractCorrelationId(raw);
+  const correlationEvidence = extractCorrelationEvidence(raw);
   const occurredAt = new Date(raw.created_at).getTime();
   const metadata: CoinbaseProviderMetadata = {
-    correlationKey,
+    correlationKey: correlationEvidence.correlationKey,
+    correlationSource: correlationEvidence.correlationSource,
     entryType: raw.type,
     feeEmbeddedInAmount: raw.type === 'buy' || raw.type === 'sell',
     feeSettlementHint: fee.settlementHint,
@@ -128,7 +131,7 @@ export function normalizeCoinbaseProviderEvent(
     rawAmount: raw.amount.amount,
     ...(fee.amount ? { rawFee: fee.amount, rawFeeCurrency: feeCurrency } : {}),
     providerHints: {
-      correlationKeys: [correlationKey],
+      correlationKeys: [correlationEvidence.correlationKey],
       directionHint: getDirectionHint(raw.amount.amount),
       ...(raw.network?.network_name ? { networkHint: raw.network.network_name } : {}),
       ...(raw.to?.address ? { addressHint: raw.to.address } : {}),

@@ -1,0 +1,31 @@
+[
+  {
+    "id": "CB_WDR_EVT_001",
+    "type": "send",
+    "created_at": "2024-12-27T16:21:33Z",
+    "status": "completed",
+    "amount": {
+      "amount": "-63.63644811",
+      "currency": "HNT"
+    },
+    "native_amount": {
+      "amount": "-439.66",
+      "currency": "USD"
+    },
+    "network": {
+      "hash": "CB_WITHDRAWAL_HASH_001",
+      "network_name": "solana",
+      "status": "pending",
+      "transaction_fee": {
+        "amount": "0.05427504",
+        "currency": "HNT"
+      }
+    },
+    "to": {
+      "address": "CB_SOL_DESTINATION_001",
+      "resource": "address"
+    },
+    "resource": "transaction",
+    "resource_path": "/v2/accounts/CB_ACCOUNT_002/transactions/CB_WDR_EVT_001"
+  }
+]
