@@ -1,4 +1,4 @@
-import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from '../shared-v2/index.js';
+import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from '../shared/index.js';
 
 export function buildKrakenCorrelationGroups(events: ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
   const grouped = new Map<string, ExchangeProviderEvent[]>();

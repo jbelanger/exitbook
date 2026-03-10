@@ -10,7 +10,7 @@ import {
   collectExchangeProcessingBatchResult,
   logExchangeProcessingDiagnostics,
   type RawExchangeProcessorInput,
-} from '../shared-v2/index.js';
+} from '../shared/index.js';
 
 import { buildCoinbaseCorrelationGroups } from './build-correlation-groups.js';
 import { interpretCoinbaseGroup } from './interpret-group.js';

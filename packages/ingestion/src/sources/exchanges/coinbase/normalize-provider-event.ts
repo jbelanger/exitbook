@@ -2,7 +2,7 @@ import { parseCurrency, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 
-import type { ExchangeProviderEvent } from '../shared-v2/index.js';
+import type { ExchangeProviderEvent } from '../shared/index.js';
 
 import type { CoinbaseCorrelationSource } from './coinbase-utils.js';
 import { extractCorrelationEvidence, mapCoinbaseStatus } from './coinbase-utils.js';

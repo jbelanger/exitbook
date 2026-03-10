@@ -1,7 +1,7 @@
 import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
-import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
+import type { RawExchangeProcessorInput } from '../../shared/index.js';
 import { buildKrakenCorrelationGroups } from '../build-correlation-groups.js';
 import { interpretKrakenGroup } from '../interpret-group.js';
 import { normalizeKrakenProviderEvent } from '../normalize-provider-event.js';

@@ -9,7 +9,7 @@ import type {
   ExchangeMovementDraft,
   ExchangeProviderEvent,
   ExchangeProcessingDiagnostic,
-} from '../shared-v2/index.js';
+} from '../shared/index.js';
 
 interface CoinbaseProviderMetadata extends Record<string, unknown> {
   correlationKey: string;

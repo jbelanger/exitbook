@@ -1,16 +1,25 @@
+import type { Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { generateDeterministicTransactionHash } from '../transaction-id-utils.js';
 
+const BTC = 'BTC' as Currency;
+const ETH = 'ETH' as Currency;
+const USD = 'USD' as Currency;
+
 function makeTransaction(overrides: Record<string, unknown> = {}) {
   return {
     source: 'kraken',
+    sourceType: 'exchange' as const,
+    externalId: 'test-external-id',
+    datetime: '2023-11-14T22:13:20.000Z',
+    status: 'success' as const,
     timestamp: 1_700_000_000_000,
     operation: { category: 'trade' as const, type: 'buy' as const },
     movements: {
-      inflows: [{ assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
-      outflows: [{ assetSymbol: 'USD', assetId: 'fiat:usd', grossAmount: new Decimal('45000') }],
+      inflows: [{ assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
+      outflows: [{ assetSymbol: USD, assetId: 'fiat:usd', grossAmount: new Decimal('45000') }],
     },
     fees: [],
     ...overrides,
@@ -55,12 +64,12 @@ describe('generateDeterministicTransactionHash', () => {
   it('produces different hash for different amounts', () => {
     const tx1 = makeTransaction({
       movements: {
-        inflows: [{ assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
+        inflows: [{ assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
       },
     });
     const tx2 = makeTransaction({
       movements: {
-        inflows: [{ assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('2.0') }],
+        inflows: [{ assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('2.0') }],
       },
     });
     expect(generateDeterministicTransactionHash(tx1)).not.toBe(generateDeterministicTransactionHash(tx2));
@@ -70,16 +79,16 @@ describe('generateDeterministicTransactionHash', () => {
     const tx1 = makeTransaction({
       movements: {
         inflows: [
-          { assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1') },
-          { assetSymbol: 'ETH', assetId: 'exchange:kraken:eth', grossAmount: new Decimal('10') },
+          { assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1') },
+          { assetSymbol: ETH, assetId: 'exchange:kraken:eth', grossAmount: new Decimal('10') },
         ],
       },
     });
     const tx2 = makeTransaction({
       movements: {
         inflows: [
-          { assetSymbol: 'ETH', assetId: 'exchange:kraken:eth', grossAmount: new Decimal('10') },
-          { assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1') },
+          { assetSymbol: ETH, assetId: 'exchange:kraken:eth', grossAmount: new Decimal('10') },
+          { assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1') },
         ],
       },
     });
@@ -95,7 +104,7 @@ describe('generateDeterministicTransactionHash', () => {
   it('includes fees in the hash', () => {
     const noFees = makeTransaction({ fees: [] });
     const withFees = makeTransaction({
-      fees: [{ assetSymbol: 'BTC', amount: new Decimal('0.0001'), scope: 'transaction', settlement: 'deducted' }],
+      fees: [{ assetSymbol: BTC, amount: new Decimal('0.0001'), scope: 'transaction', settlement: 'deducted' }],
     });
     expect(generateDeterministicTransactionHash(noFees)).not.toBe(generateDeterministicTransactionHash(withFees));
   });
@@ -105,7 +114,7 @@ describe('generateDeterministicTransactionHash', () => {
       movements: {
         inflows: [
           {
-            assetSymbol: 'BTC',
+            assetSymbol: BTC,
             assetId: 'exchange:kraken:btc',
             grossAmount: new Decimal('1.5'),
             netAmount: new Decimal('1.4999'),
@@ -115,7 +124,7 @@ describe('generateDeterministicTransactionHash', () => {
     });
     const withoutNet = makeTransaction({
       movements: {
-        inflows: [{ assetSymbol: 'BTC', assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
+        inflows: [{ assetSymbol: BTC, assetId: 'exchange:kraken:btc', grossAmount: new Decimal('1.5') }],
       },
     });
     expect(generateDeterministicTransactionHash(withNet)).not.toBe(generateDeterministicTransactionHash(withoutNet));

@@ -15,7 +15,7 @@
  *   Factory registers ctx.onCleanup() -- command files NEVER do.
  *   handler.execute(params) -> Result<T, Error>
  *   handler.abort() -- registered via ctx.onAbort() in TUI mode only.
- *   Reference: import-handler.ts, process-handler.ts
+ *   Reference: import-handler.js, process-handler.ts
  *
  * -- Tier 3: Inline -----------------------------------------------------
  *   No handler class. Direct service/query call in command file.

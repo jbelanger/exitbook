@@ -48,7 +48,7 @@ describe('serializeToJson', () => {
 
   it('returns error for circular references', () => {
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular['self'] = circular;
     const result = serializeToJson(circular);
     expect(result.isErr()).toBe(true);
   });

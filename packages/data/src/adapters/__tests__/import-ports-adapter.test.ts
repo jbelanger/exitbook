@@ -31,7 +31,7 @@ describe('buildImportPorts', () => {
       // Update with some undefined values — should not fail
       const result = await ports.importSessions.update(sessionId, {
         status: 'completed',
-        completed_at: undefined,
+        error_message: undefined,
       });
       expect(result.isOk()).toBe(true);
     });

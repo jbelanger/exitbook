@@ -10,7 +10,7 @@ import {
   collectExchangeProcessingBatchResult,
   logExchangeProcessingDiagnostics,
   type RawExchangeProcessorInput,
-} from '../shared-v2/index.js';
+} from '../shared/index.js';
 
 import { buildKrakenCorrelationGroups } from './build-correlation-groups.js';
 import { interpretKrakenGroup } from './interpret-group.js';

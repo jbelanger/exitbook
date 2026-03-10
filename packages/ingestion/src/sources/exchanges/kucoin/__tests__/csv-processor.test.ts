@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
+import type { RawExchangeProcessorInput } from '../../shared/index.js';
 import { buildKucoinCorrelationGroups } from '../build-correlation-groups.js';
 import { KucoinCsvProcessor } from '../csv-processor.js';
 import { interpretKucoinGroup } from '../interpret-group.js';

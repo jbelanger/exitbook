@@ -1,7 +1,7 @@
 import type { Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { ExchangeProviderEvent } from '../shared-v2/index.js';
+import type { ExchangeProviderEvent } from '../shared/index.js';
 
 import {
   getKucoinRowOccurredAt,

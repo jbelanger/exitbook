@@ -2,7 +2,7 @@ import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import { describe, expect, test } from 'vitest';
 
 import type { DeepPartial } from '../../../../shared/test-utils/index.js';
-import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
+import type { RawExchangeProcessorInput } from '../../shared/index.js';
 import { buildCoinbaseCorrelationGroups } from '../build-correlation-groups.js';
 import { interpretCoinbaseGroup } from '../interpret-group.js';
 import { normalizeCoinbaseProviderEvent } from '../normalize-provider-event.js';
