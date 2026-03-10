@@ -1,0 +1,26 @@
+[
+  {
+    "_rowType": "account_history",
+    "UID": "kucoin-user-002",
+    "Account Type": "Trading Account",
+    "Time(UTC)": "2024-01-01 13:00:00",
+    "Type": "Convert Market",
+    "Currency": "BTC",
+    "Amount": "0.1",
+    "Fee": "0",
+    "Side": "Deposit",
+    "Remark": "Convert Market"
+  },
+  {
+    "_rowType": "account_history",
+    "UID": "kucoin-user-002",
+    "Account Type": "Trading Account",
+    "Time(UTC)": "2024-01-01 13:00:00",
+    "Type": "Convert Market",
+    "Currency": "USDT",
+    "Amount": "-4200",
+    "Fee": "0",
+    "Side": "Withdrawal",
+    "Remark": "Convert Market"
+  }
+]

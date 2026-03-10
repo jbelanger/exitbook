@@ -1,0 +1,16 @@
+[
+  {
+    "_rowType": "deposit",
+    "UID": "kucoin-user-001",
+    "Account Type": "Funding Account",
+    "Coin": "BTC",
+    "Amount": "1.0",
+    "Fee": "0.0005",
+    "Time(UTC)": "2024-01-01 08:00:00",
+    "Transfer Network": "BTC",
+    "Status": "success",
+    "Hash": "KUCOIN_DEPOSIT_HASH_001",
+    "Deposit Address": "bc1qkucoinfixture0001",
+    "Remarks": ""
+  }
+]

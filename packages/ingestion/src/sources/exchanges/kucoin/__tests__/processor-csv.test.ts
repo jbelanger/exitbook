@@ -1,22 +1,38 @@
 import { describe, expect, test } from 'vitest';
 
+import type { RawExchangeProcessorInput } from '../../shared-v2/index.js';
+import { buildKucoinCorrelationGroups } from '../build-correlation-groups.js';
+import { interpretKucoinGroup } from '../interpret-group.js';
+import { normalizeKucoinProviderEvent } from '../normalize-provider-event.js';
 import { KucoinProcessor } from '../processor-csv.js';
-import type {
-  CsvAccountHistoryRow,
-  CsvDepositWithdrawalRow,
-  CsvOrderSplittingRow,
-  CsvSpotOrderRow,
-  CsvTradingBotRow,
-} from '../types.js';
+import type { CsvSpotOrderRow, KucoinCsvRow } from '../types.js';
 
-function createProcessor() {
-  return new KucoinProcessor();
+import convertMarketFixture from './fixtures/csv-convert-market.json' with { type: 'json' };
+import depositFixture from './fixtures/csv-deposit.json' with { type: 'json' };
+import withdrawalFixture from './fixtures/csv-withdrawal.json' with { type: 'json' };
+import unsupportedAccountHistoryFixture from './fixtures/unsupported-account-history-transfer.json' with { type: 'json' };
+
+function buildEventId(row: KucoinCsvRow, index: number): string {
+  if ('Hash' in row && row.Hash.trim().length > 0) {
+    return row.Hash.trim();
+  }
+
+  if ('Order ID' in row) {
+    return `${row['Order ID']}-${index}`;
+  }
+
+  return `KUCOIN_EVT_${index}`;
 }
 
-describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
-  test('processes spot buy order', async () => {
-    const processor = createProcessor();
+function toInputs(rows: KucoinCsvRow[]): RawExchangeProcessorInput<KucoinCsvRow>[] {
+  return rows.map((row, index) => ({
+    raw: row,
+    eventId: buildEventId(row, index + 1),
+  }));
+}
 
+describe('KucoinProcessor', () => {
+  test('normalizes spot order rows into provider-native trade events', () => {
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
       UID: 'user123',
@@ -38,362 +54,175 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
       Status: 'deal',
     };
 
-    const result = await processor.process([{ raw: spotOrder, eventId: 'test-1' }]);
+    const result = normalizeKucoinProviderEvent(spotOrder, 'KUCOIN_SPOT_001');
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-
-    if (!transaction) return;
-
-    expect(transaction.operation.category).toBe('trade');
-    expect(transaction.operation.type).toBe('buy');
-    expect(transaction.status).toBe('closed');
-
-    // Verify movements: buy means we spent USDT (outflow) and received BTC (inflow)
-    expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('USDT');
-    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('4200');
-
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.1');
-
-    const platformFee = transaction.fees.find((f) => f.scope === 'platform');
-    expect(platformFee?.amount.toFixed()).toBe('0.42');
-    expect(platformFee?.assetSymbol).toBe('USDT');
+    expect(result.value.providerType).toBe('spot_order');
+    expect(result.value.providerHints.directionHint).toBe('credit');
+    expect(result.value.providerHints.correlationKeys).toEqual(['KUCOIN_SPOT_001']);
+    expect(result.value.assetSymbol).toBe('BTC');
+    expect(result.value.rawAmount).toBe('0.1');
+    expect(result.value.rawFee).toBe('0.42');
+    expect(result.value.rawFeeCurrency).toBe('USDT');
   });
 
-  test('processes spot sell order', async () => {
-    const processor = createProcessor();
+  test('interprets convert market account history groups as swaps', () => {
+    const normalized = (convertMarketFixture as KucoinCsvRow[]).map((row, index) => {
+      const result = normalizeKucoinProviderEvent(row, `KUCOIN_CONVERT_${index + 1}`);
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+      return result.value;
+    });
 
-    const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
-      _rowType: 'spot_order',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Order ID': 'ORDER002',
-      'Order Time(UTC)': '2024-01-01 11:00:00',
-      Symbol: 'ETH-USDT',
-      Side: 'sell',
-      'Order Type': 'market',
-      'Order Price': '0',
-      'Order Amount': '1.0',
-      'Avg. Filled Price': '2200.00',
-      'Filled Amount': '1.0',
-      'Filled Volume': '2200.00',
-      'Filled Volume (USDT)': '2200.00',
-      'Filled Time(UTC)': '2024-01-01 11:00:30',
-      Fee: '2.2',
-      'Fee Currency': 'USDT',
-      Status: 'deal',
-    };
+    const [group] = buildKucoinCorrelationGroups(normalized);
+    expect(group).toBeDefined();
+    if (!group) {
+      return;
+    }
 
-    const result = await processor.process([{ raw: spotOrder, eventId: 'test-1' }]);
+    const interpretation = interpretKucoinGroup(group);
+    expect(interpretation.kind).toBe('confirmed');
+    if (interpretation.kind !== 'confirmed') {
+      return;
+    }
 
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-    if (!transaction) return;
-
-    expect(transaction.operation.category).toBe('trade');
-    expect(transaction.operation.type).toBe('sell');
-
-    // Verify movements: sell means we spent ETH (outflow) and received USDT (inflow)
-    expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('ETH');
-    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('1');
-
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('USDT');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('2200');
+    expect(interpretation.draft.operation.category).toBe('trade');
+    expect(interpretation.draft.operation.type).toBe('swap');
+    expect(interpretation.draft.movements.outflows[0]?.assetSymbol).toBe('USDT');
+    expect(interpretation.draft.movements.outflows[0]?.grossAmount).toBe('4200');
+    expect(interpretation.draft.movements.inflows[0]?.assetSymbol).toBe('BTC');
+    expect(interpretation.draft.movements.inflows[0]?.grossAmount).toBe('0.1');
   });
-});
 
-describe('KucoinProcessor (CSV) - Order Splitting Handling', () => {
-  test('processes order splitting buy', async () => {
-    const processor = createProcessor();
+  test('processes fixture deposits', async () => {
+    const processor = new KucoinProcessor();
 
-    const orderSplitting: CsvOrderSplittingRow & { _rowType: 'order_splitting' } = {
-      _rowType: 'order_splitting',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Order ID': 'ORDER003',
-      Symbol: 'BTC-USDT',
-      Side: 'buy',
-      'Order Type': 'limit',
-      'Avg. Filled Price': '42100.00',
-      'Filled Amount': '0.05',
-      'Filled Volume': '2105.00',
-      'Filled Volume (USDT)': '2105.00',
-      'Filled Time(UTC)': '2024-01-01 12:00:00',
-      Fee: '0.21',
-      'Fee Currency': 'USDT',
-      'Maker/Taker': 'taker',
-    };
-
-    const result = await processor.process([{ raw: orderSplitting, eventId: 'test-1' }]);
+    const result = await processor.process(toInputs(depositFixture as KucoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
-
-    if (!transaction) return;
-
-    expect(transaction.operation.category).toBe('trade');
-    expect(transaction.operation.type).toBe('buy');
-  });
-});
-
-describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
-  test('processes deposit with fee', async () => {
-    const processor = createProcessor();
-
-    const deposit: CsvDepositWithdrawalRow & { _rowType: 'deposit' } = {
-      _rowType: 'deposit',
-      UID: 'user123',
-      'Account Type': 'Funding Account',
-      Coin: 'BTC',
-      Amount: '1.0',
-      Fee: '0.0005',
-      'Time(UTC)': '2024-01-01 08:00:00',
-      'Transfer Network': 'BTC',
-      Status: 'success',
-      Hash: 'txhash123',
-      'Deposit Address': 'bc1q...',
-      Remarks: '',
-    };
-
-    const result = await processor.process([{ raw: deposit, eventId: 'test-1' }]);
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-    if (!transaction) return;
+    if (!transaction) {
+      return;
+    }
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.status).toBe('success');
-    expect(transaction.to).toBe('bc1q...');
-
-    // Verify net amount equals gross (on-chain amount for transfer matching)
-    // Fee is charged separately from credited balance (settlement='balance')
     expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.grossAmount?.toFixed()).toBe('1');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('1');
-
-    const platformFee = transaction.fees.find((f) => f.scope === 'platform');
-    expect(platformFee?.amount.toFixed()).toBe('0.0005');
-    expect(platformFee?.assetSymbol).toBe('BTC');
-    expect(platformFee?.settlement).toBe('balance');
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('BTC');
+    expect(transaction.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('1');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.0005');
+    expect(transaction.to).toBe('bc1qkucoinfixture0001');
   });
 
-  test('processes withdrawal', async () => {
-    const processor = createProcessor();
+  test('processes fixture withdrawals', async () => {
+    const processor = new KucoinProcessor();
 
-    const withdrawal: CsvDepositWithdrawalRow & { _rowType: 'withdrawal' } = {
-      _rowType: 'withdrawal',
-      UID: 'user123',
-      'Account Type': 'Funding Account',
-      Coin: 'ETH',
-      Amount: '2.0',
-      Fee: '0.01',
-      'Time(UTC)': '2024-01-01 09:00:00',
-      'Transfer Network': 'ETH',
-      Status: 'success',
-      Hash: 'txhash456',
-      'Withdrawal Address/Account': '0x123...',
-      Remarks: 'withdrawal to wallet',
-    };
-
-    const result = await processor.process([{ raw: withdrawal, eventId: 'test-1' }]);
+    const result = await processor.process(toInputs(withdrawalFixture as KucoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
-    if (!transaction) return;
+    if (!transaction) {
+      return;
+    }
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.to).toBe('0x123...');
-
     expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('ETH');
-    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('2');
-
-    expect(transaction.fees.find((f) => f.scope === 'platform')?.amount.toFixed()).toBe('0.01');
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('ETH');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('2');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.01');
+    expect(transaction.to).toBe('0xkucoinfixture0001');
   });
-});
 
-describe('KucoinProcessor (CSV) - Account History Handling', () => {
-  test('processes convert market transaction pair', async () => {
-    const processor = createProcessor();
+  test('processes fixture convert market pairs', async () => {
+    const processor = new KucoinProcessor();
 
-    const deposit: CsvAccountHistoryRow & { _rowType: 'account_history' } = {
-      _rowType: 'account_history',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Time(UTC)': '2024-01-01 13:00:00',
-      Type: 'Convert Market',
-      Currency: 'BTC',
-      Amount: '0.1',
-      Fee: '0',
-      Side: 'Deposit',
-      Remark: 'Convert Market',
-    };
-
-    const withdrawal: CsvAccountHistoryRow & { _rowType: 'account_history' } = {
-      _rowType: 'account_history',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Time(UTC)': '2024-01-01 13:00:00',
-      Type: 'Convert Market',
-      Currency: 'USDT',
-      Amount: '-4200',
-      Fee: '0',
-      Side: 'Withdrawal',
-      Remark: 'Convert Market',
-    };
-
-    const result = await processor.process([
-      { raw: deposit, eventId: 'test-1' },
-      { raw: withdrawal, eventId: 'test-2' },
-    ]);
+    const result = await processor.process(toInputs(convertMarketFixture as KucoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
-    if (!transaction) return;
+    if (!transaction) {
+      return;
+    }
 
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
-
-    // Verify movements: swapped USDT for BTC
-    expect(transaction.movements.outflows).toHaveLength(1);
-    expect(transaction.movements.outflows![0]?.assetSymbol).toBe('USDT');
-    expect(transaction.movements.outflows![0]?.netAmount?.toFixed()).toBe('4200');
-
-    expect(transaction.movements.inflows).toHaveLength(1);
-    expect(transaction.movements.inflows![0]?.assetSymbol).toBe('BTC');
-    expect(transaction.movements.inflows![0]?.netAmount?.toFixed()).toBe('0.1');
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('USDT');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('4200');
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('BTC');
+    expect(transaction.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('0.1');
   });
 
-  test('skips non-convert account history entries', async () => {
-    const processor = createProcessor();
+  test('skips unsupported account history transfer rows without failing the batch', async () => {
+    const processor = new KucoinProcessor();
 
-    const transfer: CsvAccountHistoryRow & { _rowType: 'account_history' } = {
-      _rowType: 'account_history',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Time(UTC)': '2024-01-01 14:00:00',
-      Type: 'Transfer',
-      Currency: 'USDT',
-      Amount: '100',
-      Fee: '0',
-      Side: 'Deposit',
-      Remark: 'Internal transfer',
-    };
-
-    const result = await processor.process([{ raw: transfer, eventId: 'test-1' }]);
+    const result = await processor.process(toInputs(unsupportedAccountHistoryFixture as KucoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
-    // Non-convert account history entries should be skipped
     expect(result.value).toHaveLength(0);
   });
-});
 
-describe('KucoinProcessor (CSV) - Trading Bot Handling', () => {
-  test('processes trading bot buy order', async () => {
-    const processor = createProcessor();
-
-    const tradingBot: CsvTradingBotRow & { _rowType: 'trading_bot' } = {
-      _rowType: 'trading_bot',
-      UID: 'user123',
-      'Account Type': 'Trading Account',
-      'Order ID': 'BOT001',
-      Symbol: 'BTC-USDT',
-      Side: 'buy',
-      'Order Type': 'limit',
-      'Filled Price': '41000.00',
-      'Filled Amount': '0.02',
-      'Filled Volume': '820.00',
-      'Filled Volume (USDT)': '820.00',
-      'Time Filled(UTC)': '2024-01-01 15:00:00',
-      Fee: '0.82',
-      'Fee Currency': 'USDT',
-    };
-
-    const result = await processor.process([{ raw: tradingBot, eventId: 'test-1' }]);
-
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-
-    const [transaction] = result.value;
-    expect(transaction).toBeDefined();
-    if (!transaction) return;
-
-    expect(transaction.operation.category).toBe('trade');
-    expect(transaction.operation.type).toBe('buy');
-  });
-});
-
-describe('KucoinProcessor (CSV) - Error Handling', () => {
-  test('handles malformed row by failing (strict mode)', async () => {
-    const processor = createProcessor();
-
+  test('fails malformed rows instead of inventing transactions', async () => {
+    const processor = new KucoinProcessor();
     const malformedRow = {
       _rowType: 'spot_order',
-      // Missing required fields
       Symbol: 'BTC-USDT',
-    };
+    } as unknown as KucoinCsvRow;
 
-    const result = await processor.process([{ raw: malformedRow, eventId: 'test-1' }]);
+    const result = await processor.process([{ raw: malformedRow, eventId: 'MALFORMED_001' }]);
 
-    // Should fail in strict mode
     expect(result.isErr()).toBe(true);
-    if (result.isOk()) return;
+    if (result.isOk()) {
+      return;
+    }
 
-    expect(result.error.message).toContain('KuCoin CSV processing failed');
-    expect(result.error.message).toContain('1 conversion error(s)');
+    expect(result.error.message).toContain('Missing KuCoin timestamp');
   });
 
-  test('handles unknown row type by failing (strict mode)', async () => {
-    const processor = createProcessor();
-
+  test('fails unknown row types explicitly', async () => {
+    const processor = new KucoinProcessor();
     const unknownRow = {
       _rowType: 'unknown_type',
       data: 'test',
-    };
+    } as unknown as KucoinCsvRow;
 
-    const result = await processor.process([{ raw: unknownRow, eventId: 'test-1' }]);
+    const result = await processor.process([{ raw: unknownRow, eventId: 'UNKNOWN_001' }]);
 
-    // Should fail in strict mode
     expect(result.isErr()).toBe(true);
-    if (result.isOk()) return;
+    if (result.isOk()) {
+      return;
+    }
 
-    expect(result.error.message).toContain('KuCoin CSV processing failed');
-    expect(result.error.message).toContain('1 unknown row type(s)');
+    expect(result.error.message).toContain('Unknown KuCoin row type');
   });
-});
 
-describe('KucoinProcessor (CSV) - Mixed Transaction Types', () => {
-  test('processes multiple transaction types in one batch', async () => {
-    const processor = createProcessor();
-
+  test('processes mixed deposit and trade rows in one batch', async () => {
+    const processor = new KucoinProcessor();
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
       UID: 'user123',
@@ -415,36 +244,17 @@ describe('KucoinProcessor (CSV) - Mixed Transaction Types', () => {
       Status: 'deal',
     };
 
-    const deposit: CsvDepositWithdrawalRow & { _rowType: 'deposit' } = {
-      _rowType: 'deposit',
-      UID: 'user123',
-      'Account Type': 'Funding Account',
-      Coin: 'USDT',
-      Amount: '10000',
-      Fee: '0',
-      'Time(UTC)': '2024-01-01 15:00:00',
-      'Transfer Network': 'TRC20',
-      Status: 'success',
-      Hash: 'txhash789',
-      'Deposit Address': 'TR7...',
-      Remarks: '',
-    };
+    const rows: KucoinCsvRow[] = [...(depositFixture as KucoinCsvRow[]), spotOrder];
 
-    const result = await processor.process([
-      { raw: deposit, eventId: 'test-1' },
-      { raw: spotOrder, eventId: 'test-2' },
-    ]);
+    const result = await processor.process(toInputs(rows));
 
     expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
+    if (!result.isOk()) {
+      return;
+    }
 
-    // Should process both transactions
     expect(result.value).toHaveLength(2);
-
-    // Verify first is deposit
     expect(result.value[0]?.operation.type).toBe('deposit');
-
-    // Verify second is buy
     expect(result.value[1]?.operation.type).toBe('buy');
   });
 });

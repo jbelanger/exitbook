@@ -1,0 +1,16 @@
+[
+  {
+    "_rowType": "withdrawal",
+    "UID": "kucoin-user-001",
+    "Account Type": "Funding Account",
+    "Coin": "ETH",
+    "Amount": "2.0",
+    "Fee": "0.01",
+    "Time(UTC)": "2024-01-01 09:00:00",
+    "Transfer Network": "ETH",
+    "Status": "success",
+    "Hash": "KUCOIN_WITHDRAWAL_HASH_001",
+    "Withdrawal Address/Account": "0xkucoinfixture0001",
+    "Remarks": "fixture withdrawal"
+  }
+]

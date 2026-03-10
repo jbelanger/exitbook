@@ -1,0 +1,14 @@
+[
+  {
+    "_rowType": "account_history",
+    "UID": "kucoin-user-003",
+    "Account Type": "Trading Account",
+    "Time(UTC)": "2024-01-01 14:00:00",
+    "Type": "Transfer",
+    "Currency": "USDT",
+    "Amount": "100",
+    "Fee": "0",
+    "Side": "Deposit",
+    "Remark": "Internal transfer"
+  }
+]
