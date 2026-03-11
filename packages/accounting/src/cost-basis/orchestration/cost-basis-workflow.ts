@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Currency, UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -62,7 +62,8 @@ export class CostBasisWorkflow {
   async execute(
     params: CostBasisInput,
     transactions: UniversalTransactionData[],
-    accountingExclusionPolicy?: AccountingExclusionPolicy
+    accountingExclusionPolicy?: AccountingExclusionPolicy,
+    assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const validation = validateCostBasisInput(params);
     if (validation.isErr()) {
@@ -75,7 +76,7 @@ export class CostBasisWorkflow {
     if (config.jurisdiction === 'CA') {
       const filteredResult = this.filterTransactionsForWindow(transactions, config, { lookaheadDays: 30 });
       if (filteredResult.isErr()) return err(filteredResult.error);
-      return this.executeCanadaWorkflow(params, filteredResult.value, accountingExclusionPolicy);
+      return this.executeCanadaWorkflow(params, filteredResult.value, accountingExclusionPolicy, assetReviewSummaries);
     }
 
     const filteredResult = this.filterTransactionsForWindow(transactions, config);
@@ -83,6 +84,7 @@ export class CostBasisWorkflow {
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
       accountingExclusionPolicy,
+      assetReviewSummaries,
       // Tax reporting must fail closed. Excluding a disposal or transfer because
       // it lacks prices would change realized gain/loss and silently understate
       // the report.
@@ -136,7 +138,8 @@ export class CostBasisWorkflow {
   private async executeCanadaWorkflow(
     params: CostBasisInput,
     transactions: UniversalTransactionData[],
-    accountingExclusionPolicy?: AccountingExclusionPolicy
+    accountingExclusionPolicy?: AccountingExclusionPolicy,
+    assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
   ): Promise<Result<CanadaCostBasisWorkflowResult, Error>> {
     if (!this.fxRateProvider) {
       return err(new Error('FX rate provider required for Canada tax valuation'));
@@ -153,6 +156,7 @@ export class CostBasisWorkflow {
       this.fxRateProvider,
       {
         accountingExclusionPolicy,
+        assetReviewSummaries,
         taxAssetIdentityPolicy: params.config.taxAssetIdentityPolicy,
       }
     );

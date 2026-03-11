@@ -45,7 +45,7 @@ async function executeAssetsExcludeCommand(rawOptions: unknown): Promise<void> {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new AssetsHandler(database, overrideStore);
+      const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const result = await handler.exclude({
         assetId: options.assetId,
         symbol: options.symbol,

@@ -1,10 +1,15 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Currency, OverrideEvent, UniversalTransactionData } from '@exitbook/core';
 import { err, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { loadAssetReviewSummaries } from '../../../shared/asset-review-runtime.js';
 import { AssetsHandler } from '../assets-handler.js';
+
+vi.mock('../../../shared/asset-review-runtime.js', () => ({
+  loadAssetReviewSummaries: vi.fn(),
+}));
 
 function createTransaction(params: {
   externalId?: string | undefined;
@@ -68,7 +73,60 @@ function createMockDb(transactions: UniversalTransactionData[]) {
   };
 }
 
+function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
+  return {
+    assetId,
+    reviewStatus: 'needs-review',
+    referenceStatus: 'unknown',
+    evidenceFingerprint: `asset-review:v1:${assetId}`,
+    confirmationIsStale: false,
+    warningSummary: 'Suspicious asset evidence requires review',
+    evidence: [
+      {
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'Processed transactions marked this asset as spam',
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createAssetExcludeEvent(assetId: string): OverrideEvent {
+  return {
+    id: `exclude:${assetId}`,
+    created_at: '2026-03-10T10:00:00.000Z',
+    actor: 'user',
+    source: 'cli',
+    scope: 'asset-exclude',
+    payload: {
+      type: 'asset_exclude',
+      asset_id: assetId,
+    },
+  };
+}
+
+function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: string): OverrideEvent {
+  return {
+    id: `review-confirm:${assetId}`,
+    created_at: '2026-03-10T10:05:00.000Z',
+    actor: 'user',
+    source: 'cli',
+    scope: 'asset-review-confirm',
+    payload: {
+      type: 'asset_review_confirm',
+      asset_id: assetId,
+      evidence_fingerprint: evidenceFingerprint,
+    },
+  };
+}
+
 describe('AssetsHandler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map()));
+  });
+
   it('writes an asset-exclude event after resolving a unique symbol', async () => {
     const mockDb = createMockDb([
       createTransaction({
@@ -82,7 +140,8 @@ describe('AssetsHandler', () => {
 
     const handler = new AssetsHandler(
       mockDb as unknown as Pick<DataContext, 'transactions'>,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
     );
 
     const result = await handler.exclude({ symbol: 'scam', reason: 'junk airdrop' });
@@ -122,7 +181,8 @@ describe('AssetsHandler', () => {
 
     const handler = new AssetsHandler(
       mockDb as unknown as Pick<DataContext, 'transactions'>,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
     );
 
     const result = await handler.exclude({ symbol: 'USDC' });
@@ -146,7 +206,8 @@ describe('AssetsHandler', () => {
 
     const handler = new AssetsHandler(
       mockDb as unknown as Pick<DataContext, 'transactions'>,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
     );
 
     const result = await handler.include({ assetId: 'blockchain:ethereum:0xscam' });
@@ -175,25 +236,18 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readByScopes.mockResolvedValue(
-      ok([
-        {
-          id: 'evt-1',
-          created_at: '2026-03-09T10:00:00.000Z',
-          actor: 'user',
-          source: 'cli',
-          scope: 'asset-exclude',
-          payload: {
-            type: 'asset_exclude',
-            asset_id: 'blockchain:ethereum:0xscam',
-          },
-        },
-      ])
-    );
+    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent('blockchain:ethereum:0xscam')]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
 
     const handler = new AssetsHandler(
       mockDb as unknown as Pick<DataContext, 'transactions'>,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
     );
 
     const result = await handler.listExclusions();
@@ -217,12 +271,154 @@ describe('AssetsHandler', () => {
 
     const handler = new AssetsHandler(
       mockDb as unknown as Pick<DataContext, 'transactions'>,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
     );
 
     const result = await handler.listExclusions();
 
     const error = assertErr(result);
     expect(error.message).toContain('Failed to read asset exclusion override events');
+  });
+
+  it('filters assets view down to needs-review assets', async () => {
+    const scamAssetId = 'blockchain:ethereum:0xscam';
+    const safeAssetId = 'exchange:kraken:btc';
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [
+          { assetId: scamAssetId, assetSymbol: 'SCAM', amount: '100' },
+          { assetId: safeAssetId, assetSymbol: 'BTC', amount: '1' },
+        ],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(
+      ok(
+        new Map([
+          [scamAssetId, createAssetReviewSummary(scamAssetId)],
+          [
+            safeAssetId,
+            createAssetReviewSummary(safeAssetId, {
+              reviewStatus: 'clear',
+              warningSummary: undefined,
+              evidence: [],
+            }),
+          ],
+        ])
+      )
+    );
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view({ needsReview: true });
+    const value = assertOk(result);
+
+    expect(value.assets).toHaveLength(1);
+    expect(value.assets[0]?.assetId).toBe(scamAssetId);
+    expect(value.assets[0]?.reviewState).toBe('needs-review');
+    expect(value.needsReviewCount).toBe(1);
+    expect(value.totalCount).toBe(2);
+  });
+
+  it('writes an asset-review-confirm event for a suspicious asset', async () => {
+    const scamAssetId = 'blockchain:ethereum:0xscam';
+    const reviewSummary = createAssetReviewSummary(scamAssetId, {
+      evidenceFingerprint: 'asset-review:v1:fingerprint-1',
+    });
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: scamAssetId, assetSymbol: 'SCAM', amount: '100' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    mockOverrideStore.append.mockResolvedValue(ok(undefined));
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map([[scamAssetId, reviewSummary]])));
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.confirmReview({ assetId: scamAssetId, reason: 'intentional contract' });
+    const value = assertOk(result);
+
+    expect(value).toMatchObject({
+      action: 'confirm',
+      assetId: scamAssetId,
+      changed: true,
+      evidenceFingerprint: 'asset-review:v1:fingerprint-1',
+      reviewState: 'reviewed',
+      confirmationIsStale: false,
+    });
+    expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      scope: 'asset-review-confirm',
+      payload: {
+        type: 'asset_review_confirm',
+        asset_id: scamAssetId,
+        evidence_fingerprint: 'asset-review:v1:fingerprint-1',
+      },
+      reason: 'intentional contract',
+    });
+  });
+
+  it('writes an asset-review-clear event and reopens the asset to needs-review', async () => {
+    const scamAssetId = 'blockchain:ethereum:0xscam';
+    const reviewSummary = createAssetReviewSummary(scamAssetId, {
+      reviewStatus: 'reviewed',
+      evidenceFingerprint: 'asset-review:v1:fingerprint-1',
+      confirmedEvidenceFingerprint: 'asset-review:v1:fingerprint-1',
+    });
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: scamAssetId, assetSymbol: 'SCAM', amount: '100' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.append.mockResolvedValue(ok(undefined));
+    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+      if (scopes.includes('asset-review-confirm')) {
+        return Promise.resolve(ok([createAssetReviewConfirmEvent(scamAssetId, 'asset-review:v1:fingerprint-1')]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map([[scamAssetId, reviewSummary]])));
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.clearReview({ assetId: scamAssetId, reason: 'reopen review' });
+    const value = assertOk(result);
+
+    expect(value).toMatchObject({
+      action: 'clear-review',
+      assetId: scamAssetId,
+      changed: true,
+      reviewState: 'needs-review',
+      evidenceFingerprint: 'asset-review:v1:fingerprint-1',
+    });
+    expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      scope: 'asset-review-clear',
+      payload: {
+        type: 'asset_review_clear',
+        asset_id: scamAssetId,
+      },
+      reason: 'reopen review',
+    });
   });
 });

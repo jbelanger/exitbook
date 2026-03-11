@@ -90,6 +90,31 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append an asset review confirm event', async () => {
+      const result = await store.append({
+        scope: 'asset-review-confirm',
+        payload: {
+          type: 'asset_review_confirm',
+          asset_id: 'blockchain:ethereum:0xscam',
+          evidence_fingerprint: 'asset-review:v1:abc123',
+        },
+        reason: 'Intentional airdrop',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const event = result.value;
+        expect(event.scope).toBe('asset-review-confirm');
+        expect(event.reason).toBe('Intentional airdrop');
+        expect(event.payload).toEqual({
+          type: 'asset_review_confirm',
+          asset_id: 'blockchain:ethereum:0xscam',
+          evidence_fingerprint: 'asset-review:v1:abc123',
+        });
+      }
+    });
+
     it('should reject mismatched scope and payload type', async () => {
       // Attempt to write a price_override payload with scope 'link'
       const result = await store.append({
@@ -285,6 +310,39 @@ describe('OverrideStore', () => {
       if (result.isOk()) {
         expect(result.value).toHaveLength(3);
         expect(result.value.map((event) => event.scope)).toEqual(['link', 'unlink', 'link']);
+      }
+    });
+
+    it('should read asset review scopes alongside other overrides in append order', async () => {
+      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+
+      await store.append({ scope: 'link', payload: linkPayload });
+      await store.append({
+        scope: 'asset-review-confirm',
+        payload: {
+          type: 'asset_review_confirm',
+          asset_id: 'blockchain:ethereum:0xscam',
+          evidence_fingerprint: 'asset-review:v1:abc123',
+        },
+      });
+      await store.append({
+        scope: 'asset-review-clear',
+        payload: {
+          type: 'asset_review_clear',
+          asset_id: 'blockchain:ethereum:0xscam',
+        },
+      });
+
+      const result = await store.readByScopes(['link', 'asset-review-confirm', 'asset-review-clear']);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        expect(result.value.map((event) => event.scope)).toEqual([
+          'link',
+          'asset-review-confirm',
+          'asset-review-clear',
+        ]);
       }
     });
   });

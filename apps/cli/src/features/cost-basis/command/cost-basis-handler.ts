@@ -13,6 +13,7 @@ import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
@@ -25,6 +26,7 @@ export type { CostBasisInput, CostBasisWorkflowResult };
 export class CostBasisHandler {
   constructor(
     private readonly db: DataContext,
+    private readonly dataDir: string,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
   ) {}
 
@@ -46,7 +48,17 @@ export class CostBasisHandler {
       const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) return err(txResult.error);
 
-      return await workflow.execute(params, txResult.value, this.accountingExclusionPolicy);
+      const assetReviewSummariesResult = await loadAssetReviewSummaries(this.dataDir, txResult.value);
+      if (assetReviewSummariesResult.isErr()) {
+        return err(assetReviewSummariesResult.error);
+      }
+
+      return await workflow.execute(
+        params,
+        txResult.value,
+        this.accountingExclusionPolicy,
+        assetReviewSummariesResult.value
+      );
     } finally {
       await priceManager.destroy();
     }
@@ -97,5 +109,5 @@ export async function createCostBasisHandler(
   }
 
   prereqAbort = undefined;
-  return ok(new CostBasisHandler(database, accountingExclusionPolicyResult.value));
+  return ok(new CostBasisHandler(database, ctx.dataDir, accountingExclusionPolicyResult.value));
 }

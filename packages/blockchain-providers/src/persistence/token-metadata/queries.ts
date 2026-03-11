@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type TokenMetadataRecord, wrapError } from '@exitbook/core';
+import { type AssetReferenceStatus, type TokenMetadataRecord, wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -8,9 +8,35 @@ import type { Kysely, Selectable } from '@exitbook/sqlite';
 import type { TokenMetadataDatabase } from './schema.js';
 
 const STALENESS_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const PLATFORM_MAPPING_STALENESS_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 type TokenMetadataRow = TokenMetadataDatabase['token_metadata'];
 type TokenMetadataSelectableRow = Selectable<TokenMetadataRow>;
+type TokenReferenceMatchRow = TokenMetadataDatabase['token_reference_matches'];
+type TokenReferenceMatchSelectableRow = Selectable<TokenReferenceMatchRow>;
+type ReferencePlatformMappingRow = TokenMetadataDatabase['reference_platform_mappings'];
+type ReferencePlatformMappingSelectableRow = Selectable<ReferencePlatformMappingRow>;
+
+export interface TokenReferenceMatchRecord {
+  assetPlatformId?: string | undefined;
+  blockchain: string;
+  contractAddress: string;
+  externalAssetId?: string | undefined;
+  externalContractAddress?: string | undefined;
+  externalName?: string | undefined;
+  externalSymbol?: string | undefined;
+  provider: string;
+  referenceStatus: AssetReferenceStatus;
+  refreshedAt: Date;
+}
+
+export interface ReferencePlatformMappingRecord {
+  assetPlatformId: string;
+  blockchain: string;
+  chainIdentifier?: number | undefined;
+  provider: string;
+  refreshedAt: Date;
+}
 
 function fromSqliteBoolean(value: number | null): boolean | undefined {
   if (value === null) return undefined;
@@ -20,6 +46,31 @@ function fromSqliteBoolean(value: number | null): boolean | undefined {
 function toSqliteBoolean(value: boolean | undefined): number | null {
   if (value === undefined) return null;
   return value ? 1 : 0;
+}
+
+function mapTokenReferenceMatchRow(row: TokenReferenceMatchSelectableRow): TokenReferenceMatchRecord {
+  return {
+    blockchain: row.blockchain,
+    contractAddress: row.contract_address,
+    provider: row.provider,
+    referenceStatus: row.reference_status,
+    assetPlatformId: row.asset_platform_id ?? undefined,
+    externalAssetId: row.external_asset_id ?? undefined,
+    externalName: row.external_name ?? undefined,
+    externalSymbol: row.external_symbol ?? undefined,
+    externalContractAddress: row.external_contract_address ?? undefined,
+    refreshedAt: new Date(row.refreshed_at),
+  };
+}
+
+function mapReferencePlatformMappingRow(row: ReferencePlatformMappingSelectableRow): ReferencePlatformMappingRecord {
+  return {
+    blockchain: row.blockchain,
+    provider: row.provider,
+    assetPlatformId: row.asset_platform_id,
+    chainIdentifier: row.chain_identifier ?? undefined,
+    refreshedAt: new Date(row.refreshed_at),
+  };
 }
 
 /**
@@ -306,10 +357,164 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
+  async function getReferenceMatch(
+    blockchain: string,
+    contractAddress: string,
+    provider: string
+  ): Promise<Result<TokenReferenceMatchRecord | undefined, Error>> {
+    try {
+      const row = await db
+        .selectFrom('token_reference_matches')
+        .selectAll()
+        .where('blockchain', '=', blockchain)
+        .where('contract_address', '=', contractAddress)
+        .where('provider', '=', provider)
+        .executeTakeFirst();
+
+      return ok(row ? mapTokenReferenceMatchRow(row) : undefined);
+    } catch (error) {
+      logger.error({ error }, 'Failed to get token reference match');
+      return wrapError(error, 'Failed to get token reference match');
+    }
+  }
+
+  async function getReferenceMatches(
+    blockchain: string,
+    contractAddresses: string[],
+    provider: string
+  ): Promise<Result<Map<string, TokenReferenceMatchRecord | undefined>, Error>> {
+    try {
+      if (contractAddresses.length === 0) {
+        return ok(new Map<string, TokenReferenceMatchRecord | undefined>());
+      }
+
+      const rows = await db
+        .selectFrom('token_reference_matches')
+        .selectAll()
+        .where('blockchain', '=', blockchain)
+        .where('provider', '=', provider)
+        .where('contract_address', 'in', contractAddresses)
+        .execute();
+
+      const matches = new Map<string, TokenReferenceMatchRecord | undefined>();
+      for (const contractAddress of contractAddresses) {
+        matches.set(contractAddress, undefined);
+      }
+
+      for (const row of rows) {
+        matches.set(row.contract_address, mapTokenReferenceMatchRow(row));
+      }
+
+      return ok(matches);
+    } catch (error) {
+      logger.error({ error }, 'Failed to get token reference matches');
+      return wrapError(error, 'Failed to get token reference matches');
+    }
+  }
+
+  async function saveReferenceMatch(record: TokenReferenceMatchRecord): Promise<Result<void, Error>> {
+    try {
+      const now = record.refreshedAt.toISOString();
+      const referenceStatus = record.referenceStatus === 'unknown' ? 'unmatched' : record.referenceStatus;
+
+      await db
+        .insertInto('token_reference_matches')
+        .values({
+          blockchain: record.blockchain,
+          contract_address: record.contractAddress,
+          provider: record.provider,
+          reference_status: referenceStatus,
+          asset_platform_id: record.assetPlatformId ?? null,
+          external_asset_id: record.externalAssetId ?? null,
+          external_name: record.externalName ?? null,
+          external_symbol: record.externalSymbol ?? null,
+          external_contract_address: record.externalContractAddress ?? null,
+          refreshed_at: now,
+        })
+        .onConflict((oc) =>
+          oc.columns(['blockchain', 'contract_address', 'provider']).doUpdateSet({
+            reference_status: referenceStatus,
+            asset_platform_id: record.assetPlatformId ?? null,
+            external_asset_id: record.externalAssetId ?? null,
+            external_name: record.externalName ?? null,
+            external_symbol: record.externalSymbol ?? null,
+            external_contract_address: record.externalContractAddress ?? null,
+            refreshed_at: now,
+          })
+        )
+        .execute();
+
+      return ok(undefined);
+    } catch (error) {
+      logger.error({ error }, 'Failed to save token reference match');
+      return wrapError(error, 'Failed to save token reference match');
+    }
+  }
+
+  async function getReferencePlatformMapping(
+    blockchain: string,
+    provider: string
+  ): Promise<Result<ReferencePlatformMappingRecord | undefined, Error>> {
+    try {
+      const row = await db
+        .selectFrom('reference_platform_mappings')
+        .selectAll()
+        .where('blockchain', '=', blockchain)
+        .where('provider', '=', provider)
+        .executeTakeFirst();
+
+      return ok(row ? mapReferencePlatformMappingRow(row) : undefined);
+    } catch (error) {
+      logger.error({ error }, 'Failed to get reference platform mapping');
+      return wrapError(error, 'Failed to get reference platform mapping');
+    }
+  }
+
+  async function saveReferencePlatformMapping(record: ReferencePlatformMappingRecord): Promise<Result<void, Error>> {
+    try {
+      const now = record.refreshedAt.toISOString();
+
+      await db
+        .insertInto('reference_platform_mappings')
+        .values({
+          blockchain: record.blockchain,
+          provider: record.provider,
+          asset_platform_id: record.assetPlatformId,
+          chain_identifier: record.chainIdentifier ?? null,
+          refreshed_at: now,
+        })
+        .onConflict((oc) =>
+          oc.columns(['blockchain', 'provider']).doUpdateSet({
+            asset_platform_id: record.assetPlatformId,
+            chain_identifier: record.chainIdentifier ?? null,
+            refreshed_at: now,
+          })
+        )
+        .execute();
+
+      return ok(undefined);
+    } catch (error) {
+      logger.error({ error }, 'Failed to save reference platform mapping');
+      return wrapError(error, 'Failed to save reference platform mapping');
+    }
+  }
+
   function isStale(updatedAt: Date): boolean {
     const now = new Date();
     const ageMs = now.getTime() - updatedAt.getTime();
     return ageMs > STALENESS_THRESHOLD_MS;
+  }
+
+  function isReferenceStale(updatedAt: Date): boolean {
+    const now = new Date();
+    const ageMs = now.getTime() - updatedAt.getTime();
+    return ageMs > STALENESS_THRESHOLD_MS;
+  }
+
+  function isReferencePlatformMappingStale(updatedAt: Date): boolean {
+    const now = new Date();
+    const ageMs = now.getTime() - updatedAt.getTime();
+    return ageMs > PLATFORM_MAPPING_STALENESS_THRESHOLD_MS;
   }
 
   function refreshInBackground(
@@ -351,7 +556,14 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     getByContracts,
     getBySymbol,
     save,
+    getReferenceMatch,
+    getReferenceMatches,
+    saveReferenceMatch,
+    getReferencePlatformMapping,
+    saveReferencePlatformMapping,
     isStale,
+    isReferenceStale,
+    isReferencePlatformMappingStale,
     refreshInBackground,
   };
 }

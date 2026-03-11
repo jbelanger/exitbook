@@ -1,4 +1,4 @@
-import type { AssetMovement, Currency, TransactionLink } from '@exitbook/core';
+import type { AssetMovement, AssetReviewSummary, Currency, TransactionLink } from '@exitbook/core';
 import { computeMovementFingerprint, computeTxFingerprint, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -66,6 +66,25 @@ function buildMovementFingerprint(params: {
   );
 }
 
+function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
+  return {
+    assetId,
+    reviewStatus: 'needs-review',
+    referenceStatus: 'unknown',
+    evidenceFingerprint: `asset-review:v1:${assetId}`,
+    confirmationIsStale: false,
+    warningSummary: 'Suspicious asset evidence requires review',
+    evidence: [
+      {
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'Processed transactions marked this asset as spam',
+      },
+    ],
+    ...overrides,
+  };
+}
+
 describe('runCostBasisPipeline', () => {
   it('fails when any transaction is missing required prices', async () => {
     const store = stubStore();
@@ -81,6 +100,159 @@ describe('runCostBasisPipeline', () => {
     });
 
     expect(assertErr(result).message).toContain('1 transactions are missing required price data');
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).not.toHaveBeenCalled();
+  });
+
+  it('blocks included assets that still need review before accounting starts', async () => {
+    const store = stubStore();
+    const reviewRequired = createTransactionFromMovements(
+      10,
+      '2025-01-10T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xscam', 'SCAM', '100')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+
+    const result = await runCostBasisPipeline([reviewRequired], defaultConfig, store, {
+      missingPricePolicy: 'error',
+      assetReviewSummaries: new Map([
+        ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
+      ]),
+    });
+
+    expect(assertErr(result).message).toContain('Assets flagged for review require confirmation or exclusion');
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).not.toHaveBeenCalled();
+  });
+
+  it('does not block excluded assets that still need review', async () => {
+    const store = stubStore();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+
+    const safe = createTransaction(11, '2025-01-10T00:00:00.000Z', [
+      { assetSymbol: 'BTC', amount: '1', price: '50000' },
+    ]);
+    const reviewRequired = createTransactionFromMovements(
+      12,
+      '2025-01-11T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xscam', 'SCAM', '100')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+
+    const result = await runCostBasisPipeline([safe, reviewRequired], defaultConfig, store, {
+      missingPricePolicy: 'error',
+      accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:ethereum:0xscam']),
+      assetReviewSummaries: new Map([
+        ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).toHaveBeenCalledOnce();
+  });
+
+  it('allows reviewed assets through the pipeline', async () => {
+    const store = stubStore();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+
+    const reviewRequired = createTransactionFromMovements(
+      13,
+      '2025-01-10T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xscam', 'SCAM', '100')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+
+    const result = await runCostBasisPipeline([reviewRequired], defaultConfig, store, {
+      missingPricePolicy: 'error',
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:ethereum:0xscam',
+          createAssetReviewSummary('blockchain:ethereum:0xscam', {
+            reviewStatus: 'reviewed',
+            confirmedEvidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+          }),
+        ],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).toHaveBeenCalledOnce();
+  });
+
+  it('still fails closed on same-symbol blockchain ambiguity even if review summaries say reviewed', async () => {
+    const store = stubStore();
+    const first = createTransactionFromMovements(
+      14,
+      '2025-01-10T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xaaa', 'USDC', '10')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+    const second = createTransactionFromMovements(
+      15,
+      '2025-01-11T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xbbb', 'USDC', '12')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+
+    const result = await runCostBasisPipeline([first, second], defaultConfig, store, {
+      missingPricePolicy: 'error',
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:ethereum:0xaaa',
+          createAssetReviewSummary('blockchain:ethereum:0xaaa', { reviewStatus: 'reviewed' }),
+        ],
+        [
+          'blockchain:ethereum:0xbbb',
+          createAssetReviewSummary('blockchain:ethereum:0xbbb', { reviewStatus: 'reviewed' }),
+        ],
+      ]),
+    });
+
+    expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
     expect(store.loadCostBasisContext).not.toHaveBeenCalled();
   });

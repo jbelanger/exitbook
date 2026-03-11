@@ -17,6 +17,13 @@ export type { ReprocessPlan } from './features/process/process-workflow.js';
 export { BalanceWorkflow } from './features/balance/balance-workflow.js';
 export type { BalanceParams } from './features/balance/balance-workflow.js';
 export {
+  buildAssetReviewSummaries,
+  type AssetReviewDecisionInput,
+  type AssetReviewReferenceResolver,
+  type AssetReviewTokenMetadataReader,
+  type BuildAssetReviewSummariesOptions,
+} from './features/asset-review/index.js';
+export {
   calculateBalances,
   compareBalances,
   convertBalancesToDecimals,

@@ -21,7 +21,7 @@ import {
   type ICostBasisPersistence,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
-import { parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { parseCurrency, type AssetReviewSummary, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
@@ -32,6 +32,7 @@ import { createPriceProviderManager, type PriceProviderManager } from '@exitbook
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -99,6 +100,7 @@ export class PortfolioHandler {
   constructor(
     private readonly db: DataContext,
     private readonly priceManager: PriceProviderManager,
+    private readonly dataDir: string,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
   ) {}
 
@@ -124,6 +126,11 @@ export class PortfolioHandler {
       }
 
       const allTransactions = txResult.value;
+      const assetReviewSummariesResult = await loadAssetReviewSummaries(this.dataDir, allTransactions);
+      if (assetReviewSummariesResult.isErr()) {
+        return err(assetReviewSummariesResult.error);
+      }
+      const assetReviewSummaries = assetReviewSummariesResult.value;
 
       if (allTransactions.length === 0) {
         return ok(emptyPortfolioResult(asOf, method, jurisdiction, displayCurrency));
@@ -243,6 +250,7 @@ export class PortfolioHandler {
       if (jurisdiction === 'CA') {
         const canadaPortfolioResult = await this.buildCanadaPortfolioCostBasis({
           accountBreakdown,
+          assetReviewSummaries,
           asOf,
           assetMetadata,
           costBasisStore,
@@ -267,6 +275,7 @@ export class PortfolioHandler {
           costBasisStore,
           {
             accountingExclusionPolicy: this.accountingExclusionPolicy,
+            assetReviewSummaries,
             // Portfolio is a best-effort holdings view, not a tax filing surface.
             // Keeping the price-complete subset lets us still show open lots and
             // spot-valued positions, while warning that unrealized P&L is incomplete
@@ -443,19 +452,19 @@ export class PortfolioHandler {
 
     const rebuildTransactionIds = new Set(rebuildTransactions.map((tx) => tx.id));
     const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !rebuildTransactionIds.has(tx.id));
-    const spamOrExcludedCount = excludedForMissingPrices.filter((tx) => isSpamOrExcludedTransaction(tx)).length;
+    const excludedCount = excludedForMissingPrices.filter((tx) => isExcludedTransaction(tx)).length;
 
     logger.warn(
       {
         missingPricesCount,
-        spamOrExcludedCount,
+        excludedCount,
         excludedTransactionIds: excludedForMissingPrices.slice(0, 10).map((tx) => tx.id),
       },
       'Excluding transactions with missing prices from portfolio cost basis calculation'
     );
 
-    return spamOrExcludedCount > 0
-      ? `${missingPricesCount} transactions missing prices were excluded from cost basis (including ${spamOrExcludedCount} spam/excluded transactions) — unrealized P&L may be incomplete`
+    return excludedCount > 0
+      ? `${missingPricesCount} transactions missing prices were excluded from cost basis (including ${excludedCount} explicitly excluded transactions) — unrealized P&L may be incomplete`
       : `${missingPricesCount} transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete`;
   }
 
@@ -463,6 +472,7 @@ export class PortfolioHandler {
     accountBreakdown: Map<string, AccountBreakdownItem[]>;
     asOf: Date;
     assetMetadata: Record<string, string>;
+    assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
     costBasisParams: CostBasisInput;
     costBasisStore: ICostBasisPersistence;
     holdings: Record<string, Decimal>;
@@ -508,7 +518,10 @@ export class PortfolioHandler {
       priceCoverageResult.value.rebuildTransactions,
       contextResult.value.confirmedLinks,
       fxRateProvider,
-      { accountingExclusionPolicy: this.accountingExclusionPolicy }
+      {
+        accountingExclusionPolicy: this.accountingExclusionPolicy,
+        assetReviewSummaries: params.assetReviewSummaries,
+      }
     );
     if (acbWorkflowResult.isErr()) {
       return err(acbWorkflowResult.error);
@@ -674,7 +687,7 @@ export async function createPortfolioHandler(
   ctx.onCleanup(async () => priceManager.destroy());
 
   prereqAbort = undefined;
-  return ok(new PortfolioHandler(database, priceManager, accountingExclusionPolicyResult.value));
+  return ok(new PortfolioHandler(database, priceManager, dataDir, accountingExclusionPolicyResult.value));
 }
 
 function emptyPortfolioResult(
@@ -760,10 +773,6 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
   });
 }
 
-function isSpamOrExcludedTransaction(transaction: UniversalTransactionData): boolean {
-  return (
-    transaction.excludedFromAccounting === true ||
-    transaction.isSpam === true ||
-    (transaction.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false)
-  );
+function isExcludedTransaction(transaction: UniversalTransactionData): boolean {
+  return transaction.excludedFromAccounting === true;
 }

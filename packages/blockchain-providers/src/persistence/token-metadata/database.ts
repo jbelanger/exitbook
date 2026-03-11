@@ -49,7 +49,7 @@ export async function clearTokenMetadataDatabase(db: Kysely<TokenMetadataDatabas
   try {
     logger.info('Clearing token metadata database tables');
 
-    const tablesToDrop = ['symbol_index', 'token_metadata'];
+    const tablesToDrop = ['reference_platform_mappings', 'token_reference_matches', 'symbol_index', 'token_metadata'];
     for (const table of tablesToDrop) {
       await db.schema.dropTable(table).ifExists().execute();
     }

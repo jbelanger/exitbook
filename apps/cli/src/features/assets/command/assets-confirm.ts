@@ -6,33 +6,33 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { AssetsIncludeCommandOptionsSchema } from '../../shared/schemas.js';
+import { AssetsConfirmCommandOptionsSchema } from '../../shared/schemas.js';
 
-import { AssetsHandler, type AssetOverrideResult } from './assets-handler.js';
+import { AssetsHandler, type AssetReviewOverrideResult } from './assets-handler.js';
 
-export type AssetsIncludeCommandOptions = z.infer<typeof AssetsIncludeCommandOptionsSchema>;
+export type AssetsConfirmCommandOptions = z.infer<typeof AssetsConfirmCommandOptionsSchema>;
 
-export function registerAssetsIncludeCommand(assetsCommand: Command): void {
+export function registerAssetsConfirmCommand(assetsCommand: Command): void {
   assetsCommand
-    .command('include')
-    .description('Re-include a previously excluded asset in accounting-scoped processing')
+    .command('confirm')
+    .description('Confirm the current review evidence for a suspicious asset')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeAssetsIncludeCommand(rawOptions);
+      await executeAssetsConfirmCommand(rawOptions);
     });
 }
 
-async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
   const isJsonMode =
     typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
 
-  const parseResult = AssetsIncludeCommandOptionsSchema.safeParse(rawOptions);
+  const parseResult = AssetsConfirmCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
     displayCliError(
-      'assets-include',
+      'assets-confirm',
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
       ExitCodes.INVALID_ARGS,
       isJsonMode ? 'json' : 'text'
@@ -46,21 +46,21 @@ async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.include({
+      const result = await handler.confirmReview({
         assetId: options.assetId,
         symbol: options.symbol,
         reason: options.reason,
       });
 
       if (result.isErr()) {
-        displayCliError('assets-include', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError('assets-confirm', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }
 
-      handleAssetsIncludeSuccess(options.json ?? false, result.value);
+      handleAssetsConfirmSuccess(options.json ?? false, result.value);
     });
   } catch (error) {
     displayCliError(
-      'assets-include',
+      'assets-confirm',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
       options.json ? 'json' : 'text'
@@ -68,20 +68,21 @@ async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
   }
 }
 
-function handleAssetsIncludeSuccess(isJsonMode: boolean, result: AssetOverrideResult): void {
+function handleAssetsConfirmSuccess(isJsonMode: boolean, result: AssetReviewOverrideResult): void {
   if (isJsonMode) {
-    outputSuccess('assets-include', result);
+    outputSuccess('assets-confirm', result);
     return;
   }
 
   if (!result.changed) {
-    console.log('Asset is already included in accounting');
+    console.log('Asset review is already confirmed for the current evidence');
   } else {
-    console.log('✅ Asset included in accounting');
+    console.log('Asset review confirmed');
   }
 
   console.log(`   Asset ID: ${result.assetId}`);
   console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
+  console.log(`   Review State: ${result.reviewState}`);
   if (result.reason) {
     console.log(`   Reason: ${result.reason}`);
   }

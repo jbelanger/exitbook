@@ -233,7 +233,7 @@ const TransactionRow: FC<{
   const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
   const { icon, iconColor } = getPriceStatusIcon(item.priceStatus);
 
-  const isExcluded = item.excludedFromAccounting || item.isSpam;
+  const isExcluded = item.excludedFromAccounting;
 
   if (isExcluded) {
     return (

@@ -360,7 +360,22 @@ export const AssetsIncludeCommandOptionsSchema = AssetSelectionCommandOptionsSch
   json: z.boolean().optional(),
 });
 
+export const AssetsConfirmCommandOptionsSchema = AssetSelectionCommandOptionsSchema.extend({
+  reason: z.string().min(1).optional(),
+  json: z.boolean().optional(),
+});
+
+export const AssetsClearReviewCommandOptionsSchema = AssetSelectionCommandOptionsSchema.extend({
+  reason: z.string().min(1).optional(),
+  json: z.boolean().optional(),
+});
+
 export const AssetsExclusionsCommandOptionsSchema = z.object({
+  json: z.boolean().optional(),
+});
+
+export const AssetsViewCommandOptionsSchema = z.object({
+  needsReview: z.boolean().optional(),
   json: z.boolean().optional(),
 });
 

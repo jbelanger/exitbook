@@ -14,6 +14,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+import { loadAssetReviewSummaries } from '../../../shared/asset-review-runtime.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
 vi.mock('@exitbook/accounting', async () => {
@@ -54,6 +55,10 @@ vi.mock('@exitbook/ingestion', async () => {
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+}));
+
+vi.mock('../../../shared/asset-review-runtime.js', () => ({
+  loadAssetReviewSummaries: vi.fn(),
 }));
 
 function createTransaction(): UniversalTransactionData {
@@ -287,7 +292,9 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    handler = new PortfolioHandler(mockDb, mockPriceManager);
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map()));
+
+    handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data');
   });
 
   it('routes CA portfolio calculations through the Canada path instead of the generic pipeline', async () => {

@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, UniversalTransactionData } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +7,25 @@ import { createAccountingExclusionPolicy } from '../../shared/accounting-exclusi
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 
 import { createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
+
+function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
+  return {
+    assetId,
+    reviewStatus: 'needs-review',
+    referenceStatus: 'unknown',
+    evidenceFingerprint: `asset-review:v1:${assetId}`,
+    confirmationIsStale: false,
+    warningSummary: 'Suspicious asset evidence requires review',
+    evidence: [
+      {
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'Processed transactions marked this asset as spam',
+      },
+    ],
+    ...overrides,
+  };
+}
 
 describe('runCanadaAcbWorkflow', () => {
   it('fails closed when same-chain blockchain tokens share a symbol across multiple asset IDs', async () => {
@@ -73,6 +92,118 @@ describe('runCanadaAcbWorkflow', () => {
     const result = await runCanadaAcbWorkflow([first, second], [], fxProvider);
 
     expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
+  });
+
+  it('blocks included assets that still need review on the Canada workflow path', async () => {
+    const fxProvider = createCanadaFxProvider();
+    const reviewRequired: UniversalTransactionData = {
+      id: 10,
+      accountId: 1,
+      externalId: 'tx-10',
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xscam',
+            assetSymbol: 'SCAM' as Currency,
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-01T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const result = await runCanadaAcbWorkflow([reviewRequired], [], fxProvider, {
+      assetReviewSummaries: new Map([
+        ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
+      ]),
+    });
+
+    expect(assertErr(result).message).toContain('Assets flagged for review require confirmation or exclusion');
+  });
+
+  it('does not block excluded assets that still need review on the Canada workflow path', async () => {
+    const fxProvider = createCanadaFxProvider();
+    const safeAcquisition: UniversalTransactionData = {
+      id: 11,
+      accountId: 1,
+      externalId: 'tx-11',
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      source: 'kraken',
+      sourceType: 'exchange',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('10000'), currency: 'CAD' as Currency },
+              source: 'exchange-execution',
+              fetchedAt: new Date('2024-01-01T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'trade', type: 'buy' },
+    };
+    const reviewRequired: UniversalTransactionData = {
+      id: 12,
+      accountId: 1,
+      externalId: 'tx-12',
+      datetime: '2024-01-02T12:00:00Z',
+      timestamp: Date.parse('2024-01-02T12:00:00Z'),
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xscam',
+            assetSymbol: 'SCAM' as Currency,
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-02T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const result = await runCanadaAcbWorkflow([safeAcquisition, reviewRequired], [], fxProvider, {
+      accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:ethereum:0xscam']),
+      assetReviewSummaries: new Map([
+        ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.inputContext.inputEvents.map((event) => event.assetId)).toEqual(['exchange:kraken:btc']);
+    }
   });
 
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {

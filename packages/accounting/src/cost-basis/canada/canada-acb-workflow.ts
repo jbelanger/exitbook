@@ -1,4 +1,4 @@
-import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, TransactionLink, UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -9,6 +9,7 @@ import { validateScopedTransferLinks } from '../matching/validated-scoped-transf
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { assertNoAmbiguousScopedBlockchainSymbols } from '../shared/ambiguous-asset-review.js';
+import { assertNoScopedAssetsRequireReview } from '../shared/asset-review-preflight.js';
 import type { TaxAssetIdentityPolicy } from '../shared/types.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
@@ -24,6 +25,7 @@ export interface CanadaAcbWorkflowResult {
 
 export interface CanadaAcbWorkflowOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   relaxedTaxIdentitySymbols?: readonly string[] | undefined;
   taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
 }
@@ -51,6 +53,14 @@ export async function runCanadaAcbWorkflow(
   );
   if (ambiguityReviewResult.isErr()) {
     return err(ambiguityReviewResult.error);
+  }
+
+  const assetReviewResult = assertNoScopedAssetsRequireReview(
+    exclusionApplied.scopedBuildResult.transactions,
+    options?.assetReviewSummaries
+  );
+  if (assetReviewResult.isErr()) {
+    return err(assetReviewResult.error);
   }
 
   const validatedLinksResult = validateScopedTransferLinks(

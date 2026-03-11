@@ -4,6 +4,8 @@ import type { DataContext } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
+
 import { CostBasisHandler } from './cost-basis-handler.js';
 
 vi.mock('@exitbook/accounting', async () => {
@@ -21,6 +23,10 @@ vi.mock('@exitbook/logger', () => ({
 
 vi.mock('../../shared/data-dir.js', () => ({
   getDataDir: vi.fn().mockReturnValue('/tmp/test-data'),
+}));
+
+vi.mock('../../shared/asset-review-runtime.js', () => ({
+  loadAssetReviewSummaries: vi.fn(),
 }));
 
 describe('CostBasisHandler', () => {
@@ -60,7 +66,9 @@ describe('CostBasisHandler', () => {
       return { execute: mockWorkflowExecute } as unknown as CostBasisWorkflow;
     } as unknown as typeof CostBasisWorkflow);
 
-    handler = new CostBasisHandler(mockDb);
+    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map()));
+
+    handler = new CostBasisHandler(mockDb, '/tmp/test-data');
   });
 
   describe('execute', () => {
@@ -98,7 +106,12 @@ describe('CostBasisHandler', () => {
       const result = await handler.execute(validParams);
 
       expect(result.isOk()).toBe(true);
-      expect(mockWorkflowExecute).toHaveBeenCalledWith(validParams, [], { excludedAssetIds: new Set<string>() });
+      expect(mockWorkflowExecute).toHaveBeenCalledWith(
+        validParams,
+        [],
+        { excludedAssetIds: new Set<string>() },
+        new Map()
+      );
     });
 
     it('destroys price manager even when workflow fails', async () => {

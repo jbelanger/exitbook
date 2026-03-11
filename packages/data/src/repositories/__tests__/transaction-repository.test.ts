@@ -128,7 +128,7 @@ describe('TransactionRepository', () => {
           .execute();
       }
 
-      // 2 scam token transactions (is_spam + excluded_from_accounting)
+      // 2 scam token transactions (is_spam persisted, excluded_from_accounting true for filter coverage)
       for (let i = 4; i <= 5; i++) {
         await db
           .insertInto('transactions')
@@ -205,7 +205,7 @@ describe('TransactionRepository', () => {
       await seedImportSession(db, 1, 1);
     });
 
-    it('persists isSpam=true and auto-excludes from accounting', async () => {
+    it('persists isSpam=true without auto-excluding from accounting', async () => {
       const tx = {
         datetime: new Date().toISOString(),
         externalId: 'spam-tx-1',
@@ -243,7 +243,7 @@ describe('TransactionRepository', () => {
         .where('external_id', '=', 'spam-tx-1')
         .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
-      expect(row?.excluded_from_accounting).toBe(1);
+      expect(row?.excluded_from_accounting).toBe(0);
     });
 
     it('persists isSpam=false and does not exclude from accounting', async () => {
@@ -340,7 +340,7 @@ describe('TransactionRepository', () => {
       expect(row?.excluded_from_accounting).toBe(0);
     });
 
-    it('auto-excludes when isSpam=true and excludedFromAccounting is not set', async () => {
+    it('does not auto-exclude when isSpam=true and excludedFromAccounting is not set', async () => {
       const tx = {
         datetime: new Date().toISOString(),
         externalId: 'spam-tx-3',
@@ -362,7 +362,7 @@ describe('TransactionRepository', () => {
         .where('external_id', '=', 'spam-tx-3')
         .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
-      expect(row?.excluded_from_accounting).toBe(1);
+      expect(row?.excluded_from_accounting).toBe(0);
     });
   });
 

@@ -13,6 +13,7 @@ export type { ProviderEvent } from './events.js';
 
 // Persistence
 export * from './persistence/index.js';
+export * from './reference/index.js';
 
 export * from './blockchains/bitcoin/index.js';
 export * from './blockchains/cardano/index.js';

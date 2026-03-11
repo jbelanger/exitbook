@@ -48,9 +48,62 @@ export async function up(db: Kysely<TokenMetadataDatabase>): Promise<void> {
     .execute();
 
   await db.schema.createIndex('idx_symbol_index_contract').on('symbol_index').column('contract_address').execute();
+
+  await db.schema
+    .createTable('token_reference_matches')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('blockchain', 'text', (col) => col.notNull())
+    .addColumn('contract_address', 'text', (col) => col.notNull())
+    .addColumn('provider', 'text', (col) => col.notNull())
+    .addColumn('reference_status', 'text', (col) => col.notNull())
+    .addColumn('asset_platform_id', 'text')
+    .addColumn('external_asset_id', 'text')
+    .addColumn('external_name', 'text')
+    .addColumn('external_symbol', 'text')
+    .addColumn('external_contract_address', 'text')
+    .addColumn('refreshed_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .execute();
+
+  await db.schema
+    .createIndex('idx_token_reference_matches_contract_provider')
+    .on('token_reference_matches')
+    .columns(['blockchain', 'contract_address', 'provider'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('idx_token_reference_matches_refreshed_at')
+    .on('token_reference_matches')
+    .column('refreshed_at')
+    .execute();
+
+  await db.schema
+    .createTable('reference_platform_mappings')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('blockchain', 'text', (col) => col.notNull())
+    .addColumn('provider', 'text', (col) => col.notNull())
+    .addColumn('asset_platform_id', 'text', (col) => col.notNull())
+    .addColumn('chain_identifier', 'integer')
+    .addColumn('refreshed_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .execute();
+
+  await db.schema
+    .createIndex('idx_reference_platform_mappings_blockchain_provider')
+    .on('reference_platform_mappings')
+    .columns(['blockchain', 'provider'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('idx_reference_platform_mappings_refreshed_at')
+    .on('reference_platform_mappings')
+    .column('refreshed_at')
+    .execute();
 }
 
 export async function down(db: Kysely<TokenMetadataDatabase>): Promise<void> {
+  await db.schema.dropTable('reference_platform_mappings').execute();
+  await db.schema.dropTable('token_reference_matches').execute();
   await db.schema.dropTable('symbol_index').execute();
   await db.schema.dropTable('token_metadata').execute();
 }

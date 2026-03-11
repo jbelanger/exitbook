@@ -1,4 +1,4 @@
-import { type UniversalTransactionData } from '@exitbook/core';
+import { type AssetReviewSummary, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -8,6 +8,7 @@ import { LotMatcher } from '../matching/lot-matcher.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { assertNoAmbiguousScopedBlockchainSymbols } from '../shared/ambiguous-asset-review.js';
+import { assertNoScopedAssetsRequireReview } from '../shared/asset-review-preflight.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 import { getJurisdictionRules, validateScopedTransactionPrices } from '../shared/cost-basis-utils.js';
 
@@ -27,6 +28,7 @@ export interface CostBasisPipelineOptions {
    */
   missingPricePolicy: MissingPricePolicy;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
 }
 
 export interface CostBasisPipelineResult {
@@ -69,6 +71,14 @@ export async function runCostBasisPipeline(
     return err(ambiguityReviewResult.error);
   }
 
+  const assetReviewResult = assertNoScopedAssetsRequireReview(
+    priceValidatedScopedBuild.transactions,
+    options.assetReviewSummaries
+  );
+  if (assetReviewResult.isErr()) {
+    return err(assetReviewResult.error);
+  }
+
   const validationResult = validateScopedTransactionPrices(priceValidatedScopedBuild, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
@@ -109,6 +119,14 @@ export async function runCostBasisPipeline(
       rebuildScopedResult.value,
       options.accountingExclusionPolicy
     ).scopedBuildResult;
+
+    const rebuildAssetReviewResult = assertNoScopedAssetsRequireReview(
+      rebuildScopedBuild.transactions,
+      options.assetReviewSummaries
+    );
+    if (rebuildAssetReviewResult.isErr()) {
+      return err(rebuildAssetReviewResult.error);
+    }
   }
 
   const rulesResult = getJurisdictionRules(config.jurisdiction);
