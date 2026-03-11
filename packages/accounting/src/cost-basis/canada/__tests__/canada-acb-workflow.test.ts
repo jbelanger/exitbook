@@ -15,6 +15,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
     referenceStatus: 'unknown',
     evidenceFingerprint: `asset-review:v1:${assetId}`,
     confirmationIsStale: false,
+    accountingBlocked: true,
     warningSummary: 'Suspicious asset evidence requires review',
     evidence: [
       {
@@ -204,6 +205,59 @@ describe('runCanadaAcbWorkflow', () => {
     if (result.isOk()) {
       expect(result.value.inputContext.inputEvents.map((event) => event.assetId)).toEqual(['exchange:kraken:btc']);
     }
+  });
+
+  it('does not block warning-only review summaries on the Canada workflow path', async () => {
+    const fxProvider = createCanadaFxProvider();
+    const warningOnly: UniversalTransactionData = {
+      id: 13,
+      accountId: 1,
+      externalId: 'tx-13',
+      datetime: '2024-01-03T12:00:00Z',
+      timestamp: Date.parse('2024-01-03T12:00:00Z'),
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xwarn',
+            assetSymbol: 'WARN' as Currency,
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-03T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const result = await runCanadaAcbWorkflow([warningOnly], [], fxProvider, {
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:ethereum:0xwarn',
+          createAssetReviewSummary('blockchain:ethereum:0xwarn', {
+            accountingBlocked: false,
+            warningSummary: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
+            evidence: [
+              {
+                kind: 'suspicious-airdrop-note',
+                severity: 'warning',
+                message: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
+              },
+            ],
+          }),
+        ],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
   });
 
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {

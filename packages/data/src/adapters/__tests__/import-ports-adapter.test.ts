@@ -49,6 +49,8 @@ describe('buildImportPorts', () => {
       expect(ptState?.invalidatedBy).toBe('new-import');
 
       // Downstream projections should also be stale
+      const assetReviewState = assertOk(await repo.get('asset-review'));
+      expect(assetReviewState?.status).toBe('stale');
       const linksState = assertOk(await repo.get('links'));
       expect(linksState?.status).toBe('stale');
     });

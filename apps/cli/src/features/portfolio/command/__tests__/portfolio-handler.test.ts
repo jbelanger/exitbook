@@ -14,7 +14,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { loadAssetReviewSummaries } from '../../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../../shared/asset-review-runtime.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
 vi.mock('@exitbook/accounting', async () => {
@@ -58,7 +58,7 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 vi.mock('../../../shared/asset-review-runtime.js', () => ({
-  loadAssetReviewSummaries: vi.fn(),
+  readAssetReviewProjection: vi.fn(),
 }));
 
 function createTransaction(): UniversalTransactionData {
@@ -292,7 +292,7 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map()));
+    vi.mocked(readAssetReviewProjection).mockResolvedValue(ok(new Map()));
 
     handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data');
   });

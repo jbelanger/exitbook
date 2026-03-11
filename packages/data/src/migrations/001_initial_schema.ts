@@ -380,9 +380,79 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       PRIMARY KEY (projection_id, scope_key)
     )
   `.execute(db);
+
+  await db.schema
+    .createTable('asset_review_state')
+    .addColumn('asset_id', 'text', (col) => col.primaryKey())
+    .addColumn('review_status', 'text', (col) => col.notNull())
+    .addColumn('reference_status', 'text', (col) => col.notNull())
+    .addColumn('warning_summary', 'text')
+    .addColumn('evidence_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('confirmed_evidence_fingerprint', 'text')
+    .addColumn('confirmation_is_stale', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('accounting_blocked', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('computed_at', 'text', (col) => col.notNull())
+    .addCheckConstraint(
+      'asset_review_state_review_status_valid',
+      sql`review_status IN ('clear', 'needs-review', 'reviewed')`
+    )
+    .addCheckConstraint(
+      'asset_review_state_reference_status_valid',
+      sql`reference_status IN ('matched', 'unmatched', 'unknown')`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_asset_review_state_review_status')
+    .on('asset_review_state')
+    .column('review_status')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_asset_review_state_accounting_blocked')
+    .on('asset_review_state')
+    .column('accounting_blocked')
+    .execute();
+
+  await db.schema
+    .createTable('asset_review_evidence')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('asset_id', 'text', (col) => col.notNull().references('asset_review_state.asset_id').onDelete('cascade'))
+    .addColumn('position', 'integer', (col) => col.notNull())
+    .addColumn('kind', 'text', (col) => col.notNull())
+    .addColumn('severity', 'text', (col) => col.notNull())
+    .addColumn('message', 'text', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .addCheckConstraint(
+      'asset_review_evidence_kind_valid',
+      sql`kind IN ('provider-spam-flag', 'scam-note', 'suspicious-airdrop-note', 'same-symbol-ambiguity', 'spam-flag')`
+    )
+    .addCheckConstraint('asset_review_evidence_severity_valid', sql`severity IN ('warning', 'error')`)
+    .addCheckConstraint(
+      'asset_review_evidence_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_asset_review_evidence_asset_position')
+    .on('asset_review_evidence')
+    .columns(['asset_id', 'position'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('idx_asset_review_evidence_asset_id')
+    .on('asset_review_evidence')
+    .column('asset_id')
+    .execute();
+
+  await db.schema.createIndex('idx_asset_review_evidence_kind').on('asset_review_evidence').column('kind').execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('asset_review_evidence').ifExists().execute();
+  await db.schema.dropTable('asset_review_state').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();

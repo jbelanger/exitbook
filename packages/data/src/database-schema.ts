@@ -233,6 +233,28 @@ export interface ProjectionStateTable {
   metadata_json: JSONString | null;
 }
 
+export interface AssetReviewStateTable {
+  asset_id: string;
+  review_status: string;
+  reference_status: string;
+  warning_summary: string | null;
+  evidence_fingerprint: string;
+  confirmed_evidence_fingerprint: string | null;
+  confirmation_is_stale: boolean;
+  accounting_blocked: boolean;
+  computed_at: DateTime;
+}
+
+export interface AssetReviewEvidenceTable {
+  id: Generated<number>;
+  asset_id: string;
+  position: number;
+  kind: string;
+  severity: string;
+  message: string;
+  metadata_json: JSONString | null;
+}
+
 /**
  * Main database interface combining all tables
  */
@@ -245,4 +267,6 @@ export interface DatabaseSchema {
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
   projection_state: ProjectionStateTable;
+  asset_review_state: AssetReviewStateTable;
+  asset_review_evidence: AssetReviewEvidenceTable;
 }

@@ -17,6 +17,7 @@ export const AssetReviewSummarySchema = z.object({
   referenceStatus: AssetReferenceStatusSchema,
   evidenceFingerprint: z.string().min(1),
   confirmationIsStale: z.boolean(),
+  accountingBlocked: z.boolean(),
   confirmedEvidenceFingerprint: z.string().min(1).optional(),
   warningSummary: z.string().optional(),
   evidence: z.array(AssetReviewEvidenceSchema),

@@ -1,4 +1,5 @@
 import {
+  type AssetReviewEvidence,
   type AssetReferenceStatus,
   type AssetReviewStatus,
   type AssetReviewSummary,
@@ -16,13 +17,13 @@ import {
 } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 
-import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
+import { invalidateAssetReviewProjection, readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
 import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from './assets-utils.js';
 
 type AssetOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type AssetQueryDatabase = Pick<CommandDatabase, 'transactions'>;
+type AssetQueryDatabase = CommandDatabase;
 
 export interface AssetSelectionParams {
   assetId?: string | undefined;
@@ -70,9 +71,11 @@ export interface AssetExclusionsResult {
 export interface AssetViewItem {
   assetId: string;
   assetSymbols: string[];
+  accountingBlocked: boolean;
   confirmationIsStale: boolean;
   currentQuantity: string;
-  evidenceFingerprint: string;
+  evidence: AssetReviewEvidence[];
+  evidenceFingerprint?: string | undefined;
   excluded: boolean;
   movementCount: number;
   referenceStatus: AssetReferenceStatus;
@@ -237,15 +240,30 @@ export class AssetsHandler {
       return err(appendResult.error);
     }
 
+    const invalidateResult = await invalidateAssetReviewProjection(this.db, 'override:asset-review-confirm');
+    if (invalidateResult.isErr()) {
+      return err(invalidateResult.error);
+    }
+
+    const refreshedSummaryResult = await readAssetReviewProjection(this.db, this.dataDir, [assetId]);
+    if (refreshedSummaryResult.isErr()) {
+      return err(refreshedSummaryResult.error);
+    }
+
+    const refreshedSummary = refreshedSummaryResult.value.get(assetId);
+    if (!refreshedSummary) {
+      return err(new Error(`Asset review summary not found after confirmation rebuild: ${assetId}`));
+    }
+
     return ok({
       action: 'confirm',
       assetId,
       assetSymbols,
       changed: true,
       reason: params.reason,
-      evidenceFingerprint: reviewSummary.evidenceFingerprint,
-      reviewState: 'reviewed',
-      confirmationIsStale: false,
+      evidenceFingerprint: refreshedSummary.evidenceFingerprint,
+      reviewState: refreshedSummary.reviewStatus,
+      confirmationIsStale: refreshedSummary.confirmationIsStale,
     });
   }
 
@@ -267,7 +285,6 @@ export class AssetsHandler {
     }
 
     const currentDecision = snapshotResult.value.reviewDecisions.get(assetId);
-    const nextReviewState: AssetReviewStatus = reviewSummary.evidence.length > 0 ? 'needs-review' : 'clear';
 
     if (currentDecision?.action !== 'confirm') {
       return ok({
@@ -277,7 +294,7 @@ export class AssetsHandler {
         changed: false,
         reason: params.reason,
         evidenceFingerprint: reviewSummary.evidenceFingerprint,
-        reviewState: nextReviewState,
+        reviewState: reviewSummary.evidence.length > 0 ? 'needs-review' : 'clear',
         confirmationIsStale: false,
       });
     }
@@ -294,15 +311,30 @@ export class AssetsHandler {
       return err(appendResult.error);
     }
 
+    const invalidateResult = await invalidateAssetReviewProjection(this.db, 'override:asset-review-clear');
+    if (invalidateResult.isErr()) {
+      return err(invalidateResult.error);
+    }
+
+    const refreshedSummaryResult = await readAssetReviewProjection(this.db, this.dataDir, [assetId]);
+    if (refreshedSummaryResult.isErr()) {
+      return err(refreshedSummaryResult.error);
+    }
+
+    const refreshedSummary = refreshedSummaryResult.value.get(assetId);
+    if (!refreshedSummary) {
+      return err(new Error(`Asset review summary not found after clear-review rebuild: ${assetId}`));
+    }
+
     return ok({
       action: 'clear-review',
       assetId,
       assetSymbols,
       changed: true,
       reason: params.reason,
-      evidenceFingerprint: reviewSummary.evidenceFingerprint,
-      reviewState: nextReviewState,
-      confirmationIsStale: false,
+      evidenceFingerprint: refreshedSummary.evidenceFingerprint,
+      reviewState: refreshedSummary.reviewStatus,
+      confirmationIsStale: refreshedSummary.confirmationIsStale,
     });
   }
 
@@ -350,15 +382,17 @@ export class AssetsHandler {
         return {
           assetId: knownAsset.assetId,
           assetSymbols: knownAsset.assetSymbols,
+          accountingBlocked: reviewSummary?.accountingBlocked ?? false,
           movementCount: knownAsset.movementCount,
           transactionCount: knownAsset.transactionCount,
           currentQuantity: balances[knownAsset.assetId]?.toFixed() ?? '0',
+          evidence: reviewSummary?.evidence ?? [],
           excluded: snapshotResult.value.excludedAssetIds.has(knownAsset.assetId),
           reviewState: reviewSummary?.reviewStatus ?? 'clear',
           reviewSummary: reviewSummary?.warningSummary,
           referenceStatus: reviewSummary?.referenceStatus ?? 'unknown',
           confirmationIsStale: reviewSummary?.confirmationIsStale ?? false,
-          evidenceFingerprint: reviewSummary?.evidenceFingerprint ?? `asset-review:v1:${knownAsset.assetId}`,
+          evidenceFingerprint: reviewSummary?.evidenceFingerprint,
         };
       })
       .sort((left, right) => {
@@ -406,7 +440,7 @@ export class AssetsHandler {
       return err(reviewDecisionsResult.error);
     }
 
-    const reviewSummariesResult = await loadAssetReviewSummaries(this.dataDir, transactionsResult.value);
+    const reviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
     if (reviewSummariesResult.isErr()) {
       return err(reviewSummariesResult.error);
     }

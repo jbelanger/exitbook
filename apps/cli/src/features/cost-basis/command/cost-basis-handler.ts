@@ -13,7 +13,7 @@ import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
@@ -48,7 +48,7 @@ export class CostBasisHandler {
       const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) return err(txResult.error);
 
-      const assetReviewSummariesResult = await loadAssetReviewSummaries(this.dataDir, txResult.value);
+      const assetReviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
       if (assetReviewSummariesResult.isErr()) {
         return err(assetReviewSummariesResult.error);
       }

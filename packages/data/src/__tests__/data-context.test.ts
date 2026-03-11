@@ -23,6 +23,7 @@ describe('DataContext', () => {
 
   it('exposes all repositories', () => {
     expect(ctx.accounts).toBeDefined();
+    expect(ctx.assetReview).toBeDefined();
     expect(ctx.transactions).toBeDefined();
     expect(ctx.transactionLinks).toBeDefined();
     expect(ctx.rawTransactions).toBeDefined();

@@ -9,23 +9,59 @@ import {
   type TokenMetadataDB,
   type TokenReferenceResolver,
 } from '@exitbook/blockchain-providers';
-import type { AssetReviewSummary, UniversalTransactionData } from '@exitbook/core';
-import { err, type Result } from '@exitbook/core';
-import { OverrideStore, readAssetReviewDecisions } from '@exitbook/data';
-import { buildAssetReviewSummaries } from '@exitbook/ingestion';
+import type { AssetReviewSummary } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
+import {
+  buildAssetReviewFreshnessPorts,
+  buildAssetReviewProjectionPorts,
+  OverrideStore,
+  readAssetReviewDecisions,
+  type DataContext,
+} from '@exitbook/data';
+import { AssetReviewProjectionWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('asset-review-runtime');
 
-export async function loadAssetReviewSummaries(
+export async function readAssetReviewProjection(
+  db: DataContext,
   dataDir: string,
-  transactions: UniversalTransactionData[]
+  assetIds?: string[]
 ): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
-  const overrideStore = new OverrideStore(dataDir);
-  const decisionsResult = await readAssetReviewDecisions(overrideStore);
-  if (decisionsResult.isErr()) {
-    return err(decisionsResult.error);
+  const freshnessResult = await buildAssetReviewFreshnessPorts(db).checkFreshness();
+  if (freshnessResult.isErr()) {
+    return err(freshnessResult.error);
   }
+
+  if (freshnessResult.value.status !== 'fresh') {
+    const rebuildResult = await rebuildAssetReviewProjection(db, dataDir);
+    if (rebuildResult.isErr()) {
+      return err(rebuildResult.error);
+    }
+  }
+
+  if (assetIds && assetIds.length === 0) {
+    return ok(new Map());
+  }
+
+  if (assetIds) {
+    return db.assetReview.getByAssetIds(assetIds);
+  }
+
+  const summariesResult = await db.assetReview.listAll();
+  if (summariesResult.isErr()) {
+    return err(summariesResult.error);
+  }
+
+  return ok(new Map(summariesResult.value.map((summary) => [summary.assetId, summary])));
+}
+
+export async function rebuildAssetReviewProjection(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
+  const overrideStore = new OverrideStore(dataDir);
+  const workflow = new AssetReviewProjectionWorkflow({
+    ...buildAssetReviewProjectionPorts(db),
+    loadReviewDecisions: () => readAssetReviewDecisions(overrideStore),
+  });
 
   let tokenMetadataDb: TokenMetadataDB | undefined;
   let tokenReferenceResolver: TokenReferenceResolver | undefined;
@@ -51,11 +87,15 @@ export async function loadAssetReviewSummaries(
       logger.warn({ error: dbResult.error }, 'Failed to open token metadata database for asset review');
     }
 
-    return await buildAssetReviewSummaries(transactions, {
-      reviewDecisions: decisionsResult.value,
+    const rebuildResult = await workflow.rebuild({
       tokenMetadataReader: tokenMetadataQueries,
       referenceResolver: tokenReferenceResolver,
     });
+    if (rebuildResult.isErr()) {
+      return err(rebuildResult.error);
+    }
+
+    return ok(undefined);
   } finally {
     if (tokenReferenceResolver) {
       await tokenReferenceResolver.close().catch((error: unknown) => {
@@ -65,8 +105,12 @@ export async function loadAssetReviewSummaries(
 
     if (tokenMetadataDb) {
       await closeTokenMetadataDatabase(tokenMetadataDb).catch((error: unknown) => {
-        logger.warn({ error }, 'Failed to close token metadata database after asset review load');
+        logger.warn({ error }, 'Failed to close token metadata database after asset review rebuild');
       });
     }
   }
+}
+
+export async function invalidateAssetReviewProjection(db: DataContext, reason: string): Promise<Result<void, Error>> {
+  return db.projectionState.markStale('asset-review', reason);
 }

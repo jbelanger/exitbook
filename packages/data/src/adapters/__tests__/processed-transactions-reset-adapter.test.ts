@@ -91,7 +91,11 @@ describe('buildProcessedTransactionsResetPorts', () => {
     expect(ptState!.status).toBe('stale');
     expect(ptState!.invalidatedBy).toBe('reset');
 
-    // Verify downstream (links) is also marked stale
+    // Verify downstream projections are also marked stale
+    const assetReviewState = assertOk(await ctx.projectionState.get('asset-review'));
+    expect(assetReviewState!.status).toBe('stale');
+    expect(assetReviewState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
+
     const linksState = assertOk(await ctx.projectionState.get('links'));
     expect(linksState!.status).toBe('stale');
     expect(linksState!.invalidatedBy).toBe('upstream-reset:processed-transactions');

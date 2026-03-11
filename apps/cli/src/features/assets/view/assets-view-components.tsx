@@ -13,7 +13,7 @@ import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } fr
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
 import type { AssetsViewState } from './assets-view-state.js';
 
-const ASSET_DETAIL_LINES = 8;
+const ASSET_DETAIL_LINES = 12;
 
 export const ASSETS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1,
@@ -207,7 +207,7 @@ const AssetDetailPanel: FC<{ state: AssetsViewState }> = ({ state }) => {
 };
 
 function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
-  return [
+  const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {asset.assetSymbols[0] ?? '(unknown)'}</Text> <Text dimColor>{asset.assetId}</Text>
     </Text>,
@@ -235,14 +235,75 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
     <Text key="policy">
       {'  '}
       <Text dimColor>Accounting: </Text>
+      <Text>{asset.accountingBlocked ? 'blocked' : 'allowed'}</Text>
+    </Text>,
+    <Text key="exclusion">
+      {'  '}
+      <Text dimColor>Exclusion: </Text>
       <Text>{asset.excluded ? 'excluded' : 'included'}</Text>
     </Text>,
     <Text key="summary">
       {'  '}
-      <Text dimColor>Warning: </Text>
+      <Text dimColor>Summary: </Text>
       <Text>{asset.reviewSummary ?? 'No review warnings'}</Text>
     </Text>,
   ];
+
+  if (asset.evidence.length === 0) {
+    rows.push(
+      <Text key="evidence-none">
+        {'  '}
+        <Text dimColor>Evidence: </Text>
+        <Text>No review evidence</Text>
+      </Text>
+    );
+    return rows;
+  }
+
+  const flattenedEvidenceRows: ReactElement[] = [];
+  for (const [index, evidence] of asset.evidence.entries()) {
+    flattenedEvidenceRows.push(
+      <Text key={`evidence-${index}`}>
+        {'    '}
+        <Text color={evidence.severity === 'error' ? 'red' : 'yellow'}>[{evidence.severity}]</Text> {evidence.message}
+      </Text>
+    );
+
+    const conflictingAssetIds = evidence.metadata?.['conflictingAssetIds'] as unknown;
+    if (Array.isArray(conflictingAssetIds) && conflictingAssetIds.length > 0) {
+      flattenedEvidenceRows.push(
+        <Text key={`evidence-conflicts-${index}`}>
+          {'      '}
+          <Text dimColor>Conflicts: </Text>
+          <Text>{conflictingAssetIds.join(', ')}</Text>
+        </Text>
+      );
+    }
+  }
+
+  const availableEvidenceLines = ASSET_DETAIL_LINES - rows.length - 1;
+  rows.push(
+    <Text key="evidence-header">
+      {'  '}
+      <Text dimColor>Evidence:</Text>
+    </Text>
+  );
+
+  if (flattenedEvidenceRows.length <= availableEvidenceLines) {
+    rows.push(...flattenedEvidenceRows);
+    return rows;
+  }
+
+  const visibleEvidenceRows = Math.max(availableEvidenceLines - 1, 0);
+  rows.push(...flattenedEvidenceRows.slice(0, visibleEvidenceRows));
+  rows.push(
+    <Text key="evidence-overflow">
+      {'    '}
+      <Text dimColor>... {flattenedEvidenceRows.length - visibleEvidenceRows} more evidence row(s)</Text>
+    </Text>
+  );
+
+  return rows;
 }
 
 const AssetsControlsBar: FC<{ state: AssetsViewState }> = ({ state }) => {

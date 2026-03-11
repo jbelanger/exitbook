@@ -4,11 +4,12 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { loadAssetReviewSummaries } from '../../../shared/asset-review-runtime.js';
+import { invalidateAssetReviewProjection, readAssetReviewProjection } from '../../../shared/asset-review-runtime.js';
 import { AssetsHandler } from '../assets-handler.js';
 
 vi.mock('../../../shared/asset-review-runtime.js', () => ({
-  loadAssetReviewSummaries: vi.fn(),
+  invalidateAssetReviewProjection: vi.fn(),
+  readAssetReviewProjection: vi.fn(),
 }));
 
 function createTransaction(params: {
@@ -80,6 +81,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
     referenceStatus: 'unknown',
     evidenceFingerprint: `asset-review:v1:${assetId}`,
     confirmationIsStale: false,
+    accountingBlocked: true,
     warningSummary: 'Suspicious asset evidence requires review',
     evidence: [
       {
@@ -124,7 +126,8 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
 describe('AssetsHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map()));
+    vi.mocked(readAssetReviewProjection).mockResolvedValue(ok(new Map()));
+    vi.mocked(invalidateAssetReviewProjection).mockResolvedValue(ok(undefined));
   });
 
   it('writes an asset-exclude event after resolving a unique symbol', async () => {
@@ -139,7 +142,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -180,7 +183,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -205,7 +208,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -245,7 +248,7 @@ describe('AssetsHandler', () => {
     });
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -270,7 +273,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('overrides are invalid')));
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -295,7 +298,7 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
-    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(
+    vi.mocked(readAssetReviewProjection).mockResolvedValue(
       ok(
         new Map([
           [scamAssetId, createAssetReviewSummary(scamAssetId)],
@@ -303,6 +306,7 @@ describe('AssetsHandler', () => {
             safeAssetId,
             createAssetReviewSummary(safeAssetId, {
               reviewStatus: 'clear',
+              accountingBlocked: false,
               warningSummary: undefined,
               evidence: [],
             }),
@@ -312,7 +316,7 @@ describe('AssetsHandler', () => {
     );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -341,10 +345,25 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
-    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map([[scamAssetId, reviewSummary]])));
+    vi.mocked(readAssetReviewProjection)
+      .mockResolvedValueOnce(ok(new Map([[scamAssetId, reviewSummary]])))
+      .mockResolvedValueOnce(
+        ok(
+          new Map([
+            [
+              scamAssetId,
+              createAssetReviewSummary(scamAssetId, {
+                reviewStatus: 'reviewed',
+                accountingBlocked: false,
+                evidenceFingerprint: 'asset-review:v1:fingerprint-1',
+              }),
+            ],
+          ])
+        )
+      );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -369,6 +388,7 @@ describe('AssetsHandler', () => {
       },
       reason: 'intentional contract',
     });
+    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(expect.anything(), 'override:asset-review-confirm');
   });
 
   it('writes an asset-review-clear event and reopens the asset to needs-review', async () => {
@@ -394,10 +414,21 @@ describe('AssetsHandler', () => {
 
       return Promise.resolve(ok([]));
     });
-    vi.mocked(loadAssetReviewSummaries).mockResolvedValue(ok(new Map([[scamAssetId, reviewSummary]])));
+    vi.mocked(readAssetReviewProjection)
+      .mockResolvedValueOnce(ok(new Map([[scamAssetId, reviewSummary]])))
+      .mockResolvedValueOnce(
+        ok(
+          new Map([
+            [
+              scamAssetId,
+              createAssetReviewSummary(scamAssetId, { evidenceFingerprint: 'asset-review:v1:fingerprint-1' }),
+            ],
+          ])
+        )
+      );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as Pick<DataContext, 'transactions'>,
+      mockDb as unknown as DataContext,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -420,5 +451,6 @@ describe('AssetsHandler', () => {
       },
       reason: 'reopen review',
     });
+    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(expect.anything(), 'override:asset-review-clear');
   });
 });

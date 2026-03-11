@@ -3,6 +3,7 @@ import type {
   AssetReviewEvidence,
   AssetReviewSummary,
   TokenMetadataRecord,
+  TransactionNote,
   UniversalTransactionData,
 } from '@exitbook/core';
 import { err, ok, parseAssetId, type Result } from '@exitbook/core';
@@ -144,6 +145,7 @@ export async function buildAssetReviewSummaries(
       referenceStatus: reference.referenceStatus,
       evidenceFingerprint,
       confirmationIsStale,
+      accountingBlocked: deriveAccountingBlocked(evidence, reviewStatus),
       confirmedEvidenceFingerprint,
       warningSummary: evidence.length > 0 ? evidence.map((item) => item.message).join('; ') : undefined,
       evidence,
@@ -163,6 +165,7 @@ function collectAssetSignals(transactions: UniversalTransactionData[]): Map<stri
       ...(transaction.fees ?? []),
     ];
     const assetIdsSeenInTransaction = new Set<string>();
+    const primaryAssetIds = collectPrimaryAssetIds(transaction);
 
     for (const entry of assetEntries) {
       const signal = signalsByAssetId.get(entry.assetId) ?? {
@@ -177,11 +180,18 @@ function collectAssetSignals(transactions: UniversalTransactionData[]): Map<stri
       if (!assetIdsSeenInTransaction.has(entry.assetId)) {
         assetIdsSeenInTransaction.add(entry.assetId);
 
-        if (transaction.isSpam === true) {
+        const applicableNotes = collectApplicableNotes(transaction, entry.assetId, entry.assetSymbol, primaryAssetIds);
+        const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(entry.assetId);
+
+        if (
+          transaction.isSpam === true &&
+          (applicableNotes.some((note) => note.type === 'SCAM_TOKEN') ||
+            (applicableNotes.length === 0 && isOnlyPrimaryAsset))
+        ) {
           signal.hasSpamFlag = true;
         }
 
-        for (const note of transaction.notes ?? []) {
+        for (const note of applicableNotes) {
           if (note.type === 'SCAM_TOKEN') {
             signal.scamNoteCount += 1;
           }
@@ -247,6 +257,71 @@ function collectSameSymbolAmbiguities(transactions: UniversalTransactionData[]):
   }
 
   return ambiguities;
+}
+
+function collectPrimaryAssetIds(transaction: UniversalTransactionData): Set<string> {
+  const primaryAssetIds = new Set<string>();
+
+  for (const movement of [...(transaction.movements.inflows ?? []), ...(transaction.movements.outflows ?? [])]) {
+    primaryAssetIds.add(movement.assetId);
+  }
+
+  return primaryAssetIds;
+}
+
+function collectApplicableNotes(
+  transaction: UniversalTransactionData,
+  assetId: string,
+  assetSymbol: string,
+  primaryAssetIds: Set<string>
+): TransactionNote[] {
+  const notes = transaction.notes ?? [];
+  const exactMatches = notes.filter((note) => noteTargetsAsset(note, assetId));
+  if (exactMatches.length > 0) {
+    return exactMatches;
+  }
+
+  const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(assetId);
+  if (isOnlyPrimaryAsset) {
+    return notes.filter((note) => noteTargetsSymbol(note, assetSymbol) || noteHasNoTarget(note));
+  }
+
+  return [];
+}
+
+function noteTargetsAsset(note: TransactionNote, assetId: string): boolean {
+  const noteAssetId: unknown = note.metadata?.['assetId'];
+  if (typeof noteAssetId === 'string' && noteAssetId === assetId) {
+    return true;
+  }
+
+  const noteContractAddress: unknown = note.metadata?.['contractAddress'];
+  if (typeof noteContractAddress !== 'string' || noteContractAddress.trim() === '') {
+    return false;
+  }
+
+  const parsedAssetId = parseAssetId(assetId);
+  if (parsedAssetId.isErr()) {
+    return false;
+  }
+
+  return (
+    parsedAssetId.value.namespace === 'blockchain' &&
+    typeof parsedAssetId.value.ref === 'string' &&
+    parsedAssetId.value.ref !== 'native' &&
+    parsedAssetId.value.ref.toLowerCase() === noteContractAddress.toLowerCase()
+  );
+}
+
+function noteTargetsSymbol(note: TransactionNote, assetSymbol: string): boolean {
+  const noteAssetSymbol: unknown = note.metadata?.['assetSymbol'] ?? note.metadata?.['scamAsset'];
+  return (
+    typeof noteAssetSymbol === 'string' && noteAssetSymbol.trim().toLowerCase() === assetSymbol.trim().toLowerCase()
+  );
+}
+
+function noteHasNoTarget(note: TransactionNote): boolean {
+  return note.metadata?.['assetId'] === undefined && note.metadata?.['contractAddress'] === undefined;
 }
 
 function buildAssetEvidence(
@@ -319,6 +394,21 @@ function buildAssetEvidence(
       left.message.localeCompare(right.message)
     );
   });
+}
+
+function deriveAccountingBlocked(
+  evidence: AssetReviewEvidence[],
+  reviewStatus: AssetReviewSummary['reviewStatus']
+): boolean {
+  if (evidence.some((item) => item.kind === 'same-symbol-ambiguity')) {
+    return true;
+  }
+
+  if (reviewStatus !== 'needs-review') {
+    return false;
+  }
+
+  return evidence.some((item) => item.severity === 'error');
 }
 
 async function computeEvidenceFingerprint(value: unknown): Promise<string> {

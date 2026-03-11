@@ -10,6 +10,7 @@ function createTransaction(params: {
   assetId: string;
   assetSymbol: string;
   externalId: string;
+  fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   includeFeeWithSameAsset?: boolean | undefined;
   isSpam?: boolean | undefined;
@@ -36,17 +37,26 @@ function createTransaction(params: {
       ],
       outflows: [],
     },
-    fees: params.includeFeeWithSameAsset
-      ? [
-          {
-            assetId: params.assetId,
-            assetSymbol: params.assetSymbol as Currency,
-            amount: parseDecimal('1'),
-            scope: 'platform',
-            settlement: 'balance',
-          },
-        ]
-      : [],
+    fees: [
+      ...(params.includeFeeWithSameAsset
+        ? [
+            {
+              assetId: params.assetId,
+              assetSymbol: params.assetSymbol as Currency,
+              amount: parseDecimal('1'),
+              scope: 'platform' as const,
+              settlement: 'balance' as const,
+            },
+          ]
+        : []),
+      ...((params.fees ?? []).map((fee) => ({
+        assetId: fee.assetId,
+        assetSymbol: fee.assetSymbol as Currency,
+        amount: parseDecimal('1'),
+        scope: 'platform' as const,
+        settlement: 'balance' as const,
+      })) as UniversalTransactionData['fees']),
+    ],
     operation: {
       category: 'transfer',
       type: 'deposit',
@@ -81,9 +91,50 @@ describe('buildAssetReviewSummaries', () => {
       reviewStatus: 'needs-review',
       referenceStatus: 'unknown',
       confirmationIsStale: false,
+      accountingBlocked: true,
       warningSummary: '1 processed transaction(s) carried SCAM_TOKEN warnings',
     });
     expect(summary?.evidence.map((item) => item.kind)).toEqual(['scam-note']);
+  });
+
+  it('does not smear token scam evidence onto an unrelated fee asset in the same transaction', async () => {
+    const scamAssetId = 'blockchain:ethereum:0xscam';
+    const nativeAssetId = 'blockchain:ethereum:native';
+
+    const result = await buildAssetReviewSummaries([
+      createTransaction({
+        id: 1,
+        externalId: 'tx-1',
+        assetId: scamAssetId,
+        assetSymbol: 'SCAM',
+        isSpam: true,
+        fees: [{ assetId: nativeAssetId, assetSymbol: 'ETH' }],
+        notes: [
+          {
+            type: 'SCAM_TOKEN',
+            severity: 'error',
+            message: 'Provider marked this token as scam',
+            metadata: {
+              assetSymbol: 'SCAM',
+              contractAddress: '0xscam',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summaries = assertOk(result);
+
+    expect(summaries.get(scamAssetId)).toMatchObject({
+      reviewStatus: 'needs-review',
+      accountingBlocked: true,
+    });
+    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-note', 'spam-flag']);
+    expect(summaries.get(nativeAssetId)).toMatchObject({
+      reviewStatus: 'clear',
+      accountingBlocked: false,
+      evidence: [],
+    });
   });
 
   it('flags same-chain same-symbol ambiguity when multiple EVM contracts share a symbol', async () => {
@@ -111,6 +162,8 @@ describe('buildAssetReviewSummaries', () => {
     expect(summaries.get(secondAssetId)?.evidence.map((item) => item.kind)).toEqual(['same-symbol-ambiguity']);
     expect(summaries.get(firstAssetId)?.reviewStatus).toBe('needs-review');
     expect(summaries.get(secondAssetId)?.reviewStatus).toBe('needs-review');
+    expect(summaries.get(firstAssetId)?.accountingBlocked).toBe(true);
+    expect(summaries.get(secondAssetId)?.accountingBlocked).toBe(true);
   });
 
   it('suppresses ambiguity evidence for a contract with a matched canonical reference', async () => {
@@ -163,6 +216,7 @@ describe('buildAssetReviewSummaries', () => {
     expect(summaries.get(firstAssetId)).toMatchObject({
       reviewStatus: 'clear',
       referenceStatus: 'matched',
+      accountingBlocked: false,
       warningSummary: undefined,
       evidence: [],
     });
@@ -210,6 +264,7 @@ describe('buildAssetReviewSummaries', () => {
     expect(summary).toMatchObject({
       reviewStatus: 'reviewed',
       confirmationIsStale: false,
+      accountingBlocked: false,
       confirmedEvidenceFingerprint: initialFingerprint,
     });
   });
@@ -262,8 +317,41 @@ describe('buildAssetReviewSummaries', () => {
     expect(summary).toMatchObject({
       reviewStatus: 'needs-review',
       confirmationIsStale: true,
+      accountingBlocked: false,
       confirmedEvidenceFingerprint: initialFingerprint,
     });
-    expect(summary?.evidence.map((item) => item.kind)).toEqual(['spam-flag', 'suspicious-airdrop-note']);
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-note']);
+  });
+
+  it('keeps warning-only evidence visible without blocking accounting', async () => {
+    const assetId = 'blockchain:ethereum:0xwarn';
+
+    const result = await buildAssetReviewSummaries([
+      createTransaction({
+        id: 1,
+        externalId: 'tx-1',
+        assetId,
+        assetSymbol: 'WARN',
+        notes: [
+          {
+            type: 'SUSPICIOUS_AIRDROP',
+            severity: 'warning',
+            message: 'Unsolicited token airdrop',
+            metadata: {
+              assetSymbol: 'WARN',
+              contractAddress: '0xwarn',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summary = assertOk(result).get(assetId);
+
+    expect(summary).toMatchObject({
+      reviewStatus: 'needs-review',
+      accountingBlocked: false,
+    });
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-note']);
   });
 });

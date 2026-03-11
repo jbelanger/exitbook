@@ -9,8 +9,16 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
   return {
     assetId: 'blockchain:ethereum:0xscam',
     assetSymbols: ['SCAM'],
+    accountingBlocked: true,
     confirmationIsStale: false,
     currentQuantity: '100',
+    evidence: [
+      {
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'Provider flagged this token as spam',
+      },
+    ],
     evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
     excluded: true,
     movementCount: 1,
@@ -38,9 +46,11 @@ describe('AssetsViewApp', () => {
           assetId: 'exchange:kraken:btc',
           assetSymbols: ['BTC'],
           excluded: false,
+          accountingBlocked: false,
           referenceStatus: 'unknown',
           reviewState: 'clear',
           reviewSummary: undefined,
+          evidence: [],
         }),
       ],
       { totalCount: 2, excludedCount: 1, needsReviewCount: 1 }
@@ -80,7 +90,8 @@ describe('AssetsViewApp', () => {
     expect(frame).toContain('[review] SCAM 100 reference matched excluded');
     expect(frame).toContain('Review: [review]');
     expect(frame).toContain('Reference: reference matched');
-    expect(frame).toContain('Accounting: excluded');
-    expect(frame).toContain('Warning: Provider flagged this token as spam');
+    expect(frame).toContain('Accounting: blocked');
+    expect(frame).toContain('Exclusion: excluded');
+    expect(frame).toContain('[error] Provider flagged this token as spam');
   });
 });

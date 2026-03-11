@@ -10,6 +10,10 @@ function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
     lines.push(`- ${asset.assetId}: ${asset.warningSummary ?? 'Suspicious asset evidence requires review'}`);
   }
 
+  if (assets.some((asset) => asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity'))) {
+    lines.push('Ambiguous on-chain asset symbols remain blocked until the unwanted contract is excluded.');
+  }
+
   lines.push("Review these assets in 'exitbook assets view --needs-review'.");
   lines.push("Confirm intended assets with 'exitbook assets confirm --asset-id <assetId>'.");
   lines.push("Exclude unwanted contracts with 'exitbook assets exclude --asset-id <assetId>'.");
@@ -19,7 +23,7 @@ function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
 
 export function assertNoScopedAssetsRequireReview(
   scopedTransactions: AccountingScopedTransaction[],
-  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>  
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): Result<void, Error> {
   if (!assetReviewSummaries || assetReviewSummaries.size === 0) {
     return ok(undefined);
@@ -40,9 +44,7 @@ export function assertNoScopedAssetsRequireReview(
 
   const flaggedAssets = [...assetsInScope]
     .map((assetId) => assetReviewSummaries.get(assetId))
-    .filter(
-      (summary): summary is AssetReviewSummary => summary !== undefined && summary.reviewStatus === 'needs-review'
-    )
+    .filter((summary): summary is AssetReviewSummary => summary !== undefined && summary.accountingBlocked)
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
 
   if (flaggedAssets.length === 0) {

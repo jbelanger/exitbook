@@ -10,6 +10,12 @@ export type {
   ProcessedTransactionsFreshnessResult,
 } from './processed-transactions-freshness.js';
 export type { IProcessedTransactionsReset, ProcessedTransactionsResetImpact } from './processed-transactions-reset.js';
+export type {
+  AssetReviewProjectionPorts,
+  IAssetReviewDecisionSource,
+  IAssetReviewProjectionDataSource,
+  IAssetReviewProjectionStore,
+} from './asset-review-projection-ports.js';
 
 // Aggregate dependency types
 export type { ProcessingPorts } from './processing-ports.js';

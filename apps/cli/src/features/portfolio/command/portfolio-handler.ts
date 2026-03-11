@@ -32,7 +32,7 @@ import { createPriceProviderManager, type PriceProviderManager } from '@exitbook
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { loadAssetReviewSummaries } from '../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -126,7 +126,7 @@ export class PortfolioHandler {
       }
 
       const allTransactions = txResult.value;
-      const assetReviewSummariesResult = await loadAssetReviewSummaries(this.dataDir, allTransactions);
+      const assetReviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
       if (assetReviewSummariesResult.isErr()) {
         return err(assetReviewSummariesResult.error);
       }

@@ -73,6 +73,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
     referenceStatus: 'unknown',
     evidenceFingerprint: `asset-review:v1:${assetId}`,
     confirmationIsStale: false,
+    accountingBlocked: true,
     warningSummary: 'Suspicious asset evidence requires review',
     evidence: [
       {
@@ -197,6 +198,7 @@ describe('runCostBasisPipeline', () => {
           createAssetReviewSummary('blockchain:ethereum:0xscam', {
             reviewStatus: 'reviewed',
             confirmedEvidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+            accountingBlocked: false,
           }),
         ],
       ]),
@@ -243,11 +245,31 @@ describe('runCostBasisPipeline', () => {
       assetReviewSummaries: new Map([
         [
           'blockchain:ethereum:0xaaa',
-          createAssetReviewSummary('blockchain:ethereum:0xaaa', { reviewStatus: 'reviewed' }),
+          createAssetReviewSummary('blockchain:ethereum:0xaaa', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            evidence: [
+              {
+                kind: 'same-symbol-ambiguity',
+                severity: 'warning',
+                message: 'Same-chain symbol ambiguity on ethereum:usdc',
+              },
+            ],
+          }),
         ],
         [
           'blockchain:ethereum:0xbbb',
-          createAssetReviewSummary('blockchain:ethereum:0xbbb', { reviewStatus: 'reviewed' }),
+          createAssetReviewSummary('blockchain:ethereum:0xbbb', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            evidence: [
+              {
+                kind: 'same-symbol-ambiguity',
+                severity: 'warning',
+                message: 'Same-chain symbol ambiguity on ethereum:usdc',
+              },
+            ],
+          }),
         ],
       ]),
     });
@@ -255,6 +277,51 @@ describe('runCostBasisPipeline', () => {
     expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
     expect(store.loadCostBasisContext).not.toHaveBeenCalled();
+  });
+
+  it('allows warning-only review summaries through the pipeline', async () => {
+    const store = stubStore();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+
+    const warningOnly = createTransactionFromMovements(
+      16,
+      '2025-01-10T00:00:00.000Z',
+      {
+        inflows: [createBlockchainTokenMovement('blockchain:ethereum:0xwarn', 'WARN', '10')],
+      },
+      [],
+      {
+        category: 'transfer',
+        source: 'ethereum',
+        sourceType: 'blockchain',
+        type: 'deposit',
+      }
+    );
+
+    const result = await runCostBasisPipeline([warningOnly], defaultConfig, store, {
+      missingPricePolicy: 'error',
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:ethereum:0xwarn',
+          createAssetReviewSummary('blockchain:ethereum:0xwarn', {
+            accountingBlocked: false,
+            warningSummary: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
+            evidence: [
+              {
+                kind: 'suspicious-airdrop-note',
+                severity: 'warning',
+                message: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
+              },
+            ],
+          }),
+        ],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
+    expect(store.loadCostBasisContext).toHaveBeenCalledOnce();
   });
 
   it('excludes transactions missing prices in soft mode and continues with the price-complete subset', async () => {

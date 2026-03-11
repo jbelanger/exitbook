@@ -49,6 +49,8 @@ describe('ScamDetectionService', () => {
     expect(note?.severity).toBe('error');
     expect(note?.type).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('professional');
+    expect(note?.metadata?.['assetSymbol']).toBe('TOKEN');
+    expect(note?.metadata?.['contractAddress']).toBe('0xabc');
   });
 
   it('falls back to symbol detection when metadata is missing', () => {
@@ -69,6 +71,8 @@ describe('ScamDetectionService', () => {
     expect(note?.severity).toBe('warning');
     expect(note?.type).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('symbol');
+    expect(note?.metadata?.['assetSymbol']).toBe('ClaimRewards.com');
+    expect(note?.metadata?.['contractAddress']).toBe('0xdef');
   });
 
   it('uses airdrop context for heuristic detection when metadata is neutral', () => {

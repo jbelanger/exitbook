@@ -3,6 +3,8 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  mockBuildAssetReviewFreshnessPorts,
+  mockBuildAssetReviewResetPorts,
   mockBuildLinksFreshnessPorts,
   mockBuildLinksResetPorts,
   mockBuildPriceCoverageDataPorts,
@@ -13,6 +15,8 @@ const {
   mockCreateDefaultPriceProviderManager,
   mockPipelineExecute,
 } = vi.hoisted(() => ({
+  mockBuildAssetReviewFreshnessPorts: vi.fn(),
+  mockBuildAssetReviewResetPorts: vi.fn(),
   mockBuildLinksFreshnessPorts: vi.fn(),
   mockBuildLinksResetPorts: vi.fn(),
   mockBuildPriceCoverageDataPorts: vi.fn(),
@@ -28,6 +32,8 @@ vi.mock('@exitbook/data', async () => {
   const actual = await vi.importActual('@exitbook/data');
   return {
     ...actual,
+    buildAssetReviewFreshnessPorts: mockBuildAssetReviewFreshnessPorts,
+    buildAssetReviewResetPorts: mockBuildAssetReviewResetPorts,
     buildLinksFreshnessPorts: mockBuildLinksFreshnessPorts,
     buildLinksResetPorts: mockBuildLinksResetPorts,
     buildPriceCoverageDataPorts: mockBuildPriceCoverageDataPorts,
@@ -64,6 +70,9 @@ describe('projection-runtime', () => {
     mockBuildProcessedTransactionsFreshnessPorts.mockReturnValue({
       checkFreshness: vi.fn().mockResolvedValue(ok({ status: 'fresh', reason: undefined })),
     });
+    mockBuildAssetReviewFreshnessPorts.mockReturnValue({
+      checkFreshness: vi.fn().mockResolvedValue(ok({ status: 'fresh', reason: undefined })),
+    });
     mockBuildLinksFreshnessPorts.mockReturnValue({
       checkFreshness: vi.fn().mockResolvedValue(ok({ status: 'fresh', reason: undefined })),
     });
@@ -86,8 +95,10 @@ describe('projection-runtime', () => {
     };
 
     const resetLinks = vi.fn().mockResolvedValue(ok({ links: 1 }));
+    const resetAssetReview = vi.fn().mockResolvedValue(ok({ assets: 1 }));
     const resetProcessed = vi.fn().mockResolvedValue(ok({ transactions: 2 }));
     mockBuildLinksResetPorts.mockReturnValue({ reset: resetLinks });
+    mockBuildAssetReviewResetPorts.mockReturnValue({ reset: resetAssetReview });
     mockBuildProcessedTransactionsResetPorts.mockReturnValue({ reset: resetProcessed });
 
     const result = await resetProjections(db as never, 'processed-transactions', [1]);
@@ -95,6 +106,7 @@ describe('projection-runtime', () => {
     assertOk(result);
     expect(db.executeInTransaction).toHaveBeenCalledOnce();
     expect(mockBuildLinksResetPorts).toHaveBeenCalledWith(txDb);
+    expect(mockBuildAssetReviewResetPorts).toHaveBeenCalledWith(txDb);
     expect(mockBuildProcessedTransactionsResetPorts).toHaveBeenCalledWith(txDb);
   });
 

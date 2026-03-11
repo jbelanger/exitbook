@@ -54,6 +54,17 @@ export class ScamDetectionService implements IScamDetectionService {
         });
 
         if (scamNote) {
+          scamNote = {
+            ...scamNote,
+            metadata: {
+              ...(scamNote.metadata ?? {}),
+              assetSymbol: movement.asset,
+              contractAddress: movement.contractAddress.toLowerCase(),
+            },
+          };
+        }
+
+        if (scamNote) {
           logger.debug(
             {
               contractAddress: movement.contractAddress,
@@ -78,6 +89,8 @@ export class ScamDetectionService implements IScamDetectionService {
           scamNote = {
             message: `⚠️ Potential scam token (${movement.asset}): ${scamResult.reason}`,
             metadata: {
+              assetSymbol: movement.asset,
+              contractAddress: movement.contractAddress.toLowerCase(),
               scamReason: scamResult.reason,
               scamAsset: movement.asset,
               detectionSource: 'symbol',

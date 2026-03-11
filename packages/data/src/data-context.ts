@@ -5,6 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { KyselyDB } from './database.js';
 import { closeDatabase, initializeDatabase } from './database.js';
 import { AccountRepository } from './repositories/account-repository.js';
+import { AssetReviewRepository } from './repositories/asset-review-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
 import { ProjectionStateRepository } from './repositories/projection-state-repository.js';
@@ -25,6 +26,7 @@ export class DataContext {
   }
 
   readonly accounts: AccountRepository;
+  readonly assetReview: AssetReviewRepository;
   readonly transactions: TransactionRepository;
   readonly transactionLinks: TransactionLinkRepository;
   readonly rawTransactions: RawTransactionRepository;
@@ -40,6 +42,7 @@ export class DataContext {
     this.connection = connection;
     this.isTransactionScoped = isTransactionScoped;
     this.accounts = new AccountRepository(connection);
+    this.assetReview = new AssetReviewRepository(connection);
     this.transactions = new TransactionRepository(connection);
     this.transactionLinks = new TransactionLinkRepository(connection);
     this.rawTransactions = new RawTransactionRepository(connection);

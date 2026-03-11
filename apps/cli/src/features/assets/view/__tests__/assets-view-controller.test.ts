@@ -8,8 +8,16 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
   return {
     assetId: 'blockchain:ethereum:0xscam',
     assetSymbols: ['SCAM'],
+    accountingBlocked: true,
     confirmationIsStale: false,
     currentQuantity: '100',
+    evidence: [
+      {
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'Suspicious asset evidence requires review',
+      },
+    ],
     evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
     excluded: false,
     movementCount: 1,
@@ -29,8 +37,10 @@ describe('assetsViewReducer', () => {
         createAsset({
           assetId: 'exchange:kraken:btc',
           assetSymbols: ['BTC'],
+          accountingBlocked: false,
           reviewState: 'clear',
           reviewSummary: undefined,
+          evidence: [],
         }),
       ],
       { totalCount: 2, excludedCount: 0, needsReviewCount: 1 }

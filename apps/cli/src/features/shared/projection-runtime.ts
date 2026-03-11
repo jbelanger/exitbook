@@ -18,6 +18,8 @@ import {
   type Result,
 } from '@exitbook/core';
 import {
+  buildAssetReviewFreshnessPorts,
+  buildAssetReviewResetPorts,
   buildLinkingPorts,
   buildLinksFreshnessPorts,
   buildLinksResetPorts,
@@ -38,6 +40,7 @@ import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
 import { createDefaultPriceProviderManager } from '../prices/command/prices-utils.js';
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
+import { rebuildAssetReviewProjection } from './asset-review-runtime.js';
 import { createProviderManagerWithStats } from './provider-manager-factory.js';
 
 const logger = getLogger('projection-runtime');
@@ -78,6 +81,7 @@ export interface PricePrereqConfig {
 function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<ProjectionId, ProjectionRuntime> {
   return {
     'processed-transactions': buildProcessedTransactionsRuntime(deps),
+    'asset-review': buildAssetReviewRuntime(deps),
     links: buildLinksRuntime(deps),
   };
 }
@@ -144,6 +148,20 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
           logger.warn({ e }, 'Failed to cleanup provider manager after reprocess');
         });
       }
+    },
+  };
+}
+
+function buildAssetReviewRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
+  const { db, dataDir } = deps;
+
+  return {
+    checkFreshness() {
+      return buildAssetReviewFreshnessPorts(db).checkFreshness();
+    },
+
+    async rebuild() {
+      return rebuildAssetReviewProjection(db, dataDir);
     },
   };
 }
@@ -262,6 +280,11 @@ async function resetSingleProjection(
   accountIds?: number[]
 ): Promise<Result<void, Error>> {
   switch (projectionId) {
+    case 'asset-review': {
+      const adapter = buildAssetReviewResetPorts(db);
+      const result = await adapter.reset(accountIds);
+      return result.isErr() ? err(result.error) : ok(undefined);
+    }
     case 'links': {
       const adapter = buildLinksResetPorts(db);
       const result = await adapter.reset(accountIds);
@@ -291,8 +314,7 @@ export async function ensureConsumerInputsReady(
   priceConfig?: PricePrereqConfig,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
-  const projectionTarget: ProjectionId = target === 'links-run' ? 'processed-transactions' : 'links';
-  const plan = [...rebuildPlan(projectionTarget), projectionTarget];
+  const plan = buildConsumerProjectionPlan(target);
 
   const registry = buildProjectionRuntimeRegistry(deps);
 
@@ -318,6 +340,14 @@ export async function ensureConsumerInputsReady(
   }
 
   return ok(undefined);
+}
+
+function buildConsumerProjectionPlan(target: ConsumerTarget): ProjectionId[] {
+  if (target === 'links-run') {
+    return ['processed-transactions'];
+  }
+
+  return [...new Set<ProjectionId>([...rebuildPlan('asset-review'), 'asset-review', ...rebuildPlan('links'), 'links'])];
 }
 
 // ---------------------------------------------------------------------------

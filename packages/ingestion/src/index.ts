@@ -17,7 +17,9 @@ export type { ReprocessPlan } from './features/process/process-workflow.js';
 export { BalanceWorkflow } from './features/balance/balance-workflow.js';
 export type { BalanceParams } from './features/balance/balance-workflow.js';
 export {
+  AssetReviewProjectionWorkflow,
   buildAssetReviewSummaries,
+  type AssetReviewProjectionRebuildOptions,
   type AssetReviewDecisionInput,
   type AssetReviewReferenceResolver,
   type AssetReviewTokenMetadataReader,
@@ -57,5 +59,13 @@ export {
 export { type ExchangeAdapter } from './shared/types/exchange-adapter.js';
 
 // Ports (re-export for convenience — canonical location is @exitbook/ingestion/ports)
-export type { ProcessingPorts, ImportPorts, BalancePorts } from './ports/index.js';
+export type {
+  AssetReviewProjectionPorts,
+  BalancePorts,
+  ImportPorts,
+  IAssetReviewDecisionSource,
+  IAssetReviewProjectionDataSource,
+  IAssetReviewProjectionStore,
+  ProcessingPorts,
+} from './ports/index.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ports/index.js';
