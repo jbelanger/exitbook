@@ -5,6 +5,7 @@ export { DataContext } from './data-context.js';
 export {
   AccountRepository,
   AssetReviewRepository,
+  BalanceSnapshotRepository,
   ImportSessionRepository,
   NearRawTransactionRepository,
   ProjectionStateRepository,
@@ -29,6 +30,8 @@ export { generateDeterministicTransactionHash } from './utils/transaction-id-uti
 export type {
   DatabaseSchema,
   ProjectionStateTable,
+  BalanceSnapshotsTable,
+  BalanceSnapshotAssetsTable,
   TransactionLinksTable,
   RawTransactionTable,
 } from './database-schema.js';
@@ -41,6 +44,7 @@ export { buildAccountQueryPorts } from './adapters/account-query-ports-adapter.j
 export { buildAssetReviewFreshnessPorts } from './adapters/asset-review-freshness-adapter.js';
 export { buildAssetReviewProjectionDataPorts } from './adapters/asset-review-projection-data-ports-adapter.js';
 export { buildAssetReviewResetPorts } from './adapters/asset-review-reset-adapter.js';
+export { buildBalancesResetPorts } from './adapters/balances-reset-adapter.js';
 export { buildCostBasisPorts } from './adapters/cost-basis-ports-adapter.js';
 export { buildImportPorts } from './adapters/import-ports-adapter.js';
 export { buildIngestionPurgePorts } from './adapters/ingestion-purge-adapter.js';

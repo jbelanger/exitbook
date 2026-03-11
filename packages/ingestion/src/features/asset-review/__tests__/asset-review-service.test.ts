@@ -65,6 +65,48 @@ function createTransaction(params: {
   };
 }
 
+function createMultiAssetTransaction(params: {
+  externalId: string;
+  fees?: { assetId: string; assetSymbol: string }[] | undefined;
+  id: number;
+  isSpam?: boolean | undefined;
+  notes?: UniversalTransactionData['notes'];
+  primaryAssets: { assetId: string; assetSymbol: string }[];
+  source?: string | undefined;
+}): UniversalTransactionData {
+  return {
+    id: params.id,
+    accountId: 1,
+    externalId: params.externalId,
+    datetime: '2025-01-01T00:00:00.000Z',
+    timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
+    source: params.source ?? 'ethereum',
+    sourceType: 'blockchain',
+    status: 'success',
+    isSpam: params.isSpam,
+    movements: {
+      inflows: params.primaryAssets.map((asset) => ({
+        assetId: asset.assetId,
+        assetSymbol: asset.assetSymbol as Currency,
+        grossAmount: parseDecimal('100'),
+      })),
+      outflows: [],
+    },
+    fees: (params.fees ?? []).map((fee) => ({
+      assetId: fee.assetId,
+      assetSymbol: fee.assetSymbol as Currency,
+      amount: parseDecimal('1'),
+      scope: 'platform' as const,
+      settlement: 'balance' as const,
+    })) as UniversalTransactionData['fees'],
+    operation: {
+      category: 'transfer',
+      type: 'deposit',
+    },
+    notes: params.notes,
+  };
+}
+
 describe('buildAssetReviewSummaries', () => {
   it('flags explicit scam note evidence without double-counting duplicate asset entries in a transaction', async () => {
     const assetId = 'blockchain:ethereum:0xscam';
@@ -131,6 +173,85 @@ describe('buildAssetReviewSummaries', () => {
     });
     expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-note', 'spam-flag']);
     expect(summaries.get(nativeAssetId)).toMatchObject({
+      reviewStatus: 'clear',
+      accountingBlocked: false,
+      evidence: [],
+    });
+  });
+
+  it('applies symbol-targeted scam notes to the uniquely matching asset in a multi-asset transaction', async () => {
+    const scamAssetId = 'blockchain:ethereum:0xscam';
+    const otherAssetId = 'blockchain:ethereum:0xother';
+
+    const result = await buildAssetReviewSummaries([
+      createMultiAssetTransaction({
+        id: 1,
+        externalId: 'tx-1',
+        primaryAssets: [
+          { assetId: scamAssetId, assetSymbol: 'SCAM' },
+          { assetId: otherAssetId, assetSymbol: 'OTHER' },
+        ],
+        notes: [
+          {
+            type: 'SCAM_TOKEN',
+            severity: 'warning',
+            message: 'Symbol-targeted scam note',
+            metadata: {
+              assetSymbol: 'SCAM',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summaries = assertOk(result);
+
+    expect(summaries.get(scamAssetId)).toMatchObject({
+      reviewStatus: 'needs-review',
+      accountingBlocked: false,
+    });
+    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-note']);
+    expect(summaries.get(otherAssetId)).toMatchObject({
+      reviewStatus: 'clear',
+      accountingBlocked: false,
+      evidence: [],
+    });
+  });
+
+  it('does not smear symbol-targeted scam notes across multiple assets that share the same symbol', async () => {
+    const firstAssetId = 'exchange:kraken:scam-one';
+    const secondAssetId = 'exchange:coinbase:scam-two';
+
+    const result = await buildAssetReviewSummaries([
+      createMultiAssetTransaction({
+        id: 1,
+        externalId: 'tx-1',
+        source: 'kraken',
+        primaryAssets: [
+          { assetId: firstAssetId, assetSymbol: 'SCAM' },
+          { assetId: secondAssetId, assetSymbol: 'SCAM' },
+        ],
+        notes: [
+          {
+            type: 'SCAM_TOKEN',
+            severity: 'warning',
+            message: 'Ambiguous symbol-targeted scam note',
+            metadata: {
+              assetSymbol: 'SCAM',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summaries = assertOk(result);
+
+    expect(summaries.get(firstAssetId)).toMatchObject({
+      reviewStatus: 'clear',
+      accountingBlocked: false,
+      evidence: [],
+    });
+    expect(summaries.get(secondAssetId)).toMatchObject({
       reviewStatus: 'clear',
       accountingBlocked: false,
       evidence: [],

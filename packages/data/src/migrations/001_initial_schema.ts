@@ -382,6 +382,73 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   `.execute(db);
 
   await db.schema
+    .createTable('balance_snapshots')
+    .addColumn('scope_account_id', 'integer', (col) => col.primaryKey().references('accounts.id'))
+    .addColumn('calculated_at', 'text')
+    .addColumn('last_refresh_at', 'text')
+    .addColumn('verification_status', 'text', (col) => col.notNull().defaultTo('never-run'))
+    .addColumn('coverage_status', 'text')
+    .addColumn('coverage_confidence', 'text')
+    .addColumn('requested_address_count', 'integer')
+    .addColumn('successful_address_count', 'integer')
+    .addColumn('failed_address_count', 'integer')
+    .addColumn('total_asset_count', 'integer')
+    .addColumn('parsed_asset_count', 'integer')
+    .addColumn('failed_asset_count', 'integer')
+    .addColumn('match_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('warning_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('mismatch_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('status_reason', 'text')
+    .addColumn('suggestion', 'text')
+    .addColumn('last_error', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'balance_snapshots_verification_status_valid',
+      sql`verification_status IN ('never-run', 'match', 'warning', 'mismatch', 'unavailable')`
+    )
+    .addCheckConstraint(
+      'balance_snapshots_coverage_status_valid',
+      sql`coverage_status IS NULL OR coverage_status IN ('complete', 'partial')`
+    )
+    .addCheckConstraint(
+      'balance_snapshots_coverage_confidence_valid',
+      sql`coverage_confidence IS NULL OR coverage_confidence IN ('high', 'medium', 'low')`
+    )
+    .execute();
+
+  await db.schema
+    .createTable('balance_snapshot_assets')
+    .addColumn('scope_account_id', 'integer', (col) =>
+      col.notNull().references('balance_snapshots.scope_account_id').onDelete('cascade')
+    )
+    .addColumn('asset_id', 'text', (col) => col.notNull())
+    .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('calculated_balance', 'text', (col) => col.notNull())
+    .addColumn('live_balance', 'text')
+    .addColumn('difference', 'text')
+    .addColumn('comparison_status', 'text')
+    .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
+    .addPrimaryKeyConstraint('balance_snapshot_assets_pk', ['scope_account_id', 'asset_id'])
+    .addCheckConstraint(
+      'balance_snapshot_assets_comparison_status_valid',
+      sql`comparison_status IS NULL OR comparison_status IN ('match', 'warning', 'mismatch', 'unavailable')`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_balance_snapshot_assets_asset_id')
+    .on('balance_snapshot_assets')
+    .column('asset_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_balance_snapshot_assets_symbol')
+    .on('balance_snapshot_assets')
+    .column('asset_symbol')
+    .execute();
+
+  await db.schema
     .createTable('asset_review_state')
     .addColumn('asset_id', 'text', (col) => col.primaryKey())
     .addColumn('review_status', 'text', (col) => col.notNull())
@@ -453,6 +520,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('asset_review_evidence').ifExists().execute();
   await db.schema.dropTable('asset_review_state').ifExists().execute();
+  await db.schema.dropTable('balance_snapshot_assets').ifExists().execute();
+  await db.schema.dropTable('balance_snapshots').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();

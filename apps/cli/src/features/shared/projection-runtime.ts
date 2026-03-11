@@ -20,6 +20,7 @@ import {
 import {
   buildAssetReviewFreshnessPorts,
   buildAssetReviewResetPorts,
+  buildBalancesResetPorts,
   buildLinkingPorts,
   buildLinksFreshnessPorts,
   buildLinksResetPorts,
@@ -74,11 +75,13 @@ export interface PricePrereqConfig {
   endDate: Date;
 }
 
+type GlobalProjectionId = Exclude<ProjectionId, 'balances'>;
+
 // ---------------------------------------------------------------------------
 // Projection runtime factory
 // ---------------------------------------------------------------------------
 
-function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<ProjectionId, ProjectionRuntime> {
+function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<GlobalProjectionId, ProjectionRuntime> {
   return {
     'processed-transactions': buildProcessedTransactionsRuntime(deps),
     'asset-review': buildAssetReviewRuntime(deps),
@@ -287,6 +290,11 @@ async function resetSingleProjection(
       const result = await adapter.reset(accountIds);
       return result.isErr() ? err(result.error) : ok(undefined);
     }
+    case 'balances': {
+      const adapter = buildBalancesResetPorts(db);
+      const result = await adapter.reset(accountIds);
+      return result.isErr() ? err(result.error) : ok(undefined);
+    }
     case 'links': {
       const adapter = buildLinksResetPorts(db);
       const result = await adapter.reset(accountIds);
@@ -344,12 +352,19 @@ export async function ensureConsumerInputsReady(
   return ok(undefined);
 }
 
-function buildConsumerProjectionPlan(target: ConsumerTarget): ProjectionId[] {
+function buildConsumerProjectionPlan(target: ConsumerTarget): GlobalProjectionId[] {
   if (target === 'links-run') {
     return ['processed-transactions'];
   }
 
-  return [...new Set<ProjectionId>([...rebuildPlan('asset-review'), 'asset-review', ...rebuildPlan('links'), 'links'])];
+  return [
+    ...new Set<GlobalProjectionId>([
+      ...rebuildPlan('asset-review'),
+      'asset-review',
+      ...rebuildPlan('links'),
+      'links',
+    ] as GlobalProjectionId[]),
+  ];
 }
 
 // ---------------------------------------------------------------------------

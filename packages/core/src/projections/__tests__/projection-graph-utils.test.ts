@@ -4,7 +4,7 @@ import { cascadeInvalidation, rebuildPlan, resetPlan } from '../projection-graph
 
 describe('cascadeInvalidation', () => {
   it('returns downstream dependents of processed-transactions', () => {
-    expect(cascadeInvalidation('processed-transactions')).toEqual(['asset-review', 'links']);
+    expect(cascadeInvalidation('processed-transactions')).toEqual(['asset-review', 'balances', 'links']);
   });
 
   it('returns empty for links (no downstream)', () => {
@@ -13,6 +13,10 @@ describe('cascadeInvalidation', () => {
 
   it('returns empty for asset-review (no downstream)', () => {
     expect(cascadeInvalidation('asset-review')).toEqual([]);
+  });
+
+  it('returns empty for balances (no downstream)', () => {
+    expect(cascadeInvalidation('balances')).toEqual([]);
   });
 });
 
@@ -25,6 +29,10 @@ describe('rebuildPlan', () => {
     expect(rebuildPlan('asset-review')).toEqual(['processed-transactions']);
   });
 
+  it('returns upstream dependencies for balances', () => {
+    expect(rebuildPlan('balances')).toEqual(['processed-transactions']);
+  });
+
   it('returns empty for processed-transactions (no upstream)', () => {
     expect(rebuildPlan('processed-transactions')).toEqual([]);
   });
@@ -32,7 +40,12 @@ describe('rebuildPlan', () => {
 
 describe('resetPlan', () => {
   it('returns downstream-first then target for processed-transactions', () => {
-    expect(resetPlan('processed-transactions')).toEqual(['links', 'asset-review', 'processed-transactions']);
+    expect(resetPlan('processed-transactions')).toEqual([
+      'links',
+      'balances',
+      'asset-review',
+      'processed-transactions',
+    ]);
   });
 
   it('returns just the target for links (no downstream)', () => {
@@ -41,5 +54,9 @@ describe('resetPlan', () => {
 
   it('returns just the target for asset-review (no downstream)', () => {
     expect(resetPlan('asset-review')).toEqual(['asset-review']);
+  });
+
+  it('returns just the target for balances (no downstream)', () => {
+    expect(resetPlan('balances')).toEqual(['balances']);
   });
 });

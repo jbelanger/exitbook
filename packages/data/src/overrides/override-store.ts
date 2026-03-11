@@ -149,6 +149,49 @@ export class OverrideStore {
     }
   }
 
+  async findLatestCreatedAt(scopes: Scope[]): Promise<Result<Date | undefined, Error>> {
+    try {
+      if (scopes.length === 0) {
+        return ok(undefined);
+      }
+
+      const ensureResult = await this.ensureDatabaseReady();
+      if (ensureResult.isErr()) {
+        return err(ensureResult.error);
+      }
+
+      if (!ensureResult.value) {
+        this.logger.debug({ dbPath: this.dbPath, scopes }, 'Override database does not exist, no latest timestamp');
+        return ok(undefined);
+      }
+
+      return withOverridesDatabase(this.dbPath, async (db) => {
+        try {
+          const row = await db
+            .selectFrom('override_events')
+            .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
+            .where('scope', 'in', scopes)
+            .executeTakeFirst();
+
+          if (!row?.latest) {
+            return ok(undefined);
+          }
+
+          const latestCreatedAt = new Date(row.latest);
+          if (Number.isNaN(latestCreatedAt.getTime())) {
+            return err(new Error(`Invalid override event timestamp stored in database: ${row.latest}`));
+          }
+
+          return ok(latestCreatedAt);
+        } catch (error) {
+          return wrapError(error, 'Failed to read latest override event timestamp by scopes');
+        }
+      });
+    } catch (error) {
+      return wrapError(error, 'Failed to read latest override event timestamp by scopes');
+    }
+  }
+
   /**
    * Get the file path for the override store
    */

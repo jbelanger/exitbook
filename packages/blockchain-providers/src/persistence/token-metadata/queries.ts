@@ -48,6 +48,35 @@ function toSqliteBoolean(value: boolean | undefined): number | null {
   return value ? 1 : 0;
 }
 
+function parseLatestRefreshAt(value: string | null | undefined, fieldName: string): Result<Date | undefined, Error> {
+  if (!value) {
+    return ok(undefined);
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return err(new Error(`Invalid ${fieldName}: ${value}`));
+  }
+
+  return ok(parsed);
+}
+
+function pickLatestDate(...dates: (Date | undefined)[]): Date | undefined {
+  let latest: Date | undefined;
+
+  for (const date of dates) {
+    if (!date) {
+      continue;
+    }
+
+    if (!latest || date > latest) {
+      latest = date;
+    }
+  }
+
+  return latest;
+}
+
 function mapTokenReferenceMatchRow(row: TokenReferenceMatchSelectableRow): TokenReferenceMatchRecord {
   return {
     blockchain: row.blockchain,
@@ -499,6 +528,53 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     }
   }
 
+  async function getLatestRefreshAt(): Promise<Result<Date | undefined, Error>> {
+    try {
+      const [tokenMetadataRow, referenceMatchRow, platformMappingRow] = await Promise.all([
+        db
+          .selectFrom('token_metadata')
+          .select(({ fn }) => [fn.max<string>('refreshed_at').as('latest')])
+          .executeTakeFirst(),
+        db
+          .selectFrom('token_reference_matches')
+          .select(({ fn }) => [fn.max<string>('refreshed_at').as('latest')])
+          .executeTakeFirst(),
+        db
+          .selectFrom('reference_platform_mappings')
+          .select(({ fn }) => [fn.max<string>('refreshed_at').as('latest')])
+          .executeTakeFirst(),
+      ]);
+
+      const latestTokenMetadataAt = parseLatestRefreshAt(tokenMetadataRow?.latest, 'token metadata refreshed_at');
+      if (latestTokenMetadataAt.isErr()) {
+        return err(latestTokenMetadataAt.error);
+      }
+
+      const latestReferenceMatchAt = parseLatestRefreshAt(
+        referenceMatchRow?.latest,
+        'token reference match refreshed_at'
+      );
+      if (latestReferenceMatchAt.isErr()) {
+        return err(latestReferenceMatchAt.error);
+      }
+
+      const latestPlatformMappingAt = parseLatestRefreshAt(
+        platformMappingRow?.latest,
+        'reference platform mapping refreshed_at'
+      );
+      if (latestPlatformMappingAt.isErr()) {
+        return err(latestPlatformMappingAt.error);
+      }
+
+      return ok(
+        pickLatestDate(latestTokenMetadataAt.value, latestReferenceMatchAt.value, latestPlatformMappingAt.value)
+      );
+    } catch (error) {
+      logger.error({ error }, 'Failed to load latest token metadata refresh timestamp');
+      return wrapError(error, 'Failed to load latest token metadata refresh timestamp');
+    }
+  }
+
   function isStale(updatedAt: Date): boolean {
     const now = new Date();
     const ageMs = now.getTime() - updatedAt.getTime();
@@ -561,6 +637,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     saveReferenceMatch,
     getReferencePlatformMapping,
     saveReferencePlatformMapping,
+    getLatestRefreshAt,
     isStale,
     isReferenceStale,
     isReferencePlatformMappingStale,

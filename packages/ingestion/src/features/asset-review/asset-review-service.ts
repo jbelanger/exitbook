@@ -287,12 +287,18 @@ function collectApplicableNotes(
     return exactMatches;
   }
 
-  const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(assetId);
-  if (isOnlyPrimaryAsset) {
-    return notes.filter((note) => noteTargetsSymbol(note, assetSymbol) || noteHasNoTarget(note));
+  const applicableNotes: TransactionNote[] = [];
+  const symbolMatches = notes.filter((note) => noteTargetsSymbol(note, assetSymbol));
+  if (symbolMatches.length > 0 && symbolTargetIsUnambiguous(transaction, assetId, assetSymbol)) {
+    applicableNotes.push(...symbolMatches);
   }
 
-  return [];
+  const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(assetId);
+  if (isOnlyPrimaryAsset) {
+    applicableNotes.push(...notes.filter((note) => noteHasNoTarget(note)));
+  }
+
+  return applicableNotes;
 }
 
 function noteTargetsAsset(note: TransactionNote, assetId: string): boolean {
@@ -327,7 +333,33 @@ function noteTargetsSymbol(note: TransactionNote, assetSymbol: string): boolean 
 }
 
 function noteHasNoTarget(note: TransactionNote): boolean {
-  return note.metadata?.['assetId'] === undefined && note.metadata?.['contractAddress'] === undefined;
+  return (
+    note.metadata?.['assetId'] === undefined &&
+    note.metadata?.['contractAddress'] === undefined &&
+    note.metadata?.['assetSymbol'] === undefined &&
+    note.metadata?.['scamAsset'] === undefined
+  );
+}
+
+function symbolTargetIsUnambiguous(
+  transaction: UniversalTransactionData,
+  assetId: string,
+  assetSymbol: string
+): boolean {
+  const normalizedSymbol = assetSymbol.trim().toLowerCase();
+  const matchingAssetIds = new Set<string>();
+
+  for (const entry of [
+    ...(transaction.movements.inflows ?? []),
+    ...(transaction.movements.outflows ?? []),
+    ...(transaction.fees ?? []),
+  ]) {
+    if (entry.assetSymbol.trim().toLowerCase() === normalizedSymbol) {
+      matchingAssetIds.add(entry.assetId);
+    }
+  }
+
+  return matchingAssetIds.size === 1 && matchingAssetIds.has(assetId);
 }
 
 function buildAssetEvidence(

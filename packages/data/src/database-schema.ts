@@ -233,6 +233,40 @@ export interface ProjectionStateTable {
   metadata_json: JSONString | null;
 }
 
+export interface BalanceSnapshotsTable {
+  scope_account_id: number;
+  calculated_at: DateTime | null;
+  last_refresh_at: DateTime | null;
+  verification_status: string;
+  coverage_status: string | null;
+  coverage_confidence: string | null;
+  requested_address_count: number | null;
+  successful_address_count: number | null;
+  failed_address_count: number | null;
+  total_asset_count: number | null;
+  parsed_asset_count: number | null;
+  failed_asset_count: number | null;
+  match_count: number;
+  warning_count: number;
+  mismatch_count: number;
+  status_reason: string | null;
+  suggestion: string | null;
+  last_error: string | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+export interface BalanceSnapshotAssetsTable {
+  scope_account_id: number;
+  asset_id: string;
+  asset_symbol: string;
+  calculated_balance: DecimalString;
+  live_balance: DecimalString | null;
+  difference: DecimalString | null;
+  comparison_status: string | null;
+  excluded_from_accounting: boolean;
+}
+
 export interface AssetReviewStateTable {
   asset_id: string;
   review_status: string;
@@ -267,6 +301,8 @@ export interface DatabaseSchema {
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
   projection_state: ProjectionStateTable;
+  balance_snapshots: BalanceSnapshotsTable;
+  balance_snapshot_assets: BalanceSnapshotAssetsTable;
   asset_review_state: AssetReviewStateTable;
   asset_review_evidence: AssetReviewEvidenceTable;
 }
