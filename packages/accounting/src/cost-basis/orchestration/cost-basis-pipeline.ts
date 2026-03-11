@@ -7,7 +7,6 @@ import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-s
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
-import { assertNoAmbiguousScopedBlockchainSymbols } from '../shared/ambiguous-asset-review.js';
 import { assertNoScopedAssetsRequireReview } from '../shared/asset-review-preflight.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 import { getJurisdictionRules, validateScopedTransactionPrices } from '../shared/cost-basis-utils.js';
@@ -65,11 +64,6 @@ export async function runCostBasisPipeline(
     scopedResult.value,
     options.accountingExclusionPolicy
   ).scopedBuildResult;
-
-  const ambiguityReviewResult = assertNoAmbiguousScopedBlockchainSymbols(priceValidatedScopedBuild.transactions);
-  if (ambiguityReviewResult.isErr()) {
-    return err(ambiguityReviewResult.error);
-  }
 
   const assetReviewResult = assertNoScopedAssetsRequireReview(
     priceValidatedScopedBuild.transactions,

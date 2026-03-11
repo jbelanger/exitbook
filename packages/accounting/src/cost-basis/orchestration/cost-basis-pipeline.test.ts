@@ -274,7 +274,11 @@ describe('runCostBasisPipeline', () => {
       ]),
     });
 
-    expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
+    const error = assertErr(result);
+    expect(error.message).toContain('Assets flagged for review require confirmation or exclusion');
+    expect(error.message).toContain(
+      'Ambiguous on-chain asset symbols remain blocked until the unwanted contract is excluded.'
+    );
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
     expect(store.loadCostBasisContext).not.toHaveBeenCalled();
   });
@@ -538,9 +542,45 @@ describe('runCostBasisPipeline', () => {
 
     const result = await runCostBasisPipeline([first, second], defaultConfig, store, {
       missingPricePolicy: 'error',
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:arbitrum:0xaaa',
+          createAssetReviewSummary('blockchain:arbitrum:0xaaa', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdc',
+            evidence: [
+              {
+                kind: 'same-symbol-ambiguity',
+                severity: 'warning',
+                message: 'Same-chain symbol ambiguity on arbitrum:usdc',
+              },
+            ],
+          }),
+        ],
+        [
+          'blockchain:arbitrum:0xbbb',
+          createAssetReviewSummary('blockchain:arbitrum:0xbbb', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdc',
+            evidence: [
+              {
+                kind: 'same-symbol-ambiguity',
+                severity: 'warning',
+                message: 'Same-chain symbol ambiguity on arbitrum:usdc',
+              },
+            ],
+          }),
+        ],
+      ]),
     });
 
-    expect(assertErr(result).message).toContain('Ambiguous on-chain asset symbols require review');
+    const error = assertErr(result);
+    expect(error.message).toContain('Assets flagged for review require confirmation or exclusion');
+    expect(error.message).toContain(
+      'Ambiguous on-chain asset symbols remain blocked until the unwanted contract is excluded.'
+    );
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
     expect(store.loadCostBasisContext).not.toHaveBeenCalled();
   });

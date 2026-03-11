@@ -26,6 +26,9 @@ export interface ProcessingPorts {
   /** Mark processed-transactions projection as failed. */
   markProcessedTransactionsFailed(): Promise<Result<void, Error>>;
 
+  /** Rebuild the dependent asset-review projection after processing succeeds. */
+  rebuildAssetReviewProjection(): Promise<Result<void, Error>>;
+
   /** Execute a callback where all port operations share a single atomic transaction. */
   withTransaction<T>(fn: (txPorts: ProcessingPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;
 }

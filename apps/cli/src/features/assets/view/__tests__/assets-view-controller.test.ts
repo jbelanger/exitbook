@@ -93,9 +93,21 @@ describe('assetsViewReducer', () => {
     const nextState = assetsViewReducer(state, {
       type: 'CONFIRM_REVIEW_SUCCESS',
       assetId: 'blockchain:ethereum:0xscam',
+      review: {
+        accountingBlocked: false,
+        confirmationIsStale: false,
+        evidence: [],
+        evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+        referenceStatus: 'matched',
+        reviewState: 'reviewed',
+        reviewSummary: undefined,
+      },
     });
 
     expect(nextState.assets[0]?.reviewState).toBe('reviewed');
+    expect(nextState.assets[0]?.accountingBlocked).toBe(false);
+    expect(nextState.assets[0]?.evidence).toEqual([]);
+    expect(nextState.assets[0]?.referenceStatus).toBe('matched');
     expect(nextState.needsReviewCount).toBe(0);
     expect(nextState.pendingAction).toBeUndefined();
   });

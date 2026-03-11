@@ -68,18 +68,32 @@ describe('AssetsViewApp', () => {
           assetId: 'blockchain:ethereum:0xscam',
           assetSymbols: ['SCAM'],
           changed: true,
+          accountingBlocked: false,
           confirmationIsStale: false,
+          evidence: [],
           evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+          referenceStatus: 'matched',
           reviewState: 'reviewed',
+          reviewSummary: undefined,
         })}
         onClearReview={async () => ({
           action: 'clear-review',
           assetId: 'blockchain:ethereum:0xscam',
           assetSymbols: ['SCAM'],
           changed: true,
+          accountingBlocked: true,
           confirmationIsStale: false,
+          evidence: [
+            {
+              kind: 'spam-flag',
+              severity: 'error',
+              message: 'Provider flagged this token as spam',
+            },
+          ],
           evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+          referenceStatus: 'matched',
           reviewState: 'needs-review',
+          reviewSummary: 'Provider flagged this token as spam',
         })}
       />
     );

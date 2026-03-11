@@ -51,13 +51,17 @@ export interface AssetOverrideResult {
 
 export interface AssetReviewOverrideResult {
   action: 'clear-review' | 'confirm';
+  accountingBlocked: boolean;
   assetId: string;
   assetSymbols: string[];
   changed: boolean;
   confirmationIsStale: boolean;
+  evidence: AssetReviewEvidence[];
   evidenceFingerprint: string;
+  referenceStatus: AssetReferenceStatus;
   reason?: string | undefined;
   reviewState: AssetReviewStatus;
+  reviewSummary?: string | undefined;
 }
 
 export interface ExcludedAssetSummary {
@@ -220,13 +224,11 @@ export class AssetsHandler {
     ) {
       return ok({
         action: 'confirm',
+        ...toAssetReviewOverrideSnapshot(reviewSummary),
         assetId,
         assetSymbols,
         changed: false,
         reason: params.reason,
-        evidenceFingerprint: reviewSummary.evidenceFingerprint,
-        reviewState: 'reviewed',
-        confirmationIsStale: false,
       });
     }
 
@@ -260,13 +262,11 @@ export class AssetsHandler {
 
     return ok({
       action: 'confirm',
+      ...toAssetReviewOverrideSnapshot(refreshedSummary),
       assetId,
       assetSymbols,
       changed: true,
       reason: params.reason,
-      evidenceFingerprint: refreshedSummary.evidenceFingerprint,
-      reviewState: refreshedSummary.reviewStatus,
-      confirmationIsStale: refreshedSummary.confirmationIsStale,
     });
   }
 
@@ -292,13 +292,11 @@ export class AssetsHandler {
     if (currentDecision?.action !== 'confirm') {
       return ok({
         action: 'clear-review',
+        ...toAssetReviewOverrideSnapshot(reviewSummary),
         assetId,
         assetSymbols,
         changed: false,
         reason: params.reason,
-        evidenceFingerprint: reviewSummary.evidenceFingerprint,
-        reviewState: reviewSummary.evidence.length > 0 ? 'needs-review' : 'clear',
-        confirmationIsStale: false,
       });
     }
 
@@ -331,13 +329,11 @@ export class AssetsHandler {
 
     return ok({
       action: 'clear-review',
+      ...toAssetReviewOverrideSnapshot(refreshedSummary),
       assetId,
       assetSymbols,
       changed: true,
       reason: params.reason,
-      evidenceFingerprint: refreshedSummary.evidenceFingerprint,
-      reviewState: refreshedSummary.reviewStatus,
-      confirmationIsStale: refreshedSummary.confirmationIsStale,
     });
   }
 
@@ -520,4 +516,27 @@ function getAssetSortPriority(item: AssetViewItem): number {
     return 2;
   }
   return 3;
+}
+
+function toAssetReviewOverrideSnapshot(
+  reviewSummary: AssetReviewSummary
+): Pick<
+  AssetReviewOverrideResult,
+  | 'accountingBlocked'
+  | 'confirmationIsStale'
+  | 'evidence'
+  | 'evidenceFingerprint'
+  | 'referenceStatus'
+  | 'reviewState'
+  | 'reviewSummary'
+> {
+  return {
+    accountingBlocked: reviewSummary.accountingBlocked,
+    confirmationIsStale: reviewSummary.confirmationIsStale,
+    evidence: reviewSummary.evidence,
+    evidenceFingerprint: reviewSummary.evidenceFingerprint,
+    referenceStatus: reviewSummary.referenceStatus,
+    reviewState: reviewSummary.reviewStatus,
+    reviewSummary: reviewSummary.warningSummary,
+  };
 }

@@ -8,7 +8,12 @@ import { computeAccountHash } from '../utils/account-hash.js';
  * Bridges DataContext repositories to ingestion's ProcessingPorts.
  * This is the only place where the concrete data layer meets the ingestion hexagon's ports.
  */
-export function buildProcessingPorts(db: DataContext): ProcessingPorts {
+export function buildProcessingPorts(
+  db: DataContext,
+  options: {
+    rebuildAssetReviewProjection: () => Promise<import('@exitbook/core').Result<void, Error>>;
+  }
+): ProcessingPorts {
   return {
     batchSource: {
       findAccountsWithRawData: () => db.rawTransactions.findDistinctAccountIds({}),
@@ -86,6 +91,8 @@ export function buildProcessingPorts(db: DataContext): ProcessingPorts {
 
     markProcessedTransactionsFailed: () => db.projectionState.markFailed('processed-transactions'),
 
-    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb))),
+    rebuildAssetReviewProjection: options.rebuildAssetReviewProjection,
+
+    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb, options))),
   };
 }

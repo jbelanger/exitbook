@@ -6,6 +6,7 @@ import { ASSETS_CHROME_LINES } from './assets-view-components.jsx';
 import {
   applyAssetViewMutation,
   applyFilter,
+  type AssetReviewViewMutation,
   type AssetsViewFilter,
   type AssetsViewState,
 } from './assets-view-state.js';
@@ -22,8 +23,8 @@ export type AssetsViewAction =
   | { type: 'CONFIRM_REVIEW' }
   | { type: 'CLEAR_REVIEW' }
   | { assetId: string; excluded: boolean; type: 'TOGGLE_EXCLUSION_SUCCESS' }
-  | { assetId: string; type: 'CONFIRM_REVIEW_SUCCESS' }
-  | { assetId: string; reviewState: AssetViewItem['reviewState']; type: 'CLEAR_REVIEW_SUCCESS' }
+  | { assetId: string; review: AssetReviewViewMutation; type: 'CONFIRM_REVIEW_SUCCESS' }
+  | { assetId: string; review: AssetReviewViewMutation; type: 'CLEAR_REVIEW_SUCCESS' }
   | { error: string; type: 'SET_ERROR' };
 
 export function assetsViewReducer(state: AssetsViewState, action: AssetsViewAction): AssetsViewState {
@@ -159,17 +160,18 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
 
     case 'CONFIRM_REVIEW_SUCCESS': {
       const assets = applyAssetViewMutation(state.assets, {
-        type: 'confirm-review',
+        type: 'update-review',
         assetId: action.assetId,
+        review: action.review,
       });
       return rebuildStateAfterMutation(state, assets);
     }
 
     case 'CLEAR_REVIEW_SUCCESS': {
       const assets = applyAssetViewMutation(state.assets, {
-        type: 'clear-review',
+        type: 'update-review',
         assetId: action.assetId,
-        reviewState: action.reviewState,
+        review: action.review,
       });
       return rebuildStateAfterMutation(state, assets);
     }

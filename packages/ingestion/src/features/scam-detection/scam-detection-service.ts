@@ -32,17 +32,13 @@ export class ScamDetectionService implements IScamDetectionService {
     movements: MovementWithContext[],
     metadataMap: Map<string, TokenMetadataRecord | undefined>,
     blockchain?: string
-  ): Map<number, TransactionNote> {
+  ): Map<number, TransactionNote[]> {
     this.batchCounter += 1;
-    const scamNotes = new Map<number, TransactionNote>();
+    const scamNotes = new Map<number, TransactionNote[]>();
     const exampleSymbols: string[] = [];
+    let totalScamNotes = 0;
 
     for (const movement of movements) {
-      // Skip if we already found a scam for this transaction (early exit per transaction)
-      if (scamNotes.has(movement.transactionIndex)) {
-        continue;
-      }
-
       let scamNote: TransactionNote | undefined;
 
       // Tier 1: Metadata-based detection (contract address expected for token movements)
@@ -105,7 +101,10 @@ export class ScamDetectionService implements IScamDetectionService {
 
       // Store scam note for this transaction (if found)
       if (scamNote) {
-        scamNotes.set(movement.transactionIndex, scamNote);
+        const existing = scamNotes.get(movement.transactionIndex) ?? [];
+        existing.push(scamNote);
+        scamNotes.set(movement.transactionIndex, existing);
+        totalScamNotes += 1;
 
         // Collect first 3 example symbols
         if (exampleSymbols.length < 3) {
@@ -121,7 +120,7 @@ export class ScamDetectionService implements IScamDetectionService {
         blockchain,
         batchNumber: this.batchCounter,
         totalScanned: movements.length,
-        scamsFound: scamNotes.size,
+        scamsFound: totalScamNotes,
         exampleSymbols,
       });
     }

@@ -8,6 +8,7 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
 
+import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import type { CommandContext } from './command-runtime.js';
 import { createProviderManagerWithStats, type ProviderManagerWithStats } from './provider-manager-factory.js';
 
@@ -46,7 +47,9 @@ export async function createIngestionInfrastructure(
   });
 
   try {
-    const ports = buildProcessingPorts(database);
+    const ports = buildProcessingPorts(database, {
+      rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(database, ctx.dataDir),
+    });
     const processingWorkflow = new ProcessingWorkflow(
       ports,
       providerManager,

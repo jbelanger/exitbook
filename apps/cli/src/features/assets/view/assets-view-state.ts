@@ -1,5 +1,3 @@
-import type { AssetReviewStatus } from '@exitbook/core';
-
 import type { AssetViewItem } from '../command/assets-handler.js';
 
 export type AssetsViewFilter = 'all' | 'needs-review';
@@ -21,6 +19,17 @@ export interface AssetsViewState {
   selectedIndex: number;
   totalCount: number;
 }
+
+export type AssetReviewViewMutation = Pick<
+  AssetViewItem,
+  | 'accountingBlocked'
+  | 'confirmationIsStale'
+  | 'evidence'
+  | 'evidenceFingerprint'
+  | 'referenceStatus'
+  | 'reviewState'
+  | 'reviewSummary'
+>;
 
 export function createAssetsViewState(
   assets: AssetViewItem[],
@@ -47,8 +56,7 @@ export function applyAssetViewMutation(
   assets: AssetViewItem[],
   mutation:
     | { assetId: string; excluded: boolean; type: 'toggle-exclusion' }
-    | { assetId: string; type: 'confirm-review' }
-    | { assetId: string; reviewState: AssetReviewStatus; type: 'clear-review' }
+    | { assetId: string; review: AssetReviewViewMutation; type: 'update-review' }
 ): AssetViewItem[] {
   return assets.map((asset) => {
     if (asset.assetId !== mutation.assetId) {
@@ -62,18 +70,9 @@ export function applyAssetViewMutation(
       };
     }
 
-    if (mutation.type === 'confirm-review') {
-      return {
-        ...asset,
-        reviewState: 'reviewed',
-        confirmationIsStale: false,
-      };
-    }
-
     return {
       ...asset,
-      reviewState: mutation.reviewState,
-      confirmationIsStale: false,
+      ...mutation.review,
     };
   });
 }

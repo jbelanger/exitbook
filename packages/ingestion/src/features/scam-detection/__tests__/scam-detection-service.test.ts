@@ -44,7 +44,7 @@ describe('ScamDetectionService', () => {
     const result = service.detectScams(movements, metadataMap);
 
     expect(result.size).toBe(1);
-    const note = result.get(0);
+    const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
     expect(note?.type).toBe('SCAM_TOKEN');
@@ -66,7 +66,7 @@ describe('ScamDetectionService', () => {
     const result = service.detectScams(movements, metadataMap);
 
     expect(result.size).toBe(1);
-    const note = result.get(0);
+    const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('warning');
     expect(note?.type).toBe('SCAM_TOKEN');
@@ -100,14 +100,14 @@ describe('ScamDetectionService', () => {
     const result = service.detectScams(movements, metadataMap);
 
     expect(result.size).toBe(1);
-    const note = result.get(0);
+    const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
     expect(note?.type).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('heuristic');
   });
 
-  it('records only the first scam per transaction', () => {
+  it('records every suspicious asset in the same transaction', () => {
     const service = new ScamDetectionService(createMockEventBus());
     const movements = [
       createMovement({
@@ -135,8 +135,8 @@ describe('ScamDetectionService', () => {
     const result = service.detectScams(movements, metadataMap);
 
     expect(result.size).toBe(1);
-    const note = result.get(0);
-    expect(note).toBeDefined();
-    expect(note?.metadata?.['detectionSource']).toBe('professional');
+    const notes = result.get(0);
+    expect(notes).toHaveLength(2);
+    expect(notes?.map((note) => note.metadata?.['detectionSource'] as unknown)).toEqual(['professional', 'symbol']);
   });
 });

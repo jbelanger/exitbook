@@ -39,7 +39,12 @@ export async function readAssetReviewProjection(
 }
 
 export async function rebuildAssetReviewProjection(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
-  const hostDependencies = await createAssetReviewProjectionHostDependencies(dataDir);
+  const hostDependenciesResult = await createAssetReviewProjectionHostDependencies(dataDir);
+  if (hostDependenciesResult.isErr()) {
+    return err(hostDependenciesResult.error);
+  }
+
+  const hostDependencies = hostDependenciesResult.value;
   const workflow = new AssetReviewProjectionWorkflow({
     ...buildAssetReviewProjectionDataPorts(db),
     loadReviewDecisions: hostDependencies.loadReviewDecisions,

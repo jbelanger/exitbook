@@ -354,4 +354,46 @@ describe('buildAssetReviewSummaries', () => {
     });
     expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-note']);
   });
+
+  it('does not turn warning-only SCAM_TOKEN notes into blocking error evidence', async () => {
+    const assetId = 'blockchain:ethereum:0xwarn';
+
+    const result = await buildAssetReviewSummaries([
+      createTransaction({
+        id: 1,
+        externalId: 'tx-1',
+        assetId,
+        assetSymbol: 'WARN',
+        notes: [
+          {
+            type: 'SCAM_TOKEN',
+            severity: 'warning',
+            message: 'Suspicious symbol-based token warning',
+            metadata: {
+              assetSymbol: 'WARN',
+              contractAddress: '0xwarn',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summary = assertOk(result).get(assetId);
+
+    expect(summary).toMatchObject({
+      reviewStatus: 'needs-review',
+      accountingBlocked: false,
+      warningSummary: '1 processed transaction(s) carried SCAM_TOKEN warnings',
+    });
+    expect(summary?.evidence).toEqual([
+      {
+        kind: 'scam-note',
+        severity: 'warning',
+        message: '1 processed transaction(s) carried SCAM_TOKEN warnings',
+        metadata: {
+          count: 1,
+        },
+      },
+    ]);
+  });
 });

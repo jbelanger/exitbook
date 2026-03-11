@@ -107,6 +107,30 @@ export class ProcessingWorkflow {
         allErrors.push(...result.value.errors);
       }
 
+      // Mark projection fresh + cascade-invalidate downstream, or failed
+      if (totalFailed === 0) {
+        const freshResult = await this.ports.markProcessedTransactionsFresh();
+        if (freshResult.isErr()) return err(freshResult.error);
+
+        const assetReviewResult = await this.ports.rebuildAssetReviewProjection();
+        if (assetReviewResult.isErr()) {
+          const errorMessage = `Processed transactions were rebuilt, but asset review projection failed: ${assetReviewResult.error.message}`;
+
+          this.eventBus.emit({
+            type: 'process.failed',
+            accountIds,
+            error: errorMessage,
+          });
+
+          return err(new Error(errorMessage));
+        }
+      } else {
+        const failedResult = await this.ports.markProcessedTransactionsFailed();
+        if (failedResult.isErr()) {
+          this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
+        }
+      }
+
       // Emit process.completed event (even if some accounts failed)
       this.eventBus.emit({
         type: 'process.completed',
@@ -115,17 +139,6 @@ export class ProcessingWorkflow {
         totalProcessed,
         errors: allErrors,
       });
-
-      // Mark projection fresh + cascade-invalidate downstream, or failed
-      if (totalFailed === 0) {
-        const freshResult = await this.ports.markProcessedTransactionsFresh();
-        if (freshResult.isErr()) return err(freshResult.error);
-      } else {
-        const failedResult = await this.ports.markProcessedTransactionsFailed();
-        if (failedResult.isErr()) {
-          this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
-        }
-      }
 
       return ok({
         errors: allErrors,

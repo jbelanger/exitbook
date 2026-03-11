@@ -91,7 +91,7 @@ function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<Pro
 // ---------------------------------------------------------------------------
 
 function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
-  const { db, registry, isJsonMode } = deps;
+  const { db, registry, isJsonMode, dataDir } = deps;
 
   return {
     checkFreshness() {
@@ -114,7 +114,9 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
           },
         });
 
-        const ports = buildProcessingPorts(db);
+        const ports = buildProcessingPorts(db, {
+          rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
+        });
         const processingWorkflow = new ProcessingWorkflow(ports, providerManager, eventBus, registry);
 
         // 1. Plan: resolve accounts and guard incomplete imports

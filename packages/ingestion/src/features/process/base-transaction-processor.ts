@@ -128,16 +128,18 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap, this.sourceName);
 
     // Apply notes to transactions
-    for (const [txIndex, note] of scamNotes) {
+    for (const [txIndex, notes] of scamNotes) {
       const tx = transactions[txIndex];
       if (!tx) {
         this.logger.warn(`Transaction at index ${txIndex} not found when applying scam detection notes`);
         continue;
       }
-      if (note.severity === 'error') {
+
+      if (notes.some((note) => note.severity === 'error')) {
         tx.isSpam = true;
       }
-      tx.notes = [...(tx.notes || []), note];
+
+      tx.notes = [...(tx.notes || []), ...notes];
     }
   }
 

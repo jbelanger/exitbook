@@ -71,10 +71,19 @@ export const AssetsViewApp: FC<{
 
     if (state.pendingAction.type === 'confirm-review') {
       void onConfirmReview(selected.assetId)
-        .then(() => {
+        .then((result) => {
           dispatch({
             type: 'CONFIRM_REVIEW_SUCCESS',
             assetId: selected.assetId,
+            review: {
+              accountingBlocked: result.accountingBlocked,
+              confirmationIsStale: result.confirmationIsStale,
+              evidence: result.evidence,
+              evidenceFingerprint: result.evidenceFingerprint,
+              referenceStatus: result.referenceStatus,
+              reviewState: result.reviewState,
+              reviewSummary: result.reviewSummary,
+            },
           });
         })
         .catch((error: unknown) => {
@@ -88,7 +97,15 @@ export const AssetsViewApp: FC<{
         dispatch({
           type: 'CLEAR_REVIEW_SUCCESS',
           assetId: selected.assetId,
-          reviewState: result.reviewState,
+          review: {
+            accountingBlocked: result.accountingBlocked,
+            confirmationIsStale: result.confirmationIsStale,
+            evidence: result.evidence,
+            evidenceFingerprint: result.evidenceFingerprint,
+            referenceStatus: result.referenceStatus,
+            reviewState: result.reviewState,
+            reviewSummary: result.reviewSummary,
+          },
         });
       })
       .catch((error: unknown) => {

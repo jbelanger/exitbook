@@ -14,7 +14,9 @@ const logger = getLogger('asset-review-service');
 interface AssetSignal {
   assetId: string;
   hasSpamFlag: boolean;
+  scamNoteHasError: boolean;
   scamNoteCount: number;
+  suspiciousAirdropNoteHasError: boolean;
   suspiciousAirdropNoteCount: number;
   symbols: Set<string>;
 }
@@ -171,7 +173,9 @@ function collectAssetSignals(transactions: UniversalTransactionData[]): Map<stri
       const signal = signalsByAssetId.get(entry.assetId) ?? {
         assetId: entry.assetId,
         hasSpamFlag: false,
+        scamNoteHasError: false,
         scamNoteCount: 0,
+        suspiciousAirdropNoteHasError: false,
         suspiciousAirdropNoteCount: 0,
         symbols: new Set<string>(),
       };
@@ -194,9 +198,11 @@ function collectAssetSignals(transactions: UniversalTransactionData[]): Map<stri
         for (const note of applicableNotes) {
           if (note.type === 'SCAM_TOKEN') {
             signal.scamNoteCount += 1;
+            signal.scamNoteHasError ||= note.severity !== 'warning';
           }
           if (note.type === 'SUSPICIOUS_AIRDROP') {
             signal.suspiciousAirdropNoteCount += 1;
+            signal.suspiciousAirdropNoteHasError ||= note.severity === 'error';
           }
         }
       }
@@ -355,7 +361,7 @@ function buildAssetEvidence(
   if (signal.scamNoteCount > 0) {
     evidence.push({
       kind: 'scam-note',
-      severity: 'error',
+      severity: signal.scamNoteHasError ? 'error' : 'warning',
       message: `${signal.scamNoteCount} processed transaction(s) carried SCAM_TOKEN warnings`,
       metadata: {
         count: signal.scamNoteCount,
@@ -366,7 +372,7 @@ function buildAssetEvidence(
   if (signal.suspiciousAirdropNoteCount > 0) {
     evidence.push({
       kind: 'suspicious-airdrop-note',
-      severity: 'warning',
+      severity: signal.suspiciousAirdropNoteHasError ? 'error' : 'warning',
       message: `${signal.suspiciousAirdropNoteCount} processed transaction(s) carried SUSPICIOUS_AIRDROP warnings`,
       metadata: {
         count: signal.suspiciousAirdropNoteCount,
