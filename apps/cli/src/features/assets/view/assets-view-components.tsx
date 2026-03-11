@@ -81,8 +81,8 @@ export const AssetsViewApp: FC<{
               evidence: result.evidence,
               evidenceFingerprint: result.evidenceFingerprint,
               referenceStatus: result.referenceStatus,
-              reviewState: result.reviewState,
-              reviewSummary: result.reviewSummary,
+              reviewStatus: result.reviewStatus,
+              warningSummary: result.warningSummary,
             },
           });
         })
@@ -103,8 +103,8 @@ export const AssetsViewApp: FC<{
             evidence: result.evidence,
             evidenceFingerprint: result.evidenceFingerprint,
             referenceStatus: result.referenceStatus,
-            reviewState: result.reviewState,
-            reviewSummary: result.reviewSummary,
+            reviewStatus: result.reviewStatus,
+            warningSummary: result.warningSummary,
           },
         });
       })
@@ -145,7 +145,7 @@ const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
       <Text> </Text>
       <Text>{state.totalCount} total</Text>
       <Text dimColor> · </Text>
-      <Text color="yellow">{state.needsReviewCount} needs review</Text>
+      <Text color="yellow">{state.actionRequiredCount} action required</Text>
       <Text dimColor> · </Text>
       <Text dimColor>{state.excludedCount} excluded</Text>
       <Text dimColor> · </Text>
@@ -163,7 +163,9 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
   const hasMoreBelow = endIndex < state.filteredAssets.length;
 
   if (state.filteredAssets.length === 0) {
-    return <Text dimColor>{state.filter === 'needs-review' ? 'No assets need review.' : 'No assets found.'}</Text>;
+    return (
+      <Text dimColor>{state.filter === 'action-required' ? 'No assets require action.' : 'No assets found.'}</Text>
+    );
   }
 
   return (
@@ -196,7 +198,7 @@ const AssetRow: FC<{ asset: AssetViewItem; isSelected: boolean }> = ({ asset, is
   const primarySymbol = asset.assetSymbols[0] ?? '(unknown)';
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={getReviewColor(asset.reviewState)}>{formatReviewBadge(asset)}</Text>{' '}
+      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>{' '}
       <Text color="cyan">{primarySymbol}</Text> <Text dimColor>{asset.currentQuantity}</Text>{' '}
       <Text dimColor>{formatReferenceStatus(asset.referenceStatus)}</Text>{' '}
       <Text dimColor>{asset.excluded ? 'excluded' : 'included'}</Text>
@@ -242,7 +244,7 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
     <Text key="review">
       {'  '}
       <Text dimColor>Review: </Text>
-      <Text color={getReviewColor(asset.reviewState)}>{formatReviewBadge(asset)}</Text>
+      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>
     </Text>,
     <Text key="reference">
       {'  '}
@@ -262,7 +264,7 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
     <Text key="summary">
       {'  '}
       <Text dimColor>Summary: </Text>
-      <Text>{asset.reviewSummary ?? 'No review warnings'}</Text>
+      <Text>{asset.warningSummary ?? 'No review warnings'}</Text>
     </Text>,
   ];
 
@@ -332,24 +334,24 @@ const AssetsControlsBar: FC<{ state: AssetsViewState }> = ({ state }) => {
   return (
     <Text dimColor>
       ↑↓/j/k move · tab filter · x {selected.excluded ? 'include' : 'exclude'}
-      {selected.reviewState === 'needs-review' && ' · c confirm'}
-      {(selected.reviewState === 'reviewed' || selected.confirmationIsStale) && ' · u clear review'} · q quit
+      {selected.reviewStatus === 'needs-review' && ' · c confirm'}
+      {(selected.reviewStatus === 'reviewed' || selected.confirmationIsStale) && ' · u clear review'} · q quit
     </Text>
   );
 };
 
 function formatReviewBadge(asset: AssetViewItem): string {
-  if (asset.reviewState === 'reviewed') {
+  if (asset.reviewStatus === 'reviewed') {
     return '[reviewed]';
   }
-  if (asset.reviewState === 'needs-review') {
+  if (asset.reviewStatus === 'needs-review') {
     return asset.confirmationIsStale ? '[stale]' : '[review]';
   }
   return '[clear]';
 }
 
-function getReviewColor(reviewState: AssetViewItem['reviewState']): string {
-  switch (reviewState) {
+function getReviewColor(reviewStatus: AssetViewItem['reviewStatus']): string {
+  switch (reviewStatus) {
     case 'needs-review':
       return 'yellow';
     case 'reviewed':

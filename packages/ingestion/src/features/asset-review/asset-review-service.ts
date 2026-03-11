@@ -111,7 +111,7 @@ export async function buildAssetReviewSummaries(
       referenceStatus: 'unknown' as const,
     };
     const ambiguity = ambiguitiesByAssetId.get(assetId);
-    const evidence = buildAssetEvidence(signal, metadata, ambiguity, reference.referenceStatus);
+    const evidence = buildAssetEvidence(signal, metadata, ambiguity);
     const evidenceFingerprint = await computeEvidenceFingerprint({
       assetId,
       evidence: evidence.map((item) => ({
@@ -333,8 +333,7 @@ function noteHasNoTarget(note: TransactionNote): boolean {
 function buildAssetEvidence(
   signal: AssetSignal,
   metadata: TokenMetadataRecord | undefined,
-  ambiguity: SymbolAmbiguityGroup | undefined,
-  referenceStatus: TokenReferenceLookupResult['referenceStatus']
+  ambiguity: SymbolAmbiguityGroup | undefined
 ): AssetReviewEvidence[] {
   const evidence: AssetReviewEvidence[] = [];
 
@@ -380,7 +379,7 @@ function buildAssetEvidence(
     });
   }
 
-  if (ambiguity && referenceStatus !== 'matched') {
+  if (ambiguity) {
     evidence.push({
       kind: 'same-symbol-ambiguity',
       severity: 'warning',

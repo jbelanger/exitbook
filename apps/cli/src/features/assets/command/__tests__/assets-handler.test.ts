@@ -324,13 +324,75 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ needsReview: true });
+    const result = await handler.view({ actionRequiredOnly: true });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
     expect(value.assets[0]?.assetId).toBe(scamAssetId);
-    expect(value.assets[0]?.reviewState).toBe('needs-review');
-    expect(value.needsReviewCount).toBe(1);
+    expect(value.assets[0]?.reviewStatus).toBe('needs-review');
+    expect(value.actionRequiredCount).toBe(1);
+    expect(value.totalCount).toBe(2);
+  });
+
+  it('keeps reviewed but still-blocking ambiguity assets in the needs-review filter', async () => {
+    const ambiguousAssetId = 'blockchain:ethereum:0xaaa';
+    const safeAssetId = 'exchange:kraken:btc';
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: ambiguousAssetId, assetSymbol: 'USDC', amount: '100' }],
+      }),
+      createTransaction({
+        id: 2,
+        inflows: [{ assetId: safeAssetId, assetSymbol: 'BTC', amount: '1' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    vi.mocked(readAssetReviewProjection).mockResolvedValue(
+      ok(
+        new Map([
+          [
+            ambiguousAssetId,
+            createAssetReviewSummary(ambiguousAssetId, {
+              reviewStatus: 'reviewed',
+              accountingBlocked: true,
+              evidence: [
+                {
+                  kind: 'same-symbol-ambiguity',
+                  severity: 'warning',
+                  message: 'Same-chain symbol ambiguity on ethereum:usdc',
+                },
+              ],
+            }),
+          ],
+          [
+            safeAssetId,
+            createAssetReviewSummary(safeAssetId, {
+              reviewStatus: 'clear',
+              accountingBlocked: false,
+              warningSummary: undefined,
+              evidence: [],
+            }),
+          ],
+        ])
+      )
+    );
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view({ actionRequiredOnly: true });
+    const value = assertOk(result);
+
+    expect(value.assets).toHaveLength(1);
+    expect(value.assets[0]?.assetId).toBe(ambiguousAssetId);
+    expect(value.assets[0]?.reviewStatus).toBe('reviewed');
+    expect(value.assets[0]?.accountingBlocked).toBe(true);
+    expect(value.actionRequiredCount).toBe(1);
     expect(value.totalCount).toBe(2);
   });
 
@@ -379,7 +441,7 @@ describe('AssetsHandler', () => {
       assetId: scamAssetId,
       changed: true,
       evidenceFingerprint: 'asset-review:v1:fingerprint-1',
-      reviewState: 'reviewed',
+      reviewStatus: 'reviewed',
       confirmationIsStale: false,
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
@@ -443,7 +505,7 @@ describe('AssetsHandler', () => {
       action: 'clear-review',
       assetId: scamAssetId,
       changed: true,
-      reviewState: 'needs-review',
+      reviewStatus: 'needs-review',
       evidenceFingerprint: 'asset-review:v1:fingerprint-1',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({

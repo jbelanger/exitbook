@@ -82,7 +82,7 @@ function handleAssetsConfirmSuccess(isJsonMode: boolean, result: AssetReviewOver
 
   console.log(`   Asset ID: ${result.assetId}`);
   console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
-  console.log(`   Review State: ${result.reviewState}`);
+  console.log(`   Review Status: ${result.reviewStatus}`);
   if (result.reason) {
     console.log(`   Reason: ${result.reason}`);
   }

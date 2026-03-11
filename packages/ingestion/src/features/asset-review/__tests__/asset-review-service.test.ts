@@ -166,7 +166,7 @@ describe('buildAssetReviewSummaries', () => {
     expect(summaries.get(secondAssetId)?.accountingBlocked).toBe(true);
   });
 
-  it('suppresses ambiguity evidence for a contract with a matched canonical reference', async () => {
+  it('keeps same-symbol ambiguity blocking even when one contract has a matched canonical reference', async () => {
     const firstAssetId = 'blockchain:ethereum:0xaaa';
     const secondAssetId = 'blockchain:ethereum:0xbbb';
     const referenceResolver = {
@@ -214,12 +214,11 @@ describe('buildAssetReviewSummaries', () => {
     const summaries = assertOk(result);
 
     expect(summaries.get(firstAssetId)).toMatchObject({
-      reviewStatus: 'clear',
+      reviewStatus: 'needs-review',
       referenceStatus: 'matched',
-      accountingBlocked: false,
-      warningSummary: undefined,
-      evidence: [],
+      accountingBlocked: true,
     });
+    expect(summaries.get(firstAssetId)?.evidence.map((item) => item.kind)).toEqual(['same-symbol-ambiguity']);
     expect(summaries.get(secondAssetId)?.evidence.map((item) => item.kind)).toEqual(['same-symbol-ambiguity']);
   });
 

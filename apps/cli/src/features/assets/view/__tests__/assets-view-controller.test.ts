@@ -22,8 +22,8 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
     excluded: false,
     movementCount: 1,
     referenceStatus: 'unknown',
-    reviewState: 'needs-review',
-    reviewSummary: 'Suspicious asset evidence requires review',
+    reviewStatus: 'needs-review',
+    warningSummary: 'Suspicious asset evidence requires review',
     transactionCount: 1,
     ...overrides,
   };
@@ -38,26 +38,26 @@ describe('assetsViewReducer', () => {
           assetId: 'exchange:kraken:btc',
           assetSymbols: ['BTC'],
           accountingBlocked: false,
-          reviewState: 'clear',
-          reviewSummary: undefined,
+          reviewStatus: 'clear',
+          warningSummary: undefined,
           evidence: [],
         }),
       ],
-      { totalCount: 2, excludedCount: 0, needsReviewCount: 1 }
+      { totalCount: 2, excludedCount: 0, actionRequiredCount: 1 }
     );
     state.selectedIndex = 1;
     state.scrollOffset = 1;
 
     const nextState = assetsViewReducer(state, { type: 'CYCLE_FILTER' });
 
-    expect(nextState.filter).toBe('needs-review');
+    expect(nextState.filter).toBe('action-required');
     expect(nextState.filteredAssets.map((asset) => asset.assetId)).toEqual(['blockchain:ethereum:0xscam']);
     expect(nextState.selectedIndex).toBe(0);
     expect(nextState.scrollOffset).toBe(0);
   });
 
   it('queues review confirmation for a selected needs-review asset', () => {
-    const state = createAssetsViewState([createAsset()], { totalCount: 1, excludedCount: 0, needsReviewCount: 1 });
+    const state = createAssetsViewState([createAsset()], { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 });
 
     const nextState = assetsViewReducer(state, { type: 'CONFIRM_REVIEW' });
 
@@ -72,11 +72,11 @@ describe('assetsViewReducer', () => {
     const state = createAssetsViewState(
       [
         createAsset({
-          reviewState: 'reviewed',
+          reviewStatus: 'reviewed',
           confirmationIsStale: true,
         }),
       ],
-      { totalCount: 1, excludedCount: 0, needsReviewCount: 0 }
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 0 }
     );
 
     const nextState = assetsViewReducer(state, { type: 'CLEAR_REVIEW' });
@@ -88,7 +88,7 @@ describe('assetsViewReducer', () => {
   });
 
   it('rebuilds counts after confirming a review', () => {
-    const state = createAssetsViewState([createAsset()], { totalCount: 1, excludedCount: 0, needsReviewCount: 1 });
+    const state = createAssetsViewState([createAsset()], { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 });
 
     const nextState = assetsViewReducer(state, {
       type: 'CONFIRM_REVIEW_SUCCESS',
@@ -99,16 +99,50 @@ describe('assetsViewReducer', () => {
         evidence: [],
         evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
         referenceStatus: 'matched',
-        reviewState: 'reviewed',
-        reviewSummary: undefined,
+        reviewStatus: 'reviewed',
+        warningSummary: undefined,
       },
     });
 
-    expect(nextState.assets[0]?.reviewState).toBe('reviewed');
+    expect(nextState.assets[0]?.reviewStatus).toBe('reviewed');
     expect(nextState.assets[0]?.accountingBlocked).toBe(false);
     expect(nextState.assets[0]?.evidence).toEqual([]);
     expect(nextState.assets[0]?.referenceStatus).toBe('matched');
-    expect(nextState.needsReviewCount).toBe(0);
+    expect(nextState.actionRequiredCount).toBe(0);
+    expect(nextState.pendingAction).toBeUndefined();
+  });
+
+  it('keeps reviewed but still-blocking assets in the needs-review filter after mutation', () => {
+    const state = createAssetsViewState(
+      [createAsset()],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 },
+      'action-required'
+    );
+
+    const nextState = assetsViewReducer(state, {
+      type: 'CONFIRM_REVIEW_SUCCESS',
+      assetId: 'blockchain:ethereum:0xscam',
+      review: {
+        accountingBlocked: true,
+        confirmationIsStale: false,
+        evidence: [
+          {
+            kind: 'same-symbol-ambiguity',
+            severity: 'warning',
+            message: 'Same-chain symbol ambiguity on ethereum:scam',
+          },
+        ],
+        evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+        referenceStatus: 'matched',
+        reviewStatus: 'reviewed',
+        warningSummary: 'Same-chain symbol ambiguity on ethereum:scam',
+      },
+    });
+
+    expect(nextState.assets[0]?.reviewStatus).toBe('reviewed');
+    expect(nextState.assets[0]?.accountingBlocked).toBe(true);
+    expect(nextState.filteredAssets.map((asset) => asset.assetId)).toEqual(['blockchain:ethereum:0xscam']);
+    expect(nextState.actionRequiredCount).toBe(1);
     expect(nextState.pendingAction).toBeUndefined();
   });
 });

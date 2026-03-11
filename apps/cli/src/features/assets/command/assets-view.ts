@@ -22,7 +22,7 @@ export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
     .description('View assets, review state, and accounting exclusion state')
-    .option('--needs-review', 'Show only assets that still require review')
+    .option('--needs-review', 'Show only assets that still require review or exclusion')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeAssetsViewCommand(rawOptions);
@@ -56,7 +56,7 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.view({ needsReview: options.needsReview });
+      const result = await handler.view({ actionRequiredOnly: options.needsReview });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -91,7 +91,7 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.view({ needsReview: options.needsReview });
+      const result = await handler.view({ actionRequiredOnly: options.needsReview });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'text');
@@ -102,9 +102,9 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
         {
           totalCount: result.value.totalCount,
           excludedCount: result.value.excludedCount,
-          needsReviewCount: result.value.needsReviewCount,
+          actionRequiredCount: result.value.actionRequiredCount,
         },
-        options.needsReview ? 'needs-review' : 'all'
+        options.needsReview ? 'action-required' : 'all'
       );
 
       await renderApp((unmount) =>

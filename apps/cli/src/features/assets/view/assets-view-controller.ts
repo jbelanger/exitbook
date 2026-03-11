@@ -1,5 +1,6 @@
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetViewItem } from '../command/assets-handler.js';
 
 import { ASSETS_CHROME_LINES } from './assets-view-components.jsx';
@@ -75,7 +76,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
       return { ...state, ...end(buildContext(action.visibleRows)), error: undefined };
 
     case 'CYCLE_FILTER': {
-      const nextFilter: AssetsViewFilter = state.filter === 'all' ? 'needs-review' : 'all';
+      const nextFilter: AssetsViewFilter = state.filter === 'all' ? 'action-required' : 'all';
       const filteredAssets = applyFilter(state.assets, nextFilter);
       return {
         ...state,
@@ -109,7 +110,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         return state;
       }
 
-      if (selected.reviewState !== 'needs-review') {
+      if (selected.reviewStatus !== 'needs-review') {
         return {
           ...state,
           error: 'Selected asset does not currently need review',
@@ -132,7 +133,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         return state;
       }
 
-      if (selected.reviewState !== 'reviewed' && !selected.confirmationIsStale) {
+      if (selected.reviewStatus !== 'reviewed' && !selected.confirmationIsStale) {
         return {
           ...state,
           error: 'Selected asset does not have a review confirmation to clear',
@@ -277,7 +278,7 @@ function rebuildStateAfterMutation(state: AssetsViewState, assets: AssetViewItem
     pendingAction: undefined,
     error: undefined,
     excludedCount: assets.filter((asset) => asset.excluded).length,
-    needsReviewCount: assets.filter((asset) => asset.reviewState === 'needs-review').length,
+    actionRequiredCount: assets.filter(requiresAssetReviewAction).length,
     totalCount: assets.length,
   };
 }

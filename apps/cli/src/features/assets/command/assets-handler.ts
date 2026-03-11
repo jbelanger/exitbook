@@ -22,6 +22,7 @@ import {
   readAssetReviewProjection,
 } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandDatabase } from '../../shared/command-runtime.js';
+import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
 import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from './assets-utils.js';
 
@@ -38,7 +39,7 @@ export interface AssetOverrideParams extends AssetSelectionParams {
 }
 
 export interface ViewAssetsParams {
-  needsReview?: boolean | undefined;
+  actionRequiredOnly?: boolean | undefined;
 }
 
 export interface AssetOverrideResult {
@@ -60,8 +61,8 @@ export interface AssetReviewOverrideResult {
   evidenceFingerprint: string;
   referenceStatus: AssetReferenceStatus;
   reason?: string | undefined;
-  reviewState: AssetReviewStatus;
-  reviewSummary?: string | undefined;
+  reviewStatus: AssetReviewStatus;
+  warningSummary?: string | undefined;
 }
 
 export interface ExcludedAssetSummary {
@@ -86,15 +87,15 @@ export interface AssetViewItem {
   excluded: boolean;
   movementCount: number;
   referenceStatus: AssetReferenceStatus;
-  reviewState: AssetReviewStatus;
-  reviewSummary?: string | undefined;
+  reviewStatus: AssetReviewStatus;
+  warningSummary?: string | undefined;
   transactionCount: number;
 }
 
 export interface AssetsViewResult {
+  actionRequiredCount: number;
   assets: AssetViewItem[];
   excludedCount: number;
-  needsReviewCount: number;
   totalCount: number;
 }
 
@@ -387,8 +388,8 @@ export class AssetsHandler {
           currentQuantity: balances[knownAsset.assetId]?.toFixed() ?? '0',
           evidence: reviewSummary?.evidence ?? [],
           excluded: snapshotResult.value.excludedAssetIds.has(knownAsset.assetId),
-          reviewState: reviewSummary?.reviewStatus ?? 'clear',
-          reviewSummary: reviewSummary?.warningSummary,
+          reviewStatus: reviewSummary?.reviewStatus ?? 'clear',
+          warningSummary: reviewSummary?.warningSummary,
           referenceStatus: reviewSummary?.referenceStatus ?? 'unknown',
           confirmationIsStale: reviewSummary?.confirmationIsStale ?? false,
           evidenceFingerprint: reviewSummary?.evidenceFingerprint,
@@ -404,12 +405,12 @@ export class AssetsHandler {
         );
       });
 
-    const filteredItems = params.needsReview ? items.filter((item) => item.reviewState === 'needs-review') : items;
+    const filteredItems = params.actionRequiredOnly ? items.filter(requiresAssetReviewAction) : items;
 
     return ok({
+      actionRequiredCount: items.filter(requiresAssetReviewAction).length,
       assets: filteredItems,
       totalCount: items.length,
-      needsReviewCount: items.filter((item) => item.reviewState === 'needs-review').length,
       excludedCount: items.filter((item) => item.excluded).length,
     });
   }
@@ -506,10 +507,10 @@ export class AssetsHandler {
 }
 
 function getAssetSortPriority(item: AssetViewItem): number {
-  if (item.reviewState === 'needs-review') {
+  if (item.reviewStatus === 'needs-review') {
     return 0;
   }
-  if (item.reviewState === 'reviewed') {
+  if (item.reviewStatus === 'reviewed') {
     return 1;
   }
   if (item.excluded) {
@@ -527,8 +528,8 @@ function toAssetReviewOverrideSnapshot(
   | 'evidence'
   | 'evidenceFingerprint'
   | 'referenceStatus'
-  | 'reviewState'
-  | 'reviewSummary'
+  | 'reviewStatus'
+  | 'warningSummary'
 > {
   return {
     accountingBlocked: reviewSummary.accountingBlocked,
@@ -536,7 +537,7 @@ function toAssetReviewOverrideSnapshot(
     evidence: reviewSummary.evidence,
     evidenceFingerprint: reviewSummary.evidenceFingerprint,
     referenceStatus: reviewSummary.referenceStatus,
-    reviewState: reviewSummary.reviewStatus,
-    reviewSummary: reviewSummary.warningSummary,
+    reviewStatus: reviewSummary.reviewStatus,
+    warningSummary: reviewSummary.warningSummary,
   };
 }

@@ -1,14 +1,15 @@
+import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetViewItem } from '../command/assets-handler.js';
 
-export type AssetsViewFilter = 'all' | 'needs-review';
+export type AssetsViewFilter = 'all' | 'action-required';
 
 export interface AssetsViewState {
+  actionRequiredCount: number;
   assets: AssetViewItem[];
   error?: string | undefined;
   excludedCount: number;
   filter: AssetsViewFilter;
   filteredAssets: AssetViewItem[];
-  needsReviewCount: number;
   pendingAction?:
     | {
         assetId: string;
@@ -27,13 +28,13 @@ export type AssetReviewViewMutation = Pick<
   | 'evidence'
   | 'evidenceFingerprint'
   | 'referenceStatus'
-  | 'reviewState'
-  | 'reviewSummary'
+  | 'reviewStatus'
+  | 'warningSummary'
 >;
 
 export function createAssetsViewState(
   assets: AssetViewItem[],
-  counts: { excludedCount: number; needsReviewCount: number; totalCount: number },
+  counts: { actionRequiredCount: number; excludedCount: number; totalCount: number },
   initialFilter: AssetsViewFilter = 'all'
 ): AssetsViewState {
   const filteredAssets = applyFilter(assets, initialFilter);
@@ -48,7 +49,7 @@ export function createAssetsViewState(
     error: undefined,
     totalCount: counts.totalCount,
     excludedCount: counts.excludedCount,
-    needsReviewCount: counts.needsReviewCount,
+    actionRequiredCount: counts.actionRequiredCount,
   };
 }
 
@@ -78,8 +79,8 @@ export function applyAssetViewMutation(
 }
 
 export function applyFilter(assets: AssetViewItem[], filter: AssetsViewFilter): AssetViewItem[] {
-  if (filter === 'needs-review') {
-    return assets.filter((asset) => asset.reviewState === 'needs-review');
+  if (filter === 'action-required') {
+    return assets.filter(requiresAssetReviewAction);
   }
 
   return assets;

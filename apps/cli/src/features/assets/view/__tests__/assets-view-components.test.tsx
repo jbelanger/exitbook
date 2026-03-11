@@ -23,8 +23,8 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
     excluded: true,
     movementCount: 1,
     referenceStatus: 'matched',
-    reviewState: 'needs-review',
-    reviewSummary: 'Provider flagged this token as spam',
+    reviewStatus: 'needs-review',
+    warningSummary: 'Provider flagged this token as spam',
     transactionCount: 1,
     ...overrides,
   };
@@ -48,12 +48,12 @@ describe('AssetsViewApp', () => {
           excluded: false,
           accountingBlocked: false,
           referenceStatus: 'unknown',
-          reviewState: 'clear',
-          reviewSummary: undefined,
+          reviewStatus: 'clear',
+          warningSummary: undefined,
           evidence: [],
         }),
       ],
-      { totalCount: 2, excludedCount: 1, needsReviewCount: 1 }
+      { totalCount: 2, excludedCount: 1, actionRequiredCount: 1 }
     );
 
     const { lastFrame } = render(
@@ -73,8 +73,8 @@ describe('AssetsViewApp', () => {
           evidence: [],
           evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
           referenceStatus: 'matched',
-          reviewState: 'reviewed',
-          reviewSummary: undefined,
+          reviewStatus: 'reviewed',
+          warningSummary: undefined,
         })}
         onClearReview={async () => ({
           action: 'clear-review',
@@ -92,15 +92,15 @@ describe('AssetsViewApp', () => {
           ],
           evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
           referenceStatus: 'matched',
-          reviewState: 'needs-review',
-          reviewSummary: 'Provider flagged this token as spam',
+          reviewStatus: 'needs-review',
+          warningSummary: 'Provider flagged this token as spam',
         })}
       />
     );
 
     const frame = lastFrame() ?? '';
 
-    expect(frame).toContain('1 needs review');
+    expect(frame).toContain('1 action required');
     expect(frame).toContain('[review] SCAM 100 reference matched excluded');
     expect(frame).toContain('Review: [review]');
     expect(frame).toContain('Reference: reference matched');
