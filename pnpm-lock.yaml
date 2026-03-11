@@ -81,9 +81,6 @@ importers:
       '@exitbook/accounts':
         specifier: workspace:*
         version: link:../../packages/accounts
-      '@exitbook/app':
-        specifier: workspace:*
-        version: link:../../packages/app
       '@exitbook/blockchain-providers':
         specifier: workspace:*
         version: link:../../packages/blockchain-providers
@@ -200,46 +197,6 @@ importers:
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
-    devDependencies:
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-
-  packages/app:
-    dependencies:
-      '@exitbook/accounting':
-        specifier: workspace:*
-        version: link:../accounting
-      '@exitbook/blockchain-providers':
-        specifier: workspace:*
-        version: link:../blockchain-providers
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../core
-      '@exitbook/data':
-        specifier: workspace:*
-        version: link:../data
-      '@exitbook/events':
-        specifier: workspace:*
-        version: link:../events
-      '@exitbook/exchange-providers':
-        specifier: workspace:*
-        version: link:../exchange-providers
-      '@exitbook/ingestion':
-        specifier: workspace:*
-        version: link:../ingestion
-      '@exitbook/logger':
-        specifier: workspace:*
-        version: link:../logger
-      '@exitbook/observability':
-        specifier: workspace:*
-        version: link:../observability
-      '@exitbook/price-providers':
-        specifier: workspace:*
-        version: link:../price-providers
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
     devDependencies:
       tsconfig:
         specifier: workspace:*

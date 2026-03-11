@@ -88,7 +88,7 @@ export async function createPricesEnrichHandler(
 
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
-    const priceManagerResult = await createDefaultPriceProviderManager(instrumentation);
+    const priceManagerResult = await createDefaultPriceProviderManager(ctx.dataDir, instrumentation);
     if (priceManagerResult.isErr()) {
       return err(priceManagerResult.error);
     }
@@ -107,7 +107,7 @@ export async function createPricesEnrichHandler(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
+  const priceManagerResult = await createDefaultPriceProviderManager(ctx.dataDir, instrumentation, eventBus);
   if (priceManagerResult.isErr()) {
     controller.fail(priceManagerResult.error.message);
     await controller.stop();

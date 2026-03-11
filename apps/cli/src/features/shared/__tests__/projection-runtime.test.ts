@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockBuildAssetReviewFreshnessPorts,
   mockBuildAssetReviewResetPorts,
+  mockBuildBalancesResetPorts,
   mockBuildLinksFreshnessPorts,
   mockBuildLinksResetPorts,
   mockBuildPriceCoverageDataPorts,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   mockBuildAssetReviewFreshnessPorts: vi.fn(),
   mockBuildAssetReviewResetPorts: vi.fn(),
+  mockBuildBalancesResetPorts: vi.fn(),
   mockBuildLinksFreshnessPorts: vi.fn(),
   mockBuildLinksResetPorts: vi.fn(),
   mockBuildPriceCoverageDataPorts: vi.fn(),
@@ -34,6 +36,7 @@ vi.mock('@exitbook/data', async () => {
     ...actual,
     buildAssetReviewFreshnessPorts: mockBuildAssetReviewFreshnessPorts,
     buildAssetReviewResetPorts: mockBuildAssetReviewResetPorts,
+    buildBalancesResetPorts: mockBuildBalancesResetPorts,
     buildLinksFreshnessPorts: mockBuildLinksFreshnessPorts,
     buildLinksResetPorts: mockBuildLinksResetPorts,
     buildPriceCoverageDataPorts: mockBuildPriceCoverageDataPorts,
@@ -96,9 +99,11 @@ describe('projection-runtime', () => {
 
     const resetLinks = vi.fn().mockResolvedValue(ok({ links: 1 }));
     const resetAssetReview = vi.fn().mockResolvedValue(ok({ assets: 1 }));
+    const resetBalances = vi.fn().mockResolvedValue(ok({ balances: 1 }));
     const resetProcessed = vi.fn().mockResolvedValue(ok({ transactions: 2 }));
     mockBuildLinksResetPorts.mockReturnValue({ reset: resetLinks });
     mockBuildAssetReviewResetPorts.mockReturnValue({ reset: resetAssetReview });
+    mockBuildBalancesResetPorts.mockReturnValue({ reset: resetBalances });
     mockBuildProcessedTransactionsResetPorts.mockReturnValue({ reset: resetProcessed });
 
     const result = await resetProjections(db as never, 'processed-transactions', [1]);
@@ -107,6 +112,7 @@ describe('projection-runtime', () => {
     expect(db.executeInTransaction).toHaveBeenCalledOnce();
     expect(mockBuildLinksResetPorts).toHaveBeenCalledWith(txDb);
     expect(mockBuildAssetReviewResetPorts).toHaveBeenCalledWith(txDb);
+    expect(mockBuildBalancesResetPorts).toHaveBeenCalledWith(txDb);
     expect(mockBuildProcessedTransactionsResetPorts).toHaveBeenCalledWith(txDb);
   });
 

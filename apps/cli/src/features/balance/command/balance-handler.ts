@@ -448,7 +448,9 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+      dataDir: ctx.dataDir,
+    });
     const balancePorts = buildBalancePorts(database);
     const balanceWorkflow = new BalanceWorkflow(balancePorts, providerManager);
     const handler = new BalanceHandler(database, balanceWorkflow);

@@ -2,9 +2,6 @@
  * Portfolio Handler - Orchestrates portfolio calculation business logic.
  * Tier 2: Factory owns cleanup; command file never calls ctx.onCleanup().
  */
-
-import path from 'node:path';
-
 import {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
@@ -28,7 +25,7 @@ import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
+import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -674,10 +671,8 @@ export async function createPortfolioHandler(
   }
 
   // Create price manager for spot prices + FX
-  const priceManagerResult = await createPriceProviderManager({
-    providers: {
-      databasePath: path.join(dataDir, 'prices.db'),
-    },
+  const priceManagerResult = await createDefaultPriceProviderManager({
+    dataDir,
   });
   if (priceManagerResult.isErr()) {
     return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));

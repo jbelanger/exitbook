@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import {
   CostBasisWorkflow,
   StandardFxRateProvider,
@@ -10,12 +8,11 @@ import {
 import { err, ok, type Result } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { createPriceProviderManager } from '@exitbook/price-providers';
+import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
-import { getDataDir } from '../../shared/data-dir.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { CostBasisInput, CostBasisWorkflowResult };
@@ -32,9 +29,8 @@ export class CostBasisHandler {
 
   async execute(params: CostBasisInput): Promise<Result<CostBasisWorkflowResult, Error>> {
     const store = buildCostBasisPorts(this.db);
-    const dataDir = getDataDir();
-    const priceManagerResult = await createPriceProviderManager({
-      providers: { databasePath: path.join(dataDir, 'prices.db') },
+    const priceManagerResult = await createDefaultPriceProviderManager({
+      dataDir: this.dataDir,
     });
     if (priceManagerResult.isErr()) {
       return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));

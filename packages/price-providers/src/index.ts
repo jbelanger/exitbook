@@ -22,6 +22,8 @@ export { PriceProviderManager } from './core/provider-manager.js';
 // Shared factory - recommended way to create providers
 export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './core/factory.js';
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
+export { createDefaultPriceProviderManager } from './host/index.js';
+export type { DefaultPriceProviderManagerOptions } from './host/index.js';
 // Events
 export type { PriceProviderEvent } from './events.js';
 

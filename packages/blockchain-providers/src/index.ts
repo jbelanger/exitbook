@@ -7,6 +7,7 @@
 export { createProviderRegistry } from './initialize.js';
 
 export * from './core/index.js';
+export * from './host/index.js';
 
 // Events
 export type { ProviderEvent } from './events.js';

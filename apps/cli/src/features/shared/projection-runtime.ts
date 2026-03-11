@@ -108,7 +108,9 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
       }
 
-      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats();
+      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+        dataDir,
+      });
 
       try {
         const eventBus = new EventBus<IngestionEvent>({
@@ -394,7 +396,7 @@ async function ensureTransactionPricesReady(
   const store = buildPricingPorts(db);
 
   if (isJsonMode) {
-    const priceManagerResult = await createDefaultPriceProviderManager();
+    const priceManagerResult = await createDefaultPriceProviderManager(deps.dataDir);
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
@@ -424,7 +426,7 @@ async function ensureTransactionPricesReady(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceManagerResult = await createDefaultPriceProviderManager(instrumentation, eventBus);
+  const priceManagerResult = await createDefaultPriceProviderManager(deps.dataDir, instrumentation, eventBus);
   if (priceManagerResult.isErr()) {
     controller.fail(priceManagerResult.error.message);
     await controller.stop();

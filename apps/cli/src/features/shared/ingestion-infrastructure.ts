@@ -42,6 +42,7 @@ export async function createIngestionInfrastructure(
   });
 
   const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+    dataDir: ctx.dataDir,
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
   });
