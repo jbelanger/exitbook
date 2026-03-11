@@ -22,7 +22,8 @@ export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
     .description('View assets, review state, and accounting exclusion state')
-    .option('--needs-review', 'Show only assets that still require review or exclusion')
+    .option('--action-required', 'Show only assets that require action (review, exclusion, or resolution)')
+    .option('--needs-review', 'Alias for --action-required')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeAssetsViewCommand(rawOptions);
@@ -56,7 +57,8 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.view({ actionRequiredOnly: options.needsReview });
+      const actionRequiredOnly = options.actionRequired || options.needsReview;
+      const result = await handler.view({ actionRequiredOnly });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -69,7 +71,7 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
           0,
           result.value.assets.length,
           result.value.totalCount,
-          options.needsReview ? { needsReview: true } : undefined
+          actionRequiredOnly ? { actionRequired: true } : undefined
         ),
       };
 
@@ -91,7 +93,8 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.view({ actionRequiredOnly: options.needsReview });
+      const actionRequiredOnly = options.actionRequired || options.needsReview;
+      const result = await handler.view({ actionRequiredOnly });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'text');
@@ -104,7 +107,7 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
           excludedCount: result.value.excludedCount,
           actionRequiredCount: result.value.actionRequiredCount,
         },
-        options.needsReview ? 'action-required' : 'all'
+        actionRequiredOnly ? 'action-required' : 'all'
       );
 
       await renderApp((unmount) =>

@@ -8,12 +8,13 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
+import { deriveAccountingDisplayStatus, deriveNextAction } from '../asset-view-filter.js';
 import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-handler.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
 import type { AssetsViewState } from './assets-view-state.js';
 
-const ASSET_DETAIL_LINES = 12;
+const ASSET_DETAIL_LINES = 13;
 
 export const ASSETS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1,
@@ -196,11 +197,12 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
 
 const AssetRow: FC<{ asset: AssetViewItem; isSelected: boolean }> = ({ asset, isSelected }) => {
   const primarySymbol = asset.assetSymbols[0] ?? '(unknown)';
+  const accountingStatus = deriveAccountingDisplayStatus(asset);
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>{' '}
-      <Text color="cyan">{primarySymbol}</Text> <Text dimColor>{asset.currentQuantity}</Text>{' '}
-      <Text dimColor>{formatReferenceStatus(asset.referenceStatus)}</Text>{' '}
+      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>
+      {accountingStatus === 'blocked' && <Text color="red"> [blocked]</Text>} <Text color="cyan">{primarySymbol}</Text>{' '}
+      <Text dimColor>{asset.currentQuantity}</Text> <Text dimColor>{formatReferenceStatus(asset.referenceStatus)}</Text>{' '}
       <Text dimColor>{asset.excluded ? 'excluded' : 'included'}</Text>
     </SelectableRow>
   );
@@ -225,7 +227,28 @@ const AssetDetailPanel: FC<{ state: AssetsViewState }> = ({ state }) => {
   );
 };
 
+function buildNextActionRow(asset: AssetViewItem): ReactElement {
+  const nextAction = deriveNextAction(asset);
+  if (nextAction) {
+    return (
+      <Text key="next-action">
+        {'  '}
+        <Text dimColor>Next action: </Text>
+        <Text color="yellow">{nextAction}</Text>
+      </Text>
+    );
+  }
+  return (
+    <Text key="next-action">
+      {'  '}
+      <Text dimColor>Next action: </Text>
+      <Text>None</Text>
+    </Text>
+  );
+}
+
 function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
+  const accountingStatus = deriveAccountingDisplayStatus(asset);
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {asset.assetSymbols[0] ?? '(unknown)'}</Text> <Text dimColor>{asset.assetId}</Text>
@@ -254,13 +277,14 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
     <Text key="policy">
       {'  '}
       <Text dimColor>Accounting: </Text>
-      <Text>{asset.accountingBlocked ? 'blocked' : 'allowed'}</Text>
+      <Text>{formatAccountingStatus(accountingStatus)}</Text>
     </Text>,
     <Text key="exclusion">
       {'  '}
       <Text dimColor>Exclusion: </Text>
       <Text>{asset.excluded ? 'excluded' : 'included'}</Text>
     </Text>,
+    buildNextActionRow(asset),
     <Text key="summary">
       {'  '}
       <Text dimColor>Summary: </Text>
@@ -358,6 +382,17 @@ function getReviewColor(reviewStatus: AssetViewItem['reviewStatus']): string {
       return 'green';
     default:
       return 'gray';
+  }
+}
+
+function formatAccountingStatus(status: 'allowed' | 'blocked' | 'excluded'): string {
+  switch (status) {
+    case 'blocked':
+      return 'blocked';
+    case 'excluded':
+      return 'excluded from accounting';
+    default:
+      return 'allowed';
   }
 }
 

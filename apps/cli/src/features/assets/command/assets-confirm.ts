@@ -83,7 +83,20 @@ function handleAssetsConfirmSuccess(isJsonMode: boolean, result: AssetReviewOver
   console.log(`   Asset ID: ${result.assetId}`);
   console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
   console.log(`   Review Status: ${result.reviewStatus}`);
+  console.log(`   Accounting: ${result.accountingBlocked ? 'blocked' : 'allowed'}`);
   if (result.reason) {
     console.log(`   Reason: ${result.reason}`);
+  }
+
+  if (result.accountingBlocked) {
+    const hasAmbiguity = result.evidence.some((e) => e.kind === 'same-symbol-ambiguity');
+    if (hasAmbiguity) {
+      console.log('');
+      console.log('Confirmation recorded, but accounting is still blocked until one conflicting contract is excluded.');
+      console.log('Run: assets exclude --asset-id <conflicting-asset-id>');
+    } else {
+      console.log('');
+      console.log('Confirmation recorded, but accounting is still blocked due to unresolved evidence.');
+    }
   }
 }

@@ -53,7 +53,7 @@ describe('AssetsViewApp', () => {
           evidence: [],
         }),
       ],
-      { totalCount: 2, excludedCount: 1, actionRequiredCount: 1 }
+      { totalCount: 2, excludedCount: 1, actionRequiredCount: 0 }
     );
 
     const { lastFrame } = render(
@@ -100,12 +100,15 @@ describe('AssetsViewApp', () => {
 
     const frame = lastFrame() ?? '';
 
-    expect(frame).toContain('1 action required');
-    expect(frame).toContain('[review] SCAM 100 reference matched excluded');
+    expect(frame).toContain('0 action required');
+    expect(frame).toContain('[review]');
+    expect(frame).not.toContain('[blocked]');
+    expect(frame).toContain('SCAM');
     expect(frame).toContain('Review: [review]');
     expect(frame).toContain('Reference: reference matched');
-    expect(frame).toContain('Accounting: blocked');
+    expect(frame).toContain('Accounting: excluded from accounting');
     expect(frame).toContain('Exclusion: excluded');
+    expect(frame).toContain('Next action: None');
     expect(frame).toContain('[error] Provider flagged this token as spam');
   });
 });

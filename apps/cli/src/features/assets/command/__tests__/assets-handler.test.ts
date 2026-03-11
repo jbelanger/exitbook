@@ -396,6 +396,51 @@ describe('AssetsHandler', () => {
     expect(value.totalCount).toBe(2);
   });
 
+  it('does not keep excluded blocked assets in the action-required filter', async () => {
+    const blockedAssetId = 'blockchain:ethereum:0xscam';
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: blockedAssetId, assetSymbol: 'SCAM', amount: '100' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent(blockedAssetId)]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+    vi.mocked(readAssetReviewProjection).mockResolvedValue(
+      ok(
+        new Map([
+          [
+            blockedAssetId,
+            createAssetReviewSummary(blockedAssetId, {
+              accountingBlocked: true,
+            }),
+          ],
+        ])
+      )
+    );
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view({ actionRequiredOnly: true });
+    const value = assertOk(result);
+
+    expect(value.assets).toEqual([]);
+    expect(value.actionRequiredCount).toBe(0);
+    expect(value.excludedCount).toBe(1);
+    expect(value.totalCount).toBe(1);
+  });
+
   it('writes an asset-review-confirm event for a suspicious asset', async () => {
     const scamAssetId = 'blockchain:ethereum:0xscam';
     const reviewSummary = createAssetReviewSummary(scamAssetId, {
