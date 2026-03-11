@@ -56,24 +56,38 @@ export function calculateTransferDisposalAmount(
 /**
  * Build transfer metadata for same-asset transfer fees under add-to-basis policy
  */
+export function calculateSameAssetFeeUsdShare(
+  totalSameAssetFeeUsdValue: Decimal,
+  allocationQuantity: Decimal,
+  totalAmountMatched: Decimal,
+  allocatedFeeUsdSoFar: Decimal,
+  isFinalAllocation: boolean
+): Result<Decimal, Error> {
+  if (isFinalAllocation) {
+    const remainingFeeUsdValue = totalSameAssetFeeUsdValue.minus(allocatedFeeUsdSoFar);
+    if (remainingFeeUsdValue.lt(0)) {
+      return err(
+        new Error(
+          `Same-asset fee allocation over-allocated by ${remainingFeeUsdValue.abs().toFixed()} USD ` +
+            `while distributing ${totalSameAssetFeeUsdValue.toFixed()} USD`
+        )
+      );
+    }
+
+    return ok(remainingFeeUsdValue);
+  }
+
+  return ok(allocationQuantity.dividedBy(totalAmountMatched).times(totalSameAssetFeeUsdValue));
+}
+
 export function buildTransferMetadata(
-  sameAssetFee: { amount: Decimal; priceAtTxTime?: PriceAtTxTime | undefined },
-  feePolicy: 'disposal' | 'add-to-basis',
-  lotDisposalQuantity: Decimal,
-  totalAmountMatched: Decimal
+  sameAssetFeeUsdShare: Decimal | undefined
 ): { sameAssetFeeUsdValue?: Decimal | undefined } | undefined {
-  if (feePolicy !== 'add-to-basis' || sameAssetFee.amount.isZero()) {
+  if (!sameAssetFeeUsdShare || sameAssetFeeUsdShare.isZero()) {
     return undefined;
   }
 
-  if (!sameAssetFee.priceAtTxTime) {
-    return undefined;
-  }
-
-  const sameAssetFeeUsdValue = sameAssetFee.amount.times(sameAssetFee.priceAtTxTime.price.amount);
-  const feeShare = lotDisposalQuantity.dividedBy(totalAmountMatched).times(sameAssetFeeUsdValue);
-
-  return { sameAssetFeeUsdValue: feeShare };
+  return { sameAssetFeeUsdValue: sameAssetFeeUsdShare };
 }
 
 /**

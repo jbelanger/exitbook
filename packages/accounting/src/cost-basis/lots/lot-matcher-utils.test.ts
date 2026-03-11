@@ -26,6 +26,7 @@ import { getVarianceTolerance, sortTransactionsByDependency } from './lot-sortin
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
+  calculateSameAssetFeeUsdShare,
   calculateTargetCostBasis,
   calculateTransferDisposalAmount,
   validateTransferVariance,
@@ -908,39 +909,80 @@ describe('lot-matcher-utils', () => {
   });
 
   describe('buildTransferMetadata', () => {
-    it('should build metadata with same-asset fee for add-to-basis policy', () => {
-      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
-
-      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+    it('should build metadata when a same-asset fee USD share exists', () => {
+      const metadata = buildTransferMetadata(parseDecimal('25'));
 
       expect(metadata).toBeDefined();
       expect(metadata?.sameAssetFeeUsdValue).toBeDefined();
-      // Fee share: (0.5 / 1) * (0.001 * 50000) = 25
       expect(metadata?.sameAssetFeeUsdValue?.toFixed()).toBe('25');
     });
 
-    it('should return undefined for disposal policy', () => {
-      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
-
-      const metadata = buildTransferMetadata(sameAssetFee, 'disposal', parseDecimal('0.5'), new Decimal('1'));
+    it('should return undefined when fee share is undefined', () => {
+      const metadata = buildTransferMetadata(undefined);
 
       expect(metadata).toBeUndefined();
     });
 
-    it('should return undefined for zero fee', () => {
-      const sameAssetFee = { amount: parseDecimal('0'), priceAtTxTime: undefined };
-
-      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+    it('should return undefined for zero fee share', () => {
+      const metadata = buildTransferMetadata(parseDecimal('0'));
 
       expect(metadata).toBeUndefined();
     });
+  });
 
-    it('should return undefined when fee has no price', () => {
-      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: undefined };
+  describe('calculateSameAssetFeeUsdShare', () => {
+    it('absorbs the final remainder so allocated fee shares sum exactly', () => {
+      const totalFeeUsdValue = parseDecimal('1');
+      let allocatedFeeUsdSoFar = parseDecimal('0');
 
-      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+      const firstShare = assertOk(
+        calculateSameAssetFeeUsdShare(
+          totalFeeUsdValue,
+          parseDecimal('1'),
+          parseDecimal('3'),
+          allocatedFeeUsdSoFar,
+          false
+        )
+      );
+      allocatedFeeUsdSoFar = allocatedFeeUsdSoFar.plus(firstShare);
 
-      expect(metadata).toBeUndefined();
+      const secondShare = assertOk(
+        calculateSameAssetFeeUsdShare(
+          totalFeeUsdValue,
+          parseDecimal('1'),
+          parseDecimal('3'),
+          allocatedFeeUsdSoFar,
+          false
+        )
+      );
+      allocatedFeeUsdSoFar = allocatedFeeUsdSoFar.plus(secondShare);
+
+      const finalShare = assertOk(
+        calculateSameAssetFeeUsdShare(
+          totalFeeUsdValue,
+          parseDecimal('1'),
+          parseDecimal('3'),
+          allocatedFeeUsdSoFar,
+          true
+        )
+      );
+
+      expect(firstShare.plus(secondShare).plus(finalShare).eq(totalFeeUsdValue)).toBe(true);
+      expect(finalShare.eq(totalFeeUsdValue.minus(firstShare).minus(secondShare))).toBe(true);
+    });
+
+    it('fails if prior allocations overrun the total fee', () => {
+      const result = calculateSameAssetFeeUsdShare(
+        parseDecimal('1'),
+        parseDecimal('1'),
+        parseDecimal('3'),
+        parseDecimal('1.000000000000000001'),
+        true
+      );
+
+      expect(assertErr(result).message).toBe(
+        'Same-asset fee allocation over-allocated by 0.000000000000000001 USD while distributing 1 USD'
+      );
     });
   });
 

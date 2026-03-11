@@ -14,6 +14,7 @@ import { collectFiatFees } from './lot-fee-utils.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
+  calculateSameAssetFeeUsdShare,
   calculateTargetCostBasis,
   validateTransferVariance,
 } from './lot-transfer-utils.js';
@@ -106,6 +107,9 @@ export function processFeeOnlyInternalCarryoverSource(
 
   const transfers: LotTransfer[] = [];
   const quantityToSubtractByLotId = new Map<string, Decimal>();
+  const totalFeeAllocations = sameAssetFeeUsdValue ? lotDisposals.length * targetBindings.length : 0;
+  let feeAllocationsCreated = 0;
+  let allocatedFeeUsdSoFar = parseDecimal('0');
 
   for (const lotDisposal of lotDisposals) {
     buildLotQuantityUpdateMap(lotDisposal.lotId, lotDisposal.quantityDisposed, quantityToSubtractByLotId);
@@ -118,17 +122,23 @@ export function processFeeOnlyInternalCarryoverSource(
           ? allocatedDisposalQuantity
           : lotDisposal.quantityDisposed.times(binding.target.quantity).dividedBy(transferDisposalQuantity);
 
-      const metadata = sameAssetFeeUsdValue
-        ? buildTransferMetadata(
-            {
-              amount: carryover.fee.amount,
-              priceAtTxTime: carryover.fee.priceAtTxTime,
-            },
-            feePolicy,
-            allocatedDisposalQuantity,
-            transferDisposalQuantity
-          )
-        : undefined;
+      let metadata: LotTransfer['metadata'] | undefined = undefined;
+      if (sameAssetFeeUsdValue) {
+        feeAllocationsCreated += 1;
+        const feeShareResult = calculateSameAssetFeeUsdShare(
+          sameAssetFeeUsdValue,
+          allocatedDisposalQuantity,
+          transferDisposalQuantity,
+          allocatedFeeUsdSoFar,
+          feeAllocationsCreated === totalFeeAllocations
+        );
+        if (feeShareResult.isErr()) {
+          return err(feeShareResult.error);
+        }
+
+        allocatedFeeUsdSoFar = allocatedFeeUsdSoFar.plus(feeShareResult.value);
+        metadata = buildTransferMetadata(feeShareResult.value);
+      }
 
       transfers.push({
         id: globalThis.crypto.randomUUID(),

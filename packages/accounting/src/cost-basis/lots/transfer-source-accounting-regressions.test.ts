@@ -275,6 +275,90 @@ describe('transfer source accounting regressions', () => {
     expect(value.warnings).toEqual([]);
   });
 
+  it('absorbs add-to-basis fee remainder on the final transfer slice', () => {
+    const rawTransaction = createTransactionFromMovements(
+      15,
+      '2024-03-05T00:00:00Z',
+      {
+        outflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('3'),
+            netAmount: parseDecimal('2.99998'),
+            priceAtTxTime: createPriceAtTxTime('50000'),
+          },
+        ],
+      },
+      [createFeeMovement('network', 'on-chain', 'BTC', '0.00002', '50000')],
+      { category: 'transfer', source: 'kraken', type: 'withdrawal' }
+    );
+
+    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedTransaction = assertOk(scopedResult).transactions[0];
+    const outflow = scopedTransaction?.movements.outflows[0];
+
+    expect(scopedTransaction).toBeDefined();
+    expect(outflow).toBeDefined();
+
+    const validatedLink: ValidatedScopedTransferLink = {
+      isPartialMatch: false,
+      link: {
+        id: 504,
+        sourceTransactionId: 15,
+        targetTransactionId: 25,
+        assetSymbol: 'BTC' as Currency,
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
+        sourceAmount: parseDecimal('2.99998'),
+        targetAmount: parseDecimal('2.99998'),
+        sourceMovementFingerprint: outflow!.movementFingerprint,
+        targetMovementFingerprint: 'target:movement:3',
+        linkType: 'exchange_to_blockchain',
+        confidenceScore: parseDecimal('1'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0.5,
+        },
+        status: 'confirmed',
+        createdAt: new Date('2024-03-05T00:00:00Z'),
+        updatedAt: new Date('2024-03-05T00:00:00Z'),
+      },
+      sourceAssetId: 'test:btc',
+      sourceMovementAmount: parseDecimal('2.99998'),
+      sourceMovementFingerprint: outflow!.movementFingerprint,
+      targetAssetId: 'test:btc',
+      targetMovementAmount: parseDecimal('2.99998'),
+      targetMovementFingerprint: 'target:movement:3',
+    };
+
+    const result = processTransferSource(
+      scopedTransaction!,
+      outflow!,
+      [validatedLink],
+      [
+        createLot('11111111-1111-4111-8111-111111111111', 'BTC', '1', '45000', new Date('2024-01-01T00:00:00Z')),
+        createLot('22222222-2222-4222-8222-222222222222', 'BTC', '1', '46000', new Date('2024-01-02T00:00:00Z')),
+        createLot('33333333-3333-4333-8333-333333333333', 'BTC', '1', '47000', new Date('2024-01-03T00:00:00Z')),
+      ],
+      new FifoStrategy(),
+      '77777777-7777-4777-8777-777777777777',
+      { sameAssetTransferFeePolicy: 'add-to-basis' }
+    );
+
+    const value = assertOk(result);
+    const allocatedFeeUsdValue = value.transfers.reduce(
+      (sum, transfer) => sum.plus(transfer.metadata?.sameAssetFeeUsdValue ?? parseDecimal('0')),
+      parseDecimal('0')
+    );
+
+    expect(value.transfers).toHaveLength(3);
+    expect(allocatedFeeUsdValue.eq(parseDecimal('1'))).toBe(true);
+    expect(value.warnings).toEqual([]);
+  });
+
   it('keeps fee-only carryover fee disposal on the remaining lots after retained quantity matching', () => {
     const rawSourceTransaction = createTransactionFromMovements(11, '2024-03-02T00:00:00Z', {}, [], {
       category: 'transfer',

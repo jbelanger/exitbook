@@ -11,6 +11,7 @@ import { collectFiatFees, extractAllocatedCryptoFee, validateOutflowFees } from 
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
+  calculateSameAssetFeeUsdShare,
   calculateTargetCostBasis,
   calculateTransferDisposalAmount,
   validateTransferVariance,
@@ -194,11 +195,6 @@ export function processTransferSource(
 
   const sameAssetFee = {
     amount: cryptoFee.amount.plus(totalImpliedFeeAmount),
-    feeType: totalImpliedFeeAmount.gt(0)
-      ? cryptoFee.amount.gt(0)
-        ? `${cryptoFee.feeType}+implied`
-        : 'implied'
-      : cryptoFee.feeType,
     priceAtTxTime: cryptoFee.priceAtTxTime ?? (totalImpliedFeeAmount.gt(0) ? outflow.priceAtTxTime : undefined),
   };
 
@@ -242,6 +238,9 @@ export function processTransferSource(
 
   const transfers: LotTransfer[] = [];
   const quantityToSubtractByLotId = new Map<string, Decimal>();
+  const totalFeeAllocations = sameAssetFeeUsdValue ? lotDisposals.length * links.length : 0;
+  let feeAllocationsCreated = 0;
+  let allocatedFeeUsdSoFar = parseDecimal('0');
 
   for (const lotDisposal of lotDisposals) {
     const lot = lots.find((candidateLot) => candidateLot.id === lotDisposal.lotId);
@@ -264,17 +263,23 @@ export function processTransferSource(
           ? allocatedDisposalQuantity
           : lotDisposal.quantityDisposed.times(linkTransferredAmount).dividedBy(transferDisposalQuantity);
 
-      const metadata = sameAssetFeeUsdValue
-        ? buildTransferMetadata(
-            {
-              amount: sameAssetFee.amount,
-              priceAtTxTime: sameAssetFee.priceAtTxTime,
-            },
-            feePolicy,
-            allocatedDisposalQuantity,
-            transferDisposalQuantity
-          )
-        : undefined;
+      let metadata: LotTransfer['metadata'] | undefined = undefined;
+      if (sameAssetFeeUsdValue) {
+        feeAllocationsCreated += 1;
+        const feeShareResult = calculateSameAssetFeeUsdShare(
+          sameAssetFeeUsdValue,
+          allocatedDisposalQuantity,
+          transferDisposalQuantity,
+          allocatedFeeUsdSoFar,
+          feeAllocationsCreated === totalFeeAllocations
+        );
+        if (feeShareResult.isErr()) {
+          return err(feeShareResult.error);
+        }
+
+        allocatedFeeUsdSoFar = allocatedFeeUsdSoFar.plus(feeShareResult.value);
+        metadata = buildTransferMetadata(feeShareResult.value);
+      }
 
       transfers.push({
         id: globalThis.crypto.randomUUID(),
