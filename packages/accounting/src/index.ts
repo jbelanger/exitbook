@@ -60,7 +60,7 @@ export {
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
 } from './linking/shared/transfer-proposals.js';
-export { hasImpliedFeeLinkMetadata, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
+export { hasImpliedFeeAmount, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Cost basis utilities
 export {

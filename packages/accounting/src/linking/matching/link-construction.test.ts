@@ -5,7 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { createLinkableMovement } from '../shared/test-utils.js';
 import type { PotentialMatch } from '../shared/types.js';
 
-import { calculateVarianceMetadata, createTransactionLink, validateLinkAmounts } from './link-construction.js';
+import {
+  calculateImpliedFeeAmount,
+  calculateVarianceMetadata,
+  createTransactionLink,
+  validateLinkAmounts,
+} from './link-construction.js';
 
 describe('link-construction', () => {
   describe('validateLinkAmounts', () => {
@@ -120,7 +125,6 @@ describe('link-construction', () => {
 
       expect(metadata.variance).toBe('0.0005');
       expect(metadata.variancePct).toBe('0.05');
-      expect(metadata.impliedFee).toBe('0.0005');
     });
 
     it('should handle zero variance', () => {
@@ -131,7 +135,6 @@ describe('link-construction', () => {
 
       expect(metadata.variance).toBe('0');
       expect(metadata.variancePct).toBe('0.00');
-      expect(metadata.impliedFee).toBe('0');
     });
 
     it('should handle large variance', () => {
@@ -142,7 +145,6 @@ describe('link-construction', () => {
 
       expect(metadata.variance).toBe('0.1');
       expect(metadata.variancePct).toBe('10.00');
-      expect(metadata.impliedFee).toBe('0.1');
     });
 
     it('should handle zero source amount', () => {
@@ -153,7 +155,6 @@ describe('link-construction', () => {
 
       expect(metadata.variance).toBe('0');
       expect(metadata.variancePct).toBe('0.00');
-      expect(metadata.impliedFee).toBe('0');
     });
 
     it('should format variance percentage to 2 decimal places', () => {
@@ -163,6 +164,21 @@ describe('link-construction', () => {
       const metadata = calculateVarianceMetadata(sourceAmount, targetAmount);
 
       expect(metadata.variancePct).toBe('0.43');
+    });
+  });
+
+  describe('calculateImpliedFeeAmount', () => {
+    it('returns the inferred fee when target is lower than source', () => {
+      const impliedFeeAmount = calculateImpliedFeeAmount(parseDecimal('1'), parseDecimal('0.9995'));
+      expect(impliedFeeAmount?.toFixed()).toBe('0.0005');
+    });
+
+    it('returns undefined for exact matches', () => {
+      expect(calculateImpliedFeeAmount(parseDecimal('1'), parseDecimal('1'))).toBeUndefined();
+    });
+
+    it('returns undefined when target exceeds source', () => {
+      expect(calculateImpliedFeeAmount(parseDecimal('1'), parseDecimal('1.0005'))).toBeUndefined();
     });
   });
 
@@ -201,6 +217,7 @@ describe('link-construction', () => {
       expect(link.reviewedAt).toEqual(now);
       expect(link.createdAt).toEqual(now);
       expect(link.updatedAt).toEqual(now);
+      expect(link.impliedFeeAmount?.toFixed()).toBe('0.0005');
       expect(link.metadata).toBeDefined();
     });
 
@@ -346,7 +363,7 @@ describe('link-construction', () => {
       expect(link.metadata).toBeDefined();
       expect(link.metadata?.['variance']).toBe('0.05');
       expect(link.metadata?.['variancePct']).toBe('5.00');
-      expect(link.metadata?.['impliedFee']).toBe('0.05');
+      expect(link.impliedFeeAmount?.toFixed()).toBe('0.05');
     });
 
     it('should use consumed amounts and partial metadata for partial match', () => {
@@ -376,10 +393,10 @@ describe('link-construction', () => {
       expect(link.metadata?.['fullTargetAmount']).toBe('5');
       expect(link.metadata?.['consumedAmount']).toBe('5');
       expect(link.metadata?.['transferProposalKey']).toBe(`partial-source:v1:${source.movementFingerprint}`);
-      expect(link.metadata?.['impliedFee']).toBeUndefined();
+      expect(link.impliedFeeAmount).toBeUndefined();
     });
 
-    it('should not produce negative impliedFee for N:1 partial match', () => {
+    it('should not produce an implied fee for N:1 partial match', () => {
       const source = createLinkableMovement({ id: 1, amount: parseDecimal('5'), direction: 'out' });
       const target = createLinkableMovement({
         id: 2,
@@ -399,7 +416,7 @@ describe('link-construction', () => {
       };
 
       const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
-      expect(link.metadata?.['impliedFee']).toBeUndefined();
+      expect(link.impliedFeeAmount).toBeUndefined();
       expect(link.metadata?.['partialMatch']).toBe(true);
       expect(link.metadata?.['transferProposalKey']).toBe(`partial-target:v1:${target.movementFingerprint}`);
     });
@@ -425,7 +442,7 @@ describe('link-construction', () => {
       const link = assertOk(createTransactionLink(match, 'confirmed', new Date()));
       expect(link.sourceAmount.toFixed()).toBe('1');
       expect(link.targetAmount.toFixed()).toBe('0.999');
-      expect(link.metadata?.['impliedFee']).toBe('0.001');
+      expect(link.impliedFeeAmount?.toFixed()).toBe('0.001');
       expect(link.metadata?.['partialMatch']).toBeUndefined();
     });
   });

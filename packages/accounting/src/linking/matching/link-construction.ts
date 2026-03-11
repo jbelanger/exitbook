@@ -92,7 +92,6 @@ export function calculateVarianceMetadata(
   sourceAmount: Decimal,
   targetAmount: Decimal
 ): {
-  impliedFee: string;
   variance: string;
   variancePct: string;
 } {
@@ -102,8 +101,15 @@ export function calculateVarianceMetadata(
   return {
     variance: variance.toFixed(),
     variancePct: variancePct.toFixed(2),
-    impliedFee: variance.toFixed(),
   };
+}
+
+export function calculateImpliedFeeAmount(sourceAmount: Decimal, targetAmount: Decimal): Decimal | undefined {
+  if (!sourceAmount.gt(targetAmount)) {
+    return undefined;
+  }
+
+  return sourceAmount.minus(targetAmount);
 }
 
 /**
@@ -184,7 +190,7 @@ export function createTransactionLink(
 
   if (isPartialMatch) {
     // Partial match: record full original amounts for audit trail.
-    // No impliedFee — it's meaningless for splits/consolidations.
+    // No implied fee amount — it's meaningless for splits/consolidations.
     metadata.partialMatch = true;
     metadata.fullSourceAmount = match.sourceMovement.amount.toFixed();
     metadata.fullTargetAmount = match.targetMovement.amount.toFixed();
@@ -195,6 +201,8 @@ export function createTransactionLink(
     const varianceMetadata = calculateVarianceMetadata(sourceAmount, targetAmount);
     Object.assign(metadata, varianceMetadata);
   }
+
+  const impliedFeeAmount = isPartialMatch ? undefined : calculateImpliedFeeAmount(sourceAmount, targetAmount);
 
   if (validationInfo.allowTargetExcess) {
     metadata.targetExcessAllowed = true;
@@ -225,6 +233,7 @@ export function createTransactionLink(
     targetMovementFingerprint: match.targetMovement.movementFingerprint,
     linkType: match.linkType,
     confidenceScore: match.confidenceScore,
+    impliedFeeAmount,
     matchCriteria: match.matchCriteria,
     status,
     reviewedBy: status === 'confirmed' ? 'auto' : undefined,

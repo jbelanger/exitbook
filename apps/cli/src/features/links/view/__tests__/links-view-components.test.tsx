@@ -272,10 +272,10 @@ describe('LinksViewApp - links mode', () => {
       {
         link: {
           ...createMockLink(1, 'confirmed', 1, 'BTC', '0.015765', '0.01563663', 839, 807),
+          impliedFeeAmount: new Decimal('0.00012837'),
           metadata: {
             variance: '0.00012837',
             variancePct: '0.81',
-            impliedFee: '0.00012837',
           },
         },
         sourceTransaction: createMockTransaction(839, 'coinbase', '2024-03-05T22:13:31.000Z'),

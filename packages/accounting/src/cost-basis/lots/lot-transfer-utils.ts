@@ -41,69 +41,68 @@ export function validateTransferVariance(
 /**
  * Calculate the amount to match for a transfer disposal based on fee policy
  *
- * @returns Amount to match and crypto fee details
+ * @returns Amount to match from source lots before any separate fee disposal step
  */
 export function calculateTransferDisposalAmount(
   outflow: AssetMovement,
-  cryptoFee: { amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined },
+  transferredQuantity: Decimal,
   feePolicy: 'disposal' | 'add-to-basis'
 ): { transferDisposalQuantity: Decimal } {
-  const linkedTransferAmount = outflow.netAmount ?? outflow.grossAmount;
-  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : linkedTransferAmount;
+  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : transferredQuantity;
 
   return { transferDisposalQuantity };
 }
 
 /**
- * Build transfer metadata for crypto fees under add-to-basis policy
+ * Build transfer metadata for same-asset transfer fees under add-to-basis policy
  */
 export function buildTransferMetadata(
-  cryptoFee: { amount: Decimal; priceAtTxTime?: PriceAtTxTime | undefined },
+  sameAssetFee: { amount: Decimal; priceAtTxTime?: PriceAtTxTime | undefined },
   feePolicy: 'disposal' | 'add-to-basis',
   lotDisposalQuantity: Decimal,
   totalAmountMatched: Decimal
-): { cryptoFeeUsdValue?: Decimal | undefined } | undefined {
-  if (feePolicy !== 'add-to-basis' || cryptoFee.amount.isZero()) {
+): { sameAssetFeeUsdValue?: Decimal | undefined } | undefined {
+  if (feePolicy !== 'add-to-basis' || sameAssetFee.amount.isZero()) {
     return undefined;
   }
 
-  if (!cryptoFee.priceAtTxTime) {
+  if (!sameAssetFee.priceAtTxTime) {
     return undefined;
   }
 
-  const cryptoFeeUsdValue = cryptoFee.amount.times(cryptoFee.priceAtTxTime.price.amount);
-  const feeShare = lotDisposalQuantity.dividedBy(totalAmountMatched).times(cryptoFeeUsdValue);
+  const sameAssetFeeUsdValue = sameAssetFee.amount.times(sameAssetFee.priceAtTxTime.price.amount);
+  const feeShare = lotDisposalQuantity.dividedBy(totalAmountMatched).times(sameAssetFeeUsdValue);
 
-  return { cryptoFeeUsdValue: feeShare };
+  return { sameAssetFeeUsdValue: feeShare };
 }
 
 /**
  * Calculate inherited cost basis from lot transfers
  *
- * @returns Object with totalCostBasis, transferredQuantity, and cryptoFeeUsdAdded
+ * @returns Object with totalCostBasis, transferredQuantity, and sameAssetFeeUsdAdded
  */
 export function calculateInheritedCostBasis(transfers: LotTransfer[]): {
-  cryptoFeeUsdAdded: Decimal;
+  sameAssetFeeUsdAdded: Decimal;
   totalCostBasis: Decimal;
   transferredQuantity: Decimal;
 } {
   let totalCostBasis = parseDecimal('0');
   let transferredQuantity = parseDecimal('0');
-  let cryptoFeeUsdAdded = parseDecimal('0');
+  let sameAssetFeeUsdAdded = parseDecimal('0');
 
   for (const transfer of transfers) {
     const basisForTransfer = transfer.costBasisPerUnit.times(transfer.quantityTransferred);
     totalCostBasis = totalCostBasis.plus(basisForTransfer);
     transferredQuantity = transferredQuantity.plus(transfer.quantityTransferred);
 
-    if (transfer.metadata?.cryptoFeeUsdValue) {
-      const feeUsd = parseDecimal(transfer.metadata.cryptoFeeUsdValue);
+    if (transfer.metadata?.sameAssetFeeUsdValue) {
+      const feeUsd = parseDecimal(transfer.metadata.sameAssetFeeUsdValue);
       totalCostBasis = totalCostBasis.plus(feeUsd);
-      cryptoFeeUsdAdded = cryptoFeeUsdAdded.plus(feeUsd);
+      sameAssetFeeUsdAdded = sameAssetFeeUsdAdded.plus(feeUsd);
     }
   }
 
-  return { totalCostBasis, transferredQuantity, cryptoFeeUsdAdded };
+  return { totalCostBasis, transferredQuantity, sameAssetFeeUsdAdded };
 }
 
 /**

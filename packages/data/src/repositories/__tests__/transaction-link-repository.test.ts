@@ -106,28 +106,28 @@ describe('TransactionLinkRepository', () => {
       expect(fetched?.targetMovementFingerprint).toBe('movement:blockchain:bitcoin:deposit-2:inflow:0');
     });
 
-    it('stores variance metadata in metadata_json', async () => {
+    it('stores variance metadata separately from implied fee amount', async () => {
       const link: NewTransactionLink = {
         ...makeBtcLink(1, 2),
         assetSymbol: 'ETH' as Currency,
         sourceAmount: parseDecimal('10.0'),
         targetAmount: parseDecimal('9.95'),
+        impliedFeeAmount: parseDecimal('0.05'),
         linkType: 'blockchain_to_blockchain',
         status: 'suggested',
         metadata: {
           variance: '0.05',
           variancePct: '0.50',
-          impliedFee: '0.05',
           transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
         },
       };
 
       const id = assertOk(await repo.create(link));
       const fetched = assertOk(await repo.findById(id));
+      expect(fetched?.impliedFeeAmount?.toFixed()).toBe('0.05');
       expect(fetched?.metadata).toEqual({
         variance: '0.05',
         variancePct: '0.50',
-        impliedFee: '0.05',
         transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:deposit-2:inflow:0',
       });
     });

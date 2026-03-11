@@ -874,13 +874,7 @@ describe('lot-matcher-utils', () => {
   describe('calculateTransferDisposalAmount', () => {
     it('should return full amount for add-to-basis policy', () => {
       const outflow = createMovement('BTC', '1', '50000');
-      const cryptoFee = {
-        amount: parseDecimal('0.001'),
-        feeType: 'network',
-        priceAtTxTime: createPriceAtTxTime('50000'),
-      };
-
-      const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'add-to-basis');
+      const result = calculateTransferDisposalAmount(outflow, parseDecimal('0.999'), 'add-to-basis');
 
       expect(result.transferDisposalQuantity.toFixed()).toBe('1');
     });
@@ -893,72 +887,58 @@ describe('lot-matcher-utils', () => {
         netAmount: parseDecimal('0.999'),
         priceAtTxTime: createPriceAtTxTime('50000'),
       };
-      const cryptoFee = {
-        amount: parseDecimal('0.001'),
-        feeType: 'network',
-        priceAtTxTime: createPriceAtTxTime('50000'),
-      };
-
-      const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
+      const result = calculateTransferDisposalAmount(outflow, parseDecimal('0.999'), 'disposal');
 
       expect(result.transferDisposalQuantity.toFixed()).toBe('0.999');
     });
 
-    it('should preserve gross amount when fees are tracked separately from the transfer amount', () => {
+    it('should use the fee-adjusted transferred quantity for disposal policy', () => {
       const outflow = createMovement('BTC', '1', '50000');
-      const cryptoFee = {
-        amount: parseDecimal('0.001'),
-        feeType: 'network',
-        priceAtTxTime: createPriceAtTxTime('50000'),
-      };
+      const result = calculateTransferDisposalAmount(outflow, parseDecimal('0.9985'), 'disposal');
 
-      const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
-
-      expect(result.transferDisposalQuantity.toFixed()).toBe('1');
+      expect(result.transferDisposalQuantity.toFixed()).toBe('0.9985');
     });
 
     it('should handle zero fee', () => {
       const outflow = createMovement('BTC', '1', '50000');
-      const cryptoFee = { amount: parseDecimal('0'), feeType: 'none', priceAtTxTime: undefined };
-
-      const result = calculateTransferDisposalAmount(outflow, cryptoFee, 'disposal');
+      const result = calculateTransferDisposalAmount(outflow, parseDecimal('1'), 'disposal');
 
       expect(result.transferDisposalQuantity.toFixed()).toBe('1');
     });
   });
 
   describe('buildTransferMetadata', () => {
-    it('should build metadata with crypto fee for add-to-basis policy', () => {
-      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
+    it('should build metadata with same-asset fee for add-to-basis policy', () => {
+      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeDefined();
-      expect(metadata?.cryptoFeeUsdValue).toBeDefined();
+      expect(metadata?.sameAssetFeeUsdValue).toBeDefined();
       // Fee share: (0.5 / 1) * (0.001 * 50000) = 25
-      expect(metadata?.cryptoFeeUsdValue?.toFixed()).toBe('25');
+      expect(metadata?.sameAssetFeeUsdValue?.toFixed()).toBe('25');
     });
 
     it('should return undefined for disposal policy', () => {
-      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
+      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: createPriceAtTxTime('50000') };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'disposal', parseDecimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(sameAssetFee, 'disposal', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
 
     it('should return undefined for zero fee', () => {
-      const cryptoFee = { amount: parseDecimal('0'), priceAtTxTime: undefined };
+      const sameAssetFee = { amount: parseDecimal('0'), priceAtTxTime: undefined };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
 
     it('should return undefined when fee has no price', () => {
-      const cryptoFee = { amount: parseDecimal('0.001'), priceAtTxTime: undefined };
+      const sameAssetFee = { amount: parseDecimal('0.001'), priceAtTxTime: undefined };
 
-      const metadata = buildTransferMetadata(cryptoFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
+      const metadata = buildTransferMetadata(sameAssetFee, 'add-to-basis', parseDecimal('0.5'), new Decimal('1'));
 
       expect(metadata).toBeUndefined();
     });
@@ -1008,10 +988,10 @@ describe('lot-matcher-utils', () => {
       // 0.5 * 50000 + 0.3 * 51000 = 25000 + 15300 = 40300
       expect(result.totalCostBasis.toFixed()).toBe('40300');
       expect(result.transferredQuantity.toFixed()).toBe('0.8');
-      expect(result.cryptoFeeUsdAdded.toFixed()).toBe('0');
+      expect(result.sameAssetFeeUsdAdded.toFixed()).toBe('0');
     });
 
-    it('should include crypto fees from metadata', () => {
+    it('should include same-asset fees from metadata', () => {
       const transfers: LotTransfer[] = [
         {
           id: '1',
@@ -1028,7 +1008,7 @@ describe('lot-matcher-utils', () => {
           sourceTransactionId: 1,
           targetTransactionId: 2,
           transferDate: new Date('2024-01-15'),
-          metadata: { cryptoFeeUsdValue: parseDecimal('25') },
+          metadata: { sameAssetFeeUsdValue: parseDecimal('25') },
           createdAt: new Date(),
         },
       ];
@@ -1037,7 +1017,7 @@ describe('lot-matcher-utils', () => {
 
       // 0.5 * 50000 + 25 = 25025
       expect(result.totalCostBasis.toFixed()).toBe('25025');
-      expect(result.cryptoFeeUsdAdded.toFixed()).toBe('25');
+      expect(result.sameAssetFeeUsdAdded.toFixed()).toBe('25');
     });
 
     it('should handle empty transfers array', () => {
@@ -1045,7 +1025,7 @@ describe('lot-matcher-utils', () => {
 
       expect(result.totalCostBasis.toFixed()).toBe('0');
       expect(result.transferredQuantity.toFixed()).toBe('0');
-      expect(result.cryptoFeeUsdAdded.toFixed()).toBe('0');
+      expect(result.sameAssetFeeUsdAdded.toFixed()).toBe('0');
     });
   });
 

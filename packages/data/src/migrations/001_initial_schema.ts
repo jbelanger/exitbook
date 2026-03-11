@@ -257,6 +257,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('target_asset_id', 'text', (col) => col.notNull())
     .addColumn('source_amount', 'text', (col) => col.notNull())
     .addColumn('target_amount', 'text', (col) => col.notNull())
+    .addColumn('implied_fee_amount', 'text')
     .addColumn('source_movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('target_movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('link_type', 'text', (col) => col.notNull())
@@ -271,6 +272,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint(
       'transaction_links_link_type_valid',
       sql`link_type IN ('exchange_to_blockchain', 'blockchain_to_exchange', 'blockchain_to_blockchain', 'exchange_to_exchange', 'blockchain_internal')`
+    )
+    .addCheckConstraint(
+      'transaction_links_implied_fee_amount_valid',
+      sql`
+        implied_fee_amount IS NULL
+        OR (
+          CASE
+            WHEN json_valid(implied_fee_amount)
+            THEN json_type(implied_fee_amount) IN ('integer', 'real')
+              AND CAST(implied_fee_amount AS REAL) >= 0
+            ELSE 0
+          END
+        )
+      `
     )
     .addCheckConstraint(
       'transaction_links_confidence_score_valid',

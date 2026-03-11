@@ -78,7 +78,7 @@ export const LotDisposalSchema = z.object({
 });
 
 export const LotTransferMetadataSchema = z.object({
-  cryptoFeeUsdValue: DecimalSchema.optional(),
+  sameAssetFeeUsdValue: DecimalSchema.optional(),
 });
 
 export const ConfirmedLinkTransferProvenanceSchema = z.object({

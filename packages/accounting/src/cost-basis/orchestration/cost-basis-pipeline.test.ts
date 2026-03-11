@@ -235,7 +235,6 @@ describe('runCostBasisPipeline', () => {
       metadata: {
         variance: '0',
         variancePct: '0.00',
-        impliedFee: '0',
       },
     };
 

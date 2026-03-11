@@ -3,7 +3,7 @@
  */
 
 import {
-  hasImpliedFeeLinkMetadata,
+  hasImpliedFeeAmount,
   isPartialMatchLinkMetadata,
   isSameHashExternalLinkMetadata,
   type LinkStatus,
@@ -546,10 +546,13 @@ function getProposalAmountDisplay(proposal: TransferProposalWithTransactions): L
   }
 
   if (link.sourceAmount.greaterThan(link.targetAmount)) {
+    const changeAmount = link.sourceAmount.minus(link.targetAmount);
+    const impliedFeeAmount = hasImpliedFeeAmount(link) ? link.impliedFeeAmount.toFixed() : changeAmount.toFixed();
+
     return {
-      detailLabel: hasImpliedFeeLinkMetadata(metadata) ? 'Implied fee:' : 'Change:',
+      detailLabel: hasImpliedFeeAmount(link) ? 'Implied fee:' : 'Change:',
       matchedAmount: link.targetAmount.toFixed(),
-      detailSummary: `${hasImpliedFeeLinkMetadata(metadata) ? metadata.impliedFee : link.sourceAmount.minus(link.targetAmount).toFixed()} ${link.assetSymbol}`,
+      detailSummary: `${impliedFeeAmount} ${link.assetSymbol}`,
     };
   }
 

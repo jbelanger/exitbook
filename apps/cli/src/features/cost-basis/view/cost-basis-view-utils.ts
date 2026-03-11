@@ -243,8 +243,8 @@ export function buildAssetCostBasisItems(
         targetTransactionId: transfer.targetTransactionId,
         sourceLotId: transfer.sourceLotId,
         sourceAcquisitionDate: sourceLot ? formatDateString(sourceLot.acquisitionDate) : 'unknown',
-        feeAmount: transfer.metadata?.cryptoFeeUsdValue?.toFixed(2),
-        feeCurrency: transfer.metadata?.cryptoFeeUsdValue ? 'USD' : undefined,
+        feeAmount: transfer.metadata?.sameAssetFeeUsdValue?.toFixed(2),
+        feeCurrency: transfer.metadata?.sameAssetFeeUsdValue ? 'USD' : undefined,
         fxConversion: converted
           ? { fxRate: converted.fxConversion.fxRate.toFixed(4), fxSource: converted.fxConversion.fxSource }
           : undefined,

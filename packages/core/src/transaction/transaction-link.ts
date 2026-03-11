@@ -9,6 +9,10 @@ const UnitIntervalDecimalSchema = DecimalSchema.refine(
   { message: 'Value must be between 0 and 1 (inclusive)' }
 );
 
+const NonNegativeDecimalSchema = DecimalSchema.refine((value) => value.greaterThanOrEqualTo(0), {
+  message: 'Value must be non-negative',
+});
+
 /**
  * Link type schema
  */
@@ -60,7 +64,6 @@ export const TransactionLinkMetadataSchema = z
   .object({
     variance: z.string().optional(),
     variancePct: z.string().optional(),
-    impliedFee: z.string().optional(),
     partialMatch: z.literal(true).optional(),
     fullSourceAmount: z.string().optional(),
     fullTargetAmount: z.string().optional(),
@@ -104,6 +107,7 @@ export const TransactionLinkSchema = z.object({
   targetMovementFingerprint: z.string(),
   linkType: LinkTypeSchema,
   confidenceScore: UnitIntervalDecimalSchema,
+  impliedFeeAmount: NonNegativeDecimalSchema.optional(),
   matchCriteria: MatchCriteriaSchema,
   status: LinkStatusSchema,
   reviewedBy: z.string().optional(),
@@ -142,10 +146,10 @@ export function isPartialMatchLinkMetadata(
   );
 }
 
-export function hasImpliedFeeLinkMetadata(
-  metadata: TransactionLinkMetadata | undefined
-): metadata is TransactionLinkMetadata & Required<Pick<TransactionLinkMetadata, 'impliedFee'>> {
-  return typeof metadata?.impliedFee === 'string';
+export function hasImpliedFeeAmount(
+  link: Pick<TransactionLink, 'impliedFeeAmount'> | undefined
+): link is Pick<TransactionLink, 'impliedFeeAmount'> & { impliedFeeAmount: z.infer<typeof NonNegativeDecimalSchema> } {
+  return link?.impliedFeeAmount !== undefined;
 }
 
 export function isSameHashExternalLinkMetadata(

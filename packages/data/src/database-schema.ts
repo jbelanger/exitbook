@@ -198,8 +198,9 @@ export interface TransactionLinksTable {
   asset: string; // Transferred asset symbol (e.g., 'BTC', 'ETH')
   source_asset_id: string; // Source movement asset ID (e.g., 'exchange:kraken:btc')
   target_asset_id: string; // Target movement asset ID (e.g., 'blockchain:bitcoin:native')
-  source_amount: DecimalString; // Gross outflow amount (before fees deducted)
-  target_amount: DecimalString; // Net received amount (after fees)
+  source_amount: DecimalString; // Linked source amount before any implied same-asset transfer fee
+  target_amount: DecimalString; // Net received amount after any implied same-asset transfer fee
+  implied_fee_amount: DecimalString | null; // Inferred same-asset transfer fee not modeled as a fee movement
   source_movement_fingerprint: string; // Deterministic movement identity (e.g., movement:tx:v2:kraken:1:WITHDRAWAL-123:outflow:0)
   target_movement_fingerprint: string; // Deterministic movement identity (e.g., movement:tx:v2:blockchain:ethereum:2:0xabc:inflow:0)
   link_type:

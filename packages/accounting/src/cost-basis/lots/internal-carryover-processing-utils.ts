@@ -90,7 +90,7 @@ export function processFeeOnlyInternalCarryoverSource(
   }
   const lotDisposals = lotDisposalsResult.value;
 
-  let cryptoFeeUsdValue: Decimal | undefined = undefined;
+  let sameAssetFeeUsdValue: Decimal | undefined = undefined;
   if (carryover.fee.amount.gt(0) && feePolicy === 'add-to-basis') {
     if (!carryover.fee.priceAtTxTime) {
       warnings.push({
@@ -100,7 +100,7 @@ export function processFeeOnlyInternalCarryoverSource(
         },
       });
     } else {
-      cryptoFeeUsdValue = carryover.fee.amount.times(carryover.fee.priceAtTxTime.price.amount);
+      sameAssetFeeUsdValue = carryover.fee.amount.times(carryover.fee.priceAtTxTime.price.amount);
     }
   }
 
@@ -113,11 +113,12 @@ export function processFeeOnlyInternalCarryoverSource(
     for (const binding of targetBindings) {
       const linkTransferFraction = binding.target.quantity.dividedBy(carryover.retainedQuantity);
       const allocatedDisposalQuantity = lotDisposal.quantityDisposed.times(linkTransferFraction);
-      const quantityTransferred = lotDisposal.quantityDisposed
-        .times(binding.target.quantity)
-        .dividedBy(transferDisposalQuantity);
+      const quantityTransferred =
+        feePolicy === 'disposal'
+          ? allocatedDisposalQuantity
+          : lotDisposal.quantityDisposed.times(binding.target.quantity).dividedBy(transferDisposalQuantity);
 
-      const metadata = cryptoFeeUsdValue
+      const metadata = sameAssetFeeUsdValue
         ? buildTransferMetadata(
             {
               amount: carryover.fee.amount,

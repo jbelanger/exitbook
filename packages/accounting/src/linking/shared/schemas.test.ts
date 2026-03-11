@@ -150,6 +150,7 @@ describe('schemas', () => {
           addressMatch: true,
         },
         status: 'confirmed',
+        impliedFeeAmount: '0.0005',
         reviewedBy: 'user-123',
         reviewedAt: new Date('2024-01-02T12:00:00Z'),
         createdAt: new Date('2024-01-01T12:00:00Z'),
@@ -157,7 +158,6 @@ describe('schemas', () => {
         metadata: {
           variance: '0.0005',
           variancePct: '0.05',
-          impliedFee: '0.0005',
           transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
         },
       };
@@ -173,13 +173,13 @@ describe('schemas', () => {
       expect(result.targetAmount.toFixed()).toBe('0.9995');
       expect(result.linkType).toBe('exchange_to_blockchain');
       expect(result.confidenceScore).toBeInstanceOf(Decimal);
+      expect(result.impliedFeeAmount?.toFixed()).toBe('0.0005');
       expect(result.status).toBe('confirmed');
       expect(result.reviewedBy).toBe('user-123');
       expect(result.reviewedAt).toBeInstanceOf(Date);
       expect(result.metadata).toEqual({
         variance: '0.0005',
         variancePct: '0.05',
-        impliedFee: '0.0005',
         transferProposalKey: 'partial-target:v1:movement:blockchain:bitcoin:abc123:inflow:0',
       });
     });

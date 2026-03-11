@@ -44,7 +44,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     assetSymbol: string,
     sourceAmount: string,
     targetAmount: string,
-    confidenceScore = '98.5'
+    confidenceScore = '98.5',
+    impliedFeeAmount?: string
   ): TransactionLink => ({
     id,
     sourceTransactionId,
@@ -58,6 +59,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     targetMovementFingerprint: `movement:blockchain:target:${targetTransactionId}:${assetSymbol.toLowerCase()}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal(confidenceScore),
+    impliedFeeAmount: impliedFeeAmount ? parseDecimal(impliedFeeAmount) : undefined,
     matchCriteria: {
       assetMatch: true,
       amountSimilarity: parseDecimal('0.99'),
@@ -408,8 +410,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
 
       expect(btcResult!.lotTransfers).toHaveLength(1);
       const transfer = btcResult!.lotTransfers[0];
-      expect(transfer?.metadata?.cryptoFeeUsdValue).toBeDefined();
-      expect(new Decimal(transfer!.metadata!.cryptoFeeUsdValue!).toFixed()).toBe('30');
+      expect(transfer?.metadata?.sameAssetFeeUsdValue).toBeDefined();
+      expect(new Decimal(transfer!.metadata!.sameAssetFeeUsdValue!).toFixed()).toBe('30');
     });
   });
 
@@ -1159,6 +1161,80 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       expect(btcResult).toBeDefined();
       expect(btcResult!.lotTransfers).toHaveLength(1);
     });
+
+    it('treats link implied fee amounts as same-asset transfer fees', async () => {
+      const purchaseTx = createTransaction(
+        1,
+        '2024-01-01T00:00:00Z',
+        'kraken',
+        [
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('1'),
+            priceAtTxTime: createPriceAtTxTime('3000'),
+          },
+        ],
+        []
+      );
+
+      const withdrawalTx = createTransaction(
+        2,
+        '2024-05-24T05:14:17.000Z',
+        'arbitrum',
+        [],
+        [
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.04'),
+            netAmount: parseDecimal('0.04'),
+            priceAtTxTime: createPriceAtTxTime('3500'),
+          },
+        ],
+        []
+      );
+
+      const depositTx = createTransaction(
+        3,
+        '2024-05-24T05:14:47.000Z',
+        'ethereum',
+        [
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.038410276629335232'),
+            priceAtTxTime: createPriceAtTxTime('3500'),
+          },
+        ],
+        []
+      );
+
+      transactions = [purchaseTx, withdrawalTx, depositTx];
+
+      const link = createLink(1, 2, 3, 'ETH', '0.04', '0.038410276629335232', '1', '0.001589723370664768');
+
+      const fifoStrategy = new FifoStrategy();
+
+      const result = await matchTransactions(transactions, [link], {
+        calculationId: 'calc1',
+        strategy: fifoStrategy,
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      const resultValue = assertOk(result);
+      const ethResult = resultValue.assetResults.find((r) => r.assetSymbol === 'ETH');
+      expect(ethResult).toBeDefined();
+
+      expect(ethResult!.lotTransfers).toHaveLength(1);
+      expect(ethResult!.lotTransfers[0]?.quantityTransferred.eq(parseDecimal('0.038410276629335232'))).toBe(true);
+      expect(
+        ethResult!.disposals
+          .reduce((sum, disposal) => sum.plus(disposal.quantityDisposed), parseDecimal('0'))
+          .eq(parseDecimal('0.001589723370664768'))
+      ).toBe(true);
+      expect(ethResult!.lots[1]?.quantity.eq(parseDecimal('0.038410276629335232'))).toBe(true);
+    });
   });
 
   describe('13. Missing price graceful degradation', () => {
@@ -1231,7 +1307,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       expect(transferLot).toBeDefined();
 
       const transfer = btcResult!.lotTransfers[0];
-      expect(transfer?.metadata?.cryptoFeeUsdValue).toBeUndefined();
+      expect(transfer?.metadata?.sameAssetFeeUsdValue).toBeUndefined();
 
       const expectedBasis = parseDecimal('49975');
       const expectedPerUnit = expectedBasis.dividedBy(parseDecimal('0.9995'));

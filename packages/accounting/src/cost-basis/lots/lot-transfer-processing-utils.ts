@@ -24,6 +24,24 @@ function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTran
   return 'tx' in transaction ? transaction.tx : transaction;
 }
 
+function resolveLinkTransferredAmount(validatedLink: ValidatedScopedTransferLink): Result<Decimal, Error> {
+  const impliedFeeAmount = validatedLink.link.impliedFeeAmount ?? parseDecimal('0');
+  if (impliedFeeAmount.isZero()) {
+    return ok(validatedLink.link.sourceAmount);
+  }
+
+  if (!validatedLink.link.sourceAmount.gt(impliedFeeAmount)) {
+    return err(
+      new Error(
+        `Confirmed transfer link ${validatedLink.link.id} has invalid implied fee ${impliedFeeAmount.toFixed()} ` +
+          `for source amount ${validatedLink.link.sourceAmount.toFixed()}`
+      )
+    );
+  }
+
+  return ok(validatedLink.link.sourceAmount.minus(impliedFeeAmount));
+}
+
 interface TransferWarningData {
   assetSymbol?: string;
   date?: string;
@@ -111,6 +129,9 @@ export function processTransferSource(
   }
 
   const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+  const transferredAmountByLinkId = new Map<number, Decimal>();
+  let totalTransferredAmount = parseDecimal('0');
+  let totalImpliedFeeAmount = parseDecimal('0');
   const linkedSourceAmount = links.reduce(
     (sum, validatedLink) => sum.plus(validatedLink.link.sourceAmount),
     parseDecimal('0')
@@ -125,8 +146,19 @@ export function processTransferSource(
   }
 
   for (const validatedLink of links) {
+    const transferredAmountResult = resolveLinkTransferredAmount(validatedLink);
+    if (transferredAmountResult.isErr()) {
+      return err(transferredAmountResult.error);
+    }
+
+    const transferredAmount = transferredAmountResult.value;
+    const impliedFeeAmount = validatedLink.link.impliedFeeAmount ?? parseDecimal('0');
+    transferredAmountByLinkId.set(validatedLink.link.id, transferredAmount);
+    totalTransferredAmount = totalTransferredAmount.plus(transferredAmount);
+    totalImpliedFeeAmount = totalImpliedFeeAmount.plus(impliedFeeAmount);
+
     const varianceResult = validateTransferVariance(
-      validatedLink.link.sourceAmount,
+      transferredAmount,
       validatedLink.link.targetAmount,
       rawTransaction.source,
       rawTransaction.id,
@@ -145,18 +177,36 @@ export function processTransferSource(
           assetSymbol: outflow.assetSymbol,
           linkId: validatedLink.link.id,
           linkTargetAmount: validatedLink.link.targetAmount,
-          linkedSourceAmount: validatedLink.link.sourceAmount,
+          linkedSourceAmount: transferredAmount,
           variancePct,
         },
       });
     }
   }
 
+  if (!totalTransferredAmount.gt(0)) {
+    return err(
+      new Error(
+        `Transfer source tx ${rawTransaction.id} resolved to zero transferred quantity after implied same-asset fees`
+      )
+    );
+  }
+
+  const sameAssetFee = {
+    amount: cryptoFee.amount.plus(totalImpliedFeeAmount),
+    feeType: totalImpliedFeeAmount.gt(0)
+      ? cryptoFee.amount.gt(0)
+        ? `${cryptoFee.feeType}+implied`
+        : 'implied'
+      : cryptoFee.feeType,
+    priceAtTxTime: cryptoFee.priceAtTxTime ?? (totalImpliedFeeAmount.gt(0) ? outflow.priceAtTxTime : undefined),
+  };
+
   const openLots = lots.filter((lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0));
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
   const transferDisposalQuantity = calculateTransferDisposalAmount(
     outflow,
-    cryptoFee,
+    totalTransferredAmount,
     feePolicy
   ).transferDisposalQuantity;
 
@@ -174,19 +224,19 @@ export function processTransferSource(
   }
   const lotDisposals = lotDisposalsResult.value;
 
-  let cryptoFeeUsdValue: Decimal | undefined = undefined;
-  if (cryptoFee.amount.gt(0) && feePolicy === 'add-to-basis') {
-    if (!cryptoFee.priceAtTxTime) {
+  let sameAssetFeeUsdValue: Decimal | undefined = undefined;
+  if (sameAssetFee.amount.gt(0) && feePolicy === 'add-to-basis') {
+    if (!sameAssetFee.priceAtTxTime) {
       warnings.push({
         type: 'missing-price',
         data: {
           assetSymbol: outflow.assetSymbol,
-          feeAmount: cryptoFee.amount,
+          feeAmount: sameAssetFee.amount,
           linkId: links[0]!.link.id,
         },
       });
     } else {
-      cryptoFeeUsdValue = cryptoFee.amount.times(cryptoFee.priceAtTxTime.price.amount);
+      sameAssetFeeUsdValue = sameAssetFee.amount.times(sameAssetFee.priceAtTxTime.price.amount);
     }
   }
 
@@ -202,17 +252,23 @@ export function processTransferSource(
     buildLotQuantityUpdateMap(lotDisposal.lotId, lotDisposal.quantityDisposed, quantityToSubtractByLotId);
 
     for (const validatedLink of links) {
-      const linkTransferFraction = validatedLink.link.sourceAmount.dividedBy(netTransferAmount);
-      const allocatedDisposalQuantity = lotDisposal.quantityDisposed.times(linkTransferFraction);
-      const quantityTransferred = lotDisposal.quantityDisposed
-        .times(validatedLink.link.sourceAmount)
-        .dividedBy(transferDisposalQuantity);
+      const linkTransferredAmount = transferredAmountByLinkId.get(validatedLink.link.id);
+      if (!linkTransferredAmount) {
+        return err(new Error(`Resolved transferred amount missing for link ${validatedLink.link.id}`));
+      }
 
-      const metadata = cryptoFeeUsdValue
+      const linkTransferFraction = linkTransferredAmount.dividedBy(totalTransferredAmount);
+      const allocatedDisposalQuantity = lotDisposal.quantityDisposed.times(linkTransferFraction);
+      const quantityTransferred =
+        feePolicy === 'disposal'
+          ? allocatedDisposalQuantity
+          : lotDisposal.quantityDisposed.times(linkTransferredAmount).dividedBy(transferDisposalQuantity);
+
+      const metadata = sameAssetFeeUsdValue
         ? buildTransferMetadata(
             {
-              ...cryptoFee,
-              priceAtTxTime: cryptoFee.priceAtTxTime,
+              amount: sameAssetFee.amount,
+              priceAtTxTime: sameAssetFee.priceAtTxTime,
             },
             feePolicy,
             allocatedDisposalQuantity,
@@ -242,7 +298,7 @@ export function processTransferSource(
   }
 
   const disposals: LotDisposal[] = [];
-  if (cryptoFee.amount.gt(0) && feePolicy === 'disposal') {
+  if (sameAssetFee.amount.gt(0) && feePolicy === 'disposal') {
     const lotsAfterTransferResult = applyLotQuantityUpdates(lots, quantityToSubtractByLotId);
     if (lotsAfterTransferResult.isErr()) {
       return err(lotsAfterTransferResult.error);
@@ -254,9 +310,9 @@ export function processTransferSource(
     const feeDisposal = {
       transactionId: rawTransaction.id,
       assetSymbol: outflow.assetSymbol,
-      quantity: cryptoFee.amount,
+      quantity: sameAssetFee.amount,
       date: new Date(rawTransaction.datetime),
-      proceedsPerUnit: cryptoFee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
+      proceedsPerUnit: sameAssetFee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
     };
 
     const feeDisposalsResult = strategy.matchDisposal(feeDisposal, remainingLotsAfterTransfer);
