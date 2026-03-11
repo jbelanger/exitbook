@@ -1,265 +1,323 @@
 # ExitBook
 
-> Open-source CLI for crypto transaction tracking and tax reporting
+> Open-source CLI for crypto transaction tracking, reconciliation, and tax reporting workflows.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
 [![CodeQL](https://github.com/jbelanger/exitbook/actions/workflows/codeql.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jbelanger/exitbook/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jbelanger/exitbook)
-[![OpenSSF Baseline](https://www.bestpractices.dev/projects/12043/baseline)](https://www.bestpractices.dev/projects/12043)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 
+Exitbook exists for people who want more confidence in their crypto tax reporting.
+
+That usually means two things:
+
+- you want to see where the numbers came from
+- you want tools that help you verify the result instead of asking you to trust a black box
+
+Exitbook is built around that idea. It imports transaction history from exchanges and blockchains, preserves the raw records, normalizes them into a common model, helps you review transfers between your own accounts, enriches pricing data, verifies balances, and calculates cost basis from an auditable data trail.
+
+It is not tax advice. It is software for building a cleaner, more defensible record of what happened.
+
 ## Why Exitbook exists
 
-Crypto tax tools charge per transaction, hide their calculations, and some fabricate events to fill gaps in your data.
+Crypto tax tooling often has the same problems:
 
-Exitbook doesn't do any of that. Every number traces back to a real import. Every calculation is visible. If data is missing, it tells you instead of guessing.
+- the data pipeline is opaque
+- missing data gets papered over with guesses
+- reprocessing requires re-importing everything
+- transfer matching is hidden from the user
+- confidence depends on whether you trust the vendor, not whether you can inspect the workflow
 
-## How it works
+Exitbook takes a different approach:
 
-1. **Import** — pull transactions from blockchains (by wallet address) or exchanges (by API key, or CSV for KuCoin).
-2. **Normalize** — convert everything into a universal transaction format.
-3. **Link** — detect transfers between your wallets. You review, confirm, or reject each suggested link.
-4. **Price** — attach USD prices to every inflow, outflow, and fee. Fill any gaps manually.
-5. **Calculate** — compute cost basis (FIFO, LIFO, or average).
+- raw imported data is kept so processing can be replayed without refetching from providers
+- incomplete imports block downstream processing instead of silently producing partial reports
+- transaction links are surfaced for review, confirmation, or rejection
+- balance verification is a first-class workflow, not an afterthought
+- the code is open, so the community can inspect how the accounting pipeline works
 
-## Before you file
+## What Exitbook does
 
-1. **Check balances** — after importing, run `balance` to verify Exitbook matches the chain. If balances are correct, the calculations built on top of them will be too.
-2. **Import all your wallets** — transfers between your own wallets need both sides to link correctly. Missing a wallet means broken links.
-3. **Pricing is intraday** — USD prices are per-day, not per-second. Close enough for tax reporting.
+Exitbook is a CLI-first workflow for crypto records and tax prep:
 
-## Supported Sources
+1. Import raw history from blockchain APIs, exchange APIs, or exchange CSV exports.
+2. Normalize source-specific records into a shared transaction model.
+3. Preserve raw data separately from derived accounting data.
+4. Suggest links between related transactions, such as exchange withdrawals and wallet deposits.
+5. Enrich prices using trade execution data, FX conversion, external market data, and confirmed links.
+6. Verify balances against live sources or inspect calculated balances offline.
+7. Calculate cost basis, realized gains/losses, and portfolio views from the processed dataset.
 
-### Blockchains
+## What makes it trustworthy
 
-| Chain Family  | Sub-chains | Import Status                   | Balance Verification            |
-| ------------- | ---------- | ------------------------------- | ------------------------------- |
-| **Bitcoin**   | 4 chains   | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **Cardano**   | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **Cosmos**    | 95 chains  | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **EVM**       | 113 chains | **Complete** (simple wallets)\* | **Complete** (simple wallets)\* |
-| **NEAR**      | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **Solana**    | 1 chain    | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **Substrate** | 89 chains  | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
-| **XRP**       | 2 chains   | **Complete** (simple wallets)   | **Complete** (simple wallets)   |
+- **Raw data is preserved.** Imported records are stored before processing so fixes to processing logic can be replayed with `pnpm run dev reprocess`.
+- **Imports are resumable.** Streaming imports persist progress per batch, which matters for large wallets and unreliable APIs.
+- **Provider failures are expected.** Blockchain imports can fail over between providers using persisted health and circuit-breaker state.
+- **Validation is strict.** Processing uses runtime schemas and explicit `Result` types instead of silently swallowing errors.
+- **Transfer review stays in the loop.** Links are suggested, scored, and then confirmed or rejected by the user.
+- **Pricing prefers transaction context.** The enrichment pipeline uses exchange execution prices and derived swap ratios before falling back to external market data.
+- **Verification is built in.** You can compare calculated balances against live balances to catch missing imports or bad assumptions early.
 
-\* EVM supports both address and contract address tracking
+## Supported sources
 
-**Note:** All chains support complete import and balance verification for simple user wallets (EOA addresses). Complex wallet scenarios (multi-sig, smart contract wallets, cross-chain interactions) require additional work.
+Exitbook supports these source families today:
 
-<details>
-<summary>View all supported chains</summary>
+| Source type  | Supported today                                                    | Notes                                                                       |
+| ------------ | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Blockchains  | Bitcoin family, Cardano, Cosmos, EVM, NEAR, Solana, Substrate, XRP | Use `pnpm run dev blockchains view` for the current chain and provider list |
+| Exchange API | Coinbase, Kraken, KuCoin                                           | Credentials can come from flags or `.env`                                   |
+| Exchange CSV | KuCoin                                                             | Import from a directory of exported CSV files                               |
 
-**Bitcoin family:** bitcoin, dogecoin, litecoin, bitcoin-cash
-
-**Cardano:** cardano
-
-**Cosmos chains:** injective, osmosis, cosmoshub, terra, juno, secret, stargaze, and 88 more
-
-**EVM chains:** ethereum, polygon, optimism, arbitrum, base, avalanche, beam, bsc, zksync, polygon-zkevm, linea, scroll, mantle, blast, and 99 more (see `packages/blockchain-providers/src/blockchains/evm/evm-chains.json`)
-
-**NEAR:** near
-
-**Solana:** solana
-
-**Substrate chains:** polkadot, bittensor, kusama, acala, moonbeam, astar, and 83 more
-
-**XRP:** xrp, xrp-testnet
-
-</details>
-
-### Exchanges
-
-| Exchange | CSV Import | API Import |
-| -------- | ---------- | ---------- |
-| Kraken   | -          | Working    |
-| KuCoin   | Working    | Working    |
-| Coinbase | -          | Working    |
-
-## Blockchain Providers
-
-ExitBook uses a multi-provider failover system to fetch blockchain data. Each blockchain family supports multiple data providers that implement different operations. The system automatically retries across providers if one fails.
-
-### Provider Operations
-
-| Operation                        | Description                                      |
-| -------------------------------- | ------------------------------------------------ |
-| `getAddressTransactions`         | Fetch all transactions for an address            |
-| `getAddressInternalTransactions` | Fetch internal/contract transactions (EVM)       |
-| `getAddressBalances`             | Get native token balance for an address          |
-| `getAddressTokenTransactions`    | Fetch token transfers for an address             |
-| `getAddressTokenBalances`        | Get all token balances for an address            |
-| `getTokenMetadata`               | Retrieve token metadata (symbol, decimals, etc.) |
-| `getAddressBeaconWithdrawals`    | Fetch Ethereum beacon chain withdrawals          |
-| `hasAddressTransactions`         | Check if address has any transactions            |
-
-### Available Providers by Blockchain
-
-<details>
-<summary><strong>Bitcoin Family</strong> (3 providers)</summary>
-
-| Provider          | Chains Supported                          | Operations                              | API Key Required      |
-| ----------------- | ----------------------------------------- | --------------------------------------- | --------------------- |
-| **blockstream**   | bitcoin                                   | Transactions, Balances, HasTransactions | No                    |
-| **mempool.space** | bitcoin                                   | Transactions, Balances, HasTransactions | No                    |
-| **tatum**         | bitcoin, litecoin, dogecoin, bitcoin-cash | Transactions, Balances, HasTransactions | Yes (`TATUM_API_KEY`) |
-
-Note: Tatum provides coverage for the other Bitcoin-family chains where Blockstream/Mempool.space don't operate.
-
-</details>
-
-<details>
-<summary><strong>Cardano</strong> (1 provider)</summary>
-
-| Provider       | Operations                              | API Key Required           |
-| -------------- | --------------------------------------- | -------------------------- |
-| **blockfrost** | Transactions, Balances, HasTransactions | Yes (`BLOCKFROST_API_KEY`) |
-
-</details>
-
-<details>
-<summary><strong>Cosmos</strong> (1 provider)</summary>
-
-| Provider               | Chains Supported | Operations             | API Key Required |
-| ---------------------- | ---------------- | ---------------------- | ---------------- |
-| **injective-explorer** | injective        | Transactions, Balances | No               |
-
-Note: Only Injective is currently supported. Other Cosmos chains (Osmosis, Terra, etc.) planned via Mintscan.
-
-</details>
-
-<details>
-<summary><strong>EVM Chains</strong> (5 providers)</summary>
-
-| Provider           | Chains Supported   | Operations                                                                  | API Key Required          |
-| ------------------ | ------------------ | --------------------------------------------------------------------------- | ------------------------- |
-| **moralis**        | All 113 EVM chains | Transactions, InternalTxs, Balances, TokenTxs, TokenBalances, TokenMetadata | Yes (`MORALIS_API_KEY`)   |
-| **routescan**      | Most EVM chains    | Transactions, InternalTxs, Balances, TokenTxs                               | No                        |
-| **etherscan**      | ethereum           | BeaconWithdrawals                                                           | Yes (`ETHERSCAN_API_KEY`) |
-| **thetascan**      | theta              | Transactions, Balances, TokenBalances                                       | No                        |
-| **theta-explorer** | theta              | Transactions                                                                | No                        |
-
-Note: Moralis and Routescan provide multi-chain coverage. Etherscan/ThetaScan are chain-specific.
-
-</details>
-
-<details>
-<summary><strong>NEAR</strong> (1 provider)</summary>
-
-| Provider       | Operations                                | API Key Required |
-| -------------- | ----------------------------------------- | ---------------- |
-| **nearblocks** | Transactions, TokenTransactions, Balances | No               |
-
-</details>
-
-<details>
-<summary><strong>Solana</strong> (3 providers)</summary>
-
-| Provider       | Operations                                                     | API Key Required        |
-| -------------- | -------------------------------------------------------------- | ----------------------- |
-| **helius**     | Transactions, Balances, TokenBalances, TokenTxs, TokenMetadata | Yes (`HELIUS_API_KEY`)  |
-| **solana-rpc** | Transactions, Balances, TokenBalances                          | No                      |
-| **solscan**    | Transactions, Balances                                         | Yes (`SOLSCAN_API_KEY`) |
-
-</details>
-
-<details>
-<summary><strong>Substrate</strong> (2 providers)</summary>
-
-| Provider     | Chains Supported | Operations             | API Key Required         |
-| ------------ | ---------------- | ---------------------- | ------------------------ |
-| **subscan**  | polkadot, kusama | Transactions, Balances | No                       |
-| **taostats** | bittensor        | Transactions, Balances | Yes (`TAOSTATS_API_KEY`) |
-
-Note: Only 3 of 89 Substrate chains currently have providers. Others require additional integrations.
-
-</details>
-
-**Summary:** 16 active providers across 7 blockchain families. 6 require API keys, 10 work without authentication.
-
-**Disabled providers:** Alchemy (EVM), Blockcypher (Bitcoin - rate limits too low), Blockchain.com (Bitcoin - timeouts)
-
-To view full provider details including rate limits: `pnpm blockchain-providers:list`
-
-## CLI Commands
-
-### Core Operations
+The CLI is the source of truth for current coverage:
 
 ```bash
-# Import from exchange CSV (KuCoin only)
+pnpm run dev blockchains view
+pnpm run dev blockchains view --json
+pnpm run dev providers view
+pnpm run dev providers view --json
+```
+
+### Current scope
+
+Exitbook is strongest today on simple user-controlled wallets and mainstream exchange histories.
+
+More complex cases can still require extra work or manual review, especially:
+
+- smart contract wallets and multi-sig setups
+- bridge-heavy or cross-chain workflows
+- unusual exchange exports or chain-specific edge cases
+- histories with missing counterpart accounts that prevent transfer linking
+
+That is normal for crypto data. The goal is to make the gaps visible and reviewable, not to hide them.
+
+## Typical workflow
+
+For most portfolios, the workflow looks like this:
+
+1. Import every exchange account and every wallet you care about.
+2. Inspect accounts and import sessions.
+3. Verify balances to find missing data early.
+4. Run the linking algorithm and review suggested matches.
+5. Enrich prices and fill any remaining gaps.
+6. Run cost-basis calculations for your jurisdiction and tax year.
+7. Export transactions or inspect the portfolio view.
+
+## Getting started
+
+### Requirements
+
+- Node.js `>= 24`
+- pnpm `>= 10.6.2`
+- SQLite
+
+### Install
+
+```bash
+pnpm install
+pnpm build
+pnpm test
+```
+
+### Configuration
+
+`pnpm run dev ...` loads `.env` from the project root when present.
+
+Put API keys there if you are using provider-backed imports or exchange API imports. Common examples include:
+
+- `MORALIS_API_KEY`
+- `HELIUS_API_KEY`
+- `BLOCKFROST_API_KEY`
+- exchange API credentials you want available during verification
+
+### Data directory
+
+By default, CLI data lives under `apps/cli/data/`.
+
+You can override that with `EXITBOOK_DATA_DIR`.
+
+Exitbook keeps separate SQLite databases for different responsibilities:
+
+- `transactions.db` for accounts, raw imports, processed transactions, movements, and links
+- `prices.db` for cached price data
+- `token-metadata.db` for token metadata and related cache data
+- `providers.db` for provider health and circuit-breaker state
+
+That separation lets you clear or reprocess transactional data without throwing away expensive caches.
+
+## Quick start
+
+### 1. Import data
+
+```bash
+# Exchange CSV import
 pnpm run dev import --exchange kucoin --csv-dir ./exports/kucoin
 
-# Import from exchange API
+# Exchange API import
 pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
 
-# Import blockchain transactions (simple wallets)
+# Blockchain import
 pnpm run dev import --blockchain bitcoin --address bc1q...
-
-# Verify live balance
-pnpm run dev balance --account-id <id>
 ```
 
-### Data Management
+### 2. Inspect what was imported
 
 ```bash
-# View transactions
-pnpm run dev transactions
+pnpm run dev accounts view
+pnpm run dev accounts view --show-sessions
+pnpm run dev transactions view
+```
 
-# View accounts
-pnpm run dev accounts
+### 3. Verify balances
 
-# Manage prices
+```bash
+# Verify all accounts against live sources where supported
+pnpm run dev balance
+
+# Verify one account
+pnpm run dev balance --account-id 5
+
+# Inspect calculated balances without live API calls
+pnpm run dev balance --offline
+```
+
+### 4. Review transfer links
+
+```bash
+# Suggest links between related transactions
+pnpm run dev links run
+
+# Review suggestions, confirmed links, rejected links, or coverage gaps
+pnpm run dev links view
+pnpm run dev links view --status suggested
+pnpm run dev links view --status gaps
+
+# Confirm or reject a specific link
+pnpm run dev links confirm <link-id>
+pnpm run dev links reject <link-id>
+```
+
+### 5. Enrich prices
+
+```bash
+# Run the full enrichment pipeline
 pnpm run dev prices enrich
-pnpm run dev prices set <symbol> <amount> --date YYYY-MM-DD
 
-# Export data
-pnpm run dev export --exchange kraken --format csv --output ./report.csv
+# Manually set an asset price or FX rate when needed
+pnpm run dev prices set --help
+pnpm run dev prices set-fx --help
 
-# Reprocess all raw data (clears derived data, rebuilds transactions)
-pnpm run dev reprocess
+# Inspect price coverage
+pnpm run dev prices view
 ```
 
-### Utilities
+### 6. Calculate cost basis and inspect portfolio state
 
 ```bash
-# List available blockchains and providers
-pnpm run dev blockchains view
+# Example: Canada, average cost
+pnpm run dev cost-basis --method average-cost --jurisdiction CA --tax-year 2024
 
-# Clear processed data (keeps raw data)
+# Example: US FIFO
+pnpm run dev cost-basis --method fifo --jurisdiction US --tax-year 2024
+
+# Point-in-time portfolio view
+pnpm run dev portfolio --jurisdiction CA --fiat-currency CAD
+```
+
+### 7. Export data or replay processing
+
+```bash
+# Export processed transactions
+pnpm run dev transactions export --format csv --output ./transactions.csv
+
+# Rebuild all derived data from preserved raw imports
+pnpm run dev reprocess
+
+# Clear processed data while keeping raw imports by default
 pnpm run dev clear
 ```
 
-## Getting Started
+## Command map
 
-**Requirements:** Node.js ≥24, pnpm ≥10.6.2
+These are the main CLI entrypoints:
+
+- `import` - import raw data from blockchains, exchange APIs, or CSVs
+- `accounts` - inspect accounts and import session history
+- `transactions` - inspect or export processed transactions
+- `balance` - verify live balances or inspect calculated balances offline
+- `links` - run transfer matching and review results
+- `prices` - inspect coverage, enrich prices, or set missing prices manually
+- `cost-basis` - calculate realized gains/losses for a jurisdiction and tax year
+- `portfolio` - inspect current holdings, allocation, and unrealized P&L
+- `assets` - exclude or re-include assets from accounting-scoped processing
+- `blockchains` - browse supported blockchains and provider capabilities
+- `providers` - inspect provider health and benchmark provider behavior
+- `reprocess` - rebuild derived data from preserved raw imports
+- `clear` - clear processed state without wiping everything
+
+For the full command surface:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Build packages
-pnpm build
-
-# Run tests
-pnpm test
-
-# Try an import (KuCoin CSV or Kraken API)
-pnpm run dev import --exchange kucoin --csv-dir ./your-data
-# or
-pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
+pnpm run dev --help
 ```
 
-**Configuration:** Add API keys to `.env` in project root (see `CLAUDE.md` for details)
+## How the pipeline works
+
+At a high level:
+
+1. **Import** streams source data in batches and stores raw records.
+2. **Process** converts raw records into normalized transactions and movements.
+3. **Link** connects related transactions across accounts and platforms.
+4. **Price** fills movement pricing using trade context, FX, market data, and links.
+5. **Report** calculates balances, portfolio views, and tax outputs from the resulting dataset.
+
+Some important implementation details:
+
+- imports are resumable and memory-bounded
+- raw and derived data are separated so you can replay processing safely
+- duplicates are handled idempotently at multiple layers
+- provider failover and circuit breakers help on-chain imports survive flaky APIs
+- missing or invalid data surfaces as an explicit problem instead of being hidden
+
+## Architecture and deeper docs
+
+If you want to understand the internals, start here:
+
+- [Architecture overview](./docs/architecture/README.md)
+- [Streaming import pipeline](./docs/architecture/import-pipeline.md)
+- [Data integrity and processing](./docs/architecture/data-integrity.md)
+- [Provider resilience](./docs/architecture/provider-resilience.md)
+- [Price enrichment pipeline](./docs/architecture/price-enrichment.md)
+
+Developer-oriented project guidance lives in:
+
+- [Architecture notes for code assistants](./docs/code-assistants/architecture.md)
+- [CLI wiring guide](./docs/code-assistants/cli-command-wiring.md)
+- [Result type guide](./docs/code-assistants/result-type.md)
 
 ## Contributing
 
-Bug reports and feature requests: [open a GitHub issue](https://github.com/jbelanger/exitbook/issues).
+Issues and pull requests are welcome.
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the process, coding conventions, and how to add new exchange or blockchain adapters.
+Useful local commands:
+
+```bash
+pnpm build
+pnpm test
+pnpm test:e2e
+pnpm lint
+pnpm prettier:fix
+```
+
+If you are working on provider coverage or import behavior, these are also useful:
+
+```bash
+pnpm blockchain-providers:list
+pnpm blockchain-providers:validate
+pnpm providers:sync
+```
 
 ## License
 
-AGPL-3.0-or-later
+AGPL-3.0-or-later.
