@@ -32,7 +32,7 @@ import { createPriceProviderManager, type PriceProviderManager } from '@exitbook
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';

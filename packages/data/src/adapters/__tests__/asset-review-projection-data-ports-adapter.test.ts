@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataContext } from '../../data-context.js';
 import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildAssetReviewProjectionPorts } from '../asset-review-projection-ports-adapter.js';
+import { buildAssetReviewProjectionDataPorts } from '../asset-review-projection-data-ports-adapter.js';
 
-describe('buildAssetReviewProjectionPorts', () => {
+describe('buildAssetReviewProjectionDataPorts', () => {
   let db: KyselyDB;
   let ctx: DataContext;
 
@@ -21,7 +21,7 @@ describe('buildAssetReviewProjectionPorts', () => {
   });
 
   it('replaces the asset review projection and marks it fresh in one transaction', async () => {
-    const ports = buildAssetReviewProjectionPorts(ctx);
+    const ports = buildAssetReviewProjectionDataPorts(ctx);
     const summary: AssetReviewSummary = {
       assetId: 'blockchain:ethereum:0xaaa',
       reviewStatus: 'needs-review',

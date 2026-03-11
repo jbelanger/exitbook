@@ -8,7 +8,7 @@ export const AssetReviewEvidenceSchema = z.object({
   kind: z.enum(['provider-spam-flag', 'scam-note', 'suspicious-airdrop-note', 'same-symbol-ambiguity', 'spam-flag']),
   severity: z.enum(['warning', 'error']),
   message: z.string().min(1),
-  metadata: z.record(z.string(), z.any()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const AssetReviewSummarySchema = z.object({

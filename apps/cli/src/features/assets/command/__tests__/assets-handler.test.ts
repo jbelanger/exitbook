@@ -4,10 +4,13 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { invalidateAssetReviewProjection, readAssetReviewProjection } from '../../../shared/asset-review-runtime.js';
+import {
+  invalidateAssetReviewProjection,
+  readAssetReviewProjection,
+} from '../../../shared/asset-review-projection-runtime.js';
 import { AssetsHandler } from '../assets-handler.js';
 
-vi.mock('../../../shared/asset-review-runtime.js', () => ({
+vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   invalidateAssetReviewProjection: vi.fn(),
   readAssetReviewProjection: vi.fn(),
 }));

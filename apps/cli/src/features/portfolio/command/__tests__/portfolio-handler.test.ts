@@ -14,7 +14,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { readAssetReviewProjection } from '../../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../../shared/asset-review-projection-runtime.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
 vi.mock('@exitbook/accounting', async () => {
@@ -57,7 +57,7 @@ vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-vi.mock('../../../shared/asset-review-runtime.js', () => ({
+vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   readAssetReviewProjection: vi.fn(),
 }));
 

@@ -3,7 +3,7 @@ import type { IAssetReviewProjectionDataSource, IAssetReviewProjectionStore } fr
 
 import type { DataContext } from '../data-context.js';
 
-export function buildAssetReviewProjectionPorts(
+export function buildAssetReviewProjectionDataPorts(
   db: DataContext
 ): IAssetReviewProjectionDataSource & IAssetReviewProjectionStore {
   return {

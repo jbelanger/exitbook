@@ -40,7 +40,7 @@ import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
 import { createDefaultPriceProviderManager } from '../prices/command/prices-utils.js';
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
-import { rebuildAssetReviewProjection } from './asset-review-runtime.js';
+import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import { createProviderManagerWithStats } from './provider-manager-factory.js';
 
 const logger = getLogger('projection-runtime');

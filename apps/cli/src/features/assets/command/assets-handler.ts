@@ -17,7 +17,10 @@ import {
 } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 
-import { invalidateAssetReviewProjection, readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
+import {
+  invalidateAssetReviewProjection,
+  readAssetReviewProjection,
+} from '../../shared/asset-review-projection-runtime.js';
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
 import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from './assets-utils.js';

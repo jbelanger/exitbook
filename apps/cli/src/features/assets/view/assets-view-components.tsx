@@ -269,8 +269,8 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
       </Text>
     );
 
-    const conflictingAssetIds = evidence.metadata?.['conflictingAssetIds'] as unknown;
-    if (Array.isArray(conflictingAssetIds) && conflictingAssetIds.length > 0) {
+    const conflictingAssetIds = readConflictingAssetIds(evidence.metadata);
+    if (conflictingAssetIds) {
       flattenedEvidenceRows.push(
         <Text key={`evidence-conflicts-${index}`}>
           {'      '}
@@ -351,4 +351,14 @@ function formatReferenceStatus(status: AssetViewItem['referenceStatus']): string
     default:
       return 'reference unknown';
   }
+}
+
+function readConflictingAssetIds(metadata: Record<string, unknown> | undefined): string[] | undefined {
+  const value = metadata?.['conflictingAssetIds'];
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const assetIds = value.filter((item): item is string => typeof item === 'string');
+  return assetIds.length > 0 ? assetIds : undefined;
 }

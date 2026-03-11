@@ -4,7 +4,7 @@ import type { DataContext } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { readAssetReviewProjection } from '../../shared/asset-review-runtime.js';
+import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
@@ -25,7 +25,7 @@ vi.mock('../../shared/data-dir.js', () => ({
   getDataDir: vi.fn().mockReturnValue('/tmp/test-data'),
 }));
 
-vi.mock('../../shared/asset-review-runtime.js', () => ({
+vi.mock('../../shared/asset-review-projection-runtime.js', () => ({
   readAssetReviewProjection: vi.fn(),
 }));
 
