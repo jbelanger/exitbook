@@ -15,7 +15,7 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   };
 });
 
-vi.mock('../command/benchmark-tool.js', () => ({
+vi.mock('../benchmark-tool.js', () => ({
   benchmarkRateLimit: vi.fn(),
 }));
 
