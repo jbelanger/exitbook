@@ -1,12 +1,11 @@
 // Pure utility functions for providers view command
 // All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
 
-import type { BlockchainExplorersConfig, ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
+import type { BlockchainExplorersConfig, ProviderCatalogEntry, ProviderStatsRow } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
 import { providerToSummary } from '../../blockchains/command/blockchains-view-utils.js';
-import { providerRegistry } from '../../shared/provider-registry.js';
 import type {
   HealthStatus,
   ProviderAggregateStats,
@@ -25,7 +24,7 @@ export type HealthFilter = (typeof VALID_HEALTH_FILTERS)[number];
  */
 export interface ProviderBlockchainEntry {
   blockchain: string;
-  providerInfo: ProviderInfo;
+  providerInfo: ProviderCatalogEntry;
 }
 
 /**
@@ -42,22 +41,16 @@ export function validateHealthFilter(value: string): Result<HealthFilter, Error>
  * Build a map from provider name to all blockchains it serves.
  * Iterates all blockchains and groups by provider name.
  */
-export function buildProviderMap(
-  allBlockchains: string[],
-  getAvailable: (blockchain: string) => ProviderInfo[]
-): Map<string, ProviderBlockchainEntry[]> {
+export function groupProvidersByName(providers: ProviderCatalogEntry[]): Map<string, ProviderBlockchainEntry[]> {
   const providerMap = new Map<string, ProviderBlockchainEntry[]>();
 
-  for (const blockchain of allBlockchains) {
-    const providers = getAvailable(blockchain);
-    for (const provider of providers) {
-      const existing = providerMap.get(provider.name);
-      const entry: ProviderBlockchainEntry = { blockchain, providerInfo: provider };
-      if (existing) {
-        existing.push(entry);
-      } else {
-        providerMap.set(provider.name, [entry]);
-      }
+  for (const provider of providers) {
+    const existing = providerMap.get(provider.name);
+    const entry: ProviderBlockchainEntry = { blockchain: provider.blockchain, providerInfo: provider };
+    if (existing) {
+      existing.push(entry);
+    } else {
+      providerMap.set(provider.name, [entry]);
     }
   }
 
@@ -67,7 +60,7 @@ export function buildProviderMap(
 /**
  * Shorten operation names for display (reuses logic from blockchains view).
  */
-function shortenCapabilities(providerInfo: ProviderInfo): string[] {
+function shortenCapabilities(providerInfo: ProviderCatalogEntry): string[] {
   const summary = providerToSummary(providerInfo);
   return summary.capabilities;
 }
@@ -75,7 +68,7 @@ function shortenCapabilities(providerInfo: ProviderInfo): string[] {
 /**
  * Get rate limit string from provider info.
  */
-function getRateLimit(providerInfo: ProviderInfo): string | undefined {
+function getRateLimit(providerInfo: ProviderCatalogEntry): string | undefined {
   if (providerInfo.defaultConfig?.rateLimit) {
     const rl = providerInfo.defaultConfig.rateLimit;
     return `${rl.requestsPerSecond}/sec`;
@@ -202,7 +195,7 @@ function findLastError(statsRows: ProviderStatsRow[]): { lastError: string; last
 /**
  * Merge registry metadata, stats, and config into ProviderViewItem[].
  */
-export function mergeProviderData(
+export function buildProviderViewItems(
   providerMap: Map<string, ProviderBlockchainEntry[]>,
   allStatsRows: ProviderStatsRow[],
   explorerConfig: BlockchainExplorersConfig | undefined
@@ -221,17 +214,7 @@ export function mergeProviderData(
     const providerInfo = firstEntry.providerInfo;
 
     // Get API key env var from metadata
-    let apiKeyEnvVar: string | undefined;
-    if (providerInfo.requiresApiKey) {
-      // Check metadata from any blockchain — env var is provider-level
-      for (const entry of entries) {
-        const metadata = providerRegistry.getMetadata(entry.blockchain, providerName);
-        if (metadata?.apiKeyEnvVar) {
-          apiKeyEnvVar = metadata.apiKeyEnvVar;
-          break;
-        }
-      }
-    }
+    const apiKeyEnvVar = providerInfo.requiresApiKey ? providerInfo.apiKeyEnvVar : undefined;
 
     // Build per-blockchain items
     const blockchainNames = entries.map((e) => e.blockchain);

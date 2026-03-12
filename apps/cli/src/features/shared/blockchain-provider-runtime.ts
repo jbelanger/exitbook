@@ -1,10 +1,3 @@
-/**
- * Factory for creating a BlockchainProviderManager with persistent stats
- *
- * Encapsulates providers.db creation, migration, and wiring so that
- * each CLI entry point doesn't duplicate this logic.
- */
-
 import {
   createBlockchainProviderRuntime,
   type BlockchainExplorersConfig,
@@ -16,25 +9,19 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { getDataDir } from './data-dir.js';
 
-export interface ProviderManagerWithStats {
+export interface OpenedBlockchainProviderRuntime {
   providerManager: BlockchainProviderManager;
   cleanup: () => Promise<void>;
 }
 
-/**
- * Create a BlockchainProviderManager with persistent stats DB wired up.
- *
- * If the stats DB fails to initialize, the manager runs without persistence
- * (graceful degradation).
- */
-export async function createProviderManagerWithStats(
+export async function openBlockchainProviderRuntime(
   config?: BlockchainExplorersConfig,
   options?: {
     dataDir?: string | undefined;
     eventBus?: EventBus<ProviderEvent> | undefined;
     instrumentation?: InstrumentationCollector | undefined;
   }
-): Promise<ProviderManagerWithStats> {
+): Promise<OpenedBlockchainProviderRuntime> {
   const runtimeResult = await createBlockchainProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
     explorerConfig: config,

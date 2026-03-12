@@ -1,12 +1,11 @@
 // Pure utility functions for blockchains view command
 // All functions are pure — no side effects
 
-import type { ProviderInfo } from '@exitbook/blockchain-providers';
+import type { ProviderCatalogEntry } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
-import { providerRegistry } from '../../shared/provider-registry.js';
 import type { BlockchainViewItem, ProviderViewItem } from '../view/blockchains-view-state.js';
 
 /**
@@ -18,7 +17,7 @@ export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 /**
  * Blockchain information with providers (intermediate representation before TUI transform).
  */
-export interface BlockchainInfo {
+export interface BlockchainCatalogItem {
   name: string;
   displayName: string;
   category: string;
@@ -89,7 +88,7 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
  * Convert provider info to summary.
  * Always includes rate limit (TUI detail panel always shows full info).
  */
-export function providerToSummary(provider: ProviderInfo): ProviderSummary {
+export function providerToSummary(provider: ProviderCatalogEntry): ProviderSummary {
   // Shorten operation names for display
   const capabilities = Array.from(
     new Set(
@@ -115,11 +114,8 @@ export function providerToSummary(provider: ProviderInfo): ProviderSummary {
     summary.rateLimit = `${rl.requestsPerSecond}/sec`;
   }
 
-  if (provider.requiresApiKey) {
-    const metadata = providerRegistry.getMetadata(provider.blockchain, provider.name);
-    if (metadata?.apiKeyEnvVar) {
-      summary.apiKeyEnvVar = metadata.apiKeyEnvVar;
-    }
+  if (provider.requiresApiKey && provider.apiKeyEnvVar) {
+    summary.apiKeyEnvVar = provider.apiKeyEnvVar;
   }
 
   return summary;
@@ -128,7 +124,10 @@ export function providerToSummary(provider: ProviderInfo): ProviderSummary {
 /**
  * Build blockchain info from name and providers.
  */
-export function buildBlockchainInfo(blockchain: string, providers: ProviderInfo[]): BlockchainInfo {
+export function buildBlockchainCatalogItem(
+  blockchain: string,
+  providers: ProviderCatalogEntry[]
+): BlockchainCatalogItem {
   const providerSummaries = providers.map((p) => providerToSummary(p));
 
   return {
@@ -147,7 +146,10 @@ export function buildBlockchainInfo(blockchain: string, providers: ProviderInfo[
 /**
  * Filter blockchains by category.
  */
-export function filterByCategory(blockchains: BlockchainInfo[], category: BlockchainCategory): BlockchainInfo[] {
+export function filterByCategory(
+  blockchains: BlockchainCatalogItem[],
+  category: BlockchainCategory
+): BlockchainCatalogItem[] {
   if (category === 'all') {
     return blockchains;
   }
@@ -158,7 +160,10 @@ export function filterByCategory(blockchains: BlockchainInfo[], category: Blockc
 /**
  * Filter blockchains by API key requirement.
  */
-export function filterByApiKeyRequirement(blockchains: BlockchainInfo[], requiresApiKey?: boolean): BlockchainInfo[] {
+export function filterByApiKeyRequirement(
+  blockchains: BlockchainCatalogItem[],
+  requiresApiKey?: boolean
+): BlockchainCatalogItem[] {
   if (requiresApiKey === undefined) {
     return blockchains;
   }
@@ -173,7 +178,7 @@ export function filterByApiKeyRequirement(blockchains: BlockchainInfo[], require
 /**
  * Sort blockchains by category and popularity.
  */
-export function sortBlockchains(blockchains: BlockchainInfo[]): BlockchainInfo[] {
+export function sortBlockchains(blockchains: BlockchainCatalogItem[]): BlockchainCatalogItem[] {
   const order = [
     'bitcoin',
     'ethereum',
@@ -202,10 +207,10 @@ export function sortBlockchains(blockchains: BlockchainInfo[]): BlockchainInfo[]
 }
 
 /**
- * Transform a BlockchainInfo into a BlockchainViewItem for TUI display.
+ * Transform a BlockchainCatalogItem into a BlockchainViewItem for TUI display.
  * Checks env vars to determine API key configuration status.
  */
-export function toBlockchainViewItem(blockchain: BlockchainInfo): BlockchainViewItem {
+export function toBlockchainViewItem(blockchain: BlockchainCatalogItem): BlockchainViewItem {
   const providers: ProviderViewItem[] = blockchain.providers.map((p) => {
     const apiKeyConfigured = p.requiresApiKey && p.apiKeyEnvVar ? !!process.env[p.apiKeyEnvVar] : undefined;
 

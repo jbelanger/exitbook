@@ -4,7 +4,7 @@ import { buildAssetReviewFreshnessPorts, buildAssetReviewProjectionDataPorts, ty
 import { AssetReviewProjectionWorkflow } from '@exitbook/ingestion';
 
 import { findLatestAssetReviewExternalInputAt } from './asset-review-external-input-freshness.js';
-import { createAssetReviewProjectionHostDependencies } from './asset-review-projection-dependencies.js';
+import { openAssetReviewProjectionSupport } from './asset-review-projection-support.js';
 
 export async function readAssetReviewProjection(
   db: DataContext,
@@ -50,21 +50,21 @@ export async function readAssetReviewProjection(
 }
 
 export async function rebuildAssetReviewProjection(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
-  const hostDependenciesResult = await createAssetReviewProjectionHostDependencies(dataDir);
-  if (hostDependenciesResult.isErr()) {
-    return err(hostDependenciesResult.error);
+  const projectionSupportResult = await openAssetReviewProjectionSupport(dataDir);
+  if (projectionSupportResult.isErr()) {
+    return err(projectionSupportResult.error);
   }
 
-  const hostDependencies = hostDependenciesResult.value;
+  const projectionSupport = projectionSupportResult.value;
   const workflow = new AssetReviewProjectionWorkflow({
     ...buildAssetReviewProjectionDataPorts(db),
-    loadReviewDecisions: hostDependencies.loadReviewDecisions,
+    loadReviewDecisions: projectionSupport.loadReviewDecisions,
   });
 
   try {
     const rebuildResult = await workflow.rebuild({
-      tokenMetadataReader: hostDependencies.tokenMetadataReader,
-      referenceResolver: hostDependencies.referenceResolver,
+      tokenMetadataReader: projectionSupport.tokenMetadataReader,
+      referenceResolver: projectionSupport.referenceResolver,
     });
     if (rebuildResult.isErr()) {
       return err(rebuildResult.error);
@@ -72,7 +72,7 @@ export async function rebuildAssetReviewProjection(db: DataContext, dataDir: str
 
     return ok(undefined);
   } finally {
-    await hostDependencies.close();
+    await projectionSupport.close();
   }
 }
 

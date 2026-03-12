@@ -1,8 +1,8 @@
-import type { ProviderInfo, ProviderStatsRow } from '@exitbook/blockchain-providers';
+import type { ProviderCatalogEntry, ProviderStatsRow } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildProviderMap,
+  buildProviderViewItems,
   computeAggregateStats,
   computeHealthStatus,
   checkApiKeyStatus,
@@ -12,13 +12,15 @@ import {
   formatTimeAgo,
   sortProviders,
   validateHealthFilter,
-  mergeProviderData,
+  groupProvidersByName,
 } from '../../command/providers-view-utils.js';
 import type { ProviderViewItem } from '../providers-view-state.js';
 
 // --- Test Helpers ---
 
-function makeProviderInfo(overrides: Partial<ProviderInfo> & { blockchain: string; name: string }): ProviderInfo {
+function makeProviderCatalogEntry(
+  overrides: Partial<ProviderCatalogEntry> & { blockchain: string; name: string }
+): ProviderCatalogEntry {
   return {
     displayName: overrides.displayName ?? overrides.name,
     description: '',
@@ -91,35 +93,21 @@ describe('view-providers-utils', () => {
     });
   });
 
-  describe('buildProviderMap', () => {
+  describe('groupProvidersByName', () => {
     it('should group providers by name across blockchains', () => {
-      const getAvailable = (blockchain: string): ProviderInfo[] => {
-        if (blockchain === 'ethereum') {
-          return [
-            makeProviderInfo({ name: 'alchemy', blockchain: 'ethereum' }),
-            makeProviderInfo({ name: 'etherscan', blockchain: 'ethereum' }),
-          ];
-        }
-        if (blockchain === 'polygon') {
-          return [makeProviderInfo({ name: 'alchemy', blockchain: 'polygon' })];
-        }
-        return [];
-      };
-
-      const map = buildProviderMap(['ethereum', 'polygon'], getAvailable);
+      const map = groupProvidersByName([
+        makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'ethereum' }),
+        makeProviderCatalogEntry({ name: 'etherscan', blockchain: 'ethereum' }),
+        makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'polygon' }),
+      ]);
 
       expect(map.size).toBe(2);
       expect(map.get('alchemy')?.length).toBe(2);
       expect(map.get('etherscan')?.length).toBe(1);
     });
 
-    it('should handle blockchains with no providers', () => {
-      const map = buildProviderMap(['empty-chain'], () => []);
-      expect(map.size).toBe(0);
-    });
-
-    it('should handle empty blockchain list', () => {
-      const map = buildProviderMap([], () => []);
+    it('should handle empty provider lists', () => {
+      const map = groupProvidersByName([]);
       expect(map.size).toBe(0);
     });
   });
@@ -475,12 +463,17 @@ describe('view-providers-utils', () => {
     });
   });
 
-  describe('mergeProviderData', () => {
+  describe('buildProviderViewItems', () => {
     it('should create view items from provider map and stats', () => {
       const providerMap = new Map([
         [
           'blockstream',
-          [{ blockchain: 'bitcoin', providerInfo: makeProviderInfo({ name: 'blockstream', blockchain: 'bitcoin' }) }],
+          [
+            {
+              blockchain: 'bitcoin',
+              providerInfo: makeProviderCatalogEntry({ name: 'blockstream', blockchain: 'bitcoin' }),
+            },
+          ],
         ],
       ]);
 
@@ -494,7 +487,7 @@ describe('view-providers-utils', () => {
         }),
       ];
 
-      const items = mergeProviderData(providerMap, statsRows, undefined);
+      const items = buildProviderViewItems(providerMap, statsRows, undefined);
 
       expect(items).toHaveLength(1);
       expect(items[0]!.name).toBe('blockstream');
@@ -508,11 +501,16 @@ describe('view-providers-utils', () => {
       const providerMap = new Map([
         [
           'blockstream',
-          [{ blockchain: 'bitcoin', providerInfo: makeProviderInfo({ name: 'blockstream', blockchain: 'bitcoin' }) }],
+          [
+            {
+              blockchain: 'bitcoin',
+              providerInfo: makeProviderCatalogEntry({ name: 'blockstream', blockchain: 'bitcoin' }),
+            },
+          ],
         ],
       ]);
 
-      const items = mergeProviderData(providerMap, [], undefined);
+      const items = buildProviderViewItems(providerMap, [], undefined);
 
       expect(items).toHaveLength(1);
       expect(items[0]!.stats).toBeUndefined();
@@ -526,17 +524,27 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'ethereum',
-              providerInfo: makeProviderInfo({ name: 'alchemy', blockchain: 'ethereum', requiresApiKey: true }),
+              providerInfo: makeProviderCatalogEntry({
+                name: 'alchemy',
+                blockchain: 'ethereum',
+                requiresApiKey: true,
+                apiKeyEnvVar: 'PATH',
+              }),
             },
             {
               blockchain: 'polygon',
-              providerInfo: makeProviderInfo({ name: 'alchemy', blockchain: 'polygon', requiresApiKey: true }),
+              providerInfo: makeProviderCatalogEntry({
+                name: 'alchemy',
+                blockchain: 'polygon',
+                requiresApiKey: true,
+                apiKeyEnvVar: 'PATH',
+              }),
             },
           ],
         ],
       ]);
 
-      const items = mergeProviderData(providerMap, [], undefined);
+      const items = buildProviderViewItems(providerMap, [], undefined);
 
       expect(items).toHaveLength(1);
       expect(items[0]!.chainCount).toBe(2);
@@ -550,15 +558,15 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'ethereum',
-              providerInfo: makeProviderInfo({ name: 'alchemy', blockchain: 'ethereum' }),
+              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'ethereum' }),
             },
             {
               blockchain: 'polygon',
-              providerInfo: makeProviderInfo({ name: 'alchemy', blockchain: 'polygon' }),
+              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'polygon' }),
             },
             {
               blockchain: 'arbitrum',
-              providerInfo: makeProviderInfo({ name: 'alchemy', blockchain: 'arbitrum' }),
+              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'arbitrum' }),
             },
           ],
         ],
@@ -577,7 +585,7 @@ describe('view-providers-utils', () => {
         },
       };
 
-      const items = mergeProviderData(providerMap, [], config);
+      const items = buildProviderViewItems(providerMap, [], config);
 
       expect(items).toHaveLength(1);
       expect(items[0]!.blockchains).toHaveLength(3);

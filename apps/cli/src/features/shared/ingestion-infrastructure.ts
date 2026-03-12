@@ -9,8 +9,9 @@ import { createEventDrivenController, type EventDrivenController } from '../../u
 import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
+import type { OpenedBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import type { CommandContext } from './command-runtime.js';
-import { createProviderManagerWithStats, type ProviderManagerWithStats } from './provider-manager-factory.js';
 
 const logger = getLogger('ingestion-infrastructure');
 
@@ -18,7 +19,7 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 
 export interface IngestionInfrastructure {
   processingWorkflow: ProcessingWorkflow;
-  providerManager: ProviderManagerWithStats['providerManager'];
+  providerManager: OpenedBlockchainProviderRuntime['providerManager'];
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor: EventDrivenController<CliEvent>;
@@ -41,7 +42,7 @@ export async function createIngestionInfrastructure(
     },
   });
 
-  const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+  const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
     dataDir: ctx.dataDir,
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
@@ -82,7 +83,7 @@ export async function createIngestionInfrastructure(
     };
   } catch (error) {
     await cleanupProviderManager().catch((e) =>
-      logger.warn({ e }, 'Failed to cleanup providerManager on setup failure')
+      logger.warn({ e }, 'Failed to cleanup blockchain provider runtime on setup failure')
     );
     throw error;
   }

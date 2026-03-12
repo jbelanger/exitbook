@@ -42,7 +42,7 @@ import { createDefaultPriceProviderManager } from '../prices/command/prices-util
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
-import { createProviderManagerWithStats } from './provider-manager-factory.js';
+import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 
 const logger = getLogger('projection-runtime');
 
@@ -108,7 +108,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
       }
 
-      const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+      const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
         dataDir,
       });
 

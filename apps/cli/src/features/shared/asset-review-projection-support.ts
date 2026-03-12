@@ -3,16 +3,16 @@ import { err, ok, type Result } from '@exitbook/core';
 import { OverrideStore, readAssetReviewDecisions } from '@exitbook/data';
 import type { AssetReviewReferenceResolver, AssetReviewTokenMetadataReader } from '@exitbook/ingestion';
 
-export interface AssetReviewProjectionHostDependencies {
+export interface AssetReviewProjectionSupport {
   loadReviewDecisions: () => ReturnType<typeof readAssetReviewDecisions>;
   referenceResolver?: AssetReviewReferenceResolver | undefined;
   tokenMetadataReader?: AssetReviewTokenMetadataReader | undefined;
   close(): Promise<void>;
 }
 
-export async function createAssetReviewProjectionHostDependencies(
+export async function openAssetReviewProjectionSupport(
   dataDir: string
-): Promise<Result<AssetReviewProjectionHostDependencies, Error>> {
+): Promise<Result<AssetReviewProjectionSupport, Error>> {
   const overrideStore = new OverrideStore(dataDir);
   const providerSupportResult = await createAssetReviewProviderSupport(dataDir);
   if (providerSupportResult.isErr()) {

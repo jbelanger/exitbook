@@ -1,5 +1,8 @@
-import type { BlockchainProviderManager, ProviderRegistry } from '@exitbook/blockchain-providers';
-import { loadExplorerConfig } from '@exitbook/blockchain-providers';
+import {
+  openProviderBenchmarkSession,
+  type BenchmarkableBlockchainProvider,
+  type ProviderBenchmarkSession,
+} from '@exitbook/blockchain-providers';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -8,19 +11,9 @@ import { benchmarkRateLimit } from './benchmark-tool.js';
 import type { BenchmarkParams } from './providers-benchmark-utils.js';
 import { buildBenchmarkParams } from './providers-benchmark-utils.js';
 
-interface BenchmarkableProvider {
-  blockchain: string;
-  createUnboundedHealthCheck(): {
-    checkHealth: () => Promise<Result<boolean, Error>>;
-    destroy: () => Promise<void>;
-  };
-  name: string;
-  rateLimit: unknown;
-}
-
 interface SetupResult {
   params: BenchmarkParams;
-  provider: BenchmarkableProvider;
+  session: ProviderBenchmarkSession;
   providerInfo: {
     blockchain: string;
     name: string;
@@ -28,52 +21,18 @@ interface SetupResult {
   };
 }
 
-function getProviderName(provider: unknown): string {
-  if (!provider || typeof provider !== 'object') {
-    return 'unknown';
-  }
-
-  const candidate = provider as { name?: unknown };
-  if (typeof candidate.name !== 'string') {
-    return 'unknown';
-  }
-
-  return candidate.name;
-}
-
-function isBenchmarkableProvider(provider: unknown): provider is BenchmarkableProvider {
-  if (!provider || typeof provider !== 'object') {
-    return false;
-  }
-
-  const candidate = provider as Partial<BenchmarkableProvider>;
-  return (
-    typeof candidate.blockchain === 'string' &&
-    typeof candidate.createUnboundedHealthCheck === 'function' &&
-    typeof candidate.name === 'string' &&
-    'rateLimit' in candidate
-  );
-}
-
 /**
  * Handler for providers-benchmark command.
  * Manages BlockchainProviderManager lifecycle and orchestrates benchmark execution.
  */
-export class ProvidersBenchmarkHandler {
-  private providerManager: BlockchainProviderManager | undefined;
+export class ProviderBenchmarkHandler {
+  private benchmarkSession: ProviderBenchmarkSession | undefined;
 
   /**
    * Setup phase: validate parameters and initialize provider.
    * Returns setup result for TUI mode.
    */
-  setup(
-    options: Parameters<typeof buildBenchmarkParams>[0],
-    registry: ProviderRegistry,
-    ProviderManagerConstructor: new (
-      registry: ProviderRegistry,
-      config: ReturnType<typeof loadExplorerConfig>
-    ) => BlockchainProviderManager
-  ): Result<SetupResult, Error> {
+  async prepareSession(options: Parameters<typeof buildBenchmarkParams>[0]): Promise<Result<SetupResult, Error>> {
     // Validate and build parameters
     const paramsResult = buildBenchmarkParams(options);
     if (paramsResult.isErr()) {
@@ -82,54 +41,20 @@ export class ProvidersBenchmarkHandler {
 
     const params = paramsResult.value;
 
-    // Load configuration and initialize provider manager
-    const explorerConfig = loadExplorerConfig();
-    this.providerManager = new ProviderManagerConstructor(registry, explorerConfig);
-
-    // Auto-register provider
-    const providers = this.providerManager.autoRegisterFromConfig(params.blockchain, params.provider);
-
-    if (providers.length === 0) {
-      // Provider not found - gather helpful information
-      const allProviders = registry.getAllProviders();
-      const blockchainProviders = allProviders.filter((p) => p.blockchain === params.blockchain);
-
-      if (blockchainProviders.length > 0) {
-        const availableNames = blockchainProviders.map((p) => p.name).join(', ');
-        return err(
-          new Error(
-            `Provider '${params.provider}' not found for blockchain '${params.blockchain}'. Available providers: ${availableNames}`
-          )
-        );
-      } else {
-        const blockchains = [...new Set(allProviders.map((p) => p.blockchain))];
-        const availableBlockchains = blockchains.join(', ');
-        return err(
-          new Error(
-            `No providers registered for blockchain '${params.blockchain}'. Available blockchains: ${availableBlockchains}`
-          )
-        );
-      }
+    const sessionResult = await openProviderBenchmarkSession({
+      blockchain: params.blockchain,
+      providerName: params.provider,
+    });
+    if (sessionResult.isErr()) {
+      return err(sessionResult.error);
     }
 
-    const provider = providers[0]!;
-
-    if (!isBenchmarkableProvider(provider)) {
-      return err(
-        new Error(
-          `Provider '${getProviderName(provider)}' does not support benchmarking (missing createUnboundedHealthCheck)`
-        )
-      );
-    }
+    this.benchmarkSession = sessionResult.value;
 
     return ok({
       params,
-      provider,
-      providerInfo: {
-        name: provider.name,
-        blockchain: provider.blockchain,
-        rateLimit: provider.rateLimit,
-      },
+      session: this.benchmarkSession,
+      providerInfo: this.benchmarkSession.providerInfo,
     });
   }
 
@@ -138,7 +63,7 @@ export class ProvidersBenchmarkHandler {
    * Used by both JSON and TUI modes.
    */
   async runBenchmark(
-    provider: BenchmarkableProvider,
+    provider: BenchmarkableBlockchainProvider,
     params: BenchmarkParams,
     onProgress?: (event: BenchmarkProgressEvent) => void
   ): Promise<BenchmarkResult> {
@@ -164,24 +89,19 @@ export class ProvidersBenchmarkHandler {
    * Execute providers-benchmark command (JSON mode).
    */
   async execute(
-    options: Parameters<typeof buildBenchmarkParams>[0],
-    registry: ProviderRegistry,
-    ProviderManagerConstructor: new (
-      registry: ProviderRegistry,
-      config: ReturnType<typeof loadExplorerConfig>
-    ) => BlockchainProviderManager
+    options: Parameters<typeof buildBenchmarkParams>[0]
   ): Promise<
     Result<{ params: BenchmarkParams; provider: { name: string; rateLimit: unknown }; result: BenchmarkResult }, Error>
   > {
-    const setupResult = this.setup(options, registry, ProviderManagerConstructor);
+    const setupResult = await this.prepareSession(options);
     if (setupResult.isErr()) {
       return err(setupResult.error);
     }
 
-    const { params, provider, providerInfo } = setupResult.value;
+    const { params, session, providerInfo } = setupResult.value;
 
     try {
-      const result = await this.runBenchmark(provider, params);
+      const result = await this.runBenchmark(session.provider, params);
 
       return ok({
         params,
@@ -202,24 +122,24 @@ export class ProvidersBenchmarkHandler {
    * Idempotent: safe to call multiple times.
    */
   async destroy(): Promise<void> {
-    if (this.providerManager) {
-      await this.providerManager.destroy();
-      this.providerManager = undefined;
+    if (this.benchmarkSession) {
+      await this.benchmarkSession.cleanup();
+      this.benchmarkSession = undefined;
     }
   }
 }
 
 /**
- * Create a ProvidersBenchmarkHandler and register cleanup with ctx.
+ * Create a ProviderBenchmarkHandler and register cleanup with ctx.
  * Factory owns cleanup -- command files NEVER call ctx.onCleanup().
  *
  * Returns Result for consistency with other Tier 2 factories.
  * Creation itself is infallible; err() is unreachable in practice.
  */
-export function createProvidersBenchmarkHandler(
+export function createProviderBenchmarkHandler(
   ctx: import('../../shared/command-runtime.js').CommandContext
-): Result<ProvidersBenchmarkHandler, Error> {
-  const handler = new ProvidersBenchmarkHandler();
+): Result<ProviderBenchmarkHandler, Error> {
+  const handler = new ProviderBenchmarkHandler();
   ctx.onCleanup(async () => handler.destroy());
   return ok(handler);
 }

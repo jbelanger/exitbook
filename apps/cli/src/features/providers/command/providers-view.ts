@@ -1,6 +1,5 @@
 // Command registration for providers view subcommand
 
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -24,7 +23,7 @@ export type CommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
 /**
  * Register the providers view subcommand.
  */
-export function registerProvidersViewCommand(providersCommand: Command, registry: AdapterRegistry): void {
+export function registerProvidersViewCommand(providersCommand: Command): void {
   providersCommand
     .command('view')
     .description('View blockchain API providers, their health, and configuration')
@@ -49,14 +48,14 @@ Common Usage:
     .option('--missing-api-key', 'Show only providers with missing API keys')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeProvidersViewCommand(rawOptions, registry);
+      await executeProvidersViewCommand(rawOptions);
     });
 }
 
 /**
  * Execute the providers view command.
  */
-async function executeProvidersViewCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeProvidersViewCommand(rawOptions: unknown): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = ProvidersViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -82,21 +81,17 @@ async function executeProvidersViewCommand(rawOptions: unknown, registry: Adapte
   }
 
   if (isJsonMode) {
-    await executeProvidersViewJSON(options, validatedHealth, registry);
+    await executeProvidersViewJSON(options, validatedHealth);
   } else {
-    await executeProvidersViewTUI(options, validatedHealth, registry);
+    await executeProvidersViewTUI(options, validatedHealth);
   }
 }
 
 /**
  * Load provider view items and health counts from the registry.
  */
-async function fetchProviderViewData(
-  options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  registry: AdapterRegistry
-) {
-  const handler = new ProvidersViewHandler(registry, getDataDir());
+async function fetchProviderViewData(options: CommandOptions, validatedHealth: HealthFilter | undefined) {
+  const handler = new ProvidersViewHandler(getDataDir());
   const viewItems = await handler.execute({
     blockchain: options.blockchain,
     health: validatedHealth,
@@ -111,11 +106,10 @@ async function fetchProviderViewData(
  */
 async function executeProvidersViewTUI(
   options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  registry: AdapterRegistry
+  validatedHealth: HealthFilter | undefined
 ): Promise<void> {
   try {
-    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, registry);
+    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth);
 
     const initialState = createProvidersViewState(
       viewItems,
@@ -148,11 +142,10 @@ async function executeProvidersViewTUI(
  */
 async function executeProvidersViewJSON(
   options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  registry: AdapterRegistry
+  validatedHealth: HealthFilter | undefined
 ): Promise<void> {
   try {
-    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, registry);
+    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth);
 
     // Build filters record
     const filters: Record<string, unknown> = {};

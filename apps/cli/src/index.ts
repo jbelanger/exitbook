@@ -64,7 +64,7 @@ async function main() {
   registerCostBasisCommand(program, adapterRegistry);
   registerBalanceCommand(program);
   registerBlockchainsCommand(program, adapterRegistry);
-  registerProvidersCommand(program, adapterRegistry);
+  registerProvidersCommand(program);
   registerPortfolioCommand(program, adapterRegistry);
 
   await program.parseAsync();

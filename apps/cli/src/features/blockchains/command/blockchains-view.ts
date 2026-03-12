@@ -1,6 +1,6 @@
 // Command registration for view blockchains subcommand
 
-import type { ProviderInfo } from '@exitbook/blockchain-providers';
+import { loadBlockchainProviderCatalog, type ProviderCatalogEntry } from '@exitbook/blockchain-providers';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
@@ -8,15 +8,15 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp } from '../../shared/command-runtime.js';
+import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { providerRegistry } from '../../shared/provider-registry.js';
 import { BlockchainsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from '../view/index.js';
 
 import type { BlockchainCategory } from './blockchains-view-utils.js';
 import {
-  buildBlockchainInfo,
+  buildBlockchainCatalogItem,
   filterByApiKeyRequirement,
   filterByCategory,
   sortBlockchains,
@@ -81,7 +81,7 @@ async function executeBlockchainsViewCommand(rawOptions: unknown, registry: Adap
   const isJsonMode = options.json ?? false;
 
   if (isJsonMode) {
-    executeBlockchainsViewJSON(options, registry);
+    await executeBlockchainsViewJSON(options, registry);
   } else {
     await executeBlockchainsViewTUI(options, registry);
   }
@@ -90,14 +90,14 @@ async function executeBlockchainsViewCommand(rawOptions: unknown, registry: Adap
 /**
  * Load and prepare blockchain data with filters applied.
  */
-function loadBlockchainData(
+async function loadBlockchainCatalogData(
   options: CommandOptions,
   registry: AdapterRegistry
-): {
-  allProviders: ProviderInfo[];
-  blockchains: ReturnType<typeof buildBlockchainInfo>[];
+): Promise<{
+  allProviders: ProviderCatalogEntry[];
+  blockchains: ReturnType<typeof buildBlockchainCatalogItem>[];
   validatedCategory: BlockchainCategory | undefined;
-} | null {
+} | null> {
   // Validate category filter if provided
   let validatedCategory: BlockchainCategory | undefined;
   if (options.category) {
@@ -108,14 +108,18 @@ function loadBlockchainData(
     validatedCategory = categoryResult.value;
   }
 
-  // Get supported blockchains from registry
-  const supportedBlockchains = registry.getAllBlockchains();
-  const allProviders = providerRegistry.getAllProviders();
+  const catalogResult = await loadBlockchainProviderCatalog(getDataDir());
+  if (catalogResult.isErr()) {
+    displayCliError('blockchains-view', catalogResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+  }
 
-  // Build blockchain info
+  const providerCatalog = catalogResult.value;
+  const supportedBlockchains = registry.getAllBlockchains();
+  const allProviders = providerCatalog.providers;
+
   let blockchains = supportedBlockchains.map((blockchain: string) => {
-    const providers = providerRegistry.getAvailable(blockchain);
-    return buildBlockchainInfo(blockchain, providers);
+    const providers = allProviders.filter((provider) => provider.blockchain === blockchain);
+    return buildBlockchainCatalogItem(blockchain, providers);
   });
 
   // Apply filters
@@ -137,7 +141,7 @@ function loadBlockchainData(
  * Execute blockchains view in TUI mode
  */
 async function executeBlockchainsViewTUI(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
-  const data = loadBlockchainData(options, registry);
+  const data = await loadBlockchainCatalogData(options, registry);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;
@@ -167,8 +171,8 @@ async function executeBlockchainsViewTUI(options: CommandOptions, registry: Adap
 /**
  * Execute blockchains view in JSON mode
  */
-function executeBlockchainsViewJSON(options: CommandOptions, registry: AdapterRegistry): void {
-  const data = loadBlockchainData(options, registry);
+async function executeBlockchainsViewJSON(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
+  const data = await loadBlockchainCatalogData(options, registry);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;

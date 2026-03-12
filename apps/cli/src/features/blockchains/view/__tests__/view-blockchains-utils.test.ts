@@ -1,9 +1,9 @@
-import type { ProviderInfo, ProviderOperationType } from '@exitbook/blockchain-providers';
+import type { ProviderCatalogEntry, ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockchainInfo } from '../../command/blockchains-view-utils.js';
+import type { BlockchainCatalogItem } from '../../command/blockchains-view-utils.js';
 import {
-  buildBlockchainInfo,
+  buildBlockchainCatalogItem,
   filterByApiKeyRequirement,
   filterByCategory,
   getBlockchainCategory,
@@ -110,7 +110,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should always include rate limit', () => {
-      const provider: ProviderInfo = {
+      const provider: ProviderCatalogEntry = {
         ...createMockProvider('test-provider', 'bitcoin'),
         defaultConfig: {
           rateLimit: {
@@ -148,14 +148,14 @@ describe('view-blockchains-utils', () => {
     });
   });
 
-  describe('buildBlockchainInfo', () => {
+  describe('buildBlockchainCatalogItem', () => {
     it('should build blockchain info with providers', () => {
       const providers = [
         createMockProvider('provider1', 'bitcoin', true),
         createMockProvider('provider2', 'bitcoin', false),
       ];
 
-      const info = buildBlockchainInfo('bitcoin', providers);
+      const info = buildBlockchainCatalogItem('bitcoin', providers);
 
       expect(info.name).toBe('bitcoin');
       expect(info.displayName).toBe('Bitcoin');
@@ -169,7 +169,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should build blockchain info without providers', () => {
-      const info = buildBlockchainInfo('ethereum', []);
+      const info = buildBlockchainCatalogItem('ethereum', []);
 
       expect(info.name).toBe('ethereum');
       expect(info.displayName).toBe('Ethereum');
@@ -183,7 +183,7 @@ describe('view-blockchains-utils', () => {
   });
 
   describe('filterByCategory', () => {
-    const mockBlockchains: BlockchainInfo[] = [
+    const mockBlockchains: BlockchainCatalogItem[] = [
       createMockBlockchainInfo('bitcoin', 'utxo'),
       createMockBlockchainInfo('ethereum', 'evm'),
       createMockBlockchainInfo('polygon', 'evm'),
@@ -209,7 +209,7 @@ describe('view-blockchains-utils', () => {
   });
 
   describe('filterByApiKeyRequirement', () => {
-    const mockBlockchains: BlockchainInfo[] = [
+    const mockBlockchains: BlockchainCatalogItem[] = [
       { ...createMockBlockchainInfo('bitcoin', 'utxo'), requiresApiKey: true, hasNoApiKeyProvider: false },
       { ...createMockBlockchainInfo('ethereum', 'evm'), requiresApiKey: true, hasNoApiKeyProvider: true },
       { ...createMockBlockchainInfo('solana', 'solana'), requiresApiKey: false, hasNoApiKeyProvider: true },
@@ -235,7 +235,7 @@ describe('view-blockchains-utils', () => {
 
   describe('sortBlockchains', () => {
     it('should sort blockchains by popularity order', () => {
-      const blockchains: BlockchainInfo[] = [
+      const blockchains: BlockchainCatalogItem[] = [
         createMockBlockchainInfo('kusama', 'substrate'),
         createMockBlockchainInfo('bitcoin', 'utxo'),
         createMockBlockchainInfo('polygon', 'evm'),
@@ -248,7 +248,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should sort unknown blockchains alphabetically at the end', () => {
-      const blockchains: BlockchainInfo[] = [
+      const blockchains: BlockchainCatalogItem[] = [
         createMockBlockchainInfo('zebra-chain', 'other'),
         createMockBlockchainInfo('bitcoin', 'utxo'),
         createMockBlockchainInfo('alpha-chain', 'other'),
@@ -262,7 +262,7 @@ describe('view-blockchains-utils', () => {
 
   describe('toBlockchainViewItem', () => {
     it('should compute none-needed when no providers require API keys', () => {
-      const blockchain: BlockchainInfo = {
+      const blockchain: BlockchainCatalogItem = {
         ...createMockBlockchainInfo('bitcoin', 'utxo'),
         providers: [
           { name: 'mempool', displayName: 'Mempool', requiresApiKey: false, capabilities: ['txs'], rateLimit: '5/sec' },
@@ -278,7 +278,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should compute some-missing when env var is not set', () => {
-      const blockchain: BlockchainInfo = {
+      const blockchain: BlockchainCatalogItem = {
         ...createMockBlockchainInfo('ethereum', 'evm'),
         providers: [
           {
@@ -302,7 +302,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should preserve blockchain metadata in view item', () => {
-      const blockchain: BlockchainInfo = {
+      const blockchain: BlockchainCatalogItem = {
         ...createMockBlockchainInfo('polygon', 'evm'),
         layer: '2',
         exampleAddress: '0x742d35Cc...',
@@ -326,7 +326,7 @@ function createMockProvider(
   blockchain: string,
   requiresApiKey = false,
   operations: ProviderOperationType[] = ['getAddressTransactions']
-): ProviderInfo {
+): ProviderCatalogEntry {
   return {
     name,
     displayName: name
@@ -349,7 +349,7 @@ function createMockProvider(
   };
 }
 
-function createMockBlockchainInfo(name: string, category: string): BlockchainInfo {
+function createMockBlockchainInfo(name: string, category: string): BlockchainCatalogItem {
   return {
     name,
     displayName: name.charAt(0).toUpperCase() + name.slice(1),

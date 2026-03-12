@@ -1,28 +1,14 @@
-import path from 'node:path';
+import { loadBlockchainProviderCatalog } from '@exitbook/blockchain-providers';
 
-import {
-  closeProviderStatsDatabase,
-  createProviderStatsDatabase,
-  createProviderStatsQueries,
-  initializeProviderStatsDatabase,
-  loadExplorerConfig,
-  type ProviderStatsRow,
-} from '@exitbook/blockchain-providers';
-import type { AdapterRegistry } from '@exitbook/ingestion';
-import { getLogger } from '@exitbook/logger';
-
-import { providerRegistry } from '../../shared/provider-registry.js';
 import type { ProviderViewItem } from '../view/index.js';
 
 import {
-  buildProviderMap,
+  buildProviderViewItems,
   filterProviders,
-  mergeProviderData,
+  groupProvidersByName,
   sortProviders,
   type HealthFilter,
 } from './providers-view-utils.js';
-
-const logger = getLogger('ProvidersViewHandler');
 
 export interface ProvidersViewParams {
   blockchain?: string | undefined;
@@ -35,45 +21,18 @@ export interface ProvidersViewParams {
  * Loads provider data from registry + stats DB; testable with mock registry.
  */
 export class ProvidersViewHandler {
-  constructor(
-    private readonly registry: AdapterRegistry,
-    private readonly dataDir: string
-  ) {}
+  constructor(private readonly dataDir: string) {}
 
   async execute(params: ProvidersViewParams): Promise<ProviderViewItem[]> {
-    const allBlockchains = this.registry.getAllBlockchains();
-    const providerMap = buildProviderMap(allBlockchains, (blockchain) => providerRegistry.getAvailable(blockchain));
-
-    const explorerConfig = loadExplorerConfig();
-
-    let allStatsRows: ProviderStatsRow[] = [];
-    const dbResult = createProviderStatsDatabase(path.join(this.dataDir, 'providers.db'));
-
-    if (dbResult.isOk()) {
-      const db = dbResult.value;
-      const migrationResult = await initializeProviderStatsDatabase(db);
-
-      if (migrationResult.isOk()) {
-        const statsQueries = createProviderStatsQueries(db);
-        const statsResult = await statsQueries.getAll();
-        if (statsResult.isOk()) {
-          allStatsRows = statsResult.value;
-        } else {
-          logger.warn(`Failed to load provider stats: ${statsResult.error.message}`);
-        }
-      } else {
-        logger.warn(`Provider stats migration failed: ${migrationResult.error.message}. Showing without stats.`);
-      }
-
-      const closeResult = await closeProviderStatsDatabase(db);
-      if (closeResult.isErr()) {
-        logger.warn(`Failed to close provider stats database: ${closeResult.error.message}`);
-      }
-    } else {
-      logger.warn(`Failed to open provider stats database: ${dbResult.error.message}. Showing without stats.`);
+    const catalogResult = await loadBlockchainProviderCatalog(this.dataDir);
+    if (catalogResult.isErr()) {
+      throw catalogResult.error;
     }
 
-    let items = mergeProviderData(providerMap, allStatsRows, explorerConfig);
+    const providerCatalog = catalogResult.value;
+    const providerMap = groupProvidersByName(providerCatalog.providers);
+
+    let items = buildProviderViewItems(providerMap, providerCatalog.providerStats, providerCatalog.explorerConfig);
 
     items = filterProviders(items, {
       blockchain: params.blockchain,

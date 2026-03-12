@@ -5,8 +5,8 @@ import { BalanceWorkflow, calculateBalances, type BalanceVerificationResult } fr
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
+import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
-import { createProviderManagerWithStats } from '../../shared/provider-manager-factory.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { AssetOfflineItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
@@ -448,7 +448,7 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const { providerManager, cleanup: cleanupProviderManager } = await createProviderManagerWithStats(undefined, {
+    const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
       dataDir: ctx.dataDir,
     });
     const balancePorts = buildBalancePorts(database);
