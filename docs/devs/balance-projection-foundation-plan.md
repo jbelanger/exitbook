@@ -158,8 +158,8 @@ processed-transactions --> balances
 
 `balances` remains read-explicit:
 
-- stale snapshots are still readable
-- `balance view` does not auto-refresh
+- `balance view` reads stored snapshots only
+- missing, stale, or failed snapshots fail closed with a refresh hint
 - `balance refresh` is the only live-fetch path
 
 ### 3. Use scoped `projection_state` rows
@@ -720,7 +720,7 @@ Behavior:
 
 - `balance view`
   - loads snapshots from the repository
-  - shows stale/fresh metadata
+  - fails closed if the selected scope snapshot is missing, stale, or failed
   - never hits providers
 - `balance refresh`
   - resolves selected scopes
@@ -860,7 +860,7 @@ Test cases:
 - account rows show snapshot-backed verification summaries
 - `assets view` current quantity comes from snapshot rows, not tx scan
 - `balance view` reads stored snapshots only
-- stale snapshots remain viewable
+- stale or missing snapshots fail closed with a refresh hint
 
 ## Suggested Commit Order
 
@@ -894,11 +894,13 @@ Reason:
 Recommendation:
 
 - no
-- show missing/stale projection state and direct the user to `balance refresh`
+- fail closed when the snapshot is missing, stale, or failed
+- direct the user to `balance refresh`
 
 Reason:
 
 - the design goal is explicit read vs refresh, not hidden rebuilds
+- fail-closed reads are simpler to reason about than rendering stale financial data
 
 ## Decisions & Smells
 

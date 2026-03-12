@@ -32,8 +32,9 @@ Examples:
 
 Notes:
   - Reads stored balance snapshots only.
+  - Requires a fresh stored snapshot for the selected scope.
   - Does not fetch live balances.
-  - Use "exitbook balance refresh" to rebuild and verify snapshots.
+  - If the snapshot is missing or stale, use "exitbook balance refresh" to rebuild it.
 `
     )
     .action(executeBalanceViewCommand);

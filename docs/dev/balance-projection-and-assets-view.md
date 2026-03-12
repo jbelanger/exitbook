@@ -212,7 +212,7 @@ Rules:
 
 - `balance view` reads stored snapshots only
 - `balance refresh` is the only command that fetches live balances
-- `balance view` may show stale state, but it must not auto-refresh
+- `balance view` must fail closed when the selected snapshot is missing, stale, or failed
 - `balance refresh` should ensure upstream processed transactions are ready
   before writing the new snapshot
 
@@ -419,7 +419,7 @@ Rules:
   affected balance scopes stale
 - processed transaction reset must mark affected balance scopes stale
 - successful processing must not auto-refresh balances
-- stale balances remain readable until `balance refresh` runs
+- stale balances fail closed until `balance refresh` runs
 
 This preserves the desired behavior:
 
@@ -460,7 +460,8 @@ Behavior:
 
 - `balance view`
   - reads stored snapshot rows
-  - shows stale/fresh state
+  - requires a fresh snapshot for the selected scope
+  - fails closed with a refresh hint when the snapshot is missing, stale, or failed
   - never calls providers
 - `balance refresh`
   - ensures processed transactions are ready for the selected scope
@@ -847,6 +848,7 @@ Changes:
 
 - `balance view`
   - load stored snapshot rows
+  - fail closed when the selected scope snapshot is missing, stale, or failed
   - render account list and asset drill-down from stored data
 - `balance refresh`
   - resolve selected scopes
