@@ -24,8 +24,6 @@ export function createMockAccount(
     providerName: options?.providerName,
     credentials: options?.credentials,
     lastCursor: options?.lastCursor,
-    lastBalanceCheckAt: options?.lastBalanceCheckAt,
-    verificationMetadata: options?.verificationMetadata,
     metadata: options?.metadata,
     createdAt: options?.createdAt ?? new Date('2025-01-01T00:00:00.000Z'),
     updatedAt: options?.updatedAt,

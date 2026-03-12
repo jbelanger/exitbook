@@ -21,7 +21,7 @@ export interface ProcessingPorts {
   markProcessedTransactionsBuilding(): Promise<Result<void, Error>>;
 
   /** Mark processed-transactions projection as fresh. Computes account hash and cascades downstream invalidation. */
-  markProcessedTransactionsFresh(): Promise<Result<void, Error>>;
+  markProcessedTransactionsFresh(accountIds: number[]): Promise<Result<void, Error>>;
 
   /** Mark processed-transactions projection as failed. */
   markProcessedTransactionsFailed(): Promise<Result<void, Error>>;

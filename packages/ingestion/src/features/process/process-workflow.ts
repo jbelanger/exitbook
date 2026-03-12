@@ -109,7 +109,7 @@ export class ProcessingWorkflow {
 
       // Mark projection fresh + cascade-invalidate downstream, or failed
       if (totalFailed === 0) {
-        const freshResult = await this.ports.markProcessedTransactionsFresh();
+        const freshResult = await this.ports.markProcessedTransactionsFresh(accountIds);
         if (freshResult.isErr()) return err(freshResult.error);
 
         const assetReviewResult = await this.ports.rebuildAssetReviewProjection();

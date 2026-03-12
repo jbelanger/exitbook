@@ -38,10 +38,11 @@ describe('buildImportPorts', () => {
   });
 
   describe('invalidateProjections', () => {
-    it('marks processed-transactions stale and cascades to downstream', async () => {
+    it('marks processed-transactions stale and cascades to downstream projections', async () => {
+      await seedAccount(db, 1, 'blockchain', 'bitcoin');
       const ports = buildImportPorts(ctx);
 
-      assertOk(await ports.invalidateProjections('new-import'));
+      assertOk(await ports.invalidateProjections([1], 'new-import'));
 
       const repo = new ProjectionStateRepository(db);
       const ptState = assertOk(await repo.get('processed-transactions'));
@@ -53,6 +54,26 @@ describe('buildImportPorts', () => {
       expect(assetReviewState?.status).toBe('stale');
       const linksState = assertOk(await repo.get('links'));
       expect(linksState?.status).toBe('stale');
+
+      const balancesState = assertOk(await repo.get('balances', 'balance:1'));
+      expect(balancesState?.status).toBe('stale');
+      expect(balancesState?.invalidatedBy).toBe('upstream-import:processed-transactions');
+    });
+
+    it('marks the root balance scope stale when importing a child account', async () => {
+      await seedAccount(db, 1, 'blockchain', 'bitcoin');
+      await seedAccount(db, 2, 'blockchain', 'bitcoin', { parentAccountId: 1 });
+
+      const ports = buildImportPorts(ctx);
+      assertOk(await ports.invalidateProjections([2], 'new-import'));
+
+      const repo = new ProjectionStateRepository(db);
+      const parentScopeState = assertOk(await repo.get('balances', 'balance:1'));
+      expect(parentScopeState?.status).toBe('stale');
+      expect(parentScopeState?.invalidatedBy).toBe('upstream-import:processed-transactions');
+
+      const childScopeState = assertOk(await repo.get('balances', 'balance:2'));
+      expect(childScopeState).toBeUndefined();
     });
   });
 

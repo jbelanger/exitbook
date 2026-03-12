@@ -1,8 +1,10 @@
-import { cascadeInvalidation, resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
 import { computeAccountHash } from '../utils/account-hash.js';
+
+import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
  * Bridges DataContext repositories to ingestion's ProcessingPorts.
@@ -80,13 +82,16 @@ export function buildProcessingPorts(
 
     markProcessedTransactionsBuilding: () => db.projectionState.markBuilding('processed-transactions'),
 
-    markProcessedTransactionsFresh: () =>
+    markProcessedTransactionsFresh: (accountIds) =>
       resultDoAsync(async function* () {
         const accountHash = yield* await computeAccountHash(db);
         yield* await db.projectionState.markFresh('processed-transactions', { accountHash });
-        for (const downstream of cascadeInvalidation('processed-transactions')) {
-          yield* await db.projectionState.markStale(downstream, 'upstream-rebuilt:processed-transactions');
-        }
+        yield* await markDownstreamProjectionsStale({
+          accountIds,
+          db,
+          from: 'processed-transactions',
+          reason: 'upstream-rebuilt:processed-transactions',
+        });
       }),
 
     markProcessedTransactionsFailed: () => db.projectionState.markFailed('processed-transactions'),

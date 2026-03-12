@@ -181,8 +181,6 @@ describe('AccountRepository', () => {
           provider_name: null,
           credentials: null,
           last_cursor: JSON.stringify({ normal: { invalid: 'shape' } }),
-          last_balance_check_at: null,
-          verification_metadata: null,
           created_at: new Date().toISOString(),
           updated_at: null,
         })
@@ -208,8 +206,6 @@ describe('AccountRepository', () => {
           provider_name: null,
           credentials: JSON.stringify({ apiKey: 'key123' }), // missing apiSecret
           last_cursor: null,
-          last_balance_check_at: null,
-          verification_metadata: null,
           created_at: new Date().toISOString(),
           updated_at: null,
         })
@@ -394,27 +390,6 @@ describe('AccountRepository', () => {
       await repo.update(account.id, { providerName: 'mempool.space' });
       const updated = assertOk(await repo.findById(account.id));
       expect(updated.providerName).toBe('mempool.space');
-    });
-
-    it('updates lastBalanceCheckAt', async () => {
-      const checkTime = new Date('2025-01-15T10:30:00Z');
-      await repo.update(account.id, { lastBalanceCheckAt: checkTime });
-      const updated = assertOk(await repo.findById(account.id));
-      expect(updated.lastBalanceCheckAt).toEqual(checkTime);
-    });
-
-    it('updates verificationMetadata', async () => {
-      const metadata = {
-        current_balance: { BTC: '1.5' },
-        last_verification: {
-          status: 'match' as const,
-          verified_at: '2025-01-15T10:30:00Z',
-          calculated_balance: { BTC: '1.5' },
-        },
-      };
-      await repo.update(account.id, { verificationMetadata: metadata });
-      const updated = assertOk(await repo.findById(account.id));
-      expect(updated.verificationMetadata).toEqual(metadata);
     });
 
     it('updates credentials', async () => {

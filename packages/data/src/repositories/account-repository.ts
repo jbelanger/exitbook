@@ -1,11 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import type { Account, AccountType, CursorState, ExchangeCredentials, VerificationMetadata } from '@exitbook/core';
-import {
-  AccountSchema,
-  CursorStateSchema,
-  ExchangeCredentialsSchema,
-  VerificationMetadataSchema,
-} from '@exitbook/core';
+import type { Account, AccountType, CursorState, ExchangeCredentials } from '@exitbook/core';
+import { AccountSchema, CursorStateSchema, ExchangeCredentialsSchema } from '@exitbook/core';
 import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/core';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
@@ -38,8 +33,6 @@ export interface UpdateAccountParams {
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   lastCursor?: Record<string, CursorState> | undefined;
-  lastBalanceCheckAt?: Date | undefined;
-  verificationMetadata?: VerificationMetadata | undefined;
   metadata?: Account['metadata'] | undefined;
 }
 
@@ -67,10 +60,6 @@ function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
   return resultDo(function* () {
     const credentials = yield* parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     const lastCursor = yield* parseWithSchema(row.last_cursor, z.record(z.string(), CursorStateSchema).optional());
-    const verificationMetadata = yield* parseWithSchema(
-      row.verification_metadata,
-      VerificationMetadataSchema.optional()
-    );
     const metadata = yield* parseWithSchema(row.metadata, accountMetadataSchema);
 
     const parseResult = AccountSchema.safeParse({
@@ -83,8 +72,6 @@ function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
       providerName: row.provider_name ?? undefined,
       credentials: credentials ?? undefined,
       lastCursor,
-      lastBalanceCheckAt: row.last_balance_check_at ? new Date(row.last_balance_check_at) : undefined,
-      verificationMetadata,
       metadata,
       createdAt: new Date(row.created_at),
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
@@ -232,8 +219,6 @@ export class AccountRepository extends BaseRepository {
             provider_name: params.providerName ?? null,
             credentials: credentialsJson,
             last_cursor: null,
-            last_balance_check_at: null,
-            verification_metadata: null,
             created_at: new Date().toISOString(),
             updated_at: null,
           })
@@ -282,21 +267,6 @@ export class AccountRepository extends BaseRepository {
             yield* err(`Invalid cursor map: ${validationResult.error.message}`);
           } else {
             updateData.last_cursor = (yield* serializeToJson(validationResult.data)) ?? null;
-          }
-        }
-
-        if (updates.lastBalanceCheckAt !== undefined) {
-          updateData.last_balance_check_at = updates.lastBalanceCheckAt
-            ? updates.lastBalanceCheckAt.toISOString()
-            : null;
-        }
-
-        if (updates.verificationMetadata !== undefined) {
-          const validationResult = VerificationMetadataSchema.safeParse(updates.verificationMetadata);
-          if (!validationResult.success) {
-            yield* err(`Invalid verification metadata: ${validationResult.error.message}`);
-          } else {
-            updateData.verification_metadata = (yield* serializeToJson(validationResult.data)) ?? null;
           }
         }
 

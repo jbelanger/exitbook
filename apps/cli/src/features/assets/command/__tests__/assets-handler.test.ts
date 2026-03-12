@@ -1,4 +1,10 @@
-import type { AssetReviewSummary, Currency, OverrideEvent, UniversalTransactionData } from '@exitbook/core';
+import type {
+  AssetReviewSummary,
+  BalanceSnapshotAsset,
+  Currency,
+  OverrideEvent,
+  UniversalTransactionData,
+} from '@exitbook/core';
 import { err, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
@@ -69,10 +75,28 @@ function createMockOverrideStore() {
   };
 }
 
-function createMockDb(transactions: UniversalTransactionData[]) {
+function createSnapshotAsset(
+  assetId: string,
+  assetSymbol: string,
+  calculatedBalance: string,
+  scopeAccountId = 1
+): BalanceSnapshotAsset {
+  return {
+    scopeAccountId,
+    assetId,
+    assetSymbol,
+    calculatedBalance,
+    excludedFromAccounting: false,
+  };
+}
+
+function createMockDb(transactions: UniversalTransactionData[], snapshotAssets: BalanceSnapshotAsset[] = []) {
   return {
     transactions: {
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
+    },
+    balanceSnapshots: {
+      findAssetsByScope: vi.fn().mockResolvedValue(ok(snapshotAssets)),
     },
   };
 }
@@ -332,6 +356,36 @@ describe('AssetsHandler', () => {
     expect(value.assets[0]?.reviewStatus).toBe('needs-review');
     expect(value.actionRequiredCount).toBe(1);
     expect(value.totalCount).toBe(2);
+  });
+
+  it('uses balance snapshot assets for current quantity instead of recalculating from transactions', async () => {
+    const assetId = 'blockchain:ethereum:0xheld';
+    const mockDb = createMockDb(
+      [
+        createTransaction({
+          id: 1,
+          inflows: [{ assetId, assetSymbol: 'HELD', amount: '100' }],
+        }),
+      ],
+      [createSnapshotAsset(assetId, 'HELD', '25')]
+    );
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view();
+    const value = assertOk(result);
+
+    expect(value.assets).toHaveLength(1);
+    expect(value.assets[0]).toMatchObject({
+      assetId,
+      currentQuantity: '25',
+    });
   });
 
   it('keeps reviewed but still-blocking ambiguity assets in the needs-review filter', async () => {

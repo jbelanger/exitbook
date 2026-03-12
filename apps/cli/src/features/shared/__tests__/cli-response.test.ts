@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../cli-response.js';
 import { ExitCodes, type ExitCode } from '../exit-codes.js';
@@ -8,6 +8,10 @@ describe('cli-response', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
     process.env['NODE_ENV'] = 'test';
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('createSuccessResponse', () => {

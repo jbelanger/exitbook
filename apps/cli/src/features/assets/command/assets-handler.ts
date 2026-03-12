@@ -1,8 +1,10 @@
 import {
+  type BalanceSnapshotAsset,
   type AssetReviewEvidence,
   type AssetReferenceStatus,
   type AssetReviewStatus,
   type AssetReviewSummary,
+  parseDecimal,
   type UniversalTransactionData,
   err,
   ok,
@@ -15,7 +17,6 @@ import {
   type AssetReviewDecision,
   type OverrideStore,
 } from '@exitbook/data';
-import { calculateBalances } from '@exitbook/ingestion';
 
 import {
   invalidateAssetReviewProjection,
@@ -100,6 +101,7 @@ export interface AssetsViewResult {
 }
 
 interface AssetSnapshot {
+  currentHoldings: Map<string, { assetSymbols: string[]; currentQuantity: string }>;
   excludedAssetIds: Set<string>;
   knownAssets: Map<string, KnownAssetRecord>;
   reviewDecisions: Map<string, AssetReviewDecision>;
@@ -375,19 +377,27 @@ export class AssetsHandler {
       return err(snapshotResult.error);
     }
 
-    const { balances } = calculateBalances(snapshotResult.value.transactions);
-    const items = [...snapshotResult.value.knownAssets.values()]
-      .map<AssetViewItem>((knownAsset) => {
-        const reviewSummary = snapshotResult.value.reviewSummaries.get(knownAsset.assetId);
+    const assetIds = new Set<string>([
+      ...snapshotResult.value.knownAssets.keys(),
+      ...snapshotResult.value.currentHoldings.keys(),
+      ...snapshotResult.value.reviewSummaries.keys(),
+      ...snapshotResult.value.excludedAssetIds,
+    ]);
+
+    const items = [...assetIds]
+      .map<AssetViewItem>((assetId) => {
+        const knownAsset = snapshotResult.value.knownAssets.get(assetId);
+        const currentHolding = snapshotResult.value.currentHoldings.get(assetId);
+        const reviewSummary = snapshotResult.value.reviewSummaries.get(assetId);
         return {
-          assetId: knownAsset.assetId,
-          assetSymbols: knownAsset.assetSymbols,
+          assetId,
+          assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
           accountingBlocked: reviewSummary?.accountingBlocked ?? false,
-          movementCount: knownAsset.movementCount,
-          transactionCount: knownAsset.transactionCount,
-          currentQuantity: balances[knownAsset.assetId]?.toFixed() ?? '0',
+          movementCount: knownAsset?.movementCount ?? 0,
+          transactionCount: knownAsset?.transactionCount ?? 0,
+          currentQuantity: currentHolding?.currentQuantity ?? '0',
           evidence: reviewSummary?.evidence ?? [],
-          excluded: snapshotResult.value.excludedAssetIds.has(knownAsset.assetId),
+          excluded: snapshotResult.value.excludedAssetIds.has(assetId),
           reviewStatus: reviewSummary?.reviewStatus ?? 'clear',
           warningSummary: reviewSummary?.warningSummary,
           referenceStatus: reviewSummary?.referenceStatus ?? 'unknown',
@@ -430,6 +440,11 @@ export class AssetsHandler {
       return err(new Error(`Failed to load transactions for asset resolution: ${transactionsResult.error.message}`));
     }
 
+    const snapshotAssetsResult = await this.db.balanceSnapshots.findAssetsByScope();
+    if (snapshotAssetsResult.isErr()) {
+      return err(new Error(`Failed to load balance snapshot assets: ${snapshotAssetsResult.error.message}`));
+    }
+
     const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore);
     if (excludedAssetIdsResult.isErr()) {
       return err(excludedAssetIdsResult.error);
@@ -447,6 +462,7 @@ export class AssetsHandler {
 
     return ok({
       transactions: transactionsResult.value,
+      currentHoldings: aggregateCurrentHoldings(snapshotAssetsResult.value),
       knownAssets: collectKnownAssets(transactionsResult.value),
       excludedAssetIds: excludedAssetIdsResult.value,
       reviewDecisions: reviewDecisionsResult.value,
@@ -463,18 +479,22 @@ export class AssetsHandler {
       if (snapshot.excludedAssetIds.has(exactAssetId)) {
         return ok({
           assetId: exactAssetId,
-          assetSymbols: snapshot.knownAssets.get(exactAssetId)?.assetSymbols ?? [],
+          assetSymbols: mergeAssetSymbols(
+            snapshot.knownAssets.get(exactAssetId)?.assetSymbols,
+            snapshot.currentHoldings.get(exactAssetId)?.assetSymbols
+          ),
         });
       }
 
       const knownAsset = snapshot.knownAssets.get(exactAssetId);
-      if (!knownAsset) {
+      const currentHolding = snapshot.currentHoldings.get(exactAssetId);
+      if (!knownAsset && !currentHolding) {
         return err(new Error(`Asset ID not found in processed transactions: ${exactAssetId}`));
       }
 
       return ok({
-        assetId: knownAsset.assetId,
-        assetSymbols: knownAsset.assetSymbols,
+        assetId: exactAssetId,
+        assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
       });
     }
 
@@ -517,6 +537,48 @@ function getAssetSortPriority(item: AssetViewItem): number {
     return 2;
   }
   return 3;
+}
+
+function aggregateCurrentHoldings(
+  snapshotAssets: BalanceSnapshotAsset[]
+): Map<string, { assetSymbols: string[]; currentQuantity: string }> {
+  const holdings = new Map<string, { assetSymbols: Set<string>; quantity: ReturnType<typeof parseDecimal> }>();
+
+  for (const asset of snapshotAssets) {
+    const existing = holdings.get(asset.assetId);
+    if (existing) {
+      existing.assetSymbols.add(asset.assetSymbol);
+      existing.quantity = existing.quantity.plus(parseDecimal(asset.calculatedBalance));
+      holdings.set(asset.assetId, existing);
+      continue;
+    }
+
+    holdings.set(asset.assetId, {
+      assetSymbols: new Set([asset.assetSymbol]),
+      quantity: parseDecimal(asset.calculatedBalance),
+    });
+  }
+
+  return new Map(
+    [...holdings.entries()].map(([assetId, value]) => [
+      assetId,
+      {
+        assetSymbols: [...value.assetSymbols].sort((left, right) => left.localeCompare(right)),
+        currentQuantity: value.quantity.toFixed(),
+      },
+    ])
+  );
+}
+
+function mergeAssetSymbols(...symbolGroups: (string[] | undefined)[]): string[] {
+  const symbols = new Set<string>();
+  for (const group of symbolGroups) {
+    for (const symbol of group ?? []) {
+      symbols.add(symbol);
+    }
+  }
+
+  return [...symbols].sort((left, right) => left.localeCompare(right));
 }
 
 function toAssetReviewOverrideSnapshot(

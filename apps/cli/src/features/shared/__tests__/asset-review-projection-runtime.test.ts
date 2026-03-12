@@ -24,7 +24,7 @@ describe('asset-review-projection-runtime', () => {
   let tokenMetadataQueries: ReturnType<typeof createTokenMetadataQueries>;
 
   beforeEach(async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-03-10T00:00:00.000Z'));
 
     dataDir = mkdtempSync(join(tmpdir(), 'asset-review-projection-runtime-test-'));

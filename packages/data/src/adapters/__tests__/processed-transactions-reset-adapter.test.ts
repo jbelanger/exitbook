@@ -102,7 +102,7 @@ describe('buildProcessedTransactionsResetPorts', () => {
   });
 
   it('scopes reset to specific account IDs', async () => {
-    await seedAccount(db, 2, 'blockchain', 'ethereum');
+    await seedAccount(db, 2, 'blockchain', 'bitcoin', { parentAccountId: 1 });
     await seedImportSession(db, 2, 2);
     await seedRawTransaction(1, 'processed');
     await seedRawTransaction(2, 'processed');
@@ -117,5 +117,12 @@ describe('buildProcessedTransactionsResetPorts', () => {
     // Account 2 transactions should still exist
     const txCount = assertOk(await ctx.transactions.count({ includeExcluded: true }));
     expect(txCount).toBe(1);
+
+    const parentBalanceState = assertOk(await ctx.projectionState.get('balances', 'balance:1'));
+    expect(parentBalanceState?.status).toBe('stale');
+    expect(parentBalanceState?.invalidatedBy).toBe('upstream-reset:processed-transactions');
+
+    const childBalanceState = assertOk(await ctx.projectionState.get('balances', 'balance:2'));
+    expect(childBalanceState).toBeUndefined();
   });
 });

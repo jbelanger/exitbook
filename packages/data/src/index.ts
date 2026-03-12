@@ -44,6 +44,7 @@ export { buildAccountQueryPorts } from './adapters/account-query-ports-adapter.j
 export { buildAssetReviewFreshnessPorts } from './adapters/asset-review-freshness-adapter.js';
 export { buildAssetReviewProjectionDataPorts } from './adapters/asset-review-projection-data-ports-adapter.js';
 export { buildAssetReviewResetPorts } from './adapters/asset-review-reset-adapter.js';
+export { buildBalancesFreshnessPorts } from './adapters/balances-freshness-adapter.js';
 export { buildBalancesResetPorts } from './adapters/balances-reset-adapter.js';
 export { buildCostBasisPorts } from './adapters/cost-basis-ports-adapter.js';
 export { buildImportPorts } from './adapters/import-ports-adapter.js';

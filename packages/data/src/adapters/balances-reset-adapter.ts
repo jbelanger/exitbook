@@ -1,32 +1,8 @@
-import { err, ok, resultDoAsync, type Result } from '@exitbook/core';
+import { resultDoAsync, type Result } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
-function toBalanceScopeKey(scopeAccountId: number): string {
-  return `balance:${scopeAccountId}`;
-}
-
-async function resolveBalanceScopeAccountIds(
-  db: DataContext,
-  accountIds?: number[]
-): Promise<Result<number[] | undefined, Error>> {
-  if (!accountIds) {
-    return ok(undefined);
-  }
-
-  const scopeIds = new Set<number>();
-
-  for (const accountId of accountIds) {
-    const accountResult = await db.accounts.findById(accountId);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    scopeIds.add(accountResult.value.parentAccountId ?? accountResult.value.id);
-  }
-
-  return ok([...scopeIds]);
-}
+import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from './balance-scope-utils.js';
 
 async function countAssetRows(db: DataContext, scopeAccountIds?: number[]): Promise<Result<number, Error>> {
   return resultDoAsync(async function* () {
@@ -57,9 +33,10 @@ export function buildBalancesResetPorts(db: DataContext): {
           const snapshots = yield* await tx.balanceSnapshots.findSnapshots(scopeAccountIds);
           const assetRows = yield* await countAssetRows(tx, scopeAccountIds);
           const deletedScopes = yield* await tx.balanceSnapshots.deleteByScopeAccountIds(scopeAccountIds);
+          const staleScopeIds = scopeAccountIds ?? snapshots.map((snapshot) => snapshot.scopeAccountId);
 
-          for (const snapshot of snapshots) {
-            yield* await tx.projectionState.markStale('balances', 'reset', toBalanceScopeKey(snapshot.scopeAccountId));
+          for (const scopeAccountId of staleScopeIds) {
+            yield* await tx.projectionState.markStale('balances', 'reset', toBalanceScopeKey(scopeAccountId));
           }
 
           return { scopes: deletedScopes, assetRows };

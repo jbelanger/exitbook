@@ -73,7 +73,7 @@ export interface ImportPorts {
   rawTransactions: IImportRawTransactionSink;
 
   /** Invalidate processed-transactions and cascade to downstream projections. */
-  invalidateProjections(reason: string): Promise<Result<void, Error>>;
+  invalidateProjections(accountIds: number[] | undefined, reason: string): Promise<Result<void, Error>>;
 
   /** Execute a callback where all port operations share a single atomic transaction. */
   withTransaction<T>(fn: (txPorts: ImportPorts) => Promise<Result<T, Error>>): Promise<Result<T, Error>>;

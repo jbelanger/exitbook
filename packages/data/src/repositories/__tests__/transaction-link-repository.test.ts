@@ -288,8 +288,6 @@ describe('TransactionLinkRepository', () => {
           identifier: 'test-api-key-2',
           provider_name: null,
           last_cursor: null,
-          last_balance_check_at: null,
-          verification_metadata: null,
           created_at: new Date().toISOString(),
           updated_at: null,
         })

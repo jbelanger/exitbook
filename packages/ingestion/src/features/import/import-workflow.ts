@@ -699,7 +699,7 @@ export class ImportWorkflow {
           );
           if (finalize.isErr()) return err(finalize.error);
 
-          const invalidate = await tx.invalidateProjections(`import:${sourceName}:account-${account.id}`);
+          const invalidate = await tx.invalidateProjections([account.id], `import:${sourceName}:account-${account.id}`);
           if (invalidate.isErr()) return err(invalidate.error);
 
           return ok(undefined);

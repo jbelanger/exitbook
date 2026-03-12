@@ -21,8 +21,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
     .addColumn('last_cursor', 'text')
-    .addColumn('last_balance_check_at', 'text')
-    .addColumn('verification_metadata', 'text')
     .addColumn('metadata', 'text') // JSON: Account metadata (e.g., xpub derivation info)
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
@@ -32,10 +30,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addCheckConstraint('accounts_credentials_json_valid', sql`credentials IS NULL OR json_valid(credentials)`)
     .addCheckConstraint('accounts_last_cursor_json_valid', sql`last_cursor IS NULL OR json_valid(last_cursor)`)
-    .addCheckConstraint(
-      'accounts_verification_metadata_json_valid',
-      sql`verification_metadata IS NULL OR json_valid(verification_metadata)`
-    )
     .addCheckConstraint('accounts_metadata_json_valid', sql`metadata IS NULL OR json_valid(metadata)`)
     .execute();
 

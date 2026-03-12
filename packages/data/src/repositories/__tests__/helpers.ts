@@ -5,7 +5,15 @@ export async function seedUser(db: KyselyDB): Promise<void> {
   await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
 }
 
-export async function seedAccount(db: KyselyDB, accountId: number, type: string, source: string): Promise<void> {
+export async function seedAccount(
+  db: KyselyDB,
+  accountId: number,
+  type: string,
+  source: string,
+  options?: {
+    parentAccountId?: number | undefined;
+  }
+): Promise<void> {
   await db
     .insertInto('accounts')
     .values({
@@ -15,10 +23,8 @@ export async function seedAccount(db: KyselyDB, accountId: number, type: string,
       source_name: source,
       identifier: `identifier-${accountId}`,
       provider_name: null,
-      parent_account_id: null,
+      parent_account_id: options?.parentAccountId ?? null,
       last_cursor: null,
-      last_balance_check_at: null,
-      verification_metadata: null,
       created_at: new Date().toISOString(),
       updated_at: null,
     })

@@ -29,7 +29,7 @@ export type BalanceCommandOptions = z.infer<typeof BalanceCommandOptionsSchema>;
 export function registerBalanceCommand(program: Command): void {
   program
     .command('balance')
-    .description('Verify balances against live data or view calculated balances')
+    .description('Verify balances against live data or view stored balance snapshots')
     .option('--account-id <id>', 'Verify specific account (default: all accounts)')
     .option('--offline', 'Skip live balance fetching; show calculated balances only')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
@@ -42,8 +42,8 @@ export function registerBalanceCommand(program: Command): void {
 Examples:
   $ exitbook balance                                # verify all accounts
   $ exitbook balance --account-id 5                 # verify single account
-  $ exitbook balance --offline                      # view calculated balances (no API calls)
-  $ exitbook balance --offline --account-id 5       # single account offline
+  $ exitbook balance --offline                      # view stored balance snapshots (no API calls)
+  $ exitbook balance --offline --account-id 5       # single account snapshot view
   $ exitbook balance --account-id 7 --api-key KEY --api-secret SECRET
                                                     # exchange account with credentials
   $ exitbook balance --json                         # JSON output

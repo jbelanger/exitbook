@@ -1,7 +1,13 @@
-import type { Account, AccountType, ExchangeCredentials, UniversalTransactionData } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type {
+  Account,
+  AccountType,
+  BalanceSnapshotAsset,
+  ExchangeCredentials,
+  UniversalTransactionData,
+} from '@exitbook/core';
+import { err, ok, parseDecimal, type Result } from '@exitbook/core';
 import { buildBalancePorts, type DataContext } from '@exitbook/data';
-import { BalanceWorkflow, calculateBalances, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
@@ -422,19 +428,57 @@ export class BalanceHandler {
   }
 
   private async buildOfflineAssets(account: Account): Promise<AssetOfflineItem[]> {
-    const transactions = await this.loadAccountTransactions(account);
-
-    if (transactions.length === 0) {
+    const scopeAccount = await this.resolveOfflineScopeAccount(account);
+    const snapshotAssets = await this.loadOfflineSnapshotAssets(account, scopeAccount);
+    if (snapshotAssets.length === 0) {
       return [];
     }
 
-    const { balances, assetMetadata } = calculateBalances(transactions);
+    const transactions = await this.loadAccountTransactions(scopeAccount);
 
-    return Object.entries(balances).map(([assetId, balance]) => {
-      const assetSymbol = assetMetadata[assetId] ?? assetId;
-      const diagnostics = this.buildDiagnosticsForAsset(assetId, assetSymbol, transactions);
-      return buildAssetOfflineItem(assetId, assetSymbol, balance, diagnostics);
+    return snapshotAssets.map((asset) => {
+      const assetSymbol = asset.assetSymbol;
+      const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, assetSymbol, transactions);
+      return buildAssetOfflineItem(asset.assetId, assetSymbol, parseDecimal(asset.calculatedBalance), diagnostics);
     });
+  }
+
+  private async resolveOfflineScopeAccount(account: Account): Promise<Account> {
+    if (!account.parentAccountId) {
+      return account;
+    }
+
+    const parentResult = await this.db.accounts.findById(account.parentAccountId);
+    if (parentResult.isErr()) {
+      logger.warn(
+        { accountId: account.id, parentAccountId: account.parentAccountId, error: parentResult.error },
+        'Failed to load parent scope account for offline balance view; falling back to requested account'
+      );
+      return account;
+    }
+
+    return parentResult.value ?? account;
+  }
+
+  private async loadOfflineSnapshotAssets(account: Account, scopeAccount: Account): Promise<BalanceSnapshotAsset[]> {
+    const candidateScopeIds = [...new Set([scopeAccount.id, account.id])];
+
+    for (const scopeAccountId of candidateScopeIds) {
+      const assetsResult = await this.db.balanceSnapshots.findAssetsByScope([scopeAccountId]);
+      if (assetsResult.isErr()) {
+        logger.warn(
+          { accountId: account.id, scopeAccountId, error: assetsResult.error },
+          'Failed to load balance snapshot assets for offline balance view'
+        );
+        continue;
+      }
+
+      if (assetsResult.value.length > 0) {
+        return assetsResult.value;
+      }
+    }
+
+    return [];
   }
 }
 

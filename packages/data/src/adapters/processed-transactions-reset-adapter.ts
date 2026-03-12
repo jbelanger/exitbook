@@ -1,7 +1,9 @@
-import { cascadeInvalidation, resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/core';
 import type { IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
+
+import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
  * Bridges DataContext to ingestion's IProcessedTransactionsReset port.
@@ -40,9 +42,12 @@ export function buildProcessedTransactionsResetPorts(db: DataContext): IProcesse
 
           // Mark this projection and all downstream projections stale
           yield* await tx.projectionState.markStale('processed-transactions', 'reset');
-          for (const downstream of cascadeInvalidation('processed-transactions')) {
-            yield* await tx.projectionState.markStale(downstream, 'upstream-reset:processed-transactions');
-          }
+          yield* await markDownstreamProjectionsStale({
+            accountIds,
+            db: tx,
+            from: 'processed-transactions',
+            reason: 'upstream-reset:processed-transactions',
+          });
 
           return { transactions };
         })
