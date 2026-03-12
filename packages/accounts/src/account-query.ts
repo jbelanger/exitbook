@@ -1,4 +1,10 @@
-import { type Account, type BalanceSnapshot, wrapError } from '@exitbook/core';
+import {
+  type Account,
+  type BalanceSnapshot,
+  type IBalanceScopeAccountLookup,
+  resolveBalanceScopeAccountId as resolveSharedBalanceScopeAccountId,
+  wrapError,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -127,6 +133,9 @@ export class AccountQuery {
         return err(accountResult.error);
       }
       const account = accountResult.value;
+      if (!account) {
+        return ok(undefined);
+      }
 
       if (account.userId !== user.id) {
         return ok(undefined);
@@ -215,6 +224,9 @@ export class AccountQuery {
         return err(accountResult.error);
       }
       const account = accountResult.value;
+      if (!account) {
+        return err(new Error(`Account ${params.accountId} not found`));
+      }
 
       if (account.userId !== user.id) {
         return err(
@@ -380,9 +392,16 @@ export class AccountQuery {
 
   private async resolveScopeAccountIds(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const scopeAccountIds = new Map<number, number>();
+    const scopeAccountLookup: IBalanceScopeAccountLookup<Account> = {
+      findById: async (accountId: number) => {
+        return this.ports.accounts.findById(accountId);
+      },
+    };
 
     for (const account of accounts) {
-      const scopeAccountIdResult = await this.resolveScopeAccountId(account, scopeAccountIds, new Set<number>());
+      const scopeAccountIdResult = await resolveSharedBalanceScopeAccountId(account, scopeAccountLookup, {
+        cache: scopeAccountIds,
+      });
       if (scopeAccountIdResult.isErr()) {
         return err(scopeAccountIdResult.error);
       }
@@ -391,47 +410,6 @@ export class AccountQuery {
     }
 
     return ok(scopeAccountIds);
-  }
-
-  private async resolveScopeAccountId(
-    account: Pick<Account, 'id' | 'parentAccountId'>,
-    cache: Map<number, number>,
-    visited: Set<number>
-  ): Promise<Result<number, Error>> {
-    const cached = cache.get(account.id);
-    if (cached !== undefined) {
-      return ok(cached);
-    }
-
-    if (visited.has(account.id)) {
-      return err(
-        new Error(`Circular account hierarchy detected while resolving balance scope for account ${account.id}`)
-      );
-    }
-    visited.add(account.id);
-
-    if (!account.parentAccountId) {
-      cache.set(account.id, account.id);
-      return ok(account.id);
-    }
-
-    const parentAccountResult = await this.ports.accounts.findById(account.parentAccountId);
-    if (parentAccountResult.isErr()) {
-      return err(parentAccountResult.error);
-    }
-
-    const parentAccount = parentAccountResult.value;
-    if (!parentAccount) {
-      return err(new Error(`Account ${account.parentAccountId} not found while resolving balance scope`));
-    }
-
-    const rootAccountIdResult = await this.resolveScopeAccountId(parentAccount, cache, visited);
-    if (rootAccountIdResult.isErr()) {
-      return err(rootAccountIdResult.error);
-    }
-
-    cache.set(account.id, rootAccountIdResult.value);
-    return ok(rootAccountIdResult.value);
   }
 
   private countDisplayedAccounts(accounts: AccountSummary[]): number {

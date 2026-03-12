@@ -89,6 +89,21 @@ export class AccountRepository extends BaseRepository {
     super(db, 'account-repository');
   }
 
+  async findByIdOptional(accountId: number): Promise<Result<Account | undefined, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        const row = await self.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
+        if (!row) {
+          return undefined;
+        }
+
+        return yield* toAccount(row);
+      },
+      this,
+      'Failed to find account by ID'
+    );
+  }
+
   async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
@@ -118,9 +133,12 @@ export class AccountRepository extends BaseRepository {
   async findById(accountId: number): Promise<Result<Account, Error>> {
     return resultTryAsync(
       async function* (self) {
-        const row = await self.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
-        if (!row) yield* err(`Account ${accountId} not found`);
-        return yield* toAccount(row!);
+        const account = yield* await self.findByIdOptional(accountId);
+        if (!account) {
+          return yield* err(`Account ${accountId} not found`);
+        }
+
+        return account;
       },
       this,
       'Failed to find account by ID'

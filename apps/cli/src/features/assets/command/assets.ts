@@ -8,7 +8,7 @@ import { registerAssetsIncludeCommand } from './assets-include.js';
 import { registerAssetsViewCommand } from './assets-view.js';
 
 export function registerAssetsCommand(program: Command): void {
-  const assets = program.command('assets').description('Manage accounting asset overrides');
+  const assets = program.command('assets').description('View assets and manage review or exclusion decisions');
 
   registerAssetsViewCommand(assets);
   registerAssetsConfirmCommand(assets);

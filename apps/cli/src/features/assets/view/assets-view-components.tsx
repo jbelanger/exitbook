@@ -8,7 +8,7 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import { deriveAccountingDisplayStatus, deriveNextAction } from '../asset-view-filter.js';
+import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-handler.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
@@ -140,17 +140,31 @@ export const AssetsViewApp: FC<{
 };
 
 const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
+  const flaggedLabel = `${state.actionRequiredCount} flagged`;
+  const excludedLabel = `${state.excludedCount} excluded`;
+
+  if (state.filter === 'action-required') {
+    return (
+      <Box>
+        <Text bold>Review Queue</Text>
+        <Text> </Text>
+        <Text>{state.filteredAssets.length}</Text>
+        <Text dimColor> flagged {pluralize(state.filteredAssets.length, 'asset')}</Text>
+        <Text dimColor> · </Text>
+        <Text dimColor>{excludedLabel}</Text>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Text bold>Assets</Text>
       <Text> </Text>
-      <Text>{state.totalCount} total</Text>
+      <Text>{state.filteredAssets.length} shown</Text>
       <Text dimColor> · </Text>
-      <Text color="yellow">{state.actionRequiredCount} action required</Text>
+      <Text color="yellow">{flaggedLabel}</Text>
       <Text dimColor> · </Text>
-      <Text dimColor>{state.excludedCount} excluded</Text>
-      <Text dimColor> · </Text>
-      <Text dimColor>filter: {state.filter}</Text>
+      <Text dimColor>{excludedLabel}</Text>
     </Box>
   );
 };
@@ -165,7 +179,11 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
 
   if (state.filteredAssets.length === 0) {
     return (
-      <Text dimColor>{state.filter === 'action-required' ? 'No assets require action.' : 'No assets found.'}</Text>
+      <Text dimColor>
+        {state.filter === 'action-required'
+          ? 'No flagged assets need attention.'
+          : 'No assets with holdings, exclusions, or review flags.'}
+      </Text>
     );
   }
 
@@ -197,13 +215,24 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
 
 const AssetRow: FC<{ asset: AssetViewItem; isSelected: boolean }> = ({ asset, isSelected }) => {
   const primarySymbol = asset.assetSymbols[0] ?? '(unknown)';
-  const accountingStatus = deriveAccountingDisplayStatus(asset);
+  const badge = getAssetBadge(asset);
+  const reason = getAssetReason(asset);
+
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>
-      {accountingStatus === 'blocked' && <Text color="red"> [blocked]</Text>} <Text color="cyan">{primarySymbol}</Text>{' '}
-      <Text dimColor>{asset.currentQuantity}</Text> <Text dimColor>{formatReferenceStatus(asset.referenceStatus)}</Text>{' '}
-      <Text dimColor>{asset.excluded ? 'excluded' : 'included'}</Text>
+      <Text color="cyan">{primarySymbol}</Text> <Text dimColor>{asset.currentQuantity}</Text>
+      {badge && (
+        <>
+          <Text> </Text>
+          <Text color={badge.color}>[{badge.label}]</Text>
+        </>
+      )}
+      {reason && (
+        <>
+          <Text dimColor> · </Text>
+          <Text dimColor>{reason}</Text>
+        </>
+      )}
     </SelectableRow>
   );
 };
@@ -227,122 +256,95 @@ const AssetDetailPanel: FC<{ state: AssetsViewState }> = ({ state }) => {
   );
 };
 
-function buildNextActionRow(asset: AssetViewItem): ReactElement {
-  const nextAction = deriveNextAction(asset);
-  if (nextAction) {
-    return (
-      <Text key="next-action">
-        {'  '}
-        <Text dimColor>Next action: </Text>
-        <Text color="yellow">{nextAction}</Text>
-      </Text>
-    );
-  }
-  return (
-    <Text key="next-action">
-      {'  '}
-      <Text dimColor>Next action: </Text>
-      <Text>None</Text>
-    </Text>
-  );
-}
-
 function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
-  const accountingStatus = deriveAccountingDisplayStatus(asset);
+  const badge = getAssetBadge(asset);
+  const reason = getAssetReason(asset);
+  const evidenceRows = buildEvidenceRows(asset);
+
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ {asset.assetSymbols[0] ?? '(unknown)'}</Text> <Text dimColor>{asset.assetId}</Text>
+      <Text bold>▸ {asset.assetSymbols[0] ?? '(unknown)'}</Text> <Text dimColor>{asset.currentQuantity}</Text>
+      {badge && (
+        <>
+          <Text> </Text>
+          <Text color={badge.color}>[{badge.label}]</Text>
+        </>
+      )}
     </Text>,
     <Text key="blank-1"> </Text>,
-    <Text key="symbols">
-      {'  '}
-      <Text dimColor>Symbols: </Text>
-      <Text>{asset.assetSymbols.join(', ') || '(unknown)'}</Text>
-    </Text>,
     <Text key="quantity">
       {'  '}
       <Text dimColor>Quantity: </Text>
       <Text>{asset.currentQuantity}</Text>
     </Text>,
-    <Text key="review">
-      {'  '}
-      <Text dimColor>Review: </Text>
-      <Text color={getReviewColor(asset.reviewStatus)}>{formatReviewBadge(asset)}</Text>
-    </Text>,
-    <Text key="reference">
-      {'  '}
-      <Text dimColor>Reference: </Text>
-      <Text>{formatReferenceStatus(asset.referenceStatus)}</Text>
-    </Text>,
-    <Text key="policy">
-      {'  '}
-      <Text dimColor>Accounting: </Text>
-      <Text>{formatAccountingStatus(accountingStatus)}</Text>
-    </Text>,
-    <Text key="exclusion">
-      {'  '}
-      <Text dimColor>Exclusion: </Text>
-      <Text>{asset.excluded ? 'excluded' : 'included'}</Text>
-    </Text>,
-    buildNextActionRow(asset),
-    <Text key="summary">
-      {'  '}
-      <Text dimColor>Summary: </Text>
-      <Text>{asset.warningSummary ?? 'No review warnings'}</Text>
-    </Text>,
   ];
 
-  if (asset.evidence.length === 0) {
+  if (asset.assetSymbols.length > 1) {
     rows.push(
-      <Text key="evidence-none">
+      <Text key="symbols">
         {'  '}
-        <Text dimColor>Evidence: </Text>
-        <Text>No review evidence</Text>
+        <Text dimColor>Also seen as: </Text>
+        <Text>{asset.assetSymbols.join(', ')}</Text>
+      </Text>
+    );
+  }
+
+  if (reason) {
+    rows.push(
+      <Text key="why">
+        {'  '}
+        <Text dimColor>Why: </Text>
+        <Text>{reason}</Text>
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="action">
+      {'  '}
+      <Text dimColor>Action: </Text>
+      <Text>{getActionHint(asset)}</Text>
+    </Text>,
+    <Text key="seen-in">
+      {'  '}
+      <Text dimColor>Seen in: </Text>
+      <Text>
+        {asset.transactionCount} {pluralize(asset.transactionCount, 'transaction')} · {asset.movementCount}{' '}
+        {pluralize(asset.movementCount, 'movement')}
+      </Text>
+    </Text>
+  );
+
+  if (evidenceRows.length === 0) {
+    rows.push(
+      <Text key="signals-none">
+        {'  '}
+        <Text dimColor>Signals: </Text>
+        <Text>None</Text>
       </Text>
     );
     return rows;
-  }
-
-  const flattenedEvidenceRows: ReactElement[] = [];
-  for (const [index, evidence] of asset.evidence.entries()) {
-    flattenedEvidenceRows.push(
-      <Text key={`evidence-${index}`}>
-        {'    '}
-        <Text color={evidence.severity === 'error' ? 'red' : 'yellow'}>[{evidence.severity}]</Text> {evidence.message}
-      </Text>
-    );
-
-    const conflictingAssetIds = readConflictingAssetIds(evidence.metadata);
-    if (conflictingAssetIds) {
-      flattenedEvidenceRows.push(
-        <Text key={`evidence-conflicts-${index}`}>
-          {'      '}
-          <Text dimColor>Conflicts: </Text>
-          <Text>{conflictingAssetIds.join(', ')}</Text>
-        </Text>
-      );
-    }
   }
 
   const availableEvidenceLines = ASSET_DETAIL_LINES - rows.length - 1;
   rows.push(
-    <Text key="evidence-header">
+    <Text key="signals-header">
       {'  '}
-      <Text dimColor>Evidence:</Text>
+      <Text dimColor>Signals:</Text>
     </Text>
   );
 
-  if (flattenedEvidenceRows.length <= availableEvidenceLines) {
-    rows.push(...flattenedEvidenceRows);
+  if (evidenceRows.length <= availableEvidenceLines) {
+    rows.push(...evidenceRows);
     return rows;
   }
 
   const visibleEvidenceRows = Math.max(availableEvidenceLines - 1, 0);
-  rows.push(...flattenedEvidenceRows.slice(0, visibleEvidenceRows));
+  rows.push(...evidenceRows.slice(0, visibleEvidenceRows));
   rows.push(
-    <Text key="evidence-overflow">
+    <Text key="signals-overflow">
       {'    '}
-      <Text dimColor>... {flattenedEvidenceRows.length - visibleEvidenceRows} more evidence row(s)</Text>
+      <Text dimColor>... {evidenceRows.length - visibleEvidenceRows} more signal(s)</Text>
     </Text>
   );
 
@@ -352,67 +354,124 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
 const AssetsControlsBar: FC<{ state: AssetsViewState }> = ({ state }) => {
   const selected = state.filteredAssets[state.selectedIndex];
   if (!selected) {
-    return <Text dimColor>q quit · tab filter</Text>;
+    return <Text dimColor>q quit · tab review queue</Text>;
   }
 
   return (
     <Text dimColor>
-      ↑↓/j/k move · tab filter · x {selected.excluded ? 'include' : 'exclude'}
-      {selected.reviewStatus === 'needs-review' && ' · c confirm'}
-      {(selected.reviewStatus === 'reviewed' || selected.confirmationIsStale) && ' · u clear review'} · q quit
+      ↑↓/j/k move · tab {state.filter === 'action-required' ? 'main list' : 'review queue'} · x{' '}
+      {selected.excluded ? 'include' : 'exclude'}
+      {selected.reviewStatus === 'needs-review' && ' · c mark reviewed'}
+      {(selected.reviewStatus === 'reviewed' || selected.confirmationIsStale) && ' · u reopen review'} · q quit
     </Text>
   );
 };
 
-function formatReviewBadge(asset: AssetViewItem): string {
+function getAssetBadge(asset: AssetViewItem): { color: string; label: string } | undefined {
+  if (asset.excluded) {
+    return {
+      color: 'gray',
+      label: 'Excluded',
+    };
+  }
+
+  if (requiresAssetReviewAction(asset)) {
+    return {
+      color: 'yellow',
+      label: 'Review',
+    };
+  }
+
   if (asset.reviewStatus === 'reviewed') {
-    return '[reviewed]';
+    return {
+      color: 'green',
+      label: 'Reviewed',
+    };
   }
+
+  return undefined;
+}
+
+function getAssetReason(asset: AssetViewItem): string | undefined {
+  if (asset.confirmationIsStale) {
+    return 'new signals since your last review';
+  }
+
+  if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) {
+    return 'same symbol conflict';
+  }
+
+  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag')) {
+    return 'possible spam';
+  }
+
+  if (asset.evidence.some((item) => item.kind === 'scam-note')) {
+    return 'scam warnings in imported transactions';
+  }
+
+  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-note')) {
+    return 'suspicious airdrop warnings';
+  }
+
+  return undefined;
+}
+
+function getActionHint(asset: AssetViewItem): string {
+  if (asset.excluded) {
+    return 'Press x to include it again.';
+  }
+
+  if (asset.confirmationIsStale) {
+    return 'Press u to reopen this review.';
+  }
+
   if (asset.reviewStatus === 'needs-review') {
-    return asset.confirmationIsStale ? '[stale]' : '[review]';
+    if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) {
+      return 'Press c to keep it, or x to exclude a conflicting asset.';
+    }
+
+    return 'Press c to mark it reviewed, or x to exclude it.';
   }
-  return '[clear]';
+
+  if (asset.reviewStatus === 'reviewed') {
+    if (asset.accountingBlocked) {
+      return 'Press x to exclude a conflicting asset.';
+    }
+
+    return 'Press u to reopen this review.';
+  }
+
+  return 'Nothing needs your attention right now.';
 }
 
-function getReviewColor(reviewStatus: AssetViewItem['reviewStatus']): string {
-  switch (reviewStatus) {
-    case 'needs-review':
-      return 'yellow';
-    case 'reviewed':
-      return 'green';
+function buildEvidenceRows(asset: AssetViewItem): ReactElement[] {
+  return asset.evidence.map((evidence, index) => {
+    return (
+      <Text key={`signal-${index}`}>
+        {'    '}
+        <Text color={evidence.severity === 'error' ? 'red' : 'yellow'}>•</Text> {formatEvidenceMessage(evidence.kind)}
+      </Text>
+    );
+  });
+}
+
+function formatEvidenceMessage(kind: AssetViewItem['evidence'][number]['kind']): string {
+  switch (kind) {
+    case 'provider-spam-flag':
+      return 'A provider marked this token as spam.';
+    case 'spam-flag':
+      return 'Imported transactions marked this asset as spam.';
+    case 'scam-note':
+      return 'Imported transactions include scam warnings.';
+    case 'suspicious-airdrop-note':
+      return 'Imported transactions include suspicious airdrop warnings.';
+    case 'same-symbol-ambiguity':
+      return 'The same symbol appears on the same chain in multiple assets.';
     default:
-      return 'gray';
+      return 'Review details are available for this asset.';
   }
 }
 
-function formatAccountingStatus(status: 'allowed' | 'blocked' | 'excluded'): string {
-  switch (status) {
-    case 'blocked':
-      return 'blocked';
-    case 'excluded':
-      return 'excluded from accounting';
-    default:
-      return 'allowed';
-  }
-}
-
-function formatReferenceStatus(status: AssetViewItem['referenceStatus']): string {
-  switch (status) {
-    case 'matched':
-      return 'reference matched';
-    case 'unmatched':
-      return 'reference unmatched';
-    default:
-      return 'reference unknown';
-  }
-}
-
-function readConflictingAssetIds(metadata: Record<string, unknown> | undefined): string[] | undefined {
-  const value = metadata?.['conflictingAssetIds'];
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const assetIds = value.filter((item): item is string => typeof item === 'string');
-  return assetIds.length > 0 ? assetIds : undefined;
+function pluralize(count: number, label: string): string {
+  return count === 1 ? label : `${label}s`;
 }

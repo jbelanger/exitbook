@@ -84,7 +84,7 @@ async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions):
 
       if (options.accountId) {
         const credentials = buildCliExchangeCredentials(options);
-        const result = await handler.executeSingle({ accountId: options.accountId, credentials });
+        const result = await handler.refreshSingleScope({ accountId: options.accountId, credentials });
         if (result.isErr()) {
           displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
@@ -128,7 +128,7 @@ async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions):
         return;
       }
 
-      const result = await handler.executeAll();
+      const result = await handler.refreshAllScopes();
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -168,7 +168,7 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
 
       const handler = handlerResult.value;
       const credentials = buildCliExchangeCredentials(options);
-      const result = await handler.executeSingle({ accountId, credentials });
+      const result = await handler.refreshSingleScope({ accountId, credentials });
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

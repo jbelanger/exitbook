@@ -2,9 +2,9 @@
 
 ## Overview
 
-`exitbook accounts view` is a read-only TUI for browsing accounts and inspecting their import/verification status.
+`exitbook accounts view` is a read-only TUI for browsing accounts and inspecting their import, projection, and verification status.
 
-Single-mode design: a scrollable list of accounts with a detail panel showing the selected account's full metadata (identifier, provider, verification status, import sessions, child accounts for xpubs). Filters narrow the dataset via CLI flags.
+Single-mode design: a scrollable list of accounts with a detail panel showing the selected account's full metadata (identifier, provider, projection freshness, verification status, import sessions, child accounts for xpubs). Filters narrow the dataset via CLI flags.
 
 `--json` bypasses the TUI.
 
@@ -53,12 +53,12 @@ Brief spinner, then TUI appears.
 ```
 Accounts  6 total · 2 blockchain · 3 exchange-api · 1 exchange-csv
 
-  ✓  #1   kraken      exchange-api   OhPz8e0p***   3 sessions   ✓ verified
-  ✓  #2   kucoin      exchange-api   Kc9xR4mq***   2 sessions   ✓ verified
-  ⊘  #3   coinbase    exchange-api   Cb2nL7wk***   1 session    ⊘ never checked
-▸ ✓  #4   bitcoin     blockchain     xpub6CUG...   5 sessions   ✓ verified (3 derived)
-  ✓  #5   ethereum    blockchain     0x742d...bD38  4 sessions   ✗ mismatch
-  ⊘  #6   kraken      exchange-csv   /exports/kra   0 sessions   ⊘ never checked
+  #1   kraken      exchange-api   OhPz8e0p***   3 sessions   ✓proj ✓ver
+  #2   kucoin      exchange-api   Kc9xR4mq***   2 sessions   ✓proj ✓ver
+  #3   coinbase    exchange-api   Cb2nL7wk***   1 session    ⊘proj ⊘ver
+▸ #4   bitcoin     blockchain     xpub6CUG...   5 sessions +3 ✓proj ✓ver
+  #5   ethereum    blockchain     0x742d...bD38  4 sessions   !proj ✗ver
+  #6   kraken      exchange-csv   /exports/kra   0 sessions   ⊘proj ⊘ver
 
 ────────────────────────────────────────────────────────────────────────────────
 ▸ #4  bitcoin  blockchain  xpub account (3 derived addresses)
@@ -66,14 +66,15 @@ Accounts  6 total · 2 blockchain · 3 exchange-api · 1 exchange-csv
   Identifier: xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz
   Provider: mempool
 
-  Balance Verified: 2024-12-15 08:30:00 ✓ match
+  Verification: ✓ verified · Projection: ✓ fresh
+  Last refresh: 2024-12-15 08:30:00
   Created: 2024-06-12 14:23:00
   Sessions: 5
 
   Derived Addresses
-    #7   bc1q84x...w9nk   2 sessions
-    #8   bc1qxy2...s9me   2 sessions
-    #9   bc1qar0...ejfh   1 session
+    #7   bc1q84x...w9nk   2 sessions   ✓proj ✓ver
+    #8   bc1qxy2...s9me   2 sessions   ✓proj ✓ver
+    #9   bc1qar0...ejfh   1 session    ⊘proj ⊘ver
 
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
@@ -107,20 +108,20 @@ Accounts (blockchain)  2 total
 
 ## List Columns
 
-```
-{cursor} {icon}  #{id}  {source}  {type}  {identifier}  {sessions}  {verification}
+```text
+{cursor} #{id}  {source}  {type}  {identifier}  {sessions}  {projectionStatus}  {verificationStatus}
 ```
 
-| Column       | Width | Alignment | Content                                       |
-| ------------ | ----- | --------- | --------------------------------------------- |
-| Cursor       | 1     | —         | `▸` for selected, space otherwise             |
-| Icon         | 1     | —         | Verification status icon                      |
-| ID           | 4     | right     | `#{id}` prefixed                              |
-| Source       | 10    | left      | Exchange or blockchain name, truncated        |
-| Type         | 12    | left      | `blockchain`, `exchange-api`, `exchange-csv`  |
-| Identifier   | 14    | left      | Masked/truncated identifier                   |
-| Sessions     | 12    | right     | `{n} session(s)`                              |
-| Verification | 18    | left      | `✓ verified`, `✗ mismatch`, `⊘ never checked` |
+| Column       | Width | Alignment | Content                                      |
+| ------------ | ----- | --------- | -------------------------------------------- |
+| Cursor       | 1     | —         | `▸` for selected, space otherwise            |
+| ID           | 4     | right     | `#{id}` prefixed                             |
+| Source       | 10    | left      | Exchange or blockchain name, truncated       |
+| Type         | 12    | left      | `blockchain`, `exchange-api`, `exchange-csv` |
+| Identifier   | 14    | left      | Masked/truncated identifier                  |
+| Sessions     | 12    | right     | `{n} session(s)` plus `+{children}` when any |
+| Projection   | 6     | left      | `✓proj`, `!proj`, `~proj`, `✗proj`, `⊘proj`  |
+| Verification | 5     | left      | `✓ver`, `!ver`, `✗ver`, `?ver`, `⊘ver`       |
 
 ### Identifier Display
 
@@ -128,21 +129,25 @@ Accounts (blockchain)  2 total
 - **exchange-csv**: path truncated to 14 chars
 - **blockchain**: truncated to `{first6}...{last4}` for addresses, `xpub6CUG...` for xpubs
 
-### Verification Status Icons
+### Projection Status Text
 
-| Status        | Icon | Color |
-| ------------- | ---- | ----- |
-| match         | `✓`  | green |
-| mismatch      | `✗`  | red   |
-| never-checked | `⊘`  | dim   |
+| Status      | Text    | Color  |
+| ----------- | ------- | ------ |
+| fresh       | `✓proj` | green  |
+| stale       | `!proj` | yellow |
+| building    | `~proj` | cyan   |
+| failed      | `✗proj` | red    |
+| never-built | `⊘proj` | dim    |
 
 ### Verification Status Text
 
-| Status        | Text              | Color |
-| ------------- | ----------------- | ----- |
-| match         | `✓ verified`      | green |
-| mismatch      | `✗ mismatch`      | red   |
-| never-checked | `⊘ never checked` | dim   |
+| Status        | Text   | Color  |
+| ------------- | ------ | ------ |
+| match         | `✓ver` | green  |
+| warning       | `!ver` | yellow |
+| mismatch      | `✗ver` | red    |
+| unavailable   | `?ver` | yellow |
+| never-checked | `⊘ver` | dim    |
 
 ### Row Colors
 
@@ -164,10 +169,10 @@ Accounts (blockchain)  2 total
 
 ### Xpub Parent Rows
 
-When an account is an xpub parent with derived addresses, append `({n} derived)` in dim after the verification status.
+When an account is an xpub parent with derived addresses, append `+{n}` in dim after the session count.
 
-```
-  ✓  #4   bitcoin     blockchain     xpub6CUG...   5 sessions   ✓ verified (3 derived)
+```text
+▸ #4   bitcoin     blockchain     xpub6CUG...   5 sessions +3 ✓proj ✓ver
 ```
 
 ### Child Account Rows
@@ -190,7 +195,8 @@ The detail panel adapts based on account type and whether it has child accounts.
   Identifier: OhPz8e0p***
   Provider: —
 
-  Balance Verified: 2024-12-20 14:30:00 ✓ match
+  Verification: ✓ verified · Projection: ✓ fresh
+  Last refresh: 2024-12-20 14:30:00
   Created: 2024-01-15 09:00:00
   Sessions: 3
 ```
@@ -203,7 +209,8 @@ The detail panel adapts based on account type and whether it has child accounts.
   Identifier: 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38
   Provider: alchemy
 
-  Balance Verified: 2024-12-18 11:00:00 ✗ mismatch
+  Verification: ✗ mismatch · Projection: ! stale
+  Last refresh: 2024-12-18 11:00:00
   Created: 2024-03-22 16:45:00
   Sessions: 4
 ```
@@ -216,14 +223,15 @@ The detail panel adapts based on account type and whether it has child accounts.
   Identifier: xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz
   Provider: mempool
 
-  Balance Verified: 2024-12-15 08:30:00 ✓ match
+  Verification: ✓ verified · Projection: ✓ fresh
+  Last refresh: 2024-12-15 08:30:00
   Created: 2024-06-12 14:23:00
   Sessions: 5
 
   Derived Addresses
-    #7   bc1q84x...w9nk   2 sessions
-    #8   bc1qxy2...s9me   2 sessions
-    #9   bc1qar0...ejfh   1 session
+    #7   bc1q84x...w9nk   2 sessions   ✓proj ✓ver
+    #8   bc1qxy2...s9me   2 sessions   ✓proj ✓ver
+    #9   bc1qar0...ejfh   1 session    ⊘proj ⊘ver
 ```
 
 ### Exchange CSV Account
@@ -234,37 +242,38 @@ The detail panel adapts based on account type and whether it has child accounts.
   Identifier: /exports/kraken
   Provider: —
 
-  Balance Verified: — ⊘ never checked
+  Verification: ⊘ never checked · Projection: ⊘ never built
   Created: 2024-11-01 10:00:00
   Sessions: 0
 ```
 
 ### Detail Panel Elements
 
-| Element                      | Color      |
-| ---------------------------- | ---------- |
-| Account ID                   | white/bold |
-| Source name                  | cyan       |
-| Account type                 | dim        |
-| `xpub account ({n} derived)` | dim        |
-| `Identifier:` label          | dim        |
-| Identifier value             | white      |
-| `Provider:` label            | dim        |
-| Provider name                | cyan       |
-| `—` (no provider)            | dim        |
-| `Balance Verified:` label    | dim        |
-| Verification timestamp       | dim        |
-| `✓ match`                    | green      |
-| `✗ mismatch`                 | red        |
-| `⊘ never checked`            | dim        |
-| `Created:` label             | dim        |
-| Created timestamp            | dim        |
-| `Sessions:` label            | dim        |
-| Session count                | white      |
-| `Derived Addresses` label    | white/bold |
-| Child account ID             | white      |
-| Child identifier             | dim        |
-| Child session count          | white      |
+| Element                      | Color                     |
+| ---------------------------- | ------------------------- |
+| Account ID                   | white/bold                |
+| Source name                  | cyan                      |
+| Account type                 | dim                       |
+| `xpub account ({n} derived)` | dim                       |
+| `Identifier:` label          | dim                       |
+| Identifier value             | white                     |
+| `Provider:` label            | dim                       |
+| Provider name                | cyan                      |
+| `—` (no provider)            | dim                       |
+| `Verification:` label        | dim                       |
+| Verification text            | green/yellow/red/dim      |
+| `Projection:` label          | dim                       |
+| Projection text              | green/cyan/yellow/red/dim |
+| `Last refresh:` label        | dim                       |
+| Last refresh timestamp       | dim                       |
+| `Created:` label             | dim                       |
+| Created timestamp            | dim                       |
+| `Sessions:` label            | dim                       |
+| Session count                | white                     |
+| `Derived Addresses` label    | white/bold                |
+| Child account ID             | white                     |
+| Child identifier             | dim                       |
+| Child session count          | white                     |
 
 ### Identifier Display in Detail Panel
 
@@ -283,7 +292,8 @@ When `--show-sessions` is passed, sessions expand below the session count:
   Identifier: OhPz8e0p***
   Provider: —
 
-  Balance Verified: 2024-12-20 14:30:00 ✓ match
+  Verification: ✓ verified · Projection: ✓ fresh
+  Last refresh: 2024-12-20 14:30:00
   Created: 2024-01-15 09:00:00
   Sessions: 3
 

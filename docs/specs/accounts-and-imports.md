@@ -137,8 +137,7 @@ identifier TEXT NOT NULL,
 provider_name TEXT NULL,
 credentials TEXT NULL,            -- JSON ExchangeCredentials
 last_cursor TEXT NULL,            -- JSON Record<operationType, CursorState>
-last_balance_check_at TEXT NULL,
-verification_metadata TEXT NULL,
+metadata TEXT NULL,               -- JSON account metadata (for example xpub derivation state)
 created_at TEXT NOT NULL DEFAULT (datetime('now')),
 updated_at TEXT NULL
 -- Unique: (account_type, source_name, identifier, COALESCE(user_id,0))
@@ -150,7 +149,7 @@ updated_at TEXT NULL
 - `identifier`: address/xpub (blockchain), API key (exchange-api), CSV directory (exchange-csv).
 - `parent_account_id`: xpub child linkage; NULL for roots.
 - `last_cursor`: per-operation progress map.
-- `verification_metadata`: latest balance verification snapshot.
+- `metadata`: account-owned configuration and derivation metadata only; balance verification lives in the `balances` projection.
 
 ### import_sessions
 
@@ -228,6 +227,7 @@ graph TD
 
 ## Related Specs
 
+- [Balance Projection](./balance-projection.md) — snapshot-backed balance storage, scoped freshness, and account summary semantics
 - [Pagination and Streaming](./pagination-and-streaming.md) — cursor model, streaming contract, provider failover
 - [Fee Semantics](./fees.md) — how raw transactions become movements with fee metadata
 

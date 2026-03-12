@@ -220,6 +220,16 @@ describe('AccountRepository', () => {
     });
   });
 
+  describe('findByIdOptional', () => {
+    it('returns undefined for a missing account', async () => {
+      const result = await repo.findByIdOptional(999);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBeUndefined();
+      }
+    });
+  });
+
   describe('findBy', () => {
     it('finds account by unique key fields', async () => {
       await repo.findOrCreate({

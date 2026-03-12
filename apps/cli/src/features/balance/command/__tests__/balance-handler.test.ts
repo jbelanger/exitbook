@@ -44,6 +44,7 @@ function createSnapshotAsset(scopeAccountId: number, assetId: string, assetSymbo
 
 function createMockDb(params: {
   accounts: Account[];
+  childAccountError?: Error;
   snapshotAssets: BalanceSnapshotAsset[];
   snapshots: BalanceSnapshot[];
   staleScopes?: Map<number, string>;
@@ -56,12 +57,16 @@ function createMockDb(params: {
     accounts: {
       findAll: vi.fn().mockImplementation(async (filters?: { parentAccountId?: number | undefined }) => {
         if (filters?.parentAccountId !== undefined) {
+          if (params.childAccountError) {
+            return err(params.childAccountError);
+          }
           return ok(params.accounts.filter((account) => account.parentAccountId === filters.parentAccountId));
         }
 
         return ok(params.accounts);
       }),
       findById: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
+      findByIdOptional: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
     },
     balanceSnapshots: {
       findAssetsByScope: vi
@@ -165,5 +170,23 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
     const error = assertErr(result);
 
     expect(error.message).toBe('Failed to load transactions for diagnostics for account #1: transactions unavailable');
+  });
+
+  it('fails when stored-snapshot diagnostics cannot load descendant accounts', async () => {
+    const account = createAccount({ id: 1, identifier: 'bc1-root' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [createSnapshot(account.id)],
+      snapshotAssets: [createSnapshotAsset(account.id, 'blockchain:bitcoin:native', 'BTC')],
+      childAccountError: new Error('child lookup failed'),
+    });
+
+    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const result = await handler.viewStoredSnapshots({ accountId: account.id });
+    const error = assertErr(result);
+
+    expect(error.message).toBe(
+      'Failed to load descendant accounts for diagnostics for account #1: child lookup failed'
+    );
   });
 });

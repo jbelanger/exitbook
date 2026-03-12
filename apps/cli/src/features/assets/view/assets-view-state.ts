@@ -1,7 +1,7 @@
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetViewItem } from '../command/assets-handler.js';
 
-export type AssetsViewFilter = 'all' | 'action-required';
+export type AssetsViewFilter = 'default' | 'action-required';
 
 export interface AssetsViewState {
   actionRequiredCount: number;
@@ -35,7 +35,7 @@ export type AssetReviewViewMutation = Pick<
 export function createAssetsViewState(
   assets: AssetViewItem[],
   counts: { actionRequiredCount: number; excludedCount: number; totalCount: number },
-  initialFilter: AssetsViewFilter = 'all'
+  initialFilter: AssetsViewFilter = 'default'
 ): AssetsViewState {
   const filteredAssets = applyFilter(assets, initialFilter);
 
@@ -83,5 +83,5 @@ export function applyFilter(assets: AssetViewItem[], filter: AssetsViewFilter): 
     return assets.filter(requiresAssetReviewAction);
   }
 
-  return assets;
+  return assets.filter((asset) => asset.currentQuantity !== '0' || asset.excluded || requiresAssetReviewAction(asset));
 }

@@ -12,6 +12,7 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
   return {
     id: overrides.id ?? 1,
     accountType: overrides.accountType ?? 'blockchain',
+    balanceProjectionStatus: overrides.balanceProjectionStatus,
     sourceName: overrides.sourceName ?? 'bitcoin',
     identifier: overrides.identifier ?? 'bc1qexampleaddress',
     providerName: overrides.providerName,
@@ -27,7 +28,7 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
 describe('AccountsViewApp', () => {
   it('renders warning verification status without falling back to unknown', () => {
     const state = createAccountsViewState(
-      [createAccountViewItem({ verificationStatus: 'warning' })],
+      [createAccountViewItem({ balanceProjectionStatus: 'fresh', verificationStatus: 'warning' })],
       { showSessions: false },
       1
     );
@@ -45,7 +46,7 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('0 sess !');
+    expect(frame).toContain('0 sess ✓proj !ver');
     expect(frame).not.toContain('unknown');
   });
 
@@ -53,6 +54,7 @@ describe('AccountsViewApp', () => {
     const state = createAccountsViewState(
       [
         createAccountViewItem({
+          balanceProjectionStatus: 'fresh',
           verificationStatus: 'unavailable',
         }),
       ],
@@ -73,7 +75,36 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('0 sess ?');
+    expect(frame).toContain('0 sess ✓proj ?ver');
+    expect(frame).not.toContain('unknown');
+  });
+
+  it('renders projection freshness directly in the list row', () => {
+    const state = createAccountsViewState(
+      [
+        createAccountViewItem({
+          balanceProjectionStatus: 'stale',
+          verificationStatus: 'match',
+        }),
+      ],
+      { showSessions: false },
+      1
+    );
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('0 sess !proj ✓ver');
     expect(frame).not.toContain('unknown');
   });
 });

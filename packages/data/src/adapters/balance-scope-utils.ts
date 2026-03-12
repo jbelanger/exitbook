@@ -1,4 +1,10 @@
-import { err, ok, type Result } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
+import {
+  err,
+  ok,
+  resolveBalanceScopeAccountId as resolveSharedBalanceScopeAccountId,
+  type Result,
+} from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -7,33 +13,14 @@ export function toBalanceScopeKey(scopeAccountId: number): string {
 }
 
 export async function resolveBalanceScopeAccountId(db: DataContext, accountId: number): Promise<Result<number, Error>> {
-  const visited = new Set<number>();
-  let currentAccountId = accountId;
-
-  while (true) {
-    if (visited.has(currentAccountId)) {
-      return err(
-        new Error(`Circular account hierarchy detected while resolving balance scope for account ${accountId}`)
-      );
-    }
-    visited.add(currentAccountId);
-
-    const accountResult = await db.accounts.findById(currentAccountId);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    const account = accountResult.value;
-    if (!account) {
-      return err(new Error(`Account ${currentAccountId} not found while resolving balance scope for ${accountId}`));
-    }
-
-    if (!account.parentAccountId) {
-      return ok(account.id);
-    }
-
-    currentAccountId = account.parentAccountId;
+  const requestedAccountResult = await loadRequestedAccount(db, accountId);
+  if (requestedAccountResult.isErr()) {
+    return err(requestedAccountResult.error);
   }
+
+  return resolveSharedBalanceScopeAccountId(requestedAccountResult.value, {
+    findById: async (id: number) => db.accounts.findByIdOptional(id),
+  });
 }
 
 export async function resolveBalanceScopeAccountIds(
@@ -45,9 +32,21 @@ export async function resolveBalanceScopeAccountIds(
   }
 
   const scopeIds = new Set<number>();
+  const scopeCache = new Map<number, number>();
 
   for (const accountId of accountIds) {
-    const scopeAccountIdResult = await resolveBalanceScopeAccountId(db, accountId);
+    const requestedAccountResult = await loadRequestedAccount(db, accountId);
+    if (requestedAccountResult.isErr()) {
+      return err(requestedAccountResult.error);
+    }
+
+    const scopeAccountIdResult = await resolveSharedBalanceScopeAccountId(
+      requestedAccountResult.value,
+      {
+        findById: async (id: number) => db.accounts.findByIdOptional(id),
+      },
+      { cache: scopeCache }
+    );
     if (scopeAccountIdResult.isErr()) {
       return err(scopeAccountIdResult.error);
     }
@@ -56,4 +55,17 @@ export async function resolveBalanceScopeAccountIds(
   }
 
   return ok([...scopeIds]);
+}
+
+async function loadRequestedAccount(db: DataContext, accountId: number): Promise<Result<Account, Error>> {
+  const accountResult = await db.accounts.findById(accountId);
+  if (accountResult.isErr()) {
+    return err(accountResult.error);
+  }
+
+  if (!accountResult.value) {
+    return err(new Error(`Account ${accountId} not found while resolving balance scope for ${accountId}`));
+  }
+
+  return ok(accountResult.value);
 }

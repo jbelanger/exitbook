@@ -20,7 +20,7 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
       },
     ],
     evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
-    excluded: true,
+    excluded: false,
     movementCount: 1,
     referenceStatus: 'matched',
     reviewStatus: 'needs-review',
@@ -38,22 +38,91 @@ const noop = async () => ({
 });
 
 describe('AssetsViewApp', () => {
-  it('renders review and exclusion state separately in the row and detail panel', () => {
+  it('shows a minimal default asset view and hides clear zero-balance history', () => {
     const initialState = createAssetsViewState(
       [
-        createAsset(),
         createAsset({
           assetId: 'exchange:kraken:btc',
           assetSymbols: ['BTC'],
-          excluded: false,
           accountingBlocked: false,
+          currentQuantity: '0.5',
+          evidence: [],
+          excluded: false,
+          movementCount: 4,
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          transactionCount: 2,
+          warningSummary: undefined,
+        }),
+        createAsset({
+          assetId: 'exchange:kraken:eth',
+          assetSymbols: ['ETH'],
+          accountingBlocked: false,
+          currentQuantity: '0',
+          evidence: [],
+          excluded: false,
+          movementCount: 3,
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          transactionCount: 2,
+          warningSummary: undefined,
+        }),
+      ],
+      { totalCount: 2, excludedCount: 0, actionRequiredCount: 0 }
+    );
+
+    const { lastFrame } = render(
+      <AssetsViewApp
+        initialState={initialState}
+        onQuit={() => {
+          /* noop */
+        }}
+        onToggleExclusion={noop}
+        onConfirmReview={async () => ({
+          action: 'confirm',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
           referenceStatus: 'unknown',
           reviewStatus: 'clear',
           warningSummary: undefined,
+        })}
+        onClearReview={async () => ({
+          action: 'clear-review',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
           evidence: [],
-        }),
-      ],
-      { totalCount: 2, excludedCount: 1, actionRequiredCount: 0 }
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+      />
+    );
+
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('Assets 1 shown');
+    expect(frame).toContain('BTC');
+    expect(frame).not.toContain('ETH');
+    expect(frame).not.toContain('[clear]');
+    expect(frame).not.toContain('Reference:');
+    expect(frame).not.toContain('Accounting:');
+    expect(frame).toContain('Action: Nothing needs your attention right now.');
+  });
+
+  it('shows one review badge, reason, and action for flagged assets', () => {
+    const initialState = createAssetsViewState(
+      [createAsset()],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 },
+      'action-required'
     );
 
     const { lastFrame } = render(
@@ -100,15 +169,13 @@ describe('AssetsViewApp', () => {
 
     const frame = lastFrame() ?? '';
 
-    expect(frame).toContain('0 action required');
-    expect(frame).toContain('[review]');
-    expect(frame).not.toContain('[blocked]');
-    expect(frame).toContain('SCAM');
-    expect(frame).toContain('Review: [review]');
-    expect(frame).toContain('Reference: reference matched');
-    expect(frame).toContain('Accounting: excluded from accounting');
-    expect(frame).toContain('Exclusion: excluded');
-    expect(frame).toContain('Next action: None');
-    expect(frame).toContain('[error] Provider flagged this token as spam');
+    expect(frame).toContain('Review Queue');
+    expect(frame).toContain('[Review]');
+    expect(frame).toContain('possible spam');
+    expect(frame).toContain('Why: possible spam');
+    expect(frame).toContain('Action: Press c to mark it reviewed, or x to exclude it.');
+    expect(frame).toContain('Imported transactions marked this asset as spam.');
+    expect(frame).not.toContain('Next action:');
+    expect(frame).not.toContain('Reference:');
   });
 });

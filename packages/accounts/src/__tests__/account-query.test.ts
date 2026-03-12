@@ -149,6 +149,17 @@ describe('AccountQuery', () => {
     expect(assertErr(result).message).toContain('does not belong to the default user');
   });
 
+  it('returns an error when list is filtered to a missing account id', async () => {
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
+
+    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(undefined));
+
+    const result = await query.list({ accountId: 404 });
+
+    expect(assertErr(result).message).toBe('Account 404 not found');
+  });
+
   it('lists a single child account directly when queried by accountId', async () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
@@ -283,6 +294,17 @@ describe('AccountQuery', () => {
 
     expect(assertOk(result)).toBeUndefined();
     expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
+  });
+
+  it('returns undefined when findById cannot find an account', async () => {
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
+
+    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(undefined));
+
+    const result = await query.findById(22);
+
+    expect(assertOk(result)).toBeUndefined();
   });
 
   it('wraps and logs unexpected list errors', async () => {

@@ -505,6 +505,11 @@ marks the projection stale with reason `reset`.
 
 `assets view` is the primary review surface.
 
+The user-facing TUI contract lives in
+[`docs/specs/cli/assets/assets-view-spec.md`](./cli/assets/assets-view-spec.md).
+This spec keeps the consumer/data contract here and leaves presentation details
+to the CLI spec.
+
 It reads:
 
 - projected review state from `asset_review_*`
@@ -512,18 +517,15 @@ It reads:
 - exclusion state from the override store
 - known asset symbols/history from processed transactions
 
-It shows, per asset:
+Presentation rules:
 
-- asset ID
-- symbols
-- current quantity
-- review badge
-- reference status
-- accounting status
-- exclusion status
-- warning summary
-- individual evidence rows
-- conflicting asset IDs for ambiguity evidence
+- the primary TUI is intentionally simplified and should surface assets plus
+  exceptions, not raw projection fields
+- default view shows current holdings plus active exceptions, not every
+  historical zero-balance asset
+- internal fields such as raw `referenceStatus`, `reviewStatus`,
+  `accountingBlocked`, and inclusion state may still exist in JSON/output
+  contracts, but should not leak into the main TUI copy
 
 `--action-required` and `--needs-review` are aliases. They include:
 
@@ -538,10 +540,10 @@ Excluded assets are not considered action-required.
 Current TUI actions:
 
 - `x`: exclude/include toggle
-- `c`: confirm review for `needs-review`
-- `u`: clear review for `reviewed` or stale confirmations
+- `c`: mark reviewed for `needs-review`
+- `u`: reopen review for `reviewed` or stale confirmations
 
-The detail panel has fixed height and may truncate long evidence lists with an
+The detail panel remains fixed-height and may truncate long signal lists with an
 overflow row.
 
 ### Review Commands
@@ -602,6 +604,8 @@ No consumer should rebuild review summaries ad hoc in its handler.
 ## Related Specs
 
 - [Asset Identity](./asset-identity.md)
+- [Assets View CLI](./cli/assets/assets-view-spec.md)
+- [Balance Projection](./balance-projection.md)
 - [Projection System](./projection-system.md)
 - [Override Event Store And Replay](./override-event-store-and-replay.md)
 

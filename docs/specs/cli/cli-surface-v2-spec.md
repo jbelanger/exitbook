@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-10
+last_verified: 2026-03-12
 status: draft
 ---
 
@@ -108,9 +108,11 @@ The CLI has three human-facing presentation modes, not one:
 | `prices view`         | `browse`             | `tui`                           | `text`                                                    |
 | `providers view`      | `browse`             | `tui`                           | `text`                                                    |
 | `blockchains view`    | `browse`             | `tui`                           | `text`                                                    |
+| `assets view`         | `browse`             | `tui`                           | `text`                                                    |
 | `portfolio`           | `browse`             | `tui`                           | `text`                                                    |
 | `cost-basis`          | `browse`             | `tui`                           | `text`                                                    |
-| `balance`             | `browse`             | `tui`                           | `text-progress` for verification, then `text` summary     |
+| `balance view`        | `browse`             | `tui`                           | `text`                                                    |
+| `balance refresh`     | `workflow`           | `tui`                           | `text-progress`                                           |
 | `import`              | `workflow`           | `tui`                           | `text-progress`                                           |
 | `reprocess`           | `workflow`           | `tui`                           | `text-progress`                                           |
 | `links run`           | `workflow`           | `tui`                           | `text-progress`                                           |
@@ -421,6 +423,7 @@ This is critical for:
 Update browse command registration and handlers to use the same shared resolver:
 
 - `accounts view`
+- `assets view`
 - `transactions view`
 - `links view`
 - `prices view`
@@ -428,7 +431,7 @@ Update browse command registration and handlers to use the same shared resolver:
 - `blockchains view`
 - `portfolio`
 - `cost-basis`
-- `balance`
+- `balance view`
 
 Rules:
 
@@ -480,4 +483,4 @@ This rename should happen only after mode behavior is stable so naming work does
 
 ---
 
-_Last updated: 2026-03-10_
+_Last updated: 2026-03-12_

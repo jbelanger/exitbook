@@ -3,13 +3,15 @@
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import * as dataModule from '@exitbook/data';
+import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommandContext, runCommand } from '../command-runtime.js';
+import { CommandContext, renderApp, runCommand } from '../command-runtime.js';
 
 // Hoisted so they're accessible inside vi.mock factory
-const { mockInitialize } = vi.hoisted(() => ({
+const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
   mockInitialize: vi.fn(),
+  mockInkRender: vi.fn(),
 }));
 
 // Mock the DataContext class — replace with object exposing mocked static method
@@ -22,6 +24,10 @@ vi.mock('@exitbook/data', async () => {
     },
   };
 });
+
+vi.mock('ink', () => ({
+  render: mockInkRender,
+}));
 
 // Mock process.exit to prevent test runner from exiting
 const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -180,6 +186,33 @@ describe('CommandContext', () => {
 
       await expect(ctx.dispose()).rejects.toThrow('close failed');
     });
+  });
+});
+
+describe('renderApp', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('waits one event-loop turn before waiting for Ink exit', async () => {
+    const mockUnmount = vi.fn();
+    let immediateRan = false;
+
+    setImmediate(() => {
+      immediateRan = true;
+    });
+
+    mockInkRender.mockReturnValue({
+      unmount: mockUnmount,
+      waitUntilExit: vi.fn(async () => {
+        expect(immediateRan).toBe(true);
+      }),
+    });
+
+    await renderApp(() => React.createElement('mock-app'));
+
+    expect(mockInkRender).toHaveBeenCalledOnce();
+    expect(mockUnmount).toHaveBeenCalled();
   });
 });
 

@@ -5,7 +5,7 @@ import type {
   ExchangeCredentials,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
+import { err, loadBalanceScopeMemberAccounts, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
 import {
   buildBalancePorts,
   buildBalancesFreshnessPorts,
@@ -146,7 +146,7 @@ export class BalanceHandler {
     }
   }
 
-  async executeSingle(params: {
+  async refreshSingleScope(params: {
     accountId: number;
     credentials?: ExchangeCredentials | undefined;
   }): Promise<Result<SingleVerificationResult, Error>> {
@@ -178,7 +178,7 @@ export class BalanceHandler {
     }
   }
 
-  async executeAll(): Promise<Result<AllAccountsVerificationResult, Error>> {
+  async refreshAllScopes(): Promise<Result<AllAccountsVerificationResult, Error>> {
     const operation = this.requireBalanceWorkflow();
 
     try {
@@ -378,16 +378,27 @@ export class BalanceHandler {
   }
 
   private async loadAccountTransactions(account: Account): Promise<Result<UniversalTransactionData[], Error>> {
-    const accountIdsResult = await this.loadScopeAccountIds(account.id, new Set<number>());
-    if (accountIdsResult.isErr()) {
+    const memberAccountsResult = await loadBalanceScopeMemberAccounts(account, {
+      findChildAccounts: async (parentAccountId: number) => {
+        const childAccountsResult = await this.db.accounts.findAll({ parentAccountId });
+        if (childAccountsResult.isErr()) {
+          return err(childAccountsResult.error);
+        }
+
+        return ok(childAccountsResult.value);
+      },
+    });
+    if (memberAccountsResult.isErr()) {
       return err(
         new Error(
-          `Failed to load descendant accounts for diagnostics for account #${account.id}: ${accountIdsResult.error.message}`
+          `Failed to load descendant accounts for diagnostics for account #${account.id}: ${memberAccountsResult.error.message}`
         )
       );
     }
 
-    const txResult = await this.db.transactions.findAll({ accountIds: accountIdsResult.value });
+    const txResult = await this.db.transactions.findAll({
+      accountIds: memberAccountsResult.value.map((memberAccount) => memberAccount.id),
+    });
     if (txResult.isErr()) {
       return err(
         new Error(`Failed to load transactions for diagnostics for account #${account.id}: ${txResult.error.message}`)
@@ -505,31 +516,6 @@ export class BalanceHandler {
     }
 
     return assetsResult.value;
-  }
-
-  private async loadScopeAccountIds(accountId: number, visited: Set<number>): Promise<Result<number[], Error>> {
-    if (visited.has(accountId)) {
-      return err(new Error(`Circular account hierarchy detected while loading descendants for account ${accountId}`));
-    }
-
-    visited.add(accountId);
-
-    const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: accountId });
-    if (childAccountsResult.isErr()) {
-      return err(childAccountsResult.error);
-    }
-
-    const accountIds = [accountId];
-    for (const childAccount of childAccountsResult.value) {
-      const descendantIdsResult = await this.loadScopeAccountIds(childAccount.id, visited);
-      if (descendantIdsResult.isErr()) {
-        return err(descendantIdsResult.error);
-      }
-
-      accountIds.push(...descendantIdsResult.value);
-    }
-
-    return ok(accountIds);
   }
 
   private async buildComparisonItems(

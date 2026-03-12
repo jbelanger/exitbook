@@ -17,7 +17,7 @@ export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
     },
 
     accounts: {
-      findById: (id) => db.accounts.findById(id),
+      findById: (id) => db.accounts.findByIdOptional(id),
       findAll: (filters) => db.accounts.findAll(filters),
     },
 

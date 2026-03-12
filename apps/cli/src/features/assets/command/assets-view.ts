@@ -21,8 +21,8 @@ type ViewAssetsCommandResult = ViewCommandResult<AssetViewItem[]>;
 export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
-    .description('View assets, review state, and accounting exclusion state')
-    .option('--action-required', 'Show only assets that require action (review, exclusion, or resolution)')
+    .description('View assets and review flagged ones')
+    .option('--action-required', 'Show only flagged assets that still need attention')
     .option('--needs-review', 'Alias for --action-required')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
@@ -107,7 +107,7 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
           excludedCount: result.value.excludedCount,
           actionRequiredCount: result.value.actionRequiredCount,
         },
-        actionRequiredOnly ? 'action-required' : 'all'
+        actionRequiredOnly ? 'action-required' : 'default'
       );
 
       await renderApp((unmount) =>

@@ -20,7 +20,7 @@ export interface IAccountQueryUserLookup {
 }
 
 export interface IAccountQueryAccountReader {
-  findById(id: number): Promise<Result<Account, Error>>;
+  findById(id: number): Promise<Result<Account | undefined, Error>>;
   findAll(filters?: AccountFindAllFilters): Promise<Result<Account[], Error>>;
 }
 

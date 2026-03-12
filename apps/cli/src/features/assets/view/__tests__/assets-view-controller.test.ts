@@ -30,6 +30,35 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
 }
 
 describe('assetsViewReducer', () => {
+  it('defaults to holdings plus exceptions instead of all historical assets', () => {
+    const state = createAssetsViewState(
+      [
+        createAsset({
+          assetId: 'exchange:kraken:btc',
+          assetSymbols: ['BTC'],
+          accountingBlocked: false,
+          currentQuantity: '0.5',
+          evidence: [],
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        }),
+        createAsset({
+          assetId: 'exchange:kraken:eth',
+          assetSymbols: ['ETH'],
+          accountingBlocked: false,
+          currentQuantity: '0',
+          evidence: [],
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        }),
+      ],
+      { totalCount: 2, excludedCount: 0, actionRequiredCount: 0 }
+    );
+
+    expect(state.filter).toBe('default');
+    expect(state.filteredAssets.map((asset) => asset.assetId)).toEqual(['exchange:kraken:btc']);
+  });
+
   it('cycles to the needs-review filter and resets selection', () => {
     const state = createAssetsViewState(
       [

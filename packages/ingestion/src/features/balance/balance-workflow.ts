@@ -7,7 +7,12 @@ import type {
   ImportSession,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { parseAssetId, parseDecimal, wrapError } from '@exitbook/core';
+import {
+  loadBalanceScopeContext as loadSharedBalanceScopeContext,
+  parseAssetId,
+  parseDecimal,
+  wrapError,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
@@ -244,76 +249,7 @@ export class BalanceWorkflow {
     if (requestedAccountResult.isErr()) return err(requestedAccountResult.error);
     if (!requestedAccountResult.value) return err(new Error(`No account found with ID ${accountId}`));
 
-    const requestedAccount = requestedAccountResult.value;
-    const scopeAccountResult = await this.resolveScopeAccount(requestedAccount);
-    if (scopeAccountResult.isErr()) return err(scopeAccountResult.error);
-
-    const memberAccountsResult = await this.loadScopeMemberAccounts(scopeAccountResult.value);
-    if (memberAccountsResult.isErr()) return err(memberAccountsResult.error);
-
-    return ok({
-      requestedAccount,
-      scopeAccount: scopeAccountResult.value,
-      memberAccounts: memberAccountsResult.value,
-    });
-  }
-
-  private async resolveScopeAccount(account: Account): Promise<Result<Account, Error>> {
-    const visited = new Set<number>();
-    let currentAccount = account;
-
-    while (currentAccount.parentAccountId) {
-      if (visited.has(currentAccount.id)) {
-        return err(
-          new Error(`Circular account hierarchy detected while resolving balance scope for account ${account.id}`)
-        );
-      }
-      visited.add(currentAccount.id);
-
-      const parentResult = await this.ports.accountLookup.findById(currentAccount.parentAccountId);
-      if (parentResult.isErr()) return err(parentResult.error);
-      if (!parentResult.value) {
-        return err(new Error(`Scope account ${currentAccount.parentAccountId} not found for account ${account.id}`));
-      }
-
-      currentAccount = parentResult.value;
-    }
-
-    return ok(currentAccount);
-  }
-
-  private async loadScopeMemberAccounts(scopeAccount: Account): Promise<Result<Account[], Error>> {
-    const descendantsResult = await this.loadDescendantAccounts(scopeAccount.id, new Set([scopeAccount.id]));
-    if (descendantsResult.isErr()) return err(descendantsResult.error);
-
-    return ok([scopeAccount, ...descendantsResult.value]);
-  }
-
-  private async loadDescendantAccounts(
-    parentAccountId: number,
-    visited: Set<number>
-  ): Promise<Result<Account[], Error>> {
-    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(parentAccountId);
-    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
-
-    const descendants: Account[] = [];
-
-    for (const childAccount of childAccountsResult.value) {
-      if (visited.has(childAccount.id)) {
-        return err(
-          new Error(`Circular account hierarchy detected while loading descendants for account ${parentAccountId}`)
-        );
-      }
-
-      visited.add(childAccount.id);
-      descendants.push(childAccount);
-
-      const nestedDescendantsResult = await this.loadDescendantAccounts(childAccount.id, visited);
-      if (nestedDescendantsResult.isErr()) return err(nestedDescendantsResult.error);
-      descendants.push(...nestedDescendantsResult.value);
-    }
-
-    return ok(descendants);
+    return loadSharedBalanceScopeContext(requestedAccountResult.value, this.ports.accountLookup);
   }
 
   private buildVerificationCoverage(

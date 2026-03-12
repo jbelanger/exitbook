@@ -55,7 +55,7 @@ interface AccountFindAllFilters {
 }
 
 type AccountFindAll = (filters?: AccountFindAllFilters) => Promise<Result<Account[], Error>>;
-type AccountFindById = (accountId: number) => Promise<Result<Account, Error>>;
+type AccountFindById = (accountId: number) => Promise<Result<Account | undefined, Error>>;
 type CountByAccount = (accountIds: number[]) => Promise<Result<Map<number, number>, Error>>;
 type SessionFindAll = (filters?: { accountIds?: number[] }) => Promise<Result<ImportSession[], Error>>;
 type SnapshotFindMany = (scopeAccountIds: number[]) => Promise<Result<Map<number, BalanceSnapshot>, Error>>;

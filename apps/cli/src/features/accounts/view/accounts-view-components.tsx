@@ -176,7 +176,8 @@ const AccountRow: FC<{
   const { acctId, source, type } = columns.format(item);
   const identifier = truncateIdentifier(item.identifier, item.accountType, 28);
   const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
-  const { icon, iconColor } = getVerificationDisplay(item.verificationStatus);
+  const projection = getProjectionDisplay(item.balanceProjectionStatus);
+  const verification = getVerificationDisplay(item.verificationStatus);
   const children = item.childAccounts ? ` +${item.childAccounts.length}` : '';
 
   return (
@@ -186,7 +187,9 @@ const AccountRow: FC<{
         {sessions}
         {children}
       </Text>{' '}
-      <Text color={iconColor}>{icon}</Text>
+      <Text color={projection.iconColor}>{projection.icon}</Text>
+      <Text dimColor>proj</Text> <Text color={verification.iconColor}>{verification.icon}</Text>
+      <Text dimColor>ver</Text>
     </SelectableRow>
   );
 };
@@ -284,12 +287,15 @@ function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[]
 
   rows.push(
     ...children.slice(0, 5).map((child) => {
-      const { icon, iconColor } = getVerificationDisplay(child.verificationStatus);
+      const projection = getProjectionDisplay(child.balanceProjectionStatus);
+      const verification = getVerificationDisplay(child.verificationStatus);
       const sessions = child.sessionCount !== undefined ? `${child.sessionCount} sess` : '';
       return (
         <Text key={child.id}>
           {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{sessions}</Text>{' '}
-          <Text color={iconColor}>{icon}</Text>
+          <Text color={projection.iconColor}>{projection.icon}</Text>
+          <Text dimColor>proj</Text> <Text color={verification.iconColor}>{verification.icon}</Text>
+          <Text dimColor>ver</Text>
         </Text>
       );
     })

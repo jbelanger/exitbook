@@ -207,6 +207,11 @@ export async function renderApp(create: (unmount: () => void) => React.ReactElem
   try {
     const instance = render(create(() => instance?.unmount()));
     inkInstance = instance as { unmount: () => void; waitUntilExit: () => Promise<void> };
+    // Ink enables raw stdin in useEffect/useInput after the first commit. Give that
+    // one event-loop turn to run before waitUntilExit() arms beforeExit auto-unmount.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
     await inkInstance.waitUntilExit();
   } finally {
     if (inkInstance) {

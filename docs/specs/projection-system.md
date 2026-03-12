@@ -1,24 +1,24 @@
 ---
-last_verified: 2026-03-07
+last_verified: 2026-03-12
 status: canonical
 ---
 
 # Projection System Specification
 
-> **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
+> ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
 
-How exitbook tracks freshness, invalidation, and reset of persisted derived data through a projection graph model.
+How Exitbook tracks freshness, invalidation, and reset of persisted derived data through a projection graph model.
 
 ## Quick Reference
 
-| Concept         | Key Rule                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Projection      | A persisted derived dataset with freshness, invalidation, reset, and rebuild lifecycle                           |
-| Prerequisite    | A consumer readiness check that triggers work but has no projection-state row (e.g., transaction price coverage) |
-| Cache           | Technical persistence not part of projection readiness or reset (e.g., `prices.db`)                              |
-| Graph direction | `processed-transactions` -> `links` (downstream depends on upstream)                                             |
-| Ownership       | Each projection's lifecycle is owned by its capability package, not the CLI                                      |
-| Price coverage  | Checked lazily by consumers; intentionally outside the projection graph                                          |
+| Concept         | Key Rule                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Projection      | A persisted derived dataset with freshness, invalidation, reset, and rebuild lifecycle              |
+| Status          | `fresh`, `stale`, `building`, and `failed` are the only projection lifecycle states                 |
+| Graph direction | `processed-transactions` -> `asset-review`, `balances`, `links`                                     |
+| Scope model     | Most projections are global; `balances` is scoped per owning account via `balance:<scopeAccountId>` |
+| Ownership       | Each projection's lifecycle is owned by its capability package, not the CLI                         |
+| Price coverage  | Checked lazily by consumers; intentionally outside the projection graph                             |
 
 ## Goals
 
@@ -26,10 +26,11 @@ How exitbook tracks freshness, invalidation, and reset of persisted derived data
 - **Projection-native reset**: Reset and rebuild operate on projection ids using the dependency graph, not coarse capability buckets.
 - **Single state model**: One `projection_state` table replaces bespoke freshness mechanisms.
 - **Thin CLI host**: The CLI composes projection runtimes and orchestrates TUI/abort/cleanup, but does not own derived-data lifecycle rules.
+- **Scoped freshness**: The same projection system supports both global and scope-specific derived data.
 
 ## Non-Goals
 
-- Persisted `cost-basis` or `balances` projections (future extension point).
+- Persisted cost-basis projections.
 - Projection-scoped concurrency locking.
 - `prices.db` cache management or invalidation.
 - Automatic rebuild on import completion.
@@ -47,16 +48,16 @@ type ProjectionStatus = 'fresh' | 'stale' | 'building' | 'failed';
 ```
 
 - **fresh**: Derived data is up-to-date with its inputs.
-- **stale**: Inputs have changed since last build; rebuild needed.
-- **building**: Rebuild in progress.
-- **failed**: Last rebuild attempt failed.
+- **stale**: Inputs have changed since last build; rebuild is needed.
+- **building**: Rebuild is in progress.
+- **failed**: The last rebuild attempt failed.
 
-A lingering `building` row (e.g., after a crash) is treated as rebuildable.
+A lingering `building` row after a crash is treated as rebuildable.
 
 ### Projection Definition
 
 ```ts
-type ProjectionId = 'processed-transactions' | 'links';
+type ProjectionId = 'processed-transactions' | 'asset-review' | 'balances' | 'links';
 
 interface ProjectionDefinition {
   id: ProjectionId;
@@ -73,7 +74,22 @@ Owned by `@exitbook/ingestion`. Includes:
 
 - `transactions`
 - `transaction_movements`
-- Raw processing status
+- raw processing status
+
+#### `asset-review`
+
+Owned by `@exitbook/ingestion`. Includes:
+
+- `asset_review_state`
+- `asset_review_evidence`
+
+#### `balances`
+
+Owned by `@exitbook/ingestion`. Includes:
+
+- `balance_snapshots`
+- `balance_snapshot_assets`
+- scoped freshness rows keyed by owning balance scope
 
 #### `links`
 
@@ -85,17 +101,18 @@ Owned by `@exitbook/accounting`. Includes:
 
 ### Current
 
-```
+```text
+processed-transactions --> asset-review
+processed-transactions --> balances
 processed-transactions --> links
 ```
 
 ### Future Extension
 
-When persisted cost-basis and balances exist:
+When persisted cost-basis exists:
 
-```
+```text
 processed-transactions --> links --> cost-basis
-                                 --> balances
 ```
 
 Transaction price coverage is intentionally not in this graph.
@@ -120,15 +137,15 @@ CREATE TABLE projection_state (
 
 #### Field Semantics
 
-| Column                | Purpose                                                                                 |
-| --------------------- | --------------------------------------------------------------------------------------- |
-| `projection_id`       | Projection identity from `ProjectionId`                                                 |
-| `scope_key`           | Future-proofing for scoped projections; default `__global__`                            |
-| `status`              | Current lifecycle state                                                                 |
-| `last_built_at`       | Timestamp of last successful build                                                      |
-| `last_invalidated_at` | Timestamp of last invalidation                                                          |
-| `invalidated_by`      | Mutation or upstream projection that caused invalidation                                |
-| `metadata_json`       | Projection-specific data (e.g., account hash fingerprints for `processed-transactions`) |
+| Column                | Purpose                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `projection_id`       | Projection identity from `ProjectionId`                                                  |
+| `scope_key`           | Projection scope; global projections use `__global__`, scoped ones provide their own key |
+| `status`              | Current lifecycle state                                                                  |
+| `last_built_at`       | Timestamp of last successful build                                                       |
+| `last_invalidated_at` | Timestamp of last invalidation                                                           |
+| `invalidated_by`      | Mutation or upstream projection that caused invalidation                                 |
+| `metadata_json`       | Projection-specific data such as account hash fingerprints                               |
 
 ### Projection State Repository
 
@@ -155,9 +172,19 @@ Exposed via `DataContext` as `projectionState`.
 
 Pure functions in `@exitbook/core` with no runtime dependencies:
 
-- **`cascadeInvalidation(from)`**: Returns downstream projections to invalidate. `processed-transactions` -> `['links']`.
-- **`rebuildPlan(target)`**: Returns upstream projections that must be built first. `links` -> `['processed-transactions']`.
-- **`resetPlan(target)`**: Returns projections to reset in safe order (downstream first). `processed-transactions` -> `['links', 'processed-transactions']`.
+- **`cascadeInvalidation(from)`**: Returns downstream projections to invalidate.
+  `processed-transactions` -> `['asset-review', 'balances', 'links']`
+- **`rebuildPlan(target)`**: Returns upstream projections that must be fresh before `target` can build.
+  `links` -> `['processed-transactions']`
+- **`resetPlan(target)`**: Returns projections to reset in safe order, downstream first.
+  `processed-transactions` -> `['links', 'balances', 'asset-review', 'processed-transactions']`
+
+### Scope Rules
+
+- `processed-transactions`, `asset-review`, and `links` currently use the default global scope key.
+- `balances` uses one row per owning balance scope:
+  - `scope_key = balance:<scopeAccountId>`
+- Consumers that require one balance scope must check that scope row, not the global row.
 
 ### Invalidation Rules
 
@@ -167,27 +194,57 @@ Invalidation happens at mutation points inside capability workflows, not in the 
 
 | Event                       | Action                                                                                        |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| Import finalization commits | Mark `processed-transactions` stale; cascade-invalidate downstream (same transaction)         |
+| Import finalization commits | Mark `processed-transactions` stale; cascade-invalidate downstream in the same write path     |
 | Processing starts           | Mark `processed-transactions` building                                                        |
 | Processing succeeds         | Mark `processed-transactions` fresh with account-hash metadata; cascade-invalidate downstream |
 | Processing fails            | Mark `processed-transactions` failed                                                          |
 
+#### `asset-review`
+
+| Event                                  | Action                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `processed-transactions` becomes stale | Mark `asset-review` stale                                                    |
+| Asset review override mutation         | Mark `asset-review` stale                                                    |
+| Asset review rebuild begins            | Mark `asset-review` building                                                 |
+| Asset review rebuild succeeds          | Replace review rows and mark `asset-review` fresh in the same write sequence |
+| Asset review rebuild fails             | Mark `asset-review` failed                                                   |
+
+#### `balances`
+
+| Event                                        | Action                                                        |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| Import or processed transaction mutation     | Mark affected balance scopes stale                            |
+| Scoped reset                                 | Delete affected snapshot rows and mark those scope keys stale |
+| Balance snapshot rebuild begins              | Mark that scope `building`                                    |
+| Balance snapshot rebuild or refresh succeeds | Persist snapshot rows and mark that scope `fresh`             |
+| Balance snapshot rebuild or refresh fails    | Mark that scope `failed`                                      |
+
+Balance invalidation is scoped, not global.
+
 #### `links`
 
-| Event                       | Action                                                                     |
-| --------------------------- | -------------------------------------------------------------------------- |
-| Linking begins              | Mark `links` building                                                      |
-| Linking succeeds            | Mark `links` fresh (inside persistence transaction, atomic with link data) |
-| Linking fails               | Mark `links` failed                                                        |
-| Link overrides or mutations | Mark `links` stale                                                         |
-
-#### Transaction Price Coverage
-
-No projection-state row. Checked lazily when a consumer (cost-basis, portfolio) requires it, using accounting's coverage contract.
+| Event                       | Action                                               |
+| --------------------------- | ---------------------------------------------------- |
+| Linking begins              | Mark `links` building                                |
+| Linking succeeds            | Mark `links` fresh inside the persistence write path |
+| Linking fails               | Mark `links` failed                                  |
+| Link overrides or mutations | Mark `links` stale                                   |
 
 ### Reset Rules
 
 Reset is projection-native: planning uses projection ids, execution uses projection reset contracts.
+
+#### Reset `asset-review`
+
+1. Delete `asset_review_state`
+2. Delete `asset_review_evidence`
+3. Mark `asset-review` stale
+
+#### Reset `balances`
+
+1. Resolve requested accounts to owning balance scope ids
+2. Delete `balance_snapshots` and cascading `balance_snapshot_assets` rows for those scopes
+3. Mark the affected `balances` scope rows stale
 
 #### Reset `links`
 
@@ -196,139 +253,62 @@ Reset is projection-native: planning uses projection ids, execution uses project
 
 #### Reset `processed-transactions`
 
-Uses `resetPlan('processed-transactions')` -> `['links', 'processed-transactions']`:
+Uses `resetPlan('processed-transactions')` -> `['links', 'balances', 'asset-review', 'processed-transactions']`:
 
-1. Reset `links` (downstream first)
-2. Reset `processed-transactions`:
-   - Delete processed transaction output
-   - Reset raw processing status
-   - Mark affected projections stale
-
-No independent reset step for transaction price enrichment.
+1. Reset `links`
+2. Reset `balances`
+3. Reset `asset-review`
+4. Reset `processed-transactions`:
+   - delete processed transaction output
+   - reset raw processing status
+   - mark affected projections stale
 
 ### Consumer Readiness
 
-Consumers declare what they need; the system walks the graph and rebuilds as necessary:
+Consumers declare what they need; the system walks the graph and rebuilds as necessary where the consumer uses the generic readiness runtime.
 
-| Consumer     | Required Projections              | Price Coverage Window                                                      |
-| ------------ | --------------------------------- | -------------------------------------------------------------------------- |
-| `links run`  | `processed-transactions`          | None                                                                       |
-| `cost-basis` | `processed-transactions`, `links` | Requested reporting window, if both `startDate` and `endDate` are supplied |
-| `portfolio`  | `processed-transactions`, `links` | `new Date(0)` through the requested `asOf` date                            |
+| Consumer      | Required Projections                     | Price Coverage Window                                                      |
+| ------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `links run`   | `processed-transactions`                 | None                                                                       |
+| `assets view` | `processed-transactions`, `asset-review` | None                                                                       |
+| `cost-basis`  | `processed-transactions`, `links`        | Requested reporting window, if both `startDate` and `endDate` are supplied |
+| `portfolio`   | `processed-transactions`, `links`        | `new Date(0)` through the requested `asOf` date                            |
 
-The readiness API walks `rebuildPlan(target)` then the target itself, checking freshness and triggering rebuilds for any non-`fresh` projection (`stale`, `failed`, or lingering `building`). Price coverage is checked separately after projections are ready, using an explicit date window:
+The readiness API walks `rebuildPlan(target)` then the target itself, checking freshness and triggering rebuilds for any non-`fresh` projection (`stale`, `failed`, or lingering `building`). Price coverage is checked separately after projections are ready.
 
-```ts
-interface PriceCoverageInput {
-  startDate: Date;
-  endDate: Date;
-}
-```
+`balances` is intentionally different:
 
-`cost-basis` only runs the price-coverage prerequisite when both bounds are present; `portfolio` always runs it from epoch through `asOf`.
-
-### Links Freshness Semantics
-
-- If a `projection_state` row exists, its status is authoritative.
-- If no row exists, the adapter falls back to timestamp/no-links heuristics for first-run behavior.
-
-## Ownership Boundaries
-
-### Capability-Owned Projection Contracts
-
-Each projection defines its own freshness and reset interfaces in its owning capability package:
-
-**Ingestion** (`@exitbook/ingestion`):
-
-- `IProcessedTransactionsFreshness` — checks if processing is current
-- `IProcessedTransactionsReset` — previews and resets processed output and raw status
-
-  ```ts
-  interface ProcessedTransactionsResetImpact {
-    transactions: number;
-  }
-
-  interface IProcessedTransactionsReset {
-    countResetImpact(accountIds?: number[]): Promise<Result<ProcessedTransactionsResetImpact, Error>>;
-    reset(accountIds?: number[]): Promise<Result<ProcessedTransactionsResetImpact, Error>>;
-  }
-  ```
-
-**Accounting** (`@exitbook/accounting`):
-
-- `ILinksFreshness` — checks if links are current
-- `ILinksReset` — previews and resets transaction links
-- `IPriceCoverageData` — loads transactions for coverage checks
-
-  ```ts
-  interface LinksResetImpact {
-    links: number;
-  }
-
-  interface ILinksReset {
-    countResetImpact(accountIds?: number[]): Promise<Result<LinksResetImpact, Error>>;
-    reset(accountIds?: number[]): Promise<Result<LinksResetImpact, Error>>;
-  }
-  ```
-
-`countResetImpact(...)` is part of the canonical contract because CLI preview flows use the same projection-owned reset ports before executing destructive resets.
-
-### Capability-Owned Lifecycle Writes
-
-Projection state transitions are written by the same capability ports that own the underlying mutations. There is no generic projection-state writer in `@exitbook/core`.
-
-- **Import ports** expose `invalidateProjections(reason)` — marks `processed-transactions` stale with cascade.
-- **Processing ports** expose `markProcessedTransactions{Building,Fresh,Failed}()` — `Fresh` computes and persists account hash, then cascade-invalidates downstream.
-- **Linking ports** expose `markLinks{Building,Fresh,Failed}()` — `Building` is called before the linking transaction; `Fresh` runs inside the persistence transaction for atomicity.
-
-### Data Adapters
-
-`@exitbook/data` implements all projection contracts:
-
-- `buildProcessedTransactionsFreshnessPorts`
-- `buildProcessedTransactionsResetPorts`
-- `buildLinksFreshnessPorts`
-- `buildLinksResetPorts`
-- `buildPriceCoverageDataPorts`
-
-### CLI Composition
-
-The CLI is the composition root. It builds a projection runtime registry for readiness work and a separate reset dispatcher for projection-native resets.
-
-```ts
-interface ProjectionRuntime {
-  checkFreshness(): Promise<Result<ProjectionFreshnessResult, Error>>;
-  rebuild(): Promise<Result<void, Error>>;
-}
-```
-
-The runtime registry is keyed by `ProjectionId` and used only for readiness/rebuild orchestration. Reset execution is handled separately by a helper that walks `resetPlan(target)` and dispatches to the owning projection reset ports (`ILinksReset`, `IProcessedTransactionsReset`) inside a transaction. TUI, abort wiring, and provider lifecycle remain CLI concerns.
+- `balance view` reads stored balance snapshots and fails closed when the scoped balance projection is not fresh
+- `balance refresh` is the explicit rebuild-and-refresh path for `balances`
+- `assets view` requires fresh balance snapshots separately from asset-review readiness
 
 ## Invariants
 
-- **Cascade on mutation**: Any mutation that changes projection inputs must cascade-invalidate downstream projections in the same transaction.
-- **Atomic fresh**: `markFresh` for links runs inside the persistence transaction — fresh state commits atomically with link data.
-- **Reset order**: Downstream projections are always reset before upstream (enforced by `resetPlan`).
-- **No CLI lifecycle logic**: The CLI never directly reads or writes `projection_state`; it delegates through projection runtime contracts.
+- **Cascade on mutation**: Any mutation that changes projection inputs must cascade-invalidate downstream projections in the same write path.
+- **Reset order**: Downstream projections are always reset before upstream.
+- **No CLI lifecycle logic**: The CLI does not own projection-state transitions; it delegates through capability ports and runtimes.
+- **Scoped balances**: Balance freshness is always keyed by the owning scope account, not by a child account id.
 - **Price coverage excluded**: `prices.db` is never part of projection reset or invalidation.
 
 ## Edge Cases & Gotchas
 
-- **Crash during build**: A lingering `building` status after a crash is treated as rebuildable on next consumer readiness check.
-- **First run**: No `projection_state` row exists; freshness adapters use fallback heuristics (e.g., "no links exist" implies stale).
-- **Account hash metadata**: `processed-transactions` freshness uses an account hash fingerprint stored in `metadata_json` to detect when accounts have changed since last build.
+- A lingering `building` status after a crash is treated as rebuildable on the next readiness check.
+- On first run, no `projection_state` row may exist; freshness adapters use projection-specific fallback rules.
+- `balances` may have no state row and no snapshot row; fail-closed readers treat that as stale-with-never-built rather than as empty data.
 
 ## Known Limitations (Current Implementation)
 
-- `scope_key` is always `__global__`; per-account scoped projections are not yet implemented.
-- Only two projections exist (`processed-transactions`, `links`); `cost-basis` and `balances` will be added when they gain persistent storage.
-- No concurrency guard prevents two processes from building the same projection simultaneously.
+- There is no concurrency guard to prevent two processes from building the same projection at the same time.
+- `balances` uses scoped projection rows, but the generic readiness runtime is still oriented around global consumer flows.
+- Cost-basis is not yet a persisted projection.
 
 ## Related Specs
 
-- [Price Derivation](./price-derivation.md) — transaction price enrichment pipeline (the prerequisite that lives outside the projection graph)
-- [Accounts & Imports](./accounts-and-imports.md) — raw data that feeds into `processed-transactions`
+- [Balance Projection](./balance-projection.md)
+- [Asset Review](./asset-review.md)
+- [Accounts & Imports](./accounts-and-imports.md)
+- [Price Derivation](./price-derivation.md)
 
 ---
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-12_

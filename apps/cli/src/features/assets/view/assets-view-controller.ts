@@ -76,7 +76,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
       return { ...state, ...end(buildContext(action.visibleRows)), error: undefined };
 
     case 'CYCLE_FILTER': {
-      const nextFilter: AssetsViewFilter = state.filter === 'all' ? 'action-required' : 'all';
+      const nextFilter: AssetsViewFilter = state.filter === 'default' ? 'action-required' : 'default';
       const filteredAssets = applyFilter(state.assets, nextFilter);
       return {
         ...state,
