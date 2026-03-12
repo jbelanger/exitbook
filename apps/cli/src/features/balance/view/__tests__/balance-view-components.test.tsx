@@ -6,7 +6,12 @@ import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
 import { BalanceApp } from '../balance-view-components.jsx';
-import { createBalanceAssetState, type AssetComparisonItem, type AssetDiagnostics } from '../balance-view-state.js';
+import {
+  createBalanceAssetState,
+  type AssetComparisonItem,
+  type AssetDiagnostics,
+  type StoredSnapshotAssetItem,
+} from '../balance-view-state.js';
 
 const mockOnQuit = () => {
   /* empty */
@@ -37,6 +42,16 @@ function createAssetComparisonItem(overrides: Partial<AssetComparisonItem>): Ass
   };
 }
 
+function createStoredSnapshotAssetItem(overrides: Partial<StoredSnapshotAssetItem> = {}): StoredSnapshotAssetItem {
+  return {
+    assetId: overrides.assetId ?? 'asset-id',
+    assetSymbol: overrides.assetSymbol ?? 'BTC',
+    calculatedBalance: overrides.calculatedBalance ?? '1.25',
+    isNegative: overrides.isNegative ?? false,
+    diagnostics: overrides.diagnostics ?? createDiagnostics(),
+  };
+}
+
 describe('BalanceApp - asset view', () => {
   it('keeps calc and live columns aligned when the selected row changes styling', () => {
     const state = createBalanceAssetState(
@@ -59,7 +74,7 @@ describe('BalanceApp - asset view', () => {
           liveBalance: '0.09033624',
         }),
       ],
-      { offline: false }
+      { mode: 'verification' }
     );
     state.selectedIndex = 0;
 
@@ -88,5 +103,33 @@ describe('BalanceApp - asset view', () => {
 
     expect(selectedLine.indexOf('calc')).toBe(unselectedLine.indexOf('calc'));
     expect(selectedLine.indexOf('live')).toBe(unselectedLine.indexOf('live'));
+  });
+
+  it('renders stored snapshot asset mode without live comparison columns', () => {
+    const state = createBalanceAssetState(
+      {
+        accountId: 55,
+        sourceName: 'bitcoin',
+        accountType: 'blockchain',
+      },
+      [createStoredSnapshotAssetItem({ assetSymbol: 'BTC', calculatedBalance: '1.25' })],
+      { mode: 'stored-snapshot' }
+    );
+
+    const { lastFrame } = render(
+      <BalanceApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('Balance (stored snapshot)');
+    expect(frame).not.toContain('live');
   });
 });

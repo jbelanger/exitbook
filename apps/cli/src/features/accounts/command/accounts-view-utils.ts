@@ -23,6 +23,7 @@ export function toAccountViewItem(account: AccountSummary, sessions?: Map<number
     id: child.id,
     identifier: child.identifier,
     sessionCount: child.sessionCount,
+    balanceProjectionStatus: child.balanceProjectionStatus,
     verificationStatus: child.verificationStatus,
   }));
 
@@ -41,7 +42,10 @@ export function toAccountViewItem(account: AccountSummary, sessions?: Map<number
     identifier: account.identifier,
     parentAccountId: account.parentAccountId,
     providerName: account.providerName,
-    lastBalanceCheckAt: account.lastBalanceCheckAt,
+    balanceProjectionStatus: account.balanceProjectionStatus,
+    balanceProjectionReason: account.balanceProjectionReason,
+    lastCalculatedAt: account.lastCalculatedAt,
+    lastRefreshAt: account.lastRefreshAt,
     verificationStatus: account.verificationStatus,
     sessionCount: account.sessionCount,
     childAccounts,

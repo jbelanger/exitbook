@@ -1,4 +1,4 @@
-import type { Account, AccountType, BalanceSnapshot } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ProjectionStatus } from '@exitbook/core';
 
 export interface AccountQueryParams {
   accountId?: number | undefined;
@@ -14,6 +14,14 @@ export interface SessionSummary {
   completedAt?: string | undefined;
 }
 
+export type AccountVerificationStatus = Exclude<BalanceSnapshot['verificationStatus'], 'never-run'> | 'never-checked';
+export type AccountBalanceProjectionStatus = ProjectionStatus | 'never-built';
+
+export interface AccountProjectionFreshness {
+  status: AccountBalanceProjectionStatus;
+  reason?: string | undefined;
+}
+
 export interface AccountSummary {
   id: number;
   accountType: AccountType;
@@ -21,8 +29,11 @@ export interface AccountSummary {
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
-  lastBalanceCheckAt?: string | undefined;
-  verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
+  balanceProjectionStatus?: AccountBalanceProjectionStatus | undefined;
+  balanceProjectionReason?: string | undefined;
+  lastCalculatedAt?: string | undefined;
+  lastRefreshAt?: string | undefined;
+  verificationStatus?: AccountVerificationStatus | undefined;
   sessionCount: number | undefined;
   childAccounts?: AccountSummary[] | undefined;
   createdAt: string;
@@ -52,20 +63,11 @@ export function maskIdentifier(account: Account): string {
 /**
  * Determine verification status from a stored balance snapshot.
  */
-export function getVerificationStatus(snapshot?: BalanceSnapshot): 'match' | 'mismatch' | 'never-checked' | undefined {
+export function getVerificationStatus(snapshot?: BalanceSnapshot): AccountVerificationStatus | undefined {
   if (!snapshot || snapshot.verificationStatus === 'never-run') {
     return 'never-checked';
   }
-
-  if (snapshot.verificationStatus === 'match') {
-    return 'match';
-  }
-
-  if (snapshot.verificationStatus === 'mismatch') {
-    return 'mismatch';
-  }
-
-  return undefined;
+  return snapshot.verificationStatus;
 }
 
 /**
@@ -75,6 +77,7 @@ export function toAccountSummary(
   account: Account,
   sessionCount: number | undefined,
   snapshot?: BalanceSnapshot,
+  projectionFreshness?: AccountProjectionFreshness,
   childAccounts?: AccountSummary[]
 ): AccountSummary {
   return {
@@ -84,7 +87,10 @@ export function toAccountSummary(
     identifier: maskIdentifier(account),
     parentAccountId: account.parentAccountId,
     providerName: account.providerName ?? undefined,
-    lastBalanceCheckAt: snapshot?.lastRefreshAt?.toISOString(),
+    balanceProjectionStatus: projectionFreshness?.status ?? (snapshot ? 'fresh' : 'never-built'),
+    balanceProjectionReason: projectionFreshness?.reason,
+    lastCalculatedAt: snapshot?.calculatedAt?.toISOString(),
+    lastRefreshAt: snapshot?.lastRefreshAt?.toISOString(),
     verificationStatus: getVerificationStatus(snapshot),
     sessionCount,
     childAccounts,

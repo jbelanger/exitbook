@@ -3,10 +3,14 @@ import { err, ok } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
+import { buildBalancesFreshnessPorts } from './balances-freshness-adapter.js';
+
 /**
  * Bridges DataContext repositories to the accounts package's AccountQueryPorts.
  */
 export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
+  const balancesFreshness = buildBalancesFreshnessPorts(db);
+
   return {
     users: {
       findOrCreateDefault: () => db.users.findOrCreateDefault(),
@@ -31,6 +35,10 @@ export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
 
         return ok(new Map(snapshotsResult.value.map((snapshot) => [snapshot.scopeAccountId, snapshot])));
       },
+    },
+
+    balanceFreshness: {
+      checkFreshness: (scopeAccountId) => balancesFreshness.checkFreshness(scopeAccountId),
     },
   };
 }

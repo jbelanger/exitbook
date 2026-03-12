@@ -712,7 +712,7 @@ Handler restructuring:
 
 - keep shared rendering/state builders in `view/`
 - rename or replace:
-  - `executeOffline(...)` -> `viewSnapshots(...)`
+  - `executeOffline(...)` -> `viewStoredSnapshots(...)`
   - `executeSingle(...)` -> `refreshSingleScope(...)`
   - `executeAll(...)` -> `refreshAllScopes(...)`
 
@@ -919,6 +919,6 @@ Reason:
 
 - `resolveAccountScope` -> `loadBalanceScopeContext`
 - `persistVerificationResults` -> remove; replace with `replaceSnapshot`
-- `executeOffline` -> `viewSnapshots`
+- `executeOffline` -> `viewStoredSnapshots`
 - `BalanceVerificationResult` -> keep for live refresh output only; do not use
   it as the persisted row model

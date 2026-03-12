@@ -19,14 +19,14 @@ import {
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
 import type {
-  AccountOfflineItem,
+  StoredSnapshotAccountItem,
   AccountVerificationItem,
   AssetComparisonItem,
   AssetDiagnostics,
-  AssetOfflineItem,
+  StoredSnapshotAssetItem,
   BalanceAssetState,
   BalanceEvent,
-  BalanceOfflineState,
+  BalanceStoredSnapshotState,
   BalanceState,
   BalanceVerificationState,
 } from './balance-view-state.js';
@@ -99,9 +99,9 @@ export const BalanceApp: FC<{
   });
 
   if (state.view === 'accounts') {
-    if (state.offline) {
+    if (state.mode === 'stored-snapshot') {
       return (
-        <OfflineAccountsView
+        <StoredSnapshotAccountsView
           state={state}
           terminalHeight={terminalHeight}
           terminalWidth={terminalWidth}
@@ -532,37 +532,37 @@ const ComparisonPreviewRow: FC<{ comparison: AssetComparisonItem }> = ({ compari
   );
 };
 
-// ─── Offline Accounts View ───────────────────────────────────────────────────
+// ─── Stored Snapshot Accounts View ───────────────────────────────────────────
 
-const OfflineAccountsView: FC<{
-  state: BalanceOfflineState;
+const StoredSnapshotAccountsView: FC<{
+  state: BalanceStoredSnapshotState;
   terminalHeight: number;
   terminalWidth: number;
 }> = ({ state, terminalHeight, terminalWidth }) => {
   if (state.accounts.length === 0) {
-    return <OfflineEmptyState />;
+    return <StoredSnapshotEmptyState />;
   }
 
   return (
     <Box flexDirection="column">
       <Text> </Text>
-      <OfflineHeader state={state} />
+      <StoredSnapshotHeader state={state} />
       <Text> </Text>
-      <OfflineAccountList
+      <StoredSnapshotAccountList
         accounts={state.accounts}
         selectedIndex={state.selectedIndex}
         scrollOffset={state.scrollOffset}
         terminalHeight={terminalHeight}
       />
       <Divider width={terminalWidth} />
-      <OfflineAccountDetailPanel state={state} />
+      <StoredSnapshotAccountDetailPanel state={state} />
       <Text> </Text>
       <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · enter drill down · q/esc quit</Text>
     </Box>
   );
 };
 
-const OfflineEmptyState: FC = () => {
+const StoredSnapshotEmptyState: FC = () => {
   return (
     <Box flexDirection="column">
       <Text> </Text>
@@ -580,7 +580,7 @@ const OfflineEmptyState: FC = () => {
   );
 };
 
-const OfflineHeader: FC<{ state: BalanceOfflineState }> = ({ state }) => {
+const StoredSnapshotHeader: FC<{ state: BalanceStoredSnapshotState }> = ({ state }) => {
   const filterLabel = state.sourceFilter ? ` · ${state.sourceFilter}` : '';
   return (
     <Box>
@@ -594,8 +594,8 @@ const OfflineHeader: FC<{ state: BalanceOfflineState }> = ({ state }) => {
   );
 };
 
-const OfflineAccountList: FC<{
-  accounts: AccountOfflineItem[];
+const StoredSnapshotAccountList: FC<{
+  accounts: StoredSnapshotAccountItem[];
   scrollOffset: number;
   selectedIndex: number;
   terminalHeight: number;
@@ -623,7 +623,7 @@ const OfflineAccountList: FC<{
       {visible.map((item, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
         return (
-          <OfflineAccountRow
+          <StoredSnapshotAccountRow
             key={item.accountId}
             item={item}
             isSelected={actualIndex === selectedIndex}
@@ -640,10 +640,10 @@ const OfflineAccountList: FC<{
   );
 };
 
-const OfflineAccountRow: FC<{
-  columns: Columns<AccountOfflineItem, 'id' | 'source' | 'type'>;
+const StoredSnapshotAccountRow: FC<{
+  columns: Columns<StoredSnapshotAccountItem, 'id' | 'source' | 'type'>;
   isSelected: boolean;
-  item: AccountOfflineItem;
+  item: StoredSnapshotAccountItem;
 }> = ({ item, isSelected, columns }) => {
   const { id, source, type } = columns.format(item);
   const assets = `${item.assetCount} ${item.assetCount === 1 ? 'asset' : 'assets'}`;
@@ -655,19 +655,19 @@ const OfflineAccountRow: FC<{
   );
 };
 
-const OfflineAccountDetailPanel: FC<{ state: BalanceOfflineState }> = ({ state }) => {
+const StoredSnapshotAccountDetailPanel: FC<{ state: BalanceStoredSnapshotState }> = ({ state }) => {
   const selected = state.accounts[state.selectedIndex];
   if (!selected) return null;
 
   return (
     <FixedHeightDetail
       height={BALANCE_ACCOUNT_DETAIL_LINES}
-      rows={buildOfflineAccountDetailRows(selected)}
+      rows={buildStoredSnapshotAccountDetailRows(selected)}
     />
   );
 };
 
-function buildOfflineAccountDetailRows(selected: AccountOfflineItem): ReactElement[] {
+function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountItem): ReactElement[] {
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
@@ -680,7 +680,7 @@ function buildOfflineAccountDetailRows(selected: AccountOfflineItem): ReactEleme
     </Text>,
     <Text key="blank"> </Text>,
     ...selected.assets.slice(0, 8).map((asset) => (
-      <OfflineAssetPreviewRow
+      <StoredSnapshotAssetPreviewRow
         key={asset.assetId}
         asset={asset}
       />
@@ -710,7 +710,7 @@ function buildOfflineAccountDetailRows(selected: AccountOfflineItem): ReactEleme
   return rows;
 }
 
-const OfflineAssetPreviewRow: FC<{ asset: AssetOfflineItem }> = ({ asset }) => {
+const StoredSnapshotAssetPreviewRow: FC<{ asset: StoredSnapshotAssetItem }> = ({ asset }) => {
   const symbol = asset.assetSymbol.padEnd(8).substring(0, 8);
   const balance = asset.calculatedBalance.padStart(12);
   const balanceColor = asset.isNegative ? 'red' : 'green';
@@ -772,14 +772,14 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
 };
 
 const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
-  const offlineLabel = state.offline ? ' (stored snapshot)' : '';
+  const storedSnapshotLabel = state.mode === 'stored-snapshot' ? ' (stored snapshot)' : '';
   const { summary } = state;
 
   // All match shorthand
-  if (!state.offline && summary.matches === summary.totalAssets && summary.totalAssets > 0) {
+  if (state.mode === 'verification' && summary.matches === summary.totalAssets && summary.totalAssets > 0) {
     return (
       <Box>
-        <Text bold>Balance{offlineLabel}</Text>
+        <Text bold>Balance{storedSnapshotLabel}</Text>
         <Text>
           {'  '}
           <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
@@ -800,7 +800,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
   return (
     <Box>
-      <Text bold>Balance{offlineLabel}</Text>
+      <Text bold>Balance{storedSnapshotLabel}</Text>
       <Text>
         {'  '}
         <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
@@ -852,11 +852,11 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
       {visible.map((item, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
         const isSelected = actualIndex === state.selectedIndex;
-        if (state.offline) {
+        if (state.mode === 'stored-snapshot') {
           return (
-            <OfflineAssetRow
+            <StoredSnapshotAssetRow
               key={item.assetId}
-              asset={item as AssetOfflineItem}
+              asset={item as StoredSnapshotAssetItem}
               isSelected={isSelected}
               assetColumns={assetColumns}
             />
@@ -918,11 +918,11 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetColumns: BalanceAsse
   );
 };
 
-const OfflineAssetRow: FC<{ asset: AssetOfflineItem; assetColumns: BalanceAssetCols; isSelected: boolean }> = ({
-  asset,
-  isSelected,
-  assetColumns,
-}) => {
+const StoredSnapshotAssetRow: FC<{
+  asset: StoredSnapshotAssetItem;
+  assetColumns: BalanceAssetCols;
+  isSelected: boolean;
+}> = ({ asset, isSelected, assetColumns }) => {
   const { symbol, calc: balance } = assetColumns.format(asset);
   const balanceColor = asset.isNegative ? 'red' : 'green';
 
@@ -943,8 +943,8 @@ const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
     <FixedHeightDetail
       height={BALANCE_ASSET_DETAIL_LINES}
       rows={
-        state.offline
-          ? buildOfflineDiagnosticsRows(selected as AssetOfflineItem)
+        state.mode === 'stored-snapshot'
+          ? buildStoredSnapshotDiagnosticsRows(selected as StoredSnapshotAssetItem)
           : buildOnlineDiagnosticsRows(selected as AssetComparisonItem)
       }
     />
@@ -990,7 +990,7 @@ function buildOnlineDiagnosticsRows(asset: AssetComparisonItem): ReactElement[] 
   return rows;
 }
 
-function buildOfflineDiagnosticsRows(asset: AssetOfflineItem): ReactElement[] {
+function buildStoredSnapshotDiagnosticsRows(asset: StoredSnapshotAssetItem): ReactElement[] {
   const { diagnostics } = asset;
   const balanceColor = asset.isNegative ? 'red' : 'green';
   const rows: ReactElement[] = [

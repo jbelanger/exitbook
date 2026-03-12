@@ -45,8 +45,6 @@ How Exitbook represents accounts (identity/state) and executes imports (sessions
   providerName?: string,
   credentials?: { apiKey: string; apiSecret: string; apiPassphrase?: string },
   lastCursor?: Record<string, CursorState>,
-  lastBalanceCheckAt?: Date,
-  verificationMetadata?: VerificationMetadata,
   createdAt: Date,
   updatedAt?: Date
 }
@@ -119,10 +117,11 @@ See [Pagination and Streaming](./pagination-and-streaming.md#cursorstate) for fu
   - Update `accounts.lastCursor[operationType]` (merge). Cursor update failures log `warn` but do not fail import.
 - Finalize session with totals and status `completed` (or `failed` on error).
 
-### Verification Metadata Storage
+### Balance Snapshot Storage
 
-- Balance verification results live on the Account (`lastBalanceCheckAt`, `verificationMetadata`), not per session.
-- CLI status: `never-checked` (no metadata), `match`, `mismatch` (warnings also stored as `mismatch`).
+- Balance verification results live in the `balances` projection (`balance_snapshots`, `balance_snapshot_assets`), not on the Account row and not per import session.
+- Account read models surface snapshot-backed refresh state, not legacy account metadata.
+- CLI status can be `never-checked`, `match`, `warning`, `mismatch`, or `unavailable`.
 
 ## Data Model
 

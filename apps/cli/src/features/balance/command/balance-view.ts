@@ -9,8 +9,8 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { BalanceViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
-import { createBalanceAssetState, createBalanceOfflineState } from '../view/balance-view-state.js';
-import { buildAccountOfflineItem, sortAssetsOffline } from '../view/balance-view-utils.js';
+import { createBalanceAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
+import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
 import { createBalanceHandler } from './balance-handler.js';
 
@@ -70,7 +70,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promi
       }
 
       const handler = handlerResult.value;
-      const result = await handler.executeOffline({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
       if (result.isErr()) {
         displayCliError('balance-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -122,7 +122,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
-      const result = await handler.executeOffline({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
       if (result.isErr()) throw result.error;
 
       await ctx.closeDatabase();
@@ -133,18 +133,18 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
 
         const initialState = createBalanceAssetState(
           { accountId: item.account.id, sourceName: item.account.sourceName, accountType: item.account.accountType },
-          sortAssetsOffline(item.assets),
-          { offline: true }
+          sortStoredSnapshotAssets(item.assets),
+          { mode: 'stored-snapshot' }
         );
 
         await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
         return;
       }
 
-      const offlineItems = result.value.accounts.map((item) =>
-        buildAccountOfflineItem(item.account, sortAssetsOffline(item.assets))
+      const storedSnapshotItems = result.value.accounts.map((item) =>
+        buildStoredSnapshotAccountItem(item.account, sortStoredSnapshotAssets(item.assets))
       );
-      const initialState = createBalanceOfflineState(offlineItems);
+      const initialState = createBalanceStoredSnapshotState(storedSnapshotItems);
 
       await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
     });

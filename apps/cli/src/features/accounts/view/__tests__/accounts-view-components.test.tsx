@@ -1,0 +1,79 @@
+import { render } from 'ink-testing-library';
+import { describe, expect, it } from 'vitest';
+
+import { AccountsViewApp } from '../accounts-view-components.jsx';
+import { createAccountsViewState, type AccountViewItem } from '../accounts-view-state.js';
+
+const mockOnQuit = () => {
+  /* empty */
+};
+
+function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): AccountViewItem {
+  return {
+    id: overrides.id ?? 1,
+    accountType: overrides.accountType ?? 'blockchain',
+    sourceName: overrides.sourceName ?? 'bitcoin',
+    identifier: overrides.identifier ?? 'bc1qexampleaddress',
+    providerName: overrides.providerName,
+    lastRefreshAt: overrides.lastRefreshAt,
+    verificationStatus: overrides.verificationStatus ?? 'never-checked',
+    sessionCount: overrides.sessionCount ?? 0,
+    childAccounts: overrides.childAccounts,
+    sessions: overrides.sessions,
+    createdAt: overrides.createdAt ?? '2026-03-01T00:00:00.000Z',
+  };
+}
+
+describe('AccountsViewApp', () => {
+  it('renders warning verification status without falling back to unknown', () => {
+    const state = createAccountsViewState(
+      [createAccountViewItem({ verificationStatus: 'warning' })],
+      { showSessions: false },
+      1
+    );
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('0 sess !');
+    expect(frame).not.toContain('unknown');
+  });
+
+  it('renders unavailable verification status without falling back to unknown', () => {
+    const state = createAccountsViewState(
+      [
+        createAccountViewItem({
+          verificationStatus: 'unavailable',
+        }),
+      ],
+      { showSessions: false },
+      1
+    );
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('0 sess ?');
+    expect(frame).not.toContain('unknown');
+  });
+});

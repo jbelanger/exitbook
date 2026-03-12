@@ -102,7 +102,7 @@ function createMockDb(params: {
   };
 }
 
-describe('BalanceHandler.executeOffline', () => {
+describe('BalanceHandler.viewStoredSnapshots', () => {
   it('does not fall back to child snapshot rows when the owning scope snapshot is missing', async () => {
     const parentAccount = createAccount({ id: 1, identifier: 'xpub-parent' });
     const childAccount = createAccount({ id: 2, identifier: 'bc1-child', parentAccountId: parentAccount.id });
@@ -113,7 +113,7 @@ describe('BalanceHandler.executeOffline', () => {
     });
 
     const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
-    const result = await handler.executeOffline({ accountId: childAccount.id });
+    const result = await handler.viewStoredSnapshots({ accountId: childAccount.id });
     const error = assertErr(result);
 
     expect(error.message).toContain('scope account #1');
@@ -132,7 +132,7 @@ describe('BalanceHandler.executeOffline', () => {
     });
 
     const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
-    const result = await handler.executeOffline({ accountId: grandchildAccount.id });
+    const result = await handler.viewStoredSnapshots({ accountId: grandchildAccount.id });
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
@@ -161,7 +161,7 @@ describe('BalanceHandler.executeOffline', () => {
     });
 
     const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
-    const result = await handler.executeOffline({ accountId: account.id });
+    const result = await handler.viewStoredSnapshots({ accountId: account.id });
     const error = assertErr(result);
 
     expect(error.message).toBe('Failed to load transactions for diagnostics for account #1: transactions unavailable');

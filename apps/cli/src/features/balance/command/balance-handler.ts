@@ -19,13 +19,13 @@ import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
-import type { AssetOfflineItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
+import type { StoredSnapshotAssetItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
   sortAccountsByVerificationPriority,
   resolveAccountCredentials,
   sortAssetsByStatus,
   buildAssetDiagnostics,
-  buildAssetOfflineItem,
+  buildStoredSnapshotAssetItem,
 } from '../view/balance-view-utils.js';
 
 const logger = getLogger('BalanceHandler');
@@ -38,8 +38,8 @@ export interface SortedVerificationAccount {
   skipReason?: string | undefined;
 }
 
-export interface OfflineBalanceResult {
-  accounts: { account: Account; assets: AssetOfflineItem[]; requestedAccount?: Account | undefined }[];
+export interface StoredSnapshotBalanceResult {
+  accounts: { account: Account; assets: StoredSnapshotAssetItem[]; requestedAccount?: Account | undefined }[];
 }
 
 export interface SingleVerificationResult {
@@ -111,11 +111,17 @@ export class BalanceHandler {
     );
   }
 
-  async executeOffline(params: { accountId?: number | undefined }): Promise<Result<OfflineBalanceResult, Error>> {
+  async viewStoredSnapshots(params: {
+    accountId?: number | undefined;
+  }): Promise<Result<StoredSnapshotBalanceResult, Error>> {
     try {
       const accounts = params.accountId ? await this.loadSingleAccount(params.accountId) : await this.loadAllAccounts();
 
-      const results: { account: Account; assets: AssetOfflineItem[]; requestedAccount?: Account | undefined }[] = [];
+      const results: {
+        account: Account;
+        assets: StoredSnapshotAssetItem[];
+        requestedAccount?: Account | undefined;
+      }[] = [];
       for (const requestedAccount of accounts) {
         const scopeAccount = await this.resolveStoredSnapshotScopeAccount(requestedAccount);
         const readabilityResult = await this.assertStoredSnapshotReadable(requestedAccount, scopeAccount);
@@ -415,7 +421,7 @@ export class BalanceHandler {
     return streamMetadata;
   }
 
-  private async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<AssetOfflineItem[], Error>> {
+  private async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<StoredSnapshotAssetItem[], Error>> {
     const snapshotAssets = await this.loadStoredSnapshotAssets(scopeAccount.id);
     if (snapshotAssets.length === 0) {
       return ok([]);
@@ -430,7 +436,12 @@ export class BalanceHandler {
       snapshotAssets.map((asset) => {
         const assetSymbol = asset.assetSymbol;
         const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, assetSymbol, transactionsResult.value);
-        return buildAssetOfflineItem(asset.assetId, assetSymbol, parseDecimal(asset.calculatedBalance), diagnostics);
+        return buildStoredSnapshotAssetItem(
+          asset.assetId,
+          assetSymbol,
+          parseDecimal(asset.calculatedBalance),
+          diagnostics
+        );
       })
     );
   }

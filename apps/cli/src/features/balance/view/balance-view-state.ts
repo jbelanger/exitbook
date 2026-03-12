@@ -33,7 +33,7 @@ export interface AssetComparisonItem {
   diagnostics: AssetDiagnostics;
 }
 
-export interface AssetOfflineItem {
+export interface StoredSnapshotAssetItem {
   assetId: string;
   assetSymbol: string;
   calculatedBalance: string;
@@ -57,20 +57,22 @@ export interface AccountVerificationItem {
   comparisons?: AssetComparisonItem[] | undefined;
 }
 
-export interface AccountOfflineItem {
+export interface StoredSnapshotAccountItem {
   accountId: number;
   sourceName: string;
   accountType: AccountType;
   assetCount: number;
-  assets: AssetOfflineItem[];
+  assets: StoredSnapshotAssetItem[];
 }
 
 // ─── State Types ─────────────────────────────────────────────────────────────
 
+export type BalanceViewMode = 'verification' | 'stored-snapshot';
+
 export interface BalanceVerificationState {
   view: 'accounts';
   phase: 'verifying' | 'complete';
-  offline: false;
+  mode: 'verification';
 
   accounts: AccountVerificationItem[];
   summary: {
@@ -86,11 +88,11 @@ export interface BalanceVerificationState {
   aborting?: boolean | undefined;
 }
 
-export interface BalanceOfflineState {
+export interface BalanceStoredSnapshotState {
   view: 'accounts';
-  offline: true;
+  mode: 'stored-snapshot';
 
-  accounts: AccountOfflineItem[];
+  accounts: StoredSnapshotAccountItem[];
   totalAccounts: number;
 
   selectedIndex: number;
@@ -101,13 +103,13 @@ export interface BalanceOfflineState {
 
 export interface BalanceAssetState {
   view: 'assets';
-  offline: boolean;
+  mode: BalanceViewMode;
 
   accountId: number;
   sourceName: string;
   accountType: AccountType;
 
-  assets: AssetComparisonItem[] | AssetOfflineItem[];
+  assets: AssetComparisonItem[] | StoredSnapshotAssetItem[];
   summary: {
     matches?: number | undefined;
     mismatches?: number | undefined;
@@ -119,12 +121,12 @@ export interface BalanceAssetState {
   scrollOffset: number;
 
   /** Stored parent state for drill-up restoration (undefined = entered via --account-id) */
-  parentState?: (BalanceVerificationState | BalanceOfflineState) | undefined;
+  parentState?: (BalanceVerificationState | BalanceStoredSnapshotState) | undefined;
 
   error?: string | undefined;
 }
 
-export type BalanceState = BalanceVerificationState | BalanceOfflineState | BalanceAssetState;
+export type BalanceState = BalanceVerificationState | BalanceStoredSnapshotState | BalanceAssetState;
 
 // ─── Events (for EventRelay in verification mode) ────────────────────────────
 
@@ -172,7 +174,7 @@ export function createBalanceVerificationState(accounts: AccountVerificationItem
   return {
     view: 'accounts',
     phase: 'verifying',
-    offline: false,
+    mode: 'verification',
     accounts,
     summary: { verified: 0, skipped, matches: 0, mismatches: 0 },
     selectedIndex: 0,
@@ -180,10 +182,13 @@ export function createBalanceVerificationState(accounts: AccountVerificationItem
   };
 }
 
-export function createBalanceOfflineState(accounts: AccountOfflineItem[], sourceFilter?: string): BalanceOfflineState {
+export function createBalanceStoredSnapshotState(
+  accounts: StoredSnapshotAccountItem[],
+  sourceFilter?: string
+): BalanceStoredSnapshotState {
   return {
     view: 'accounts',
-    offline: true,
+    mode: 'stored-snapshot',
     accounts,
     totalAccounts: accounts.length,
     selectedIndex: 0,
@@ -194,18 +199,18 @@ export function createBalanceOfflineState(accounts: AccountOfflineItem[], source
 
 export function createBalanceAssetState(
   account: { accountId: number; accountType: AccountType; sourceName: string },
-  assets: AssetComparisonItem[] | AssetOfflineItem[],
+  assets: AssetComparisonItem[] | StoredSnapshotAssetItem[],
   options: {
-    offline: boolean;
-    parentState?: (BalanceVerificationState | BalanceOfflineState) | undefined;
+    mode: BalanceViewMode;
+    parentState?: (BalanceVerificationState | BalanceStoredSnapshotState) | undefined;
   }
 ): BalanceAssetState {
-  const isOnline = !options.offline;
+  const isVerificationMode = options.mode === 'verification';
   let matches: number | undefined;
   let warnings: number | undefined;
   let mismatches: number | undefined;
 
-  if (isOnline) {
+  if (isVerificationMode) {
     const comparisons = assets as AssetComparisonItem[];
     matches = comparisons.filter((a) => a.status === 'match').length;
     warnings = comparisons.filter((a) => a.status === 'warning').length;
@@ -214,7 +219,7 @@ export function createBalanceAssetState(
 
   return {
     view: 'assets',
-    offline: options.offline,
+    mode: options.mode,
     accountId: account.accountId,
     sourceName: account.sourceName,
     accountType: account.accountType,

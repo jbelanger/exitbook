@@ -2,11 +2,25 @@ import { type Account, type BalanceSnapshot, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
+import type {
+  AccountListResult,
+  AccountProjectionFreshness,
+  AccountQueryParams,
+  AccountSummary,
+  SessionSummary,
+} from './account-query-utils.js';
 import { toAccountSummary } from './account-query-utils.js';
 import type { AccountQueryPorts } from './ports/account-query-ports.js';
 
-export type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
+export type {
+  AccountListResult,
+  AccountBalanceProjectionStatus,
+  AccountProjectionFreshness,
+  AccountQueryParams,
+  AccountSummary,
+  AccountVerificationStatus,
+  SessionSummary,
+} from './account-query-utils.js';
 
 const logger = getLogger('AccountQuery');
 
@@ -64,11 +78,20 @@ export class AccountQuery {
         return err(scopeAccountIdsResult.error);
       }
 
+      const balanceFreshnessResult = await this.fetchBalanceFreshness(
+        scopeAccountIdsResult.value,
+        balanceSnapshotsResult.value
+      );
+      if (balanceFreshnessResult.isErr()) {
+        return err(balanceFreshnessResult.error);
+      }
+
       const formattedAccounts = await this.formatAccountsWithHierarchy(
         accounts,
         sessionCounts,
         balanceSnapshotsResult.value,
-        scopeAccountIdsResult.value
+        scopeAccountIdsResult.value,
+        balanceFreshnessResult.value
       );
       if (formattedAccounts.isErr()) {
         return err(formattedAccounts.error);
@@ -131,6 +154,14 @@ export class AccountQuery {
         return err(scopeAccountIdsResult.error);
       }
 
+      const balanceFreshnessResult = await this.fetchBalanceFreshness(
+        scopeAccountIdsResult.value,
+        balanceSnapshotsResult.value
+      );
+      if (balanceFreshnessResult.isErr()) {
+        return err(balanceFreshnessResult.error);
+      }
+
       let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCount;
 
@@ -149,7 +180,8 @@ export class AccountQuery {
             toAccountSummary(
               child,
               childSessionCount,
-              balanceSnapshotsResult.value.get(scopeAccountIdsResult.value.get(child.id) ?? child.id)
+              balanceSnapshotsResult.value.get(scopeAccountIdsResult.value.get(child.id) ?? child.id),
+              balanceFreshnessResult.value.get(scopeAccountIdsResult.value.get(child.id) ?? child.id)
             )
           );
         }
@@ -160,6 +192,7 @@ export class AccountQuery {
           account,
           totalSessionCount,
           balanceSnapshotsResult.value.get(scopeAccountIdsResult.value.get(account.id) ?? account.id),
+          balanceFreshnessResult.value.get(scopeAccountIdsResult.value.get(account.id) ?? account.id),
           formattedChildren
         )
       );
@@ -245,18 +278,56 @@ export class AccountQuery {
     return this.ports.balanceSnapshots.findSnapshots(scopeAccountIds);
   }
 
+  private async fetchBalanceFreshness(
+    scopeAccountIds: Map<number, number>,
+    snapshots: Map<number, BalanceSnapshot>
+  ): Promise<Result<Map<number, AccountProjectionFreshness>, Error>> {
+    const freshnessByScopeId = new Map<number, AccountProjectionFreshness>();
+
+    for (const scopeAccountId of new Set(scopeAccountIds.values())) {
+      const snapshot = snapshots.get(scopeAccountId);
+      if (!snapshot) {
+        freshnessByScopeId.set(scopeAccountId, {
+          status: 'never-built',
+          reason: 'balance snapshot has never been built',
+        });
+        continue;
+      }
+
+      const freshnessResult = await this.ports.balanceFreshness.checkFreshness(scopeAccountId);
+      if (freshnessResult.isErr()) {
+        return err(freshnessResult.error);
+      }
+
+      freshnessByScopeId.set(scopeAccountId, {
+        status: freshnessResult.value.status,
+        reason: freshnessResult.value.reason,
+      });
+    }
+
+    return ok(freshnessByScopeId);
+  }
+
   private async formatAccountsWithHierarchy(
     accounts: Account[],
     sessionCounts: Map<number, number> | undefined,
     balanceSnapshots: Map<number, BalanceSnapshot>,
-    scopeAccountIds: Map<number, number>
+    scopeAccountIds: Map<number, number>,
+    balanceFreshness: Map<number, AccountProjectionFreshness>
   ): Promise<Result<AccountSummary[], Error>> {
     const formatted: AccountSummary[] = [];
 
     for (const account of accounts) {
       if (account.parentAccountId && accounts.length === 1) {
         const sessionCount = sessionCounts?.get(account.id) ?? 0;
-        formatted.push(toAccountSummary(account, sessionCount, balanceSnapshots.get(scopeAccountIds.get(account.id))));
+        formatted.push(
+          toAccountSummary(
+            account,
+            sessionCount,
+            balanceSnapshots.get(scopeAccountIds.get(account.id)),
+            balanceFreshness.get(scopeAccountIds.get(account.id) ?? account.id)
+          )
+        );
         continue;
       }
 
@@ -280,7 +351,12 @@ export class AccountQuery {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
           formattedChildren.push(
-            toAccountSummary(child, childSessionCount, balanceSnapshots.get(scopeAccountIds.get(child.id)))
+            toAccountSummary(
+              child,
+              childSessionCount,
+              balanceSnapshots.get(scopeAccountIds.get(child.id)),
+              balanceFreshness.get(scopeAccountIds.get(child.id) ?? child.id)
+            )
           );
         }
       }
@@ -290,6 +366,7 @@ export class AccountQuery {
           account,
           totalSessionCount,
           balanceSnapshots.get(scopeAccountIds.get(account.id)),
+          balanceFreshness.get(scopeAccountIds.get(account.id) ?? account.id),
           formattedChildren
         )
       );

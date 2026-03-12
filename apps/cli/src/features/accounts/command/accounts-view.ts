@@ -47,7 +47,7 @@ Examples:
 
 Common Usage:
   - Monitor account verification status
-  - Check last balance verification timestamp
+  - Check last stored balance refresh timestamp
   - Review account activity and import history
   - Identify which sources have been imported
 

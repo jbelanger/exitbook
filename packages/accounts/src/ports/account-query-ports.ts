@@ -1,4 +1,12 @@
-import type { Account, AccountType, BalanceSnapshot, ImportSession, Result, User } from '@exitbook/core';
+import type {
+  Account,
+  AccountType,
+  BalanceSnapshot,
+  ImportSession,
+  ProjectionStatus,
+  Result,
+  User,
+} from '@exitbook/core';
 
 export interface AccountFindAllFilters {
   accountType?: AccountType | undefined;
@@ -25,9 +33,16 @@ export interface IAccountQueryBalanceSnapshotReader {
   findSnapshots(scopeAccountIds: number[]): Promise<Result<Map<number, BalanceSnapshot>, Error>>;
 }
 
+export interface IAccountQueryBalanceFreshnessReader {
+  checkFreshness(
+    scopeAccountId: number
+  ): Promise<Result<{ reason?: string | undefined; status: ProjectionStatus }, Error>>;
+}
+
 export interface AccountQueryPorts {
   users: IAccountQueryUserLookup;
   accounts: IAccountQueryAccountReader;
   importSessions: IAccountQuerySessionReader;
   balanceSnapshots: IAccountQueryBalanceSnapshotReader;
+  balanceFreshness: IAccountQueryBalanceFreshnessReader;
 }

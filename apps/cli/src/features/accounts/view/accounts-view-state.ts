@@ -2,6 +2,7 @@
  * Accounts view TUI state
  */
 
+import type { AccountBalanceProjectionStatus, AccountVerificationStatus } from '@exitbook/accounts';
 import type { AccountType } from '@exitbook/core';
 
 /**
@@ -21,7 +22,8 @@ export interface ChildAccountViewItem {
   id: number;
   identifier: string;
   sessionCount: number | undefined;
-  verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
+  balanceProjectionStatus?: AccountBalanceProjectionStatus | undefined;
+  verificationStatus?: AccountVerificationStatus | undefined;
 }
 
 /**
@@ -34,8 +36,11 @@ export interface AccountViewItem {
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
-  lastBalanceCheckAt?: string | undefined;
-  verificationStatus?: 'match' | 'mismatch' | 'never-checked' | undefined;
+  balanceProjectionStatus?: AccountBalanceProjectionStatus | undefined;
+  balanceProjectionReason?: string | undefined;
+  lastCalculatedAt?: string | undefined;
+  lastRefreshAt?: string | undefined;
+  verificationStatus?: AccountVerificationStatus | undefined;
   sessionCount: number | undefined;
   childAccounts?: ChildAccountViewItem[] | undefined;
   sessions?: SessionViewItem[] | undefined;

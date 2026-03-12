@@ -178,7 +178,7 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
       const initialState = createBalanceAssetState(
         { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
         sortedAssets,
-        { offline: false }
+        { mode: 'verification' }
       );
 
       await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));

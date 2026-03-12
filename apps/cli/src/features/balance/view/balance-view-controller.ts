@@ -8,7 +8,7 @@ import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './ba
 import type {
   AccountVerificationItem,
   BalanceAction,
-  BalanceOfflineState,
+  BalanceStoredSnapshotState,
   BalanceState,
   BalanceVerificationState,
 } from './balance-view-state.js';
@@ -57,7 +57,7 @@ export function balanceViewReducer(state: BalanceState, action: BalanceAction): 
       }
       return state;
     case 'ABORTING':
-      if (state.view === 'accounts' && !state.offline) {
+      if (state.view === 'accounts' && state.mode === 'verification') {
         return { ...state, aborting: true };
       }
       return state;
@@ -112,7 +112,7 @@ function handleNavigation(state: BalanceState, action: BalanceAction): BalanceSt
 // ─── Verification Events ─────────────────────────────────────────────────────
 
 function isVerificationState(state: BalanceState): state is BalanceVerificationState {
-  return state.view === 'accounts' && !state.offline;
+  return state.view === 'accounts' && state.mode === 'verification';
 }
 
 function handleVerificationStarted(state: BalanceState, accountId: number): BalanceState {
@@ -198,21 +198,21 @@ function handleAllComplete(state: BalanceState): BalanceState {
 
 // ─── Drill-Down ──────────────────────────────────────────────────────────────
 
-function isOfflineAccountsState(state: BalanceState): state is BalanceOfflineState {
-  return state.view === 'accounts' && state.offline === true;
+function isStoredSnapshotAccountsState(state: BalanceState): state is BalanceStoredSnapshotState {
+  return state.view === 'accounts' && state.mode === 'stored-snapshot';
 }
 
 function handleDrillDown(state: BalanceState): BalanceState {
   if (state.view !== 'accounts') return state;
 
-  if (isOfflineAccountsState(state)) {
+  if (isStoredSnapshotAccountsState(state)) {
     const selected = state.accounts[state.selectedIndex];
     if (!selected || selected.assets.length === 0) return state;
 
     return createBalanceAssetState(
       { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
       selected.assets,
-      { offline: true, parentState: state }
+      { mode: 'stored-snapshot', parentState: state }
     );
   }
 
@@ -232,7 +232,7 @@ function handleDrillDown(state: BalanceState): BalanceState {
     return createBalanceAssetState(
       { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
       sortedAssets,
-      { offline: false, parentState: state }
+      { mode: 'verification', parentState: state }
     );
   }
 

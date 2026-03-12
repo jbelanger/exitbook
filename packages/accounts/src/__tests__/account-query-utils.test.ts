@@ -55,14 +55,11 @@ describe('account-query-utils', () => {
       expect(getVerificationStatus(createSnapshot({ verificationStatus: 'never-run' }))).toBe('never-checked');
     });
 
-    it('returns match or mismatch from snapshot status', () => {
+    it('returns match, warning, mismatch, or unavailable from snapshot status', () => {
       expect(getVerificationStatus(createSnapshot({ verificationStatus: 'match' }))).toBe('match');
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'warning' }))).toBe('warning');
       expect(getVerificationStatus(createSnapshot({ verificationStatus: 'mismatch' }))).toBe('mismatch');
-    });
-
-    it('returns undefined for warning or unavailable snapshot status', () => {
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'warning' }))).toBeUndefined();
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'unavailable' }))).toBeUndefined();
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'unavailable' }))).toBe('unavailable');
     });
   });
 
@@ -79,6 +76,7 @@ describe('account-query-utils', () => {
       const snapshot: BalanceSnapshot = {
         scopeAccountId: 42,
         verificationStatus: 'match',
+        calculatedAt: new Date('2025-01-02T11:30:00.000Z'),
         lastRefreshAt: new Date('2025-01-02T12:00:00.000Z'),
         matchCount: 1,
         warningCount: 0,
@@ -95,7 +93,9 @@ describe('account-query-utils', () => {
         providerName: 'provider-x',
         sessionCount: 7,
         createdAt: '2025-01-01T12:00:00.000Z',
-        lastBalanceCheckAt: '2025-01-02T12:00:00.000Z',
+        balanceProjectionStatus: 'fresh',
+        lastCalculatedAt: '2025-01-02T11:30:00.000Z',
+        lastRefreshAt: '2025-01-02T12:00:00.000Z',
         verificationStatus: 'match',
       });
     });

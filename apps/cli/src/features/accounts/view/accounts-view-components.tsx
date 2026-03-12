@@ -207,7 +207,8 @@ const AccountDetailPanel: FC<{ state: AccountsViewState }> = ({ state }) => {
 
 function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   const type = formatAccountType(selected.accountType);
-  const { icon, iconColor, label } = getVerificationDisplay(selected.verificationStatus);
+  const verification = getVerificationDisplay(selected.verificationStatus);
+  const projection = getProjectionDisplay(selected.balanceProjectionStatus);
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.sourceName}</Text> <Text dimColor>{type}</Text>
@@ -232,18 +233,22 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
     <Text key="verification">
       {'  '}
       <Text dimColor>Verification: </Text>
-      <Text color={iconColor}>
-        {icon} {label}
+      <Text color={verification.iconColor}>
+        {verification.icon} {verification.label}
+      </Text>
+      <Text dimColor> · Projection: </Text>
+      <Text color={projection.iconColor}>
+        {projection.icon} {projection.label}
       </Text>
     </Text>,
   ];
 
-  if (selected.lastBalanceCheckAt) {
+  if (selected.lastRefreshAt) {
     rows.push(
-      <Text key="last-check">
+      <Text key="last-refresh">
         {'  '}
-        <Text dimColor>Last check: </Text>
-        <Text dimColor>{formatTimestamp(selected.lastBalanceCheckAt)}</Text>
+        <Text dimColor>Last refresh: </Text>
+        <Text dimColor>{formatTimestamp(selected.lastRefreshAt)}</Text>
       </Text>
     );
   }
@@ -395,7 +400,7 @@ function formatAccountType(accountType: string): string {
   }
 }
 
-function getVerificationDisplay(status: 'match' | 'mismatch' | 'never-checked' | undefined): {
+function getVerificationDisplay(status: AccountViewItem['verificationStatus']): {
   icon: string;
   iconColor: string;
   label: string;
@@ -403,13 +408,44 @@ function getVerificationDisplay(status: 'match' | 'mismatch' | 'never-checked' |
   switch (status) {
     case 'match':
       return { icon: '✓', iconColor: 'green', label: 'verified' };
+    case 'warning':
+      return { icon: '!', iconColor: 'yellow', label: 'warning' };
     case 'mismatch':
       return { icon: '✗', iconColor: 'red', label: 'mismatch' };
+    case 'unavailable':
+      return { icon: '?', iconColor: 'yellow', label: 'unavailable' };
     case 'never-checked':
       return { icon: '⊘', iconColor: 'dim', label: 'never checked' };
-    default:
+    case undefined:
       return { icon: '·', iconColor: 'dim', label: 'unknown' };
   }
+
+  const exhaustiveCheck: never = status;
+  return exhaustiveCheck;
+}
+
+function getProjectionDisplay(status: AccountViewItem['balanceProjectionStatus']): {
+  icon: string;
+  iconColor: string;
+  label: string;
+} {
+  switch (status) {
+    case 'fresh':
+      return { icon: '✓', iconColor: 'green', label: 'fresh' };
+    case 'stale':
+      return { icon: '!', iconColor: 'yellow', label: 'stale' };
+    case 'building':
+      return { icon: '~', iconColor: 'cyan', label: 'building' };
+    case 'failed':
+      return { icon: '✗', iconColor: 'red', label: 'failed' };
+    case 'never-built':
+      return { icon: '⊘', iconColor: 'dim', label: 'never built' };
+    case undefined:
+      return { icon: '·', iconColor: 'dim', label: 'unknown' };
+  }
+
+  const exhaustiveCheck: never = status;
+  return exhaustiveCheck;
 }
 
 function getSessionDisplay(status: string): { icon: string; iconColor: string } {

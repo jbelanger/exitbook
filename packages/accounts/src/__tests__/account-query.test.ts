@@ -179,6 +179,31 @@ describe('AccountQuery', () => {
     expect(ctx.accounts.findAll).not.toHaveBeenCalled();
   });
 
+  it('marks accounts as never built when no balance snapshot exists for the scope', async () => {
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
+
+    const account = createMockAccount({ id: 5, identifier: 'bc1qneverbuilt' });
+
+    vi.mocked(ctx.accounts.findAll).mockImplementation((filters: AccountFindAllFilters | undefined) => {
+      if (filters?.parentAccountId === account.id) return Promise.resolve(ok([]));
+      return Promise.resolve(ok([account]));
+    });
+    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[account.id, 1]])));
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(ok(new Map()));
+
+    const result = await query.list();
+    const value = assertOk(result);
+
+    expect(value.accounts).toHaveLength(1);
+    expect(value.accounts[0]).toMatchObject({
+      id: account.id,
+      balanceProjectionStatus: 'never-built',
+      verificationStatus: 'never-checked',
+    });
+    expect(ctx.balanceFreshness.checkFreshness).not.toHaveBeenCalled();
+  });
+
   it('resolves nested child account snapshots from the root balance scope', async () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
@@ -197,6 +222,9 @@ describe('AccountQuery', () => {
     vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
       ok(new Map([[root.id, createSnapshot({ scopeAccountId: root.id, verificationStatus: 'mismatch' })]]))
     );
+    vi.mocked(ctx.balanceFreshness.checkFreshness).mockResolvedValue(
+      ok({ status: 'stale', reason: 'upstream-reset:processed-transactions' })
+    );
 
     const result = await query.list({ accountId: grandchild.id });
     const value = assertOk(result);
@@ -205,6 +233,7 @@ describe('AccountQuery', () => {
     expect(value.accounts).toHaveLength(1);
     expect(value.accounts[0]).toMatchObject({
       id: grandchild.id,
+      balanceProjectionStatus: 'stale',
       verificationStatus: 'mismatch',
       sessionCount: 2,
     });

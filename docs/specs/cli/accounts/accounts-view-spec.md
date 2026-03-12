@@ -394,7 +394,9 @@ Bypasses the TUI. Returns structured account data.
         "sourceName": "kraken",
         "identifier": "OhPz8e0p***",
         "providerName": null,
-        "lastBalanceCheckAt": "2024-12-20T14:30:00Z",
+        "balanceProjectionStatus": "fresh",
+        "lastCalculatedAt": "2024-12-20T14:28:00Z",
+        "lastRefreshAt": "2024-12-20T14:30:00Z",
         "verificationStatus": "match",
         "sessionCount": 3,
         "childAccounts": null,
@@ -406,7 +408,9 @@ Bypasses the TUI. Returns structured account data.
         "sourceName": "bitcoin",
         "identifier": "xpub6CUG...",
         "providerName": "mempool",
-        "lastBalanceCheckAt": "2024-12-15T08:30:00Z",
+        "balanceProjectionStatus": "stale",
+        "lastCalculatedAt": "2024-12-15T08:20:00Z",
+        "lastRefreshAt": "2024-12-15T08:30:00Z",
         "verificationStatus": "match",
         "sessionCount": 5,
         "childAccounts": [
@@ -416,7 +420,9 @@ Bypasses the TUI. Returns structured account data.
             "sourceName": "bitcoin",
             "identifier": "bc1q84x...w9nk",
             "providerName": null,
-            "lastBalanceCheckAt": null,
+            "balanceProjectionStatus": "never-built",
+            "lastCalculatedAt": null,
+            "lastRefreshAt": null,
             "verificationStatus": "never-checked",
             "sessionCount": 2,
             "childAccounts": null,
@@ -459,7 +465,9 @@ Same conventions as all other TUI views.
 | Icon | Color  | Meaning                    |
 | ---- | ------ | -------------------------- |
 | `✓`  | green  | Verified / session success |
+| `!`  | yellow | Warning                    |
 | `✗`  | red    | Mismatch / session failed  |
+| `?`  | yellow | Unavailable                |
 | `⊘`  | dim    | Never checked / cancelled  |
 | `⏳` | yellow | Session in progress        |
 | `▸`  | —      | Cursor (bold)              |
@@ -524,9 +532,13 @@ interface AccountViewItem {
   fullIdentifier: string; // full value for detail panel (still masked for exchange-api)
   providerName: string | null;
 
+  // Balance projection
+  balanceProjectionStatus: 'fresh' | 'stale' | 'building' | 'failed' | 'never-built';
+  lastCalculatedAt: string | null;
+  lastRefreshAt: string | null;
+
   // Verification
-  lastBalanceCheckAt: string | null;
-  verificationStatus: 'match' | 'mismatch' | 'never-checked';
+  verificationStatus: 'match' | 'warning' | 'mismatch' | 'unavailable' | 'never-checked';
 
   // Sessions
   sessionCount: number;

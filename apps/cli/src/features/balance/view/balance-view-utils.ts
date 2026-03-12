@@ -10,11 +10,11 @@ import { getExchangeCredentialsFromEnv } from '../command/balance-utils.js';
 import type { BalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 
 import type {
-  AccountOfflineItem,
+  StoredSnapshotAccountItem,
   AccountVerificationItem,
   AssetComparisonItem,
   AssetDiagnostics,
-  AssetOfflineItem,
+  StoredSnapshotAssetItem,
 } from './balance-view-state.js';
 
 // ─── Diagnostics Builder ─────────────────────────────────────────────────────
@@ -111,9 +111,9 @@ export function sortAssetsByStatus(assets: AssetComparisonItem[]): AssetComparis
 }
 
 /**
- * Sort offline assets: negative balances first, then by absolute value descending.
+ * Sort stored snapshot assets: negative balances first, then by absolute value descending.
  */
-export function sortAssetsOffline(assets: AssetOfflineItem[]): AssetOfflineItem[] {
+export function sortStoredSnapshotAssets(assets: StoredSnapshotAssetItem[]): StoredSnapshotAssetItem[] {
   return [...assets].sort((a, b) => {
     if (a.isNegative && !b.isNegative) return -1;
     if (!a.isNegative && b.isNegative) return 1;
@@ -154,17 +154,17 @@ export function resolveAccountCredentials(account: Account): CredentialResolutio
   return { skipReason: 'no credentials' };
 }
 
-// ─── Offline Item Builder ────────────────────────────────────────────────────
+// ─── Stored Snapshot Item Builder ────────────────────────────────────────────
 
 /**
- * Build AssetOfflineItem from calculated balance and diagnostics.
+ * Build StoredSnapshotAssetItem from calculated balance and diagnostics.
  */
-export function buildAssetOfflineItem(
+export function buildStoredSnapshotAssetItem(
   assetId: string,
   assetSymbol: string,
   calculatedBalance: Decimal,
   diagnostics: AssetDiagnostics
-): AssetOfflineItem {
+): StoredSnapshotAssetItem {
   return {
     assetId,
     assetSymbol,
@@ -175,9 +175,12 @@ export function buildAssetOfflineItem(
 }
 
 /**
- * Build AccountOfflineItem from an account and its offline assets.
+ * Build StoredSnapshotAccountItem from an account and its stored snapshot assets.
  */
-export function buildAccountOfflineItem(account: Account, assets: AssetOfflineItem[]): AccountOfflineItem {
+export function buildStoredSnapshotAccountItem(
+  account: Account,
+  assets: StoredSnapshotAssetItem[]
+): StoredSnapshotAccountItem {
   return {
     accountId: account.id,
     sourceName: account.sourceName,

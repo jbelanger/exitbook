@@ -1,4 +1,4 @@
-import type { Account, AccountType, BalanceSnapshot, ImportSession } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { vi } from 'vitest';
@@ -59,6 +59,9 @@ type AccountFindById = (accountId: number) => Promise<Result<Account, Error>>;
 type CountByAccount = (accountIds: number[]) => Promise<Result<Map<number, number>, Error>>;
 type SessionFindAll = (filters?: { accountIds?: number[] }) => Promise<Result<ImportSession[], Error>>;
 type SnapshotFindMany = (scopeAccountIds: number[]) => Promise<Result<Map<number, BalanceSnapshot>, Error>>;
+type CheckBalanceFreshness = (
+  scopeAccountId: number
+) => Promise<Result<{ reason?: string | undefined; status: ProjectionStatus }, Error>>;
 
 export function createMockPorts() {
   const users = {
@@ -81,11 +84,16 @@ export function createMockPorts() {
     findSnapshots: vi.fn<SnapshotFindMany>().mockResolvedValue(ok(new Map())),
   };
 
+  const balanceFreshness = {
+    checkFreshness: vi.fn<CheckBalanceFreshness>().mockResolvedValue(ok({ status: 'fresh', reason: undefined })),
+  };
+
   const ports: AccountQueryPorts = {
     users,
     accounts,
     importSessions,
     balanceSnapshots,
+    balanceFreshness,
   };
 
   return {
@@ -94,5 +102,6 @@ export function createMockPorts() {
     accounts,
     importSessions,
     balanceSnapshots,
+    balanceFreshness,
   };
 }
