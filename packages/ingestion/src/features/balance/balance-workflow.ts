@@ -1,12 +1,13 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type {
   Account,
+  BalanceSnapshot,
+  BalanceSnapshotAsset,
   ExchangeCredentials,
   ImportSession,
   UniversalTransactionData,
-  VerificationMetadata,
 } from '@exitbook/core';
-import { parseAssetId, wrapError, type Currency } from '@exitbook/core';
+import { parseAssetId, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
@@ -40,10 +41,10 @@ export interface BalanceParams {
 export type { BalanceComparison, BalanceVerificationResult };
 
 /**
- * Compare live vs calculated balances and persist verification metadata.
+ * Compare live vs calculated balances and persist a balance snapshot.
  *
  * Fetches live balances from providers, calculates from stored transactions,
- * compares, and writes verification results to accounts.
+ * compares, and writes snapshot rows to the balance projection.
  */
 export class BalanceWorkflow {
   constructor(
@@ -150,19 +151,19 @@ export class BalanceWorkflow {
         partialFailures.length > 0 ? partialFailures : undefined
       );
 
-      // 8. Persist verification results
-      const adjustedLiveBalancesStr = decimalRecordToStringRecord(liveBalances);
-      const persistResult = await this.persistVerificationResults(
+      // 8. Persist snapshot rows
+      const persistResult = await this.persistSnapshot(
         account,
         calculatedBalances,
-        adjustedLiveBalancesStr,
         comparisons,
         verificationResult.status,
+        coverage,
+        warnings.length > 0 ? warnings : undefined,
         verificationResult.suggestion
       );
 
       if (persistResult.isErr()) {
-        logger.warn(`Failed to persist verification results: ${persistResult.error.message}`);
+        return err(persistResult.error);
       }
 
       return ok(verificationResult);
@@ -369,49 +370,59 @@ export class BalanceWorkflow {
     }
   }
 
-  private async persistVerificationResults(
+  private async persistSnapshot(
     account: Account,
     calculatedBalances: Record<string, Decimal>,
-    liveBalances: Record<string, string>,
     comparisons: BalanceComparison[],
     status: 'success' | 'warning' | 'failed',
+    coverage: BalanceVerificationResult['coverage'],
+    warnings?: string[],
     suggestion?: string
   ): Promise<Result<void, Error>> {
     try {
-      const calculatedBalancesStr = decimalRecordToStringRecord(calculatedBalances);
-      const discrepancies = comparisons
-        .filter((c) => c.status !== 'match')
-        .map((c) => ({
-          assetId: c.assetId,
-          assetSymbol: c.assetSymbol as Currency,
-          calculated: c.calculatedBalance,
-          live: c.liveBalance,
-          difference: c.difference,
-        }));
-
-      const verificationMetadata: VerificationMetadata = {
-        current_balance: calculatedBalancesStr,
-        last_verification: {
-          status: status === 'success' ? 'match' : 'mismatch',
-          verified_at: new Date().toISOString(),
-          calculated_balance: calculatedBalancesStr,
-          live_balance: liveBalances,
-          discrepancies: discrepancies.length > 0 ? discrepancies : undefined,
-          suggestions: suggestion ? [suggestion] : undefined,
-        },
+      const now = new Date();
+      const snapshot: BalanceSnapshot = {
+        scopeAccountId: account.id,
+        calculatedAt: now,
+        lastRefreshAt: now,
+        verificationStatus: toSnapshotVerificationStatus(status),
+        coverageStatus: coverage.status,
+        coverageConfidence: coverage.confidence,
+        requestedAddressCount: coverage.requestedAddresses,
+        successfulAddressCount: coverage.successfulAddresses,
+        failedAddressCount: coverage.failedAddresses,
+        totalAssetCount: coverage.totalAssets,
+        parsedAssetCount: coverage.parsedAssets,
+        failedAssetCount: coverage.failedAssets,
+        matchCount: comparisons.filter((comparison) => comparison.status === 'match').length,
+        warningCount: comparisons.filter((comparison) => comparison.status === 'warning').length,
+        mismatchCount: comparisons.filter((comparison) => comparison.status === 'mismatch').length,
+        statusReason: warnings?.join(' '),
+        suggestion,
       };
 
-      const updateResult: Result<void, Error> = await this.ports.accountUpdater.updateVerification(account.id, {
-        verificationMetadata,
-        lastBalanceCheckAt: new Date(),
+      const assets: BalanceSnapshotAsset[] = comparisons.map((comparison) => ({
+        scopeAccountId: account.id,
+        assetId: comparison.assetId,
+        assetSymbol: comparison.assetSymbol,
+        calculatedBalance: calculatedBalances[comparison.assetId]?.toFixed() ?? comparison.calculatedBalance,
+        liveBalance: comparison.liveBalance,
+        difference: comparison.difference,
+        comparisonStatus: comparison.status,
+        excludedFromAccounting: false,
+      }));
+
+      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({
+        snapshot,
+        assets,
       });
 
-      if (updateResult.isErr()) return err(updateResult.error);
+      if (replaceResult.isErr()) return err(replaceResult.error);
 
-      logger.info(`Verification results persisted to account ${account.id}`);
+      logger.info({ accountId: account.id, assetCount: assets.length }, 'Balance snapshot persisted');
       return ok(undefined);
     } catch (error) {
-      return wrapError(error, 'Failed to persist verification results');
+      return wrapError(error, 'Failed to persist balance snapshot');
     }
   }
 
@@ -423,14 +434,6 @@ export class BalanceWorkflow {
 }
 
 // --- Pure helpers ------------------------------------------------------------
-
-function decimalRecordToStringRecord(record: Record<string, Decimal>): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    result[key] = value.toFixed();
-  }
-  return result;
-}
 
 function subtractExcludedAmounts(
   liveBalances: Record<string, Decimal>,
@@ -505,4 +508,15 @@ function collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
   }
 
   return { amounts, spamAssetIds };
+}
+
+function toSnapshotVerificationStatus(status: 'success' | 'warning' | 'failed'): BalanceSnapshot['verificationStatus'] {
+  switch (status) {
+    case 'success':
+      return 'match';
+    case 'warning':
+      return 'warning';
+    case 'failed':
+      return 'mismatch';
+  }
 }

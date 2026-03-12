@@ -1,9 +1,9 @@
-import { type Account, wrapError } from '@exitbook/core';
+import { type Account, type BalanceSnapshot, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
-import { toAccountSummary } from './account-query-utils.js';
+import { getBalanceScopeAccountId, toAccountSummary } from './account-query-utils.js';
 import type { AccountQueryPorts } from './ports/account-query-ports.js';
 
 export type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
@@ -54,7 +54,16 @@ export class AccountQuery {
         sessionCounts = countsResult.value;
       }
 
-      const formattedAccounts = await this.formatAccountsWithHierarchy(accounts, sessionCounts);
+      const balanceSnapshotsResult = await this.fetchBalanceSnapshots(accounts);
+      if (balanceSnapshotsResult.isErr()) {
+        return err(balanceSnapshotsResult.error);
+      }
+
+      const formattedAccounts = await this.formatAccountsWithHierarchy(
+        accounts,
+        sessionCounts,
+        balanceSnapshotsResult.value
+      );
       if (formattedAccounts.isErr()) {
         return err(formattedAccounts.error);
       }
@@ -106,6 +115,11 @@ export class AccountQuery {
         return err(childAccountsResult.error);
       }
 
+      const balanceSnapshotsResult = await this.fetchBalanceSnapshots([account, ...childAccountsResult.value]);
+      if (balanceSnapshotsResult.isErr()) {
+        return err(balanceSnapshotsResult.error);
+      }
+
       let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCount;
 
@@ -120,11 +134,24 @@ export class AccountQuery {
         for (const child of childAccountsResult.value) {
           const childSessionCount = childCountsResult.value.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
-          formattedChildren.push(toAccountSummary(child, childSessionCount));
+          formattedChildren.push(
+            toAccountSummary(
+              child,
+              childSessionCount,
+              balanceSnapshotsResult.value.get(getBalanceScopeAccountId(child))
+            )
+          );
         }
       }
 
-      return ok(toAccountSummary(account, totalSessionCount, formattedChildren));
+      return ok(
+        toAccountSummary(
+          account,
+          totalSessionCount,
+          balanceSnapshotsResult.value.get(getBalanceScopeAccountId(account)),
+          formattedChildren
+        )
+      );
     } catch (error) {
       logger.error({ error }, 'Failed to find account');
       return wrapError(error, 'Failed to find account');
@@ -197,16 +224,24 @@ export class AccountQuery {
     return ok(sessions);
   }
 
+  private async fetchBalanceSnapshots(accounts: Account[]): Promise<Result<Map<number, BalanceSnapshot>, Error>> {
+    const scopeAccountIds = [...new Set(accounts.map((account) => getBalanceScopeAccountId(account)))];
+    return this.ports.balanceSnapshots.findSnapshots(scopeAccountIds);
+  }
+
   private async formatAccountsWithHierarchy(
     accounts: Account[],
-    sessionCounts: Map<number, number> | undefined
+    sessionCounts: Map<number, number> | undefined,
+    balanceSnapshots: Map<number, BalanceSnapshot>
   ): Promise<Result<AccountSummary[], Error>> {
     const formatted: AccountSummary[] = [];
 
     for (const account of accounts) {
       if (account.parentAccountId && accounts.length === 1) {
         const sessionCount = sessionCounts?.get(account.id) ?? 0;
-        formatted.push(toAccountSummary(account, sessionCount));
+        formatted.push(
+          toAccountSummary(account, sessionCount, balanceSnapshots.get(getBalanceScopeAccountId(account)))
+        );
         continue;
       }
 
@@ -229,11 +264,20 @@ export class AccountQuery {
         for (const child of childAccounts) {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
-          formattedChildren.push(toAccountSummary(child, childSessionCount));
+          formattedChildren.push(
+            toAccountSummary(child, childSessionCount, balanceSnapshots.get(getBalanceScopeAccountId(child)))
+          );
         }
       }
 
-      formatted.push(toAccountSummary(account, totalSessionCount, formattedChildren));
+      formatted.push(
+        toAccountSummary(
+          account,
+          totalSessionCount,
+          balanceSnapshots.get(getBalanceScopeAccountId(account)),
+          formattedChildren
+        )
+      );
     }
 
     return ok(formatted);

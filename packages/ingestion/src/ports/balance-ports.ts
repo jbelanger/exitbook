@@ -1,15 +1,19 @@
-import type { Account, ImportSession, Result, UniversalTransactionData, VerificationMetadata } from '@exitbook/core';
+import type {
+  Account,
+  BalanceSnapshot,
+  BalanceSnapshotAsset,
+  ImportSession,
+  Result,
+  UniversalTransactionData,
+} from '@exitbook/core';
 
 export interface IBalanceAccountLookup {
   findById(id: number): Promise<Result<Account | undefined, Error>>;
   findChildAccounts(parentAccountId: number): Promise<Result<Account[], Error>>;
 }
 
-export interface IBalanceAccountUpdater {
-  updateVerification(
-    accountId: number,
-    update: { lastBalanceCheckAt: Date; verificationMetadata: VerificationMetadata }
-  ): Promise<Result<void, Error>>;
+export interface IBalanceSnapshotStore {
+  replaceSnapshot(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot; }): Promise<Result<void, Error>>;
 }
 
 export interface IBalanceImportSessionLookup {
@@ -29,7 +33,7 @@ export interface IBalanceTransactionSource {
  */
 export interface BalancePorts {
   accountLookup: IBalanceAccountLookup;
-  accountUpdater: IBalanceAccountUpdater;
+  snapshotStore: IBalanceSnapshotStore;
   importSessionLookup: IBalanceImportSessionLookup;
   transactionSource: IBalanceTransactionSource;
 }

@@ -1,3 +1,4 @@
+import type { BalanceSnapshot } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +21,17 @@ import { createMockAccount, createMockPorts, createMockSession } from './account
 
 interface AccountFindAllFilters {
   parentAccountId?: number | undefined;
+}
+
+function createSnapshot(overrides: Partial<BalanceSnapshot> = {}): BalanceSnapshot {
+  return {
+    scopeAccountId: 1,
+    verificationStatus: 'match',
+    matchCount: 1,
+    warningCount: 0,
+    mismatchCount: 0,
+    ...overrides,
+  };
 }
 
 describe('AccountQuery', () => {
@@ -46,6 +58,14 @@ describe('AccountQuery', () => {
           [1, 2],
           [2, 3],
           [3, 4],
+        ])
+      )
+    );
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+      ok(
+        new Map([
+          [1, createSnapshot({ scopeAccountId: 1 })],
+          [3, createSnapshot({ scopeAccountId: 3, verificationStatus: 'never-run', matchCount: 0 })],
         ])
       )
     );
@@ -96,6 +116,7 @@ describe('AccountQuery', () => {
         createMockSession({ id: 12, accountId: 2 }),
       ])
     );
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(ok(new Map()));
 
     const result = await query.list({ showSessions: true });
 
@@ -129,6 +150,9 @@ describe('AccountQuery', () => {
     const child = createMockAccount({ id: 8, parentAccountId: 2, identifier: 'bc1qchild-single' });
     vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(child));
     vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[8, 7]])));
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+      ok(new Map([[2, createSnapshot({ scopeAccountId: 2 })]]))
+    );
 
     const result = await query.list({ accountId: 8 });
 
@@ -158,6 +182,9 @@ describe('AccountQuery', () => {
       if (accountIds.length === 1 && accountIds[0] === 2) return Promise.resolve(ok(new Map([[2, 4]])));
       return Promise.resolve(ok(new Map()));
     });
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+      ok(new Map([[1, createSnapshot({ scopeAccountId: 1 })]]))
+    );
 
     const result = await query.findById(1);
 

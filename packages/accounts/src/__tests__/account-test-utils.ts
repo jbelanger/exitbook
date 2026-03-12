@@ -1,4 +1,4 @@
-import type { Account, AccountType, ImportSession } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ImportSession } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { vi } from 'vitest';
@@ -60,6 +60,7 @@ type AccountFindAll = (filters?: AccountFindAllFilters) => Promise<Result<Accoun
 type AccountFindById = (accountId: number) => Promise<Result<Account, Error>>;
 type CountByAccount = (accountIds: number[]) => Promise<Result<Map<number, number>, Error>>;
 type SessionFindAll = (filters?: { accountIds?: number[] }) => Promise<Result<ImportSession[], Error>>;
+type SnapshotFindMany = (scopeAccountIds: number[]) => Promise<Result<Map<number, BalanceSnapshot>, Error>>;
 
 export function createMockPorts() {
   const users = {
@@ -78,10 +79,15 @@ export function createMockPorts() {
     findAll: vi.fn<SessionFindAll>().mockResolvedValue(ok([])),
   };
 
+  const balanceSnapshots = {
+    findSnapshots: vi.fn<SnapshotFindMany>().mockResolvedValue(ok(new Map())),
+  };
+
   const ports: AccountQueryPorts = {
     users,
     accounts,
     importSessions,
+    balanceSnapshots,
   };
 
   return {
@@ -89,5 +95,6 @@ export function createMockPorts() {
     users,
     accounts,
     importSessions,
+    balanceSnapshots,
   };
 }

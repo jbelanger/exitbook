@@ -1,7 +1,7 @@
 import { CostBasisWorkflow } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
+import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
@@ -14,7 +14,7 @@ vi.mock('@exitbook/accounting', async () => {
 });
 
 vi.mock('@exitbook/price-providers', () => ({
-  createPriceProviderManager: vi.fn(),
+  createDefaultPriceProviderManager: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -59,7 +59,7 @@ describe('CostBasisHandler', () => {
     } as unknown as DataContext;
 
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
-    vi.mocked(createPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
+    vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
 
     mockWorkflowExecute = vi.fn().mockResolvedValue(ok({ summary: {}, lots: [], disposals: [], lotTransfers: [] }));
     vi.mocked(CostBasisWorkflow).mockImplementation(function () {
@@ -73,7 +73,7 @@ describe('CostBasisHandler', () => {
 
   describe('execute', () => {
     it('returns error when price manager creation fails', async () => {
-      vi.mocked(createPriceProviderManager).mockResolvedValue(err(new Error('DB init failed')));
+      vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(err(new Error('DB init failed')));
 
       const result = await handler.execute(validParams);
 

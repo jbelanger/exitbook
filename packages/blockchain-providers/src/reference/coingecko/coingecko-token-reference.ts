@@ -78,7 +78,7 @@ export function createCoinGeckoTokenReferenceResolver(
   >,
   config: CoinGeckoTokenReferenceResolverConfig = {}
 ): Result<TokenReferenceResolver, Error> {
-  const apiKey = config.apiKey ?? process.env['COINGECKO_API_KEY'];
+  const apiKey = 'apiKey' in config ? config.apiKey : process.env['COINGECKO_API_KEY'];
   const useProApi = config.useProApi ?? process.env['COINGECKO_USE_PRO_API'] === 'true';
   const headerName = useProApi ? 'x-cg-pro-api-key' : 'x-cg-demo-api-key';
 

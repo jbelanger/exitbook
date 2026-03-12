@@ -1,4 +1,5 @@
 import type { AccountQueryPorts } from '@exitbook/accounts/ports';
+import { err, ok } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
@@ -19,6 +20,17 @@ export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
     importSessions: {
       countByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),
       findAll: (filters) => db.importSessions.findAll(filters),
+    },
+
+    balanceSnapshots: {
+      findSnapshots: async (scopeAccountIds) => {
+        const snapshotsResult = await db.balanceSnapshots.findSnapshots(scopeAccountIds);
+        if (snapshotsResult.isErr()) {
+          return err(snapshotsResult.error);
+        }
+
+        return ok(new Map(snapshotsResult.value.map((snapshot) => [snapshot.scopeAccountId, snapshot])));
+      },
     },
   };
 }

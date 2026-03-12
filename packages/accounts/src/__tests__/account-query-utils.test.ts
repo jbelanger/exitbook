@@ -1,6 +1,12 @@
+import type { BalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { getVerificationStatus, maskIdentifier, toAccountSummary } from '../account-query-utils.js';
+import {
+  getBalanceScopeAccountId,
+  getVerificationStatus,
+  maskIdentifier,
+  toAccountSummary,
+} from '../account-query-utils.js';
 
 import { createMockAccount } from './account-test-utils.js';
 
@@ -35,67 +41,43 @@ describe('account-query-utils', () => {
   });
 
   describe('getVerificationStatus', () => {
-    it('returns never-checked when no verification exists and no balance check happened', () => {
-      const account = createMockAccount({ lastBalanceCheckAt: undefined, verificationMetadata: undefined });
+    function createSnapshot(overrides: Partial<BalanceSnapshot> = {}): BalanceSnapshot {
+      return {
+        scopeAccountId: 1,
+        verificationStatus: 'warning',
+        matchCount: 0,
+        warningCount: 1,
+        mismatchCount: 0,
+        ...overrides,
+      };
+    }
 
-      expect(getVerificationStatus(account)).toBe('never-checked');
+    it('returns never-checked when no snapshot exists', () => {
+      expect(getVerificationStatus()).toBe('never-checked');
     });
 
-    it('returns undefined when no verification exists but a balance check timestamp exists', () => {
-      const account = createMockAccount({
-        lastBalanceCheckAt: new Date('2025-01-02T00:00:00.000Z'),
-        verificationMetadata: undefined,
-      });
-
-      expect(getVerificationStatus(account)).toBeUndefined();
+    it('returns never-checked when the snapshot has never run', () => {
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'never-run' }))).toBe('never-checked');
     });
 
-    it('returns match or mismatch from verification metadata', () => {
-      const matchAccount = createMockAccount({
-        verificationMetadata: {
-          current_balance: { BTC: '1' },
-          last_verification: {
-            calculated_balance: { BTC: '1' },
-            live_balance: { BTC: '1' },
-            status: 'match',
-            verified_at: '2025-01-03T00:00:00.000Z',
-          },
-        },
-      });
-
-      const mismatchAccount = createMockAccount({
-        verificationMetadata: {
-          current_balance: { BTC: '1' },
-          last_verification: {
-            calculated_balance: { BTC: '1' },
-            live_balance: { BTC: '2' },
-            status: 'mismatch',
-            verified_at: '2025-01-03T00:00:00.000Z',
-          },
-        },
-      });
-
-      expect(getVerificationStatus(matchAccount)).toBe('match');
-      expect(getVerificationStatus(mismatchAccount)).toBe('mismatch');
+    it('returns match or mismatch from snapshot status', () => {
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'match' }))).toBe('match');
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'mismatch' }))).toBe('mismatch');
     });
 
-    it('returns undefined for unavailable verification status', () => {
-      const account = createMockAccount({
-        verificationMetadata: {
-          current_balance: { BTC: '1' },
-          last_verification: {
-            calculated_balance: { BTC: '1' },
-            status: 'unavailable',
-            verified_at: '2025-01-03T00:00:00.000Z',
-          },
-        },
-      });
-
-      expect(getVerificationStatus(account)).toBeUndefined();
+    it('returns undefined for warning or unavailable snapshot status', () => {
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'warning' }))).toBeUndefined();
+      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'unavailable' }))).toBeUndefined();
     });
   });
 
   describe('toAccountSummary', () => {
+    it('uses the parent scope account id for child accounts', () => {
+      const child = createMockAccount({ id: 7, parentAccountId: 3 });
+
+      expect(getBalanceScopeAccountId(child)).toBe(3);
+    });
+
     it('formats an account with masked identifiers and ISO timestamps', () => {
       const account = createMockAccount({
         id: 42,
@@ -104,10 +86,17 @@ describe('account-query-utils', () => {
         identifier: 'secretapikey',
         providerName: 'provider-x',
         createdAt: new Date('2025-01-01T12:00:00.000Z'),
-        lastBalanceCheckAt: new Date('2025-01-02T12:00:00.000Z'),
       });
+      const snapshot: BalanceSnapshot = {
+        scopeAccountId: 42,
+        verificationStatus: 'match',
+        lastRefreshAt: new Date('2025-01-02T12:00:00.000Z'),
+        matchCount: 1,
+        warningCount: 0,
+        mismatchCount: 0,
+      };
 
-      const formatted = toAccountSummary(account, 7);
+      const formatted = toAccountSummary(account, 7, snapshot);
 
       expect(formatted).toMatchObject({
         id: 42,
@@ -118,6 +107,7 @@ describe('account-query-utils', () => {
         sessionCount: 7,
         createdAt: '2025-01-01T12:00:00.000Z',
         lastBalanceCheckAt: '2025-01-02T12:00:00.000Z',
+        verificationStatus: 'match',
       });
     });
   });

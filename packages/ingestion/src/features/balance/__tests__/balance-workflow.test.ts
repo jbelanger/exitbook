@@ -3,7 +3,14 @@ import type {
   FailoverExecutionResult,
   RawBalanceData,
 } from '@exitbook/blockchain-providers';
-import type { Account, Currency, ImportSession, UniversalTransactionData, VerificationMetadata } from '@exitbook/core';
+import type {
+  Account,
+  BalanceSnapshot,
+  BalanceSnapshotAsset,
+  Currency,
+  ImportSession,
+  UniversalTransactionData,
+} from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
@@ -80,22 +87,14 @@ function createPortsMock(params: {
   sessions: ImportSession[];
 }): {
   ports: BalancePorts;
-  updateVerification: ReturnType<
+  replaceSnapshot: ReturnType<
     typeof vi.fn<
-      (
-        accountId: number,
-        update: { lastBalanceCheckAt: Date; verificationMetadata: VerificationMetadata }
-      ) => Promise<Result<void, Error>>
+      (params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot }) => Promise<Result<void, Error>>
     >
   >;
 } {
-  const updateVerification = vi
-    .fn<
-      (
-        accountId: number,
-        update: { lastBalanceCheckAt: Date; verificationMetadata: VerificationMetadata }
-      ) => Promise<Result<void, Error>>
-    >()
+  const replaceSnapshot = vi
+    .fn<(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot }) => Promise<Result<void, Error>>>()
     .mockResolvedValue(ok(undefined));
 
   const ports: BalancePorts = {
@@ -103,8 +102,8 @@ function createPortsMock(params: {
       findById: vi.fn().mockResolvedValue(ok(params.account)),
       findChildAccounts: vi.fn().mockResolvedValue(ok([])),
     },
-    accountUpdater: {
-      updateVerification,
+    snapshotStore: {
+      replaceSnapshot,
     },
     importSessionLookup: {
       findByAccountIds: vi.fn().mockResolvedValue(ok(params.sessions)),
@@ -115,7 +114,7 @@ function createPortsMock(params: {
         .mockImplementation(
           (query: { includeExcluded?: boolean | undefined }): Result<UniversalTransactionData[], Error> => {
             if (query.includeExcluded) {
-              return ok(params.excludedTransactions);
+              return ok([...params.normalTransactions, ...params.excludedTransactions]);
             }
             return ok(params.normalTransactions);
           }
@@ -123,11 +122,11 @@ function createPortsMock(params: {
     },
   };
 
-  return { updateVerification, ports };
+  return { replaceSnapshot, ports };
 }
 
 describe('BalanceWorkflow', () => {
-  it('adjusts live balances using excluded amounts and persists verification metadata', async () => {
+  it('adjusts live balances using excluded amounts and persists a balance snapshot', async () => {
     const account = createAccount();
 
     const normalTransactions = [
@@ -165,7 +164,7 @@ describe('BalanceWorkflow', () => {
       }),
     ];
 
-    const { updateVerification, ports } = createPortsMock({
+    const { replaceSnapshot, ports } = createPortsMock({
       account,
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions,
@@ -190,22 +189,29 @@ describe('BalanceWorkflow', () => {
       expect(result.value.comparisons[0]?.difference).toBe('0');
     }
 
-    expect(updateVerification).toHaveBeenCalledTimes(1);
-    const call = updateVerification.mock.calls[0];
-    expect(call).toBeDefined();
-    if (!call) {
-      throw new Error('Expected updateVerification call to be recorded');
-    }
-    const updateArg = call[1];
-    expect(updateArg.verificationMetadata.current_balance).toEqual({
-      'blockchain:bitcoin:native': '1',
+    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
+    const call = replaceSnapshot.mock.calls[0]?.[0];
+    expect(call?.snapshot).toMatchObject({
+      scopeAccountId: 1,
+      verificationStatus: 'match',
+      matchCount: 1,
+      warningCount: 0,
+      mismatchCount: 0,
+      coverageStatus: 'complete',
+      coverageConfidence: 'high',
     });
-    expect(updateArg.verificationMetadata.last_verification?.status).toBe('match');
-    expect(updateArg.verificationMetadata.last_verification?.live_balance).toEqual({
-      'blockchain:bitcoin:native': '1',
-    });
-    expect(updateArg.verificationMetadata.last_verification?.verified_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(updateArg.lastBalanceCheckAt).toBeInstanceOf(Date);
+    expect(call?.assets).toEqual([
+      {
+        scopeAccountId: 1,
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC',
+        calculatedBalance: '1',
+        liveBalance: '1',
+        difference: '0',
+        comparisonStatus: 'match',
+        excludedFromAccounting: false,
+      },
+    ]);
   });
 
   it('adds warning when token transactions are supported but token balances are unavailable', async () => {
@@ -269,7 +275,7 @@ describe('BalanceWorkflow', () => {
         findById: vi.fn().mockResolvedValue(ok(undefined)),
         findChildAccounts: vi.fn(),
       },
-      accountUpdater: { updateVerification: vi.fn() },
+      snapshotStore: { replaceSnapshot: vi.fn() },
       importSessionLookup: { findByAccountIds: vi.fn() },
       transactionSource: { findByAccountIds: vi.fn() },
     };
@@ -310,6 +316,34 @@ describe('BalanceWorkflow', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe('RPC down');
+    }
+  });
+
+  it('fails when snapshot persistence fails', async () => {
+    const account = createAccount();
+
+    const { ports, replaceSnapshot } = createPortsMock({
+      account,
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions: [],
+      excludedTransactions: [],
+    });
+
+    replaceSnapshot.mockResolvedValueOnce(err(new Error('write failed')));
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '0',
+      decimalAmount: '0',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.verifyBalance({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('write failed');
     }
   });
 });

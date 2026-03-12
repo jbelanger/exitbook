@@ -1,4 +1,4 @@
-import type { Account, AccountType } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot } from '@exitbook/core';
 
 export interface AccountQueryParams {
   accountId?: number | undefined;
@@ -28,6 +28,10 @@ export interface AccountSummary {
   createdAt: string;
 }
 
+export function getBalanceScopeAccountId(account: Pick<Account, 'id' | 'parentAccountId'>): number {
+  return account.parentAccountId ?? account.id;
+}
+
 export interface AccountListResult {
   accounts: AccountSummary[];
   sessions?: Map<number, SessionSummary[]> | undefined;
@@ -50,18 +54,19 @@ export function maskIdentifier(account: Account): string {
 }
 
 /**
- * Determine verification status from account metadata.
+ * Determine verification status from a stored balance snapshot.
  */
-export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 'never-checked' | undefined {
-  const lastVerification = account.verificationMetadata?.last_verification;
-
-  if (!lastVerification) {
-    return account.lastBalanceCheckAt ? undefined : 'never-checked';
+export function getVerificationStatus(snapshot?: BalanceSnapshot): 'match' | 'mismatch' | 'never-checked' | undefined {
+  if (!snapshot || snapshot.verificationStatus === 'never-run') {
+    return 'never-checked';
   }
 
-  const { status } = lastVerification;
-  if (status === 'match' || status === 'mismatch') {
-    return status;
+  if (snapshot.verificationStatus === 'match') {
+    return 'match';
+  }
+
+  if (snapshot.verificationStatus === 'mismatch') {
+    return 'mismatch';
   }
 
   return undefined;
@@ -73,6 +78,7 @@ export function getVerificationStatus(account: Account): 'match' | 'mismatch' | 
 export function toAccountSummary(
   account: Account,
   sessionCount: number | undefined,
+  snapshot?: BalanceSnapshot,
   childAccounts?: AccountSummary[]
 ): AccountSummary {
   return {
@@ -82,8 +88,8 @@ export function toAccountSummary(
     identifier: maskIdentifier(account),
     parentAccountId: account.parentAccountId,
     providerName: account.providerName ?? undefined,
-    lastBalanceCheckAt: account.lastBalanceCheckAt?.toISOString(),
-    verificationStatus: getVerificationStatus(account),
+    lastBalanceCheckAt: snapshot?.lastRefreshAt?.toISOString(),
+    verificationStatus: getVerificationStatus(snapshot),
     sessionCount,
     childAccounts,
     createdAt: account.createdAt.toISOString(),

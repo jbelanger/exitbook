@@ -12,8 +12,8 @@ export function buildBalancePorts(db: DataContext): BalancePorts {
       findById: (id) => db.accounts.findById(id),
       findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
     },
-    accountUpdater: {
-      updateVerification: (accountId, update) => db.accounts.update(accountId, update),
+    snapshotStore: {
+      replaceSnapshot: ({ snapshot, assets }) => db.balanceSnapshots.replaceSnapshot({ snapshot, assets }),
     },
     importSessionLookup: {
       findByAccountIds: (accountIds) => db.importSessions.findAll({ accountIds }),
