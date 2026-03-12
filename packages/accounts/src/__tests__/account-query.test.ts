@@ -223,7 +223,7 @@ describe('AccountQuery', () => {
       ok(new Map([[root.id, createSnapshot({ scopeAccountId: root.id, verificationStatus: 'mismatch' })]]))
     );
     vi.mocked(ctx.balanceFreshness.checkFreshness).mockResolvedValue(
-      ok({ status: 'stale', reason: 'upstream-reset:processed-transactions' })
+      ok({ status: 'stale' as const, reason: 'upstream-reset:processed-transactions' })
     );
 
     const result = await query.list({ accountId: grandchild.id });

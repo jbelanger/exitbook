@@ -320,12 +320,13 @@ export class AccountQuery {
     for (const account of accounts) {
       if (account.parentAccountId && accounts.length === 1) {
         const sessionCount = sessionCounts?.get(account.id) ?? 0;
+        const scopeAccountId = scopeAccountIds.get(account.id) ?? account.id;
         formatted.push(
           toAccountSummary(
             account,
             sessionCount,
-            balanceSnapshots.get(scopeAccountIds.get(account.id)),
-            balanceFreshness.get(scopeAccountIds.get(account.id) ?? account.id)
+            balanceSnapshots.get(scopeAccountId),
+            balanceFreshness.get(scopeAccountId)
           )
         );
         continue;
@@ -349,24 +350,26 @@ export class AccountQuery {
         formattedChildren = [];
         for (const child of childAccounts) {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
+          const childScopeAccountId = scopeAccountIds.get(child.id) ?? child.id;
           totalSessionCount += childSessionCount;
           formattedChildren.push(
             toAccountSummary(
               child,
               childSessionCount,
-              balanceSnapshots.get(scopeAccountIds.get(child.id)),
-              balanceFreshness.get(scopeAccountIds.get(child.id) ?? child.id)
+              balanceSnapshots.get(childScopeAccountId),
+              balanceFreshness.get(childScopeAccountId)
             )
           );
         }
       }
 
+      const scopeAccountId = scopeAccountIds.get(account.id) ?? account.id;
       formatted.push(
         toAccountSummary(
           account,
           totalSessionCount,
-          balanceSnapshots.get(scopeAccountIds.get(account.id)),
-          balanceFreshness.get(scopeAccountIds.get(account.id) ?? account.id),
+          balanceSnapshots.get(scopeAccountId),
+          balanceFreshness.get(scopeAccountId),
           formattedChildren
         )
       );

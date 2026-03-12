@@ -754,17 +754,34 @@ const AssetView: FC<{
 };
 
 const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
+  const emptyMessage =
+    state.mode === 'stored-snapshot'
+      ? 'No stored balance assets found for this scope.'
+      : 'No transactions found for this account.';
+  const followupMessage =
+    state.mode === 'stored-snapshot'
+      ? 'Run "exitbook balance refresh" if you expected balances for this scope.'
+      : 'Import transactions first:';
+
   return (
     <Box flexDirection="column">
       <Text> </Text>
       <AssetHeader state={state} />
       <Text> </Text>
-      <Text>{'  '}No transactions found for this account.</Text>
-      <Text> </Text>
-      <Text>{'  '}Import transactions first:</Text>
-      <Text dimColor>
-        {'  '}exitbook import --blockchain {state.sourceName} --address ...
+      <Text>
+        {'  '}
+        {emptyMessage}
       </Text>
+      <Text> </Text>
+      <Text>
+        {'  '}
+        {followupMessage}
+      </Text>
+      {state.mode === 'verification' && (
+        <Text dimColor>
+          {'  '}exitbook import --blockchain {state.sourceName} --address ...
+        </Text>
+      )}
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
@@ -773,10 +790,13 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
 const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
   const storedSnapshotLabel = state.mode === 'stored-snapshot' ? ' (stored snapshot)' : '';
-  const { summary } = state;
 
   // All match shorthand
-  if (state.mode === 'verification' && summary.matches === summary.totalAssets && summary.totalAssets > 0) {
+  if (
+    state.mode === 'verification' &&
+    state.summary.matches === state.summary.totalAssets &&
+    state.summary.totalAssets > 0
+  ) {
     return (
       <Box>
         <Text bold>Balance{storedSnapshotLabel}</Text>
@@ -790,7 +810,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
         </Text>
         <Text>
           {'  '}
-          {summary.totalAssets} <Text dimColor>assets</Text>
+          {state.summary.totalAssets} <Text dimColor>assets</Text>
         </Text>
         <Text dimColor> · </Text>
         <Text color="green">all match</Text>
@@ -811,18 +831,18 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
       </Text>
       <Text>
         {'  '}
-        {summary.totalAssets} <Text dimColor>assets</Text>
+        {state.summary.totalAssets} <Text dimColor>assets</Text>
       </Text>
-      {summary.matches !== undefined && summary.matches > 0 && (
+      {state.mode === 'verification' && state.summary.matches > 0 && (
         <>
           <Text dimColor> · </Text>
-          <Text color="green">{summary.matches} match</Text>
+          <Text color="green">{state.summary.matches} match</Text>
         </>
       )}
-      {summary.mismatches !== undefined && summary.mismatches > 0 && (
+      {state.mode === 'verification' && state.summary.mismatches > 0 && (
         <>
           <Text dimColor> · </Text>
-          <Text color="red">{summary.mismatches} mismatch</Text>
+          <Text color="red">{state.summary.mismatches} mismatch</Text>
         </>
       )}
     </Box>
@@ -831,16 +851,55 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
 const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = getBalanceAssetsVisibleRows(terminalHeight);
-  const assetColumns: BalanceAssetCols = createColumns(state.assets as BalanceAssetBase[], {
+  if (state.mode === 'stored-snapshot') {
+    const assetColumns: BalanceAssetCols<StoredSnapshotAssetItem> = createColumns(state.assets, {
+      symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
+      calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
+    });
+    return renderAssetRows(state.assets, state.selectedIndex, state.scrollOffset, visibleRows, (item, isSelected) => (
+      <StoredSnapshotAssetRow
+        key={item.assetId}
+        asset={item}
+        isSelected={isSelected}
+        assetColumns={assetColumns}
+      />
+    ));
+  }
+
+  const assetColumns: BalanceAssetCols<AssetComparisonItem> = createColumns(state.assets, {
     symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
     calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
   });
-  const startIndex = state.scrollOffset;
-  const endIndex = Math.min(startIndex + visibleRows, state.assets.length);
-  const visible = state.assets.slice(startIndex, endIndex);
+  return renderAssetRows(state.assets, state.selectedIndex, state.scrollOffset, visibleRows, (item, isSelected) => (
+    <OnlineAssetRow
+      key={item.assetId}
+      asset={item}
+      isSelected={isSelected}
+      assetColumns={assetColumns}
+    />
+  ));
+};
+
+interface BalanceAssetBase {
+  assetId: string;
+  assetSymbol: string;
+  calculatedBalance: string;
+}
+type BalanceAssetCols<T extends BalanceAssetBase> = Columns<T, 'symbol' | 'calc'>;
+
+function renderAssetRows<T extends BalanceAssetBase>(
+  assets: T[],
+  selectedIndex: number,
+  scrollOffset: number,
+  visibleRows: number,
+  renderRow: (item: T, isSelected: boolean) => ReactElement
+): ReactElement {
+  const startIndex = scrollOffset;
+  const endIndex = Math.min(startIndex + visibleRows, assets.length);
+  const visible = assets.slice(startIndex, endIndex);
 
   const hasMoreAbove = startIndex > 0;
-  const hasMoreBelow = endIndex < state.assets.length;
+  const hasMoreBelow = endIndex < assets.length;
 
   return (
     <Box flexDirection="column">
@@ -849,45 +908,21 @@ const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ s
           {'  '}▲ {startIndex} more above
         </Text>
       )}
-      {visible.map((item, windowIndex) => {
-        const actualIndex = startIndex + windowIndex;
-        const isSelected = actualIndex === state.selectedIndex;
-        if (state.mode === 'stored-snapshot') {
-          return (
-            <StoredSnapshotAssetRow
-              key={item.assetId}
-              asset={item as StoredSnapshotAssetItem}
-              isSelected={isSelected}
-              assetColumns={assetColumns}
-            />
-          );
-        }
-        return (
-          <OnlineAssetRow
-            key={item.assetId}
-            asset={item as AssetComparisonItem}
-            isSelected={isSelected}
-            assetColumns={assetColumns}
-          />
-        );
-      })}
+      {visible.map((item, windowIndex) => renderRow(item, startIndex + windowIndex === selectedIndex))}
       {hasMoreBelow && (
         <Text dimColor>
-          {'  '}▼ {state.assets.length - endIndex} more below
+          {'  '}▼ {assets.length - endIndex} more below
         </Text>
       )}
     </Box>
   );
-};
+}
 
-type BalanceAssetBase = Pick<AssetComparisonItem, 'assetSymbol' | 'calculatedBalance'>;
-type BalanceAssetCols = Columns<BalanceAssetBase, 'symbol' | 'calc'>;
-
-const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetColumns: BalanceAssetCols; isSelected: boolean }> = ({
-  asset,
-  isSelected,
-  assetColumns,
-}) => {
+const OnlineAssetRow: FC<{
+  asset: AssetComparisonItem;
+  assetColumns: BalanceAssetCols<AssetComparisonItem>;
+  isSelected: boolean;
+}> = ({ asset, isSelected, assetColumns }) => {
   const icon = getAssetStatusIcon(asset.status);
   const { symbol, calc } = assetColumns.format(asset);
   const live = asset.liveBalance.padStart(assetColumns.widths.calc);
@@ -920,7 +955,7 @@ const OnlineAssetRow: FC<{ asset: AssetComparisonItem; assetColumns: BalanceAsse
 
 const StoredSnapshotAssetRow: FC<{
   asset: StoredSnapshotAssetItem;
-  assetColumns: BalanceAssetCols;
+  assetColumns: BalanceAssetCols<StoredSnapshotAssetItem>;
   isSelected: boolean;
 }> = ({ asset, isSelected, assetColumns }) => {
   const { symbol, calc: balance } = assetColumns.format(asset);
@@ -936,17 +971,23 @@ const StoredSnapshotAssetRow: FC<{
 // ─── Asset Diagnostics Panel ─────────────────────────────────────────────────
 
 const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
+  if (state.mode === 'stored-snapshot') {
+    const selected = state.assets[state.selectedIndex];
+    if (!selected) return null;
+    return (
+      <FixedHeightDetail
+        height={BALANCE_ASSET_DETAIL_LINES}
+        rows={buildStoredSnapshotDiagnosticsRows(selected)}
+      />
+    );
+  }
+
   const selected = state.assets[state.selectedIndex];
   if (!selected) return null;
-
   return (
     <FixedHeightDetail
       height={BALANCE_ASSET_DETAIL_LINES}
-      rows={
-        state.mode === 'stored-snapshot'
-          ? buildStoredSnapshotDiagnosticsRows(selected as StoredSnapshotAssetItem)
-          : buildOnlineDiagnosticsRows(selected as AssetComparisonItem)
-      }
+      rows={buildOnlineDiagnosticsRows(selected)}
     />
   );
 };

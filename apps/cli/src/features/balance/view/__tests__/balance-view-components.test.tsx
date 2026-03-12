@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 import { BalanceApp } from '../balance-view-components.jsx';
 import {
-  createBalanceAssetState,
+  createBalanceStoredSnapshotAssetState,
+  createBalanceVerificationAssetState,
   type AssetComparisonItem,
   type AssetDiagnostics,
   type StoredSnapshotAssetItem,
@@ -54,7 +55,7 @@ function createStoredSnapshotAssetItem(overrides: Partial<StoredSnapshotAssetIte
 
 describe('BalanceApp - asset view', () => {
   it('keeps calc and live columns aligned when the selected row changes styling', () => {
-    const state = createBalanceAssetState(
+    const state = createBalanceVerificationAssetState(
       {
         accountId: 44,
         sourceName: 'coinbase',
@@ -73,8 +74,7 @@ describe('BalanceApp - asset view', () => {
           calculatedBalance: '0.09033624',
           liveBalance: '0.09033624',
         }),
-      ],
-      { mode: 'verification' }
+      ]
     );
     state.selectedIndex = 0;
 
@@ -106,14 +106,13 @@ describe('BalanceApp - asset view', () => {
   });
 
   it('renders stored snapshot asset mode without live comparison columns', () => {
-    const state = createBalanceAssetState(
+    const state = createBalanceStoredSnapshotAssetState(
       {
         accountId: 55,
         sourceName: 'bitcoin',
         accountType: 'blockchain',
       },
-      [createStoredSnapshotAssetItem({ assetSymbol: 'BTC', calculatedBalance: '1.25' })],
-      { mode: 'stored-snapshot' }
+      [createStoredSnapshotAssetItem({ assetSymbol: 'BTC', calculatedBalance: '1.25' })]
     );
 
     const { lastFrame } = render(

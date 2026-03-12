@@ -12,7 +12,7 @@ import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
   type AccountVerificationItem,
-  createBalanceAssetState,
+  createBalanceVerificationAssetState,
   createBalanceVerificationState,
   type BalanceEvent,
 } from '../view/balance-view-state.js';
@@ -175,10 +175,9 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
 
       const { account, comparisons } = result.value;
       const sortedAssets = sortAssetsByStatus(comparisons);
-      const initialState = createBalanceAssetState(
+      const initialState = createBalanceVerificationAssetState(
         { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
-        sortedAssets,
-        { mode: 'verification' }
+        sortedAssets
       );
 
       await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));

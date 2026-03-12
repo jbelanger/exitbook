@@ -9,7 +9,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { BalanceViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
-import { createBalanceAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
+import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
 import { createBalanceHandler } from './balance-handler.js';
@@ -131,10 +131,9 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
         const item = result.value.accounts[0];
         if (!item) throw new Error(`Account #${options.accountId} not found`);
 
-        const initialState = createBalanceAssetState(
+        const initialState = createBalanceStoredSnapshotAssetState(
           { accountId: item.account.id, sourceName: item.account.sourceName, accountType: item.account.accountType },
-          sortStoredSnapshotAssets(item.assets),
-          { mode: 'stored-snapshot' }
+          sortStoredSnapshotAssets(item.assets)
         );
 
         await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));

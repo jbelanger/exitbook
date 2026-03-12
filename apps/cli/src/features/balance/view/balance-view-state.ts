@@ -101,31 +101,39 @@ export interface BalanceStoredSnapshotState {
   sourceFilter?: string | undefined;
 }
 
-export interface BalanceAssetState {
+interface BalanceAssetStateBase {
   view: 'assets';
-  mode: BalanceViewMode;
-
   accountId: number;
   sourceName: string;
   accountType: AccountType;
-
-  assets: AssetComparisonItem[] | StoredSnapshotAssetItem[];
-  summary: {
-    matches?: number | undefined;
-    mismatches?: number | undefined;
-    totalAssets: number;
-    warnings?: number | undefined;
-  };
-
   selectedIndex: number;
   scrollOffset: number;
-
-  /** Stored parent state for drill-up restoration (undefined = entered via --account-id) */
-  parentState?: (BalanceVerificationState | BalanceStoredSnapshotState) | undefined;
-
   error?: string | undefined;
 }
 
+export interface BalanceVerificationAssetState extends BalanceAssetStateBase {
+  mode: 'verification';
+  assets: AssetComparisonItem[];
+  summary: {
+    matches: number;
+    mismatches: number;
+    totalAssets: number;
+    warnings: number;
+  };
+  parentState?: BalanceVerificationState | undefined;
+}
+
+export interface BalanceStoredSnapshotAssetState extends BalanceAssetStateBase {
+  mode: 'stored-snapshot';
+  assets: StoredSnapshotAssetItem[];
+  summary: {
+    totalAssets: number;
+  };
+  /** Stored parent state for drill-up restoration (undefined = entered via --account-id) */
+  parentState?: BalanceStoredSnapshotState | undefined;
+}
+
+export type BalanceAssetState = BalanceVerificationAssetState | BalanceStoredSnapshotAssetState;
 export type BalanceState = BalanceVerificationState | BalanceStoredSnapshotState | BalanceAssetState;
 
 // ─── Events (for EventRelay in verification mode) ────────────────────────────
@@ -197,29 +205,20 @@ export function createBalanceStoredSnapshotState(
   };
 }
 
-export function createBalanceAssetState(
+export function createBalanceVerificationAssetState(
   account: { accountId: number; accountType: AccountType; sourceName: string },
-  assets: AssetComparisonItem[] | StoredSnapshotAssetItem[],
-  options: {
-    mode: BalanceViewMode;
-    parentState?: (BalanceVerificationState | BalanceStoredSnapshotState) | undefined;
+  assets: AssetComparisonItem[],
+  options?: {
+    parentState?: BalanceVerificationState | undefined;
   }
-): BalanceAssetState {
-  const isVerificationMode = options.mode === 'verification';
-  let matches: number | undefined;
-  let warnings: number | undefined;
-  let mismatches: number | undefined;
-
-  if (isVerificationMode) {
-    const comparisons = assets as AssetComparisonItem[];
-    matches = comparisons.filter((a) => a.status === 'match').length;
-    warnings = comparisons.filter((a) => a.status === 'warning').length;
-    mismatches = comparisons.filter((a) => a.status === 'mismatch').length;
-  }
+): BalanceVerificationAssetState {
+  const matches = assets.filter((a) => a.status === 'match').length;
+  const warnings = assets.filter((a) => a.status === 'warning').length;
+  const mismatches = assets.filter((a) => a.status === 'mismatch').length;
 
   return {
     view: 'assets',
-    mode: options.mode,
+    mode: 'verification',
     accountId: account.accountId,
     sourceName: account.sourceName,
     accountType: account.accountType,
@@ -232,6 +231,29 @@ export function createBalanceAssetState(
     },
     selectedIndex: 0,
     scrollOffset: 0,
-    parentState: options.parentState,
+    parentState: options?.parentState,
+  };
+}
+
+export function createBalanceStoredSnapshotAssetState(
+  account: { accountId: number; accountType: AccountType; sourceName: string },
+  assets: StoredSnapshotAssetItem[],
+  options?: {
+    parentState?: BalanceStoredSnapshotState | undefined;
+  }
+): BalanceStoredSnapshotAssetState {
+  return {
+    view: 'assets',
+    mode: 'stored-snapshot',
+    accountId: account.accountId,
+    sourceName: account.sourceName,
+    accountType: account.accountType,
+    assets,
+    summary: {
+      totalAssets: assets.length,
+    },
+    selectedIndex: 0,
+    scrollOffset: 0,
+    parentState: options?.parentState,
   };
 }

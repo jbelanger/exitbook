@@ -12,7 +12,7 @@ import type {
   BalanceState,
   BalanceVerificationState,
 } from './balance-view-state.js';
-import { createBalanceAssetState } from './balance-view-state.js';
+import { createBalanceStoredSnapshotAssetState, createBalanceVerificationAssetState } from './balance-view-state.js';
 import { sortAccountsByStatus, sortAssetsByStatus } from './balance-view-utils.js';
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -209,10 +209,10 @@ function handleDrillDown(state: BalanceState): BalanceState {
     const selected = state.accounts[state.selectedIndex];
     if (!selected || selected.assets.length === 0) return state;
 
-    return createBalanceAssetState(
+    return createBalanceStoredSnapshotAssetState(
       { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
       selected.assets,
-      { mode: 'stored-snapshot', parentState: state }
+      { parentState: state }
     );
   }
 
@@ -229,10 +229,10 @@ function handleDrillDown(state: BalanceState): BalanceState {
 
     const sortedAssets = sortAssetsByStatus(selected.comparisons);
 
-    return createBalanceAssetState(
+    return createBalanceVerificationAssetState(
       { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
       sortedAssets,
-      { mode: 'verification', parentState: state }
+      { parentState: state }
     );
   }
 
