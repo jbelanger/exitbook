@@ -12,6 +12,7 @@ import {
   type Result,
 } from '@exitbook/core';
 import {
+  buildBalancesFreshnessPorts,
   readAssetReviewDecisions,
   readExcludedAssetIds,
   type AssetReviewDecision,
@@ -354,9 +355,10 @@ export class AssetsHandler {
     const excludedAssets = [...snapshotResult.value.excludedAssetIds]
       .map((assetId) => {
         const knownAsset = snapshotResult.value.knownAssets.get(assetId);
+        const currentHolding = snapshotResult.value.currentHoldings.get(assetId);
         return {
           assetId,
-          assetSymbols: knownAsset?.assetSymbols ?? [],
+          assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
           movementCount: knownAsset?.movementCount ?? 0,
           transactionCount: knownAsset?.transactionCount ?? 0,
         };
@@ -450,7 +452,21 @@ export class AssetsHandler {
       return err(new Error(`Failed to load transactions for asset resolution: ${transactionsResult.error.message}`));
     }
 
-    const snapshotAssetsResult = await this.db.balanceSnapshots.findAssetsByScope();
+    const snapshotRowsResult = await this.db.balanceSnapshots.findSnapshots();
+    if (snapshotRowsResult.isErr()) {
+      return err(new Error(`Failed to load balance snapshots: ${snapshotRowsResult.error.message}`));
+    }
+
+    const freshnessResult = await this.assertFreshBalanceSnapshots(
+      snapshotRowsResult.value.map((snapshot) => snapshot.scopeAccountId)
+    );
+    if (freshnessResult.isErr()) {
+      return err(freshnessResult.error);
+    }
+
+    const snapshotAssetsResult = await this.db.balanceSnapshots.findAssetsByScope(
+      snapshotRowsResult.value.map((snapshot) => snapshot.scopeAccountId)
+    );
     if (snapshotAssetsResult.isErr()) {
       return err(new Error(`Failed to load balance snapshot assets: ${snapshotAssetsResult.error.message}`));
     }
@@ -480,6 +496,30 @@ export class AssetsHandler {
     });
   }
 
+  private async assertFreshBalanceSnapshots(scopeAccountIds: number[]): Promise<Result<void, Error>> {
+    const freshnessPorts = buildBalancesFreshnessPorts(this.db);
+
+    for (const scopeAccountId of scopeAccountIds) {
+      const freshnessResult = await freshnessPorts.checkFreshness(scopeAccountId);
+      if (freshnessResult.isErr()) {
+        return err(freshnessResult.error);
+      }
+
+      if (freshnessResult.value.status === 'fresh') {
+        continue;
+      }
+
+      const reason = freshnessResult.value.reason ?? `balance projection is ${freshnessResult.value.status}`;
+      return err(
+        new Error(
+          `Assets view requires fresh balance snapshots. Scope account #${scopeAccountId} is ${freshnessResult.value.status}: ${reason}. Run "exitbook balance refresh --account-id ${scopeAccountId}" or "exitbook balance refresh" to rebuild stored balances.`
+        )
+      );
+    }
+
+    return ok(undefined);
+  }
+
   private async resolveSelection(
     params: AssetSelectionParams,
     snapshot: AssetSnapshot
@@ -499,7 +539,7 @@ export class AssetsHandler {
       const knownAsset = snapshot.knownAssets.get(exactAssetId);
       const currentHolding = snapshot.currentHoldings.get(exactAssetId);
       if (!knownAsset && !currentHolding) {
-        return err(new Error(`Asset ID not found in processed transactions: ${exactAssetId}`));
+        return err(new Error(`Asset ID not found: ${exactAssetId}`));
       }
 
       return ok({
@@ -513,9 +553,9 @@ export class AssetsHandler {
       return err(new Error('Either --asset-id or --symbol is required'));
     }
 
-    const matches = findAssetsBySymbol(snapshot.knownAssets.values(), symbol);
+    const matches = findAssetsBySymbol(buildSelectableAssets(snapshot).values(), symbol);
     if (matches.length === 0) {
-      return err(new Error(`No processed asset found for symbol '${symbol.toUpperCase()}'`));
+      return err(new Error(`No asset found for symbol '${symbol.toUpperCase()}'`));
     }
 
     if (matches.length > 1) {
@@ -578,6 +618,34 @@ function aggregateCurrentHoldings(
       },
     ])
   );
+}
+
+function buildSelectableAssets(snapshot: AssetSnapshot): Map<string, KnownAssetRecord> {
+  const selectableAssets = new Map<string, KnownAssetRecord>();
+
+  for (const knownAsset of snapshot.knownAssets.values()) {
+    selectableAssets.set(knownAsset.assetId, knownAsset);
+  }
+
+  for (const [assetId, currentHolding] of snapshot.currentHoldings.entries()) {
+    const existing = selectableAssets.get(assetId);
+    if (existing) {
+      selectableAssets.set(assetId, {
+        ...existing,
+        assetSymbols: mergeAssetSymbols(existing.assetSymbols, currentHolding.assetSymbols),
+      });
+      continue;
+    }
+
+    selectableAssets.set(assetId, {
+      assetId,
+      assetSymbols: currentHolding.assetSymbols,
+      movementCount: 0,
+      transactionCount: 0,
+    });
+  }
+
+  return selectableAssets;
 }
 
 function mergeAssetSymbols(...symbolGroups: (string[] | undefined)[]): string[] {

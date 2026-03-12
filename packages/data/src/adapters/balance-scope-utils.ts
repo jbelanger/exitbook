@@ -24,6 +24,10 @@ export async function resolveBalanceScopeAccountId(db: DataContext, accountId: n
     }
 
     const account = accountResult.value;
+    if (!account) {
+      return err(new Error(`Account ${currentAccountId} not found while resolving balance scope for ${accountId}`));
+    }
+
     if (!account.parentAccountId) {
       return ok(account.id);
     }

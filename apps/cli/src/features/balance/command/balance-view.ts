@@ -78,6 +78,13 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promi
         accountId: item.account.id,
         sourceName: item.account.sourceName,
         accountType: item.account.accountType,
+        ...(item.requestedAccount && {
+          requestedAccount: {
+            id: item.requestedAccount.id,
+            sourceName: item.requestedAccount.sourceName,
+            accountType: item.requestedAccount.accountType,
+          },
+        }),
         assets: item.assets.map((asset) => ({
           assetId: asset.assetId,
           assetSymbol: asset.assetSymbol,

@@ -6,6 +6,9 @@ import { AssetReviewProjectionWorkflow } from '@exitbook/ingestion';
 import { findLatestAssetReviewExternalInputAt } from './asset-review-external-input-freshness.js';
 import { openAssetReviewProjectionSupport } from './asset-review-projection-support.js';
 
+/**
+ * Ensures the asset-review projection is current. This may rebuild and initialize provider support.
+ */
 export async function ensureAssetReviewProjectionFresh(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
   const freshnessResult = await buildAssetReviewFreshnessPorts(db).checkFreshness();
   if (freshnessResult.isErr()) {
@@ -32,6 +35,9 @@ export async function ensureAssetReviewProjectionFresh(db: DataContext, dataDir:
   return ok(undefined);
 }
 
+/**
+ * Reads stored asset-review summaries without triggering a rebuild.
+ */
 export async function readAssetReviewProjectionSummaries(
   db: DataContext,
   assetIds?: string[]

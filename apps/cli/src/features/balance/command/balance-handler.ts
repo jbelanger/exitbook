@@ -5,8 +5,13 @@ import type {
   ExchangeCredentials,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { err, ok, parseDecimal, type Result } from '@exitbook/core';
-import { buildBalancePorts, type DataContext } from '@exitbook/data';
+import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
+import {
+  buildBalancePorts,
+  buildBalancesFreshnessPorts,
+  resolveBalanceScopeAccountId,
+  type DataContext,
+} from '@exitbook/data';
 import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
@@ -34,7 +39,7 @@ export interface SortedVerificationAccount {
 }
 
 export interface OfflineBalanceResult {
-  accounts: { account: Account; assets: AssetOfflineItem[] }[];
+  accounts: { account: Account; assets: AssetOfflineItem[]; requestedAccount?: Account | undefined }[];
 }
 
 export interface SingleVerificationResult {
@@ -110,11 +115,23 @@ export class BalanceHandler {
     try {
       const accounts = params.accountId ? await this.loadSingleAccount(params.accountId) : await this.loadAllAccounts();
 
-      const results: { account: Account; assets: AssetOfflineItem[] }[] = [];
+      const results: { account: Account; assets: AssetOfflineItem[]; requestedAccount?: Account | undefined }[] = [];
       for (const requestedAccount of accounts) {
-        const scopeAccount = await this.resolveOfflineScopeAccount(requestedAccount);
-        const assets = await this.buildOfflineAssets(requestedAccount, scopeAccount);
-        results.push({ account: scopeAccount, assets });
+        const scopeAccount = await this.resolveStoredSnapshotScopeAccount(requestedAccount);
+        const readabilityResult = await this.assertStoredSnapshotReadable(requestedAccount, scopeAccount);
+        if (readabilityResult.isErr()) {
+          return err(readabilityResult.error);
+        }
+
+        const assetsResult = await this.buildStoredSnapshotAssets(scopeAccount);
+        if (assetsResult.isErr()) {
+          return err(assetsResult.error);
+        }
+        results.push({
+          account: scopeAccount,
+          assets: assetsResult.value,
+          requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
+        });
       }
 
       return ok({ accounts: results });
@@ -140,29 +157,13 @@ export class BalanceHandler {
 
       const vr = result.value;
       const scopeAccount = vr.account;
-      const transactions = await this.loadAccountTransactions(scopeAccount);
-
-      const comparisons: AssetComparisonItem[] = vr.comparisons.map((c) => {
-        const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
-          liveBalance: c.liveBalance,
-          calculatedBalance: c.calculatedBalance,
-        });
-        return {
-          assetId: c.assetId,
-          assetSymbol: c.assetSymbol,
-          calculatedBalance: c.calculatedBalance,
-          liveBalance: c.liveBalance,
-          difference: c.difference,
-          percentageDiff: c.percentageDiff,
-          status: c.status,
-          diagnostics,
-        };
-      });
+      const comparisonsResult = await this.buildComparisonItems(scopeAccount, vr);
+      if (comparisonsResult.isErr()) return err(comparisonsResult.error);
 
       return ok({
         account: scopeAccount,
         requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
-        comparisons,
+        comparisons: comparisonsResult.value,
         verificationResult: vr,
         streamMetadata: this.extractStreamMetadata(scopeAccount),
       });
@@ -215,27 +216,21 @@ export class BalanceHandler {
         }
 
         const vr = result.value;
+        const comparisonsResult = await this.buildComparisonItems(vr.account, vr);
+        if (comparisonsResult.isErr()) {
+          accountResults.push({
+            accountId: account.id,
+            sourceName: account.sourceName,
+            accountType: account.accountType,
+            status: 'error',
+            error: comparisonsResult.error.message,
+          });
+          continue;
+        }
+
         verified++;
         matchTotal += vr.summary.matches;
         mismatchTotal += vr.summary.mismatches + vr.summary.warnings + (vr.coverage.status === 'partial' ? 1 : 0);
-
-        const transactions = await this.loadAccountTransactions(account);
-        const comparisons: AssetComparisonItem[] = vr.comparisons.map((c) => {
-          const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
-            liveBalance: c.liveBalance,
-            calculatedBalance: c.calculatedBalance,
-          });
-          return {
-            assetId: c.assetId,
-            assetSymbol: c.assetSymbol,
-            calculatedBalance: c.calculatedBalance,
-            liveBalance: c.liveBalance,
-            difference: c.difference,
-            percentageDiff: c.percentageDiff,
-            status: c.status,
-            diagnostics,
-          };
-        });
 
         accountResults.push({
           accountId: account.id,
@@ -246,7 +241,7 @@ export class BalanceHandler {
           coverage: vr.coverage,
           partialFailures: vr.partialFailures,
           warnings: vr.warnings,
-          comparisons,
+          comparisons: comparisonsResult.value,
         });
       }
 
@@ -310,7 +305,11 @@ export class BalanceHandler {
         }
 
         const vr = result.value;
-        const transactions = await this.loadAccountTransactions(item.account);
+        const comparisonsResult = await this.buildSortedComparisonItems(vr.account, vr);
+        if (comparisonsResult.isErr()) {
+          relay.push({ type: 'VERIFICATION_ERROR', accountId: item.accountId, error: comparisonsResult.error.message });
+          continue;
+        }
 
         if (signal.aborted) {
           const error = new Error('Verification aborted');
@@ -318,24 +317,7 @@ export class BalanceHandler {
           throw error;
         }
 
-        const comparisons = sortAssetsByStatus(
-          vr.comparisons.map((c) => {
-            const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
-              liveBalance: c.liveBalance,
-              calculatedBalance: c.calculatedBalance,
-            });
-            return {
-              assetId: c.assetId,
-              assetSymbol: c.assetSymbol,
-              calculatedBalance: c.calculatedBalance,
-              liveBalance: c.liveBalance,
-              difference: c.difference,
-              percentageDiff: c.percentageDiff,
-              status: c.status,
-              diagnostics,
-            };
-          })
-        );
+        const comparisons = comparisonsResult.value;
 
         const verificationItem = {
           accountId: item.accountId,
@@ -389,21 +371,23 @@ export class BalanceHandler {
     return result.value;
   }
 
-  private async loadAccountTransactions(account: Account): Promise<UniversalTransactionData[]> {
-    const childResult = await this.db.accounts.findAll({ parentAccountId: account.id });
-    const accountIds = [account.id];
-    if (childResult.isOk()) {
-      accountIds.push(...childResult.value.map((c) => c.id));
-    } else {
-      logger.warn(`Failed to load child accounts for account #${account.id}: ${childResult.error.message}`);
+  private async loadAccountTransactions(account: Account): Promise<Result<UniversalTransactionData[], Error>> {
+    const accountIdsResult = await this.loadScopeAccountIds(account.id, new Set<number>());
+    if (accountIdsResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to load descendant accounts for diagnostics for account #${account.id}: ${accountIdsResult.error.message}`
+        )
+      );
     }
 
-    const txResult = await this.db.transactions.findAll({ accountIds });
+    const txResult = await this.db.transactions.findAll({ accountIds: accountIdsResult.value });
     if (txResult.isErr()) {
-      logger.warn(`Failed to load transactions for account #${account.id}: ${txResult.error.message}`);
-      return [];
+      return err(
+        new Error(`Failed to load transactions for diagnostics for account #${account.id}: ${txResult.error.message}`)
+      );
     }
-    return txResult.value;
+    return ok(txResult.value);
   }
 
   private buildDiagnosticsForAsset(
@@ -431,57 +415,161 @@ export class BalanceHandler {
     return streamMetadata;
   }
 
-  private async buildOfflineAssets(requestedAccount: Account, scopeAccount: Account): Promise<AssetOfflineItem[]> {
-    const snapshotAssets = await this.loadOfflineSnapshotAssets(requestedAccount, scopeAccount);
+  private async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<AssetOfflineItem[], Error>> {
+    const snapshotAssets = await this.loadStoredSnapshotAssets(scopeAccount.id);
     if (snapshotAssets.length === 0) {
+      return ok([]);
+    }
+
+    const transactionsResult = await this.loadAccountTransactions(scopeAccount);
+    if (transactionsResult.isErr()) {
+      return err(transactionsResult.error);
+    }
+
+    return ok(
+      snapshotAssets.map((asset) => {
+        const assetSymbol = asset.assetSymbol;
+        const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, assetSymbol, transactionsResult.value);
+        return buildAssetOfflineItem(asset.assetId, assetSymbol, parseDecimal(asset.calculatedBalance), diagnostics);
+      })
+    );
+  }
+
+  private async resolveStoredSnapshotScopeAccount(account: Account): Promise<Account> {
+    const scopeAccountIdResult = await resolveBalanceScopeAccountId(this.db, account.id);
+    if (scopeAccountIdResult.isErr()) {
+      throw scopeAccountIdResult.error;
+    }
+
+    const scopeAccountId = scopeAccountIdResult.value;
+    if (scopeAccountId === account.id) {
+      return account;
+    }
+
+    const scopeAccountResult = await this.db.accounts.findById(scopeAccountId);
+    if (scopeAccountResult.isErr()) {
+      throw scopeAccountResult.error;
+    }
+    if (!scopeAccountResult.value) {
+      throw new Error(`Balance scope account #${scopeAccountId} not found`);
+    }
+
+    return scopeAccountResult.value;
+  }
+
+  private async assertStoredSnapshotReadable(
+    requestedAccount: Account,
+    scopeAccount: Account
+  ): Promise<Result<void, Error>> {
+    const freshnessResult = await buildBalancesFreshnessPorts(this.db).checkFreshness(scopeAccount.id);
+    if (freshnessResult.isErr()) {
+      return err(freshnessResult.error);
+    }
+
+    if (freshnessResult.value.status === 'fresh') {
+      return ok(undefined);
+    }
+
+    const scopeHint =
+      requestedAccount.id === scopeAccount.id
+        ? `--account-id ${scopeAccount.id}`
+        : `--account-id ${requestedAccount.id}`;
+    const reason = freshnessResult.value.reason ?? `balance projection is ${freshnessResult.value.status}`;
+
+    return err(
+      new Error(
+        `Stored balance snapshot for scope account #${scopeAccount.id} (${scopeAccount.sourceName}) is ${freshnessResult.value.status}: ${reason}. Run "exitbook balance refresh ${scopeHint}" to rebuild it.`
+      )
+    );
+  }
+
+  private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<BalanceSnapshotAsset[]> {
+    const assetsResult = await this.db.balanceSnapshots.findAssetsByScope([scopeAccountId]);
+    if (assetsResult.isErr()) {
+      logger.warn(
+        { scopeAccountId, error: assetsResult.error },
+        'Failed to load balance snapshot assets for balance view'
+      );
       return [];
     }
 
-    const transactions = await this.loadAccountTransactions(scopeAccount);
-
-    return snapshotAssets.map((asset) => {
-      const assetSymbol = asset.assetSymbol;
-      const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, assetSymbol, transactions);
-      return buildAssetOfflineItem(asset.assetId, assetSymbol, parseDecimal(asset.calculatedBalance), diagnostics);
-    });
+    return assetsResult.value;
   }
 
-  private async resolveOfflineScopeAccount(account: Account): Promise<Account> {
-    if (!account.parentAccountId) {
-      return account;
+  private async loadScopeAccountIds(accountId: number, visited: Set<number>): Promise<Result<number[], Error>> {
+    if (visited.has(accountId)) {
+      return err(new Error(`Circular account hierarchy detected while loading descendants for account ${accountId}`));
     }
 
-    const parentResult = await this.db.accounts.findById(account.parentAccountId);
-    if (parentResult.isErr()) {
-      logger.warn(
-        { accountId: account.id, parentAccountId: account.parentAccountId, error: parentResult.error },
-        'Failed to load parent scope account for balance view; falling back to requested account'
+    visited.add(accountId);
+
+    const childAccountsResult = await this.db.accounts.findAll({ parentAccountId: accountId });
+    if (childAccountsResult.isErr()) {
+      return err(childAccountsResult.error);
+    }
+
+    const accountIds = [accountId];
+    for (const childAccount of childAccountsResult.value) {
+      const descendantIdsResult = await this.loadScopeAccountIds(childAccount.id, visited);
+      if (descendantIdsResult.isErr()) {
+        return err(descendantIdsResult.error);
+      }
+
+      accountIds.push(...descendantIdsResult.value);
+    }
+
+    return ok(accountIds);
+  }
+
+  private async buildComparisonItems(
+    account: Account,
+    verificationResult: BalanceVerificationResult
+  ): Promise<Result<AssetComparisonItem[], Error>> {
+    const transactionsResult = await this.loadAccountTransactions(account);
+    if (transactionsResult.isErr()) {
+      return err(transactionsResult.error);
+    }
+
+    try {
+      return ok(
+        verificationResult.comparisons.map((comparison) => {
+          const diagnostics = this.buildDiagnosticsForAsset(
+            comparison.assetId,
+            comparison.assetSymbol,
+            transactionsResult.value,
+            {
+              liveBalance: comparison.liveBalance,
+              calculatedBalance: comparison.calculatedBalance,
+            }
+          );
+
+          return {
+            assetId: comparison.assetId,
+            assetSymbol: comparison.assetSymbol,
+            calculatedBalance: comparison.calculatedBalance,
+            liveBalance: comparison.liveBalance,
+            difference: comparison.difference,
+            percentageDiff: comparison.percentageDiff,
+            status: comparison.status,
+            diagnostics,
+          };
+        })
       );
-      return account;
+    } catch (error) {
+      return wrapError(error, `Failed to build balance diagnostics for account #${account.id}`);
     }
-
-    return parentResult.value ?? account;
   }
 
-  private async loadOfflineSnapshotAssets(account: Account, scopeAccount: Account): Promise<BalanceSnapshotAsset[]> {
-    const candidateScopeIds = [...new Set([scopeAccount.id, account.id])];
-
-    for (const scopeAccountId of candidateScopeIds) {
-      const assetsResult = await this.db.balanceSnapshots.findAssetsByScope([scopeAccountId]);
-      if (assetsResult.isErr()) {
-        logger.warn(
-          { accountId: account.id, scopeAccountId, error: assetsResult.error },
-          'Failed to load balance snapshot assets for balance view'
-        );
-        continue;
-      }
-
-      if (assetsResult.value.length > 0) {
-        return assetsResult.value;
-      }
+  private async buildSortedComparisonItems(
+    account: Account,
+    verificationResult: BalanceVerificationResult
+  ): Promise<Result<AssetComparisonItem[], Error>> {
+    const comparisonsResult = await this.buildComparisonItems(account, verificationResult);
+    if (comparisonsResult.isErr()) {
+      return err(comparisonsResult.error);
     }
 
-    return [];
+    return ok(sortAssetsByStatus(comparisonsResult.value));
   }
 }
 

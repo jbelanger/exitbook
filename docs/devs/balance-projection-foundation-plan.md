@@ -6,7 +6,7 @@ model slice landed.
 It is subordinate to:
 
 - `docs/dev/balance-projection-and-assets-view.md`
-- `docs/devs/asset-review-read-model-plan.md`
+- `docs/specs/asset-review.md`
 
 The goal is not to redesign every balance and asset screen in one pass.
 

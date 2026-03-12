@@ -218,13 +218,14 @@ describe('BalanceWorkflow', () => {
     const workflow = new BalanceWorkflow(ports, providerManager);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.status).toBe('success');
-      expect(result.value.summary.mismatches).toBe(0);
-      expect(result.value.comparisons).toHaveLength(1);
-      expect(result.value.comparisons[0]?.difference).toBe('0');
+    if (result.isErr()) {
+      throw result.error;
     }
+    expect(result.isOk()).toBe(true);
+    expect(result.value.status).toBe('success');
+    expect(result.value.summary.mismatches).toBe(0);
+    expect(result.value.comparisons).toHaveLength(1);
+    expect(result.value.comparisons[0]?.difference).toBe('0');
 
     expect(markBuilding).toHaveBeenCalledWith(1);
     expect(markFresh).toHaveBeenCalledWith(1);
@@ -391,6 +392,157 @@ describe('BalanceWorkflow', () => {
     }
   });
 
+  it('subtracts only the net excluded inflow after excluded outflows', async () => {
+    const account = createAccount();
+
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('50'),
+              netAmount: parseDecimal('50'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const excludedTransactions = [
+      createTransaction({
+        externalId: 'tx-excluded-inflow',
+        excludedFromAccounting: true,
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('100'),
+              netAmount: parseDecimal('100'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+      createTransaction({
+        externalId: 'tx-excluded-outflow',
+        excludedFromAccounting: true,
+        movements: {
+          inflows: [],
+          outflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('40'),
+              netAmount: parseDecimal('40'),
+            },
+          ],
+        },
+      }),
+    ];
+
+    const { ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions,
+    });
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '11000000000',
+      decimalAmount: '110',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+    expect(result.isOk()).toBe(true);
+    expect(result.value.status).toBe('success');
+    expect(result.value.comparisons).toHaveLength(1);
+    expect(result.value.comparisons[0]).toMatchObject({
+      calculatedBalance: '50',
+      liveBalance: '50',
+      difference: '0',
+      status: 'match',
+    });
+  });
+
+  it('adds excluded outflows back to live balance comparisons', async () => {
+    const account = createAccount();
+
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('100'),
+              netAmount: parseDecimal('100'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const excludedTransactions = [
+      createTransaction({
+        externalId: 'tx-excluded-outflow',
+        excludedFromAccounting: true,
+        movements: {
+          inflows: [],
+          outflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('40'),
+              netAmount: parseDecimal('40'),
+            },
+          ],
+        },
+      }),
+    ];
+
+    const { ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions,
+    });
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '6000000000',
+      decimalAmount: '60',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+    expect(result.isOk()).toBe(true);
+    expect(result.value.status).toBe('success');
+    expect(result.value.comparisons).toHaveLength(1);
+    expect(result.value.comparisons[0]).toMatchObject({
+      calculatedBalance: '100',
+      liveBalance: '100',
+      difference: '0',
+      status: 'match',
+    });
+  });
+
   it('returns an error when account does not exist', async () => {
     const ports: BalancePorts = {
       accountLookup: {
@@ -533,5 +685,83 @@ describe('BalanceWorkflow', () => {
     expect(markFailed).not.toHaveBeenCalled();
     expect(replaceSnapshot).toHaveBeenCalledTimes(2);
     expect(replaceSnapshot.mock.calls[1]?.[0]?.snapshot.scopeAccountId).toBe(parentAccount.id);
+  });
+
+  it('resolves nested child-account rebuilds to the root balance scope', async () => {
+    const rootAccount = createAccount({
+      id: 1,
+      identifier: 'xpub-root',
+    });
+    const childAccount = createAccount({
+      id: 2,
+      identifier: 'bc1-child',
+      parentAccountId: rootAccount.id,
+    });
+    const grandchildAccount = createAccount({
+      id: 3,
+      identifier: 'bc1-grandchild',
+      parentAccountId: childAccount.id,
+    });
+
+    const normalTransactions = [
+      createTransaction({
+        accountId: grandchildAccount.id,
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1.5'),
+              netAmount: parseDecimal('1.5'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [rootAccount, childAccount, grandchildAccount],
+      sessions: [createCompletedImportSession(grandchildAccount.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '0',
+      decimalAmount: '0',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.rebuildCalculatedSnapshot({ accountId: grandchildAccount.id });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.requestedAccount.id).toBe(grandchildAccount.id);
+      expect(result.value.scopeAccount.id).toBe(rootAccount.id);
+      expect(result.value.assetCount).toBe(1);
+    }
+
+    expect(markBuilding).toHaveBeenCalledWith(rootAccount.id);
+    expect(markFresh).toHaveBeenCalledWith(rootAccount.id);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
+    expect(replaceSnapshot.mock.calls[0]?.[0]).toMatchObject({
+      snapshot: {
+        scopeAccountId: rootAccount.id,
+        verificationStatus: 'never-run',
+      },
+      assets: [
+        {
+          scopeAccountId: rootAccount.id,
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          calculatedBalance: '1.5',
+          excludedFromAccounting: false,
+        },
+      ],
+    });
   });
 });

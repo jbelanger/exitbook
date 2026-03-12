@@ -28,10 +28,6 @@ export interface AccountSummary {
   createdAt: string;
 }
 
-export function getBalanceScopeAccountId(account: Pick<Account, 'id' | 'parentAccountId'>): number {
-  return account.parentAccountId ?? account.id;
-}
-
 export interface AccountListResult {
   accounts: AccountSummary[];
   sessions?: Map<number, SessionSummary[]> | undefined;

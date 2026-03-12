@@ -61,6 +61,12 @@ describe('AccountQuery', () => {
         ])
       )
     );
+    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+      if (accountId === parent.id) return ok(parent);
+      if (accountId === child.id) return ok(child);
+      if (accountId === standalone.id) return ok(standalone);
+      return ok(parent);
+    });
     vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
       ok(
         new Map([
@@ -147,8 +153,13 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
+    const parent = createMockAccount({ id: 2, identifier: 'xpub-parent' });
     const child = createMockAccount({ id: 8, parentAccountId: 2, identifier: 'bc1qchild-single' });
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(child));
+    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+      if (accountId === child.id) return ok(child);
+      if (accountId === parent.id) return ok(parent);
+      return ok(parent);
+    });
     vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[8, 7]])));
     vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
       ok(new Map([[2, createSnapshot({ scopeAccountId: 2 })]]))
@@ -166,6 +177,37 @@ describe('AccountQuery', () => {
       childAccounts: undefined,
     });
     expect(ctx.accounts.findAll).not.toHaveBeenCalled();
+  });
+
+  it('resolves nested child account snapshots from the root balance scope', async () => {
+    const ctx = createMockPorts();
+    const query = new AccountQuery(ctx.ports);
+
+    const root = createMockAccount({ id: 1, identifier: 'xpub-root' });
+    const child = createMockAccount({ id: 2, parentAccountId: root.id, identifier: 'bc1-child' });
+    const grandchild = createMockAccount({ id: 3, parentAccountId: child.id, identifier: 'bc1-grandchild' });
+
+    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+      if (accountId === root.id) return ok(root);
+      if (accountId === child.id) return ok(child);
+      if (accountId === grandchild.id) return ok(grandchild);
+      return ok(root);
+    });
+    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[grandchild.id, 2]])));
+    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+      ok(new Map([[root.id, createSnapshot({ scopeAccountId: root.id, verificationStatus: 'mismatch' })]]))
+    );
+
+    const result = await query.list({ accountId: grandchild.id });
+    const value = assertOk(result);
+
+    expect(ctx.balanceSnapshots.findSnapshots).toHaveBeenCalledWith([root.id]);
+    expect(value.accounts).toHaveLength(1);
+    expect(value.accounts[0]).toMatchObject({
+      id: grandchild.id,
+      verificationStatus: 'mismatch',
+      sessionCount: 2,
+    });
   });
 
   it('finds an account by id and aggregates child session counts', async () => {

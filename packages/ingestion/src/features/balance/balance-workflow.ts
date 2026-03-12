@@ -7,7 +7,7 @@ import type {
   ImportSession,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { parseAssetId, wrapError } from '@exitbook/core';
+import { parseAssetId, parseDecimal, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
@@ -140,17 +140,17 @@ export class BalanceWorkflow {
       const excludedInfoResult = await this.getExcludedAssetInfo(scopeContext);
       if (excludedInfoResult.isErr()) return err(excludedInfoResult.error);
 
-      const { amounts: excludedAmounts, spamAssetIds } = excludedInfoResult.value;
-      if (Object.keys(excludedAmounts).length > 0) {
-        const excludedAssets = Object.keys(excludedAmounts);
+      const { balanceAdjustments, spamAssetIds } = excludedInfoResult.value;
+      if (Object.keys(balanceAdjustments).length > 0) {
+        const excludedAssets = Object.keys(balanceAdjustments);
         logger.info(
           {
             scopeAccountId: scopeContext.scopeAccount.id,
             excludedAssets,
           },
-          'Subtracting excluded amounts from live balance'
+          'Applying excluded transaction balance adjustments to live balance'
         );
-        liveBalances = subtractExcludedAmounts(liveBalances, excludedAmounts);
+        liveBalances = applyExcludedBalanceAdjustments(liveBalances, balanceAdjustments);
       }
 
       if (spamAssetIds.size > 0) {
@@ -245,34 +245,75 @@ export class BalanceWorkflow {
     if (!requestedAccountResult.value) return err(new Error(`No account found with ID ${accountId}`));
 
     const requestedAccount = requestedAccountResult.value;
+    const scopeAccountResult = await this.resolveScopeAccount(requestedAccount);
+    if (scopeAccountResult.isErr()) return err(scopeAccountResult.error);
 
-    if (requestedAccount.parentAccountId) {
-      const scopeAccountResult = await this.ports.accountLookup.findById(requestedAccount.parentAccountId);
-      if (scopeAccountResult.isErr()) return err(scopeAccountResult.error);
-      if (!scopeAccountResult.value) {
-        return err(
-          new Error(`Scope account ${requestedAccount.parentAccountId} not found for account ${requestedAccount.id}`)
-        );
-      }
-
-      const childAccountsResult = await this.ports.accountLookup.findChildAccounts(scopeAccountResult.value.id);
-      if (childAccountsResult.isErr()) return err(childAccountsResult.error);
-
-      return ok({
-        requestedAccount,
-        scopeAccount: scopeAccountResult.value,
-        memberAccounts: [scopeAccountResult.value, ...childAccountsResult.value],
-      });
-    }
-
-    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(requestedAccount.id);
-    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
+    const memberAccountsResult = await this.loadScopeMemberAccounts(scopeAccountResult.value);
+    if (memberAccountsResult.isErr()) return err(memberAccountsResult.error);
 
     return ok({
       requestedAccount,
-      scopeAccount: requestedAccount,
-      memberAccounts: [requestedAccount, ...childAccountsResult.value],
+      scopeAccount: scopeAccountResult.value,
+      memberAccounts: memberAccountsResult.value,
     });
+  }
+
+  private async resolveScopeAccount(account: Account): Promise<Result<Account, Error>> {
+    const visited = new Set<number>();
+    let currentAccount = account;
+
+    while (currentAccount.parentAccountId) {
+      if (visited.has(currentAccount.id)) {
+        return err(
+          new Error(`Circular account hierarchy detected while resolving balance scope for account ${account.id}`)
+        );
+      }
+      visited.add(currentAccount.id);
+
+      const parentResult = await this.ports.accountLookup.findById(currentAccount.parentAccountId);
+      if (parentResult.isErr()) return err(parentResult.error);
+      if (!parentResult.value) {
+        return err(new Error(`Scope account ${currentAccount.parentAccountId} not found for account ${account.id}`));
+      }
+
+      currentAccount = parentResult.value;
+    }
+
+    return ok(currentAccount);
+  }
+
+  private async loadScopeMemberAccounts(scopeAccount: Account): Promise<Result<Account[], Error>> {
+    const descendantsResult = await this.loadDescendantAccounts(scopeAccount.id, new Set([scopeAccount.id]));
+    if (descendantsResult.isErr()) return err(descendantsResult.error);
+
+    return ok([scopeAccount, ...descendantsResult.value]);
+  }
+
+  private async loadDescendantAccounts(
+    parentAccountId: number,
+    visited: Set<number>
+  ): Promise<Result<Account[], Error>> {
+    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(parentAccountId);
+    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
+
+    const descendants: Account[] = [];
+
+    for (const childAccount of childAccountsResult.value) {
+      if (visited.has(childAccount.id)) {
+        return err(
+          new Error(`Circular account hierarchy detected while loading descendants for account ${parentAccountId}`)
+        );
+      }
+
+      visited.add(childAccount.id);
+      descendants.push(childAccount);
+
+      const nestedDescendantsResult = await this.loadDescendantAccounts(childAccount.id, visited);
+      if (nestedDescendantsResult.isErr()) return err(nestedDescendantsResult.error);
+      descendants.push(...nestedDescendantsResult.value);
+    }
+
+    return ok(descendants);
   }
 
   private buildVerificationCoverage(
@@ -445,9 +486,7 @@ export class BalanceWorkflow {
   private async fetchBlockchainLiveBalance(
     scopeContext: BalanceScopeContext
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-    const childAccounts = scopeContext.memberAccounts.filter(
-      (account) => account.parentAccountId === scopeContext.scopeAccount.id
-    );
+    const childAccounts = scopeContext.memberAccounts.filter((account) => account.id !== scopeContext.scopeAccount.id);
     if (childAccounts.length > 0) {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
       return fetchChildAccountsBalance(
@@ -467,7 +506,7 @@ export class BalanceWorkflow {
 
   private async getExcludedAssetInfo(
     scopeContext: BalanceScopeContext
-  ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
+  ): Promise<Result<{ balanceAdjustments: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
@@ -477,7 +516,7 @@ export class BalanceWorkflow {
 
       const allSessions = sessionsResult.value;
       if (allSessions.length === 0 || !allSessions.some((s) => s.status === 'completed')) {
-        return ok({ amounts: {}, spamAssetIds: new Set() });
+        return ok({ balanceAdjustments: {}, spamAssetIds: new Set() });
       }
 
       const excludedTxResult: Result<UniversalTransactionData[], Error> =
@@ -602,21 +641,22 @@ export class BalanceWorkflow {
 
 // --- Pure helpers ------------------------------------------------------------
 
-function subtractExcludedAmounts(
+function applyExcludedBalanceAdjustments(
   liveBalances: Record<string, Decimal>,
-  excludedAmounts: Record<string, Decimal>
+  balanceAdjustments: Record<string, Decimal>
 ): Record<string, Decimal> {
   const adjusted = { ...liveBalances };
 
-  for (const [asset, excludedAmount] of Object.entries(excludedAmounts)) {
-    if (adjusted[asset]) {
-      const newBalance = adjusted[asset].minus(excludedAmount);
-      if (newBalance.lte(0)) {
-        delete adjusted[asset];
-      } else {
-        adjusted[asset] = newBalance;
-      }
+  for (const [asset, adjustment] of Object.entries(balanceAdjustments)) {
+    const currentBalance = adjusted[asset] ?? parseDecimal('0');
+    const nextBalance = currentBalance.minus(adjustment);
+
+    if (nextBalance.isZero()) {
+      delete adjusted[asset];
+      continue;
     }
+
+    adjusted[asset] = nextBalance;
   }
 
   return adjusted;
@@ -636,11 +676,11 @@ function removeAssetsById<T>(balances: Record<string, T>, assetIds: Set<string>)
  * Collect excluded asset amounts and spam assetIds from transactions.
  */
 function collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
-  amounts: Record<string, Decimal>;
+  balanceAdjustments: Record<string, Decimal>;
   spamAssetIds: Set<string>;
 } {
   const excludedTransactions = transactions.filter((tx) => tx.excludedFromAccounting === true);
-  const amounts: Record<string, Decimal> = {};
+  const balanceAdjustments: Record<string, Decimal> = {};
   const spamAssetIds = new Set<string>();
 
   const shouldMarkScamAsset = (assetId: string): boolean => {
@@ -667,14 +707,27 @@ function collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
       }
     }
 
-    // Only count inflows (received scam tokens)
     for (const inflow of tx.movements.inflows ?? []) {
-      const existing = amounts[inflow.assetId];
-      amounts[inflow.assetId] = existing ? existing.plus(inflow.grossAmount) : inflow.grossAmount;
+      const existing = balanceAdjustments[inflow.assetId] ?? parseDecimal('0');
+      balanceAdjustments[inflow.assetId] = existing.plus(inflow.grossAmount);
+    }
+
+    for (const outflow of tx.movements.outflows ?? []) {
+      const existing = balanceAdjustments[outflow.assetId] ?? parseDecimal('0');
+      balanceAdjustments[outflow.assetId] = existing.minus(outflow.grossAmount);
+    }
+
+    for (const fee of tx.fees ?? []) {
+      if (fee.settlement === 'on-chain') {
+        continue;
+      }
+
+      const existing = balanceAdjustments[fee.assetId] ?? parseDecimal('0');
+      balanceAdjustments[fee.assetId] = existing.minus(fee.amount);
     }
   }
 
-  return { amounts, spamAssetIds };
+  return { balanceAdjustments, spamAssetIds };
 }
 
 function toSnapshotVerificationStatus(status: 'success' | 'warning' | 'failed'): BalanceSnapshot['verificationStatus'] {

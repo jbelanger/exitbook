@@ -58,3 +58,8 @@ export { buildProcessedTransactionsResetPorts } from './adapters/processed-trans
 export { buildPriceCoverageDataPorts } from './adapters/transaction-price-coverage-adapter.js';
 export { buildBalancePorts } from './adapters/balance-ports-adapter.js';
 export { buildProcessingPorts } from './adapters/processing-ports-adapter.js';
+export {
+  resolveBalanceScopeAccountId,
+  resolveBalanceScopeAccountIds,
+  toBalanceScopeKey,
+} from './adapters/balance-scope-utils.js';

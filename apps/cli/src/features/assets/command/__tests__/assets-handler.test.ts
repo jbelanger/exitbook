@@ -1,5 +1,6 @@
 import type {
   AssetReviewSummary,
+  BalanceSnapshot,
   BalanceSnapshotAsset,
   Currency,
   OverrideEvent,
@@ -92,13 +93,66 @@ function createSnapshotAsset(
   };
 }
 
-function createMockDb(transactions: UniversalTransactionData[], snapshotAssets: BalanceSnapshotAsset[] = []) {
+function createSnapshot(scopeAccountId: number): BalanceSnapshot {
+  return {
+    scopeAccountId,
+    verificationStatus: 'match',
+    matchCount: 1,
+    warningCount: 0,
+    mismatchCount: 0,
+  };
+}
+
+function createMockDb(
+  transactions: UniversalTransactionData[],
+  snapshotAssets: BalanceSnapshotAsset[] = [],
+  options?: {
+    freshnessByScope?: Map<number, { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }>;
+  }
+) {
+  const snapshotRows = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))].map((scopeAccountId) =>
+    createSnapshot(scopeAccountId)
+  );
+
   return {
     transactions: {
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
     },
+    projectionState: {
+      get: vi.fn().mockImplementation(async (_projectionId: string, scopeKey: string) => {
+        const scopeAccountId = Number(scopeKey.replace('balance:', ''));
+        const freshness = options?.freshnessByScope?.get(scopeAccountId);
+        if (!freshness || freshness.status === 'fresh') {
+          return ok(undefined);
+        }
+
+        return ok({
+          projectionId: 'balances',
+          scopeKey,
+          status: freshness.status,
+          lastBuiltAt: undefined,
+          lastInvalidatedAt: undefined,
+          invalidatedBy: freshness.reason,
+          metadata: undefined,
+        });
+      }),
+    },
     balanceSnapshots: {
-      findAssetsByScope: vi.fn().mockResolvedValue(ok(snapshotAssets)),
+      findAssetsByScope: vi
+        .fn()
+        .mockImplementation(async (scopeAccountIds?: number[]) =>
+          ok(
+            scopeAccountIds
+              ? snapshotAssets.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
+              : snapshotAssets
+          )
+        ),
+      findSnapshot: vi
+        .fn()
+        .mockImplementation(async (scopeAccountId: number) =>
+          ok(snapshotRows.find((snapshot) => snapshot.scopeAccountId === scopeAccountId))
+        ),
+      findSnapshots: vi.fn().mockResolvedValue(ok(snapshotRows)),
     },
   };
 }
@@ -388,6 +442,55 @@ describe('AssetsHandler', () => {
     expect(value.assets[0]).toMatchObject({
       assetId,
       currentQuantity: '25',
+    });
+  });
+
+  it('returns an error when snapshot-backed holdings are stale', async () => {
+    const assetId = 'blockchain:ethereum:0xheld';
+    const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'HELD', '25')], {
+      freshnessByScope: new Map([[1, { status: 'stale', reason: 'upstream-import:processed-transactions' }]]),
+    });
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view();
+    const error = assertErr(result);
+
+    expect(error.message).toContain('Assets view requires fresh balance snapshots');
+    expect(error.message).toContain('balance refresh --account-id 1');
+  });
+
+  it('resolves symbols from snapshot-only holdings', async () => {
+    const assetId = 'blockchain:ethereum:0xdust';
+    const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'DUST', '2.5')]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    mockOverrideStore.append.mockResolvedValue(ok(undefined));
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.exclude({ symbol: 'dust' });
+    const value = assertOk(result);
+
+    expect(value.assetId).toBe(assetId);
+    expect(value.assetSymbols).toEqual(['DUST']);
+    expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      scope: 'asset-exclude',
+      payload: {
+        type: 'asset_exclude',
+        asset_id: assetId,
+      },
+      reason: undefined,
     });
   });
 

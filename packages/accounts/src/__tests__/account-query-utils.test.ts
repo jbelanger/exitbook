@@ -1,12 +1,7 @@
 import type { BalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import {
-  getBalanceScopeAccountId,
-  getVerificationStatus,
-  maskIdentifier,
-  toAccountSummary,
-} from '../account-query-utils.js';
+import { getVerificationStatus, maskIdentifier, toAccountSummary } from '../account-query-utils.js';
 
 import { createMockAccount } from './account-test-utils.js';
 
@@ -72,12 +67,6 @@ describe('account-query-utils', () => {
   });
 
   describe('toAccountSummary', () => {
-    it('uses the parent scope account id for child accounts', () => {
-      const child = createMockAccount({ id: 7, parentAccountId: 3 });
-
-      expect(getBalanceScopeAccountId(child)).toBe(3);
-    });
-
     it('formats an account with masked identifiers and ISO timestamps', () => {
       const account = createMockAccount({
         id: 42,

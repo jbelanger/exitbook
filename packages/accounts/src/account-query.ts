@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
-import { getBalanceScopeAccountId, toAccountSummary } from './account-query-utils.js';
+import { toAccountSummary } from './account-query-utils.js';
 import type { AccountQueryPorts } from './ports/account-query-ports.js';
 
 export type { AccountListResult, AccountQueryParams, AccountSummary, SessionSummary } from './account-query-utils.js';
@@ -59,10 +59,16 @@ export class AccountQuery {
         return err(balanceSnapshotsResult.error);
       }
 
+      const scopeAccountIdsResult = await this.resolveScopeAccountIds(accounts);
+      if (scopeAccountIdsResult.isErr()) {
+        return err(scopeAccountIdsResult.error);
+      }
+
       const formattedAccounts = await this.formatAccountsWithHierarchy(
         accounts,
         sessionCounts,
-        balanceSnapshotsResult.value
+        balanceSnapshotsResult.value,
+        scopeAccountIdsResult.value
       );
       if (formattedAccounts.isErr()) {
         return err(formattedAccounts.error);
@@ -120,6 +126,11 @@ export class AccountQuery {
         return err(balanceSnapshotsResult.error);
       }
 
+      const scopeAccountIdsResult = await this.resolveScopeAccountIds([account, ...childAccountsResult.value]);
+      if (scopeAccountIdsResult.isErr()) {
+        return err(scopeAccountIdsResult.error);
+      }
+
       let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCount;
 
@@ -138,7 +149,7 @@ export class AccountQuery {
             toAccountSummary(
               child,
               childSessionCount,
-              balanceSnapshotsResult.value.get(getBalanceScopeAccountId(child))
+              balanceSnapshotsResult.value.get(scopeAccountIdsResult.value.get(child.id) ?? child.id)
             )
           );
         }
@@ -148,7 +159,7 @@ export class AccountQuery {
         toAccountSummary(
           account,
           totalSessionCount,
-          balanceSnapshotsResult.value.get(getBalanceScopeAccountId(account)),
+          balanceSnapshotsResult.value.get(scopeAccountIdsResult.value.get(account.id) ?? account.id),
           formattedChildren
         )
       );
@@ -225,23 +236,27 @@ export class AccountQuery {
   }
 
   private async fetchBalanceSnapshots(accounts: Account[]): Promise<Result<Map<number, BalanceSnapshot>, Error>> {
-    const scopeAccountIds = [...new Set(accounts.map((account) => getBalanceScopeAccountId(account)))];
+    const scopeAccountIdsResult = await this.resolveScopeAccountIds(accounts);
+    if (scopeAccountIdsResult.isErr()) {
+      return err(scopeAccountIdsResult.error);
+    }
+
+    const scopeAccountIds = [...new Set(scopeAccountIdsResult.value.values())];
     return this.ports.balanceSnapshots.findSnapshots(scopeAccountIds);
   }
 
   private async formatAccountsWithHierarchy(
     accounts: Account[],
     sessionCounts: Map<number, number> | undefined,
-    balanceSnapshots: Map<number, BalanceSnapshot>
+    balanceSnapshots: Map<number, BalanceSnapshot>,
+    scopeAccountIds: Map<number, number>
   ): Promise<Result<AccountSummary[], Error>> {
     const formatted: AccountSummary[] = [];
 
     for (const account of accounts) {
       if (account.parentAccountId && accounts.length === 1) {
         const sessionCount = sessionCounts?.get(account.id) ?? 0;
-        formatted.push(
-          toAccountSummary(account, sessionCount, balanceSnapshots.get(getBalanceScopeAccountId(account)))
-        );
+        formatted.push(toAccountSummary(account, sessionCount, balanceSnapshots.get(scopeAccountIds.get(account.id))));
         continue;
       }
 
@@ -265,7 +280,7 @@ export class AccountQuery {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
           totalSessionCount += childSessionCount;
           formattedChildren.push(
-            toAccountSummary(child, childSessionCount, balanceSnapshots.get(getBalanceScopeAccountId(child)))
+            toAccountSummary(child, childSessionCount, balanceSnapshots.get(scopeAccountIds.get(child.id)))
           );
         }
       }
@@ -274,13 +289,69 @@ export class AccountQuery {
         toAccountSummary(
           account,
           totalSessionCount,
-          balanceSnapshots.get(getBalanceScopeAccountId(account)),
+          balanceSnapshots.get(scopeAccountIds.get(account.id)),
           formattedChildren
         )
       );
     }
 
     return ok(formatted);
+  }
+
+  private async resolveScopeAccountIds(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
+    const scopeAccountIds = new Map<number, number>();
+
+    for (const account of accounts) {
+      const scopeAccountIdResult = await this.resolveScopeAccountId(account, scopeAccountIds, new Set<number>());
+      if (scopeAccountIdResult.isErr()) {
+        return err(scopeAccountIdResult.error);
+      }
+
+      scopeAccountIds.set(account.id, scopeAccountIdResult.value);
+    }
+
+    return ok(scopeAccountIds);
+  }
+
+  private async resolveScopeAccountId(
+    account: Pick<Account, 'id' | 'parentAccountId'>,
+    cache: Map<number, number>,
+    visited: Set<number>
+  ): Promise<Result<number, Error>> {
+    const cached = cache.get(account.id);
+    if (cached !== undefined) {
+      return ok(cached);
+    }
+
+    if (visited.has(account.id)) {
+      return err(
+        new Error(`Circular account hierarchy detected while resolving balance scope for account ${account.id}`)
+      );
+    }
+    visited.add(account.id);
+
+    if (!account.parentAccountId) {
+      cache.set(account.id, account.id);
+      return ok(account.id);
+    }
+
+    const parentAccountResult = await this.ports.accounts.findById(account.parentAccountId);
+    if (parentAccountResult.isErr()) {
+      return err(parentAccountResult.error);
+    }
+
+    const parentAccount = parentAccountResult.value;
+    if (!parentAccount) {
+      return err(new Error(`Account ${account.parentAccountId} not found while resolving balance scope`));
+    }
+
+    const rootAccountIdResult = await this.resolveScopeAccountId(parentAccount, cache, visited);
+    if (rootAccountIdResult.isErr()) {
+      return err(rootAccountIdResult.error);
+    }
+
+    cache.set(account.id, rootAccountIdResult.value);
+    return ok(rootAccountIdResult.value);
   }
 
   private countDisplayedAccounts(accounts: AccountSummary[]): number {
