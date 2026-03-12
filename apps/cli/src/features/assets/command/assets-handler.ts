@@ -19,8 +19,9 @@ import {
 } from '@exitbook/data';
 
 import {
+  ensureAssetReviewProjectionFresh,
   invalidateAssetReviewProjection,
-  readAssetReviewProjection,
+  readAssetReviewProjectionSummaries,
 } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
@@ -253,7 +254,7 @@ export class AssetsHandler {
       return err(invalidateResult.error);
     }
 
-    const refreshedSummaryResult = await readAssetReviewProjection(this.db, this.dataDir, [assetId]);
+    const refreshedSummaryResult = await this.readFreshReviewSummaries([assetId]);
     if (refreshedSummaryResult.isErr()) {
       return err(refreshedSummaryResult.error);
     }
@@ -320,7 +321,7 @@ export class AssetsHandler {
       return err(invalidateResult.error);
     }
 
-    const refreshedSummaryResult = await readAssetReviewProjection(this.db, this.dataDir, [assetId]);
+    const refreshedSummaryResult = await this.readFreshReviewSummaries([assetId]);
     if (refreshedSummaryResult.isErr()) {
       return err(refreshedSummaryResult.error);
     }
@@ -425,6 +426,15 @@ export class AssetsHandler {
     });
   }
 
+  private async readFreshReviewSummaries(assetIds?: string[]): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
+    const freshProjectionResult = await ensureAssetReviewProjectionFresh(this.db, this.dataDir);
+    if (freshProjectionResult.isErr()) {
+      return err(freshProjectionResult.error);
+    }
+
+    return readAssetReviewProjectionSummaries(this.db, assetIds);
+  }
+
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {
     const appendResult = await this.overrideStore.append(options);
     if (appendResult.isErr()) {
@@ -455,7 +465,7 @@ export class AssetsHandler {
       return err(reviewDecisionsResult.error);
     }
 
-    const reviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
+    const reviewSummariesResult = await this.readFreshReviewSummaries();
     if (reviewSummariesResult.isErr()) {
       return err(reviewSummariesResult.error);
     }

@@ -11,7 +11,10 @@ import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
+import {
+  ensureAssetReviewProjectionFresh,
+  readAssetReviewProjectionSummaries,
+} from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
@@ -44,7 +47,12 @@ export class CostBasisHandler {
       const txResult = await this.db.transactions.findAll();
       if (txResult.isErr()) return err(txResult.error);
 
-      const assetReviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
+      const freshProjectionResult = await ensureAssetReviewProjectionFresh(this.db, this.dataDir);
+      if (freshProjectionResult.isErr()) {
+        return err(freshProjectionResult.error);
+      }
+
+      const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
       if (assetReviewSummariesResult.isErr()) {
         return err(assetReviewSummariesResult.error);
       }

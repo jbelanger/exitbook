@@ -4,7 +4,10 @@ import type { DataContext } from '@exitbook/data';
 import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
+import {
+  ensureAssetReviewProjectionFresh,
+  readAssetReviewProjectionSummaries,
+} from '../../shared/asset-review-projection-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
@@ -26,7 +29,8 @@ vi.mock('../../shared/data-dir.js', () => ({
 }));
 
 vi.mock('../../shared/asset-review-projection-runtime.js', () => ({
-  readAssetReviewProjection: vi.fn(),
+  ensureAssetReviewProjectionFresh: vi.fn(),
+  readAssetReviewProjectionSummaries: vi.fn(),
 }));
 
 describe('CostBasisHandler', () => {
@@ -66,7 +70,8 @@ describe('CostBasisHandler', () => {
       return { execute: mockWorkflowExecute } as unknown as CostBasisWorkflow;
     } as unknown as typeof CostBasisWorkflow);
 
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(ok(new Map()));
+    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
     handler = new CostBasisHandler(mockDb, '/tmp/test-data');
   });

@@ -15,15 +15,26 @@ import { DataContext, OverrideStore } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { findLatestAssetReviewExternalInputAt } from '../asset-review-external-input-freshness.js';
-import { readAssetReviewProjection } from '../asset-review-projection-runtime.js';
+import {
+  ensureAssetReviewProjectionFresh,
+  readAssetReviewProjectionSummaries,
+} from '../asset-review-projection-runtime.js';
 
 describe('asset-review-projection-runtime', () => {
   let dataDir: string;
   let db: DataContext;
   let tokenMetadataDb: TokenMetadataDB;
   let tokenMetadataQueries: ReturnType<typeof createTokenMetadataQueries>;
+  let originalCoinGeckoApiKey: string | undefined;
+  let originalCoinGeckoUseProApi: string | undefined;
 
   beforeEach(async () => {
+    originalCoinGeckoApiKey = process.env['COINGECKO_API_KEY'];
+    originalCoinGeckoUseProApi = process.env['COINGECKO_USE_PRO_API'];
+    // Keep projection tests offline even when the workspace test runner loads .env.
+    delete process.env['COINGECKO_API_KEY'];
+    delete process.env['COINGECKO_USE_PRO_API'];
+
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-03-10T00:00:00.000Z'));
 
@@ -81,6 +92,18 @@ describe('asset-review-projection-runtime', () => {
     assertOk(await db.close());
     assertOk(await closeTokenMetadataDatabase(tokenMetadataDb));
     rmSync(dataDir, { recursive: true, force: true });
+
+    if (originalCoinGeckoApiKey === undefined) {
+      delete process.env['COINGECKO_API_KEY'];
+    } else {
+      process.env['COINGECKO_API_KEY'] = originalCoinGeckoApiKey;
+    }
+
+    if (originalCoinGeckoUseProApi === undefined) {
+      delete process.env['COINGECKO_USE_PRO_API'];
+    } else {
+      process.env['COINGECKO_USE_PRO_API'] = originalCoinGeckoUseProApi;
+    }
   });
 
   it('includes asset-review overrides in the external freshness timestamp', async () => {
@@ -105,7 +128,8 @@ describe('asset-review-projection-runtime', () => {
 
   it('rebuilds a fresh projection when token metadata changes after the last build', async () => {
     vi.setSystemTime(new Date('2026-03-10T00:05:00.000Z'));
-    const initialProjection = assertOk(await readAssetReviewProjection(db, dataDir));
+    assertOk(await ensureAssetReviewProjectionFresh(db, dataDir));
+    const initialProjection = assertOk(await readAssetReviewProjectionSummaries(db));
 
     expect(initialProjection.get('blockchain:ethereum:0xscam')).toMatchObject({
       reviewStatus: 'clear',
@@ -125,7 +149,8 @@ describe('asset-review-projection-runtime', () => {
     );
 
     vi.setSystemTime(new Date('2026-03-10T00:15:00.000Z'));
-    const refreshedProjection = assertOk(await readAssetReviewProjection(db, dataDir, ['blockchain:ethereum:0xscam']));
+    assertOk(await ensureAssetReviewProjectionFresh(db, dataDir));
+    const refreshedProjection = assertOk(await readAssetReviewProjectionSummaries(db, ['blockchain:ethereum:0xscam']));
     const refreshedSummary = refreshedProjection.get('blockchain:ethereum:0xscam');
 
     expect(refreshedSummary).toMatchObject({

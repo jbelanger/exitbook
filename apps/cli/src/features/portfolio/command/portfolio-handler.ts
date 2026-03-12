@@ -29,7 +29,10 @@ import { createDefaultPriceProviderManager, type PriceProviderManager } from '@e
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { readAssetReviewProjection } from '../../shared/asset-review-projection-runtime.js';
+import {
+  ensureAssetReviewProjectionFresh,
+  readAssetReviewProjectionSummaries,
+} from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -123,7 +126,12 @@ export class PortfolioHandler {
       }
 
       const allTransactions = txResult.value;
-      const assetReviewSummariesResult = await readAssetReviewProjection(this.db, this.dataDir);
+      const freshProjectionResult = await ensureAssetReviewProjectionFresh(this.db, this.dataDir);
+      if (freshProjectionResult.isErr()) {
+        return err(freshProjectionResult.error);
+      }
+
+      const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
       if (assetReviewSummariesResult.isErr()) {
         return err(assetReviewSummariesResult.error);
       }

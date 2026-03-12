@@ -11,14 +11,16 @@ import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  ensureAssetReviewProjectionFresh,
   invalidateAssetReviewProjection,
-  readAssetReviewProjection,
+  readAssetReviewProjectionSummaries,
 } from '../../../shared/asset-review-projection-runtime.js';
 import { AssetsHandler } from '../assets-handler.js';
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
+  ensureAssetReviewProjectionFresh: vi.fn(),
   invalidateAssetReviewProjection: vi.fn(),
-  readAssetReviewProjection: vi.fn(),
+  readAssetReviewProjectionSummaries: vi.fn(),
 }));
 
 function createTransaction(params: {
@@ -153,7 +155,8 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
 describe('AssetsHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(ok(new Map()));
+    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
     vi.mocked(invalidateAssetReviewProjection).mockResolvedValue(ok(undefined));
   });
 
@@ -325,7 +328,7 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(
       ok(
         new Map([
           [scamAssetId, createAssetReviewSummary(scamAssetId)],
@@ -403,7 +406,7 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(
       ok(
         new Map([
           [
@@ -467,7 +470,7 @@ describe('AssetsHandler', () => {
 
       return Promise.resolve(ok([]));
     });
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(
       ok(
         new Map([
           [
@@ -509,7 +512,7 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
-    vi.mocked(readAssetReviewProjection)
+    vi.mocked(readAssetReviewProjectionSummaries)
       .mockResolvedValueOnce(ok(new Map([[scamAssetId, reviewSummary]])))
       .mockResolvedValueOnce(
         ok(
@@ -578,7 +581,7 @@ describe('AssetsHandler', () => {
 
       return Promise.resolve(ok([]));
     });
-    vi.mocked(readAssetReviewProjection)
+    vi.mocked(readAssetReviewProjectionSummaries)
       .mockResolvedValueOnce(ok(new Map([[scamAssetId, reviewSummary]])))
       .mockResolvedValueOnce(
         ok(

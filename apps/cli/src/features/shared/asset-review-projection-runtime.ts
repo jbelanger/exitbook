@@ -6,11 +6,7 @@ import { AssetReviewProjectionWorkflow } from '@exitbook/ingestion';
 import { findLatestAssetReviewExternalInputAt } from './asset-review-external-input-freshness.js';
 import { openAssetReviewProjectionSupport } from './asset-review-projection-support.js';
 
-export async function readAssetReviewProjection(
-  db: DataContext,
-  dataDir: string,
-  assetIds?: string[]
-): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
+export async function ensureAssetReviewProjectionFresh(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
   const freshnessResult = await buildAssetReviewFreshnessPorts(db).checkFreshness();
   if (freshnessResult.isErr()) {
     return err(freshnessResult.error);
@@ -33,6 +29,13 @@ export async function readAssetReviewProjection(
     }
   }
 
+  return ok(undefined);
+}
+
+export async function readAssetReviewProjectionSummaries(
+  db: DataContext,
+  assetIds?: string[]
+): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
   if (assetIds && assetIds.length === 0) {
     return ok(new Map());
   }

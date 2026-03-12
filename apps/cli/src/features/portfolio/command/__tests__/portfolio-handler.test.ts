@@ -14,7 +14,10 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { readAssetReviewProjection } from '../../../shared/asset-review-projection-runtime.js';
+import {
+  ensureAssetReviewProjectionFresh,
+  readAssetReviewProjectionSummaries,
+} from '../../../shared/asset-review-projection-runtime.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
 vi.mock('@exitbook/accounting', async () => {
@@ -58,7 +61,8 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
-  readAssetReviewProjection: vi.fn(),
+  ensureAssetReviewProjectionFresh: vi.fn(),
+  readAssetReviewProjectionSummaries: vi.fn(),
 }));
 
 function createTransaction(): UniversalTransactionData {
@@ -136,6 +140,9 @@ describe('PortfolioHandler', () => {
     vi.mocked(buildCostBasisPorts).mockReturnValue({
       loadCostBasisContext: vi.fn().mockResolvedValue(ok({ confirmedLinks: [] })),
     } as never);
+
+    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
     vi.mocked(getCostBasisRebuildTransactions).mockReturnValue(
       ok({ missingPricesCount: 0, rebuildTransactions: [tx] })
@@ -292,7 +299,7 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    vi.mocked(readAssetReviewProjection).mockResolvedValue(ok(new Map()));
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
     handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data');
   });
