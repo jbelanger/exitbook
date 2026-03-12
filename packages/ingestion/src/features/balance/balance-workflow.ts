@@ -38,13 +38,22 @@ export interface BalanceParams {
   credentials?: ExchangeCredentials | undefined;
 }
 
+export interface BalanceScopeContext {
+  memberAccounts: Account[];
+  requestedAccount: Account;
+  scopeAccount: Account;
+}
+
+export interface BalanceRebuildResult {
+  assetCount: number;
+  requestedAccount: Account;
+  scopeAccount: Account;
+}
+
 export type { BalanceComparison, BalanceVerificationResult };
 
 /**
- * Compare live vs calculated balances and persist a balance snapshot.
- *
- * Fetches live balances from providers, calculates from stored transactions,
- * compares, and writes snapshot rows to the balance projection.
+ * Rebuild and refresh persisted balance snapshots for a scope.
  */
 export class BalanceWorkflow {
   constructor(
@@ -53,25 +62,67 @@ export class BalanceWorkflow {
   ) {}
 
   /**
-   * Verify balance for a single account: fetch live -> calculate from transactions ->
-   * subtract scam tokens -> compare -> persist results.
+   * Rebuild the calculated-only balance snapshot for the requested scope.
    */
-  async verifyBalance(params: BalanceParams): Promise<Result<BalanceVerificationResult, Error>> {
-    try {
-      // 1. Fetch the account
-      const accountResult = await this.ports.accountLookup.findById(params.accountId);
-      if (accountResult.isErr()) return err(accountResult.error);
-      if (!accountResult.value) return err(new Error(`No account found with ID ${params.accountId}`));
+  async rebuildCalculatedSnapshot(params: BalanceParams): Promise<Result<BalanceRebuildResult, Error>> {
+    const scopeContextResult = await this.loadBalanceScopeContext(params.accountId);
+    if (scopeContextResult.isErr()) return err(scopeContextResult.error);
 
-      const account = accountResult.value;
-      logger.info(`Verifying balance for account ${account.id}: ${account.sourceName} (${account.accountType})`);
+    const scopeContext = scopeContextResult.value;
+    logger.info(
+      {
+        requestedAccountId: scopeContext.requestedAccount.id,
+        scopeAccountId: scopeContext.scopeAccount.id,
+        sourceName: scopeContext.scopeAccount.sourceName,
+      },
+      'Rebuilding calculated balance snapshot'
+    );
 
-      // 2. Fetch live balance from source
-      const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
-      const liveBalanceResult = isExchange
-        ? await this.fetchExchangeLiveBalance(account, params.credentials)
-        : await this.fetchBlockchainLiveBalance(account);
+    return this.runScopeProjection(
+      scopeContext.scopeAccount.id,
+      'Failed to rebuild calculated balance snapshot',
+      async () => {
+        const calculatedResult = await this.calculateBalancesFromTransactions(scopeContext);
+        if (calculatedResult.isErr()) return err(calculatedResult.error);
 
+        const persistResult = await this.persistCalculatedSnapshot(scopeContext, calculatedResult.value);
+        if (persistResult.isErr()) return err(persistResult.error);
+
+        return ok({
+          requestedAccount: scopeContext.requestedAccount,
+          scopeAccount: scopeContext.scopeAccount,
+          assetCount: Object.keys(calculatedResult.value.balances).length,
+        });
+      }
+    );
+  }
+
+  /**
+   * Refresh live balance verification for the requested scope.
+   */
+  async refreshVerification(params: BalanceParams): Promise<Result<BalanceVerificationResult, Error>> {
+    const scopeContextResult = await this.loadBalanceScopeContext(params.accountId);
+    if (scopeContextResult.isErr()) return err(scopeContextResult.error);
+
+    const scopeContext = scopeContextResult.value;
+    logger.info(
+      {
+        requestedAccountId: scopeContext.requestedAccount.id,
+        scopeAccountId: scopeContext.scopeAccount.id,
+        sourceName: scopeContext.scopeAccount.sourceName,
+        accountType: scopeContext.scopeAccount.accountType,
+      },
+      'Refreshing balance verification'
+    );
+
+    return this.runScopeProjection(scopeContext.scopeAccount.id, 'Failed to refresh balance verification', async () => {
+      const calculatedResult = await this.calculateBalancesFromTransactions(scopeContext);
+      if (calculatedResult.isErr()) return err(calculatedResult.error);
+
+      const persistCalculatedResult = await this.persistCalculatedSnapshot(scopeContext, calculatedResult.value);
+      if (persistCalculatedResult.isErr()) return err(persistCalculatedResult.error);
+
+      const liveBalanceResult = await this.fetchLiveBalance(scopeContext, params.credentials);
       if (liveBalanceResult.isErr()) return err(liveBalanceResult.error);
 
       const liveSnapshot = liveBalanceResult.value;
@@ -84,65 +135,46 @@ export class BalanceWorkflow {
 
       let liveBalances = parseResult.balances;
       let liveAssetMetadata = liveSnapshot.assetMetadata;
-
-      // 3. Calculate balance from transactions
-      const calculatedResult = await this.calculateBalancesFromTransactions(account);
-      if (calculatedResult.isErr()) return err(calculatedResult.error);
-
       let { balances: calculatedBalances, assetMetadata: calculatedAssetMetadata } = calculatedResult.value;
 
-      // 4. Subtract scam tokens from live balance
-      const excludedInfoResult = await this.getExcludedAssetInfo(account);
+      const excludedInfoResult = await this.getExcludedAssetInfo(scopeContext);
       if (excludedInfoResult.isErr()) return err(excludedInfoResult.error);
 
       const { amounts: excludedAmounts, spamAssetIds } = excludedInfoResult.value;
       if (Object.keys(excludedAmounts).length > 0) {
         const excludedAssets = Object.keys(excludedAmounts);
         logger.info(
-          `Subtracting excluded amounts from live balance for ${excludedAssets.length} assets: ${excludedAssets.join(', ')}`
+          {
+            scopeAccountId: scopeContext.scopeAccount.id,
+            excludedAssets,
+          },
+          'Subtracting excluded amounts from live balance'
         );
         liveBalances = subtractExcludedAmounts(liveBalances, excludedAmounts);
       }
 
       if (spamAssetIds.size > 0) {
-        logger.info(`Filtering ${spamAssetIds.size} scam assets from balance comparison`);
+        logger.info(
+          { scopeAccountId: scopeContext.scopeAccount.id, spamAssetCount: spamAssetIds.size },
+          'Filtering scam assets from balance comparison'
+        );
         liveBalances = removeAssetsById(liveBalances, spamAssetIds);
         calculatedBalances = removeAssetsById(calculatedBalances, spamAssetIds);
         liveAssetMetadata = removeAssetsById(liveAssetMetadata, spamAssetIds);
         calculatedAssetMetadata = removeAssetsById(calculatedAssetMetadata, spamAssetIds);
       }
 
-      // 5. Compare balances
       const mergedAssetMetadata = { ...calculatedAssetMetadata, ...liveAssetMetadata };
       const comparisons = compareBalances(calculatedBalances, liveBalances, mergedAssetMetadata);
 
       const warnings: string[] = [];
       this.appendPartialCoverageWarnings(warnings, coverage);
+      this.appendTokenCoverageWarnings(warnings, scopeContext.scopeAccount);
 
-      if (!isExchange) {
-        const providers = this.providerManager.getProviders(account.sourceName);
-        const supportsTokenBalances = providers.some((p) =>
-          p.capabilities.supportedOperations.includes('getAddressTokenBalances')
-        );
-        const supportsTokenTransactions = providers.some((p) => {
-          if (!p.capabilities.supportedOperations.includes('getAddressTransactions')) return false;
-          return p.capabilities.supportedTransactionTypes?.includes('token') ?? false;
-        });
-
-        if (supportsTokenTransactions && !supportsTokenBalances) {
-          warnings.push(
-            `Token balances are not available for ${account.sourceName}. Live balance includes native assets only; token mismatches may be false negatives.`
-          );
-        }
-      }
-
-      // 6. Get last import timestamp for suggestion generation
-      const lastImportTimestamp = await this.getLastImportTimestamp(account);
-
-      // 7. Assemble verification result
+      const lastImportTimestamp = await this.getLastImportTimestamp(scopeContext);
       const hasTransactions = Object.keys(calculatedBalances).length > 0;
       const verificationResult = createVerificationResult(
-        account,
+        scopeContext.scopeAccount,
         comparisons,
         lastImportTimestamp,
         hasTransactions,
@@ -151,9 +183,8 @@ export class BalanceWorkflow {
         partialFailures.length > 0 ? partialFailures : undefined
       );
 
-      // 8. Persist snapshot rows
-      const persistResult = await this.persistSnapshot(
-        account,
+      const persistVerifiedResult = await this.persistVerifiedSnapshot(
+        scopeContext,
         calculatedBalances,
         comparisons,
         verificationResult.status,
@@ -161,18 +192,88 @@ export class BalanceWorkflow {
         warnings.length > 0 ? warnings : undefined,
         verificationResult.suggestion
       );
-
-      if (persistResult.isErr()) {
-        return err(persistResult.error);
-      }
+      if (persistVerifiedResult.isErr()) return err(persistVerifiedResult.error);
 
       return ok(verificationResult);
-    } catch (error) {
-      return wrapError(error, 'Failed to verify balance');
-    }
+    });
   }
 
   // --- Private helpers -------------------------------------------------------
+
+  private async runScopeProjection<T>(
+    scopeAccountId: number,
+    errorMessage: string,
+    operation: () => Promise<Result<T, Error>>
+  ): Promise<Result<T, Error>> {
+    const buildingResult = await this.ports.projectionState.markBuilding(scopeAccountId);
+    if (buildingResult.isErr()) return err(buildingResult.error);
+
+    try {
+      const operationResult = await operation();
+      if (operationResult.isErr()) {
+        await this.markScopeFailed(scopeAccountId, operationResult.error);
+        return err(operationResult.error);
+      }
+
+      const freshResult = await this.ports.projectionState.markFresh(scopeAccountId);
+      if (freshResult.isErr()) {
+        await this.markScopeFailed(scopeAccountId, freshResult.error);
+        return err(freshResult.error);
+      }
+
+      return ok(operationResult.value);
+    } catch (error) {
+      const wrappedError = wrapUnknownError(error, errorMessage);
+      await this.markScopeFailed(scopeAccountId, wrappedError);
+      return err(wrappedError);
+    }
+  }
+
+  private async markScopeFailed(scopeAccountId: number, cause: Error): Promise<void> {
+    const failedResult = await this.ports.projectionState.markFailed(scopeAccountId);
+    if (failedResult.isErr()) {
+      logger.warn(
+        { scopeAccountId, cause, projectionStateError: failedResult.error },
+        'Failed to mark balance scope projection as failed'
+      );
+    }
+  }
+
+  private async loadBalanceScopeContext(accountId: number): Promise<Result<BalanceScopeContext, Error>> {
+    const requestedAccountResult = await this.ports.accountLookup.findById(accountId);
+    if (requestedAccountResult.isErr()) return err(requestedAccountResult.error);
+    if (!requestedAccountResult.value) return err(new Error(`No account found with ID ${accountId}`));
+
+    const requestedAccount = requestedAccountResult.value;
+
+    if (requestedAccount.parentAccountId) {
+      const scopeAccountResult = await this.ports.accountLookup.findById(requestedAccount.parentAccountId);
+      if (scopeAccountResult.isErr()) return err(scopeAccountResult.error);
+      if (!scopeAccountResult.value) {
+        return err(
+          new Error(`Scope account ${requestedAccount.parentAccountId} not found for account ${requestedAccount.id}`)
+        );
+      }
+
+      const childAccountsResult = await this.ports.accountLookup.findChildAccounts(scopeAccountResult.value.id);
+      if (childAccountsResult.isErr()) return err(childAccountsResult.error);
+
+      return ok({
+        requestedAccount,
+        scopeAccount: scopeAccountResult.value,
+        memberAccounts: [scopeAccountResult.value, ...childAccountsResult.value],
+      });
+    }
+
+    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(requestedAccount.id);
+    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
+
+    return ok({
+      requestedAccount,
+      scopeAccount: requestedAccount,
+      memberAccounts: [requestedAccount, ...childAccountsResult.value],
+    });
+  }
 
   private buildVerificationCoverage(
     liveSnapshot: UnifiedBalanceSnapshot,
@@ -228,17 +329,32 @@ export class BalanceWorkflow {
     }
   }
 
-  private async getLastImportTimestamp(account: Account): Promise<number | undefined> {
-    try {
-      const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
-      if (childAccountsResult.isErr()) {
-        logger.warn(`Failed to fetch child accounts: ${childAccountsResult.error.message}`);
-        return undefined;
-      }
+  private appendTokenCoverageWarnings(warnings: string[], account: Account): void {
+    if (account.accountType === 'exchange-api' || account.accountType === 'exchange-csv') {
+      return;
+    }
 
-      const accountIds = [account.id, ...childAccountsResult.value.map((child) => child.id)];
-      const sessionsResult: Result<ImportSession[], Error> =
-        await this.ports.importSessionLookup.findByAccountIds(accountIds);
+    const providers = this.providerManager.getProviders(account.sourceName);
+    const supportsTokenBalances = providers.some((p) =>
+      p.capabilities.supportedOperations.includes('getAddressTokenBalances')
+    );
+    const supportsTokenTransactions = providers.some((p) => {
+      if (!p.capabilities.supportedOperations.includes('getAddressTransactions')) return false;
+      return p.capabilities.supportedTransactionTypes?.includes('token') ?? false;
+    });
+
+    if (supportsTokenTransactions && !supportsTokenBalances) {
+      warnings.push(
+        `Token balances are not available for ${account.sourceName}. Live balance includes native assets only; token mismatches may be false negatives.`
+      );
+    }
+  }
+
+  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<number | undefined> {
+    try {
+      const sessionsResult: Result<ImportSession[], Error> = await this.ports.importSessionLookup.findByAccountIds(
+        scopeContext.memberAccounts.map((account) => account.id)
+      );
 
       if (sessionsResult.isErr()) {
         logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
@@ -261,12 +377,10 @@ export class BalanceWorkflow {
   }
 
   private async calculateBalancesFromTransactions(
-    account: Account
+    scopeContext: BalanceScopeContext
   ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
-      const accountIdsResult = await this.resolveAccountScope(account);
-      if (accountIdsResult.isErr()) return err(accountIdsResult.error);
-      const accountIds = accountIdsResult.value;
+      const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
       const sessionsResult: Result<ImportSession[], Error> =
         await this.ports.importSessionLookup.findByAccountIds(accountIds);
@@ -274,11 +388,11 @@ export class BalanceWorkflow {
 
       const allSessions = sessionsResult.value;
       if (allSessions.length === 0) {
-        return err(new Error(`No import sessions found for ${account.sourceName}`));
+        return err(new Error(`No import sessions found for ${scopeContext.scopeAccount.sourceName}`));
       }
 
       if (!allSessions.some((s) => s.status === 'completed')) {
-        return err(new Error(`No completed import session found for ${account.sourceName}`));
+        return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.sourceName}`));
       }
 
       const transactionsResult: Result<UniversalTransactionData[], Error> =
@@ -289,15 +403,17 @@ export class BalanceWorkflow {
 
       const allTransactions = transactionsResult.value;
       if (allTransactions.length === 0) {
-        logger.warn(`No transactions found for ${account.sourceName} - calculated balance will be empty`);
+        logger.warn(
+          `No transactions found for ${scopeContext.scopeAccount.sourceName} - calculated balance will be empty`
+        );
         return ok({ balances: {}, assetMetadata: {} });
       }
 
       const childAccountCount = accountIds.length - 1;
       const accountInfo =
         childAccountCount > 0
-          ? `${account.sourceName} (parent + ${childAccountCount} child accounts)`
-          : account.sourceName;
+          ? `${scopeContext.scopeAccount.sourceName} (parent + ${childAccountCount} child accounts)`
+          : scopeContext.scopeAccount.sourceName;
       logger.info(
         `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
       );
@@ -326,27 +442,34 @@ export class BalanceWorkflow {
     return fetchExchangeBalance(clientResult.value, account.sourceName);
   }
 
-  private async fetchBlockchainLiveBalance(account: Account): Promise<Result<UnifiedBalanceSnapshot, Error>> {
-    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
-    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
-
-    const childAccounts = childAccountsResult.value;
-
+  private async fetchBlockchainLiveBalance(
+    scopeContext: BalanceScopeContext
+  ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
+    const childAccounts = scopeContext.memberAccounts.filter(
+      (account) => account.parentAccountId === scopeContext.scopeAccount.id
+    );
     if (childAccounts.length > 0) {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
-      return fetchChildAccountsBalance(this.providerManager, account.sourceName, account.identifier, childAccounts);
+      return fetchChildAccountsBalance(
+        this.providerManager,
+        scopeContext.scopeAccount.sourceName,
+        scopeContext.scopeAccount.identifier,
+        childAccounts
+      );
     }
 
-    return fetchBlockchainBalance(this.providerManager, account.sourceName, account.identifier);
+    return fetchBlockchainBalance(
+      this.providerManager,
+      scopeContext.scopeAccount.sourceName,
+      scopeContext.scopeAccount.identifier
+    );
   }
 
   private async getExcludedAssetInfo(
-    account: Account
+    scopeContext: BalanceScopeContext
   ): Promise<Result<{ amounts: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
-      const accountIdsResult = await this.resolveAccountScope(account);
-      if (accountIdsResult.isErr()) return err(accountIdsResult.error);
-      const accountIds = accountIdsResult.value;
+      const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
       const sessionsResult: Result<ImportSession[], Error> =
         await this.ports.importSessionLookup.findByAccountIds(accountIds);
@@ -370,8 +493,55 @@ export class BalanceWorkflow {
     }
   }
 
-  private async persistSnapshot(
-    account: Account,
+  private async fetchLiveBalance(
+    scopeContext: BalanceScopeContext,
+    credentials?: ExchangeCredentials
+  ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
+    const account = scopeContext.scopeAccount;
+    const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
+    return isExchange
+      ? this.fetchExchangeLiveBalance(account, credentials)
+      : this.fetchBlockchainLiveBalance(scopeContext);
+  }
+
+  private async persistCalculatedSnapshot(
+    scopeContext: BalanceScopeContext,
+    calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> }
+  ): Promise<Result<void, Error>> {
+    try {
+      const now = new Date();
+      const snapshot: BalanceSnapshot = {
+        scopeAccountId: scopeContext.scopeAccount.id,
+        calculatedAt: now,
+        verificationStatus: 'never-run',
+        matchCount: 0,
+        warningCount: 0,
+        mismatchCount: 0,
+      };
+
+      const assets: BalanceSnapshotAsset[] = Object.entries(calculated.balances).map(([assetId, balance]) => ({
+        scopeAccountId: scopeContext.scopeAccount.id,
+        assetId,
+        assetSymbol: calculated.assetMetadata[assetId] ?? assetId,
+        calculatedBalance: balance.toFixed(),
+        excludedFromAccounting: false,
+      }));
+
+      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({ snapshot, assets });
+      if (replaceResult.isErr()) return err(replaceResult.error);
+
+      logger.info(
+        { scopeAccountId: scopeContext.scopeAccount.id, assetCount: assets.length },
+        'Calculated balance snapshot persisted'
+      );
+      return ok(undefined);
+    } catch (error) {
+      return wrapError(error, 'Failed to persist calculated balance snapshot');
+    }
+  }
+
+  private async persistVerifiedSnapshot(
+    scopeContext: BalanceScopeContext,
     calculatedBalances: Record<string, Decimal>,
     comparisons: BalanceComparison[],
     status: 'success' | 'warning' | 'failed',
@@ -382,7 +552,7 @@ export class BalanceWorkflow {
     try {
       const now = new Date();
       const snapshot: BalanceSnapshot = {
-        scopeAccountId: account.id,
+        scopeAccountId: scopeContext.scopeAccount.id,
         calculatedAt: now,
         lastRefreshAt: now,
         verificationStatus: toSnapshotVerificationStatus(status),
@@ -402,7 +572,7 @@ export class BalanceWorkflow {
       };
 
       const assets: BalanceSnapshotAsset[] = comparisons.map((comparison) => ({
-        scopeAccountId: account.id,
+        scopeAccountId: scopeContext.scopeAccount.id,
         assetId: comparison.assetId,
         assetSymbol: comparison.assetSymbol,
         calculatedBalance: calculatedBalances[comparison.assetId]?.toFixed() ?? comparison.calculatedBalance,
@@ -419,17 +589,14 @@ export class BalanceWorkflow {
 
       if (replaceResult.isErr()) return err(replaceResult.error);
 
-      logger.info({ accountId: account.id, assetCount: assets.length }, 'Balance snapshot persisted');
+      logger.info(
+        { scopeAccountId: scopeContext.scopeAccount.id, assetCount: assets.length },
+        'Verified balance snapshot persisted'
+      );
       return ok(undefined);
     } catch (error) {
-      return wrapError(error, 'Failed to persist balance snapshot');
+      return wrapError(error, 'Failed to persist verified balance snapshot');
     }
-  }
-
-  private async resolveAccountScope(account: Account): Promise<Result<number[], Error>> {
-    const childAccountsResult = await this.ports.accountLookup.findChildAccounts(account.id);
-    if (childAccountsResult.isErr()) return err(childAccountsResult.error);
-    return ok([account.id, ...childAccountsResult.value.map((child) => child.id)]);
   }
 }
 
@@ -519,4 +686,9 @@ function toSnapshotVerificationStatus(status: 'success' | 'warning' | 'failed'):
     case 'failed':
       return 'mismatch';
   }
+}
+
+function wrapUnknownError(error: unknown, message: string): Error {
+  const wrapped = wrapError(error, message);
+  return wrapped.isErr() ? wrapped.error : new Error(message);
 }

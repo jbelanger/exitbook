@@ -31,6 +31,7 @@ export type {
   BalancePorts,
   IBalanceAccountLookup,
   IBalanceImportSessionLookup,
+  IBalanceProjectionStateStore,
   IBalanceSnapshotStore,
   IBalanceTransactionSource,
 } from './balance-ports.js';

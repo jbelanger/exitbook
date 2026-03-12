@@ -13,7 +13,13 @@ export interface IBalanceAccountLookup {
 }
 
 export interface IBalanceSnapshotStore {
-  replaceSnapshot(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot; }): Promise<Result<void, Error>>;
+  replaceSnapshot(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot }): Promise<Result<void, Error>>;
+}
+
+export interface IBalanceProjectionStateStore {
+  markBuilding(scopeAccountId: number): Promise<Result<void, Error>>;
+  markFailed(scopeAccountId: number): Promise<Result<void, Error>>;
+  markFresh(scopeAccountId: number): Promise<Result<void, Error>>;
 }
 
 export interface IBalanceImportSessionLookup {
@@ -34,6 +40,7 @@ export interface IBalanceTransactionSource {
 export interface BalancePorts {
   accountLookup: IBalanceAccountLookup;
   snapshotStore: IBalanceSnapshotStore;
+  projectionState: IBalanceProjectionStateStore;
   importSessionLookup: IBalanceImportSessionLookup;
   transactionSource: IBalanceTransactionSource;
 }

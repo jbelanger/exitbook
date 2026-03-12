@@ -39,6 +39,7 @@ export interface OfflineBalanceResult {
 
 export interface SingleVerificationResult {
   account: Account;
+  requestedAccount?: Account | undefined;
   comparisons: AssetComparisonItem[];
   verificationResult: BalanceVerificationResult;
   streamMetadata?: Record<string, unknown> | undefined;
@@ -110,9 +111,10 @@ export class BalanceHandler {
       const accounts = params.accountId ? await this.loadSingleAccount(params.accountId) : await this.loadAllAccounts();
 
       const results: { account: Account; assets: AssetOfflineItem[] }[] = [];
-      for (const account of accounts) {
-        const assets = await this.buildOfflineAssets(account);
-        results.push({ account, assets });
+      for (const requestedAccount of accounts) {
+        const scopeAccount = await this.resolveOfflineScopeAccount(requestedAccount);
+        const assets = await this.buildOfflineAssets(requestedAccount, scopeAccount);
+        results.push({ account: scopeAccount, assets });
       }
 
       return ok({ accounts: results });
@@ -128,16 +130,17 @@ export class BalanceHandler {
     const operation = this.requireBalanceWorkflow();
 
     try {
-      const account = await this.loadSingleAccountOrFail(params.accountId);
+      const requestedAccount = await this.loadSingleAccountOrFail(params.accountId);
 
-      const result = await operation.verifyBalance({
-        accountId: account.id,
+      const result = await operation.refreshVerification({
+        accountId: requestedAccount.id,
         credentials: params.credentials,
       });
       if (result.isErr()) return err(result.error);
 
       const vr = result.value;
-      const transactions = await this.loadAccountTransactions(account);
+      const scopeAccount = vr.account;
+      const transactions = await this.loadAccountTransactions(scopeAccount);
 
       const comparisons: AssetComparisonItem[] = vr.comparisons.map((c) => {
         const diagnostics = this.buildDiagnosticsForAsset(c.assetId, c.assetSymbol, transactions, {
@@ -157,10 +160,11 @@ export class BalanceHandler {
       });
 
       return ok({
-        account,
+        account: scopeAccount,
+        requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
         comparisons,
         verificationResult: vr,
-        streamMetadata: this.extractStreamMetadata(account),
+        streamMetadata: this.extractStreamMetadata(scopeAccount),
       });
     } catch (e) {
       return err(e instanceof Error ? e : new Error(String(e)));
@@ -198,7 +202,7 @@ export class BalanceHandler {
           continue;
         }
 
-        const result = await operation.verifyBalance({ accountId: account.id, credentials });
+        const result = await operation.refreshVerification({ accountId: account.id, credentials });
         if (result.isErr()) {
           accountResults.push({
             accountId: account.id,
@@ -292,7 +296,7 @@ export class BalanceHandler {
       relay.push({ type: 'VERIFICATION_STARTED', accountId: item.accountId });
 
       try {
-        const result = await operation.verifyBalance({ accountId: item.accountId, credentials });
+        const result = await operation.refreshVerification({ accountId: item.accountId, credentials });
 
         if (result.isErr()) {
           relay.push({ type: 'VERIFICATION_ERROR', accountId: item.accountId, error: result.error.message });
@@ -361,7 +365,7 @@ export class BalanceHandler {
   }
 
   private requireBalanceWorkflow(): BalanceWorkflow {
-    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available (offline mode)');
+    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available in balance view mode');
     return this.balanceOperation;
   }
 
@@ -427,9 +431,8 @@ export class BalanceHandler {
     return streamMetadata;
   }
 
-  private async buildOfflineAssets(account: Account): Promise<AssetOfflineItem[]> {
-    const scopeAccount = await this.resolveOfflineScopeAccount(account);
-    const snapshotAssets = await this.loadOfflineSnapshotAssets(account, scopeAccount);
+  private async buildOfflineAssets(requestedAccount: Account, scopeAccount: Account): Promise<AssetOfflineItem[]> {
+    const snapshotAssets = await this.loadOfflineSnapshotAssets(requestedAccount, scopeAccount);
     if (snapshotAssets.length === 0) {
       return [];
     }
@@ -452,7 +455,7 @@ export class BalanceHandler {
     if (parentResult.isErr()) {
       logger.warn(
         { accountId: account.id, parentAccountId: account.parentAccountId, error: parentResult.error },
-        'Failed to load parent scope account for offline balance view; falling back to requested account'
+        'Failed to load parent scope account for balance view; falling back to requested account'
       );
       return account;
     }
@@ -468,7 +471,7 @@ export class BalanceHandler {
       if (assetsResult.isErr()) {
         logger.warn(
           { accountId: account.id, scopeAccountId, error: assetsResult.error },
-          'Failed to load balance snapshot assets for offline balance view'
+          'Failed to load balance snapshot assets for balance view'
         );
         continue;
       }

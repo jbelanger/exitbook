@@ -113,12 +113,20 @@ export const ImportCommandOptionsSchema = SourceSelectionSchema.extend(Blockchai
   );
 
 /**
- * Balance command options
+ * Balance view command options
  */
-export const BalanceCommandOptionsSchema = z
+export const BalanceViewCommandOptionsSchema = z
   .object({
     accountId: z.coerce.number().int().positive().optional(),
-    offline: z.boolean().optional(),
+  })
+  .extend(JsonFlagSchema.shape);
+
+/**
+ * Balance refresh command options
+ */
+export const BalanceRefreshCommandOptionsSchema = z
+  .object({
+    accountId: z.coerce.number().int().positive().optional(),
   })
   .extend(
     z.object({
@@ -142,7 +150,7 @@ export const BalanceCommandOptionsSchema = z
   )
   .refine(
     (data) => {
-      // Credentials only valid with --account-id and without --offline
+      // Credentials are only valid when refreshing a specific account scope
       if ((data.apiKey || data.apiSecret) && !data.accountId) {
         return false;
       }
@@ -150,18 +158,6 @@ export const BalanceCommandOptionsSchema = z
     },
     {
       message: '--api-key/--api-secret require --account-id',
-    }
-  )
-  .refine(
-    (data) => {
-      // Credentials not valid with --offline
-      if ((data.apiKey || data.apiSecret) && data.offline) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: '--api-key/--api-secret cannot be used with --offline',
     }
   );
 

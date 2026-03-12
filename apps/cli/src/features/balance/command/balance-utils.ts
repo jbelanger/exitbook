@@ -26,3 +26,19 @@ export function getExchangeCredentialsFromEnv(exchangeName: string): Result<Exch
 
   return ok(credentials);
 }
+
+export function buildCliExchangeCredentials(options: {
+  apiKey?: string | undefined;
+  apiPassphrase?: string | undefined;
+  apiSecret?: string | undefined;
+}): ExchangeCredentials | undefined {
+  if (!options.apiKey || !options.apiSecret) {
+    return undefined;
+  }
+
+  return {
+    apiKey: options.apiKey,
+    apiSecret: options.apiSecret,
+    ...(options.apiPassphrase && { apiPassphrase: options.apiPassphrase }),
+  };
+}

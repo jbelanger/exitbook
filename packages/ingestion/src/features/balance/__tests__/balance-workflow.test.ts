@@ -81,11 +81,16 @@ function createProviderManager(
 }
 
 function createPortsMock(params: {
-  account: Account;
+  accounts: Account[];
   excludedTransactions: UniversalTransactionData[];
   normalTransactions: UniversalTransactionData[];
   sessions: ImportSession[];
 }): {
+  findById: ReturnType<typeof vi.fn<(accountId: number) => Promise<Result<Account | undefined, Error>>>>;
+  findChildAccounts: ReturnType<typeof vi.fn<(parentAccountId: number) => Promise<Result<Account[], Error>>>>;
+  markBuilding: ReturnType<typeof vi.fn<(scopeAccountId: number) => Promise<Result<void, Error>>>>;
+  markFailed: ReturnType<typeof vi.fn<(scopeAccountId: number) => Promise<Result<void, Error>>>>;
+  markFresh: ReturnType<typeof vi.fn<(scopeAccountId: number) => Promise<Result<void, Error>>>>;
   ports: BalancePorts;
   replaceSnapshot: ReturnType<
     typeof vi.fn<
@@ -93,40 +98,72 @@ function createPortsMock(params: {
     >
   >;
 } {
+  const accountsById = new Map(params.accounts.map((account) => [account.id, account]));
   const replaceSnapshot = vi
     .fn<(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot }) => Promise<Result<void, Error>>>()
     .mockResolvedValue(ok(undefined));
+  const markBuilding = vi
+    .fn<(scopeAccountId: number) => Promise<Result<void, Error>>>()
+    .mockResolvedValue(ok(undefined));
+  const markFresh = vi.fn<(scopeAccountId: number) => Promise<Result<void, Error>>>().mockResolvedValue(ok(undefined));
+  const markFailed = vi.fn<(scopeAccountId: number) => Promise<Result<void, Error>>>().mockResolvedValue(ok(undefined));
+  const findById = vi
+    .fn<(accountId: number) => Promise<Result<Account | undefined, Error>>>()
+    .mockImplementation(async (accountId) => ok(accountsById.get(accountId)));
+  const findChildAccounts = vi
+    .fn<(parentAccountId: number) => Promise<Result<Account[], Error>>>()
+    .mockImplementation(async (parentAccountId) =>
+      ok(params.accounts.filter((account) => account.parentAccountId === parentAccountId))
+    );
 
   const ports: BalancePorts = {
     accountLookup: {
-      findById: vi.fn().mockResolvedValue(ok(params.account)),
-      findChildAccounts: vi.fn().mockResolvedValue(ok([])),
+      findById,
+      findChildAccounts,
     },
     snapshotStore: {
       replaceSnapshot,
     },
+    projectionState: {
+      markBuilding,
+      markFresh,
+      markFailed,
+    },
     importSessionLookup: {
-      findByAccountIds: vi.fn().mockResolvedValue(ok(params.sessions)),
+      findByAccountIds: vi
+        .fn()
+        .mockImplementation((accountIds: number[]) =>
+          ok(params.sessions.filter((session) => accountIds.includes(session.accountId)))
+        ),
     },
     transactionSource: {
       findByAccountIds: vi
         .fn()
         .mockImplementation(
-          (query: { includeExcluded?: boolean | undefined }): Result<UniversalTransactionData[], Error> => {
+          (query: {
+            accountIds: number[];
+            includeExcluded?: boolean | undefined;
+          }): Result<UniversalTransactionData[], Error> => {
+            const normalTransactions = params.normalTransactions.filter((tx) =>
+              query.accountIds.includes(tx.accountId)
+            );
+            const excludedTransactions = params.excludedTransactions.filter((tx) =>
+              query.accountIds.includes(tx.accountId)
+            );
             if (query.includeExcluded) {
-              return ok([...params.normalTransactions, ...params.excludedTransactions]);
+              return ok([...normalTransactions, ...excludedTransactions]);
             }
-            return ok(params.normalTransactions);
+            return ok(normalTransactions);
           }
         ),
     },
   };
 
-  return { replaceSnapshot, ports };
+  return { findById, findChildAccounts, markBuilding, markFailed, markFresh, replaceSnapshot, ports };
 }
 
 describe('BalanceWorkflow', () => {
-  it('adjusts live balances using excluded amounts and persists a balance snapshot', async () => {
+  it('rebuilds the calculated snapshot before persisting the verified snapshot', async () => {
     const account = createAccount();
 
     const normalTransactions = [
@@ -164,8 +201,8 @@ describe('BalanceWorkflow', () => {
       }),
     ];
 
-    const { replaceSnapshot, ports } = createPortsMock({
-      account,
+    const { markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions,
       excludedTransactions,
@@ -179,7 +216,7 @@ describe('BalanceWorkflow', () => {
     });
 
     const workflow = new BalanceWorkflow(ports, providerManager);
-    const result = await workflow.verifyBalance({ accountId: account.id });
+    const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -189,9 +226,32 @@ describe('BalanceWorkflow', () => {
       expect(result.value.comparisons[0]?.difference).toBe('0');
     }
 
-    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
-    const call = replaceSnapshot.mock.calls[0]?.[0];
-    expect(call?.snapshot).toMatchObject({
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).toHaveBeenCalledWith(1);
+    expect(markFailed).not.toHaveBeenCalled();
+
+    expect(replaceSnapshot).toHaveBeenCalledTimes(2);
+
+    const calculatedCall = replaceSnapshot.mock.calls[0]?.[0];
+    expect(calculatedCall?.snapshot).toMatchObject({
+      scopeAccountId: 1,
+      verificationStatus: 'never-run',
+      matchCount: 0,
+      warningCount: 0,
+      mismatchCount: 0,
+    });
+    expect(calculatedCall?.assets).toEqual([
+      {
+        scopeAccountId: 1,
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC',
+        calculatedBalance: '1',
+        excludedFromAccounting: false,
+      },
+    ]);
+
+    const verifiedCall = replaceSnapshot.mock.calls[1]?.[0];
+    expect(verifiedCall?.snapshot).toMatchObject({
       scopeAccountId: 1,
       verificationStatus: 'match',
       matchCount: 1,
@@ -200,7 +260,7 @@ describe('BalanceWorkflow', () => {
       coverageStatus: 'complete',
       coverageConfidence: 'high',
     });
-    expect(call?.assets).toEqual([
+    expect(verifiedCall?.assets).toEqual([
       {
         scopeAccountId: 1,
         assetId: 'blockchain:bitcoin:native',
@@ -212,6 +272,68 @@ describe('BalanceWorkflow', () => {
         excludedFromAccounting: false,
       },
     ]);
+  });
+
+  it('rebuilds a calculated-only snapshot without live provider calls', async () => {
+    const account = createAccount();
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('2.5'),
+              netAmount: parseDecimal('2.5'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '250000000',
+      decimalAmount: '2.5',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.rebuildCalculatedSnapshot({ accountId: account.id });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.scopeAccount.id).toBe(account.id);
+      expect(result.value.assetCount).toBe(1);
+    }
+
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).toHaveBeenCalledWith(1);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
+    expect(replaceSnapshot.mock.calls[0]?.[0]).toMatchObject({
+      snapshot: {
+        scopeAccountId: 1,
+        verificationStatus: 'never-run',
+      },
+      assets: [
+        {
+          scopeAccountId: 1,
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          calculatedBalance: '2.5',
+          excludedFromAccounting: false,
+        },
+      ],
+    });
   });
 
   it('adds warning when token transactions are supported but token balances are unavailable', async () => {
@@ -234,7 +356,7 @@ describe('BalanceWorkflow', () => {
     ];
 
     const { ports } = createPortsMock({
-      account,
+      accounts: [account],
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions,
       excludedTransactions: [],
@@ -258,7 +380,7 @@ describe('BalanceWorkflow', () => {
     );
 
     const workflow = new BalanceWorkflow(ports, providerManager);
-    const result = await workflow.verifyBalance({ accountId: account.id });
+    const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -276,6 +398,11 @@ describe('BalanceWorkflow', () => {
         findChildAccounts: vi.fn(),
       },
       snapshotStore: { replaceSnapshot: vi.fn() },
+      projectionState: {
+        markBuilding: vi.fn(),
+        markFresh: vi.fn(),
+        markFailed: vi.fn(),
+      },
       importSessionLookup: { findByAccountIds: vi.fn() },
       transactionSource: { findByAccountIds: vi.fn() },
     };
@@ -285,7 +412,7 @@ describe('BalanceWorkflow', () => {
     } as unknown as BlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
-    const result = await workflow.verifyBalance({ accountId: 999 });
+    const result = await workflow.refreshVerification({ accountId: 999 });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -296,8 +423,8 @@ describe('BalanceWorkflow', () => {
   it('returns provider errors from live balance fetch', async () => {
     const account = createAccount();
 
-    const { ports } = createPortsMock({
-      account,
+    const { markFailed, replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions: [],
       excludedTransactions: [],
@@ -311,19 +438,22 @@ describe('BalanceWorkflow', () => {
     } as unknown as BlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
-    const result = await workflow.verifyBalance({ accountId: account.id });
+    const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe('RPC down');
     }
+
+    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
+    expect(markFailed).toHaveBeenCalledWith(account.id);
   });
 
   it('fails when snapshot persistence fails', async () => {
     const account = createAccount();
 
-    const { ports, replaceSnapshot } = createPortsMock({
-      account,
+    const { markFailed, ports, replaceSnapshot } = createPortsMock({
+      accounts: [account],
       sessions: [createCompletedImportSession(account.id)],
       normalTransactions: [],
       excludedTransactions: [],
@@ -339,11 +469,69 @@ describe('BalanceWorkflow', () => {
     });
 
     const workflow = new BalanceWorkflow(ports, providerManager);
-    const result = await workflow.verifyBalance({ accountId: account.id });
+    const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe('write failed');
     }
+
+    expect(markFailed).toHaveBeenCalledWith(account.id);
+  });
+
+  it('resolves child-account refreshes to the parent balance scope', async () => {
+    const parentAccount = createAccount();
+    const childAccount = createAccount({
+      id: 2,
+      identifier: 'bc1-child',
+      parentAccountId: parentAccount.id,
+    });
+
+    const normalTransactions = [
+      createTransaction({
+        accountId: childAccount.id,
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { findById, markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [parentAccount, childAccount],
+      sessions: [createCompletedImportSession(childAccount.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '100000000',
+      decimalAmount: '1.0',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.refreshVerification({ accountId: childAccount.id });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.account.id).toBe(parentAccount.id);
+    }
+
+    expect(findById).toHaveBeenCalledWith(childAccount.id);
+    expect(findById).toHaveBeenCalledWith(parentAccount.id);
+    expect(markBuilding).toHaveBeenCalledWith(parentAccount.id);
+    expect(markFresh).toHaveBeenCalledWith(parentAccount.id);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(replaceSnapshot).toHaveBeenCalledTimes(2);
+    expect(replaceSnapshot.mock.calls[1]?.[0]?.snapshot.scopeAccountId).toBe(parentAccount.id);
   });
 });

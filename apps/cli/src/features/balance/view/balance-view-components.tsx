@@ -567,7 +567,7 @@ const OfflineEmptyState: FC = () => {
     <Box flexDirection="column">
       <Text> </Text>
       <Text>
-        <Text bold>Balances</Text> <Text dimColor>(offline)</Text>
+        <Text bold>Balances</Text> <Text dimColor>(stored snapshots)</Text>
       </Text>
       <Text> </Text>
       <Text>{'  '}No accounts found.</Text>
@@ -585,7 +585,7 @@ const OfflineHeader: FC<{ state: BalanceOfflineState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Balances</Text>
-      <Text dimColor> (offline{filterLabel})</Text>
+      <Text dimColor> (stored snapshots{filterLabel})</Text>
       <Text>
         {'  '}
         {state.totalAccounts} accounts
@@ -772,7 +772,7 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
 };
 
 const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
-  const offlineLabel = state.offline ? ' (offline)' : '';
+  const offlineLabel = state.offline ? ' (stored snapshot)' : '';
   const { summary } = state;
 
   // All match shorthand
