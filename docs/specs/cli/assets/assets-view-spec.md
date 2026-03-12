@@ -17,7 +17,7 @@ How `exitbook assets view` assembles its read model, presents asset review state
 | Data sources           | Asset review projection, fresh balance snapshots, override store, processed transactions |
 | Current quantity       | Comes from `balance_snapshot_assets`, not transaction recomputation                      |
 | Freshness policy       | The view fails closed when any loaded balance scope snapshot is not fresh                |
-| Excluded assets        | Remain visible in the view; exclusion does not hide them                                 |
+| Excluded assets        | Stay visible only when the asset also exists in holdings/history/review data             |
 | Action-required filter | Uses next-action logic, not review status alone                                          |
 
 ## Goals
@@ -30,7 +30,7 @@ How `exitbook assets view` assembles its read model, presents asset review state
 ## Non-Goals
 
 - Fetching live balances.
-- Hiding excluded assets from the browser.
+- Surfacing override-only exclusions in the main asset browser.
 - Recomputing current holdings from processed transactions.
 - Replacing the asset-review projection with a second persisted review model.
 
@@ -131,12 +131,14 @@ The displayed asset set is the union of:
 - assets known from processed transactions
 - assets currently held in balance snapshots
 - assets present in asset-review summaries
-- excluded asset ids from the override store
 
 That means the view can still show:
 
-- currently unheld assets with historical review or exclusion state
+- currently unheld assets with historical review state
 - held assets that never appeared in transaction-derived symbol scans
+
+Override-only exclusions do not create synthetic rows in `assets view`.
+Those operator-only records remain discoverable through `assets exclusions`.
 
 ### Current Quantity
 
@@ -150,8 +152,8 @@ Processed transactions are not used to recompute holdings.
 
 `assets view` has two filter modes:
 
-- `all`
-- `action-required`
+- `default` — holdings plus exceptions (non-zero quantity, excluded, or action-required)
+- `action-required` — only assets that currently need user action
 
 `action-required` includes:
 
@@ -160,6 +162,8 @@ Processed transactions are not used to recompute holdings.
 - stale confirmations that require re-confirmation
 
 Excluded assets are filtered out of the action-required set.
+
+Zero-balance historical assets with no active exception are hidden from the default list.
 
 ### Sort Order
 
@@ -176,52 +180,82 @@ Assets are sorted by:
 
 ### Header
 
-The header shows:
+Default list:
 
-- total asset count
-- action-required count
-- excluded count
-- active filter
+```text
+Assets {visible} of {total} · {flagged} flagged · {excluded} excluded
+```
+
+When visible equals total, omit `of {total}`. Review queue:
+
+```text
+Review Queue {count} flagged {asset/assets} · {excluded} excluded
+```
 
 ### List Row
 
 Each row shows:
 
-- review badge: `[review]`, `[stale]`, `[reviewed]`, or `[clear]`
-- `[blocked]` when accounting is blocked and the asset is not excluded
-- primary symbol
-- current quantity
-- reference status
-- inclusion or exclusion state
+- primary symbol (column-aligned)
+- current quantity (column-aligned)
+- optional badge: `[Review]` (yellow), `[Reviewed]` (green), or `[Excluded]` (gray)
+- optional plain-English reason with multi-signal hint: e.g. `possible spam (+1 more)`
+
+Rows must not show raw review status, reference status, accounting status, or inclusion labels.
+
+### Badge Rules
+
+- `Excluded`: asset is currently excluded
+- `Review`: asset still needs user action (needs-review, stale confirmation, or reviewed-but-blocking)
+- `Reviewed`: asset has review history but no current action requirement
+- no badge: normal asset
+
+### Reason Rules
+
+- stale confirmation → `new signals since your last review`
+- same-symbol ambiguity → `same symbol conflict`
+- provider spam flag or processed spam flag → `possible spam`
+- scam-note evidence → `scam warnings in imported transactions`
+- suspicious-airdrop evidence → `suspicious airdrop warnings`
+- multiple categories → append `(+N more)` to the first match
 
 ### Detail Panel
 
 The detail panel shows:
 
-- primary symbol and asset id
-- all known symbols
-- current quantity
-- review status
-- reference status
-- accounting status
-- exclusion status
-- next recommended action
-- warning summary
-- review evidence rows
-- conflicting asset ids for ambiguity evidence when present
+- title with symbol, quantity, and optional badge
+- optional `Also seen as` (when multiple symbols)
+- optional `Why` (same reason as the row)
+- `Action` with concrete keybind instructions
+- `Seen in` with transaction and movement counts
+- `Signals` section only when evidence exists; omitted entirely for clean assets
 
-The evidence area has fixed height. Overflow is truncated with a `... N more evidence row(s)` line.
+The signals area has fixed height. Overflow is truncated with a `... N more signal(s)` line.
+
+Forbidden detail labels: `Reference:`, `Accounting:`, `Exclusion:`, `Summary:`, `Next action: None`, `Signals: None`.
+
+### Status Messages
+
+After a successful action, a transient status message appears above the controls bar:
+
+- exclude → `✓ Excluded`
+- include → `✓ Included`
+- confirm review (resolved) → `✓ Marked as reviewed`
+- confirm review (still blocking) → `✓ Marked as reviewed — exclude a conflicting asset to unblock`
+- reopen review → `✓ Review reopened`
+
+Status messages clear on the next navigation or mutation action.
 
 ### Keyboard Actions
 
 Controls:
 
 - `↑↓` or `j/k`: move selection
-- `tab`: toggle filter between `all` and `action-required`
+- `tab`: toggle between default list and review queue
 - `x`: toggle exclude/include
-- `c`: confirm review when the selected asset is `needs-review`
-- `u`: clear review when the selected asset is `reviewed` or has a stale confirmation
-- `q`: quit
+- `c`: mark reviewed when the selected asset is `needs-review`
+- `u`: reopen review when the selected asset is `reviewed` or has a stale confirmation
+- `q` or `esc`: quit
 
 ## Mutation Semantics
 
@@ -291,7 +325,8 @@ Notes:
 
 - **Required**: Current quantity comes from persisted balance snapshot assets.
 - **Required**: Review state and exclusion state remain distinct in both row and detail rendering.
-- **Required**: Excluded assets remain visible in the asset browser.
+- **Required**: `assets view` does not synthesize rows from override-only exclusions.
+- **Required**: Override-only exclusions remain discoverable through `assets exclusions`.
 - **Required**: The action-required filter excludes already excluded assets.
 - **Required**: `assets view` never calls live balance providers.
 

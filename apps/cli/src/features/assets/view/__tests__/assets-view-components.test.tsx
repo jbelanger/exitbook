@@ -109,13 +109,68 @@ describe('AssetsViewApp', () => {
 
     const frame = lastFrame() ?? '';
 
-    expect(frame).toContain('Assets 1 shown');
+    expect(frame).toContain('Assets 1 of 2');
     expect(frame).toContain('BTC');
     expect(frame).not.toContain('ETH');
     expect(frame).not.toContain('[clear]');
     expect(frame).not.toContain('Reference:');
     expect(frame).not.toContain('Accounting:');
+    expect(frame).not.toContain('Quantity:');
+    expect(frame).not.toContain('Signals:');
     expect(frame).toContain('Action: Nothing needs your attention right now.');
+  });
+
+  it('shows multi-signal reason hint when multiple categories apply', () => {
+    const initialState = createAssetsViewState(
+      [
+        createAsset({
+          evidence: [
+            { kind: 'spam-flag', severity: 'error', message: 'spam' },
+            { kind: 'same-symbol-ambiguity', severity: 'warning', message: 'ambiguity' },
+          ],
+        }),
+      ],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 }
+    );
+
+    const { lastFrame } = render(
+      <AssetsViewApp
+        initialState={initialState}
+        onQuit={() => {
+          /* empty */
+        }}
+        onToggleExclusion={noop}
+        onConfirmReview={async () => ({
+          action: 'confirm',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+        onClearReview={async () => ({
+          action: 'clear-review',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+      />
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('same symbol conflict (+1 more)');
   });
 
   it('shows one review badge, reason, and action for flagged assets', () => {

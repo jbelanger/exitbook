@@ -384,7 +384,6 @@ export class AssetsHandler {
       ...snapshotResult.value.knownAssets.keys(),
       ...snapshotResult.value.currentHoldings.keys(),
       ...snapshotResult.value.reviewSummaries.keys(),
-      ...snapshotResult.value.excludedAssetIds,
     ]);
 
     const items = [...assetIds]

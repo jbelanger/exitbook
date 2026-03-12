@@ -1,9 +1,8 @@
-import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetViewItem } from '../command/assets-handler.js';
 
-import { ASSETS_CHROME_LINES } from './assets-view-components.jsx';
+import { getAssetsVisibleRows } from './assets-view-layout.js';
 import {
   applyAssetViewMutation,
   applyFilter,
@@ -42,7 +41,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
         buildContext(action.visibleRows)
       );
-      return { ...state, ...next, error: undefined };
+      return { ...state, ...next, error: undefined, statusMessage: undefined };
     }
 
     case 'NAVIGATE_DOWN': {
@@ -50,7 +49,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
         buildContext(action.visibleRows)
       );
-      return { ...state, ...next, error: undefined };
+      return { ...state, ...next, error: undefined, statusMessage: undefined };
     }
 
     case 'PAGE_UP': {
@@ -58,7 +57,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
         buildContext(action.visibleRows)
       );
-      return { ...state, ...next, error: undefined };
+      return { ...state, ...next, error: undefined, statusMessage: undefined };
     }
 
     case 'PAGE_DOWN': {
@@ -66,14 +65,14 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
         buildContext(action.visibleRows)
       );
-      return { ...state, ...next, error: undefined };
+      return { ...state, ...next, error: undefined, statusMessage: undefined };
     }
 
     case 'HOME':
-      return { ...state, ...home(), error: undefined };
+      return { ...state, ...home(), error: undefined, statusMessage: undefined };
 
     case 'END':
-      return { ...state, ...end(buildContext(action.visibleRows)), error: undefined };
+      return { ...state, ...end(buildContext(action.visibleRows)), error: undefined, statusMessage: undefined };
 
     case 'CYCLE_FILTER': {
       const nextFilter: AssetsViewFilter = state.filter === 'default' ? 'action-required' : 'default';
@@ -85,6 +84,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         selectedIndex: 0,
         scrollOffset: 0,
         error: undefined,
+        statusMessage: undefined,
       };
     }
 
@@ -101,6 +101,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
           assetId: selected.assetId,
         },
         error: undefined,
+        statusMessage: undefined,
       };
     }
 
@@ -124,6 +125,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
           assetId: selected.assetId,
         },
         error: undefined,
+        statusMessage: undefined,
       };
     }
 
@@ -147,6 +149,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
           assetId: selected.assetId,
         },
         error: undefined,
+        statusMessage: undefined,
       };
     }
 
@@ -156,7 +159,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         excluded: action.excluded,
       });
-      return rebuildStateAfterMutation(state, assets);
+      return rebuildStateAfterMutation(state, assets, action.excluded ? 'Excluded' : 'Included');
     }
 
     case 'CONFIRM_REVIEW_SUCCESS': {
@@ -165,7 +168,10 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         review: action.review,
       });
-      return rebuildStateAfterMutation(state, assets);
+      const message = action.review.accountingBlocked
+        ? 'Marked as reviewed — exclude a conflicting asset to unblock'
+        : 'Marked as reviewed';
+      return rebuildStateAfterMutation(state, assets, message);
     }
 
     case 'CLEAR_REVIEW_SUCCESS': {
@@ -174,7 +180,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         review: action.review,
       });
-      return rebuildStateAfterMutation(state, assets);
+      return rebuildStateAfterMutation(state, assets, 'Review reopened');
     }
 
     case 'SET_ERROR':
@@ -182,6 +188,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         ...state,
         pendingAction: undefined,
         error: action.error,
+        statusMessage: undefined,
       };
 
     default:
@@ -204,9 +211,13 @@ export function handleAssetsKeyboardInput(
   },
   dispatch: (action: AssetsViewAction) => void,
   onQuit: () => void,
-  terminalHeight: number
+  terminalHeight: number,
+  state: Pick<AssetsViewState, 'error' | 'statusMessage'>
 ): void {
-  const visibleRows = calculateVisibleRows(terminalHeight, ASSETS_CHROME_LINES);
+  const visibleRows = getAssetsVisibleRows(
+    terminalHeight,
+    state.error !== undefined || state.statusMessage !== undefined
+  );
 
   if (input === 'q' || key.escape) {
     onQuit();
@@ -263,8 +274,13 @@ export function handleAssetsKeyboardInput(
   }
 }
 
-function rebuildStateAfterMutation(state: AssetsViewState, assets: AssetViewItem[]): AssetsViewState {
+function rebuildStateAfterMutation(
+  state: AssetsViewState,
+  assets: AssetViewItem[],
+  statusMessage?: string  
+): AssetsViewState {
   const filteredAssets = applyFilter(assets, state.filter);
+
   const maxIndex = Math.max(0, filteredAssets.length - 1);
   const selectedIndex = Math.min(state.selectedIndex, maxIndex);
   const scrollOffset = Math.min(state.scrollOffset, selectedIndex);
@@ -277,6 +293,7 @@ function rebuildStateAfterMutation(state: AssetsViewState, assets: AssetViewItem
     scrollOffset,
     pendingAction: undefined,
     error: undefined,
+    statusMessage,
     excludedCount: assets.filter((asset) => asset.excluded).length,
     actionRequiredCount: assets.filter(requiresAssetReviewAction).length,
     totalCount: assets.length,

@@ -252,6 +252,9 @@ const AccountList: FC<{
           />
         );
       })}
+      {Array.from({ length: Math.max(0, visibleRows - visible.length) }, (_, i) => (
+        <Text key={`pad-${i}`}> </Text>
+      ))}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {accounts.length - endIndex} more below
@@ -631,6 +634,9 @@ const StoredSnapshotAccountList: FC<{
           />
         );
       })}
+      {Array.from({ length: Math.max(0, visibleRows - visible.length) }, (_, i) => (
+        <Text key={`pad-${i}`}> </Text>
+      ))}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {accounts.length - endIndex} more below
@@ -909,6 +915,9 @@ function renderAssetRows<T extends BalanceAssetBase>(
         </Text>
       )}
       {visible.map((item, windowIndex) => renderRow(item, startIndex + windowIndex === selectedIndex))}
+      {Array.from({ length: Math.max(0, visibleRows - visible.length) }, (_, i) => (
+        <Text key={`pad-${i}`}> </Text>
+      ))}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {assets.length - endIndex} more below

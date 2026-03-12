@@ -517,6 +517,10 @@ It reads:
 - exclusion state from the override store
 - known asset symbols/history from processed transactions
 
+`assets view` reads exclusion state from the override store for rows that already
+exist in holdings/history/review data. Override-only exclusions are managed via
+`assets exclusions`, not synthesized into the main asset browser.
+
 Presentation rules:
 
 - the primary TUI is intentionally simplified and should surface assets plus

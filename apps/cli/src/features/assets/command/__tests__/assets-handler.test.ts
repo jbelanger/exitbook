@@ -415,6 +415,45 @@ describe('AssetsHandler', () => {
     expect(value.totalCount).toBe(2);
   });
 
+  it('does not surface override-only exclusions in assets view', async () => {
+    const orphanExcludedAssetId = 'blockchain:ethereum:0xorphan';
+    const mockDb = createMockDb([]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent(orphanExcludedAssetId)]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const viewResult = await handler.view();
+    const viewValue = assertOk(viewResult);
+
+    expect(viewValue.assets).toEqual([]);
+    expect(viewValue.excludedCount).toBe(0);
+    expect(viewValue.totalCount).toBe(0);
+
+    const exclusionsResult = await handler.listExclusions();
+    const exclusionsValue = assertOk(exclusionsResult);
+
+    expect(exclusionsValue.excludedAssets).toEqual([
+      {
+        assetId: orphanExcludedAssetId,
+        assetSymbols: [],
+        movementCount: 0,
+        transactionCount: 0,
+      },
+    ]);
+  });
+
   it('uses balance snapshot assets for current quantity instead of recalculating from transactions', async () => {
     const assetId = 'blockchain:ethereum:0xheld';
     const mockDb = createMockDb(

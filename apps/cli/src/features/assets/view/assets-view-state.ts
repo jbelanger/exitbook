@@ -18,6 +18,7 @@ export interface AssetsViewState {
     | undefined;
   scrollOffset: number;
   selectedIndex: number;
+  statusMessage?: string | undefined;
   totalCount: number;
 }
 

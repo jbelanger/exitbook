@@ -157,6 +157,9 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
           />
         );
       })}
+      {Array.from({ length: Math.max(0, visibleRows - visible.length) }, (_, i) => (
+        <Text key={`pad-${i}`}> </Text>
+      ))}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {accounts.length - endIndex} more below

@@ -1,32 +1,13 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
-import {
-  calculateChromeLines,
-  calculateVisibleRows,
-  Divider,
-  FixedHeightDetail,
-  SelectableRow,
-} from '../../../ui/shared/index.js';
+import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/index.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-handler.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
+import { ASSET_DETAIL_LINES, getAssetsVisibleRows } from './assets-view-layout.js';
 import type { AssetsViewState } from './assets-view-state.js';
-
-const ASSET_DETAIL_LINES = 13;
-
-export const ASSETS_CHROME_LINES = calculateChromeLines({
-  beforeHeader: 1,
-  header: 1,
-  afterHeader: 1,
-  listScrollIndicators: 2,
-  divider: 1,
-  detail: ASSET_DETAIL_LINES,
-  beforeControls: 1,
-  controls: 1,
-  buffer: 1,
-});
 
 export const AssetsViewApp: FC<{
   initialState: AssetsViewState;
@@ -41,7 +22,7 @@ export const AssetsViewApp: FC<{
   const terminalWidth = stdout?.columns || 80;
 
   useInput((input, key) => {
-    handleAssetsKeyboardInput(input, key, dispatch, onQuit, terminalHeight);
+    handleAssetsKeyboardInput(input, key, dispatch, onQuit, terminalHeight, state);
   });
 
   useEffect(() => {
@@ -133,6 +114,14 @@ export const AssetsViewApp: FC<{
           </Text>
         </>
       )}
+      {!state.error && state.statusMessage && (
+        <>
+          <Text> </Text>
+          <Text>
+            <Text color="green">✓</Text> {state.statusMessage}
+          </Text>
+        </>
+      )}
       <Text> </Text>
       <AssetsControlsBar state={state} />
     </Box>
@@ -156,11 +145,16 @@ const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
     );
   }
 
+  const countLabel =
+    state.filteredAssets.length === state.totalCount
+      ? `${state.totalCount}`
+      : `${state.filteredAssets.length} of ${state.totalCount}`;
+
   return (
     <Box>
       <Text bold>Assets</Text>
       <Text> </Text>
-      <Text>{state.filteredAssets.length} shown</Text>
+      <Text>{countLabel}</Text>
       <Text dimColor> · </Text>
       <Text color="yellow">{flaggedLabel}</Text>
       <Text dimColor> · </Text>
@@ -170,7 +164,10 @@ const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
 };
 
 const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = calculateVisibleRows(terminalHeight, ASSETS_CHROME_LINES);
+  const visibleRows = getAssetsVisibleRows(
+    terminalHeight,
+    state.error !== undefined || state.statusMessage !== undefined
+  );
   const startIndex = state.scrollOffset;
   const endIndex = Math.min(startIndex + visibleRows, state.filteredAssets.length);
   const visibleAssets = state.filteredAssets.slice(startIndex, endIndex);
@@ -187,6 +184,11 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
     );
   }
 
+  const columns = createColumns(state.filteredAssets, {
+    symbol: { format: (item) => item.assetSymbols[0] ?? '(unknown)', minWidth: 4 },
+    quantity: { format: (item) => item.currentQuantity, minWidth: 1 },
+  });
+
   return (
     <Box flexDirection="column">
       {hasMoreAbove && (
@@ -200,10 +202,14 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
           <AssetRow
             key={asset.assetId}
             asset={asset}
+            columns={columns}
             isSelected={actualIndex === state.selectedIndex}
           />
         );
       })}
+      {Array.from({ length: Math.max(0, visibleRows - visibleAssets.length) }, (_, i) => (
+        <Text key={`pad-${i}`}> </Text>
+      ))}
       {hasMoreBelow && (
         <Text dimColor>
           {'  '}▼ {state.filteredAssets.length - endIndex} more below
@@ -213,24 +219,28 @@ const AssetList: FC<{ state: AssetsViewState; terminalHeight: number }> = ({ sta
   );
 };
 
-const AssetRow: FC<{ asset: AssetViewItem; isSelected: boolean }> = ({ asset, isSelected }) => {
-  const primarySymbol = asset.assetSymbols[0] ?? '(unknown)';
+const AssetRow: FC<{
+  asset: AssetViewItem;
+  columns: Columns<AssetViewItem, 'quantity' | 'symbol'>;
+  isSelected: boolean;
+}> = ({ asset, columns, isSelected }) => {
+  const { symbol, quantity } = columns.format(asset);
   const badge = getAssetBadge(asset);
-  const reason = getAssetReason(asset);
+  const reasonWithHint = getAssetReasonWithHint(asset);
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color="cyan">{primarySymbol}</Text> <Text dimColor>{asset.currentQuantity}</Text>
+      <Text color="cyan">{symbol}</Text> <Text dimColor>{quantity}</Text>
       {badge && (
         <>
           <Text> </Text>
           <Text color={badge.color}>[{badge.label}]</Text>
         </>
       )}
-      {reason && (
+      {reasonWithHint && (
         <>
           <Text dimColor> · </Text>
-          <Text dimColor>{reason}</Text>
+          <Text dimColor>{reasonWithHint}</Text>
         </>
       )}
     </SelectableRow>
@@ -272,11 +282,6 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
       )}
     </Text>,
     <Text key="blank-1"> </Text>,
-    <Text key="quantity">
-      {'  '}
-      <Text dimColor>Quantity: </Text>
-      <Text>{asset.currentQuantity}</Text>
-    </Text>,
   ];
 
   if (asset.assetSymbols.length > 1) {
@@ -316,13 +321,6 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
   );
 
   if (evidenceRows.length === 0) {
-    rows.push(
-      <Text key="signals-none">
-        {'  '}
-        <Text dimColor>Signals: </Text>
-        <Text>None</Text>
-      </Text>
-    );
     return rows;
   }
 
@@ -392,6 +390,30 @@ function getAssetBadge(asset: AssetViewItem): { color: string; label: string } |
   return undefined;
 }
 
+function getAssetReasonWithHint(asset: AssetViewItem): string | undefined {
+  const reason = getAssetReason(asset);
+  if (!reason) {
+    return undefined;
+  }
+
+  const extraCategories = countDistinctReasonCategories(asset) - 1;
+  if (extraCategories > 0) {
+    return `${reason} (+${extraCategories} more)`;
+  }
+
+  return reason;
+}
+
+function countDistinctReasonCategories(asset: AssetViewItem): number {
+  let count = 0;
+  if (asset.confirmationIsStale) count++;
+  if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) count++;
+  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag')) count++;
+  if (asset.evidence.some((item) => item.kind === 'scam-note')) count++;
+  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-note')) count++;
+  return count;
+}
+
 function getAssetReason(asset: AssetViewItem): string | undefined {
   if (asset.confirmationIsStale) {
     return 'new signals since your last review';
@@ -427,7 +449,7 @@ function getActionHint(asset: AssetViewItem): string {
 
   if (asset.reviewStatus === 'needs-review') {
     if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) {
-      return 'Press c to keep it, or x to exclude a conflicting asset.';
+      return 'Press c to mark reviewed, or x to exclude a conflicting asset.';
     }
 
     return 'Press c to mark it reviewed, or x to exclude it.';
