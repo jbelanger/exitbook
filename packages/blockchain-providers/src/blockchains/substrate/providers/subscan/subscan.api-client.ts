@@ -128,6 +128,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
 };
 
 export const subscanMetadata: ProviderMetadata = {
+  apiKeyEnvVar: 'SUBSCAN_API_KEY',
   baseUrl: 'https://polkadot.api.subscan.io',
   blockchain: 'polkadot',
   capabilities: {
@@ -149,7 +150,7 @@ export const subscanMetadata: ProviderMetadata = {
   description: 'Polkadot and Kusama networks provider with Subscan API integration',
   displayName: 'Subscan',
   name: 'subscan',
-  requiresApiKey: false,
+  requiresApiKey: true,
   supportedChains: Object.keys(CHAIN_SUBDOMAIN_MAP),
 };
 
@@ -182,6 +183,11 @@ export class SubscanApiClient extends BaseApiClient {
     // Override base URL with chain-specific subdomain
     this.reinitializeHttpClient({
       baseUrl: `https://${this.subscanSubdomain}.api.subscan.io`,
+      defaultHeaders: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(this.apiKey && { 'X-API-Key': this.apiKey }),
+      },
     });
 
     this.logger.debug(

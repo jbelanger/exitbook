@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { err, ok } from '@exitbook/core';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createMockHttpClient,
@@ -20,10 +20,13 @@ import type { SubscanAccountResponse, SubscanTransfer, SubscanTransfersResponse 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────
 
 const mockHttp = createMockHttpClient();
+const httpClientConfigs: Record<string, unknown>[] = [];
 
-vi.mock('@exitbook/shared-utils', () => ({
-  HttpClient: vi.fn(() => mockHttp),
-  maskAddress: (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`,
+vi.mock('@exitbook/http', () => ({
+  HttpClient: vi.fn(function HttpClientMock(config: Record<string, unknown>) {
+    httpClientConfigs.push(config);
+    return mockHttp;
+  }),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -73,14 +76,27 @@ describe('SubscanApiClient', () => {
   const providerRegistry = createProviderRegistry();
   let client: SubscanApiClient;
   let mockPost: MockHttpClient['post'];
+  const originalSubscanApiKey = process.env['SUBSCAN_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
+    mockHttp.close.mockResolvedValue(undefined);
+    httpClientConfigs.length = 0;
+    process.env['SUBSCAN_API_KEY'] = 'test-subscan-api-key';
 
     client = new SubscanApiClient(providerRegistry.createDefaultConfig('polkadot', 'subscan'));
     injectMockHttpClient(client, mockHttp);
     mockPost = mockHttp.post;
+  });
+
+  afterAll(() => {
+    if (originalSubscanApiKey === undefined) {
+      delete process.env['SUBSCAN_API_KEY'];
+      return;
+    }
+
+    process.env['SUBSCAN_API_KEY'] = originalSubscanApiKey;
   });
 
   // ── metadata ─────────────────────────────────────────────────────
@@ -92,8 +108,24 @@ describe('SubscanApiClient', () => {
       expect(client.name).toBe('subscan');
     });
 
-    it('should not require an API key', () => {
-      expect(subscanMetadata.requiresApiKey).toBe(false);
+    it('should require an API key', () => {
+      expect(subscanMetadata.requiresApiKey).toBe(true);
+    });
+
+    it('should configure X-API-Key header for authenticated requests', () => {
+      const config = httpClientConfigs.at(-1);
+
+      expect(config).toBeDefined();
+      expect(config).toEqual(
+        expect.objectContaining({
+          baseUrl: 'https://polkadot.api.subscan.io',
+          defaultHeaders: expect.objectContaining({
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': 'test-subscan-api-key',
+          }),
+        })
+      );
     });
 
     it('should support getAddressTransactions and getAddressBalances', () => {
