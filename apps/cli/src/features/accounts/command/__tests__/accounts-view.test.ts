@@ -234,7 +234,7 @@ describe('registerAccountsViewCommand', () => {
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AccountsViewApp');
-    expect(renderedElement?.props.initialState).toEqual({
+    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toEqual({
       accounts: [
         {
           id: 1,

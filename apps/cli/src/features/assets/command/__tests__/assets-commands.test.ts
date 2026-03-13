@@ -1,6 +1,10 @@
 import { err, ok } from '@exitbook/core';
 import { Command } from 'commander';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { AssetsViewState } from '../../view/assets-view-state.js';
+import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-handler.js';
 
 const {
   mockAssetsHandlerConstructor,
@@ -14,7 +18,9 @@ const {
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
+  mockRenderApp,
   mockRunCommand,
+  mockView,
 } = vi.hoisted(() => ({
   mockAssetsHandlerConstructor: vi.fn(),
   mockClearReview: vi.fn(),
@@ -31,7 +37,9 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
+  mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
+  mockView: vi.fn(),
 }));
 
 vi.mock('@exitbook/data', () => ({
@@ -42,6 +50,7 @@ vi.mock('@exitbook/data', () => ({
 }));
 
 vi.mock('../../../shared/command-runtime.js', () => ({
+  renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));
 
@@ -62,24 +71,28 @@ vi.mock('../assets-handler.js', () => ({
       exclude: mockExclude,
       include: mockInclude,
       listExclusions: mockListExclusions,
+      view: mockView,
     };
   }),
 }));
 
-import { registerAssetsClearReviewCommand } from '../assets-clear-review.js';
-import { registerAssetsConfirmCommand } from '../assets-confirm.js';
-import { registerAssetsExcludeCommand } from '../assets-exclude.js';
-import { registerAssetsExclusionsCommand } from '../assets-exclusions.js';
-import { registerAssetsIncludeCommand } from '../assets-include.js';
+vi.mock('../../view/assets-view-components.jsx', () => ({
+  AssetsViewApp: 'AssetsViewApp',
+}));
+
+import { registerAssetsCommand } from '../assets.js';
+
+interface AssetsViewAppProps {
+  initialState: AssetsViewState;
+  onClearReview: (assetId: string) => Promise<AssetReviewOverrideResult>;
+  onConfirmReview: (assetId: string) => Promise<AssetReviewOverrideResult>;
+  onQuit: () => void;
+  onToggleExclusion: (assetId: string, excluded: boolean) => Promise<AssetOverrideResult>;
+}
 
 function createAssetsProgram(): Command {
   const program = new Command();
-  const assets = program.command('assets');
-  registerAssetsClearReviewCommand(assets);
-  registerAssetsConfirmCommand(assets);
-  registerAssetsExcludeCommand(assets);
-  registerAssetsExclusionsCommand(assets);
-  registerAssetsIncludeCommand(assets);
+  registerAssetsCommand(program);
   return program;
 }
 
@@ -98,6 +111,7 @@ describe('assets command modules', () => {
       }
     );
     consoleLogSpy.mockClear();
+    mockRenderApp.mockReset();
   });
 
   it('runs clear-review in JSON mode and outputs the handler result', async () => {
@@ -215,5 +229,163 @@ describe('assets command modules', () => {
       reason: undefined,
     });
     expect(mockDisplayCliError).toHaveBeenCalledWith('assets-include', includeError, 1, 'json');
+  });
+
+  it('outputs asset view JSON with action-required metadata', async () => {
+    const program = createAssetsProgram();
+    mockView.mockResolvedValue(
+      ok({
+        assets: [
+          {
+            assetId: 'asset-view-1',
+            assetSymbols: ['SCAM'],
+            accountingBlocked: true,
+            confirmationIsStale: false,
+            currentQuantity: '100',
+            evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
+            evidenceFingerprint: 'fingerprint-1',
+            excluded: false,
+            movementCount: 2,
+            referenceStatus: 'unknown',
+            reviewStatus: 'needs-review',
+            warningSummary: 'flagged',
+            transactionCount: 1,
+          },
+        ],
+        totalCount: 3,
+        excludedCount: 1,
+        actionRequiredCount: 1,
+      })
+    );
+
+    await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
+
+    expect(mockView).toHaveBeenCalledWith({ actionRequiredOnly: true });
+    expect(mockOutputSuccess).toHaveBeenCalledWith('assets-view', {
+      data: [
+        {
+          assetId: 'asset-view-1',
+          assetSymbols: ['SCAM'],
+          accountingBlocked: true,
+          confirmationIsStale: false,
+          currentQuantity: '100',
+          evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
+          evidenceFingerprint: 'fingerprint-1',
+          excluded: false,
+          movementCount: 2,
+          referenceStatus: 'unknown',
+          reviewStatus: 'needs-review',
+          warningSummary: 'flagged',
+          transactionCount: 1,
+        },
+      ],
+      meta: {
+        count: 1,
+        offset: 0,
+        limit: 1,
+        hasMore: true,
+        filters: { actionRequired: true },
+      },
+    });
+  });
+
+  it('renders the assets TUI and wires action callbacks to handler methods', async () => {
+    const program = createAssetsProgram();
+    let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
+
+    mockView.mockResolvedValue(
+      ok({
+        assets: [
+          {
+            assetId: 'asset-view-2',
+            assetSymbols: ['TOKEN'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 4,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
+        totalCount: 1,
+        excludedCount: 0,
+        actionRequiredCount: 0,
+      })
+    );
+    mockExclude.mockResolvedValue(
+      ok({ assetId: 'asset-view-2', assetSymbols: ['TOKEN'], action: 'exclude', changed: true })
+    );
+    mockConfirmReview.mockResolvedValue(
+      ok({
+        action: 'confirm',
+        accountingBlocked: false,
+        assetId: 'asset-view-2',
+        assetSymbols: ['TOKEN'],
+        changed: true,
+        confirmationIsStale: false,
+        evidence: [],
+        evidenceFingerprint: 'fingerprint-2',
+        referenceStatus: 'matched',
+        reviewStatus: 'reviewed',
+        warningSummary: undefined,
+      })
+    );
+    mockClearReview.mockResolvedValue(
+      ok({
+        action: 'clear-review',
+        accountingBlocked: true,
+        assetId: 'asset-view-2',
+        assetSymbols: ['TOKEN'],
+        changed: true,
+        confirmationIsStale: false,
+        evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
+        evidenceFingerprint: 'fingerprint-3',
+        referenceStatus: 'unknown',
+        reviewStatus: 'needs-review',
+        warningSummary: 'flagged',
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined) as ReactElement<AssetsViewAppProps>;
+    });
+
+    await program.parseAsync(['assets', 'view', '--needs-review'], { from: 'user' });
+
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('AssetsViewApp');
+    expect(renderedElement?.props.initialState.filter).toBe('action-required');
+    expect(renderedElement?.props.initialState.totalCount).toBe(1);
+    expect(renderedElement?.props.initialState.excludedCount).toBe(0);
+    expect(renderedElement?.props.initialState.actionRequiredCount).toBe(0);
+    expect(renderedElement?.props.initialState.filteredAssets).toEqual([]);
+    expect(renderedElement?.props.initialState.assets).toHaveLength(1);
+
+    await renderedElement?.props.onToggleExclusion('asset-view-2', false);
+    await renderedElement?.props.onConfirmReview('asset-view-2');
+    await renderedElement?.props.onClearReview('asset-view-2');
+
+    expect(mockExclude).toHaveBeenCalledWith({ assetId: 'asset-view-2' });
+    expect(mockConfirmReview).toHaveBeenCalledWith({ assetId: 'asset-view-2' });
+    expect(mockClearReview).toHaveBeenCalledWith({ assetId: 'asset-view-2' });
+  });
+
+  it('registers the assets namespace with the expected subcommands', () => {
+    const program = createAssetsProgram();
+    const assetsCommand = program.commands.find((command) => command.name() === 'assets');
+
+    expect(assetsCommand).toBeDefined();
+    expect(assetsCommand?.commands.map((command) => command.name())).toEqual([
+      'view',
+      'confirm',
+      'clear-review',
+      'exclude',
+      'include',
+      'exclusions',
+    ]);
   });
 });
