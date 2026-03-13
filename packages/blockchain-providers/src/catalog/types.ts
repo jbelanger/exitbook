@@ -1,13 +1,13 @@
-export interface CoinGeckoBlockchainHints {
+export interface CoinGeckoChainHints {
   chainIdentifier?: number | undefined;
   platformId?: string | undefined;
 }
 
-export interface BlockchainProviderHints {
-  coingecko?: CoinGeckoBlockchainHints | undefined;
+export interface ChainProviderHints {
+  coingecko?: CoinGeckoChainHints | undefined;
 }
 
-export interface BlockchainCatalogEntry {
+export interface ChainCatalogEntry {
   chainName: string;
-  providerHints?: BlockchainProviderHints | undefined;
+  providerHints?: ChainProviderHints | undefined;
 }

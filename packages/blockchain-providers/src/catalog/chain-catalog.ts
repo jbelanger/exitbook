@@ -7,9 +7,9 @@ import { SOLANA_CHAINS } from '../blockchains/solana/chain-registry.js';
 import { SUBSTRATE_CHAINS } from '../blockchains/substrate/chain-registry.js';
 import { XRP_CHAINS } from '../blockchains/xrp/chain-registry.js';
 
-import type { BlockchainCatalogEntry } from './types.js';
+import type { ChainCatalogEntry } from './types.js';
 
-export const BLOCKCHAIN_CATALOG: Record<string, BlockchainCatalogEntry> = {
+export const CHAIN_CATALOG: Record<string, ChainCatalogEntry> = {
   ...BITCOIN_CHAINS,
   ...CARDANO_CHAINS,
   ...COSMOS_CHAINS,
@@ -20,6 +20,6 @@ export const BLOCKCHAIN_CATALOG: Record<string, BlockchainCatalogEntry> = {
   ...XRP_CHAINS,
 };
 
-export function getBlockchainCatalogEntry(chainName: string): BlockchainCatalogEntry | undefined {
-  return BLOCKCHAIN_CATALOG[chainName];
+export function getChainCatalogEntry(chainName: string): ChainCatalogEntry | undefined {
+  return CHAIN_CATALOG[chainName];
 }

@@ -291,7 +291,7 @@ describe('buildAssetReviewSummaries', () => {
     const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
     const assetId = `blockchain:solana:${mint}`;
     const tokenMetadataReader = {
-      getByContracts: vi.fn().mockResolvedValue(ok(new Map([[mint, undefined]]))),
+      getByTokenRefs: vi.fn().mockResolvedValue(ok(new Map([[mint, undefined]]))),
     };
     const referenceResolver = {
       resolveBatch: vi.fn().mockResolvedValue(
@@ -326,7 +326,7 @@ describe('buildAssetReviewSummaries', () => {
       }
     );
 
-    expect(tokenMetadataReader.getByContracts).toHaveBeenCalledWith('solana', [mint]);
+    expect(tokenMetadataReader.getByTokenRefs).toHaveBeenCalledWith('solana', [mint]);
     expect(referenceResolver.resolveBatch).toHaveBeenCalledWith('solana', [mint]);
     expect(assertOk(result).get(assetId)).toMatchObject({
       referenceStatus: 'matched',

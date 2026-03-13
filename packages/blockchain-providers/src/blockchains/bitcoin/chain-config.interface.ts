@@ -1,6 +1,6 @@
 import type { Currency } from '@exitbook/core';
 
-import type { BlockchainProviderHints } from '../../catalog/types.js';
+import type { ChainProviderHints } from '../../catalog/types.js';
 
 /**
  * Configuration interface for Bitcoin-like UTXO blockchains
@@ -49,5 +49,5 @@ export interface BitcoinChainConfig {
   /**
    * Optional provider-specific metadata hints used by aggregate catalogs.
    */
-  providerHints?: BlockchainProviderHints | undefined;
+  providerHints?: ChainProviderHints | undefined;
 }

@@ -15,7 +15,7 @@ export type { ProviderEvent } from './events.js';
 // Persistence
 export * from './persistence/index.js';
 export * from './reference/index.js';
-export * from './catalog/blockchains.js';
+export * from './catalog/chain-catalog.js';
 export * from './catalog/types.js';
 
 export * from './blockchains/bitcoin/index.js';

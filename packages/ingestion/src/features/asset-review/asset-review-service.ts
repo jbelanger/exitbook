@@ -33,16 +33,16 @@ export interface AssetReviewDecisionInput {
 }
 
 export interface AssetReviewTokenMetadataReader {
-  getByContracts(
+  getByTokenRefs(
     blockchain: string,
-    contractAddresses: string[]
+    tokenRefs: string[]
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>>;
 }
 
 export interface AssetReviewReferenceResolver {
   resolveBatch(
     blockchain: string,
-    contractAddresses: string[]
+    tokenRefs: string[]
   ): Promise<Result<Map<string, TokenReferenceLookupResult>, Error>>;
 }
 
@@ -81,7 +81,7 @@ export async function buildAssetReviewSummaries(
 
   for (const [chain, tokenRefs] of tokenRefsByChain) {
     if (options.tokenMetadataReader) {
-      const metadataResult = await options.tokenMetadataReader.getByContracts(chain, tokenRefs);
+      const metadataResult = await options.tokenMetadataReader.getByTokenRefs(chain, tokenRefs);
       if (metadataResult.isErr()) {
         return err(metadataResult.error);
       }

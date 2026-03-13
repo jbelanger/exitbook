@@ -18,7 +18,9 @@ const logger = getLogger('AssetReviewProviderSupport');
 
 export interface AssetReviewProviderSupport {
   referenceResolver: TokenReferenceResolver;
-  tokenMetadataReader: Pick<TokenMetadataQueries, 'getByContracts'>;
+  tokenMetadataReader: {
+    getByTokenRefs: TokenMetadataQueries['getByContracts'];
+  };
   cleanup(): Promise<void>;
 }
 
@@ -46,7 +48,9 @@ export async function createAssetReviewProviderSupport(
   const referenceResolver = resolverResult.value;
 
   return ok({
-    tokenMetadataReader: persistence.queries,
+    tokenMetadataReader: {
+      getByTokenRefs: (blockchain, tokenRefs) => persistence.queries.getByContracts(blockchain, tokenRefs),
+    },
     referenceResolver,
     async cleanup() {
       await referenceResolver.close().catch((error: unknown) => {

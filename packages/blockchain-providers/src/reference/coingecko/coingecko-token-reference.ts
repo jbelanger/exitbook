@@ -3,7 +3,7 @@ import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { z } from 'zod';
 
-import { getBlockchainCatalogEntry } from '../../catalog/blockchains.js';
+import { getChainCatalogEntry } from '../../catalog/chain-catalog.js';
 import type {
   ReferencePlatformMappingRecord,
   TokenMetadataQueries,
@@ -57,7 +57,7 @@ export interface TokenReferenceResolver {
   close(): Promise<void>;
   resolveBatch(
     blockchain: string,
-    contractAddresses: string[]
+    tokenRefs: string[]
   ): Promise<Result<Map<string, TokenReferenceLookupResult>, Error>>;
 }
 
@@ -120,40 +120,40 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
 
   async resolveBatch(
     blockchain: string,
-    contractAddresses: string[]
+    tokenRefs: string[]
   ): Promise<Result<Map<string, TokenReferenceLookupResult>, Error>> {
-    const normalizedAddresses = [...new Set(contractAddresses.map((address) => normalizeReferenceLookupKey(address)))];
+    const normalizedTokenRefs = [...new Set(tokenRefs.map((tokenRef) => normalizeReferenceLookupKey(tokenRef)))];
     const results = new Map<string, TokenReferenceLookupResult>();
 
-    for (const contractAddress of normalizedAddresses) {
-      results.set(contractAddress, buildUnknownLookupResult());
+    for (const tokenRef of normalizedTokenRefs) {
+      results.set(tokenRef, buildUnknownLookupResult());
     }
 
-    if (normalizedAddresses.length === 0) {
+    if (normalizedTokenRefs.length === 0) {
       return ok(results);
     }
 
-    const cachedMatchesResult = await this.queries.getReferenceMatches(blockchain, normalizedAddresses, 'coingecko');
+    const cachedMatchesResult = await this.queries.getReferenceMatches(blockchain, normalizedTokenRefs, 'coingecko');
     if (cachedMatchesResult.isErr()) {
       return err(cachedMatchesResult.error);
     }
 
-    const contractsToRefresh: string[] = [];
+    const tokenRefsToRefresh: string[] = [];
 
-    for (const contractAddress of normalizedAddresses) {
-      const cached = cachedMatchesResult.value.get(contractAddress);
+    for (const tokenRef of normalizedTokenRefs) {
+      const cached = cachedMatchesResult.value.get(tokenRef);
       if (!cached) {
-        contractsToRefresh.push(contractAddress);
+        tokenRefsToRefresh.push(tokenRef);
         continue;
       }
 
-      results.set(contractAddress, mapReferenceMatchToLookup(cached));
+      results.set(tokenRef, mapReferenceMatchToLookup(cached));
       if (this.queries.isReferenceStale(cached.refreshedAt)) {
-        contractsToRefresh.push(contractAddress);
+        tokenRefsToRefresh.push(tokenRef);
       }
     }
 
-    if (contractsToRefresh.length === 0) {
+    if (tokenRefsToRefresh.length === 0) {
       return ok(results);
     }
 
@@ -180,23 +180,23 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
       return ok(results);
     }
 
-    const matchesByContract = new Map<string, z.infer<typeof CoinGeckoCoinListItemSchema>>();
+    const matchesByTokenRef = new Map<string, z.infer<typeof CoinGeckoCoinListItemSchema>>();
     for (const coin of coinListResult.value) {
       const platformAddress = coin.platforms[platformMapping.assetPlatformId];
       if (!platformAddress) {
         continue;
       }
 
-      matchesByContract.set(normalizeReferenceLookupKey(platformAddress), coin);
+      matchesByTokenRef.set(normalizeReferenceLookupKey(platformAddress), coin);
     }
 
-    for (const contractAddress of contractsToRefresh) {
-      const match = matchesByContract.get(contractAddress);
+    for (const tokenRef of tokenRefsToRefresh) {
+      const match = matchesByTokenRef.get(tokenRef);
       const externalContractAddress = match?.platforms[platformMapping.assetPlatformId];
       const record: TokenReferenceMatchRecord = match
         ? {
             blockchain,
-            contractAddress,
+            contractAddress: tokenRef,
             provider: 'coingecko',
             referenceStatus: 'matched',
             assetPlatformId: platformMapping.assetPlatformId,
@@ -211,7 +211,7 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
           }
         : {
             blockchain,
-            contractAddress,
+            contractAddress: tokenRef,
             provider: 'coingecko',
             referenceStatus: 'unmatched',
             assetPlatformId: platformMapping.assetPlatformId,
@@ -221,12 +221,12 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
       const saveResult = await this.queries.saveReferenceMatch(record);
       if (saveResult.isErr()) {
         logger.warn(
-          { blockchain, contractAddress, error: saveResult.error },
+          { blockchain, contractAddress: tokenRef, error: saveResult.error },
           'Failed to persist CoinGecko token reference match'
         );
       }
 
-      results.set(contractAddress, mapReferenceMatchToLookup(record));
+      results.set(tokenRef, mapReferenceMatchToLookup(record));
     }
 
     return ok(results);
@@ -255,7 +255,7 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
       return err(platformsResult.error);
     }
 
-    const coingeckoHints = getBlockchainCatalogEntry(blockchain)?.providerHints?.coingecko;
+    const coingeckoHints = getChainCatalogEntry(blockchain)?.providerHints?.coingecko;
     if (!coingeckoHints) {
       return ok(cachedResult.value);
     }
