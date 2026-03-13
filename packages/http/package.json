@@ -22,7 +22,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",
-    "undici": "^7.22.0",
+    "undici": "^7.24.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
