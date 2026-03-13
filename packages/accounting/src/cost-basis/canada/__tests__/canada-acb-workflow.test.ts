@@ -132,6 +132,107 @@ describe('runCanadaAcbWorkflow', () => {
     );
   });
 
+  it('allows reviewed same-symbol ambiguity once the conflicting contract is excluded', async () => {
+    const fxProvider = createCanadaFxProvider();
+
+    const first: UniversalTransactionData = {
+      id: 3,
+      accountId: 1,
+      externalId: 'tx-3',
+      datetime: '2024-01-03T12:00:00Z',
+      timestamp: Date.parse('2024-01-03T12:00:00Z'),
+      source: 'arbitrum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:arbitrum:0xaaa',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('10'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-03T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'deposit' },
+    };
+
+    const second: UniversalTransactionData = {
+      id: 4,
+      accountId: 1,
+      externalId: 'tx-4',
+      datetime: '2024-01-04T12:00:00Z',
+      timestamp: Date.parse('2024-01-04T12:00:00Z'),
+      source: 'arbitrum',
+      sourceType: 'blockchain',
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:arbitrum:0xbbb',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('5'),
+            priceAtTxTime: {
+              price: { amount: parseDecimal('1'), currency: 'CAD' as Currency },
+              source: 'manual',
+              fetchedAt: new Date('2024-01-04T12:00:00Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+      },
+      fees: [],
+      operation: { category: 'transfer', type: 'withdrawal' },
+    };
+
+    const ambiguityEvidence = [
+      {
+        kind: 'same-symbol-ambiguity' as const,
+        severity: 'warning' as const,
+        message: 'Same-chain symbol ambiguity on arbitrum:usdc',
+        metadata: {
+          chain: 'arbitrum',
+          conflictingAssetIds: ['blockchain:arbitrum:0xaaa', 'blockchain:arbitrum:0xbbb'],
+          normalizedSymbol: 'usdc',
+        },
+      },
+    ];
+
+    const result = await runCanadaAcbWorkflow([first, second], [], fxProvider, {
+      accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:arbitrum:0xbbb']),
+      assetReviewSummaries: new Map([
+        [
+          'blockchain:arbitrum:0xaaa',
+          createAssetReviewSummary('blockchain:arbitrum:0xaaa', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdc',
+            evidence: ambiguityEvidence,
+          }),
+        ],
+        [
+          'blockchain:arbitrum:0xbbb',
+          createAssetReviewSummary('blockchain:arbitrum:0xbbb', {
+            reviewStatus: 'reviewed',
+            accountingBlocked: true,
+            warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdc',
+            evidence: ambiguityEvidence,
+          }),
+        ],
+      ]),
+    });
+
+    expect(result.isOk()).toBe(true);
+  });
+
   it('blocks included assets that still need review on the Canada workflow path', async () => {
     const fxProvider = createCanadaFxProvider();
     const reviewRequired: UniversalTransactionData = {

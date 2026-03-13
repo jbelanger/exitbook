@@ -1,3 +1,4 @@
+import { parseAssetId } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
@@ -270,6 +271,7 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
   const badge = getAssetBadge(asset);
   const reason = getAssetReason(asset);
   const evidenceRows = buildEvidenceRows(asset);
+  const ambiguityContextRows = buildAmbiguityContextRows(asset);
 
   const rows: ReactElement[] = [
     <Text key="title">
@@ -293,6 +295,8 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
       </Text>
     );
   }
+
+  rows.push(...ambiguityContextRows);
 
   if (reason) {
     rows.push(
@@ -373,17 +377,17 @@ function getAssetBadge(asset: AssetViewItem): { color: string; label: string } |
     };
   }
 
-  if (requiresAssetReviewAction(asset)) {
-    return {
-      color: 'yellow',
-      label: 'Review',
-    };
-  }
-
   if (asset.reviewStatus === 'reviewed') {
     return {
       color: 'green',
       label: 'Reviewed',
+    };
+  }
+
+  if (requiresAssetReviewAction(asset)) {
+    return {
+      color: 'yellow',
+      label: 'Review',
     };
   }
 
@@ -477,6 +481,54 @@ function buildEvidenceRows(asset: AssetViewItem): ReactElement[] {
   });
 }
 
+function buildAmbiguityContextRows(asset: AssetViewItem): ReactElement[] {
+  const ambiguityEvidence = asset.evidence.find((item) => item.kind === 'same-symbol-ambiguity');
+  if (!ambiguityEvidence) {
+    return [];
+  }
+
+  const tokenIdentity = getBlockchainTokenIdentity(asset.assetId);
+  if (!tokenIdentity) {
+    return [];
+  }
+
+  const rows: ReactElement[] = [
+    <Text
+      key="contract"
+      wrap="wrap"
+    >
+      {'  '}
+      <Text dimColor>Contract: </Text>
+      <Text>
+        {tokenIdentity.chain} {tokenIdentity.ref}
+      </Text>
+    </Text>,
+    <Text key="coingecko">
+      {'  '}
+      <Text dimColor>CoinGecko: </Text>
+      <Text>{formatCoinGeckoReferenceStatus(asset.referenceStatus)}</Text>
+    </Text>,
+  ];
+
+  const conflictingContracts = getConflictingContracts(ambiguityEvidence.metadata, asset.assetId);
+  if (conflictingContracts.length > 0) {
+    rows.push(
+      ...conflictingContracts.map((contract, index) => (
+        <Text
+          key={`conflict-${index}`}
+          wrap="wrap"
+        >
+          {'  '}
+          <Text dimColor>Conflict: </Text>
+          <Text>{contract}</Text>
+        </Text>
+      ))
+    );
+  }
+
+  return rows;
+}
+
 function formatEvidenceMessage(kind: AssetViewItem['evidence'][number]['kind']): string {
   switch (kind) {
     case 'provider-spam-flag':
@@ -496,4 +548,49 @@ function formatEvidenceMessage(kind: AssetViewItem['evidence'][number]['kind']):
 
 function pluralize(count: number, label: string): string {
   return count === 1 ? label : `${label}s`;
+}
+
+function getBlockchainTokenIdentity(assetId: string): { chain: string; ref: string } | undefined {
+  const parsedAssetId = parseAssetId(assetId);
+  if (parsedAssetId.isErr() || parsedAssetId.value.namespace !== 'blockchain' || !parsedAssetId.value.chain) {
+    return undefined;
+  }
+
+  const ref = parsedAssetId.value.ref;
+  if (!ref || ref === 'native') {
+    return undefined;
+  }
+
+  return {
+    chain: parsedAssetId.value.chain,
+    ref,
+  };
+}
+
+function getConflictingContracts(
+  metadata: AssetViewItem['evidence'][number]['metadata'],
+  currentAssetId: string
+): string[] {
+  const conflictingAssetIds = metadata?.['conflictingAssetIds'];
+  if (!Array.isArray(conflictingAssetIds)) {
+    return [];
+  }
+
+  return conflictingAssetIds
+    .filter((assetId): assetId is string => typeof assetId === 'string' && assetId !== currentAssetId)
+    .map((assetId) => {
+      const identity = getBlockchainTokenIdentity(assetId);
+      return identity?.ref ?? assetId;
+    });
+}
+
+function formatCoinGeckoReferenceStatus(referenceStatus: AssetViewItem['referenceStatus']): string {
+  switch (referenceStatus) {
+    case 'matched':
+      return 'matched canonical token';
+    case 'unmatched':
+      return 'no canonical match';
+    default:
+      return 'no lookup result';
+  }
 }

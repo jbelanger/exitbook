@@ -173,6 +173,76 @@ describe('AssetsViewApp', () => {
     expect(frame).toContain('same symbol conflict (+1 more)');
   });
 
+  it('shows contract and CoinGecko context for same-symbol conflicts', () => {
+    const initialState = createAssetsViewState(
+      [
+        createAsset({
+          assetId: 'blockchain:ethereum:0xaaa',
+          assetSymbols: ['USDC'],
+          evidence: [
+            {
+              kind: 'same-symbol-ambiguity',
+              severity: 'warning',
+              message: 'ambiguity',
+              metadata: {
+                chain: 'ethereum',
+                normalizedSymbol: 'usdc',
+                conflictingAssetIds: ['blockchain:ethereum:0xaaa', 'blockchain:ethereum:0xbbb'],
+              },
+            },
+          ],
+          referenceStatus: 'matched',
+          reviewStatus: 'needs-review',
+          warningSummary: 'ambiguity',
+        }),
+      ],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 },
+      'action-required'
+    );
+
+    const { lastFrame } = render(
+      <AssetsViewApp
+        initialState={initialState}
+        onQuit={() => {
+          /* noop */
+        }}
+        onToggleExclusion={noop}
+        onConfirmReview={async () => ({
+          action: 'confirm',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+        onClearReview={async () => ({
+          action: 'clear-review',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+      />
+    );
+
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('Contract: ethereum 0xaaa');
+    expect(frame).toContain('CoinGecko: matched canonical token');
+    expect(frame).toContain('Conflict: 0xbbb');
+  });
+
   it('shows one review badge, reason, and action for flagged assets', () => {
     const initialState = createAssetsViewState(
       [createAsset()],
@@ -232,5 +302,75 @@ describe('AssetsViewApp', () => {
     expect(frame).toContain('Imported transactions marked this asset as spam.');
     expect(frame).not.toContain('Next action:');
     expect(frame).not.toContain('Reference:');
+  });
+
+  it('shows a reviewed badge when a confirmed asset still needs exclusion to unblock accounting', () => {
+    const initialState = createAssetsViewState(
+      [
+        createAsset({
+          assetId: 'blockchain:ethereum:0xaaa',
+          assetSymbols: ['USDC'],
+          reviewStatus: 'reviewed',
+          accountingBlocked: true,
+          evidence: [
+            {
+              kind: 'same-symbol-ambiguity',
+              severity: 'warning',
+              message: 'ambiguity',
+              metadata: {
+                chain: 'ethereum',
+                normalizedSymbol: 'usdc',
+                conflictingAssetIds: ['blockchain:ethereum:0xaaa', 'blockchain:ethereum:0xbbb'],
+              },
+            },
+          ],
+          warningSummary: 'ambiguity',
+        }),
+      ],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 },
+      'action-required'
+    );
+
+    const { lastFrame } = render(
+      <AssetsViewApp
+        initialState={initialState}
+        onQuit={() => {
+          /* noop */
+        }}
+        onToggleExclusion={noop}
+        onConfirmReview={async () => ({
+          action: 'confirm',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+        onClearReview={async () => ({
+          action: 'clear-review',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+      />
+    );
+
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('[Reviewed]');
+    expect(frame).toContain('same symbol conflict');
+    expect(frame).toContain('Action: Press x to exclude a conflicting asset.');
   });
 });

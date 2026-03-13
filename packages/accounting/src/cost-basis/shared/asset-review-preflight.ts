@@ -44,7 +44,9 @@ export function assertNoScopedAssetsRequireReview(
 
   const flaggedAssets = [...assetsInScope]
     .map((assetId) => assetReviewSummaries.get(assetId))
-    .filter((summary): summary is AssetReviewSummary => summary !== undefined && summary.accountingBlocked)
+    .filter(
+      (summary): summary is AssetReviewSummary => summary !== undefined && stillBlocksAccounting(summary, assetsInScope)
+    )
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
 
   if (flaggedAssets.length === 0) {
@@ -52,4 +54,41 @@ export function assertNoScopedAssetsRequireReview(
   }
 
   return err(new Error(formatNeedsReviewMessage(flaggedAssets)));
+}
+
+function stillBlocksAccounting(summary: AssetReviewSummary, assetsInScope: ReadonlySet<string>): boolean {
+  if (!summary.accountingBlocked) {
+    return false;
+  }
+
+  const ambiguityEvidence = summary.evidence.filter((item) => item.kind === 'same-symbol-ambiguity');
+  if (ambiguityEvidence.length === 0) {
+    return true;
+  }
+
+  if (ambiguityEvidence.some((item) => sameSymbolAmbiguityStillBlocks(summary.assetId, item.metadata, assetsInScope))) {
+    return true;
+  }
+
+  if (summary.reviewStatus !== 'needs-review') {
+    return false;
+  }
+
+  return summary.evidence.some((item) => item.kind !== 'same-symbol-ambiguity' && item.severity === 'error');
+}
+
+function sameSymbolAmbiguityStillBlocks(
+  assetId: string,
+  metadata: AssetReviewSummary['evidence'][number]['metadata'],
+  assetsInScope: ReadonlySet<string>
+): boolean {
+  const conflictingAssetIds = metadata?.['conflictingAssetIds'];
+  if (!Array.isArray(conflictingAssetIds) || conflictingAssetIds.some((item) => typeof item !== 'string')) {
+    return true;
+  }
+
+  const validatedIds = conflictingAssetIds as string[];
+  return validatedIds.some(
+    (conflictingAssetId) => conflictingAssetId !== assetId && assetsInScope.has(conflictingAssetId)
+  );
 }

@@ -208,8 +208,8 @@ Rows must not show raw review status, reference status, accounting status, or in
 ### Badge Rules
 
 - `Excluded`: asset is currently excluded
-- `Review`: asset still needs user action (needs-review, stale confirmation, or reviewed-but-blocking)
-- `Reviewed`: asset has review history but no current action requirement
+- `Review`: asset still needs review confirmation (needs-review or stale confirmation)
+- `Reviewed`: asset has a stored review confirmation, even if exclusion is still required to unblock accounting
 - no badge: normal asset
 
 ### Reason Rules
@@ -227,6 +227,8 @@ The detail panel shows:
 
 - title with symbol, quantity, and optional badge
 - optional `Also seen as` (when multiple symbols)
+- optional `Contract` and `CoinGecko` lines for same-symbol ambiguity on blockchain tokens
+- optional `Conflict` lines listing the other conflicting contracts for same-symbol ambiguity
 - optional `Why` (same reason as the row)
 - `Action` with concrete keybind instructions
 - `Seen in` with transaction and movement counts
