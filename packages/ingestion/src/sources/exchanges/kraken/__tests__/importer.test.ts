@@ -1,0 +1,169 @@
+import type { CursorState, RawTransactionInput } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+
+vi.mock('@exitbook/exchange-providers', () => ({
+  createKrakenClient: vi.fn(),
+}));
+
+import { createKrakenClient } from '@exitbook/exchange-providers';
+
+import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
+import type { StreamingImportParams } from '../../../../shared/types/importers.js';
+import { KrakenApiImporter } from '../importer.js';
+
+const mockCreateKrakenClient = vi.mocked(createKrakenClient);
+
+function makeParams(overrides: Partial<StreamingImportParams> = {}): StreamingImportParams {
+  return {
+    sourceName: 'kraken',
+    sourceType: 'exchange-api',
+    credentials: {
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+    },
+    ...overrides,
+  };
+}
+
+function makeCursor(overrides: Partial<CursorState> = {}): CursorState {
+  return {
+    primary: {
+      type: 'pageToken',
+      value: 'cursor-1',
+      providerName: 'kraken',
+    },
+    lastTransactionId: 'LEDGER-1',
+    totalFetched: 1,
+    metadata: {
+      providerName: 'kraken',
+      updatedAt: 1704067200000,
+      isComplete: false,
+    },
+    ...overrides,
+  };
+}
+
+function makeRawTransaction(eventId: string): RawTransactionInput {
+  return {
+    eventId,
+    providerName: 'kraken',
+    providerData: { ledgerId: eventId },
+    timestamp: 1704067200000,
+  };
+}
+
+describe('KrakenApiImporter', () => {
+  beforeEach(() => {
+    mockCreateKrakenClient.mockReset();
+  });
+
+  test('returns an error when credentials are missing', async () => {
+    const importer = new KrakenApiImporter();
+
+    const result = await consumeImportStream(importer, makeParams({ credentials: undefined }));
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toContain('API credentials are required');
+    expect(mockCreateKrakenClient).not.toHaveBeenCalled();
+  });
+
+  test('returns a client creation error unchanged', async () => {
+    mockCreateKrakenClient.mockReturnValue(err(new Error('bad kraken credentials')));
+
+    const importer = new KrakenApiImporter();
+    const result = await consumeImportStream(importer, makeParams());
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toBe('bad kraken credentials');
+  });
+
+  test('returns an error when the client does not support streaming', async () => {
+    mockCreateKrakenClient.mockReturnValue(
+      ok({
+        exchangeId: 'kraken',
+        fetchBalance: vi.fn(),
+      } as never)
+    );
+
+    const importer = new KrakenApiImporter();
+    const result = await consumeImportStream(importer, makeParams());
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toContain('does not support streaming');
+  });
+
+  test('maps client batches to importer batches and forwards cursor state', async () => {
+    const clientCursor = makeCursor({ totalFetched: 25 });
+    const importCursor = { ledger: makeCursor({ totalFetched: 10 }) };
+    const fetchTransactionDataStreaming = vi.fn(async function* (params: { cursor?: Record<string, CursorState> }) {
+      expect(params).toEqual({ cursor: importCursor });
+      yield ok({
+        transactions: [makeRawTransaction('LEDGER-25')],
+        operationType: 'ledger',
+        cursor: clientCursor,
+        isComplete: true,
+      });
+    });
+
+    mockCreateKrakenClient.mockReturnValue(
+      ok({
+        exchangeId: 'kraken',
+        fetchBalance: vi.fn(),
+        fetchTransactionDataStreaming,
+      } as never)
+    );
+
+    const importer = new KrakenApiImporter();
+    const result = await consumeImportStream(importer, makeParams({ cursor: importCursor }));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    expect(mockCreateKrakenClient).toHaveBeenCalledWith({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+    });
+    expect(fetchTransactionDataStreaming).toHaveBeenCalledOnce();
+    expect(result.value.rawTransactions).toEqual([makeRawTransaction('LEDGER-25')]);
+    expect(result.value.cursorUpdates).toEqual({ ledger: clientCursor });
+  });
+
+  test('returns an error when the client stream yields an error batch', async () => {
+    const fetchTransactionDataStreaming = vi.fn(async function* () {
+      yield err(new Error('kraken transport failed'));
+    });
+
+    mockCreateKrakenClient.mockReturnValue(
+      ok({
+        exchangeId: 'kraken',
+        fetchBalance: vi.fn(),
+        fetchTransactionDataStreaming,
+      } as never)
+    );
+
+    const importer = new KrakenApiImporter();
+    const result = await consumeImportStream(importer, makeParams());
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toBe('kraken transport failed');
+  });
+});

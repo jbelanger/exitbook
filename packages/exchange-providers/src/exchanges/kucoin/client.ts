@@ -4,6 +4,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
+import { Decimal } from 'decimal.js';
 
 import * as ExchangeUtils from '../../core/exchange-utils.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
@@ -56,7 +57,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           // KuCoin has multiple account types (main, spot/trade, margin, etc.)
           // Fetch balances from all account types and combine them
           const accountTypes = ['main', 'trade', 'margin', 'isolated'];
-          const allBalances: Record<string, number> = {};
+          const allBalances: Record<string, Decimal> = {};
 
           for (const accountType of accountTypes) {
             try {
@@ -65,8 +66,8 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
 
               // Merge balances from this account type (processCCXTBalance returns Record<string, string>)
               for (const [asset, amountStr] of Object.entries(processed)) {
-                const amount = parseFloat(amountStr);
-                allBalances[asset] = (allBalances[asset] || 0) + amount;
+                const amount = new Decimal(amountStr);
+                allBalances[asset] = (allBalances[asset] ?? new Decimal(0)).plus(amount);
               }
 
               logger.debug(`Fetched ${Object.keys(processed).length} assets from ${accountType} account`);
@@ -80,7 +81,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           const balancesAsStrings: Record<string, string> = {};
           for (const [asset, amount] of Object.entries(allBalances)) {
             // Use toFixed to avoid scientific notation for small numbers
-            balancesAsStrings[asset] = amount.toFixed(18).replace(/\.?0+$/, '');
+            balancesAsStrings[asset] = amount.toFixed();
           }
 
           return ok({ balances: balancesAsStrings, timestamp: Date.now() });
