@@ -1,10 +1,9 @@
-import type { Account } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import {
-  err,
-  ok,
-  resolveBalanceScopeAccountId as resolveSharedBalanceScopeAccountId,
-  type Result,
-} from '@exitbook/core';
+  resolveBalanceScopeAccountId as resolvePortBalanceScopeAccountId,
+  type BalanceScopeAccount,
+  type IBalanceScopeAccountLookup,
+} from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
 
@@ -18,9 +17,7 @@ export async function resolveBalanceScopeAccountId(db: DataContext, accountId: n
     return err(requestedAccountResult.error);
   }
 
-  return resolveSharedBalanceScopeAccountId(requestedAccountResult.value, {
-    findById: async (id: number) => db.accounts.findByIdOptional(id),
-  });
+  return resolvePortBalanceScopeAccountId(requestedAccountResult.value, createBalanceScopeLookup(db));
 }
 
 export async function resolveBalanceScopeAccountIds(
@@ -31,6 +28,7 @@ export async function resolveBalanceScopeAccountIds(
     return ok(undefined);
   }
 
+  const lookup = createBalanceScopeLookup(db);
   const scopeIds = new Set<number>();
   const scopeCache = new Map<number, number>();
 
@@ -40,13 +38,9 @@ export async function resolveBalanceScopeAccountIds(
       return err(requestedAccountResult.error);
     }
 
-    const scopeAccountIdResult = await resolveSharedBalanceScopeAccountId(
-      requestedAccountResult.value,
-      {
-        findById: async (id: number) => db.accounts.findByIdOptional(id),
-      },
-      { cache: scopeCache }
-    );
+    const scopeAccountIdResult = await resolvePortBalanceScopeAccountId(requestedAccountResult.value, lookup, {
+      cache: scopeCache,
+    });
     if (scopeAccountIdResult.isErr()) {
       return err(scopeAccountIdResult.error);
     }
@@ -57,7 +51,15 @@ export async function resolveBalanceScopeAccountIds(
   return ok([...scopeIds]);
 }
 
-async function loadRequestedAccount(db: DataContext, accountId: number): Promise<Result<Account, Error>> {
+function createBalanceScopeLookup(db: DataContext): IBalanceScopeAccountLookup<BalanceScopeAccount> {
+  return {
+    findById(id) {
+      return db.accounts.findByIdOptional(id);
+    },
+  };
+}
+
+async function loadRequestedAccount(db: DataContext, accountId: number): Promise<Result<BalanceScopeAccount, Error>> {
   const accountResult = await db.accounts.findById(accountId);
   if (accountResult.isErr()) {
     return err(accountResult.error);

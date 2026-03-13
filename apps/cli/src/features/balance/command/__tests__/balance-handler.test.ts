@@ -126,6 +126,24 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
     expect(error.message).toContain('balance refresh --account-id 2');
   });
 
+  it('explains when processed-transaction resets invalidate every stored balance snapshot', async () => {
+    const account = createAccount({ id: 1, sourceName: 'kraken' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [createSnapshot(account.id)],
+      snapshotAssets: [createSnapshotAsset(account.id, 'exchange:kraken:btc', 'BTC')],
+      staleScopes: new Map([[account.id, 'upstream-reset:processed-transactions']]),
+    });
+
+    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const result = await handler.viewStoredSnapshots({ accountId: account.id });
+    const error = assertErr(result);
+
+    expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
+    expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
+    expect(error.message).toContain('exitbook balance refresh --account-id 1');
+  });
+
   it('reads the root scope snapshot for nested child accounts', async () => {
     const rootAccount = createAccount({ id: 1, identifier: 'xpub-root' });
     const childAccount = createAccount({ id: 2, identifier: 'bc1-child', parentAccountId: rootAccount.id });

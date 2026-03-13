@@ -2,7 +2,7 @@
  * Balance view utility functions — data transformation, sorting, formatting.
  */
 
-import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -179,7 +179,8 @@ export function buildStoredSnapshotAssetItem(
  */
 export function buildStoredSnapshotAccountItem(
   account: Account,
-  assets: StoredSnapshotAssetItem[]
+  assets: StoredSnapshotAssetItem[],
+  snapshot?: BalanceSnapshot
 ): StoredSnapshotAccountItem {
   return {
     accountId: account.id,
@@ -187,6 +188,10 @@ export function buildStoredSnapshotAccountItem(
     accountType: account.accountType,
     assetCount: assets.length,
     assets,
+    verificationStatus: snapshot?.verificationStatus,
+    statusReason: snapshot?.statusReason,
+    suggestion: snapshot?.suggestion,
+    lastRefreshAt: snapshot?.lastRefreshAt?.toISOString(),
   };
 }
 

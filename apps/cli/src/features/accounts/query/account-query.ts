@@ -1,13 +1,9 @@
-import {
-  type Account,
-  type BalanceSnapshot,
-  type IBalanceScopeAccountLookup,
-  resolveBalanceScopeAccountId as resolveSharedBalanceScopeAccountId,
-  wrapError,
-} from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { Account, BalanceSnapshot } from '@exitbook/core';
+import { err, ok, type Result, wrapError } from '@exitbook/core';
+import { resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
+import type { AccountQueryPorts } from './account-query-ports.js';
 import type {
   AccountListResult,
   AccountProjectionFreshness,
@@ -16,7 +12,6 @@ import type {
   SessionSummary,
 } from './account-query-utils.js';
 import { toAccountSummary } from './account-query-utils.js';
-import type { AccountQueryPorts } from './ports/account-query-ports.js';
 
 export type {
   AccountListResult,
@@ -30,19 +25,9 @@ export type {
 
 const logger = getLogger('AccountQuery');
 
-/**
- * Read model for account views.
- *
- * Builds account hierarchy (parent/child for xpub), attaches session summaries,
- * scopes to default user. Uses capability-owned ports for persistence access.
- */
 export class AccountQuery {
   constructor(private readonly ports: AccountQueryPorts) {}
 
-  /**
-   * List accounts with optional session details.
-   * Handles user scoping, filtering, hierarchy, and aggregation.
-   */
   async list(params?: AccountQueryParams): Promise<Result<AccountListResult, Error>> {
     try {
       const resolvedParams = params ?? {};
@@ -103,12 +88,10 @@ export class AccountQuery {
         return err(formattedAccounts.error);
       }
 
-      const totalDisplayedCount = this.countDisplayedAccounts(formattedAccounts.value);
-
       return ok({
         accounts: formattedAccounts.value,
         sessions: sessionDetails,
-        count: totalDisplayedCount,
+        count: this.countDisplayedAccounts(formattedAccounts.value),
       });
     } catch (error) {
       logger.error({ error }, 'Failed to query accounts');
@@ -116,10 +99,6 @@ export class AccountQuery {
     }
   }
 
-  /**
-   * Find a single account by ID.
-   * Scopes to default user.
-   */
   async findById(id: number): Promise<Result<AccountSummary | undefined, Error>> {
     try {
       const userResult = await this.ports.users.findOrCreateDefault();
@@ -153,12 +132,13 @@ export class AccountQuery {
         return err(childAccountsResult.error);
       }
 
-      const balanceSnapshotsResult = await this.fetchBalanceSnapshots([account, ...childAccountsResult.value]);
+      const scopedAccounts = [account, ...childAccountsResult.value];
+      const balanceSnapshotsResult = await this.fetchBalanceSnapshots(scopedAccounts);
       if (balanceSnapshotsResult.isErr()) {
         return err(balanceSnapshotsResult.error);
       }
 
-      const scopeAccountIdsResult = await this.resolveScopeAccountIds([account, ...childAccountsResult.value]);
+      const scopeAccountIdsResult = await this.resolveScopeAccountIds(scopedAccounts);
       if (scopeAccountIdsResult.isErr()) {
         return err(scopeAccountIdsResult.error);
       }
@@ -175,7 +155,7 @@ export class AccountQuery {
       let totalSessionCount = sessionCount;
 
       if (childAccountsResult.value.length > 0) {
-        const childIds = childAccountsResult.value.map((c) => c.id);
+        const childIds = childAccountsResult.value.map((childAccount) => childAccount.id);
         const childCountsResult = await this.ports.importSessions.countByAccount(childIds);
         if (childCountsResult.isErr()) {
           return err(childCountsResult.error);
@@ -223,6 +203,7 @@ export class AccountQuery {
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
+
       const account = accountResult.value;
       if (!account) {
         return err(new Error(`Account ${params.accountId} not found`));
@@ -247,33 +228,31 @@ export class AccountQuery {
   }
 
   private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
-    const accountIds = accounts.map((a) => a.id);
-    return this.ports.importSessions.countByAccount(accountIds);
+    return this.ports.importSessions.countByAccount(accounts.map((account) => account.id));
   }
 
   private async fetchSessionsForAccounts(accounts: Account[]): Promise<Result<Map<number, SessionSummary[]>, Error>> {
-    const accountIds = accounts.map((a) => a.id);
-
-    const sessionsResult = await this.ports.importSessions.findAll({ accountIds });
+    const sessionsResult = await this.ports.importSessions.findAll({
+      accountIds: accounts.map((account) => account.id),
+    });
     if (sessionsResult.isErr()) {
       return err(sessionsResult.error);
     }
 
     const sessions = new Map<number, SessionSummary[]>();
-
-    for (const ds of sessionsResult.value) {
+    for (const session of sessionsResult.value) {
       const summary: SessionSummary = {
-        id: ds.id,
-        status: ds.status,
-        startedAt: ds.startedAt.toISOString(),
-        completedAt: ds.completedAt?.toISOString(),
+        id: session.id,
+        status: session.status,
+        startedAt: session.startedAt.toISOString(),
+        completedAt: session.completedAt?.toISOString(),
       };
 
-      const existing = sessions.get(ds.accountId);
+      const existing = sessions.get(session.accountId);
       if (existing) {
         existing.push(summary);
       } else {
-        sessions.set(ds.accountId, [summary]);
+        sessions.set(session.accountId, [summary]);
       }
     }
 
@@ -286,8 +265,7 @@ export class AccountQuery {
       return err(scopeAccountIdsResult.error);
     }
 
-    const scopeAccountIds = [...new Set(scopeAccountIdsResult.value.values())];
-    return this.ports.balanceSnapshots.findSnapshots(scopeAccountIds);
+    return this.ports.balanceSnapshots.findSnapshots([...new Set(scopeAccountIdsResult.value.values())]);
   }
 
   private async fetchBalanceFreshness(
@@ -331,12 +309,11 @@ export class AccountQuery {
 
     for (const account of accounts) {
       if (account.parentAccountId && accounts.length === 1) {
-        const sessionCount = sessionCounts?.get(account.id) ?? 0;
         const scopeAccountId = scopeAccountIds.get(account.id) ?? account.id;
         formatted.push(
           toAccountSummary(
             account,
-            sessionCount,
+            sessionCounts?.get(account.id) ?? 0,
             balanceSnapshots.get(scopeAccountId),
             balanceFreshness.get(scopeAccountId)
           )
@@ -353,14 +330,12 @@ export class AccountQuery {
         return err(childAccountsResult.error);
       }
 
-      const childAccounts = childAccountsResult.value;
-
       let formattedChildren: AccountSummary[] | undefined;
       let totalSessionCount = sessionCounts?.get(account.id) ?? 0;
 
-      if (childAccounts.length > 0) {
+      if (childAccountsResult.value.length > 0) {
         formattedChildren = [];
-        for (const child of childAccounts) {
+        for (const child of childAccountsResult.value) {
           const childSessionCount = sessionCounts?.get(child.id) ?? 0;
           const childScopeAccountId = scopeAccountIds.get(child.id) ?? child.id;
           totalSessionCount += childSessionCount;
@@ -392,16 +367,15 @@ export class AccountQuery {
 
   private async resolveScopeAccountIds(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     const scopeAccountIds = new Map<number, number>();
-    const scopeAccountLookup: IBalanceScopeAccountLookup<Account> = {
-      findById: async (accountId: number) => {
-        return this.ports.accounts.findById(accountId);
-      },
-    };
 
     for (const account of accounts) {
-      const scopeAccountIdResult = await resolveSharedBalanceScopeAccountId(account, scopeAccountLookup, {
-        cache: scopeAccountIds,
-      });
+      const scopeAccountIdResult = await resolveBalanceScopeAccountId(
+        account,
+        {
+          findById: (accountId: number) => this.ports.accounts.findById(accountId),
+        },
+        { cache: scopeAccountIds }
+      );
       if (scopeAccountIdResult.isErr()) {
         return err(scopeAccountIdResult.error);
       }
@@ -415,7 +389,7 @@ export class AccountQuery {
   private countDisplayedAccounts(accounts: AccountSummary[]): number {
     let count = 0;
     for (const account of accounts) {
-      count++;
+      count += 1;
       if (account.childAccounts) {
         count += this.countDisplayedAccounts(account.childAccounts);
       }

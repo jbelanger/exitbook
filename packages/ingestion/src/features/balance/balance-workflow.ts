@@ -7,18 +7,14 @@ import type {
   ImportSession,
   UniversalTransactionData,
 } from '@exitbook/core';
-import {
-  loadBalanceScopeContext as loadSharedBalanceScopeContext,
-  parseAssetId,
-  parseDecimal,
-  wrapError,
-} from '@exitbook/core';
+import { parseAssetId, parseDecimal, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { BalancePorts } from '../../ports/balance-ports.js';
+import { loadBalanceScopeContext as loadSharedBalanceScopeContext } from '../../ports/balance-scope.js';
 
 import {
   fetchBlockchainBalance,
@@ -126,6 +122,49 @@ export class BalanceWorkflow {
 
       const persistCalculatedResult = await this.persistCalculatedSnapshot(scopeContext, calculatedResult.value);
       if (persistCalculatedResult.isErr()) return err(persistCalculatedResult.error);
+
+      const liveBalanceSupportResult = this.resolveLiveBalanceSupport(scopeContext);
+      if (liveBalanceSupportResult.isErr()) return err(liveBalanceSupportResult.error);
+
+      if (!liveBalanceSupportResult.value.supported) {
+        const persistUnavailableResult = await this.persistUnavailableSnapshot(
+          scopeContext,
+          calculatedResult.value,
+          liveBalanceSupportResult.value.reason
+        );
+        if (persistUnavailableResult.isErr()) return err(persistUnavailableResult.error);
+
+        const assetCount = Object.keys(calculatedResult.value.balances).length;
+        const requestedAddressCount = this.getRequestedAddressCount(scopeContext);
+        const warning = liveBalanceSupportResult.value.reason;
+
+        return ok({
+          account: scopeContext.scopeAccount,
+          mode: 'calculated-only',
+          timestamp: Date.now(),
+          status: 'warning',
+          comparisons: [],
+          coverage: {
+            confidence: 'low',
+            failedAddresses: requestedAddressCount,
+            failedAssets: assetCount,
+            overallCoverageRatio: 0,
+            parsedAssets: 0,
+            requestedAddresses: requestedAddressCount,
+            status: 'partial',
+            successfulAddresses: 0,
+            totalAssets: assetCount,
+          },
+          summary: {
+            matches: 0,
+            mismatches: 0,
+            totalCurrencies: assetCount,
+            warnings: 0,
+          },
+          suggestion: `Stored calculated balances only. Add a balance-capable provider for ${scopeContext.scopeAccount.sourceName} to enable live verification.`,
+          warnings: [warning],
+        });
+      }
 
       const liveBalanceResult = await this.fetchLiveBalance(scopeContext, params.credentials);
       if (liveBalanceResult.isErr()) return err(liveBalanceResult.error);
@@ -479,6 +518,36 @@ export class BalanceWorkflow {
       : this.fetchBlockchainLiveBalance(scopeContext);
   }
 
+  private resolveLiveBalanceSupport(
+    scopeContext: BalanceScopeContext
+  ): Result<{ supported: true } | { reason: string; supported: false }, Error> {
+    if (scopeContext.scopeAccount.accountType !== 'blockchain') {
+      return ok({ supported: true });
+    }
+
+    const blockchain = scopeContext.scopeAccount.sourceName;
+    const registeredProviders = this.providerManager.getProviders(blockchain);
+    const providers =
+      registeredProviders.length > 0 ? registeredProviders : this.providerManager.autoRegisterFromConfig(blockchain);
+    const supportsBalance = providers.some((provider) =>
+      provider.capabilities.supportedOperations.includes('getAddressBalances')
+    );
+
+    if (supportsBalance) {
+      return ok({ supported: true });
+    }
+
+    return ok({
+      supported: false,
+      reason: `Live balance verification is unavailable for ${blockchain}: no registered provider supports getAddressBalances. Stored calculated balances only.`,
+    });
+  }
+
+  private getRequestedAddressCount(scopeContext: BalanceScopeContext): number {
+    const childAccounts = scopeContext.memberAccounts.filter((account) => account.id !== scopeContext.scopeAccount.id);
+    return childAccounts.length > 0 ? childAccounts.length : 1;
+  }
+
   private async persistCalculatedSnapshot(
     scopeContext: BalanceScopeContext,
     calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> }
@@ -512,6 +581,65 @@ export class BalanceWorkflow {
       return ok(undefined);
     } catch (error) {
       return wrapError(error, 'Failed to persist calculated balance snapshot');
+    }
+  }
+
+  private async persistUnavailableSnapshot(
+    scopeContext: BalanceScopeContext,
+    calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> },
+    reason: string
+  ): Promise<Result<void, Error>> {
+    try {
+      const now = new Date();
+      const assetCount = Object.keys(calculated.balances).length;
+      const requestedAddressCount = this.getRequestedAddressCount(scopeContext);
+      const suggestion = `Add a balance-capable provider for ${scopeContext.scopeAccount.sourceName} to enable live verification.`;
+
+      const snapshot: BalanceSnapshot = {
+        scopeAccountId: scopeContext.scopeAccount.id,
+        calculatedAt: now,
+        lastRefreshAt: now,
+        verificationStatus: 'unavailable',
+        coverageStatus: 'partial',
+        coverageConfidence: 'low',
+        requestedAddressCount,
+        successfulAddressCount: 0,
+        failedAddressCount: requestedAddressCount,
+        totalAssetCount: assetCount,
+        parsedAssetCount: 0,
+        failedAssetCount: assetCount,
+        matchCount: 0,
+        warningCount: 0,
+        mismatchCount: 0,
+        statusReason: reason,
+        suggestion,
+        lastError: reason,
+      };
+
+      const assets: BalanceSnapshotAsset[] = Object.entries(calculated.balances).map(([assetId, balance]) => ({
+        scopeAccountId: scopeContext.scopeAccount.id,
+        assetId,
+        assetSymbol: calculated.assetMetadata[assetId] ?? assetId,
+        calculatedBalance: balance.toFixed(),
+        comparisonStatus: 'unavailable',
+        excludedFromAccounting: false,
+      }));
+
+      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({ snapshot, assets });
+      if (replaceResult.isErr()) return err(replaceResult.error);
+
+      logger.warn(
+        {
+          scopeAccountId: scopeContext.scopeAccount.id,
+          sourceName: scopeContext.scopeAccount.sourceName,
+          assetCount,
+          reason,
+        },
+        'Persisted calculated-only balance snapshot because live verification is unavailable'
+      );
+      return ok(undefined);
+    } catch (error) {
+      return wrapError(error, 'Failed to persist unavailable balance snapshot');
     }
   }
 

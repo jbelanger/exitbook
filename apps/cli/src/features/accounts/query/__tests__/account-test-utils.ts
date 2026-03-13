@@ -3,7 +3,7 @@ import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { vi } from 'vitest';
 
-import type { AccountQueryPorts } from '../ports/account-query-ports.js';
+import type { AccountQueryPorts } from '../account-query-ports.js';
 
 export function createMockAccount(
   options?: Partial<Account> & {

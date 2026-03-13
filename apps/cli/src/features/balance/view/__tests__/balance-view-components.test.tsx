@@ -131,4 +131,34 @@ describe('BalanceApp - asset view', () => {
     expect(frame).toContain('Balance (stored snapshot)');
     expect(frame).not.toContain('live');
   });
+
+  it('surfaces stored-snapshot verification warnings in asset mode', () => {
+    const state = createBalanceStoredSnapshotAssetState(
+      {
+        accountId: 74,
+        sourceName: 'lukso',
+        accountType: 'blockchain',
+        verificationStatus: 'unavailable',
+        statusReason: 'Live balance verification is unavailable for lukso.',
+        suggestion: 'Add a balance-capable provider for lukso to enable live verification.',
+      },
+      [createStoredSnapshotAssetItem({ assetSymbol: 'LYX', calculatedBalance: '12.5' })]
+    );
+
+    const { lastFrame } = render(
+      <BalanceApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('verification unavailable');
+    expect(frame).toContain('Live balance verification is unavailable for lukso.');
+  });
 });

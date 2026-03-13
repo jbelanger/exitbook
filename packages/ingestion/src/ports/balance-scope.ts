@@ -1,20 +1,23 @@
-import { err, ok, type Result } from '../result/index.js';
+import type { Account, Result } from '@exitbook/core';
+import { err, ok } from '@exitbook/core';
 
-import type { Account } from './account.js';
+// ---------------------------------------------------------------------------
+// Shared balance-scope types
+// ---------------------------------------------------------------------------
 
-export type BalanceScopeAccountLike = Pick<Account, 'id' | 'parentAccountId'>;
+export type BalanceScopeAccount = Pick<Account, 'id' | 'parentAccountId'>;
 
-export interface IBalanceScopeAccountLookup<TAccount extends BalanceScopeAccountLike> {
+export interface IBalanceScopeAccountLookup<TAccount extends BalanceScopeAccount = BalanceScopeAccount> {
   findById(id: number): Promise<Result<TAccount | undefined, Error>>;
 }
 
 export interface IBalanceScopeHierarchyLookup<
-  TAccount extends BalanceScopeAccountLike,
+  TAccount extends BalanceScopeAccount = BalanceScopeAccount,
 > extends IBalanceScopeAccountLookup<TAccount> {
   findChildAccounts(parentAccountId: number): Promise<Result<TAccount[], Error>>;
 }
 
-export interface BalanceScopeContext<TAccount extends BalanceScopeAccountLike> {
+export interface BalanceScopeContext<TAccount extends BalanceScopeAccount = BalanceScopeAccount> {
   memberAccounts: TAccount[];
   requestedAccount: TAccount;
   scopeAccount: TAccount;
@@ -24,7 +27,11 @@ export interface ResolveBalanceScopeOptions {
   cache?: Map<number, number> | undefined;
 }
 
-export async function resolveBalanceScopeAccountId<TAccount extends BalanceScopeAccountLike>(
+// ---------------------------------------------------------------------------
+// Balance-scope helpers
+// ---------------------------------------------------------------------------
+
+export async function resolveBalanceScopeAccountId<TAccount extends BalanceScopeAccount>(
   account: TAccount,
   lookup: IBalanceScopeAccountLookup<TAccount>,
   options?: ResolveBalanceScopeOptions
@@ -71,7 +78,7 @@ export async function resolveBalanceScopeAccountId<TAccount extends BalanceScope
   }
 }
 
-export async function resolveBalanceScopeAccount<TAccount extends BalanceScopeAccountLike>(
+export async function resolveBalanceScopeAccount<TAccount extends BalanceScopeAccount>(
   account: TAccount,
   lookup: IBalanceScopeAccountLookup<TAccount>,
   options?: ResolveBalanceScopeOptions
@@ -100,7 +107,7 @@ export async function resolveBalanceScopeAccount<TAccount extends BalanceScopeAc
   return ok(scopeAccount);
 }
 
-export async function loadBalanceScopeContext<TAccount extends BalanceScopeAccountLike>(
+export async function loadBalanceScopeContext<TAccount extends BalanceScopeAccount>(
   requestedAccount: TAccount,
   lookup: IBalanceScopeHierarchyLookup<TAccount>,
   options?: ResolveBalanceScopeOptions
@@ -122,7 +129,7 @@ export async function loadBalanceScopeContext<TAccount extends BalanceScopeAccou
   });
 }
 
-export async function loadBalanceScopeMemberAccounts<TAccount extends Pick<Account, 'id'>>(
+export async function loadBalanceScopeMemberAccounts<TAccount extends Pick<BalanceScopeAccount, 'id'>>(
   scopeAccount: TAccount,
   lookup: Pick<IBalanceScopeHierarchyLookup<TAccount>, 'findChildAccounts'>
 ): Promise<Result<TAccount[], Error>> {
@@ -134,7 +141,7 @@ export async function loadBalanceScopeMemberAccounts<TAccount extends Pick<Accou
   return ok([scopeAccount, ...descendantAccountsResult.value]);
 }
 
-async function loadDescendantAccounts<TAccount extends Pick<Account, 'id'>>(
+async function loadDescendantAccounts<TAccount extends Pick<BalanceScopeAccount, 'id'>>(
   parentAccountId: number,
   lookup: Pick<IBalanceScopeHierarchyLookup<TAccount>, 'findChildAccounts'>,
   visited: Set<number>

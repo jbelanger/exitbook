@@ -35,3 +35,16 @@ export type {
   IBalanceSnapshotStore,
   IBalanceTransactionSource,
 } from './balance-ports.js';
+export {
+  loadBalanceScopeContext,
+  loadBalanceScopeMemberAccounts,
+  resolveBalanceScopeAccount,
+  resolveBalanceScopeAccountId,
+} from './balance-scope.js';
+export type {
+  BalanceScopeAccount,
+  BalanceScopeContext,
+  IBalanceScopeAccountLookup,
+  IBalanceScopeHierarchyLookup,
+  ResolveBalanceScopeOptions,
+} from './balance-scope.js';

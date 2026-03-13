@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@exitbook/accounting": "workspace:*",
-    "@exitbook/accounts": "workspace:*",
     "@exitbook/blockchain-providers": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",

@@ -337,6 +337,79 @@ describe('BalanceWorkflow', () => {
     });
   });
 
+  it('falls back to a calculated-only unavailable snapshot when no provider supports live balances', async () => {
+    const account = createAccount({ sourceName: 'lukso', identifier: '0xlukso' });
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:lukso:native',
+              assetSymbol: 'LYX' as Currency,
+              grossAmount: parseDecimal('12.5'),
+              netAmount: parseDecimal('12.5'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const providerManager = createProviderManager(
+      [{ capabilities: { supportedOperations: ['getAddressTransactions'] } }],
+      {
+        rawAmount: '0',
+        decimalAmount: '0',
+        symbol: 'LYX',
+        decimals: 18,
+      }
+    );
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.mode).toBe('calculated-only');
+    expect(result.value.status).toBe('warning');
+    expect(result.value.warnings).toEqual([
+      'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+    ]);
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).toHaveBeenCalledWith(1);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(replaceSnapshot).toHaveBeenCalledTimes(2);
+
+    const unavailableCall = replaceSnapshot.mock.calls[1]?.[0];
+    expect(unavailableCall?.snapshot).toMatchObject({
+      scopeAccountId: 1,
+      verificationStatus: 'unavailable',
+      coverageStatus: 'partial',
+      coverageConfidence: 'low',
+      statusReason:
+        'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+    });
+    expect(unavailableCall?.assets).toEqual([
+      {
+        scopeAccountId: 1,
+        assetId: 'blockchain:lukso:native',
+        assetSymbol: 'LYX',
+        calculatedBalance: '12.5',
+        comparisonStatus: 'unavailable',
+        excludedFromAccounting: false,
+      },
+    ]);
+  });
+
   it('adds warning when token transactions are supported but token balances are unavailable', async () => {
     const account = createAccount();
 

@@ -1,31 +1,25 @@
-import type { AccountQueryPorts } from '@exitbook/accounts/ports';
 import { err, ok } from '@exitbook/core';
+import { buildBalancesFreshnessPorts } from '@exitbook/data';
 
-import type { DataContext } from '../data-context.js';
+import type { CommandDatabase } from '../../shared/command-runtime.js';
 
-import { buildBalancesFreshnessPorts } from './balances-freshness-adapter.js';
+import type { AccountQueryPorts } from './account-query-ports.js';
 
-/**
- * Bridges DataContext repositories to the accounts package's AccountQueryPorts.
- */
-export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
+export function buildAccountQueryPorts(db: CommandDatabase): AccountQueryPorts {
   const balancesFreshness = buildBalancesFreshnessPorts(db);
 
   return {
     users: {
       findOrCreateDefault: () => db.users.findOrCreateDefault(),
     },
-
     accounts: {
       findById: (id) => db.accounts.findByIdOptional(id),
       findAll: (filters) => db.accounts.findAll(filters),
     },
-
     importSessions: {
       countByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),
       findAll: (filters) => db.importSessions.findAll(filters),
     },
-
     balanceSnapshots: {
       findSnapshots: async (scopeAccountIds) => {
         const snapshotsResult = await db.balanceSnapshots.findSnapshots(scopeAccountIds);
@@ -36,7 +30,6 @@ export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
         return ok(new Map(snapshotsResult.value.map((snapshot) => [snapshot.scopeAccountId, snapshot])));
       },
     },
-
     balanceFreshness: {
       checkFreshness: (scopeAccountId) => balancesFreshness.checkFreshness(scopeAccountId),
     },

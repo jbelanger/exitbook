@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@exitbook/accounting": "workspace:*",
-    "@exitbook/accounts": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",

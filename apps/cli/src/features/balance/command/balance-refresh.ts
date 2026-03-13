@@ -12,6 +12,7 @@ import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
   type AccountVerificationItem,
+  createBalanceStoredSnapshotAssetState,
   createBalanceVerificationAssetState,
   createBalanceVerificationState,
   type BalanceEvent,
@@ -26,7 +27,7 @@ type BalanceRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsS
 export function registerBalanceRefreshCommand(balanceCommand: Command): void {
   balanceCommand
     .command('refresh')
-    .description('Rebuild calculated balances and verify them against live provider data')
+    .description('Rebuild calculated balances and verify them against live provider data when available')
     .option('--account-id <id>', 'Refresh a specific balance scope', parseInt)
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
@@ -42,7 +43,8 @@ Examples:
   $ exitbook balance refresh --json
 
 Notes:
-  - Refresh is the only command that fetches live balances.
+  - Refresh is the only command that attempts live balance verification.
+  - If no live balance provider exists for a scope, refresh persists calculated balances and marks verification unavailable.
   - For child accounts, refresh operates on the owning parent balance scope.
 `
     )
@@ -89,11 +91,20 @@ async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions):
           displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
 
-        const { account, requestedAccount, comparisons, verificationResult, streamMetadata } = result.value;
+        const { account, requestedAccount, verificationResult, streamMetadata } = result.value;
 
         outputSuccess('balance-refresh', {
           status: verificationResult.status,
-          balances: comparisons,
+          mode: result.value.mode,
+          balances:
+            result.value.mode === 'verification'
+              ? result.value.comparisons
+              : result.value.assets.map((asset) => ({
+                  assetId: asset.assetId,
+                  assetSymbol: asset.assetSymbol,
+                  calculatedBalance: asset.calculatedBalance,
+                  diagnostics: asset.diagnostics,
+                })),
           summary: verificationResult.summary,
           coverage: verificationResult.coverage,
           source: {
@@ -173,12 +184,24 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      const { account, comparisons } = result.value;
-      const sortedAssets = sortAssetsByStatus(comparisons);
-      const initialState = createBalanceVerificationAssetState(
-        { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
-        sortedAssets
-      );
+      const { account } = result.value;
+      const initialState =
+        result.value.mode === 'verification'
+          ? createBalanceVerificationAssetState(
+              { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
+              sortAssetsByStatus(result.value.comparisons)
+            )
+          : createBalanceStoredSnapshotAssetState(
+              {
+                accountId: account.id,
+                sourceName: account.sourceName,
+                accountType: account.accountType,
+                verificationStatus: 'unavailable',
+                statusReason: result.value.verificationResult.warnings?.[0],
+                suggestion: result.value.verificationResult.suggestion,
+              },
+              result.value.assets
+            );
 
       await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
     });

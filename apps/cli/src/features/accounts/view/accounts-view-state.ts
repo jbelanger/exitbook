@@ -2,8 +2,9 @@
  * Accounts view TUI state
  */
 
-import type { AccountBalanceProjectionStatus, AccountVerificationStatus } from '@exitbook/accounts';
 import type { AccountType } from '@exitbook/core';
+
+import type { AccountBalanceProjectionStatus, AccountVerificationStatus } from '../query/account-query.js';
 
 /**
  * Session line item for detail panel (when --show-sessions)

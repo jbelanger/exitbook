@@ -1,0 +1,752 @@
+{
+  "command": "next",
+  "items": [
+    {
+      "id": "unused::apps/cli/src/features/cost-basis/view/cost-basis-view-utils.ts::currency:40",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "apps/cli/src/features/cost-basis/view/cost-basis-view-utils.ts",
+      "summary": "Unused imports: currency",
+      "detail": {
+        "line": 40,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 890,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::apps/cli/src/features/prices/command/prices-enrich.ts::options:111",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "apps/cli/src/features/prices/command/prices-enrich.ts",
+      "summary": "Unused imports: options",
+      "detail": {
+        "line": 111,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 891,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::apps/cli/src/features/prices/command/prices-enrich.ts::options:82",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "apps/cli/src/features/prices/command/prices-enrich.ts",
+      "summary": "Unused imports: options",
+      "detail": {
+        "line": 82,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 892,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/accounting/src/__tests__/test-utils.ts::assetSymbol:325",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/accounting/src/__tests__/test-utils.ts",
+      "summary": "Unused imports: assetSymbol",
+      "detail": {
+        "line": 325,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 893,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/accounting/src/cost-basis/orchestration/cost-basis-report-generator.test.ts::currency:93",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/accounting/src/cost-basis/orchestration/cost-basis-report-generator.test.ts",
+      "summary": "Unused imports: currency",
+      "detail": {
+        "line": 93,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 894,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/blockchain-providers/src/blockchains/cosmos/providers/cosmos-rest/cosmos-rest.api-client.ts::chainName:45",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/blockchain-providers/src/blockchains/cosmos/providers/cosmos-rest/cosmos-rest.api-client.ts",
+      "summary": "Unused imports: chainName",
+      "detail": {
+        "line": 45,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 895,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/exchange-providers/src/exchanges/kraken/client.ts::limit:43",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/exchange-providers/src/exchanges/kraken/client.ts",
+      "summary": "Unused imports: limit",
+      "detail": {
+        "line": 43,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 896,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/price-providers/src/providers/binance/__tests__/provider.test.ts::asset:181",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/price-providers/src/providers/binance/__tests__/provider.test.ts",
+      "summary": "Unused imports: asset",
+      "detail": {
+        "line": 181,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 897,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/price-providers/src/providers/binance/__tests__/provider.test.ts::asset:243",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/price-providers/src/providers/binance/__tests__/provider.test.ts",
+      "summary": "Unused imports: asset",
+      "detail": {
+        "line": 243,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 898,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    },
+    {
+      "id": "unused::packages/price-providers/src/providers/binance/provider.ts::config:102",
+      "confidence": "high",
+      "detector": "unused",
+      "file": "packages/price-providers/src/providers/binance/provider.ts",
+      "summary": "Unused imports: config",
+      "detail": {
+        "line": 102,
+        "category": "imports"
+      },
+      "status": "open",
+      "kind": "issue",
+      "primary_command": "desloppify autofix unused-imports --dry-run",
+      "queue_position": 899,
+      "plan_cluster": {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "total_items": 10,
+        "action_steps": []
+      }
+    }
+  ],
+  "queue": {
+    "total": 10,
+    "mode": "execution"
+  },
+  "narrative": {
+    "phase": "first_scan",
+    "headline": "\u26a0 70 security issues \u2014 review before other cleanup. First scan complete. 1737 open issues across 3 dimensions.",
+    "dimensions": {
+      "lowest_dimensions": [
+        {
+          "name": "Abstraction fit",
+          "strict": 0.0,
+          "failing": 0,
+          "impact": 0.0,
+          "subjective": true,
+          "impact_description": "re-review to improve"
+        },
+        {
+          "name": "AI generated debt",
+          "strict": 0.0,
+          "failing": 0,
+          "impact": 0.0,
+          "subjective": true,
+          "impact_description": "re-review to improve"
+        },
+        {
+          "name": "API coherence",
+          "strict": 0.0,
+          "failing": 0,
+          "impact": 0.0,
+          "subjective": true,
+          "impact_description": "re-review to improve"
+        }
+      ],
+      "biggest_gap_dimensions": [],
+      "stagnant_dimensions": []
+    },
+    "actions": [
+      {
+        "type": "auto_fix",
+        "detector": "unused",
+        "count": 10,
+        "description": "10 unused issues in 1 cluster(s) \u2014 run `desloppify next`",
+        "command": "desloppify next",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 1,
+        "clusters": ["auto/unused"],
+        "cluster_count": 1,
+        "lane": "cleanup"
+      },
+      {
+        "type": "auto_fix",
+        "detector": "logs",
+        "count": 1,
+        "description": "1 logs issues \u2014 run `desloppify autofix debug-logs --dry-run` to preview, then apply",
+        "command": "desloppify autofix debug-logs --dry-run",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 2,
+        "lane": "cleanup"
+      },
+      {
+        "type": "reorganize",
+        "detector": "orphaned",
+        "count": 34,
+        "description": "34 orphaned issues \u2014 delete dead files or relocate with `desloppify move`",
+        "command": "desloppify show orphaned --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 3,
+        "lane": "restructure"
+      },
+      {
+        "type": "reorganize",
+        "detector": "flat_dirs",
+        "count": 4,
+        "description": "4 flat_dirs issues \u2014 create subdirectories and use `desloppify move`",
+        "command": "desloppify show flat_dirs --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 4,
+        "lane": "restructure"
+      },
+      {
+        "type": "reorganize",
+        "detector": "naming",
+        "count": 1,
+        "description": "1 naming issues \u2014 rename files with `desloppify move` to fix conventions",
+        "command": "desloppify show naming --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 5,
+        "lane": "restructure"
+      },
+      {
+        "type": "reorganize",
+        "detector": "cycles",
+        "count": 2,
+        "description": "2 cycles issues \u2014 break cycles by extracting shared code or using `desloppify move`",
+        "command": "desloppify show cycles --status open",
+        "impact": 0.0,
+        "dimension": "Security",
+        "priority": 6,
+        "lane": "restructure"
+      },
+      {
+        "type": "reorganize",
+        "detector": "facade",
+        "count": 31,
+        "description": "31 facade issues \u2014 flatten re-export facades or consolidate barrel files",
+        "command": "desloppify show facade --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 7,
+        "lane": "restructure"
+      },
+      {
+        "type": "refactor",
+        "detector": "structural",
+        "count": 117,
+        "description": "117 structural issues \u2014 review large files \u2014 split only when responsibilities are clearly separable",
+        "command": "desloppify show structural --status open",
+        "impact": 0.0,
+        "dimension": "File health",
+        "priority": 8,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "refactor",
+        "detector": "props",
+        "count": 4,
+        "description": "4 props issues \u2014 split bloated components, extract sub-components",
+        "command": "desloppify show props --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 9,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "refactor",
+        "detector": "dupes",
+        "count": 14,
+        "description": "14 dupes issues \u2014 extract shared utility or consolidate duplicates",
+        "command": "desloppify show dupes --status open",
+        "impact": 0.0,
+        "dimension": "Duplication",
+        "priority": 10,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "refactor",
+        "detector": "test_coverage",
+        "count": 200,
+        "description": "200 test_coverage issues in 1 cluster(s) \u2014 run `desloppify next`",
+        "command": "desloppify next",
+        "impact": 0.0,
+        "dimension": "Test health",
+        "priority": 11,
+        "clusters": ["auto/test_coverage"],
+        "cluster_count": 1,
+        "lane": "test_coverage"
+      },
+      {
+        "type": "refactor",
+        "detector": "signature",
+        "count": 18,
+        "description": "18 signature issues \u2014 consolidate inconsistent function signatures",
+        "command": "desloppify show signature --status open",
+        "impact": 0.0,
+        "dimension": "Unknown",
+        "priority": 12,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "refactor",
+        "detector": "responsibility_cohesion",
+        "count": 4,
+        "description": "4 responsibility_cohesion issues \u2014 split modules with too many responsibilities \u2014 extract focused sub-modules",
+        "command": "desloppify show responsibility_cohesion --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 13,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "refactor",
+        "detector": "boilerplate_duplication",
+        "count": 252,
+        "description": "252 boilerplate_duplication issues \u2014 extract shared boilerplate into reusable helpers or base classes",
+        "command": "desloppify show boilerplate_duplication --status open",
+        "impact": 0.0,
+        "dimension": "Duplication",
+        "priority": 14,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "manual_fix",
+        "detector": "smells",
+        "count": 265,
+        "description": "265 smells issues \u2014 inspect with `desloppify next` and fix manually",
+        "command": "desloppify show smells --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 15,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "manual_fix",
+        "detector": "exports",
+        "count": 689,
+        "description": "689 exports issues in 1 cluster(s) \u2014 run `desloppify next`",
+        "command": "desloppify next",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 16,
+        "clusters": ["auto/exports"],
+        "cluster_count": 1,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "manual_fix",
+        "detector": "stale_exclude",
+        "count": 1,
+        "description": "1 stale_exclude issues \u2014 remove stale exclusion or verify it's still needed",
+        "command": "desloppify show stale_exclude --status open",
+        "impact": 0.0,
+        "dimension": "Code quality",
+        "priority": 17,
+        "lane": "refactor_1"
+      },
+      {
+        "type": "manual_fix",
+        "detector": "security",
+        "count": 70,
+        "description": "70 security issues in 1 cluster(s) \u2014 run `desloppify next`",
+        "command": "desloppify next",
+        "impact": 0.0,
+        "dimension": "Security",
+        "priority": 18,
+        "clusters": ["auto/security"],
+        "cluster_count": 1,
+        "lane": "refactor_0"
+      },
+      {
+        "type": "manual_fix",
+        "detector": "subjective_review",
+        "count": 20,
+        "description": "20 subjective dimensions need review \u2014 run holistic review to refresh subjective scores",
+        "command": "desloppify review --prepare",
+        "impact": 0.0,
+        "dimension": "Unknown",
+        "priority": 19,
+        "lane": "refactor_2"
+      }
+    ],
+    "strategy": {
+      "fixer_leverage": {
+        "auto_fixable_count": 11,
+        "total_count": 1737,
+        "coverage": 0.006,
+        "impact_ratio": 0.0,
+        "recommendation": "none"
+      },
+      "lanes": {
+        "cleanup": {
+          "actions": [2, 1],
+          "file_count": 9,
+          "total_impact": 0.0,
+          "automation": "full",
+          "run_first": true
+        },
+        "restructure": {
+          "actions": [3, 4, 5, 6, 7],
+          "file_count": 72,
+          "total_impact": 0.0,
+          "automation": "manual",
+          "run_first": false
+        },
+        "refactor_0": {
+          "actions": [8, 9, 10, 12, 13, 14, 15, 16, 18],
+          "file_count": 463,
+          "total_impact": 0.0,
+          "automation": "manual",
+          "run_first": false
+        },
+        "refactor_1": {
+          "actions": [17],
+          "file_count": 1,
+          "total_impact": 0.0,
+          "automation": "manual",
+          "run_first": false
+        },
+        "refactor_2": {
+          "actions": [19],
+          "file_count": 1,
+          "total_impact": 0.0,
+          "automation": "manual",
+          "run_first": false
+        },
+        "test_coverage": {
+          "actions": [11],
+          "file_count": 200,
+          "total_impact": 0.0,
+          "automation": "manual",
+          "run_first": false
+        }
+      },
+      "can_parallelize": true,
+      "hint": "5 independent workstreams, safe to parallelize. Rescan after each phase to verify."
+    },
+    "tools": {
+      "fixers": [
+        {
+          "name": "unused-imports",
+          "detector": "unused",
+          "open_count": 10,
+          "command": "desloppify autofix unused-imports --dry-run"
+        },
+        {
+          "name": "unused-vars",
+          "detector": "unused",
+          "open_count": 10,
+          "command": "desloppify autofix unused-vars --dry-run"
+        },
+        {
+          "name": "unused-params",
+          "detector": "unused",
+          "open_count": 10,
+          "command": "desloppify autofix unused-params --dry-run"
+        },
+        {
+          "name": "debug-logs",
+          "detector": "logs",
+          "open_count": 1,
+          "command": "desloppify autofix debug-logs --dry-run"
+        },
+        {
+          "name": "dead-useeffect",
+          "detector": "smells",
+          "open_count": 265,
+          "command": "desloppify autofix dead-useeffect --dry-run"
+        },
+        {
+          "name": "empty-if-chain",
+          "detector": "smells",
+          "open_count": 265,
+          "command": "desloppify autofix empty-if-chain --dry-run"
+        }
+      ],
+      "move": {
+        "available": true,
+        "relevant": true,
+        "reason": "34 orphaned files + 4 flat directories + 1 naming issues",
+        "usage": "desloppify move <source> <dest> [--dry-run]"
+      },
+      "plan": {
+        "command": "desloppify plan",
+        "description": "Generate prioritized markdown cleanup plan"
+      },
+      "badge": {
+        "generated": true,
+        "in_readme": false,
+        "path": "scorecard.png",
+        "recommendation": "Add to README: <img src=\"scorecard.png\" width=\"100%\">"
+      }
+    },
+    "debt": {
+      "overall_gap": 0.0,
+      "wontfix_count": 0,
+      "worst_dimension": null,
+      "worst_gap": 0.0,
+      "trend": "stable"
+    },
+    "milestone": null,
+    "primary_action": {
+      "command": "desloppify next",
+      "description": "10 unused issues in 1 cluster(s) \u2014 run `desloppify next`"
+    },
+    "why_now": "5 independent workstreams, safe to parallelize. Rescan after each phase to verify.",
+    "verification_step": {
+      "command": "desloppify scan",
+      "reason": "revalidate after changes"
+    },
+    "risk_flags": [],
+    "strict_target": {
+      "target": 95.0,
+      "current": 22.3,
+      "gap": 72.7,
+      "state": "below",
+      "warning": null
+    },
+    "reminders": [
+      {
+        "type": "auto_fixers_available",
+        "message": "11 issues are auto-fixable. Run `desloppify next`.",
+        "command": "desloppify next",
+        "priority": 2,
+        "severity": "medium"
+      },
+      {
+        "type": "zone_classification",
+        "message": "372 of 1110 files classified as non-production (1 config, 3 generated, 5 script, 363 test). Override with `desloppify zone set <file> production` if any are misclassified.",
+        "command": "desloppify zone show",
+        "priority": 2,
+        "severity": "medium"
+      },
+      {
+        "type": "dry_run_first",
+        "message": "Always --dry-run first, review changes, then apply.",
+        "command": null,
+        "priority": 3,
+        "severity": "low"
+      }
+    ],
+    "reminder_history": {
+      "auto_fixers_available": 2,
+      "zone_classification": 2,
+      "dry_run_first": 2,
+      "report_scores": 1
+    }
+  },
+  "agent_notes": [
+    "Do NOT use `desloppify plan skip` unless the user explicitly asks you to skip an item.",
+    "If you cannot fix an item, report it and move to the next one.",
+    "For cluster items: if the autofix_hint finds 0 results, drill into individual issues with the primary_command."
+  ],
+  "plan": {
+    "active": true,
+    "focus": null,
+    "clusters": [
+      {
+        "name": "auto/unused",
+        "description": "Remove 10 unused issues",
+        "item_count": 10
+      },
+      {
+        "name": "auto/exports",
+        "description": "Fix 689 exports issues",
+        "item_count": 689
+      },
+      {
+        "name": "auto/test_coverage",
+        "description": "Fix 200 test coverage issues",
+        "item_count": 200
+      },
+      {
+        "name": "auto/security",
+        "description": "Fix 70 security issues",
+        "item_count": 70
+      },
+      {
+        "name": "auto/initial-review",
+        "description": "Initial review of 20 unscored subjective dimensions",
+        "item_count": 20
+      }
+    ],
+    "total_ordered": 20,
+    "total_skipped": 0,
+    "plan_overrides_narrative": true
+  },
+  "overall_score": 22.3,
+  "objective_score": 89.1,
+  "strict_score": 22.3,
+  "scorecard_dimensions": [
+    {
+      "name": "File health",
+      "score": 96.2,
+      "strict": 96.2,
+      "checks": 743,
+      "failing": 40,
+      "tier": 3,
+      "subjective": false
+    },
+    {
+      "name": "Code quality",
+      "score": 83.8,
+      "strict": 83.8,
+      "checks": 5141,
+      "failing": 935,
+      "tier": 3,
+      "subjective": false
+    },
+    {
+      "name": "Duplication",
+      "score": 89.3,
+      "strict": 89.3,
+      "checks": 1748,
+      "failing": 266,
+      "tier": 3,
+      "subjective": false
+    },
+    {
+      "name": "Security",
+      "score": 97.5,
+      "strict": 97.5,
+      "checks": 1502,
+      "failing": 72,
+      "tier": 4,
+      "subjective": false
+    },
+    {
+      "name": "Test health",
+      "score": 71.6,
+      "strict": 71.6,
+      "checks": 7328,
+      "failing": 200,
+      "tier": 4,
+      "subjective": false
+    }
+  ],
+  "subjective_measures": [],
+  "config": {
+    "target_strict_score": 95,
+    "review_max_age_days": 30,
+    "review_batch_max_files": 80,
+    "holistic_max_age_days": 30,
+    "generate_scorecard": true,
+    "badge_path": "scorecard.png",
+    "exclude": ["node_modules", "apps/cli/dist", "data", "apps/cli/data", "pnpm-lock.yaml"],
+    "ignore": [],
+    "ignore_metadata": {},
+    "zone_overrides": {},
+    "review_dimensions": [],
+    "large_files_threshold": 0,
+    "props_threshold": 0,
+    "issue_noise_budget": 10,
+    "issue_noise_global_budget": 0,
+    "execution_log_max_entries": 10000,
+    "needs_rescan": false,
+    "languages": {},
+    "commit_tracking_enabled": true,
+    "commit_pr": 0,
+    "commit_default_branch": "",
+    "commit_message_template": "desloppify: {status} {count} issue(s) \u2014 {summary}",
+    "trust_plugins": false
+  }
+}

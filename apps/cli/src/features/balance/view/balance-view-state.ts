@@ -2,7 +2,7 @@
  * Balance view TUI state types, event types, and factory functions.
  */
 
-import type { AccountType } from '@exitbook/core';
+import type { AccountType, BalanceSnapshotVerificationStatus } from '@exitbook/core';
 
 import type { DateRange } from '../shared/balance-diagnostics.js';
 
@@ -55,6 +55,7 @@ export interface AccountVerificationItem {
   skipReason?: string | undefined;
   errorMessage?: string | undefined;
   comparisons?: AssetComparisonItem[] | undefined;
+  warnings?: string[] | undefined;
 }
 
 export interface StoredSnapshotAccountItem {
@@ -63,6 +64,10 @@ export interface StoredSnapshotAccountItem {
   accountType: AccountType;
   assetCount: number;
   assets: StoredSnapshotAssetItem[];
+  verificationStatus?: BalanceSnapshotVerificationStatus | undefined;
+  statusReason?: string | undefined;
+  suggestion?: string | undefined;
+  lastRefreshAt?: string | undefined;
 }
 
 // ─── State Types ─────────────────────────────────────────────────────────────
@@ -109,6 +114,10 @@ interface BalanceAssetStateBase {
   selectedIndex: number;
   scrollOffset: number;
   error?: string | undefined;
+  verificationStatus?: BalanceSnapshotVerificationStatus | undefined;
+  statusReason?: string | undefined;
+  suggestion?: string | undefined;
+  lastRefreshAt?: string | undefined;
 }
 
 export interface BalanceVerificationAssetState extends BalanceAssetStateBase {
@@ -236,7 +245,15 @@ export function createBalanceVerificationAssetState(
 }
 
 export function createBalanceStoredSnapshotAssetState(
-  account: { accountId: number; accountType: AccountType; sourceName: string },
+  account: {
+    accountId: number;
+    accountType: AccountType;
+    lastRefreshAt?: string | undefined;
+    sourceName: string;
+    statusReason?: string | undefined;
+    suggestion?: string | undefined;
+    verificationStatus?: BalanceSnapshotVerificationStatus | undefined;
+  },
   assets: StoredSnapshotAssetItem[],
   options?: {
     parentState?: BalanceStoredSnapshotState | undefined;
@@ -248,6 +265,10 @@ export function createBalanceStoredSnapshotAssetState(
     accountId: account.accountId,
     sourceName: account.sourceName,
     accountType: account.accountType,
+    verificationStatus: account.verificationStatus,
+    statusReason: account.statusReason,
+    suggestion: account.suggestion,
+    lastRefreshAt: account.lastRefreshAt,
     assets,
     summary: {
       totalAssets: assets.length,

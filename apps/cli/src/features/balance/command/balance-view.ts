@@ -79,6 +79,12 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promi
         accountId: item.account.id,
         sourceName: item.account.sourceName,
         accountType: item.account.accountType,
+        snapshot: {
+          verificationStatus: item.snapshot.verificationStatus,
+          statusReason: item.snapshot.statusReason,
+          suggestion: item.snapshot.suggestion,
+          lastRefreshAt: item.snapshot.lastRefreshAt?.toISOString(),
+        },
         ...(item.requestedAccount && {
           requestedAccount: {
             id: item.requestedAccount.id,
@@ -132,7 +138,15 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
         if (!item) throw new Error(`Account #${options.accountId} not found`);
 
         const initialState = createBalanceStoredSnapshotAssetState(
-          { accountId: item.account.id, sourceName: item.account.sourceName, accountType: item.account.accountType },
+          {
+            accountId: item.account.id,
+            sourceName: item.account.sourceName,
+            accountType: item.account.accountType,
+            verificationStatus: item.snapshot.verificationStatus,
+            statusReason: item.snapshot.statusReason,
+            suggestion: item.snapshot.suggestion,
+            lastRefreshAt: item.snapshot.lastRefreshAt?.toISOString(),
+          },
           sortStoredSnapshotAssets(item.assets)
         );
 
@@ -141,7 +155,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
       }
 
       const storedSnapshotItems = result.value.accounts.map((item) =>
-        buildStoredSnapshotAccountItem(item.account, sortStoredSnapshotAssets(item.assets))
+        buildStoredSnapshotAccountItem(item.account, sortStoredSnapshotAssets(item.assets), item.snapshot)
       );
       const initialState = createBalanceStoredSnapshotState(storedSnapshotItems);
 

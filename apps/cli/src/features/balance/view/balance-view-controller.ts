@@ -210,7 +210,15 @@ function handleDrillDown(state: BalanceState): BalanceState {
     if (!selected || selected.assets.length === 0) return state;
 
     return createBalanceStoredSnapshotAssetState(
-      { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
+      {
+        accountId: selected.accountId,
+        sourceName: selected.sourceName,
+        accountType: selected.accountType,
+        verificationStatus: selected.verificationStatus,
+        statusReason: selected.statusReason,
+        suggestion: selected.suggestion,
+        lastRefreshAt: selected.lastRefreshAt,
+      },
       selected.assets,
       { parentState: state }
     );

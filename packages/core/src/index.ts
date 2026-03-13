@@ -2,7 +2,6 @@ export * from './money/index.js';
 export * from './balance/index.js';
 export * from './import-session/import-session.js';
 export * from './account/account.js';
-export * from './account/balance-scope.js';
 export * from './user/user.js';
 export * from './utils/index.js';
 export * from './transaction/index.js';

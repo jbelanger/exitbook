@@ -31,8 +31,8 @@ import type {
   BalanceVerificationState,
 } from './balance-view-state.js';
 
-const BALANCE_ACCOUNT_DETAIL_LINES = 7;
-const BALANCE_ASSET_DETAIL_LINES = 7;
+const BALANCE_ACCOUNT_DETAIL_LINES = 9;
+const BALANCE_ASSET_DETAIL_LINES = 9;
 
 const BALANCE_ACCOUNTS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
@@ -479,6 +479,20 @@ function buildBalanceAccountDetailRows(
     )),
   ];
 
+  if (selected.warnings && selected.warnings.length > 0) {
+    rows.push(
+      <Text key="warning-blank"> </Text>,
+      ...selected.warnings.slice(0, 2).map((warning, index) => (
+        <Text
+          key={`warning-${index}`}
+          color="yellow"
+        >
+          {'  '}! {warning}
+        </Text>
+      ))
+    );
+  }
+
   if (comparisons.length > 8) {
     rows.push(
       <Text
@@ -653,10 +667,17 @@ const StoredSnapshotAccountRow: FC<{
 }> = ({ item, isSelected, columns }) => {
   const { id, source, type } = columns.format(item);
   const assets = `${item.assetCount} ${item.assetCount === 1 ? 'asset' : 'assets'}`;
+  const verification = getStoredSnapshotVerificationDisplay(item.verificationStatus);
 
   return (
     <SelectableRow isSelected={isSelected}>
       {id} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text dimColor>{assets}</Text>
+      {verification && (
+        <>
+          {' '}
+          <Text color={verification.color}>{verification.icon}</Text> <Text dimColor>{verification.label}</Text>
+        </>
+      )}
     </SelectableRow>
   );
 };
@@ -674,6 +695,7 @@ const StoredSnapshotAccountDetailPanel: FC<{ state: BalanceStoredSnapshotState }
 };
 
 function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountItem): ReactElement[] {
+  const verification = getStoredSnapshotVerificationDisplay(selected.verificationStatus);
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
@@ -683,15 +705,58 @@ function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountIte
       <Text dimColor>{selected.accountType}</Text>
       {'  '}
       {selected.assetCount} <Text dimColor>assets</Text>
+      {verification && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color={verification.color}>{verification.label}</Text>
+        </>
+      )}
     </Text>,
     <Text key="blank"> </Text>,
+  ];
+
+  if (selected.statusReason) {
+    rows.push(
+      <Text
+        key="status-reason"
+        color="yellow"
+      >
+        {'  '}! {selected.statusReason}
+      </Text>
+    );
+  }
+
+  if (selected.suggestion) {
+    rows.push(
+      <Text
+        key="suggestion"
+        dimColor
+      >
+        {'  '}Suggestion: {selected.suggestion}
+      </Text>
+    );
+  }
+
+  if (selected.lastRefreshAt) {
+    rows.push(
+      <Text
+        key="last-refresh"
+        dimColor
+      >
+        {'  '}Last refresh: {formatTimestamp(selected.lastRefreshAt)}
+      </Text>
+    );
+  }
+
+  rows.push(
+    <Text key="assets-blank"> </Text>,
     ...selected.assets.slice(0, 8).map((asset) => (
       <StoredSnapshotAssetPreviewRow
         key={asset.assetId}
         asset={asset}
       />
-    )),
-  ];
+    ))
+  );
 
   if (selected.assets.length > 8) {
     rows.push(
@@ -796,6 +861,8 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
 const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
   const storedSnapshotLabel = state.mode === 'stored-snapshot' ? ' (stored snapshot)' : '';
+  const storedSnapshotVerification =
+    state.mode === 'stored-snapshot' ? getStoredSnapshotVerificationDisplay(state.verificationStatus) : undefined;
 
   // All match shorthand
   if (
@@ -818,6 +885,12 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
           {'  '}
           {state.summary.totalAssets} <Text dimColor>assets</Text>
         </Text>
+        {storedSnapshotVerification && (
+          <>
+            <Text dimColor> · </Text>
+            <Text color={storedSnapshotVerification.color}>{storedSnapshotVerification.label}</Text>
+          </>
+        )}
         <Text dimColor> · </Text>
         <Text color="green">all match</Text>
       </Box>
@@ -839,6 +912,12 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
         {'  '}
         {state.summary.totalAssets} <Text dimColor>assets</Text>
       </Text>
+      {storedSnapshotVerification && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color={storedSnapshotVerification.color}>{storedSnapshotVerification.label}</Text>
+        </>
+      )}
       {state.mode === 'verification' && state.summary.matches > 0 && (
         <>
           <Text dimColor> · </Text>
@@ -981,6 +1060,46 @@ const StoredSnapshotAssetRow: FC<{
 
 const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
   if (state.mode === 'stored-snapshot') {
+    if (state.statusReason || state.suggestion || state.lastRefreshAt) {
+      return (
+        <FixedHeightDetail
+          height={BALANCE_ASSET_DETAIL_LINES}
+          rows={[
+            ...(state.statusReason
+              ? [
+                  <Text
+                    key="status-reason"
+                    color="yellow"
+                  >
+                    {'  '}! {state.statusReason}
+                  </Text>,
+                ]
+              : []),
+            ...(state.suggestion
+              ? [
+                  <Text
+                    key="suggestion"
+                    dimColor
+                  >
+                    {'  '}Suggestion: {state.suggestion}
+                  </Text>,
+                ]
+              : []),
+            ...(state.lastRefreshAt
+              ? [
+                  <Text
+                    key="last-refresh"
+                    dimColor
+                  >
+                    {'  '}Last refresh: {formatTimestamp(state.lastRefreshAt)}
+                  </Text>,
+                ]
+              : []),
+          ]}
+        />
+      );
+    }
+
     const selected = state.assets[state.selectedIndex];
     if (!selected) return null;
     return (
@@ -1066,6 +1185,28 @@ function buildStoredSnapshotDiagnosticsRows(asset: StoredSnapshotAssetItem): Rea
   }
 
   return rows;
+}
+
+function getStoredSnapshotVerificationDisplay(
+  status: StoredSnapshotAccountItem['verificationStatus']  
+): { color: string; icon: string; label: string } | undefined {
+  switch (status) {
+    case 'unavailable':
+      return { icon: '?', color: 'yellow', label: 'verification unavailable' };
+    case 'never-run':
+      return { icon: '⊘', color: 'dim', label: 'never verified' };
+    case 'warning':
+      return { icon: '!', color: 'yellow', label: 'last verification warned' };
+    case 'mismatch':
+      return { icon: '✗', color: 'red', label: 'last verification mismatched' };
+    case 'match':
+      return { icon: '✓', color: 'green', label: 'last verification matched' };
+    case undefined:
+      return undefined;
+  }
+
+  const exhaustiveCheck: never = status;
+  return exhaustiveCheck;
 }
 
 function buildDiagnosticsContentRows(diagnostics: AssetDiagnostics): ReactElement[] {
@@ -1164,4 +1305,9 @@ function getAssetStatusIcon(status: 'match' | 'warning' | 'mismatch'): ReactNode
     case 'mismatch':
       return <Text color="red">✗</Text>;
   }
+}
+
+function formatTimestamp(isoString: string): string {
+  const date = new Date(isoString);
+  return Number.isNaN(date.getTime()) ? isoString : date.toLocaleString();
 }

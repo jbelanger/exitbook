@@ -48,6 +48,7 @@ export interface BalanceComparison {
  */
 export interface BalanceVerificationResult {
   account: Account;
+  mode?: 'verification' | 'calculated-only' | undefined;
   timestamp: number;
   status: BalanceCommandStatus;
   comparisons: BalanceComparison[];
@@ -344,6 +345,7 @@ export function createVerificationResult(
 
   return {
     account,
+    mode: 'verification',
     timestamp: Date.now(),
     status,
     comparisons,

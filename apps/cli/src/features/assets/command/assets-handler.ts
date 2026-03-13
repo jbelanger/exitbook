@@ -24,6 +24,7 @@ import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
 } from '../../shared/asset-review-projection-runtime.js';
+import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
@@ -508,10 +509,13 @@ export class AssetsHandler {
         continue;
       }
 
-      const reason = freshnessResult.value.reason ?? `balance projection is ${freshnessResult.value.status}`;
       return err(
         new Error(
-          `Assets view requires fresh balance snapshots. Scope account #${scopeAccountId} is ${freshnessResult.value.status}: ${reason}. Run "exitbook balance refresh --account-id ${scopeAccountId}" or "exitbook balance refresh" to rebuild stored balances.`
+          formatAssetsFreshnessMessage({
+            scopeAccountId,
+            status: freshnessResult.value.status,
+            reason: freshnessResult.value.reason,
+          })
         )
       );
     }

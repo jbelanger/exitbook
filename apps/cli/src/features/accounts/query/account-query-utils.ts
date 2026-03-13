@@ -45,10 +45,6 @@ export interface AccountListResult {
   count: number;
 }
 
-/**
- * Mask sensitive identifiers (API keys) for security.
- * Shows first 8 chars + *** for exchange-api accounts, full address for blockchain.
- */
 export function maskIdentifier(account: Account): string {
   if (account.accountType === 'exchange-api' && account.identifier) {
     const key = account.identifier;
@@ -60,9 +56,6 @@ export function maskIdentifier(account: Account): string {
   return account.identifier;
 }
 
-/**
- * Determine verification status from a stored balance snapshot.
- */
 export function getVerificationStatus(snapshot?: BalanceSnapshot): AccountVerificationStatus | undefined {
   if (!snapshot || snapshot.verificationStatus === 'never-run') {
     return 'never-checked';
@@ -70,9 +63,6 @@ export function getVerificationStatus(snapshot?: BalanceSnapshot): AccountVerifi
   return snapshot.verificationStatus;
 }
 
-/**
- * Project an Account domain object to an AccountSummary read model.
- */
 export function toAccountSummary(
   account: Account,
   sessionCount: number | undefined,

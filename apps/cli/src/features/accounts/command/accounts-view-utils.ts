@@ -1,7 +1,7 @@
-import type { AccountSummary, SessionSummary } from '@exitbook/accounts';
 import type { AccountType } from '@exitbook/core';
 
 import type { CommonViewFilters } from '../../shared/view-utils.js';
+import type { AccountSummary, SessionSummary } from '../query/account-query.js';
 import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../view/accounts-view-state.js';
 
 /**

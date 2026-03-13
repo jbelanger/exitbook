@@ -32,6 +32,7 @@ Purpose:
 - inspect stored balance snapshots only
 - never call live providers
 - fail closed when the selected scope snapshot is missing, stale, building, or failed
+- surface stored verification metadata, including unavailable verification warnings, when present
 
 Options:
 
@@ -53,8 +54,8 @@ exitbook balance refresh [--account-id <id>] [--api-key <key>] [--api-secret <se
 Purpose:
 
 - rebuild calculated balances
-- fetch live balances
-- compare calculated vs live balances
+- fetch live balances when available
+- compare calculated vs live balances when verification is supported
 - persist the refreshed snapshot
 
 Options:
@@ -102,9 +103,11 @@ the command returns an error with a concrete refresh hint.
 Examples:
 
 - root scope request:
-  `Stored balance snapshot for scope account #5 (...) is stale ... Run "exitbook balance refresh --account-id 5" to rebuild it.`
+  `Stored balance snapshot for scope account #5 (...) is stale because ... Run "exitbook balance refresh --account-id 5" to rebuild it.`
 - child request:
-  `Stored balance snapshot for scope account #5 (...) is stale ... Run "exitbook balance refresh --account-id 12" to rebuild it.`
+  `Stored balance snapshot for scope account #5 (...) is stale because ... Run "exitbook balance refresh --account-id 12" to rebuild it.`
+- global invalidation from processed-transaction rebuild/reset:
+  `Stored balance snapshot for scope account #5 (...) is stale because processed transactions were rebuilt/reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 12" to rebuild only the requested scope.`
 
 ### TUI Modes
 
@@ -189,8 +192,9 @@ When `--account-id` is provided:
 
 - resolve the owning scope account
 - rebuild the calculated snapshot if needed
-- fetch live balances
-- compare calculated vs live balances
+- fetch live balances when supported
+- compare calculated vs live balances when supported
+- otherwise persist a calculated-only snapshot marked with unavailable verification metadata
 - persist the snapshot
 
 #### TUI

@@ -118,7 +118,9 @@ Unlike global projections, freshness and resets are scoped per owning balance ac
 The balance workflow has two persisted paths:
 
 - a calculated rebuild path that writes calculated balances and a summary with `verificationStatus = 'never-run'`
-- a refresh path that recalculates balances, fetches live balances, compares them, and overwrites the scope snapshot
+- a refresh path that recalculates balances, fetches live balances when supported, compares them, and overwrites the scope snapshot
+
+If live verification is unsupported for a scope, `balance refresh` still persists the rebuilt calculated balances but stores `verificationStatus = 'unavailable'` plus operator-facing warning metadata instead of failing the scope.
 
 Persistence errors are surfaced as command failures; the workflow does not silently report success when snapshot writes fail.
 
@@ -133,9 +135,10 @@ Persistence errors are surfaced as command failures; the workflow does not silen
 
 #### `balance refresh`
 
-- Is the only balance CLI command that calls live providers.
+- Is the only balance CLI command that attempts live providers.
 - Resolves child requests upward to the owning scope.
 - Persists the refreshed snapshot back onto the owning scope.
+- Falls back to a calculated-only persisted snapshot with `verificationStatus = 'unavailable'` when live verification is unsupported for that scope.
 
 #### `accounts view`
 

@@ -90,6 +90,12 @@ describe('balance command JSON mode', () => {
               {
                 account: scopeAccount,
                 requestedAccount,
+                snapshot: {
+                  verificationStatus: 'unavailable',
+                  statusReason: 'Live verification unavailable',
+                  suggestion: 'Add a provider',
+                  lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
+                },
                 assets: [
                   {
                     assetId: 'blockchain:bitcoin:native',
@@ -120,6 +126,12 @@ describe('balance command JSON mode', () => {
               sourceName: 'bitcoin',
               accountType: 'blockchain',
             },
+            snapshot: {
+              verificationStatus: 'unavailable',
+              statusReason: 'Live verification unavailable',
+              suggestion: 'Add a provider',
+              lastRefreshAt: '2026-03-12T18:10:00.000Z',
+            },
             assets: [
               {
                 assetId: 'blockchain:bitcoin:native',
@@ -142,7 +154,7 @@ describe('balance command JSON mode', () => {
   it('routes fail-closed stored snapshot errors through the JSON CLI error path', async () => {
     const program = createBalanceCommand();
     const failClosedError = new Error(
-      'Stored balance snapshot for scope account #1 (bitcoin) is stale: upstream-reset:processed-transactions. Run "exitbook balance refresh --account-id 2" to rebuild it.'
+      'Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
     );
 
     mockCreateBalanceHandler.mockResolvedValue(
@@ -152,7 +164,7 @@ describe('balance command JSON mode', () => {
     );
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:Stored balance snapshot for scope account #1 (bitcoin) is stale: upstream-reset:processed-transactions. Run "exitbook balance refresh --account-id 2" to rebuild it.'
+      'CLI:balance-view:json:Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
     );
 
     expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', failClosedError, 1, 'json');
@@ -184,10 +196,12 @@ describe('balance command JSON mode', () => {
       ok({
         refreshSingleScope: vi.fn().mockResolvedValue(
           ok({
+            mode: 'verification',
             account: scopeAccount,
             requestedAccount,
             comparisons,
             verificationResult: {
+              mode: 'verification',
               timestamp: '2026-03-12T18:10:00.000Z',
               status: 'match',
               summary: {
@@ -256,6 +270,83 @@ describe('balance command JSON mode', () => {
           },
         },
         suggestion: 'Balances match',
+      })
+    );
+  });
+
+  it('outputs calculated-only refresh JSON when live verification is unavailable', async () => {
+    const program = createBalanceCommand();
+    const scopeAccount = createAccount({
+      id: 74,
+      identifier: 'lukso-address',
+      sourceName: 'lukso',
+    });
+
+    mockCreateBalanceHandler.mockResolvedValue(
+      ok({
+        refreshSingleScope: vi.fn().mockResolvedValue(
+          ok({
+            mode: 'calculated-only',
+            account: scopeAccount,
+            assets: [
+              {
+                assetId: 'blockchain:lukso:native',
+                assetSymbol: 'LYX',
+                calculatedBalance: '12.5',
+                diagnostics: { txCount: 4 },
+              },
+            ],
+            verificationResult: {
+              mode: 'calculated-only',
+              timestamp: '2026-03-12T18:10:00.000Z',
+              status: 'warning',
+              summary: {
+                matches: 0,
+                mismatches: 0,
+                warnings: 0,
+                totalCurrencies: 1,
+              },
+              coverage: {
+                status: 'partial',
+                confidence: 'low',
+                requestedAddresses: 1,
+                successfulAddresses: 0,
+                failedAddresses: 1,
+                totalAssets: 1,
+                parsedAssets: 0,
+                failedAssets: 1,
+                overallCoverageRatio: 0,
+              },
+              suggestion:
+                'Stored calculated balances only. Add a balance-capable provider for lukso to enable live verification.',
+              partialFailures: undefined,
+              warnings: [
+                'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+              ],
+            },
+          })
+        ),
+      })
+    );
+
+    await program.parseAsync(['refresh', '--account-id', '74', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'balance-refresh',
+      expect.objectContaining({
+        status: 'warning',
+        mode: 'calculated-only',
+        balances: [
+          {
+            assetId: 'blockchain:lukso:native',
+            assetSymbol: 'LYX',
+            calculatedBalance: '12.5',
+            diagnostics: { txCount: 4 },
+          },
+        ],
+        warnings: [
+          'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+        ],
       })
     );
   });

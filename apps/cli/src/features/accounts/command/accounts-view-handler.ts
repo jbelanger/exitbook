@@ -1,8 +1,7 @@
-// Tier 1 handler for accounts view command
-
-import { AccountQuery, type AccountListResult, type AccountQueryParams } from '@exitbook/accounts';
-import type { AccountQueryPorts } from '@exitbook/accounts/ports';
 import type { Result } from '@exitbook/core';
+
+import type { AccountQueryPorts } from '../query/account-query-ports.js';
+import { AccountQuery, type AccountListResult, type AccountQueryParams } from '../query/account-query.js';
 
 export type { AccountListResult };
 

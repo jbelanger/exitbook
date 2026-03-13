@@ -1,15 +1,15 @@
+import { err, ok } from '@exitbook/core';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { assertErr, assertOk } from '../../__tests__/test-utils.js';
-import { err, ok } from '../../result/index.js';
 import {
   loadBalanceScopeContext,
   resolveBalanceScopeAccountId,
-  type BalanceScopeAccountLike,
+  type BalanceScopeAccount,
   type IBalanceScopeHierarchyLookup,
-} from '../balance-scope.js';
+} from '../../../ports/balance-scope.js';
 
-interface TestAccount extends BalanceScopeAccountLike {
+interface TestAccount extends BalanceScopeAccount {
   label: string;
 }
 

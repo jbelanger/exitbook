@@ -1,6 +1,5 @@
 // Command registration for accounts view subcommand
 import type { AccountType } from '@exitbook/core';
-import { buildAccountQueryPorts } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -12,6 +11,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { AccountsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
+import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
 import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
 

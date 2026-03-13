@@ -77,7 +77,6 @@ describe('AccountQuery', () => {
     );
 
     const result = await query.list();
-
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(2);
@@ -87,19 +86,10 @@ describe('AccountQuery', () => {
     const parentView = value.accounts.find((account) => account.id === 1);
     const standaloneView = value.accounts.find((account) => account.id === 3);
 
-    expect(parentView).toMatchObject({
-      id: 1,
-      sessionCount: 5,
-    });
+    expect(parentView).toMatchObject({ id: 1, sessionCount: 5 });
     expect(parentView?.childAccounts).toHaveLength(1);
-    expect(parentView?.childAccounts?.[0]).toMatchObject({
-      id: 2,
-      sessionCount: 3,
-    });
-    expect(standaloneView).toMatchObject({
-      id: 3,
-      sessionCount: 4,
-    });
+    expect(parentView?.childAccounts?.[0]).toMatchObject({ id: 2, sessionCount: 3 });
+    expect(standaloneView).toMatchObject({ id: 3, sessionCount: 4 });
     expect(ctx.importSessions.findAll).not.toHaveBeenCalled();
   });
 
@@ -125,7 +115,6 @@ describe('AccountQuery', () => {
     vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(ok(new Map()));
 
     const result = await query.list({ showSessions: true });
-
     const value = assertOk(result);
 
     expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
@@ -177,7 +166,6 @@ describe('AccountQuery', () => {
     );
 
     const result = await query.list({ accountId: 8 });
-
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
@@ -269,7 +257,6 @@ describe('AccountQuery', () => {
     );
 
     const result = await query.findById(1);
-
     const account = assertOk(result);
 
     expect(account).toMatchObject({
@@ -316,8 +303,7 @@ describe('AccountQuery', () => {
     const result = await query.list();
 
     expect(assertErr(result).message).toBe('Failed to query accounts: database unavailable');
-    const firstCall = mockLogger.error.mock.calls[0];
-    expect(firstCall?.[1]).toBe('Failed to query accounts');
+    expect(mockLogger.error.mock.calls[0]?.[1]).toBe('Failed to query accounts');
   });
 
   it('propagates repository errors from findById', async () => {

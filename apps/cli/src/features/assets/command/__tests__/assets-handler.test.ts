@@ -505,6 +505,28 @@ describe('AssetsHandler', () => {
     expect(error.message).toContain('balance refresh --account-id 1');
   });
 
+  it('explains when all stored balance snapshots were invalidated', async () => {
+    const assetId = 'exchange:kraken:btc';
+    const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'BTC', '25')], {
+      freshnessByScope: new Map([[1, { status: 'stale', reason: 'upstream-rebuilt:processed-transactions' }]]),
+    });
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataContext,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view();
+    const error = assertErr(result);
+
+    expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
+    expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
+    expect(error.message).toContain('exitbook balance refresh --account-id 1');
+  });
+
   it('resolves symbols from snapshot-only holdings', async () => {
     const assetId = 'blockchain:ethereum:0xdust';
     const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'DUST', '2.5')]);

@@ -1,11 +1,12 @@
 import type {
   Account,
   AccountType,
+  BalanceSnapshot,
   BalanceSnapshotAsset,
   ExchangeCredentials,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { err, loadBalanceScopeMemberAccounts, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
+import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
 import {
   buildBalancePorts,
   buildBalancesFreshnessPorts,
@@ -13,9 +14,11 @@ import {
   type DataContext,
 } from '@exitbook/data';
 import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/ingestion';
+import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
+import { formatBalanceSnapshotFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
@@ -39,16 +42,33 @@ export interface SortedVerificationAccount {
 }
 
 export interface StoredSnapshotBalanceResult {
-  accounts: { account: Account; assets: StoredSnapshotAssetItem[]; requestedAccount?: Account | undefined }[];
+  accounts: {
+    account: Account;
+    assets: StoredSnapshotAssetItem[];
+    requestedAccount?: Account | undefined;
+    snapshot: BalanceSnapshot;
+  }[];
 }
 
 export interface SingleVerificationResult {
+  mode: 'verification';
   account: Account;
   requestedAccount?: Account | undefined;
   comparisons: AssetComparisonItem[];
   verificationResult: BalanceVerificationResult;
   streamMetadata?: Record<string, unknown> | undefined;
 }
+
+export interface SingleCalculatedSnapshotResult {
+  mode: 'calculated-only';
+  account: Account;
+  requestedAccount?: Account | undefined;
+  assets: StoredSnapshotAssetItem[];
+  verificationResult: BalanceVerificationResult;
+  streamMetadata?: Record<string, unknown> | undefined;
+}
+
+export type SingleRefreshResult = SingleVerificationResult | SingleCalculatedSnapshotResult;
 
 export interface AccountJsonResult {
   accountId: number;
@@ -121,12 +141,18 @@ export class BalanceHandler {
         account: Account;
         assets: StoredSnapshotAssetItem[];
         requestedAccount?: Account | undefined;
+        snapshot: BalanceSnapshot;
       }[] = [];
       for (const requestedAccount of accounts) {
         const scopeAccount = await this.resolveStoredSnapshotScopeAccount(requestedAccount);
         const readabilityResult = await this.assertStoredSnapshotReadable(requestedAccount, scopeAccount);
         if (readabilityResult.isErr()) {
           return err(readabilityResult.error);
+        }
+
+        const snapshotResult = await this.loadStoredSnapshotOrFail(scopeAccount.id);
+        if (snapshotResult.isErr()) {
+          return err(snapshotResult.error);
         }
 
         const assetsResult = await this.buildStoredSnapshotAssets(scopeAccount);
@@ -136,6 +162,7 @@ export class BalanceHandler {
         results.push({
           account: scopeAccount,
           assets: assetsResult.value,
+          snapshot: snapshotResult.value,
           requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
         });
       }
@@ -149,7 +176,7 @@ export class BalanceHandler {
   async refreshSingleScope(params: {
     accountId: number;
     credentials?: ExchangeCredentials | undefined;
-  }): Promise<Result<SingleVerificationResult, Error>> {
+  }): Promise<Result<SingleRefreshResult, Error>> {
     const operation = this.requireBalanceWorkflow();
 
     try {
@@ -163,10 +190,26 @@ export class BalanceHandler {
 
       const vr = result.value;
       const scopeAccount = vr.account;
+
+      if (vr.mode === 'calculated-only') {
+        const snapshotAssetsResult = await this.buildStoredSnapshotAssets(scopeAccount);
+        if (snapshotAssetsResult.isErr()) return err(snapshotAssetsResult.error);
+
+        return ok({
+          mode: 'calculated-only',
+          account: scopeAccount,
+          requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
+          assets: snapshotAssetsResult.value,
+          verificationResult: vr,
+          streamMetadata: this.extractStreamMetadata(scopeAccount),
+        });
+      }
+
       const comparisonsResult = await this.buildComparisonItems(scopeAccount, vr);
       if (comparisonsResult.isErr()) return err(comparisonsResult.error);
 
       return ok({
+        mode: 'verification',
         account: scopeAccount,
         requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
         comparisons: comparisonsResult.value,
@@ -222,32 +265,38 @@ export class BalanceHandler {
         }
 
         const vr = result.value;
-        const comparisonsResult = await this.buildComparisonItems(vr.account, vr);
-        if (comparisonsResult.isErr()) {
-          accountResults.push({
-            accountId: account.id,
-            sourceName: account.sourceName,
-            accountType: account.accountType,
-            status: 'error',
-            error: comparisonsResult.error.message,
-          });
-          continue;
-        }
-
-        verified++;
         matchTotal += vr.summary.matches;
         mismatchTotal += vr.summary.mismatches + vr.summary.warnings + (vr.coverage.status === 'partial' ? 1 : 0);
+
+        let comparisons: AssetComparisonItem[] | undefined;
+        if (vr.mode !== 'calculated-only') {
+          const comparisonsResult = await this.buildComparisonItems(vr.account, vr);
+          if (comparisonsResult.isErr()) {
+            accountResults.push({
+              accountId: account.id,
+              sourceName: account.sourceName,
+              accountType: account.accountType,
+              status: 'error',
+              error: comparisonsResult.error.message,
+            });
+            continue;
+          }
+
+          comparisons = comparisonsResult.value;
+          verified++;
+        }
 
         accountResults.push({
           accountId: account.id,
           sourceName: account.sourceName,
           accountType: account.accountType,
           status: vr.status,
+          reason: vr.mode === 'calculated-only' ? vr.warnings?.[0] : undefined,
           summary: vr.summary,
           coverage: vr.coverage,
           partialFailures: vr.partialFailures,
           warnings: vr.warnings,
-          comparisons: comparisonsResult.value,
+          comparisons,
         });
       }
 
@@ -311,32 +360,64 @@ export class BalanceHandler {
         }
 
         const vr = result.value;
-        const comparisonsResult = await this.buildSortedComparisonItems(vr.account, vr);
-        if (comparisonsResult.isErr()) {
-          relay.push({ type: 'VERIFICATION_ERROR', accountId: item.accountId, error: comparisonsResult.error.message });
-          continue;
+        let verificationItem;
+
+        if (vr.mode === 'calculated-only') {
+          const storedSnapshotAssetsResult = await this.buildStoredSnapshotAssets(vr.account);
+          if (storedSnapshotAssetsResult.isErr()) {
+            relay.push({
+              type: 'VERIFICATION_ERROR',
+              accountId: item.accountId,
+              error: storedSnapshotAssetsResult.error.message,
+            });
+            continue;
+          }
+
+          verificationItem = {
+            accountId: item.accountId,
+            sourceName: item.sourceName,
+            accountType: item.accountType,
+            status: 'warning' as const,
+            assetCount: storedSnapshotAssetsResult.value.length,
+            matchCount: 0,
+            mismatchCount: 0,
+            warningCount: Math.max(1, vr.warnings?.length ?? 0),
+            warnings: vr.warnings,
+            comparisons: undefined,
+          };
+        } else {
+          const comparisonsResult = await this.buildSortedComparisonItems(vr.account, vr);
+          if (comparisonsResult.isErr()) {
+            relay.push({
+              type: 'VERIFICATION_ERROR',
+              accountId: item.accountId,
+              error: comparisonsResult.error.message,
+            });
+            continue;
+          }
+
+          if (signal.aborted) {
+            const error = new Error('Verification aborted');
+            error.name = 'AbortError';
+            throw error;
+          }
+
+          const comparisons = comparisonsResult.value;
+
+          verificationItem = {
+            accountId: item.accountId,
+            sourceName: item.sourceName,
+            accountType: item.accountType,
+            status: vr.status,
+            assetCount: comparisons.length,
+            matchCount: comparisons.filter((c) => c.status === 'match').length,
+            mismatchCount: comparisons.filter((c) => c.status === 'mismatch').length,
+            warningCount:
+              comparisons.filter((c) => c.status === 'warning').length + (vr.coverage.status === 'partial' ? 1 : 0),
+            warnings: vr.warnings,
+            comparisons,
+          };
         }
-
-        if (signal.aborted) {
-          const error = new Error('Verification aborted');
-          error.name = 'AbortError';
-          throw error;
-        }
-
-        const comparisons = comparisonsResult.value;
-
-        const verificationItem = {
-          accountId: item.accountId,
-          sourceName: item.sourceName,
-          accountType: item.accountType,
-          status: vr.status,
-          assetCount: comparisons.length,
-          matchCount: comparisons.filter((c) => c.status === 'match').length,
-          mismatchCount: comparisons.filter((c) => c.status === 'mismatch').length,
-          warningCount:
-            comparisons.filter((c) => c.status === 'warning').length + (vr.coverage.status === 'partial' ? 1 : 0),
-          comparisons,
-        };
 
         relay.push({ type: 'VERIFICATION_COMPLETED', accountId: item.accountId, result: verificationItem });
       } catch (error) {
@@ -492,15 +573,15 @@ export class BalanceHandler {
       return ok(undefined);
     }
 
-    const scopeHint =
-      requestedAccount.id === scopeAccount.id
-        ? `--account-id ${scopeAccount.id}`
-        : `--account-id ${requestedAccount.id}`;
-    const reason = freshnessResult.value.reason ?? `balance projection is ${freshnessResult.value.status}`;
-
     return err(
       new Error(
-        `Stored balance snapshot for scope account #${scopeAccount.id} (${scopeAccount.sourceName}) is ${freshnessResult.value.status}: ${reason}. Run "exitbook balance refresh ${scopeHint}" to rebuild it.`
+        formatBalanceSnapshotFreshnessMessage({
+          requestedAccountId: requestedAccount.id,
+          scopeAccountId: scopeAccount.id,
+          scopeSourceName: scopeAccount.sourceName,
+          status: freshnessResult.value.status,
+          reason: freshnessResult.value.reason,
+        })
       )
     );
   }
@@ -516,6 +597,19 @@ export class BalanceHandler {
     }
 
     return assetsResult.value;
+  }
+
+  private async loadStoredSnapshotOrFail(scopeAccountId: number): Promise<Result<BalanceSnapshot, Error>> {
+    const snapshotResult = await this.db.balanceSnapshots.findSnapshot(scopeAccountId);
+    if (snapshotResult.isErr()) {
+      return err(snapshotResult.error);
+    }
+
+    if (!snapshotResult.value) {
+      return err(new Error(`Stored balance snapshot for scope account #${scopeAccountId} was not found`));
+    }
+
+    return ok(snapshotResult.value);
   }
 
   private async buildComparisonItems(
