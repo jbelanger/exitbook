@@ -1,5 +1,7 @@
 import type { Currency } from '@exitbook/core';
 
+import type { BlockchainProviderHints } from '../../catalog/types.js';
+
 /**
  * Configuration interface for Bitcoin-like UTXO blockchains
  *
@@ -43,4 +45,9 @@ export interface BitcoinChainConfig {
    * e.g., ['1', '3', 'bc1'] for Bitcoin, ['D'] for Dogecoin, ['L', 'M', 'ltc1'] for Litecoin
    */
   addressPrefixes?: string[] | undefined;
+
+  /**
+   * Optional provider-specific metadata hints used by aggregate catalogs.
+   */
+  providerHints?: BlockchainProviderHints | undefined;
 }

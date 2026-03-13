@@ -21,12 +21,6 @@ adapters where dependency inversion actually protects a capability boundary.
   technical capability packages
   - They own provider-specific contracts and implementations for reusable
     external access concerns
-- `app` is a legacy facade package (being phased out)
-  - Historically hosted operations that wrapped capability workflows
-  - Capability workflows now live in their owning packages; hosts compose
-    them directly
-  - Still contains `ClearOperation` and accounting-side ops — these will
-    migrate to capability packages or the host over time
 - `apps/cli` is the host and composition root
   - Command parsing, process lifecycle, cleanup, TUI wiring, runtime setup
   - Builds ports from `@exitbook/data`, constructs workflows from capability
@@ -66,11 +60,9 @@ adapters where dependency inversion actually protects a capability boundary.
 
 - The host (`apps/cli`) is the composition root
 - It builds persistence ports from `@exitbook/data` and constructs capability
-  workflows directly — no mandatory app-layer indirection
+  workflows directly
 - CLI handlers are thin shells over capability workflows, adding only
   host-specific concerns (TUI, instrumentation, abort handling)
-- `@exitbook/app` is not required in the composition path; capability
-  packages export their own workflows and ports
 
 ## Rule of thumb
 

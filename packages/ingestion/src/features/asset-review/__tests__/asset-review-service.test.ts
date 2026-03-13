@@ -258,9 +258,9 @@ describe('buildAssetReviewSummaries', () => {
     });
   });
 
-  it('flags same-chain same-symbol ambiguity when multiple EVM contracts share a symbol', async () => {
-    const firstAssetId = 'blockchain:ethereum:0xaaa';
-    const secondAssetId = 'blockchain:ethereum:0xbbb';
+  it('flags same-chain same-symbol ambiguity when multiple blockchain token refs share a symbol', async () => {
+    const firstAssetId = 'blockchain:solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const secondAssetId = 'blockchain:solana:So11111111111111111111111111111111111111112';
 
     const result = await buildAssetReviewSummaries([
       createTransaction({
@@ -285,6 +285,53 @@ describe('buildAssetReviewSummaries', () => {
     expect(summaries.get(secondAssetId)?.reviewStatus).toBe('needs-review');
     expect(summaries.get(firstAssetId)?.accountingBlocked).toBe(true);
     expect(summaries.get(secondAssetId)?.accountingBlocked).toBe(true);
+  });
+
+  it('queries non-EVM token refs through metadata and reference readers without pre-filtering', async () => {
+    const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const assetId = `blockchain:solana:${mint}`;
+    const tokenMetadataReader = {
+      getByContracts: vi.fn().mockResolvedValue(ok(new Map([[mint, undefined]]))),
+    };
+    const referenceResolver = {
+      resolveBatch: vi.fn().mockResolvedValue(
+        ok(
+          new Map([
+            [
+              mint,
+              {
+                provider: 'coingecko',
+                referenceStatus: 'matched',
+                externalAssetId: 'usd-coin',
+              },
+            ],
+          ])
+        )
+      ),
+    };
+
+    const result = await buildAssetReviewSummaries(
+      [
+        createTransaction({
+          id: 1,
+          externalId: 'tx-1',
+          assetId,
+          assetSymbol: 'USDC',
+          source: 'solana',
+        }),
+      ],
+      {
+        tokenMetadataReader,
+        referenceResolver,
+      }
+    );
+
+    expect(tokenMetadataReader.getByContracts).toHaveBeenCalledWith('solana', [mint]);
+    expect(referenceResolver.resolveBatch).toHaveBeenCalledWith('solana', [mint]);
+    expect(assertOk(result).get(assetId)).toMatchObject({
+      referenceStatus: 'matched',
+      reviewStatus: 'clear',
+    });
   });
 
   it('keeps same-symbol ambiguity blocking even when one contract has a matched canonical reference', async () => {

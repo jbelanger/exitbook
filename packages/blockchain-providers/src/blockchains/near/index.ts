@@ -2,6 +2,8 @@
  * NEAR blockchain provider exports
  */
 
+export * from './chain-config.interface.js';
+export * from './chain-registry.js';
 export * from './utils.js';
 
 // Schemas and types (normalized streaming model)

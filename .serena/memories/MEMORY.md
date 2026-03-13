@@ -10,7 +10,7 @@ Cryptocurrency portfolio tracker. Imports from exchange CSVs/APIs and on-chain d
 - **Database**: SQLite via Kysely ORM; auto-migrated via `initializeDatabase()`
 - **Validation**: Zod schemas (runtime); `exactOptionalPropertyTypes` enabled
 - **Error handling**: custom Result (`Result<T, Error>`) and helpers resultDo, resultTry — no throws
-- **Logging**: Pino via `@exitbook/logger` (`getLogger('component-name')`)
+- **Logging**: Custom logger via `@exitbook/logger` (`getLogger('component-name')`)
 - **Math**: Decimal.js — use `.toFixed()` (not `.toString()`)
 - **Testing**: Vitest
 - **Linting/Formatting**: ESLint + Prettier + Husky

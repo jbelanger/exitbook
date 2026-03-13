@@ -1,5 +1,7 @@
 import type { Currency } from '@exitbook/core';
 
+import type { BlockchainProviderHints } from '../../catalog/types.js';
+
 /**
  * Configuration interface for Substrate-based blockchains
  *
@@ -36,4 +38,9 @@ export interface SubstrateChainConfig {
    * Array of block explorer URLs for this chain
    */
   explorerUrls?: string[] | undefined;
+
+  /**
+   * Optional provider-specific metadata hints used by aggregate catalogs.
+   */
+  providerHints?: BlockchainProviderHints | undefined;
 }

@@ -3,7 +3,7 @@ import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { z } from 'zod';
 
-import { getEvmChainConfig } from '../../blockchains/evm/chain-registry.js';
+import { getBlockchainCatalogEntry } from '../../catalog/blockchains.js';
 import type {
   ReferencePlatformMappingRecord,
   TokenMetadataQueries,
@@ -122,7 +122,7 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
     blockchain: string,
     contractAddresses: string[]
   ): Promise<Result<Map<string, TokenReferenceLookupResult>, Error>> {
-    const normalizedAddresses = [...new Set(contractAddresses.map((address) => address.toLowerCase()))];
+    const normalizedAddresses = [...new Set(contractAddresses.map((address) => normalizeReferenceLookupKey(address)))];
     const results = new Map<string, TokenReferenceLookupResult>();
 
     for (const contractAddress of normalizedAddresses) {
@@ -187,11 +187,12 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
         continue;
       }
 
-      matchesByContract.set(platformAddress.toLowerCase(), coin);
+      matchesByContract.set(normalizeReferenceLookupKey(platformAddress), coin);
     }
 
     for (const contractAddress of contractsToRefresh) {
       const match = matchesByContract.get(contractAddress);
+      const externalContractAddress = match?.platforms[platformMapping.assetPlatformId];
       const record: TokenReferenceMatchRecord = match
         ? {
             blockchain,
@@ -202,7 +203,10 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
             externalAssetId: match.id,
             externalName: match.name,
             externalSymbol: match.symbol,
-            externalContractAddress: match.platforms[platformMapping.assetPlatformId]?.toLowerCase(),
+            externalContractAddress:
+              typeof externalContractAddress === 'string'
+                ? normalizeReferenceLookupKey(externalContractAddress)
+                : undefined,
             refreshedAt: new Date(),
           }
         : {
@@ -231,11 +235,6 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
   private async resolvePlatformMapping(
     blockchain: string
   ): Promise<Result<ReferencePlatformMappingRecord | undefined, Error>> {
-    const chainConfig = getEvmChainConfig(blockchain);
-    if (!chainConfig) {
-      return ok(undefined);
-    }
-
     const cachedResult = await this.queries.getReferencePlatformMapping(blockchain, 'coingecko');
     if (cachedResult.isErr()) {
       return err(cachedResult.error);
@@ -256,8 +255,18 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
       return err(platformsResult.error);
     }
 
+    const coingeckoHints = getBlockchainCatalogEntry(blockchain)?.providerHints?.coingecko;
+    if (!coingeckoHints) {
+      return ok(cachedResult.value);
+    }
+
     const matchingPlatform = platformsResult.value.find(
-      (platform) => platform.chain_identifier === chainConfig.chainId && platform.id.trim() !== ''
+      (platform) =>
+        (coingeckoHints.chainIdentifier !== undefined &&
+          platform.chain_identifier === coingeckoHints.chainIdentifier) ||
+        (coingeckoHints.platformId !== undefined &&
+          platform.id.trim() !== '' &&
+          platform.id.trim().toLowerCase() === coingeckoHints.platformId.toLowerCase())
     );
     if (!matchingPlatform) {
       return ok(cachedResult.value);
@@ -297,4 +306,8 @@ function mapReferenceMatchToLookup(record: TokenReferenceMatchRecord): TokenRefe
     externalSymbol: record.externalSymbol,
     externalContractAddress: record.externalContractAddress,
   };
+}
+
+function normalizeReferenceLookupKey(reference: string): string {
+  return reference.startsWith('0x') ? reference.toLowerCase() : reference;
 }

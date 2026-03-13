@@ -1,5 +1,7 @@
 import type { Currency } from '@exitbook/core';
 
+import type { BlockchainProviderHints } from '../../catalog/types.js';
+
 /**
  * Configuration interface for Cosmos SDK-based blockchains
  *
@@ -97,4 +99,9 @@ export interface CosmosChainConfig {
    * streaming should be disabled for this chain.
    */
   restTxSearchEnabled?: boolean | undefined;
+
+  /**
+   * Optional provider-specific metadata hints used by aggregate catalogs.
+   */
+  providerHints?: BlockchainProviderHints | undefined;
 }

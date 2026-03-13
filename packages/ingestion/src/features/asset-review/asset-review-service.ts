@@ -1,4 +1,4 @@
-import { getEvmChainConfig, type TokenReferenceLookupResult } from '@exitbook/blockchain-providers';
+import { type TokenReferenceLookupResult } from '@exitbook/blockchain-providers';
 import type {
   AssetReviewEvidence,
   AssetReviewSummary,
@@ -6,7 +6,7 @@ import type {
   TransactionNote,
   UniversalTransactionData,
 } from '@exitbook/core';
-import { err, ok, parseAssetId, type Result } from '@exitbook/core';
+import { buildBlockchainTokenAssetId, err, ok, parseAssetId, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('asset-review-service');
@@ -61,7 +61,7 @@ export async function buildAssetReviewSummaries(
   const metadataByAssetId = new Map<string, TokenMetadataRecord | undefined>();
   const referencesByAssetId = new Map<string, TokenReferenceLookupResult>();
 
-  const evmAssetsByChain = new Map<string, string[]>();
+  const tokenRefsByChain = new Map<string, string[]>();
   for (const assetId of signalsByAssetId.keys()) {
     const parsedAsset = parseAssetId(assetId);
     if (parsedAsset.isErr() || parsedAsset.value.namespace !== 'blockchain' || parsedAsset.value.ref === 'native') {
@@ -69,36 +69,46 @@ export async function buildAssetReviewSummaries(
     }
 
     const chain = parsedAsset.value.chain;
-    const contractAddress = parsedAsset.value.ref;
-    if (!chain || !contractAddress || !getEvmChainConfig(chain)) {
+    const tokenRef = parsedAsset.value.ref;
+    if (!chain || !tokenRef) {
       continue;
     }
 
-    const existing = evmAssetsByChain.get(chain) ?? [];
-    existing.push(contractAddress.toLowerCase());
-    evmAssetsByChain.set(chain, existing);
+    const existing = tokenRefsByChain.get(chain) ?? [];
+    existing.push(tokenRef);
+    tokenRefsByChain.set(chain, existing);
   }
 
-  for (const [chain, contracts] of evmAssetsByChain) {
+  for (const [chain, tokenRefs] of tokenRefsByChain) {
     if (options.tokenMetadataReader) {
-      const metadataResult = await options.tokenMetadataReader.getByContracts(chain, contracts);
+      const metadataResult = await options.tokenMetadataReader.getByContracts(chain, tokenRefs);
       if (metadataResult.isErr()) {
         return err(metadataResult.error);
       }
 
-      for (const [contractAddress, metadata] of metadataResult.value) {
-        metadataByAssetId.set(`blockchain:${chain}:${contractAddress.toLowerCase()}`, metadata);
+      for (const [tokenRef, metadata] of metadataResult.value) {
+        const lookupAssetId = buildTokenLookupAssetId(chain, tokenRef);
+        if (!lookupAssetId) {
+          continue;
+        }
+
+        metadataByAssetId.set(lookupAssetId, metadata);
       }
     }
 
     if (options.referenceResolver) {
-      const referenceResult = await options.referenceResolver.resolveBatch(chain, contracts);
+      const referenceResult = await options.referenceResolver.resolveBatch(chain, tokenRefs);
       if (referenceResult.isErr()) {
         return err(referenceResult.error);
       }
 
-      for (const [contractAddress, reference] of referenceResult.value) {
-        referencesByAssetId.set(`blockchain:${chain}:${contractAddress.toLowerCase()}`, reference);
+      for (const [tokenRef, reference] of referenceResult.value) {
+        const lookupAssetId = buildTokenLookupAssetId(chain, tokenRef);
+        if (!lookupAssetId) {
+          continue;
+        }
+
+        referencesByAssetId.set(lookupAssetId, reference);
       }
     }
   }
@@ -232,7 +242,7 @@ function collectSameSymbolAmbiguities(transactions: UniversalTransactionData[]):
       }
 
       const chain = parsedAssetId.value.chain;
-      if (!chain || !getEvmChainConfig(chain)) {
+      if (!chain) {
         continue;
       }
 
@@ -263,6 +273,16 @@ function collectSameSymbolAmbiguities(transactions: UniversalTransactionData[]):
   }
 
   return ambiguities;
+}
+
+function buildTokenLookupAssetId(chain: string, tokenRef: string): string | undefined {
+  const assetIdResult = buildBlockchainTokenAssetId(chain, tokenRef);
+  if (assetIdResult.isErr()) {
+    logger.warn({ chain, tokenRef, error: assetIdResult.error }, 'Failed to build asset ID for asset review lookup');
+    return undefined;
+  }
+
+  return assetIdResult.value;
 }
 
 function collectPrimaryAssetIds(transaction: UniversalTransactionData): Set<string> {

@@ -2,7 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { err, ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
+import { HttpClient } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -27,6 +29,7 @@ describe('coingecko-token-reference', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     await closeTokenMetadataDatabase(db);
     rmSync(tempDir, { recursive: true, force: true });
@@ -100,6 +103,124 @@ describe('coingecko-token-reference', () => {
         provider: 'coingecko',
         referenceStatus: 'unknown',
       });
+    } finally {
+      await resolver.close();
+    }
+  });
+
+  it('resolves non-EVM CoinGecko platforms by platform id and preserves case-sensitive refs', async () => {
+    const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async (endpoint: string) => {
+      if (endpoint === '/asset_platforms') {
+        return ok([{ id: 'solana', chain_identifier: undefined }]);
+      }
+
+      if (endpoint === '/coins/list?include_platform=true') {
+        return ok([
+          {
+            id: 'usd-coin',
+            symbol: 'usdc',
+            name: 'USD Coin',
+            platforms: {
+              solana: mint,
+            },
+          },
+        ]);
+      }
+
+      return err(new Error(`Unexpected endpoint: ${endpoint}`));
+    });
+
+    const resolver = assertOk(createCoinGeckoTokenReferenceResolver(queries, { apiKey: 'demo-key' }));
+
+    try {
+      const result = assertOk(await resolver.resolveBatch('solana', [mint]));
+      const mapping = assertOk(await queries.getReferencePlatformMapping('solana', 'coingecko'));
+      const match = assertOk(await queries.getReferenceMatch('solana', mint, 'coingecko'));
+
+      expect(result.get(mint)).toMatchObject({
+        provider: 'coingecko',
+        referenceStatus: 'matched',
+        assetPlatformId: 'solana',
+        externalAssetId: 'usd-coin',
+        externalContractAddress: mint,
+      });
+      expect(mapping).toMatchObject({
+        blockchain: 'solana',
+        provider: 'coingecko',
+        assetPlatformId: 'solana',
+        chainIdentifier: undefined,
+      });
+      expect(match).toMatchObject({
+        blockchain: 'solana',
+        contractAddress: mint,
+        referenceStatus: 'matched',
+        externalContractAddress: mint,
+      });
+    } finally {
+      await resolver.close();
+    }
+  });
+
+  it('matches aliased CoinGecko platform ids for supported non-EVM chains', async () => {
+    const tokenContract = 'usdt.tether-token.near';
+    vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async (endpoint: string) => {
+      if (endpoint === '/asset_platforms') {
+        return ok([{ id: 'near-protocol', chain_identifier: undefined }]);
+      }
+
+      if (endpoint === '/coins/list?include_platform=true') {
+        return ok([
+          {
+            id: 'tether',
+            symbol: 'usdt',
+            name: 'Tether',
+            platforms: {
+              'near-protocol': tokenContract,
+            },
+          },
+        ]);
+      }
+
+      return err(new Error(`Unexpected endpoint: ${endpoint}`));
+    });
+
+    const resolver = assertOk(createCoinGeckoTokenReferenceResolver(queries, { apiKey: 'demo-key' }));
+
+    try {
+      const result = assertOk(await resolver.resolveBatch('near', [tokenContract]));
+
+      expect(result.get(tokenContract)).toMatchObject({
+        provider: 'coingecko',
+        referenceStatus: 'matched',
+        assetPlatformId: 'near-protocol',
+        externalAssetId: 'tether',
+      });
+    } finally {
+      await resolver.close();
+    }
+  });
+
+  it('returns reference unknown for unsupported blockchains even when CoinGecko is configured', async () => {
+    const tokenRef = 'rTokenIssuerExample';
+    vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async (endpoint: string) => {
+      if (endpoint === '/asset_platforms') {
+        return ok([{ id: 'solana', chain_identifier: undefined }]);
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`);
+    });
+
+    const resolver = assertOk(createCoinGeckoTokenReferenceResolver(queries, { apiKey: 'demo-key' }));
+
+    try {
+      const result = assertOk(await resolver.resolveBatch('xrp', [tokenRef]));
+
+      expect(result.get(tokenRef)).toEqual({
+        provider: 'coingecko',
+        referenceStatus: 'unknown',
+      });
+      expect(assertOk(await queries.getReferencePlatformMapping('xrp', 'coingecko'))).toBeUndefined();
     } finally {
       await resolver.close();
     }

@@ -1,5 +1,7 @@
 import type { Currency } from '@exitbook/core';
 
+import type { BlockchainProviderHints } from '../../catalog/types.js';
+
 /**
  * Configuration interface for EVM-compatible blockchains
  *
@@ -65,4 +67,9 @@ export interface EvmChainConfig {
    * transactionTypes: ['normal']
    */
   transactionTypes: string[];
+
+  /**
+   * Optional provider-specific metadata hints used by aggregate catalogs.
+   */
+  providerHints?: BlockchainProviderHints | undefined;
 }

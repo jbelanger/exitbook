@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Give precise terminology suggestions and keep docs crisp first-drafts (not revision logs)
 - **Surface Decisions & Smells:** While working, track any decisions you had to make, potential code smells, workarounds, or possible tech debt introduced during implementation. Summarize these at the end of the task as a brief "Decisions & Smells" section so we can evaluate what to address post-implementation.
+- **Document Naming Issues:** When working on code, identify variables or functions with unclear names. Include rename suggestions in task summaries to track clarity improvements.
 - **Architecture:** Capability-first modular monolith. Capability packages own workflows and ports; `data` implements ports; hosts compose directly. Details in `docs/code-assistants/architecture.md`.
 - **Detailed Plans:** When planning (especially before `/clear`), write plans with enough detail for a junior dev — explicit file paths, function names, pseudo-code for changes, and step order. No assumptions or shorthand that requires codebase familiarity to interpret.
 
@@ -93,26 +94,21 @@ Custom logger (`@exitbook/logger`) — not Pino. Use `getLogger('name')` with `t
 
 ## Code Requirements
 
-- **No Sub-Agents:** Use direct tool calls (Read, Grep, Glob) instead of Task tool with sub-agents unless explicitly requested. Sub-agents are costly.
-- **Greenfield Mindset:** When refactoring or planning, always think as if designing from scratch. Prioritize correctness over speed — do it right, even if it's slower. Address every issue, edge case, and design concern as it surfaces rather than deferring. No shortcuts, no "we'll fix it later."
-- **No Technical Debt:** Stop and report architectural issues immediately. Fix foundational problems first.
+- **Prefer Direct Tools for Small Tasks:** For simple lookups, use direct tool calls (Read, Grep, Glob). Sub-agents are appropriate for multi-package exploration, broad refactors, or parallel research across the codebase.
+- **Correctness Over Speed:** Prioritize doing it right over doing it fast. Address every issue, edge case, and design concern as it surfaces rather than deferring. No shortcuts, no "we'll fix it later." When refactoring, design from scratch rather than patching around existing structure.
+- **No Technical Debt:** Stop and report architectural issues immediately. Fix foundational problems first. Prefer over-engineering slightly over accumulating debt — it's cheaper to simplify a robust design than to retrofit correctness later.
 - **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging. Never make silent assumptions or apply defaults for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally for unexpected but recoverable conditions. Propagate errors upward via Result types rather than swallowing them.
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database dropped during development, not versioned incrementally
-- Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
 - **Vertical Slices Over Technical Layers:** Organize by feature (e.g., `exchanges/kraken/`) not technical layer (e.g., `importers/`, `processors/`). Keep related code together - each feature directory contains its importer, processor, schemas, and tests.
 - **Dynamic Over Hardcoded:** Avoid hardcoded lists; rely on registries/metadata (auto-discovers blockchains/exchanges/providers).
 - **Functional Core, Imperative Shell:** Extract business logic into pure functions in `*-utils.ts` modules. Details in `docs/code-assistants/construct-shapes.md`.
 
 - **Interfaces:** `I`-prefixed interfaces for ports (always, even single implementation) and polymorphic contracts. For hexagon-internal classes, extract when a second implementation appears. Use plain `interface` or `z.infer<>` for data shapes.
 - **Testing:** Apply DRY within test files — extract shared fixtures, builders, and assertion helpers into `test-utils.ts` files co-located with the tests. Prefer reusable setup over repeated inline boilerplate; maintainable tests read like specs, not setup noise.
-- **Simplicity Over DRY:** KISS > DRY. Prefer simple, readable code over complex abstractions. Some repetition acceptable for maintainability.
-- **Developer Experience:** Prioritize clean DX when developing packages. Intuitive APIs, helpful errors, minimal setup.
-- **Meaningful Comments:** Add comments only for meaningful context not expressible in code. Avoid obvious statements or refactoring notes. Explain why, not what.
+- **DRY and Clean Abstractions:** Extract shared logic into well-named helpers, utilities, and abstractions. Prefer eliminating duplication over leaving repeated code "for simplicity." Readable abstractions are simpler than scattered repetition.
 - **Decimal.js:** Use named import `import { Decimal } from 'decimal.js'` and `.toFixed()` for strings (NOT `.toString()` which outputs scientific notation)
 - **Runtime-Agnostic:** Prefer Web-standard globals over Node-specific modules (e.g. `globalThis.crypto.randomUUID()` not `node:crypto`). Avoid `node:` imports in shared packages — React Native target is planned.
-- **Context Management:** When context exceeds 125k tokens, warn and propose sub-tasks after `/clear`
-- **Document Naming Issues:** When working on code, identify variables or functions with unclear names. Include rename suggestions in task summaries to track clarity improvements.
 
 ## Common Development Workflows
 

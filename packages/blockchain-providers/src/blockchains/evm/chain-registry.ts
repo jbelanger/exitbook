@@ -11,7 +11,23 @@ import evmChainsData from './evm-chains.json' with { type: 'json' };
  * const processor = new EvmProcessor(EVM_CHAINS.avalanche);
  * ```
  */
-export const EVM_CHAINS = evmChainsData as unknown as Record<string, EvmChainConfig>;
+const evmChains = evmChainsData as unknown as Record<string, EvmChainConfig>;
+
+export const EVM_CHAINS = Object.fromEntries(
+  Object.entries(evmChains).map(([chainName, config]) => [
+    chainName,
+    {
+      ...config,
+      providerHints: {
+        ...config.providerHints,
+        coingecko: {
+          ...config.providerHints?.coingecko,
+          chainIdentifier: config.providerHints?.coingecko?.chainIdentifier ?? config.chainId,
+        },
+      },
+    },
+  ])
+) as Record<string, EvmChainConfig>;
 
 /**
  * Type-safe chain names

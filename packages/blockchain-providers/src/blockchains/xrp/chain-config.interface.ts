@@ -1,5 +1,7 @@
 import type { Currency } from '@exitbook/core';
 
+import type { BlockchainProviderHints } from '../../catalog/types.js';
+
 /**
  * Configuration interface for XRP Ledger
  *
@@ -52,4 +54,9 @@ export interface XrpChainConfig {
    * Optional array of additional RPC endpoint URLs for failover
    */
   rpcUrls?: string[] | undefined;
+
+  /**
+   * Optional provider-specific metadata hints used by aggregate catalogs.
+   */
+  providerHints?: BlockchainProviderHints | undefined;
 }
