@@ -283,8 +283,9 @@ export class BalanceHandler {
           }
 
           comparisons = comparisonsResult.value;
-          verified++;
         }
+
+        verified++;
 
         accountResults.push({
           accountId: account.id,

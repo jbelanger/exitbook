@@ -90,7 +90,7 @@ describe('CostBasisReportGenerator', () => {
     let callCount = 0;
 
     return {
-      getRateFromUSD: vi.fn().mockImplementation(async (currency: Currency, timestamp: Date) => {
+      getRateFromUSD: vi.fn().mockImplementation(async (_currency: Currency, timestamp: Date) => {
         callCount++;
         const dateKey = timestamp.toISOString().split('T')[0] ?? '';
         const rate = rates[dateKey];

@@ -40,7 +40,6 @@ type KrakenBalanceExResponse = Record<string, { balance: string; hold_trade: str
 async function fetchLedger(
   httpClient: HttpClient,
   auth: { apiKey: string; apiSecret: string },
-  limit: number,
   ofs: number
 ): Promise<Result<Record<string, unknown>[], Error>> {
   const result = await krakenPost<KrakenLedgerResponse>(httpClient, auth, 'Ledgers', { ofs });
@@ -90,7 +89,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         let pageCount = 0;
 
         while (true) {
-          const ledgerResult = await fetchLedger(httpClient, auth, limit, ofs);
+          const ledgerResult = await fetchLedger(httpClient, auth, ofs);
 
           if (ledgerResult.isErr()) {
             yield wrapError(ledgerResult.error, 'Kraken API error');

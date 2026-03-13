@@ -99,7 +99,6 @@ export function createBinanceProvider(
  */
 export class BinanceProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly config: BinanceProviderConfig;
 
   constructor(
     httpClient: HttpClient,
@@ -108,7 +107,6 @@ export class BinanceProvider extends BasePriceProvider {
     rateLimit: ProviderRateLimitConfig
   ) {
     super(httpClient, priceQueries);
-    this.config = _config;
 
     // Provider metadata
     this.metadata = {

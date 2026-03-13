@@ -526,6 +526,18 @@ export class BalanceWorkflow {
     }
 
     const blockchain = scopeContext.scopeAccount.sourceName;
+    const hasRegisteredBalanceSupport = this.providerManager.hasRegisteredOperationSupport(
+      blockchain,
+      'getAddressBalances'
+    );
+
+    if (!hasRegisteredBalanceSupport) {
+      return ok({
+        supported: false,
+        reason: `Live balance verification is unavailable for ${blockchain}: no registered provider supports getAddressBalances. Stored calculated balances only.`,
+      });
+    }
+
     const registeredProviders = this.providerManager.getProviders(blockchain);
     const providers =
       registeredProviders.length > 0 ? registeredProviders : this.providerManager.autoRegisterFromConfig(blockchain);
@@ -537,10 +549,11 @@ export class BalanceWorkflow {
       return ok({ supported: true });
     }
 
-    return ok({
-      supported: false,
-      reason: `Live balance verification is unavailable for ${blockchain}: no registered provider supports getAddressBalances. Stored calculated balances only.`,
-    });
+    return err(
+      new Error(
+        `Failed to initialize a balance-capable provider for ${blockchain}. A registered provider supports getAddressBalances, but none could be initialized. Check provider configuration and API keys.`
+      )
+    );
   }
 
   private getRequestedAddressCount(scopeContext: BalanceScopeContext): number {

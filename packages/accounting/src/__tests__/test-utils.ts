@@ -322,7 +322,7 @@ export function createLot(
 export function createDisposal(
   id: string,
   lotId: string,
-  assetSymbol: string,
+  _assetSymbol: string,
   disposalDate: Date,
   quantityDisposed: string,
   proceedsPerUnit: string,

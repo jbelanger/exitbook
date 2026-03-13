@@ -37,7 +37,7 @@ export function buildAssetCostBasisItems(
   disposals: LotDisposal[],
   lotTransfers: LotTransfer[],
   jurisdiction: string,
-  currency: string,
+  _currency: string,
   report?: {
     disposals: ConvertedLotDisposal[];
     lots: ConvertedAcquisitionLot[];

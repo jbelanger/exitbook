@@ -141,8 +141,27 @@ describe('BalanceApp - asset view', () => {
         verificationStatus: 'unavailable',
         statusReason: 'Live balance verification is unavailable for lukso.',
         suggestion: 'Add a balance-capable provider for lukso to enable live verification.',
+        lastRefreshAt: '2026-03-12T18:10:00.000Z',
       },
-      [createStoredSnapshotAssetItem({ assetSymbol: 'LYX', calculatedBalance: '12.5' })]
+      [
+        createStoredSnapshotAssetItem({
+          assetSymbol: 'LYX',
+          calculatedBalance: '12.5',
+          diagnostics: {
+            txCount: 4,
+            dateRange: {
+              earliest: '2026-02-01T00:00:00.000Z',
+              latest: '2026-02-20T00:00:00.000Z',
+            },
+            totals: {
+              inflows: '12.5',
+              outflows: '0',
+              fees: '0',
+              net: '12.5',
+            },
+          },
+        }),
+      ]
     );
 
     const { lastFrame } = render(
@@ -160,5 +179,7 @@ describe('BalanceApp - asset view', () => {
 
     expect(frame).toContain('verification unavailable');
     expect(frame).toContain('Live balance verification is unavailable for lukso.');
+    expect(frame).toContain('Transactions: 4');
+    expect(frame).toContain('Net from transactions: 12.5');
   });
 });

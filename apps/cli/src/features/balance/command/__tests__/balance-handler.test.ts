@@ -208,3 +208,61 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
     );
   });
 });
+
+describe('BalanceHandler.refreshAllScopes', () => {
+  it('counts calculated-only warning results as verified totals', async () => {
+    const account = createAccount({ id: 74, sourceName: 'lukso', identifier: '0xlukso' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [],
+      snapshotAssets: [],
+    });
+    const balanceOperation = {
+      refreshVerification: vi.fn().mockResolvedValue(
+        ok({
+          account,
+          mode: 'calculated-only',
+          timestamp: Date.now(),
+          status: 'warning',
+          comparisons: [],
+          coverage: {
+            status: 'partial',
+            confidence: 'low',
+            requestedAddresses: 1,
+            successfulAddresses: 0,
+            failedAddresses: 1,
+            totalAssets: 1,
+            parsedAssets: 0,
+            failedAssets: 1,
+            overallCoverageRatio: 0,
+          },
+          summary: {
+            matches: 0,
+            mismatches: 0,
+            warnings: 0,
+            totalCurrencies: 1,
+          },
+          warnings: [
+            'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+          ],
+        })
+      ),
+    };
+
+    const handler = new BalanceHandler(mockDb as unknown as DataContext, balanceOperation as never);
+    const result = await handler.refreshAllScopes();
+    const value = assertOk(result);
+
+    expect(value.totals).toMatchObject({
+      total: 1,
+      verified: 1,
+      skipped: 0,
+      matches: 0,
+      mismatches: 1,
+    });
+    expect(value.accounts[0]).toMatchObject({
+      accountId: account.id,
+      status: 'warning',
+    });
+  });
+});

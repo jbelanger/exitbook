@@ -71,15 +71,15 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
   };
 
   if (options.json) {
-    await executePricesEnrichJSON(options, params);
+    await executePricesEnrichJSON(params);
   } else {
-    await executePricesEnrichTUI(options, params);
+    await executePricesEnrichTUI(params);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executePricesEnrichJSON(options: CommandOptions, params: PricesEnrichOptions): Promise<void> {
+async function executePricesEnrichJSON(params: PricesEnrichOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
@@ -108,7 +108,7 @@ async function executePricesEnrichJSON(options: CommandOptions, params: PricesEn
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executePricesEnrichTUI(options: CommandOptions, params: PricesEnrichOptions): Promise<void> {
+async function executePricesEnrichTUI(params: PricesEnrichOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();

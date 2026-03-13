@@ -149,6 +149,19 @@ describe('BlockchainProviderManager', () => {
     registerSpy.mockRestore();
   });
 
+  test('reports registry operation support even before providers are instantiated', async () => {
+    const uninitializedManager = new BlockchainProviderManager(providerRegistry, {
+      explorerConfig: mockExplorerConfig,
+    });
+
+    try {
+      expect(uninitializedManager.hasRegisteredOperationSupport('ethereum', 'getAddressBalances')).toBe(true);
+      expect(uninitializedManager.hasRegisteredOperationSupport('unknown-chain', 'getAddressBalances')).toBe(false);
+    } finally {
+      await uninitializedManager.destroy();
+    }
+  });
+
   test('should execute operations with primary provider', async () => {
     const result = await manager.getAddressBalances('ethereum', '0x123');
     expect(result.isOk()).toBe(true);

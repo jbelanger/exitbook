@@ -168,3 +168,5 @@ commands.txt
 *.db-wal
 
 environment.toml
+
+.desloppify

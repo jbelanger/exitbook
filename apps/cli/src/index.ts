@@ -12,7 +12,12 @@ import { Command } from 'commander';
 // Read version from package.json
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')) as { version: string };
+let packageJson: { version: string };
+try {
+  packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')) as { version: string };
+} catch {
+  packageJson = { version: '0.0.0' };
+}
 export const CLI_VERSION = packageJson.version;
 
 // Configure logger — LoggerImpl reads config dynamically, so loggers

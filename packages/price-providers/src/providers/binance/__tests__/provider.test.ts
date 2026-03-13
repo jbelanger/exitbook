@@ -178,7 +178,7 @@ describe('BinanceProvider', () => {
   it('tries multiple quote assets when first one fails with CoinNotFoundError', async () => {
     mockSelectBinanceInterval.mockReturnValue({ granularity: 'minute', interval: '1m' });
     mockMapCurrencyToBinanceQuote.mockReturnValue(['USDT', 'BUSD', 'USD']);
-    mockBuildBinanceSymbol.mockImplementation((asset, quote) => `BTC${quote}`);
+    mockBuildBinanceSymbol.mockImplementation((_asset, quote) => `BTC${quote}`);
     mockBuildBinanceKlinesParams.mockReturnValue({
       interval: '1m',
       limit: '1',
@@ -240,7 +240,7 @@ describe('BinanceProvider', () => {
   it('returns CoinNotFoundError when all quote assets fail', async () => {
     mockSelectBinanceInterval.mockReturnValue({ interval: '1m', granularity: 'minute' });
     mockMapCurrencyToBinanceQuote.mockReturnValue(['USDT', 'BUSD']);
-    mockBuildBinanceSymbol.mockImplementation((asset, quote) => `BTC${quote}`);
+    mockBuildBinanceSymbol.mockImplementation((_asset, quote) => `BTC${quote}`);
     mockBuildBinanceKlinesParams.mockReturnValue({
       symbol: 'BTCUSDT',
       interval: '1m',

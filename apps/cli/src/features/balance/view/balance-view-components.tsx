@@ -715,38 +715,7 @@ function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountIte
     <Text key="blank"> </Text>,
   ];
 
-  if (selected.statusReason) {
-    rows.push(
-      <Text
-        key="status-reason"
-        color="yellow"
-      >
-        {'  '}! {selected.statusReason}
-      </Text>
-    );
-  }
-
-  if (selected.suggestion) {
-    rows.push(
-      <Text
-        key="suggestion"
-        dimColor
-      >
-        {'  '}Suggestion: {selected.suggestion}
-      </Text>
-    );
-  }
-
-  if (selected.lastRefreshAt) {
-    rows.push(
-      <Text
-        key="last-refresh"
-        dimColor
-      >
-        {'  '}Last refresh: {formatTimestamp(selected.lastRefreshAt)}
-      </Text>
-    );
-  }
+  rows.push(...buildStoredSnapshotMetadataRows(selected, 'account-detail'));
 
   rows.push(
     <Text key="assets-blank"> </Text>,
@@ -1060,52 +1029,15 @@ const StoredSnapshotAssetRow: FC<{
 
 const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
   if (state.mode === 'stored-snapshot') {
-    if (state.statusReason || state.suggestion || state.lastRefreshAt) {
-      return (
-        <FixedHeightDetail
-          height={BALANCE_ASSET_DETAIL_LINES}
-          rows={[
-            ...(state.statusReason
-              ? [
-                  <Text
-                    key="status-reason"
-                    color="yellow"
-                  >
-                    {'  '}! {state.statusReason}
-                  </Text>,
-                ]
-              : []),
-            ...(state.suggestion
-              ? [
-                  <Text
-                    key="suggestion"
-                    dimColor
-                  >
-                    {'  '}Suggestion: {state.suggestion}
-                  </Text>,
-                ]
-              : []),
-            ...(state.lastRefreshAt
-              ? [
-                  <Text
-                    key="last-refresh"
-                    dimColor
-                  >
-                    {'  '}Last refresh: {formatTimestamp(state.lastRefreshAt)}
-                  </Text>,
-                ]
-              : []),
-          ]}
-        />
-      );
-    }
-
     const selected = state.assets[state.selectedIndex];
     if (!selected) return null;
     return (
       <FixedHeightDetail
         height={BALANCE_ASSET_DETAIL_LINES}
-        rows={buildStoredSnapshotDiagnosticsRows(selected)}
+        rows={[
+          ...buildStoredSnapshotDiagnosticsRows(selected),
+          ...buildStoredSnapshotMetadataRows(state, 'asset-detail'),
+        ]}
       />
     );
   }
@@ -1187,8 +1119,50 @@ function buildStoredSnapshotDiagnosticsRows(asset: StoredSnapshotAssetItem): Rea
   return rows;
 }
 
+function buildStoredSnapshotMetadataRows(
+  item: {
+    lastRefreshAt?: string | undefined;
+    statusReason?: string | undefined;
+    suggestion?: string | undefined;
+  },
+  keyPrefix: string
+): ReactElement[] {
+  return [
+    ...(item.statusReason
+      ? [
+          <Text
+            key={`${keyPrefix}-status-reason`}
+            color="yellow"
+          >
+            {'  '}! {item.statusReason}
+          </Text>,
+        ]
+      : []),
+    ...(item.suggestion
+      ? [
+          <Text
+            key={`${keyPrefix}-suggestion`}
+            dimColor
+          >
+            {'  '}Suggestion: {item.suggestion}
+          </Text>,
+        ]
+      : []),
+    ...(item.lastRefreshAt
+      ? [
+          <Text
+            key={`${keyPrefix}-last-refresh`}
+            dimColor
+          >
+            {'  '}Last refresh: {formatTimestamp(item.lastRefreshAt)}
+          </Text>,
+        ]
+      : []),
+  ];
+}
+
 function getStoredSnapshotVerificationDisplay(
-  status: StoredSnapshotAccountItem['verificationStatus']  
+  status: StoredSnapshotAccountItem['verificationStatus']
 ): { color: string; icon: string; label: string } | undefined {
   switch (status) {
     case 'unavailable':

@@ -21,6 +21,7 @@ import type {
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
   ProviderHealth,
+  ProviderOperationType,
   RawBalanceData,
 } from '../types/index.js';
 import type { BlockchainExplorersConfig } from '../utils/config-utils.js';
@@ -40,6 +41,7 @@ export interface BlockchainProviderManagerOptions {
 
 export class BlockchainProviderManager {
   private readonly circuitBreakers = new CircuitBreakerRegistry();
+  private readonly registry: ProviderRegistry;
   private readonly statsStore: ProviderStatsStore;
   private readonly responseCache = new TtlCache();
   private readonly healthMonitor: ProviderHealthMonitor;
@@ -53,6 +55,7 @@ export class BlockchainProviderManager {
   private readonly tokenMetadataCache?: TokenMetadataCache | undefined;
 
   constructor(registry: ProviderRegistry, options?: BlockchainProviderManagerOptions) {
+    this.registry = registry;
     this.statsStore = new ProviderStatsStore(options?.statsStore);
     this.instanceFactory = new ProviderInstanceFactory(registry, options?.explorerConfig);
     this.healthMonitor = new ProviderHealthMonitor(
@@ -343,6 +346,12 @@ export class BlockchainProviderManager {
    */
   getProviders(blockchain: string): IBlockchainProvider[] {
     return this.providers.get(blockchain) ?? [];
+  }
+
+  hasRegisteredOperationSupport(blockchain: string, operation: ProviderOperationType): boolean {
+    return this.registry
+      .getAvailable(blockchain)
+      .some((provider) => provider.capabilities.supportedOperations.includes(operation));
   }
 
   /**

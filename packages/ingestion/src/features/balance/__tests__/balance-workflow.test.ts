@@ -74,6 +74,9 @@ function createProviderManager(
   return {
     autoRegisterFromConfig: vi.fn(),
     destroy: vi.fn().mockResolvedValue(undefined),
+    hasRegisteredOperationSupport: vi.fn((_: string, operation: string) =>
+      providers.some((provider) => provider.capabilities.supportedOperations.includes(operation))
+    ),
     getProviders: vi.fn().mockReturnValue(providers),
     getAddressBalances: vi.fn().mockResolvedValue(ok(nativeResult)),
     getAddressTokenBalances: vi.fn(),
@@ -410,6 +413,56 @@ describe('BalanceWorkflow', () => {
     ]);
   });
 
+  it('fails when a registered balance provider cannot be initialized', async () => {
+    const account = createAccount({ sourceName: 'lukso', identifier: '0xlukso' });
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:lukso:native',
+              assetSymbol: 'LYX' as Currency,
+              grossAmount: parseDecimal('12.5'),
+              netAmount: parseDecimal('12.5'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const providerManager = {
+      autoRegisterFromConfig: vi.fn().mockReturnValue([]),
+      destroy: vi.fn().mockResolvedValue(undefined),
+      hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
+      getProviders: vi.fn().mockReturnValue([]),
+      getAddressBalances: vi.fn(),
+      getAddressTokenBalances: vi.fn(),
+    } as unknown as BlockchainProviderManager;
+
+    const workflow = new BalanceWorkflow(ports, providerManager);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe(
+        'Failed to initialize a balance-capable provider for lukso. A registered provider supports getAddressBalances, but none could be initialized. Check provider configuration and API keys.'
+      );
+    }
+
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith(1);
+    expect(replaceSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it('adds warning when token transactions are supported but token balances are unavailable', async () => {
     const account = createAccount();
 
@@ -634,6 +687,7 @@ describe('BalanceWorkflow', () => {
 
     const providerManager = {
       destroy: vi.fn().mockResolvedValue(undefined),
+      hasRegisteredOperationSupport: vi.fn(),
     } as unknown as BlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
@@ -658,6 +712,7 @@ describe('BalanceWorkflow', () => {
     const providerManager = {
       autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn().mockResolvedValue(undefined),
+      hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([{ capabilities: { supportedOperations: ['getAddressBalances'] } }]),
       getAddressBalances: vi.fn().mockResolvedValue(err(new Error('RPC down'))),
     } as unknown as BlockchainProviderManager;

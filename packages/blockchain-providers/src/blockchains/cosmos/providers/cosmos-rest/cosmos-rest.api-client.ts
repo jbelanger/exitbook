@@ -42,7 +42,6 @@ export interface CosmosRestProviderConfig extends ProviderConfig {
 // This class is instantiated via per-chain factories exported at the bottom of this file.
 export class CosmosRestApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
-  private chainName: string;
 
   constructor(config: CosmosRestProviderConfig) {
     // Get chain config to determine base URL
@@ -71,7 +70,6 @@ export class CosmosRestApiClient extends BaseApiClient {
     super(configWithBaseUrl);
 
     this.chainConfig = chainConfig;
-    this.chainName = chainName;
 
     this.logger.debug(
       `Initialized CosmosRestApiClient for chain: ${this.chainConfig.chainName} (${this.chainConfig.displayName}) - BaseUrl: ${this.baseUrl}`
