@@ -26,7 +26,6 @@ export function buildPricingPorts(db: DataContext): IPricingPersistence {
       db.executeInTransaction((txCtx) =>
         resultDoAsync(async function* () {
           yield* await txCtx.transactions.updateMovementsWithPrices(tx);
-          yield* await txCtx.costBasisDependencyVersions.bumpVersion('prices');
           return undefined;
         })
       ),

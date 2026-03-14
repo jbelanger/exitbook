@@ -215,4 +215,36 @@ describe('PriceQueries', () => {
 
     expect(value?.granularity).toBeUndefined();
   });
+
+  it('reads the latest mutation timestamp from canonical price storage', async () => {
+    okValue(
+      await queries.savePrice(
+        makePrice({
+          timestamp: new Date('2024-01-15T00:00:00.000Z'),
+          fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
+        })
+      )
+    );
+    okValue(
+      await queries.savePrice(
+        makePrice({
+          timestamp: new Date('2024-01-16T00:00:00.000Z'),
+          fetchedAt: new Date('2024-01-16T12:00:00.000Z'),
+        })
+      )
+    );
+    okValue(
+      await queries.savePrice(
+        makePrice({
+          timestamp: new Date('2024-01-15T00:00:00.000Z'),
+          price: parseDecimal('43500'),
+          fetchedAt: new Date('2024-01-17T12:00:00.000Z'),
+        })
+      )
+    );
+
+    const latest = okValue(await queries.getLatestMutationAt());
+
+    expect(latest?.getTime()).toBeGreaterThanOrEqual(new Date('2024-01-17T12:00:00.000Z').getTime());
+  });
 });

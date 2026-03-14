@@ -33,3 +33,4 @@ export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';
 // Manual price entry service
 export { ManualPriceService } from './services/manual-price-service.js';
 export type { ManualPriceEntry, ManualFxRateEntry } from './services/manual-price-service.js';
+export { readLatestPriceMutationAt } from './services/price-mutation-watermark-service.js';

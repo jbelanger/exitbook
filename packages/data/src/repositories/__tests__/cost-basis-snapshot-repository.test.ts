@@ -15,7 +15,7 @@ function createSnapshot(scopeKey: string, snapshotId: string): CostBasisSnapshot
     artifactKind: 'generic',
     linksBuiltAt: new Date('2026-03-14T12:00:00.000Z'),
     assetReviewBuiltAt: new Date('2026-03-14T12:00:01.000Z'),
-    pricesMutationVersion: 2,
+    pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
     exclusionFingerprint: 'excluded-assets:none',
     calculationId: 'calc-1',
     jurisdiction: 'US',
@@ -52,7 +52,7 @@ describe('CostBasisSnapshotRepository', () => {
     expect(row).toBeDefined();
     expect(row?.snapshotId).toBe('snapshot-1');
     expect(row?.artifactKind).toBe('generic');
-    expect(row?.pricesMutationVersion).toBe(2);
+    expect(row?.pricesLastMutatedAt?.toISOString()).toBe('2026-03-14T12:00:02.000Z');
   });
 
   it('overwrites the prior snapshot for the same scope', async () => {

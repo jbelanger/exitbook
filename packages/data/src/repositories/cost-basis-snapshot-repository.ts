@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- db nulls */
 import type { CostBasisSnapshotRecord } from '@exitbook/accounting/ports';
 import { err, ok, type Result } from '@exitbook/core';
 
@@ -39,7 +40,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
         artifact_kind: snapshot.artifactKind,
         links_built_at: snapshot.linksBuiltAt.toISOString(),
         asset_review_built_at: snapshot.assetReviewBuiltAt.toISOString(),
-        prices_mutation_version: snapshot.pricesMutationVersion,
+        prices_last_mutated_at: snapshot.pricesLastMutatedAt?.toISOString() ?? null,
         exclusion_fingerprint: snapshot.exclusionFingerprint,
         calculation_id: snapshot.calculationId,
         jurisdiction: snapshot.jurisdiction,
@@ -65,7 +66,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
             artifact_kind: values.artifact_kind,
             links_built_at: values.links_built_at,
             asset_review_built_at: values.asset_review_built_at,
-            prices_mutation_version: values.prices_mutation_version,
+            prices_last_mutated_at: values.prices_last_mutated_at,
             exclusion_fingerprint: values.exclusion_fingerprint,
             calculation_id: values.calculation_id,
             jurisdiction: values.jurisdiction,
@@ -134,7 +135,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
     jurisdiction: string;
     links_built_at: string;
     method: string;
-    prices_mutation_version: number;
+    prices_last_mutated_at: string | null;
     scope_key: string;
     snapshot_id: string;
     start_date: string;
@@ -150,7 +151,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       artifactKind: row.artifact_kind as CostBasisSnapshotRecord['artifactKind'],
       linksBuiltAt: new Date(row.links_built_at),
       assetReviewBuiltAt: new Date(row.asset_review_built_at),
-      pricesMutationVersion: row.prices_mutation_version,
+      ...(row.prices_last_mutated_at ? { pricesLastMutatedAt: new Date(row.prices_last_mutated_at) } : {}),
       exclusionFingerprint: row.exclusion_fingerprint,
       calculationId: row.calculation_id,
       jurisdiction: row.jurisdiction,

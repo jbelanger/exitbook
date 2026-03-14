@@ -203,6 +203,7 @@ async function executeClearNonTui(options: {
           console.error('\nThis will clear:');
           if (flat.transactions > 0) console.error(`  • ${flat.transactions} transactions`);
           if (flat.links > 0) console.error(`  • ${flat.links} transaction links`);
+          if (flat.costBasisSnapshots > 0) console.error(`  • ${flat.costBasisSnapshots} cost-basis snapshots`);
 
           if (includeRaw) {
             console.error('\n⚠️  WARNING: Raw data will also be deleted:');

@@ -156,7 +156,7 @@ describe('cost-basis-artifact-storage', () => {
       {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01Z') },
-        pricesMutationVersion: 4,
+        pricesLastMutatedAt: new Date('2026-03-14T12:00:02Z'),
         exclusionFingerprint: 'excluded-assets:none',
       },
       'cost-basis:test'
@@ -235,7 +235,7 @@ describe('cost-basis-artifact-storage', () => {
       {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01Z') },
-        pricesMutationVersion: 9,
+        pricesLastMutatedAt: new Date('2026-03-14T12:00:02Z'),
         exclusionFingerprint: 'excluded-assets:none',
       },
       'cost-basis:test-ca'

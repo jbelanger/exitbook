@@ -59,6 +59,7 @@ export function calculateTotalToDelete(state: ClearViewState): number {
   return (
     preview.transactions +
     preview.links +
+    preview.costBasisSnapshots +
     (state.includeRaw ? preview.accounts + preview.sessions + preview.rawData : 0)
   );
 }
@@ -84,6 +85,13 @@ export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
       count: preview.links,
       group: 'processed',
       status: preview.links > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'costBasisSnapshots',
+      label: 'Cost-basis snapshots',
+      count: preview.costBasisSnapshots,
+      group: 'processed',
+      status: preview.costBasisSnapshots > 0 ? 'will-delete' : 'empty',
     },
   ];
 
@@ -154,6 +162,13 @@ export function buildResultCategoryItems(result: FlatDeletionPreview): ClearCate
       count: result.links,
       group: 'processed',
       status: result.links > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'costBasisSnapshots',
+      label: 'Cost-basis snapshots',
+      count: result.costBasisSnapshots,
+      group: 'processed',
+      status: result.costBasisSnapshots > 0 ? 'will-delete' : 'empty',
     },
   ];
 

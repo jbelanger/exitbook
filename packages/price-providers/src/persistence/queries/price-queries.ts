@@ -7,6 +7,7 @@ import { CurrencySchema, parseDecimal, wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
+import { sql } from '@exitbook/sqlite';
 
 import { roundToMinute, roundToHour, roundToDay } from '../../core/utils.js';
 import type { PriceData } from '../../index.js';
@@ -259,12 +260,35 @@ export function createPriceQueries(db: PricesDB) {
     }
   }
 
+  async function getLatestMutationAt(): Promise<Result<Date | undefined, Error>> {
+    try {
+      const row = await db
+        .selectFrom('prices')
+        .select(sql<string | null>`MAX(COALESCE(updated_at, fetched_at))`.as('latest_mutation_at'))
+        .executeTakeFirst();
+
+      if (!row?.latest_mutation_at) {
+        return ok(undefined);
+      }
+
+      const parsed = new Date(row.latest_mutation_at);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new Error(`Invalid latest price mutation timestamp: ${row.latest_mutation_at}`);
+      }
+
+      return ok(parsed);
+    } catch (error) {
+      return wrapError(error, 'Failed to load latest price mutation timestamp');
+    }
+  }
+
   return {
     getPrice,
     savePrice,
     savePrices,
     getPriceRange,
     hasPrice,
+    getLatestMutationAt,
   };
 }
 

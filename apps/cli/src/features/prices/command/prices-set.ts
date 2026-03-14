@@ -54,40 +54,31 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   try {
-    const { OverrideStore, buildCostBasisArtifactInvalidationPorts, DataContext } = await import('@exitbook/data');
+    const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
     const service = new ManualPriceService(path.join(dataDir, 'prices.db'));
-    const db = await DataContext.initialize(path.join(dataDir, 'transactions.db'));
-    if (db.isErr()) {
-      throw db.error;
+    const handler = new PricesSetHandler(service, overrideStore);
+    const result = await handler.execute({
+      asset: options.asset,
+      date: options.date,
+      price: options.price,
+      currency: options.currency,
+      source: options.source,
+    });
+
+    if (result.isErr()) {
+      displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    try {
-      const handler = new PricesSetHandler(service, overrideStore, buildCostBasisArtifactInvalidationPorts(db.value));
-      const result = await handler.execute({
-        asset: options.asset,
-        date: options.date,
-        price: options.price,
-        currency: options.currency,
-        source: options.source,
-      });
-
-      if (result.isErr()) {
-        displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-      }
-
-      if (options.json) {
-        outputSuccess('prices-set', result.value);
-      } else {
-        console.log('✅ Price set successfully');
-        console.log(`   Asset: ${result.value.asset}`);
-        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-        console.log(`   Price: ${result.value.price} ${result.value.currency}`);
-        console.log(`   Source: ${result.value.source}`);
-      }
-    } finally {
-      await db.value.close();
+    if (options.json) {
+      outputSuccess('prices-set', result.value);
+    } else {
+      console.log('✅ Price set successfully');
+      console.log(`   Asset: ${result.value.asset}`);
+      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+      console.log(`   Price: ${result.value.price} ${result.value.currency}`);
+      console.log(`   Source: ${result.value.source}`);
     }
   } catch (error) {
     displayCliError(

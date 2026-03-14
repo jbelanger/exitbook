@@ -487,8 +487,10 @@ export function evaluateCostBasisArtifactFreshness(
     return { status: 'stale', reason: 'asset-review-built-at-mismatch' };
   }
 
-  if (watermark.pricesMutationVersion !== snapshot.pricesMutationVersion) {
-    return { status: 'stale', reason: 'prices-version-mismatch' };
+  if (
+    (watermark.pricesLastMutatedAt?.getTime() ?? undefined) !== (snapshot.pricesLastMutatedAt?.getTime() ?? undefined)
+  ) {
+    return { status: 'stale', reason: 'prices-last-mutated-at-mismatch' };
   }
 
   if (watermark.exclusionFingerprint !== snapshot.exclusionFingerprint) {
@@ -581,7 +583,9 @@ export function buildCostBasisSnapshotRecord(
     artifactKind: envelope.artifactKind,
     linksBuiltAt: dependencyWatermark.links.lastBuiltAt,
     assetReviewBuiltAt: dependencyWatermark.assetReview.lastBuiltAt,
-    pricesMutationVersion: dependencyWatermark.pricesMutationVersion,
+    ...(dependencyWatermark.pricesLastMutatedAt
+      ? { pricesLastMutatedAt: dependencyWatermark.pricesLastMutatedAt }
+      : {}),
     exclusionFingerprint: dependencyWatermark.exclusionFingerprint,
     calculationId: envelope.calculationId,
     jurisdiction,

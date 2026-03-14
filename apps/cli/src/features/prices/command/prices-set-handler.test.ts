@@ -5,18 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { PricesSetHandler } from './prices-set-handler.js';
 
 describe('PricesSetHandler', () => {
-  it('bumps the cost-basis price dependency after saving a manual price', async () => {
+  it('saves a manual price and appends the override event', async () => {
     const service = {
       savePrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     const overrideStore = {
       append: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    const invalidation = {
-      bumpPricesVersion: vi.fn().mockResolvedValue(ok({ version: 1 })),
-    };
 
-    const handler = new PricesSetHandler(service as never, overrideStore as never, invalidation);
+    const handler = new PricesSetHandler(service as never, overrideStore as never);
 
     const result = await handler.execute({
       asset: 'BTC',
@@ -34,6 +31,6 @@ describe('PricesSetHandler', () => {
       currency: 'USD',
       source: 'manual-cli',
     });
-    expect(invalidation.bumpPricesVersion).toHaveBeenCalledTimes(1);
+    expect(overrideStore.append).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,18 +3,19 @@ import { err, ok, type Result } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
-export function buildCostBasisArtifactFreshnessPorts(db: DataContext): ICostBasisDependencyWatermarkReader {
+export function buildCostBasisArtifactFreshnessPorts(
+  db: DataContext,
+  options?: { pricesLastMutatedAt?: Date | undefined }
+): ICostBasisDependencyWatermarkReader {
   return {
     async readCurrentWatermark(exclusionFingerprint): Promise<Result<CostBasisDependencyWatermark, Error>> {
-      const [linksResult, assetReviewResult, pricesResult] = await Promise.all([
+      const [linksResult, assetReviewResult] = await Promise.all([
         db.projectionState.get('links'),
         db.projectionState.get('asset-review'),
-        db.costBasisDependencyVersions.getVersion('prices'),
       ]);
 
       if (linksResult.isErr()) return err(linksResult.error);
       if (assetReviewResult.isErr()) return err(assetReviewResult.error);
-      if (pricesResult.isErr()) return err(pricesResult.error);
 
       return ok({
         links: linksResult.value
@@ -23,7 +24,7 @@ export function buildCostBasisArtifactFreshnessPorts(db: DataContext): ICostBasi
         assetReview: assetReviewResult.value
           ? { status: assetReviewResult.value.status, lastBuiltAt: assetReviewResult.value.lastBuiltAt ?? undefined }
           : { status: 'missing', lastBuiltAt: undefined },
-        pricesMutationVersion: pricesResult.value.version,
+        ...(options?.pricesLastMutatedAt ? { pricesLastMutatedAt: options.pricesLastMutatedAt } : {}),
         exclusionFingerprint,
       });
     },

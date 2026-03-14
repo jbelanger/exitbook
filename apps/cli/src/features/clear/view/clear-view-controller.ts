@@ -34,7 +34,7 @@ export type ClearViewAction =
  * Reducer function for clear view state
  */
 export function clearViewReducer(state: ClearViewState, action: ClearViewAction): ClearViewState {
-  const itemCount = 9; // Fixed: 6 processed + 3 raw categories
+  const itemCount = 6; // 3 processed + 3 raw categories
   const buildContext = (visibleRows: number) => ({
     itemCount,
     visibleRows,

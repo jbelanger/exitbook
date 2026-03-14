@@ -3,7 +3,7 @@
 
 import path from 'node:path';
 
-import { DataContext, OverrideStore, buildCostBasisArtifactInvalidationPorts } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../../shared/cli-error.js';
@@ -56,41 +56,28 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   try {
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
-    const db = await DataContext.initialize(path.join(dataDir, 'transactions.db'));
-    if (db.isErr()) {
-      throw db.error;
+    const handler = new PricesSetFxHandler(path.join(dataDir, 'prices.db'), overrideStore);
+    const result = await handler.execute({
+      from: options.from,
+      to: options.to,
+      date: options.date,
+      rate: options.rate,
+      source: options.source,
+    });
+
+    if (result.isErr()) {
+      displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
     }
 
-    try {
-      const handler = new PricesSetFxHandler(
-        path.join(dataDir, 'prices.db'),
-        overrideStore,
-        buildCostBasisArtifactInvalidationPorts(db.value)
-      );
-      const result = await handler.execute({
-        from: options.from,
-        to: options.to,
-        date: options.date,
-        rate: options.rate,
-        source: options.source,
-      });
-
-      if (result.isErr()) {
-        displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-      }
-
-      if (options.json) {
-        outputSuccess('prices-set-fx', result.value);
-      } else {
-        console.log('✅ FX rate set successfully');
-        console.log(`   From: ${result.value.from}`);
-        console.log(`   To: ${result.value.to}`);
-        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-        console.log(`   Rate: ${result.value.rate}`);
-        console.log(`   Source: ${result.value.source}`);
-      }
-    } finally {
-      await db.value.close();
+    if (options.json) {
+      outputSuccess('prices-set-fx', result.value);
+    } else {
+      console.log('✅ FX rate set successfully');
+      console.log(`   From: ${result.value.from}`);
+      console.log(`   To: ${result.value.to}`);
+      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+      console.log(`   Rate: ${result.value.rate}`);
+      console.log(`   Source: ${result.value.source}`);
     }
   } catch (error) {
     displayCliError(

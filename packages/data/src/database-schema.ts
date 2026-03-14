@@ -239,7 +239,7 @@ export interface CostBasisSnapshotsTable {
   artifact_kind: string;
   links_built_at: DateTime;
   asset_review_built_at: DateTime;
-  prices_mutation_version: number;
+  prices_last_mutated_at: DateTime | null;
   exclusion_fingerprint: string;
   calculation_id: string;
   jurisdiction: string;
@@ -252,12 +252,6 @@ export interface CostBasisSnapshotsTable {
   debug_json: JSONString;
   created_at: DateTime;
   updated_at: DateTime;
-}
-
-export interface CostBasisDependencyVersionsTable {
-  dependency_name: string;
-  version: number;
-  last_mutated_at: DateTime;
 }
 
 export interface BalanceSnapshotsTable {
@@ -329,7 +323,6 @@ export interface DatabaseSchema {
   transactions: TransactionsTable;
   projection_state: ProjectionStateTable;
   cost_basis_snapshots: CostBasisSnapshotsTable;
-  cost_basis_dependency_versions: CostBasisDependencyVersionsTable;
   balance_snapshots: BalanceSnapshotsTable;
   balance_snapshot_assets: BalanceSnapshotAssetsTable;
   asset_review_state: AssetReviewStateTable;

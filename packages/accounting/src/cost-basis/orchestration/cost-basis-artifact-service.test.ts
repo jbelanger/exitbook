@@ -19,7 +19,7 @@ import type { CostBasisWorkflow, CostBasisWorkflowResult } from './cost-basis-wo
 const dependencyWatermark: CostBasisDependencyWatermark = {
   links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
   assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
-  pricesMutationVersion: 3,
+  pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
   exclusionFingerprint: 'excluded-assets:none',
 };
 
@@ -113,7 +113,7 @@ function createStoredSnapshot(artifactJson = '{"bad"'): CostBasisSnapshotRecord 
     artifactKind: 'generic',
     linksBuiltAt: dependencyWatermark.links.lastBuiltAt!,
     assetReviewBuiltAt: dependencyWatermark.assetReview.lastBuiltAt!,
-    pricesMutationVersion: dependencyWatermark.pricesMutationVersion,
+    pricesLastMutatedAt: dependencyWatermark.pricesLastMutatedAt,
     exclusionFingerprint: dependencyWatermark.exclusionFingerprint,
     calculationId: '5fe73d65-4b4d-4a57-9289-90913db37373',
     jurisdiction: 'US',

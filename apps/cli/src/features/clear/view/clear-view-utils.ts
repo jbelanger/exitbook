@@ -9,6 +9,7 @@ export function getCategoryDescription(key: string): string {
   const descriptions: Record<string, string> = {
     transactions: 'Processed transaction records with movements, fees, metadata',
     links: 'Transfer link matches between outflows and inflows',
+    costBasisSnapshots: 'Stored latest cost-basis artifacts for reusable tax calculations',
     lots: 'Cost basis tracking lots for tax calculations',
     disposals: 'Records of acquisition lot disposals',
     transfers: 'Records of lot movements between accounts',

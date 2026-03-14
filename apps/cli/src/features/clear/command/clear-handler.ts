@@ -27,6 +27,7 @@ export interface ClearParams {
 export interface DeletionPreview {
   links: LinksResetImpact;
   processedTransactions: ProcessedTransactionsResetImpact;
+  costBasisSnapshots: { snapshots: number };
   purge: IngestionPurgeImpact | undefined;
 }
 
@@ -38,6 +39,7 @@ export interface ClearResult {
 export interface FlatDeletionPreview {
   transactions: number;
   links: number;
+  costBasisSnapshots: number;
   accounts: number;
   sessions: number;
   rawData: number;
@@ -47,6 +49,7 @@ export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
   return {
     transactions: preview.processedTransactions.transactions,
     links: preview.links.links,
+    costBasisSnapshots: preview.costBasisSnapshots.snapshots,
     accounts: preview.purge?.accounts ?? 0,
     sessions: preview.purge?.sessions ?? 0,
     rawData: preview.purge?.rawData ?? 0,
@@ -54,7 +57,7 @@ export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
 }
 
 export function calculateTotalDeletionItems(flat: FlatDeletionPreview): number {
-  return flat.transactions + flat.links + flat.accounts + flat.sessions + flat.rawData;
+  return flat.transactions + flat.links + flat.costBasisSnapshots + flat.accounts + flat.sessions + flat.rawData;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,13 +138,17 @@ export function createClearHandler(deps: ClearHandlerDeps) {
 
       const linksReset = buildLinksResetPorts(db);
       const ptReset = buildProcessedTransactionsResetPorts(db);
+      const costBasisReset = buildCostBasisResetPorts(db);
 
-      const [linksResult, ptResult] = await Promise.all([
+      const [linksResult, ptResult, costBasisResult] = await Promise.all([
         linksReset.countResetImpact(accountIds),
         ptReset.countResetImpact(accountIds),
+        costBasisReset.countResetImpact(),
       ]);
       if (linksResult.isErr()) return wrapError(linksResult.error, 'Failed to count links impact');
       if (ptResult.isErr()) return wrapError(ptResult.error, 'Failed to count processed-transactions impact');
+      if (costBasisResult.isErr())
+        return wrapError(costBasisResult.error, 'Failed to count cost-basis snapshot impact');
 
       let purge: IngestionPurgeImpact | undefined;
       if (params.includeRaw) {
@@ -154,6 +161,7 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       return ok({
         links: linksResult.value,
         processedTransactions: ptResult.value,
+        costBasisSnapshots: costBasisResult.value,
         purge,
       });
     },
@@ -210,6 +218,7 @@ export function createClearHandler(deps: ClearHandlerDeps) {
         const deleted: DeletionPreview = {
           links: linksImpact,
           processedTransactions: ptImpact,
+          costBasisSnapshots: costBasisResetResult.value,
           purge,
         };
 

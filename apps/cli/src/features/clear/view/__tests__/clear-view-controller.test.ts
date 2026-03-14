@@ -16,6 +16,7 @@ import {
 const mockPreviewWithoutRaw = {
   transactions: 100,
   links: 50,
+  costBasisSnapshots: 4,
   accounts: 0,
   sessions: 0,
   rawData: 0,
@@ -25,6 +26,7 @@ const mockPreviewWithoutRaw = {
 const mockPreviewWithRaw = {
   transactions: 100,
   links: 50,
+  costBasisSnapshots: 4,
   accounts: 3,
   sessions: 2,
   rawData: 500,
@@ -72,7 +74,7 @@ describe('ClearViewReducer', () => {
       const action: ClearViewAction = { type: 'END', visibleRows: 10 };
       const newState = clearViewReducer(state, action);
 
-      expect(newState.selectedIndex).toBe(8); // 9 items total (0-8)
+      expect(newState.selectedIndex).toBe(5); // 6 items total (0-5)
     });
 
     it('should block navigation during execution', () => {
@@ -173,16 +175,16 @@ describe('State helper functions', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, false);
       const total = calculateTotalToDelete(state);
 
-      // 100 + 50 = 150 (no accounts, sessions, rawData)
-      expect(total).toBe(150);
+      // 100 + 50 + 4 = 154 (no accounts, sessions, rawData)
+      expect(total).toBe(154);
     });
 
     it('should include raw data when includeRaw is true', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, true);
       const total = calculateTotalToDelete(state);
 
-      // 100 + 50 + 3 + 2 + 500 = 655
-      expect(total).toBe(655);
+      // 100 + 50 + 4 + 3 + 2 + 500 = 659
+      expect(total).toBe(659);
     });
   });
 
@@ -226,11 +228,11 @@ describe('State helper functions', () => {
       expect(accounts?.count).toBe(3);
     });
 
-    it('should return exactly 5 items', () => {
+    it('should return exactly 6 items', () => {
       const state = createClearViewState(mockScope, mockPreviewWithRaw, mockPreviewWithoutRaw, false);
       const items = buildCategoryItems(state);
 
-      expect(items).toHaveLength(5);
+      expect(items).toHaveLength(6);
     });
 
     it('should have correct group assignments', () => {
@@ -240,7 +242,7 @@ describe('State helper functions', () => {
       const processed = items.filter((i) => i.group === 'processed');
       const raw = items.filter((i) => i.group === 'raw');
 
-      expect(processed).toHaveLength(2);
+      expect(processed).toHaveLength(3);
       expect(raw).toHaveLength(3);
     });
   });

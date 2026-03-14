@@ -20,7 +20,7 @@ export interface CostBasisProjectionWatermark {
 export interface CostBasisDependencyWatermark {
   links: CostBasisProjectionWatermark;
   assetReview: CostBasisProjectionWatermark;
-  pricesMutationVersion: number;
+  pricesLastMutatedAt?: Date | undefined;
   exclusionFingerprint: string;
 }
 
@@ -34,7 +34,7 @@ export interface CostBasisSnapshotRecord {
   artifactKind: CostBasisArtifactKind;
   linksBuiltAt: Date;
   assetReviewBuiltAt: Date;
-  pricesMutationVersion: number;
+  pricesLastMutatedAt?: Date | undefined;
   exclusionFingerprint: string;
   calculationId: string;
   jurisdiction: string;

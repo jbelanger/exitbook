@@ -13,17 +13,14 @@ vi.mock('@exitbook/price-providers', () => ({
 }));
 
 describe('PricesSetFxHandler', () => {
-  it('bumps the cost-basis price dependency after saving a manual fx rate', async () => {
+  it('saves a manual fx rate and appends the override event', async () => {
     saveFxRate.mockResolvedValue(ok(undefined));
 
     const overrideStore = {
       append: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    const invalidation = {
-      bumpPricesVersion: vi.fn().mockResolvedValue(ok({ version: 2 })),
-    };
 
-    const handler = new PricesSetFxHandler('/tmp/prices.db', overrideStore as never, invalidation);
+    const handler = new PricesSetFxHandler('/tmp/prices.db', overrideStore as never);
     const result = await handler.execute({
       from: 'CAD',
       to: 'USD',
@@ -40,6 +37,6 @@ describe('PricesSetFxHandler', () => {
       rate: new Decimal('0.75'),
       source: 'user-provided',
     });
-    expect(invalidation.bumpPricesVersion).toHaveBeenCalledTimes(1);
+    expect(overrideStore.append).toHaveBeenCalledTimes(1);
   });
 });

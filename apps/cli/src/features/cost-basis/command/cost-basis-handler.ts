@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import {
   buildAccountingExclusionFingerprint,
   CostBasisArtifactService,
@@ -15,7 +17,7 @@ import {
   type DataContext,
 } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
+import { createDefaultPriceProviderManager, readLatestPriceMutationAt } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
@@ -40,7 +42,13 @@ export class CostBasisHandler {
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
-    const artifactFreshness = buildCostBasisArtifactFreshnessPorts(this.db);
+    const latestPriceMutationResult = await readLatestPriceMutationAt(path.join(this.dataDir, 'prices.db'));
+    if (latestPriceMutationResult.isErr()) {
+      return err(latestPriceMutationResult.error);
+    }
+    const artifactFreshness = buildCostBasisArtifactFreshnessPorts(this.db, {
+      pricesLastMutatedAt: latestPriceMutationResult.value,
+    });
     const priceManagerResult = await createDefaultPriceProviderManager({
       dataDir: this.dataDir,
     });

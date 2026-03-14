@@ -1,7 +1,11 @@
 import { CostBasisArtifactService, CostBasisWorkflow } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
+import {
+  createDefaultPriceProviderManager,
+  readLatestPriceMutationAt,
+  type PriceProviderManager,
+} from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
@@ -20,6 +24,7 @@ vi.mock('@exitbook/accounting', async () => {
 
 vi.mock('@exitbook/price-providers', () => ({
   createDefaultPriceProviderManager: vi.fn(),
+  readLatestPriceMutationAt: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -57,9 +62,6 @@ describe('CostBasisHandler', () => {
       transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
       transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
       costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
-      costBasisDependencyVersions: {
-        getVersion: vi.fn().mockResolvedValue(ok({ dependencyName: 'prices', version: 2 })),
-      },
       projectionState: {
         get: vi.fn().mockImplementation(async (projectionId: string) =>
           ok({
@@ -77,6 +79,7 @@ describe('CostBasisHandler', () => {
 
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
+    vi.mocked(readLatestPriceMutationAt).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
 
     mockArtifactServiceExecute = vi.fn().mockResolvedValue(
       ok({
@@ -85,7 +88,7 @@ describe('CostBasisHandler', () => {
         dependencyWatermark: {
           links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
           assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
-          pricesMutationVersion: 2,
+          pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
           exclusionFingerprint: 'excluded-assets:none',
         },
         rebuilt: false,
@@ -123,9 +126,6 @@ describe('CostBasisHandler', () => {
         transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
         transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
         costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
-        costBasisDependencyVersions: {
-          getVersion: vi.fn().mockResolvedValue(ok({ dependencyName: 'prices', version: 2 })),
-        },
         projectionState: {
           get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
         },

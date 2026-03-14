@@ -10,10 +10,6 @@ import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetHandler');
 
-interface CostBasisArtifactInvalidation {
-  bumpPricesVersion(): Promise<Result<{ version: number }, Error>>;
-}
-
 /**
  * Options for prices set command
  */
@@ -51,8 +47,7 @@ interface PricesSetResult {
 export class PricesSetHandler {
   constructor(
     private readonly service: ManualPriceService,
-    private readonly overrideStore?: OverrideStore | undefined,
-    private readonly costBasisInvalidation?: CostBasisArtifactInvalidation | undefined
+    private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
   /**
@@ -79,13 +74,6 @@ export class PricesSetHandler {
 
       if (saveResult.isErr()) {
         return err(saveResult.error);
-      }
-
-      if (this.costBasisInvalidation) {
-        const invalidationResult = await this.costBasisInvalidation.bumpPricesVersion();
-        if (invalidationResult.isErr()) {
-          return err(invalidationResult.error);
-        }
       }
 
       logger.info(
