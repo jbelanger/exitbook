@@ -100,6 +100,10 @@ function createGenericWorkflowResult(): Extract<CostBasisWorkflowResult, { kind:
     lots: [],
     disposals: [],
     lotTransfers: [],
+    executionMeta: {
+      missingPricesCount: 1,
+      retainedTransactionIds: [1, 2],
+    },
   };
 }
 
@@ -168,6 +172,10 @@ describe('CostBasisArtifactService', () => {
         lots: [],
         disposals: [],
         lotTransfers: [],
+        executionMeta: {
+          missingPricesCount: workflowResult.executionMeta.missingPricesCount,
+          retainedTransactionIds: workflowResult.executionMeta.retainedTransactionIds,
+        },
       })
     );
 
@@ -229,6 +237,11 @@ describe('CostBasisArtifactService', () => {
     expect(findLatest).not.toHaveBeenCalled();
     expect(loadCostBasisContext).toHaveBeenCalledTimes(1);
     expect(workflowExecute).toHaveBeenCalledTimes(1);
+    expect(workflowExecute).toHaveBeenCalledWith(params, [], {
+      accountingExclusionPolicy: undefined,
+      assetReviewSummaries: undefined,
+      missingPricePolicy: 'error',
+    });
     expect(replaceLatest).toHaveBeenCalledTimes(1);
   });
 

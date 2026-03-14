@@ -182,6 +182,11 @@ const StoredCostBasisReportSchema = z.object({
   }),
 });
 
+const StoredCostBasisExecutionMetaSchema = z.object({
+  missingPricesCount: z.number().int().nonnegative(),
+  retainedTransactionIds: z.array(z.number().int().positive()),
+});
+
 export const StoredGenericCostBasisArtifactSchema = z.object({
   kind: z.literal('generic-pipeline'),
   calculation: StoredCostBasisCalculationSchema,
@@ -193,6 +198,7 @@ export const StoredGenericCostBasisArtifactSchema = z.object({
   lots: z.array(StoredAcquisitionLotSchema),
   disposals: z.array(StoredLotDisposalSchema),
   lotTransfers: z.array(StoredLotTransferSchema),
+  executionMeta: StoredCostBasisExecutionMetaSchema,
   report: StoredCostBasisReportSchema.optional(),
 });
 
@@ -343,6 +349,7 @@ export const StoredCanadaCostBasisArtifactSchema = z.object({
   calculation: StoredCanadaCalculationSchema,
   taxReport: StoredCanadaTaxReportSchema,
   displayReport: StoredCanadaDisplayCostBasisReportSchema,
+  executionMeta: StoredCostBasisExecutionMetaSchema,
 });
 
 const StoredGenericDebugSchema = z.object({
@@ -422,7 +429,7 @@ interface CostBasisArtifactFreshnessResult {
   reason?: string | undefined;
 }
 
-export const COST_BASIS_STORAGE_SCHEMA_VERSION = 1;
+export const COST_BASIS_STORAGE_SCHEMA_VERSION = 2;
 export const COST_BASIS_CALCULATION_ENGINE_VERSION = 1;
 
 export function buildCostBasisScopeKey(config: {
@@ -671,6 +678,10 @@ function toStoredGenericArtifact(
     lots: result.lots.map(toStoredAcquisitionLot),
     disposals: result.disposals.map(toStoredLotDisposal),
     lotTransfers: result.lotTransfers.map(toStoredLotTransfer),
+    executionMeta: {
+      missingPricesCount: result.executionMeta.missingPricesCount,
+      retainedTransactionIds: result.executionMeta.retainedTransactionIds,
+    },
     ...(result.report ? { report: toStoredCostBasisReport(result.report) } : {}),
   };
 }
@@ -694,6 +705,10 @@ function fromStoredGenericArtifact(
       lots,
       disposals,
       lotTransfers,
+    },
+    executionMeta: {
+      missingPricesCount: artifact.executionMeta.missingPricesCount,
+      retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
     },
     ...(artifact.report ? { report: fromStoredCostBasisReport(artifact.report) } : {}),
     lots,
@@ -723,6 +738,10 @@ function toStoredCanadaArtifact(
     },
     taxReport: toStoredCanadaTaxReport(result.taxReport),
     displayReport: toStoredCanadaDisplayReport(displayReport),
+    executionMeta: {
+      missingPricesCount: result.executionMeta.missingPricesCount,
+      retainedTransactionIds: result.executionMeta.retainedTransactionIds,
+    },
   };
 }
 
@@ -746,6 +765,10 @@ function fromStoredCanadaArtifact(
     },
     taxReport: fromStoredCanadaTaxReport(artifact.taxReport),
     displayReport: fromStoredCanadaDisplayReport(artifact.displayReport),
+    executionMeta: {
+      missingPricesCount: artifact.executionMeta.missingPricesCount,
+      retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
+    },
   };
 }
 

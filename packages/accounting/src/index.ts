@@ -46,6 +46,8 @@ export {
 export { validateScopedTransferLinks } from './cost-basis/matching/validated-scoped-transfer-links.js';
 export type {
   CanadaCostBasisWorkflowResult,
+  CostBasisExecutionMeta,
+  CostBasisWorkflowExecutionOptions,
   CostBasisWorkflowResult,
   GenericCostBasisWorkflowResult,
 } from './cost-basis/orchestration/cost-basis-workflow.js';
@@ -114,6 +116,8 @@ export { StandardFxRateProvider } from './price-enrichment/fx/standard-fx-rate-p
 export { buildCanadaTaxInputContext } from './cost-basis/canada/canada-tax-context-builder.js';
 export { runCanadaAcbWorkflow } from './cost-basis/canada/canada-acb-workflow.js';
 export type { CanadaAcbWorkflowOptions, CanadaAcbWorkflowResult } from './cost-basis/canada/canada-acb-workflow.js';
+export { runCanadaCostBasisCalculation } from './cost-basis/canada/run-canada-cost-basis-calculation.js';
+export type { RunCanadaCostBasisCalculationParams } from './cost-basis/canada/run-canada-cost-basis-calculation.js';
 export type {
   CanadaTaxInputEvent,
   CanadaTaxInputEventKind,

@@ -14,6 +14,7 @@ function createAcquisitionTransaction(params: {
   quantity: string;
   timestamp: string;
   unitPriceCad: string;
+  unitPriceCurrency?: Currency | undefined;
 }): UniversalTransactionData {
   return {
     id: params.id,
@@ -31,7 +32,10 @@ function createAcquisitionTransaction(params: {
           assetSymbol: params.assetSymbol,
           grossAmount: parseDecimal(params.quantity),
           priceAtTxTime: {
-            price: { amount: parseDecimal(params.unitPriceCad), currency: 'CAD' as Currency },
+            price: {
+              amount: parseDecimal(params.unitPriceCad),
+              currency: params.unitPriceCurrency ?? ('CAD' as Currency),
+            },
             source: 'exchange-execution',
             fetchedAt: new Date(params.timestamp),
             granularity: 'exact',
@@ -52,6 +56,7 @@ function createDispositionTransaction(params: {
   quantity: string;
   timestamp: string;
   unitPriceCad: string;
+  unitPriceCurrency?: Currency | undefined;
 }): UniversalTransactionData {
   return {
     id: params.id,
@@ -70,7 +75,10 @@ function createDispositionTransaction(params: {
           assetSymbol: params.assetSymbol,
           grossAmount: parseDecimal(params.quantity),
           priceAtTxTime: {
-            price: { amount: parseDecimal(params.unitPriceCad), currency: 'CAD' as Currency },
+            price: {
+              amount: parseDecimal(params.unitPriceCad),
+              currency: params.unitPriceCurrency ?? ('CAD' as Currency),
+            },
             source: 'exchange-execution',
             fetchedAt: new Date(params.timestamp),
             granularity: 'exact',
@@ -81,6 +89,37 @@ function createDispositionTransaction(params: {
     fees: [],
     operation: { category: 'trade', type: 'sell' },
   };
+}
+
+function createUnpricedAcquisitionTransaction(params: {
+  assetId: string;
+  assetSymbol: Currency;
+  id: number;
+  quantity: string;
+  timestamp: string;
+}): UniversalTransactionData {
+  return {
+    id: params.id,
+    accountId: 1,
+    externalId: `tx-${params.id}`,
+    datetime: params.timestamp,
+    timestamp: Date.parse(params.timestamp),
+    source: 'kraken',
+    sourceType: 'exchange',
+    status: 'success',
+    movements: {
+      inflows: [
+        {
+          assetId: params.assetId,
+          assetSymbol: params.assetSymbol,
+          grossAmount: parseDecimal(params.quantity),
+        },
+      ],
+      outflows: [],
+    },
+    fees: [],
+    operation: { category: 'trade', type: 'buy' },
+  } as UniversalTransactionData;
 }
 
 function createStore(): ICostBasisContextReader {
@@ -95,6 +134,101 @@ function createStore(): ICostBasisContextReader {
 }
 
 describe('CostBasisWorkflow', () => {
+  it('returns generic execution metadata when missing-price policy excludes incomplete transactions', async () => {
+    const transactions = [
+      createAcquisitionTransaction({
+        id: 1,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: 'BTC' as Currency,
+        timestamp: '2024-01-01T12:00:00Z',
+        quantity: '1',
+        unitPriceCad: '10000',
+        unitPriceCurrency: 'USD' as Currency,
+      }),
+      createUnpricedAcquisitionTransaction({
+        id: 2,
+        assetId: 'exchange:kraken:eth',
+        assetSymbol: 'ETH' as Currency,
+        timestamp: '2024-02-01T12:00:00Z',
+        quantity: '2',
+      }),
+    ];
+
+    const workflow = new CostBasisWorkflow(createStore());
+    const result = await workflow.execute(
+      {
+        config: {
+          method: 'fifo',
+          jurisdiction: 'US',
+          taxYear: 2024,
+          currency: 'USD',
+          startDate: new Date('2024-01-01T00:00:00Z'),
+          endDate: new Date('2024-12-31T23:59:59Z'),
+        },
+      },
+      transactions,
+      { missingPricePolicy: 'exclude' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.kind).toBe('generic-pipeline');
+    if (result.value.kind !== 'generic-pipeline') {
+      throw new Error('Expected generic workflow result');
+    }
+
+    expect(result.value.executionMeta).toEqual({
+      missingPricesCount: 1,
+      retainedTransactionIds: [1],
+    });
+    expect(result.value.summary.lots).toHaveLength(1);
+  });
+
+  it('fails generic execution when missing-price policy is error', async () => {
+    const transactions = [
+      createAcquisitionTransaction({
+        id: 1,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: 'BTC' as Currency,
+        timestamp: '2024-01-01T12:00:00Z',
+        quantity: '1',
+        unitPriceCad: '10000',
+        unitPriceCurrency: 'USD' as Currency,
+      }),
+      createUnpricedAcquisitionTransaction({
+        id: 2,
+        assetId: 'exchange:kraken:eth',
+        assetSymbol: 'ETH' as Currency,
+        timestamp: '2024-02-01T12:00:00Z',
+        quantity: '2',
+      }),
+    ];
+
+    const workflow = new CostBasisWorkflow(createStore());
+    const result = await workflow.execute(
+      {
+        config: {
+          method: 'fifo',
+          jurisdiction: 'US',
+          taxYear: 2024,
+          currency: 'USD',
+          startDate: new Date('2024-01-01T00:00:00Z'),
+          endDate: new Date('2024-12-31T23:59:59Z'),
+        },
+      },
+      transactions,
+      { missingPricePolicy: 'error' }
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('missing required price data');
+    }
+  });
+
   it('routes Canada average-cost through the Canada workflow result boundary', async () => {
     const transactions = [
       createAcquisitionTransaction({
@@ -127,7 +261,8 @@ describe('CostBasisWorkflow', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      transactions
+      transactions,
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isOk()).toBe(true);
@@ -150,6 +285,10 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.displayReport?.displayCurrency).toBe('CAD');
     expect(result.value.displayReport?.summary.totalProceeds.toFixed()).toBe('12000');
     expect(result.value.displayReport?.summary.totalCostBasis.toFixed()).toBe('10000');
+    expect(result.value.executionMeta).toEqual({
+      missingPricesCount: 0,
+      retainedTransactionIds: [1, 2],
+    });
   });
 
   it('builds a display report for non-CAD Canada output without entering the generic USD report path', async () => {
@@ -184,7 +323,8 @@ describe('CostBasisWorkflow', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      transactions
+      transactions,
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isOk()).toBe(true);
@@ -218,7 +358,8 @@ describe('CostBasisWorkflow', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      []
+      [],
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isErr()).toBe(true);
@@ -267,7 +408,8 @@ describe('CostBasisWorkflow', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      transactions
+      transactions,
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isOk()).toBe(true);
@@ -286,6 +428,10 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.taxReport.dispositions[0]?.deniedLossCad.toFixed()).toBe('2000');
     expect(result.value.taxReport.dispositions[0]?.taxableGainLossCad.toFixed()).toBe('0');
     expect(result.value.taxReport.summary.totalDeniedLossCad.toFixed()).toBe('2000');
+    expect(result.value.executionMeta).toEqual({
+      missingPricesCount: 0,
+      retainedTransactionIds: [1, 2, 3],
+    });
     expect(
       result.value.taxReport.acquisitions.every(
         (acquisition) => acquisition.acquiredAt.getTime() <= new Date('2024-12-31T23:59:59Z').getTime()

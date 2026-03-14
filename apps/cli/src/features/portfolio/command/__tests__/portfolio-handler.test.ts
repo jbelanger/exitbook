@@ -1,12 +1,5 @@
-import {
-  buildCanadaDisplayCostBasisReport,
-  buildCanadaTaxReport,
-  getCostBasisRebuildTransactions,
-  runCanadaAcbEngine,
-  runCanadaAcbWorkflow,
-  runCanadaSuperficialLossEngine,
-  runCostBasisPipeline,
-} from '@exitbook/accounting';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
+import { runCanadaCostBasisCalculation } from '@exitbook/accounting';
 import { ok, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
@@ -20,23 +13,26 @@ import {
 } from '../../../shared/asset-review-projection-runtime.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
+const { mockCostBasisWorkflowExecute } = vi.hoisted(() => ({
+  mockCostBasisWorkflowExecute: vi.fn(),
+}));
+
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
   return {
     ...actual,
+    CostBasisWorkflow: vi.fn().mockImplementation(function () {
+      return {
+        execute: mockCostBasisWorkflowExecute,
+      };
+    }),
     StandardFxRateProvider: vi.fn().mockImplementation(function () {
       return {
         getRateToUSD: vi.fn(),
         getRateFromUSD: vi.fn(),
       };
     }),
-    getCostBasisRebuildTransactions: vi.fn(),
-    runCostBasisPipeline: vi.fn(),
-    runCanadaAcbWorkflow: vi.fn(),
-    runCanadaSuperficialLossEngine: vi.fn(),
-    runCanadaAcbEngine: vi.fn(),
-    buildCanadaTaxReport: vi.fn(),
-    buildCanadaDisplayCostBasisReport: vi.fn(),
+    runCanadaCostBasisCalculation: vi.fn(),
   };
 });
 
@@ -144,12 +140,22 @@ describe('PortfolioHandler', () => {
     vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    vi.mocked(getCostBasisRebuildTransactions).mockReturnValue(
-      ok({ missingPricesCount: 0, rebuildTransactions: [tx] })
-    );
-
-    vi.mocked(runCanadaAcbWorkflow).mockResolvedValue(
+    vi.mocked(runCanadaCostBasisCalculation).mockResolvedValue(
       ok({
+        kind: 'canada-workflow',
+        calculation: {
+          id: 'calc-1',
+          calculationDate: new Date('2025-01-01T00:00:00.000Z'),
+          method: 'average-cost',
+          jurisdiction: 'CA',
+          taxYear: 2025,
+          displayCurrency: 'USD' as Currency,
+          taxCurrency: 'CAD',
+          startDate: new Date('1970-01-01T00:00:00.000Z'),
+          endDate: new Date('2025-01-01T00:00:00.000Z'),
+          transactionsProcessed: 1,
+          assetsProcessed: ['BTC'],
+        },
         inputContext: {
           taxCurrency: 'CAD',
           scopedTransactionIds: [1],
@@ -183,119 +189,96 @@ describe('PortfolioHandler', () => {
             },
           ],
         },
-        acbEngineResult: {
-          eventPoolSnapshots: [],
-          pools: [],
-          dispositions: [],
-          totalProceedsCad: new Decimal('0'),
-          totalCostBasisCad: new Decimal('0'),
-          totalGainLossCad: new Decimal('0'),
+        executionMeta: {
+          missingPricesCount: 0,
+          retainedTransactionIds: [tx.id],
         },
-      })
-    );
-
-    vi.mocked(runCanadaSuperficialLossEngine).mockReturnValue(
-      ok({
-        adjustmentEvents: [],
-        dispositionAdjustments: [],
-        superficialLossAdjustments: [],
-      } as never)
-    );
-
-    vi.mocked(runCanadaAcbEngine).mockReturnValue(
-      ok({
-        eventPoolSnapshots: [],
-        pools: [],
-        dispositions: [],
-        totalProceedsCad: new Decimal('0'),
-        totalCostBasisCad: new Decimal('0'),
-        totalGainLossCad: new Decimal('0'),
-      } as never)
-    );
-
-    vi.mocked(buildCanadaTaxReport).mockReturnValue(
-      ok({
-        calculationId: 'calc-1',
-        taxCurrency: 'CAD',
-        acquisitions: [
-          {
-            id: 'layer-1',
-            acquisitionEventId: 'evt-1',
-            transactionId: 1,
-            taxPropertyKey: 'ca:btc',
-            assetSymbol: 'BTC' as Currency,
-            acquiredAt: new Date('2024-01-01T00:00:00.000Z'),
-            quantityAcquired: new Decimal('1'),
-            remainingQuantity: new Decimal('1'),
-            totalCostCad: new Decimal('60000'),
-            remainingAllocatedAcbCad: new Decimal('60000'),
-            costBasisPerUnitCad: new Decimal('60000'),
-          },
-        ],
-        dispositions: [],
-        transfers: [],
-        superficialLossAdjustments: [],
-        displayContext: { transferMarketValueCadByTransferId: new Map() },
-        summary: {
-          totalProceedsCad: new Decimal('0'),
-          totalCostBasisCad: new Decimal('0'),
-          totalGainLossCad: new Decimal('0'),
-          totalTaxableGainLossCad: new Decimal('0'),
-          totalDeniedLossCad: new Decimal('0'),
-        },
-      } as never)
-    );
-
-    vi.mocked(buildCanadaDisplayCostBasisReport).mockResolvedValue(
-      ok({
-        calculationId: 'calc-1',
-        sourceTaxCurrency: 'CAD',
-        displayCurrency: 'USD' as Currency,
-        acquisitions: [
-          {
-            id: 'layer-1',
-            acquisitionEventId: 'evt-1',
-            transactionId: 1,
-            taxPropertyKey: 'ca:btc',
-            assetSymbol: 'BTC' as Currency,
-            acquiredAt: new Date('2024-01-01T00:00:00.000Z'),
-            quantityAcquired: new Decimal('1'),
-            remainingQuantity: new Decimal('1'),
-            totalCostCad: new Decimal('60000'),
-            remainingAllocatedAcbCad: new Decimal('60000'),
-            costBasisPerUnitCad: new Decimal('60000'),
-            displayCostBasisPerUnit: new Decimal('45000'),
-            displayTotalCost: new Decimal('45000'),
-            displayRemainingAllocatedCost: new Decimal('45000'),
-            fxConversion: {
-              sourceTaxCurrency: 'CAD',
-              displayCurrency: 'USD' as Currency,
-              fxRate: new Decimal('0.75'),
-              fxSource: 'test',
-              fxFetchedAt: new Date('2024-01-01T00:00:00.000Z'),
+        taxReport: {
+          calculationId: 'calc-1',
+          taxCurrency: 'CAD',
+          acquisitions: [
+            {
+              id: 'layer-1',
+              acquisitionEventId: 'evt-1',
+              transactionId: 1,
+              taxPropertyKey: 'ca:btc',
+              assetSymbol: 'BTC' as Currency,
+              acquiredAt: new Date('2024-01-01T00:00:00.000Z'),
+              quantityAcquired: new Decimal('1'),
+              remainingQuantity: new Decimal('1'),
+              totalCostCad: new Decimal('60000'),
+              remainingAllocatedAcbCad: new Decimal('60000'),
+              costBasisPerUnitCad: new Decimal('60000'),
             },
+          ],
+          dispositions: [],
+          transfers: [],
+          superficialLossAdjustments: [],
+          displayContext: { transferMarketValueCadByTransferId: new Map() },
+          summary: {
+            totalProceedsCad: new Decimal('0'),
+            totalCostBasisCad: new Decimal('0'),
+            totalGainLossCad: new Decimal('0'),
+            totalTaxableGainLossCad: new Decimal('0'),
+            totalDeniedLossCad: new Decimal('0'),
           },
-        ],
-        dispositions: [],
-        transfers: [],
-        summary: {
-          totalProceeds: new Decimal('0'),
-          totalCostBasis: new Decimal('0'),
-          totalGainLoss: new Decimal('0'),
-          totalTaxableGainLoss: new Decimal('0'),
-          totalDeniedLoss: new Decimal('0'),
+        },
+        displayReport: {
+          calculationId: 'calc-1',
+          sourceTaxCurrency: 'CAD',
+          displayCurrency: 'USD' as Currency,
+          acquisitions: [
+            {
+              id: 'layer-1',
+              acquisitionEventId: 'evt-1',
+              transactionId: 1,
+              taxPropertyKey: 'ca:btc',
+              assetSymbol: 'BTC' as Currency,
+              acquiredAt: new Date('2024-01-01T00:00:00.000Z'),
+              quantityAcquired: new Decimal('1'),
+              remainingQuantity: new Decimal('1'),
+              totalCostCad: new Decimal('60000'),
+              remainingAllocatedAcbCad: new Decimal('60000'),
+              costBasisPerUnitCad: new Decimal('60000'),
+              displayCostBasisPerUnit: new Decimal('45000'),
+              displayTotalCost: new Decimal('45000'),
+              displayRemainingAllocatedCost: new Decimal('45000'),
+              fxConversion: {
+                sourceTaxCurrency: 'CAD',
+                displayCurrency: 'USD' as Currency,
+                fxRate: new Decimal('0.75'),
+                fxSource: 'test',
+                fxFetchedAt: new Date('2024-01-01T00:00:00.000Z'),
+              },
+            },
+          ],
+          dispositions: [],
+          transfers: [],
+          summary: {
+            totalProceeds: new Decimal('0'),
+            totalCostBasis: new Decimal('0'),
+            totalGainLoss: new Decimal('0'),
+            totalTaxableGainLoss: new Decimal('0'),
+            totalDeniedLoss: new Decimal('0'),
+          },
         },
       } as never)
     );
 
-    vi.mocked(runCostBasisPipeline).mockResolvedValue(
+    mockCostBasisWorkflowExecute.mockResolvedValue(
       ok({
+        kind: 'generic-pipeline',
         summary: {
           lots: [],
           disposals: [],
         },
-        missingPricesCount: 0,
-        rebuildTransactions: [tx],
+        lots: [],
+        disposals: [],
+        lotTransfers: [],
+        executionMeta: {
+          missingPricesCount: 0,
+          retainedTransactionIds: [tx.id],
+        },
       } as never)
     );
 
@@ -313,12 +296,41 @@ describe('PortfolioHandler', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    expect(runCanadaAcbWorkflow).toHaveBeenCalled();
-    expect(runCostBasisPipeline).not.toHaveBeenCalled();
+    expect(runCanadaCostBasisCalculation).toHaveBeenCalled();
+    expect(mockCostBasisWorkflowExecute).not.toHaveBeenCalled();
     if (result.isOk()) {
       expect(result.value.positions[0]?.sourceAssetIds).toEqual(['exchange:kraken:btc']);
       expect(result.value.displayCurrency).toBe('USD');
     }
+  });
+
+  it('routes non-CA portfolio calculations through CostBasisWorkflow with soft missing-price policy', async () => {
+    const result = await handler.execute({
+      method: 'fifo',
+      jurisdiction: 'US',
+      displayCurrency: 'USD',
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockCostBasisWorkflowExecute).toHaveBeenCalledTimes(1);
+    expect(mockCostBasisWorkflowExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          method: 'fifo',
+          jurisdiction: 'US',
+          currency: 'USD',
+          taxYear: 2025,
+        }),
+      }),
+      [tx],
+      {
+        accountingExclusionPolicy: { excludedAssetIds: new Set<string>() },
+        assetReviewSummaries: new Map(),
+        missingPricePolicy: 'exclude',
+      }
+    );
+    expect(runCanadaCostBasisCalculation).not.toHaveBeenCalled();
   });
 
   it('rejects non-average-cost methods for CA before any data loading', async () => {
@@ -331,7 +343,7 @@ describe('PortfolioHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(transactionRepo.findAll).not.toHaveBeenCalled();
-    expect(runCanadaAcbWorkflow).not.toHaveBeenCalled();
-    expect(runCostBasisPipeline).not.toHaveBeenCalled();
+    expect(runCanadaCostBasisCalculation).not.toHaveBeenCalled();
+    expect(mockCostBasisWorkflowExecute).not.toHaveBeenCalled();
   });
 });

@@ -139,7 +139,8 @@ describe('cost-basis-artifact-storage', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      transactions
+      transactions,
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isOk()).toBe(true);
@@ -183,6 +184,7 @@ describe('cost-basis-artifact-storage', () => {
 
     expect(reloadResult.value.artifact.summary.calculation.id).toBe(result.value.summary.calculation.id);
     expect(reloadResult.value.artifact.disposals[0]?.gainLoss.toFixed()).toBe('2000');
+    expect(reloadResult.value.artifact.executionMeta).toEqual(result.value.executionMeta);
   });
 
   it('maps a canada workflow result to storage JSON and back', async () => {
@@ -222,7 +224,8 @@ describe('cost-basis-artifact-storage', () => {
           endDate: new Date('2024-12-31T23:59:59Z'),
         },
       },
-      transactions
+      transactions,
+      { missingPricePolicy: 'error' }
     );
 
     expect(result.isOk()).toBe(true);
@@ -265,5 +268,6 @@ describe('cost-basis-artifact-storage', () => {
 
     expect(reloadResult.value.artifact.taxReport.summary.totalProceedsCad.toFixed()).toBe('12000');
     expect(displayReport.summary.totalTaxableGainLoss.toFixed()).toBe('1000');
+    expect(reloadResult.value.artifact.executionMeta).toEqual(result.value.executionMeta);
   });
 });

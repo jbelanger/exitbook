@@ -87,12 +87,13 @@ export class CostBasisArtifactService {
       return err(contextResult.error);
     }
 
-    const workflowResult = await this.workflow.execute(
-      params.params,
-      contextResult.value.transactions,
-      params.accountingExclusionPolicy,
-      params.assetReviewSummaries
-    );
+    const workflowResult = await this.workflow.execute(params.params, contextResult.value.transactions, {
+      accountingExclusionPolicy: params.accountingExclusionPolicy,
+      assetReviewSummaries: params.assetReviewSummaries,
+      // Tax reporting must fail closed. Excluding a disposal or transfer
+      // because it lacks prices would understate realized activity.
+      missingPricePolicy: 'error',
+    });
     if (workflowResult.isErr()) {
       return err(workflowResult.error);
     }

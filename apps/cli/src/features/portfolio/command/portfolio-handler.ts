@@ -3,17 +3,11 @@
  * Tier 2: Factory owns cleanup; command file never calls ctx.onCleanup().
  */
 import {
-  buildCanadaDisplayCostBasisReport,
-  buildCanadaTaxReport,
+  CostBasisWorkflow,
   type AccountingExclusionPolicy,
-  getCostBasisRebuildTransactions,
-  runCanadaAcbEngine,
-  runCanadaAcbWorkflow,
-  runCanadaSuperficialLossEngine,
-  runCostBasisPipeline,
+  runCanadaCostBasisCalculation,
   StandardFxRateProvider,
   validateCostBasisInput,
-  type CanadaCostBasisCalculation,
   type CostBasisInput,
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
@@ -274,29 +268,34 @@ export class PortfolioHandler {
         realizedGainLossByAssetId = canadaPortfolioResult.value.realizedGainLossByPortfolioKey;
         realizedGainLossDisplayContext = { sourceCurrency: 'display' };
       } else {
-        const pipelineResult = await runCostBasisPipeline(
-          transactionsUpToAsOf,
-          costBasisParams.config,
-          costBasisStore,
-          {
-            accountingExclusionPolicy: this.accountingExclusionPolicy,
-            assetReviewSummaries,
-            // Portfolio is a best-effort holdings view, not a tax filing surface.
-            // Keeping the price-complete subset lets us still show open lots and
-            // spot-valued positions, while warning that unrealized P&L is incomplete
-            // until the excluded transactions are enriched with prices.
-            missingPricePolicy: 'exclude',
-          }
-        );
-        if (pipelineResult.isErr()) {
-          return err(pipelineResult.error);
+        const workflow = new CostBasisWorkflow(costBasisStore, new StandardFxRateProvider(this.priceManager));
+        const workflowResult = await workflow.execute(costBasisParams, transactionsUpToAsOf, {
+          accountingExclusionPolicy: this.accountingExclusionPolicy,
+          assetReviewSummaries,
+          // Portfolio is a best-effort holdings view, not a tax filing surface.
+          // Keeping the price-complete subset lets us still show open lots and
+          // spot-valued positions, while warning that unrealized P&L is
+          // incomplete until the excluded transactions are enriched with
+          // prices.
+          missingPricePolicy: 'exclude',
+        });
+        if (workflowResult.isErr()) {
+          return err(workflowResult.error);
         }
 
-        const { summary: costBasisSummary, missingPricesCount, rebuildTransactions } = pipelineResult.value;
+        if (workflowResult.value.kind !== 'generic-pipeline') {
+          return err(
+            new Error(
+              `Expected generic-pipeline result for non-CA portfolio flow, received ${workflowResult.value.kind}`
+            )
+          );
+        }
+
+        const { summary: costBasisSummary, executionMeta } = workflowResult.value;
         const missingPriceWarning = this.buildMissingPriceWarning(
           transactionsUpToAsOf,
-          rebuildTransactions,
-          missingPricesCount
+          executionMeta.retainedTransactionIds,
+          executionMeta.missingPricesCount
         );
         if (missingPriceWarning) {
           warnings.push(missingPriceWarning);
@@ -448,15 +447,15 @@ export class PortfolioHandler {
 
   private buildMissingPriceWarning(
     transactionsUpToAsOf: UniversalTransactionData[],
-    rebuildTransactions: UniversalTransactionData[],
+    retainedTransactionIds: number[],
     missingPricesCount: number
   ): string | undefined {
     if (missingPricesCount === 0) {
       return undefined;
     }
 
-    const rebuildTransactionIds = new Set(rebuildTransactions.map((tx) => tx.id));
-    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !rebuildTransactionIds.has(tx.id));
+    const retainedTransactionIdSet = new Set(retainedTransactionIds);
+    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !retainedTransactionIdSet.has(tx.id));
     const excludedCount = excludedForMissingPrices.filter((tx) => isExcludedTransaction(tx)).length;
 
     logger.warn(
@@ -494,95 +493,48 @@ export class PortfolioHandler {
       Error
     >
   > {
-    const priceCoverageResult = getCostBasisRebuildTransactions(
-      params.transactionsUpToAsOf,
-      'CAD',
-      this.accountingExclusionPolicy
-    );
-    if (priceCoverageResult.isErr()) {
-      return err(priceCoverageResult.error);
-    }
-
-    const warnings: string[] = [];
-    const missingPriceWarning = this.buildMissingPriceWarning(
-      params.transactionsUpToAsOf,
-      priceCoverageResult.value.rebuildTransactions,
-      priceCoverageResult.value.missingPricesCount
-    );
-    if (missingPriceWarning) {
-      warnings.push(missingPriceWarning);
-    }
-
     const contextResult = await params.costBasisStore.loadCostBasisContext();
     if (contextResult.isErr()) {
       return err(contextResult.error);
     }
 
-    const fxRateProvider = new StandardFxRateProvider(this.priceManager);
-    const acbWorkflowResult = await runCanadaAcbWorkflow(
-      priceCoverageResult.value.rebuildTransactions,
-      contextResult.value.confirmedLinks,
-      fxRateProvider,
-      {
-        accountingExclusionPolicy: this.accountingExclusionPolicy,
-        assetReviewSummaries: params.assetReviewSummaries,
-      }
+    const canadaCostBasisResult = await runCanadaCostBasisCalculation({
+      input: params.costBasisParams,
+      transactions: params.transactionsUpToAsOf,
+      confirmedLinks: contextResult.value.confirmedLinks,
+      fxRateProvider: new StandardFxRateProvider(this.priceManager),
+      accountingExclusionPolicy: this.accountingExclusionPolicy,
+      assetReviewSummaries: params.assetReviewSummaries,
+      missingPricePolicy: 'exclude',
+      poolSnapshotStrategy: 'full-input-range',
+    });
+    if (canadaCostBasisResult.isErr()) {
+      return err(canadaCostBasisResult.error);
+    }
+
+    if (!canadaCostBasisResult.value.inputContext) {
+      return err(new Error('Canada portfolio cost basis result is missing input context'));
+    }
+
+    const warnings: string[] = [];
+    const missingPriceWarning = this.buildMissingPriceWarning(
+      params.transactionsUpToAsOf,
+      canadaCostBasisResult.value.executionMeta.retainedTransactionIds,
+      canadaCostBasisResult.value.executionMeta.missingPricesCount
     );
-    if (acbWorkflowResult.isErr()) {
-      return err(acbWorkflowResult.error);
+    if (missingPriceWarning) {
+      warnings.push(missingPriceWarning);
     }
-
-    const calculation = this.buildCanadaCalculation(params.costBasisParams, acbWorkflowResult.value.inputContext);
-    const superficialLossResult = runCanadaSuperficialLossEngine({
-      inputContext: acbWorkflowResult.value.inputContext,
-      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
-    });
-    if (superficialLossResult.isErr()) {
-      return err(superficialLossResult.error);
-    }
-
-    const adjustedInputContext = {
-      ...acbWorkflowResult.value.inputContext,
-      inputEvents: [
-        ...acbWorkflowResult.value.inputContext.inputEvents,
-        ...superficialLossResult.value.adjustmentEvents,
-      ],
-    };
-    const adjustedAcbEngineResult = runCanadaAcbEngine(adjustedInputContext);
-    if (adjustedAcbEngineResult.isErr()) {
-      return err(adjustedAcbEngineResult.error);
-    }
-
-    const taxReportResult = buildCanadaTaxReport({
-      calculation,
-      inputContext: acbWorkflowResult.value.inputContext,
-      acbEngineResult: adjustedAcbEngineResult.value,
-      poolSnapshot: adjustedAcbEngineResult.value,
-      superficialLossEngineResult: superficialLossResult.value,
-    });
-    if (taxReportResult.isErr()) {
-      return err(taxReportResult.error);
-    }
-
-    const displayReportResult = await buildCanadaDisplayCostBasisReport({
-      taxReport: taxReportResult.value,
-      displayCurrency: params.costBasisParams.config.currency as Currency,
-      fxProvider: fxRateProvider,
-    });
-    if (displayReportResult.isErr()) {
-      return err(displayReportResult.error);
-    }
-    const displayReport = displayReportResult.value;
 
     const built = buildCanadaPortfolioPositions({
       accountBreakdown: params.accountBreakdown,
       asOf: params.asOf,
       assetMetadata: params.assetMetadata,
-      displayReport,
+      displayReport: canadaCostBasisResult.value.displayReport,
       holdings: params.holdings,
-      inputContext: acbWorkflowResult.value.inputContext,
+      inputContext: canadaCostBasisResult.value.inputContext,
       spotPricesByAssetId: params.spotPrices,
-      taxReport: taxReportResult.value,
+      taxReport: canadaCostBasisResult.value.taxReport,
     });
     warnings.push(...built.warnings);
 
@@ -603,7 +555,7 @@ export class PortfolioHandler {
 
     logger.info(
       {
-        assetsProcessed: calculation.assetsProcessed.length,
+        assetsProcessed: canadaCostBasisResult.value.calculation.assetsProcessed.length,
         effectiveDisplayCurrency: params.costBasisParams.config.currency,
         positions: positions.length,
       },
@@ -616,25 +568,6 @@ export class PortfolioHandler {
       realizedGainLossByPortfolioKey: built.realizedGainLossByPortfolioKey,
       warnings,
     });
-  }
-
-  private buildCanadaCalculation(
-    params: CostBasisInput,
-    inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
-  ): CanadaCostBasisCalculation {
-    return {
-      id: globalThis.crypto.randomUUID(),
-      calculationDate: new Date(),
-      method: 'average-cost',
-      jurisdiction: 'CA',
-      taxYear: params.config.taxYear,
-      displayCurrency: params.config.currency as Currency,
-      taxCurrency: 'CAD',
-      startDate: params.config.startDate,
-      endDate: params.config.endDate,
-      transactionsProcessed: inputContext.scopedTransactionIds.length,
-      assetsProcessed: [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))],
-    };
   }
 }
 

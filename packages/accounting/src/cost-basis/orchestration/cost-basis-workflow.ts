@@ -4,16 +4,13 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import { runCanadaAcbEngine } from '../canada/canada-acb-engine.js';
-import { runCanadaAcbWorkflow } from '../canada/canada-acb-workflow.js';
-import { runCanadaSuperficialLossEngine } from '../canada/canada-superficial-loss-engine.js';
-import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../canada/canada-tax-report-builder.js';
 import type {
   CanadaCostBasisCalculation,
   CanadaDisplayCostBasisReport,
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '../canada/canada-tax-types.js';
+import { runCanadaCostBasisCalculation } from '../canada/run-canada-cost-basis-calculation.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
 import type { CostBasisReport } from '../shared/report-types.js';
@@ -28,6 +25,17 @@ const logger = getLogger('CostBasisWorkflow');
 /**
  * Result of the cost basis workflow.
  */
+export interface CostBasisExecutionMeta {
+  missingPricesCount: number;
+  retainedTransactionIds: number[];
+}
+
+export interface CostBasisWorkflowExecutionOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
+  missingPricePolicy: 'error' | 'exclude';
+}
+
 export interface GenericCostBasisWorkflowResult {
   kind: 'generic-pipeline';
   summary: CostBasisSummary;
@@ -35,6 +43,7 @@ export interface GenericCostBasisWorkflowResult {
   lots: AcquisitionLot[];
   disposals: LotDisposal[];
   lotTransfers: LotTransfer[];
+  executionMeta: CostBasisExecutionMeta;
 }
 
 export interface CanadaCostBasisWorkflowResult {
@@ -42,6 +51,8 @@ export interface CanadaCostBasisWorkflowResult {
   calculation: CanadaCostBasisCalculation;
   taxReport: CanadaTaxReport;
   displayReport?: CanadaDisplayCostBasisReport | undefined;
+  inputContext?: CanadaTaxInputContext | undefined;
+  executionMeta: CostBasisExecutionMeta;
 }
 
 export type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
@@ -62,8 +73,7 @@ export class CostBasisWorkflow {
   async execute(
     params: CostBasisInput,
     transactions: UniversalTransactionData[],
-    accountingExclusionPolicy?: AccountingExclusionPolicy,
-    assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
+    options: CostBasisWorkflowExecutionOptions
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const validation = validateCostBasisInput(params);
     if (validation.isErr()) {
@@ -76,19 +86,21 @@ export class CostBasisWorkflow {
     if (config.jurisdiction === 'CA') {
       const filteredResult = this.filterTransactionsForWindow(transactions, config, { lookaheadDays: 30 });
       if (filteredResult.isErr()) return err(filteredResult.error);
-      return this.executeCanadaWorkflow(params, filteredResult.value, accountingExclusionPolicy, assetReviewSummaries);
+      return this.executeCanadaWorkflow(
+        params,
+        filteredResult.value,
+        options.accountingExclusionPolicy,
+        options.assetReviewSummaries
+      );
     }
 
     const filteredResult = this.filterTransactionsForWindow(transactions, config);
     if (filteredResult.isErr()) return err(filteredResult.error);
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
-      accountingExclusionPolicy,
-      assetReviewSummaries,
-      // Tax reporting must fail closed. Excluding a disposal or transfer because
-      // it lacks prices would change realized gain/loss and silently understate
-      // the report.
-      missingPricePolicy: 'error',
+      accountingExclusionPolicy: options.accountingExclusionPolicy,
+      assetReviewSummaries: options.assetReviewSummaries,
+      missingPricePolicy: options.missingPricePolicy,
     });
     if (pipelineResult.isErr()) {
       return err(pipelineResult.error);
@@ -132,6 +144,10 @@ export class CostBasisWorkflow {
       lots,
       disposals,
       lotTransfers,
+      executionMeta: {
+        missingPricesCount: pipelineResult.value.missingPricesCount,
+        retainedTransactionIds: pipelineResult.value.rebuildTransactions.map((transaction) => transaction.id),
+      },
     });
   }
 
@@ -150,102 +166,30 @@ export class CostBasisWorkflow {
       return err(contextResult.error);
     }
 
-    const acbWorkflowResult = await runCanadaAcbWorkflow(
+    const canadaResult = await runCanadaCostBasisCalculation({
+      input: params,
       transactions,
-      contextResult.value.confirmedLinks,
-      this.fxRateProvider,
-      {
-        accountingExclusionPolicy,
-        assetReviewSummaries,
-        taxAssetIdentityPolicy: params.config.taxAssetIdentityPolicy,
-      }
-    );
-    if (acbWorkflowResult.isErr()) {
-      return err(acbWorkflowResult.error);
-    }
-
-    const calculation = this.buildCanadaCalculation(params, acbWorkflowResult.value.inputContext);
-    const superficialLossResult = runCanadaSuperficialLossEngine({
-      inputContext: acbWorkflowResult.value.inputContext,
-      acbEngineResult: acbWorkflowResult.value.acbEngineResult,
+      confirmedLinks: contextResult.value.confirmedLinks,
+      fxRateProvider: this.fxRateProvider,
+      accountingExclusionPolicy,
+      assetReviewSummaries,
+      missingPricePolicy: 'error',
+      poolSnapshotStrategy: 'report-end',
     });
-    if (superficialLossResult.isErr()) {
-      return err(superficialLossResult.error);
+    if (canadaResult.isErr()) {
+      return err(canadaResult.error);
     }
-
-    const augmentedInputContext = this.appendCanadaAdjustmentEvents(
-      acbWorkflowResult.value.inputContext,
-      superficialLossResult.value.adjustmentEvents
-    );
-    const adjustedAcbEngineResult = runCanadaAcbEngine(augmentedInputContext);
-    if (adjustedAcbEngineResult.isErr()) {
-      return err(adjustedAcbEngineResult.error);
-    }
-
-    const poolSnapshotContext = this.filterCanadaInputContextToReportEnd(augmentedInputContext, params.config.endDate);
-    const poolSnapshotResult = runCanadaAcbEngine(poolSnapshotContext);
-    if (poolSnapshotResult.isErr()) {
-      return err(poolSnapshotResult.error);
-    }
-
-    const taxReportResult = buildCanadaTaxReport({
-      calculation,
-      inputContext: acbWorkflowResult.value.inputContext,
-      acbEngineResult: adjustedAcbEngineResult.value,
-      poolSnapshot: poolSnapshotResult.value,
-      superficialLossEngineResult: superficialLossResult.value,
-    });
-    if (taxReportResult.isErr()) {
-      return err(taxReportResult.error);
-    }
-
-    const displayReportResult = await buildCanadaDisplayCostBasisReport({
-      taxReport: taxReportResult.value,
-      displayCurrency: params.config.currency as Currency,
-      fxProvider: this.fxRateProvider,
-    });
-    if (displayReportResult.isErr()) {
-      return err(displayReportResult.error);
-    }
-    const displayReport = displayReportResult.value;
 
     logger.info(
       {
-        calculationId: calculation.id,
-        dispositionsProcessed: taxReportResult.value.dispositions.length,
-        assetsProcessed: calculation.assetsProcessed.length,
+        calculationId: canadaResult.value.calculation.id,
+        dispositionsProcessed: canadaResult.value.taxReport.dispositions.length,
+        assetsProcessed: canadaResult.value.calculation.assetsProcessed.length,
       },
       'Canada cost basis calculation completed'
     );
 
-    return ok({
-      kind: 'canada-workflow',
-      calculation,
-      taxReport: taxReportResult.value,
-      displayReport,
-    });
-  }
-
-  private buildCanadaCalculation(
-    params: CostBasisInput,
-    inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
-  ): CanadaCostBasisCalculation {
-    const calculationDate = new Date();
-    const assetsProcessed = [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))];
-
-    return {
-      id: globalThis.crypto.randomUUID(),
-      calculationDate,
-      method: 'average-cost',
-      jurisdiction: 'CA',
-      taxYear: params.config.taxYear,
-      displayCurrency: params.config.currency as Currency,
-      taxCurrency: 'CAD',
-      startDate: params.config.startDate,
-      endDate: params.config.endDate,
-      transactionsProcessed: inputContext.scopedTransactionIds.length,
-      assetsProcessed,
-    };
+    return ok(canadaResult.value);
   }
 
   /**
@@ -282,26 +226,6 @@ export class CostBasisWorkflow {
     }
 
     return ok(transactionsUpToEndDate);
-  }
-
-  private appendCanadaAdjustmentEvents(
-    inputContext: CanadaTaxInputContext,
-    adjustmentEvents: CanadaTaxInputContext['inputEvents']
-  ): CanadaTaxInputContext {
-    return {
-      ...inputContext,
-      inputEvents: [...inputContext.inputEvents, ...adjustmentEvents],
-    };
-  }
-
-  private filterCanadaInputContextToReportEnd(
-    inputContext: CanadaTaxInputContext,
-    reportEndDate: Date
-  ): CanadaTaxInputContext {
-    return {
-      ...inputContext,
-      inputEvents: inputContext.inputEvents.filter((event) => event.timestamp.getTime() <= reportEndDate.getTime()),
-    };
   }
 
   private async generateReport(
