@@ -7,9 +7,9 @@ import { PricesSetFxHandler } from './prices-set-fx-handler.js';
 const saveFxRate = vi.fn();
 
 vi.mock('@exitbook/price-providers', () => ({
-  ManualPriceService: vi.fn().mockImplementation(() => ({
-    saveFxRate,
-  })),
+  ManualPriceService: vi.fn().mockImplementation(function () {
+    return { saveFxRate };
+  }),
 }));
 
 describe('PricesSetFxHandler', () => {
