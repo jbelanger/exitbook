@@ -119,7 +119,7 @@ export function createMockTransaction(
 /**
  * Create a mock LinkWithTransactions for view controller tests
  */
-export function createMockLinkWithTransactions(
+function createMockLinkWithTransactions(
   id: number,
   overrides: {
     assetSymbol?: Currency;

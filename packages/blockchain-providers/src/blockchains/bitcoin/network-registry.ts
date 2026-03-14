@@ -9,7 +9,7 @@ import * as bitcoin from 'bitcoinjs-lib';
  * - Address format encoding (pubKeyHash, scriptHash)
  * - Private key encoding (WIF format)
  */
-export const BITCOIN_NETWORKS: Record<string, bitcoin.Network> = {
+const BITCOIN_NETWORKS: Record<string, bitcoin.Network> = {
   bitcoin: bitcoin.networks.bitcoin,
 
   dogecoin: {

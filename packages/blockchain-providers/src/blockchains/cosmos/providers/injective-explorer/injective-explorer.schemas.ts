@@ -24,7 +24,7 @@ export const InjectiveAmountSchema = z.object({
 /**
  * Schema for MsgMultiSend input/output structure
  */
-export const InjectiveMultiSendIOSchema = z.object({
+const InjectiveMultiSendIOSchema = z.object({
   address: CosmosAddressSchema,
   coins: z.array(InjectiveAmountSchema).min(1, 'Coins array must have at least one entry'),
 });
@@ -90,19 +90,19 @@ export const InjectiveMessageSchema = z.object({
 /**
  * Schema for Injective transaction log events
  */
-export const InjectiveEventAttributeSchema = z.object({
+const InjectiveEventAttributeSchema = z.object({
   index: z.boolean().nullish(),
   key: z.string().nullish(),
   msg_index: z.string().nullish(),
   value: z.string().nullish(),
 });
 
-export const InjectiveEventSchema = z.object({
+const InjectiveEventSchema = z.object({
   attributes: z.array(InjectiveEventAttributeSchema).nullish(),
   type: z.string().nullish(),
 });
 
-export const InjectiveTransactionLogSchema = z.object({
+const InjectiveTransactionLogSchema = z.object({
   events: z.array(InjectiveEventSchema).nullish(),
   msg_index: z.string().nullish(),
 });
@@ -171,13 +171,9 @@ export const InjectiveApiResponseSchema = z.object({
 
 // Type exports inferred from schemas
 export type InjectiveAmount = z.infer<typeof InjectiveAmountSchema>;
-export type InjectiveMultiSendIO = z.infer<typeof InjectiveMultiSendIOSchema>;
 export type InjectiveGasFee = z.infer<typeof InjectiveGasFeeSchema>;
 export type InjectiveMessageValue = z.infer<typeof InjectiveMessageValueSchema>;
 export type InjectiveMessage = z.infer<typeof InjectiveMessageSchema>;
-export type InjectiveEventAttribute = z.infer<typeof InjectiveEventAttributeSchema>;
-export type InjectiveEvent = z.infer<typeof InjectiveEventSchema>;
-export type InjectiveTransactionLog = z.infer<typeof InjectiveTransactionLogSchema>;
 export type InjectiveTransaction = z.infer<typeof InjectiveTransactionSchema>;
 export type InjectiveBalance = z.infer<typeof InjectiveBalanceSchema>;
 export type InjectiveBalanceResponse = z.infer<typeof InjectiveBalanceResponseSchema>;

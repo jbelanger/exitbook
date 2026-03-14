@@ -25,7 +25,7 @@ import type { ValidatedScopedTransferLink, ValidatedScopedTransferSet } from './
 /**
  * Configuration for lot matching
  */
-export interface LotMatcherConfig {
+interface LotMatcherConfig {
   /** Calculation ID to associate lots with */
   calculationId: string;
   /** Cost basis strategy to use (FIFO, LIFO, etc.) */
@@ -59,7 +59,7 @@ export interface AssetLotMatchResult {
 /**
  * Result of lot matching across all assets
  */
-export interface LotMatchResult {
+interface LotMatchResult {
   /** Results grouped by asset */
   assetResults: AssetLotMatchResult[];
   /** Total number of acquisition lots created */

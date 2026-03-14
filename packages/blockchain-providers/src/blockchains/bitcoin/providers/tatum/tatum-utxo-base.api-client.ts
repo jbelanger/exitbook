@@ -28,7 +28,7 @@ import { calculateTatumBalance } from './utils.js';
 /**
  * Chain-specific parameters that differentiate each Tatum UTXO client
  */
-export interface TatumUtxoChainParams<TTransaction, TBalance> {
+interface TatumUtxoChainParams<TTransaction, TBalance> {
   apiPathSegment: string;
   balanceSchema: ZodType<TBalance>;
   healthCheckAddress: string;

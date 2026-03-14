@@ -15,7 +15,7 @@ export interface LinksConfirmParams {
 /**
  * Result of links confirm operation.
  */
-export interface LinksConfirmResult {
+interface LinksConfirmResult {
   linkId: number;
   affectedLinkIds: number[];
   affectedLinkCount: number;
@@ -38,7 +38,7 @@ export interface LinksConfirmResult {
 export class LinksConfirmHandler {
   private readonly reviewService: TransferProposalReviewService;
 
-  constructor(db: DataContext, overrideStore?: OverrideStore  ) {
+  constructor(db: DataContext, overrideStore?: OverrideStore) {
     this.reviewService = new TransferProposalReviewService(db, overrideStore);
   }
 

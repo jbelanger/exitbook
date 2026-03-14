@@ -11,7 +11,7 @@ import { CosmosAddressSchema } from '../../schemas.js';
 /**
  * Schema for Akash asset in balance response
  */
-export const AkashAssetSchema = z.object({
+const AkashAssetSchema = z.object({
   symbol: z.string(),
   logoUrl: z.string().optional(),
   amount: z.number(), // Already in AKT decimal format (not uakt)
@@ -20,7 +20,7 @@ export const AkashAssetSchema = z.object({
 /**
  * Schema for Akash delegation object
  */
-export const AkashDelegationSchema = z.object({
+const AkashDelegationSchema = z.object({
   validator: CosmosAddressSchema.optional(),
   amount: z.number().optional(),
   reward: z.number().optional(),
@@ -44,7 +44,7 @@ export const AkashBalanceResponseSchema = z.object({
 /**
  * Schema for Akash transaction message (lightweight, from transaction list)
  */
-export const AkashTransactionMessageSchema = z.object({
+const AkashTransactionMessageSchema = z.object({
   id: z.string(),
   type: z.string(),
   amount: z.number(), // Amount in uakt (0 for MsgMultiSend)
@@ -54,7 +54,7 @@ export const AkashTransactionMessageSchema = z.object({
 /**
  * Schema for Akash transaction (from transaction list endpoint)
  */
-export const AkashTransactionSchema = z.object({
+const AkashTransactionSchema = z.object({
   height: z.number(),
   datetime: z.string(),
   hash: z.string(),
@@ -79,7 +79,7 @@ export const AkashTransactionListResponseSchema = z.object({
 /**
  * Schema for Akash coin amount (in transaction detail)
  */
-export const AkashCoinAmountSchema = z.object({
+const AkashCoinAmountSchema = z.object({
   denom: z.string().min(1, 'Denom must not be empty'),
   amount: z.string().regex(/^\d+$/, 'Amount must be numeric string'), // Numeric string in base units (e.g., "284870994" uakt)
 });
@@ -87,7 +87,7 @@ export const AkashCoinAmountSchema = z.object({
 /**
  * Schema for message data in transaction details
  */
-export const AkashMessageDataSchema = z.object({
+const AkashMessageDataSchema = z.object({
   from_address: CosmosAddressSchema.optional(),
   to_address: CosmosAddressSchema.optional(),
   amount: z.array(AkashCoinAmountSchema).optional(),
@@ -128,7 +128,7 @@ export const AkashMessageDataSchema = z.object({
 /**
  * Schema for Akash transaction detail message
  */
-export const AkashTransactionDetailMessageSchema = z.object({
+const AkashTransactionDetailMessageSchema = z.object({
   id: z.string(),
   type: z.string(),
   data: AkashMessageDataSchema,
@@ -154,13 +154,6 @@ export const AkashTransactionDetailSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type AkashAsset = z.infer<typeof AkashAssetSchema>;
-export type AkashDelegation = z.infer<typeof AkashDelegationSchema>;
 export type AkashBalanceResponse = z.infer<typeof AkashBalanceResponseSchema>;
-export type AkashTransactionMessage = z.infer<typeof AkashTransactionMessageSchema>;
-export type AkashTransaction = z.infer<typeof AkashTransactionSchema>;
 export type AkashTransactionListResponse = z.infer<typeof AkashTransactionListResponseSchema>;
-export type AkashCoinAmount = z.infer<typeof AkashCoinAmountSchema>;
-export type AkashMessageData = z.infer<typeof AkashMessageDataSchema>;
-export type AkashTransactionDetailMessage = z.infer<typeof AkashTransactionDetailMessageSchema>;
 export type AkashTransactionDetail = z.infer<typeof AkashTransactionDetailSchema>;

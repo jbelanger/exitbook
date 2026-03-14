@@ -5,7 +5,7 @@ import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
 import { validateLinkAmountsForMatch } from './link-construction.js';
 
 /** Decision trace from capacity-based deduplication. Logged at debug level for audit. */
-export interface DeduplicationDecision {
+interface DeduplicationDecision {
   sourceId: number;
   targetId: number;
   asset: string;
@@ -46,7 +46,7 @@ export function shouldAutoConfirm(match: PotentialMatch, config: MatchingConfig)
  * prioritizes exact matches (amountSimilarity 1.0), and hash matches get confidence 1.0,
  * so the greedy result is near-optimal for real-world data. Can be upgraded later if needed.
  */
-export function deduplicateWithCapacity(
+function deduplicateWithCapacity(
   sortedMatches: PotentialMatch[],
   config: MatchingConfig
 ): { decisions: DeduplicationDecision[]; matches: PotentialMatch[] } {

@@ -33,7 +33,7 @@ import {
 
 const logger = getLogger('BalanceHandler');
 
-export interface SortedVerificationAccount {
+interface SortedVerificationAccount {
   account: Account;
   accountId: number;
   sourceName: string;
@@ -41,7 +41,7 @@ export interface SortedVerificationAccount {
   skipReason?: string | undefined;
 }
 
-export interface StoredSnapshotBalanceResult {
+interface StoredSnapshotBalanceResult {
   accounts: {
     account: Account;
     assets: StoredSnapshotAssetItem[];
@@ -50,7 +50,7 @@ export interface StoredSnapshotBalanceResult {
   }[];
 }
 
-export interface SingleVerificationResult {
+interface SingleVerificationResult {
   mode: 'verification';
   account: Account;
   requestedAccount?: Account | undefined;
@@ -59,7 +59,7 @@ export interface SingleVerificationResult {
   streamMetadata?: Record<string, unknown> | undefined;
 }
 
-export interface SingleCalculatedSnapshotResult {
+interface SingleCalculatedSnapshotResult {
   mode: 'calculated-only';
   account: Account;
   requestedAccount?: Account | undefined;
@@ -68,9 +68,9 @@ export interface SingleCalculatedSnapshotResult {
   streamMetadata?: Record<string, unknown> | undefined;
 }
 
-export type SingleRefreshResult = SingleVerificationResult | SingleCalculatedSnapshotResult;
+type SingleRefreshResult = SingleVerificationResult | SingleCalculatedSnapshotResult;
 
-export interface AccountJsonResult {
+interface AccountJsonResult {
   accountId: number;
   sourceName: string;
   accountType: AccountType;
@@ -84,7 +84,7 @@ export interface AccountJsonResult {
   warnings?: unknown;
 }
 
-export interface AllAccountsVerificationResult {
+interface AllAccountsVerificationResult {
   accounts: AccountJsonResult[];
   totals: {
     matches: number;

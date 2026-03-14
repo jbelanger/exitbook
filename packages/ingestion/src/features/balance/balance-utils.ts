@@ -74,7 +74,7 @@ export interface BalanceVerificationResult {
   warnings?: string[] | undefined;
 }
 
-export interface ConvertBalancesToDecimalsResult {
+interface ConvertBalancesToDecimalsResult {
   balances: Record<string, Decimal>;
   coverage: {
     failedAssetCount: number;

@@ -5,7 +5,7 @@ import { TatumDogecoinBalanceSchema, TatumDogecoinTransactionSchema } from './ta
 import type { TatumDogecoinTransaction, TatumDogecoinBalance } from './tatum-dogecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-export const tatumDogecoinMetadata: ProviderMetadata = {
+const tatumDogecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/dogecoin',
   blockchain: 'dogecoin',

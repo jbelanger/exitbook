@@ -18,7 +18,7 @@ import type { Decimal } from 'decimal.js';
 /**
  * Result of movement classification
  */
-export interface MovementsNeedingNormalization {
+interface MovementsNeedingNormalization {
   /** Movements that need FX conversion (non-USD fiat prices) */
   needsNormalization: AssetMovement[];
   /** Movements to skip (already USD or crypto) */

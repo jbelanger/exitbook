@@ -6,7 +6,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
 /**
  * Schema for Tatum Bitcoin transaction input coin
  */
-export const TatumBitcoinCoinSchema = z.object({
+const TatumBitcoinCoinSchema = z.object({
   address: BitcoinAddressSchema.nullish(),
   coinbase: z.boolean(),
   height: z.number(),
@@ -20,7 +20,7 @@ export const TatumBitcoinCoinSchema = z.object({
 /**
  * Schema for Tatum Bitcoin transaction input prevout
  */
-export const TatumBitcoinPrevoutSchema = z.object({
+const TatumBitcoinPrevoutSchema = z.object({
   hash: z.string().min(1, 'Prevout hash must not be empty'),
   index: z.number().nonnegative(),
 });
@@ -28,7 +28,7 @@ export const TatumBitcoinPrevoutSchema = z.object({
 /**
  * Schema for Tatum Bitcoin transaction input
  */
-export const TatumBitcoinInputSchema = z.object({
+const TatumBitcoinInputSchema = z.object({
   coin: TatumBitcoinCoinSchema.nullish(),
   prevout: TatumBitcoinPrevoutSchema.nullish(),
   script: z.string(),
@@ -38,7 +38,7 @@ export const TatumBitcoinInputSchema = z.object({
 /**
  * Schema for Tatum Bitcoin transaction output scriptPubKey
  */
-export const TatumBitcoinScriptPubKeySchema = z.object({
+const TatumBitcoinScriptPubKeySchema = z.object({
   reqSigs: z.number().nullish(),
   type: z.string(),
 });
@@ -46,7 +46,7 @@ export const TatumBitcoinScriptPubKeySchema = z.object({
 /**
  * Schema for Tatum Bitcoin transaction output
  */
-export const TatumBitcoinOutputSchema = z.object({
+const TatumBitcoinOutputSchema = z.object({
   address: BitcoinAddressSchema.nullish(),
   script: z.string(),
   scriptPubKey: TatumBitcoinScriptPubKeySchema,
@@ -85,10 +85,5 @@ export const TatumBitcoinBalanceSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type TatumBitcoinCoin = z.infer<typeof TatumBitcoinCoinSchema>;
-export type TatumBitcoinPrevout = z.infer<typeof TatumBitcoinPrevoutSchema>;
-export type TatumBitcoinInput = z.infer<typeof TatumBitcoinInputSchema>;
-export type TatumBitcoinScriptPubKey = z.infer<typeof TatumBitcoinScriptPubKeySchema>;
-export type TatumBitcoinOutput = z.infer<typeof TatumBitcoinOutputSchema>;
 export type TatumBitcoinTransaction = z.infer<typeof TatumBitcoinTransactionSchema>;
 export type TatumBitcoinBalance = z.infer<typeof TatumBitcoinBalanceSchema>;

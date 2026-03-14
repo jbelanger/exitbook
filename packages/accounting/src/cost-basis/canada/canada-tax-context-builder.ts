@@ -79,7 +79,7 @@ interface SameAssetFeeSourceRef {
   sourceMovementFingerprint?: string | undefined;
 }
 
-export interface CanadaTaxInputContextBuildOptions {
+interface CanadaTaxInputContextBuildOptions {
   taxAssetIdentityPolicy: TaxAssetIdentityPolicy;
   relaxedTaxIdentitySymbols: readonly string[];
 }

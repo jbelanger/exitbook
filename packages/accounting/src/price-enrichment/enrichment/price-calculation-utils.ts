@@ -4,7 +4,7 @@ import { isFiat, parseDecimal } from '@exitbook/core';
 /**
  * Detected trade pattern with both sides of the trade
  */
-export interface TradeMovements {
+interface TradeMovements {
   inflow: AssetMovement;
   outflow: AssetMovement;
   fee?: AssetMovement | undefined;

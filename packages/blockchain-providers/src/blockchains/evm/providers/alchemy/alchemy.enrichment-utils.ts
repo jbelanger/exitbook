@@ -13,7 +13,7 @@ import { deduplicateTransactionHashes } from '../../receipt-utils.js';
 import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from './alchemy.schemas.js';
 import { AlchemyTransactionReceiptResponseSchema } from './alchemy.schemas.js';
 
-export interface EnrichmentDeps {
+interface EnrichmentDeps {
   httpClient: HttpClient;
   apiKey: string;
   nativeCurrency: string;

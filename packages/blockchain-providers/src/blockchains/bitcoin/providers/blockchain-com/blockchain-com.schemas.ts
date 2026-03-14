@@ -5,7 +5,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
 /**
  * Schema for Blockchain.com transaction input prev_out
  */
-export const BlockchainComPrevOutSchema = z
+const BlockchainComPrevOutSchema = z
   .object({
     addr: BitcoinAddressSchema.nullish(),
     n: z.number(),
@@ -21,7 +21,7 @@ export const BlockchainComPrevOutSchema = z
 /**
  * Schema for Blockchain.com transaction input
  */
-export const BlockchainComInputSchema = z
+const BlockchainComInputSchema = z
   .object({
     index: z.number().nullish(),
     prev_out: BlockchainComPrevOutSchema.nullish(),
@@ -34,7 +34,7 @@ export const BlockchainComInputSchema = z
 /**
  * Schema for Blockchain.com transaction output
  */
-export const BlockchainComOutputSchema = z
+const BlockchainComOutputSchema = z
   .object({
     addr: BitcoinAddressSchema.nullish(),
     n: z.number(),
@@ -89,27 +89,6 @@ export const BlockchainComAddressResponseSchema = z
   })
   .strict();
 
-/**
- * Schema for Blockchain.com balance response entry
- */
-export const BlockchainComBalanceEntrySchema = z
-  .object({
-    final_balance: z.number().nonnegative('Final balance must be non-negative'),
-    n_tx: z.number().nonnegative('Transaction count must be non-negative'),
-    total_received: z.number().nonnegative('Total received must be non-negative'),
-  })
-  .strict();
-
-/**
- * Schema for Blockchain.com balance response map
- */
-export const BlockchainComBalanceResponseSchema = z.record(z.string(), BlockchainComBalanceEntrySchema);
-
 // Type exports inferred from schemas
-export type BlockchainComPrevOut = z.infer<typeof BlockchainComPrevOutSchema>;
-export type BlockchainComInput = z.infer<typeof BlockchainComInputSchema>;
-export type BlockchainComOutput = z.infer<typeof BlockchainComOutputSchema>;
 export type BlockchainComTransaction = z.infer<typeof BlockchainComTransactionSchema>;
 export type BlockchainComAddressResponse = z.infer<typeof BlockchainComAddressResponseSchema>;
-export type BlockchainComBalanceEntry = z.infer<typeof BlockchainComBalanceEntrySchema>;
-export type BlockchainComBalanceResponse = z.infer<typeof BlockchainComBalanceResponseSchema>;

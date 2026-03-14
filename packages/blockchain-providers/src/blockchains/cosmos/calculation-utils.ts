@@ -11,7 +11,7 @@ import type { InjectiveGasFee, InjectiveAmount } from './providers/injective-exp
 /**
  * Result of fee calculation
  */
-export interface FeeCalculationResult {
+interface FeeCalculationResult {
   feeAmount: string;
   feeCurrency: string;
 }
@@ -19,7 +19,7 @@ export interface FeeCalculationResult {
 /**
  * Result of amount conversion
  */
-export interface AmountConversionResult {
+interface AmountConversionResult {
   amount: string;
   currency: string;
 }

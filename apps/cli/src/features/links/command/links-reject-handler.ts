@@ -14,7 +14,7 @@ export interface LinksRejectParams {
 /**
  * Result of links reject operation.
  */
-export interface LinksRejectResult {
+interface LinksRejectResult {
   linkId: number;
   affectedLinkIds: number[];
   affectedLinkCount: number;
@@ -37,7 +37,7 @@ export interface LinksRejectResult {
 export class LinksRejectHandler {
   private readonly reviewService: TransferProposalReviewService;
 
-  constructor(db: DataContext, overrideStore?: OverrideStore  ) {
+  constructor(db: DataContext, overrideStore?: OverrideStore) {
     this.reviewService = new TransferProposalReviewService(db, overrideStore);
   }
 

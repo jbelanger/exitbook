@@ -36,7 +36,7 @@ export interface BlockchainViewItem {
 /**
  * Active filters (read-only, applied from CLI args)
  */
-export interface BlockchainsViewFilters {
+interface BlockchainsViewFilters {
   categoryFilter?: string | undefined;
   requiresApiKeyFilter?: boolean | undefined;
 }

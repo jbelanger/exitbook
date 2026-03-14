@@ -5,16 +5,16 @@ import { z } from 'zod';
  * Zod schemas for validation and parsing
  */
 
-export const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
+const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
 
-export const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
+const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 
-export const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
+const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
-export const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
+const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
 export const TaxAssetIdentityPolicySchema = z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']);
 
-export const VarianceToleranceSchema = z.object({
+const VarianceToleranceSchema = z.object({
   warn: z.number().nonnegative(),
   error: z.number().nonnegative(),
 });
@@ -29,9 +29,9 @@ export const JurisdictionConfigSchema = z.object({
 
 export const LotStatusSchema = z.enum(['open', 'partially_disposed', 'fully_disposed']);
 
-export const CalculationStatusSchema = z.enum(['pending', 'completed', 'failed']);
+const CalculationStatusSchema = z.enum(['pending', 'completed', 'failed']);
 
-export const CostBasisConfigSchema = z.object({
+const CostBasisConfigSchema = z.object({
   method: CostBasisMethodSchema,
   currency: FiatCurrencySchema,
   jurisdiction: JurisdictionSchema,
@@ -77,24 +77,24 @@ export const LotDisposalSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const LotTransferMetadataSchema = z.object({
+const LotTransferMetadataSchema = z.object({
   sameAssetFeeUsdValue: DecimalSchema.optional(),
 });
 
-export const ConfirmedLinkTransferProvenanceSchema = z.object({
+const ConfirmedLinkTransferProvenanceSchema = z.object({
   kind: z.literal('confirmed-link'),
   linkId: z.number().int().positive(),
   sourceMovementFingerprint: z.string().min(1),
   targetMovementFingerprint: z.string().min(1),
 });
 
-export const FeeOnlyCarryoverTransferProvenanceSchema = z.object({
+const FeeOnlyCarryoverTransferProvenanceSchema = z.object({
   kind: z.literal('fee-only-carryover'),
   sourceMovementFingerprint: z.string().min(1),
   targetMovementFingerprint: z.string().min(1),
 });
 
-export const LotTransferProvenanceSchema = z.discriminatedUnion('kind', [
+const LotTransferProvenanceSchema = z.discriminatedUnion('kind', [
   ConfirmedLinkTransferProvenanceSchema,
   FeeOnlyCarryoverTransferProvenanceSchema,
 ]);
@@ -140,12 +140,7 @@ export const CostBasisCalculationSchema = z.object({
 export type AcquisitionLot = z.infer<typeof AcquisitionLotSchema>;
 export type LotDisposal = z.infer<typeof LotDisposalSchema>;
 export type LotTransfer = z.infer<typeof LotTransferSchema>;
-export type LotTransferMetadata = z.infer<typeof LotTransferMetadataSchema>;
-export type LotTransferProvenance = z.infer<typeof LotTransferProvenanceSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
 export type LotStatus = z.infer<typeof LotStatusSchema>;
-export type CalculationStatus = z.infer<typeof CalculationStatusSchema>;
 export type JurisdictionConfig = z.infer<typeof JurisdictionConfigSchema>;
-export type SameAssetTransferFeePolicy = z.infer<typeof SameAssetTransferFeePolicySchema>;
 export type TaxAssetIdentityPolicy = z.infer<typeof TaxAssetIdentityPolicySchema>;
-export type VarianceTolerance = z.infer<typeof VarianceToleranceSchema>;

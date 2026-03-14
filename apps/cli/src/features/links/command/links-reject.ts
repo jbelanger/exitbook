@@ -2,7 +2,6 @@
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
@@ -13,11 +12,6 @@ import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../view/index.js';
 
 import { LinksRejectHandler } from './links-reject-handler.js';
-
-/**
- * Command options validated by Zod at CLI boundary
- */
-export type LinksRejectCommandOptions = z.infer<typeof LinksRejectCommandOptionsSchema>;
 
 /**
  * Result data for links reject command (JSON mode).

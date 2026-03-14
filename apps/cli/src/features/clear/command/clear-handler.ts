@@ -56,7 +56,7 @@ export function calculateTotalDeletionItems(flat: FlatDeletionPreview): number {
 // Params validation (pure)
 // ---------------------------------------------------------------------------
 
-export function validateClearParams(params: ClearParams): Result<void, Error> {
+function validateClearParams(params: ClearParams): Result<void, Error> {
   if (params.accountId && params.source) {
     return err(new Error('Cannot specify both accountId and source'));
   }
@@ -77,7 +77,7 @@ function describeFilters(params: ClearParams): string {
 // Handler
 // ---------------------------------------------------------------------------
 
-export interface ClearHandlerDeps {
+interface ClearHandlerDeps {
   db: DataContext;
 }
 

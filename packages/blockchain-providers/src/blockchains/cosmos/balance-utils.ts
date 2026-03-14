@@ -11,7 +11,7 @@ import type { InjectiveBalance } from './providers/injective-explorer/injective-
 /**
  * Result of balance conversion
  */
-export interface BalanceConversionResult {
+interface BalanceConversionResult {
   rawAmount: string;
   decimalAmount: string;
   decimals: number;

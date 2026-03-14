@@ -6,7 +6,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
 /**
  * Schema for Mempool.space transaction status
  */
-export const MempoolTransactionStatusSchema = z.object({
+const MempoolTransactionStatusSchema = z.object({
   block_hash: z.string().nullish(),
   block_height: z.number().nullish(),
   block_time: timestampToDate.nullish(),
@@ -16,7 +16,7 @@ export const MempoolTransactionStatusSchema = z.object({
 /**
  * Schema for Mempool.space transaction input prevout
  */
-export const MempoolPrevoutSchema = z.object({
+const MempoolPrevoutSchema = z.object({
   scriptpubkey: z.string(),
   scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
@@ -27,7 +27,7 @@ export const MempoolPrevoutSchema = z.object({
 /**
  * Schema for Mempool.space transaction input
  */
-export const MempoolInputSchema = z.object({
+const MempoolInputSchema = z.object({
   prevout: MempoolPrevoutSchema.nullish(),
   scriptsig: z.string(),
   scriptsig_asm: z.string(),
@@ -40,7 +40,7 @@ export const MempoolInputSchema = z.object({
 /**
  * Schema for Mempool.space transaction output
  */
-export const MempoolOutputSchema = z.object({
+const MempoolOutputSchema = z.object({
   scriptpubkey: z.string(),
   scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
@@ -69,7 +69,7 @@ export const MempoolTransactionSchema = z
 /**
  * Schema for Mempool.space address statistics (chain or mempool)
  */
-export const MempoolAddressStatsSchema = z.object({
+const MempoolAddressStatsSchema = z.object({
   funded_txo_count: z.number().nonnegative('Funded transaction output count must be non-negative'),
   funded_txo_sum: z.number().nonnegative('Funded transaction output sum must be non-negative'),
   spent_txo_count: z.number().nonnegative('Spent transaction output count must be non-negative'),
@@ -87,11 +87,5 @@ export const MempoolAddressInfoSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type MempoolTransactionStatus = z.infer<typeof MempoolTransactionStatusSchema>;
-export type MempoolPrevout = z.infer<typeof MempoolPrevoutSchema>;
-export type MempoolInput = z.infer<typeof MempoolInputSchema>;
-export type MempoolOutput = z.infer<typeof MempoolOutputSchema>;
 export type MempoolTransaction = z.infer<typeof MempoolTransactionSchema>;
-export type MempoolAddressStats = z.infer<typeof MempoolAddressStatsSchema>;
 export type MempoolAddressInfo = z.infer<typeof MempoolAddressInfoSchema>;
-export type MempoolAddressTransaction = MempoolTransaction;

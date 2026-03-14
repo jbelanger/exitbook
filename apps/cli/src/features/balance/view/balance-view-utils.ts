@@ -125,7 +125,7 @@ export function sortStoredSnapshotAssets(assets: StoredSnapshotAssetItem[]): Sto
 
 // ─── Credential Resolution ───────────────────────────────────────────────────
 
-export interface CredentialResolution {
+interface CredentialResolution {
   credentials?: ExchangeCredentials | undefined;
   skipReason?: string | undefined;
 }
@@ -193,26 +193,4 @@ export function buildStoredSnapshotAccountItem(
     suggestion: snapshot?.suggestion,
     lastRefreshAt: snapshot?.lastRefreshAt?.toISOString(),
   };
-}
-
-// ─── Formatting ──────────────────────────────────────────────────────────────
-
-/**
- * Truncate an address or hash for display (e.g., 0x1234...5678).
- */
-export function truncateAddress(address: string, maxLen = 13): string {
-  if (address.length <= maxLen) return address;
-  const prefixLen = Math.floor((maxLen - 3) / 2);
-  const suffixLen = maxLen - 3 - prefixLen;
-  return `${address.substring(0, prefixLen)}...${address.substring(address.length - suffixLen)}`;
-}
-
-/**
- * Format a balance value with sign prefix for display.
- */
-export function formatSignedAmount(amount: string): string {
-  if (amount.startsWith('-')) return amount;
-  const parsed = parseDecimal(amount);
-  if (parsed.isPositive() && !parsed.isZero()) return `+${amount}`;
-  return amount;
 }

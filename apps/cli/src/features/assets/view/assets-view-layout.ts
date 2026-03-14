@@ -16,7 +16,7 @@ const ASSETS_BASE_CHROME_LINES = calculateChromeLines({
 
 const ASSETS_FEEDBACK_LINES = 2;
 
-export function getAssetsChromeLines(hasFeedback: boolean): number {
+function getAssetsChromeLines(hasFeedback: boolean): number {
   return ASSETS_BASE_CHROME_LINES + (hasFeedback ? ASSETS_FEEDBACK_LINES : 0);
 }
 

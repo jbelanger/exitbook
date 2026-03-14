@@ -5,7 +5,7 @@
 import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../../../ui/shared/index.js';
 import { createProviderStats } from '../../../ui/shared/index.js';
 
-export type { OperationStatus, ProviderApiStats, ApiCallStats };
+export type { OperationStatus, ApiCallStats };
 
 /**
  * Transient provider status (rate limit backoff or failover notification).

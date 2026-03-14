@@ -53,7 +53,7 @@ export interface LinkGapAnalysis {
   };
 }
 
-export interface LinkGapAnalysisOptions {
+interface LinkGapAnalysisOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'userId'>[] | undefined;
 }
 

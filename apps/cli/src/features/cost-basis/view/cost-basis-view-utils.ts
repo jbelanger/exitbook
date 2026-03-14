@@ -531,7 +531,7 @@ export function formatUnsignedCurrency(amount: string, currency: string): string
  * Compute taxable amount based on jurisdiction rules.
  * Canada: 50% inclusion rate. US: full amount (short/long-term handled at display level).
  */
-export function computeTaxableAmount(gainLoss: Decimal, jurisdiction: string): Decimal {
+function computeTaxableAmount(gainLoss: Decimal, jurisdiction: string): Decimal {
   if (jurisdiction === 'CA') {
     return gainLoss.mul(0.5);
   }

@@ -39,13 +39,13 @@ export interface BalanceParams {
   credentials?: ExchangeCredentials | undefined;
 }
 
-export interface BalanceScopeContext {
+interface BalanceScopeContext {
   memberAccounts: Account[];
   requestedAccount: Account;
   scopeAccount: Account;
 }
 
-export interface BalanceRebuildResult {
+interface BalanceRebuildResult {
   assetCount: number;
   requestedAccount: Account;
   scopeAccount: Account;

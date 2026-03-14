@@ -14,7 +14,7 @@ import { createAssetsViewState } from '../view/assets-view-state.js';
 
 import { AssetsHandler, type AssetViewItem } from './assets-handler.js';
 
-export type AssetsViewCommandOptions = z.infer<typeof AssetsViewCommandOptionsSchema>;
+type AssetsViewCommandOptions = z.infer<typeof AssetsViewCommandOptionsSchema>;
 
 type ViewAssetsCommandResult = ViewCommandResult<AssetViewItem[]>;
 

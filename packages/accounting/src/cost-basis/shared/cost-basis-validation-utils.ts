@@ -12,7 +12,7 @@ const logger = getLogger('cost-basis-validation-utils');
 /**
  * Represents a movement or fee that requires a price for cost basis calculation
  */
-export interface PricedEntity {
+interface PricedEntity {
   transactionId: string;
   datetime: string;
   assetSymbol: string;
@@ -153,7 +153,7 @@ export function collectPricedEntities(transactions: UniversalTransactionData[]):
 /**
  * Extract all scoped movements and fees that still require pricing.
  */
-export function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransaction[]): PricedEntity[] {
+function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransaction[]): PricedEntity[] {
   const entities: PricedEntity[] = [];
 
   for (const scopedTransaction of scopedTransactions) {

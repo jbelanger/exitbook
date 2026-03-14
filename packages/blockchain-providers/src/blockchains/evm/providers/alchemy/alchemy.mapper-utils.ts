@@ -21,7 +21,7 @@ const TOKEN_CATEGORIES = new Set<string>(['token', 'erc20', 'erc721', 'erc1155']
 /**
  * Result of extracting amount and currency from a transaction.
  */
-export interface AmountResult {
+interface AmountResult {
   amount: Decimal;
   currency: string;
   tokenType: EvmTransaction['tokenType'];

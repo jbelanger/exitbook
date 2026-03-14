@@ -7,7 +7,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
  * Schema for Tatum Litecoin transaction input coin
  * Litecoin endpoint returns values as strings (in LTC, not satoshis)
  */
-export const TatumLitecoinCoinSchema = z.object({
+const TatumLitecoinCoinSchema = z.object({
   address: BitcoinAddressSchema.nullish(),
   coinbase: z.boolean(),
   height: z.number(),
@@ -21,7 +21,7 @@ export const TatumLitecoinCoinSchema = z.object({
 /**
  * Schema for Tatum Litecoin transaction input prevout
  */
-export const TatumLitecoinPrevoutSchema = z.object({
+const TatumLitecoinPrevoutSchema = z.object({
   hash: z.string().min(1, 'Prevout hash must not be empty'),
   index: z.number().nonnegative(),
 });
@@ -29,7 +29,7 @@ export const TatumLitecoinPrevoutSchema = z.object({
 /**
  * Schema for Tatum Litecoin transaction input
  */
-export const TatumLitecoinInputSchema = z.object({
+const TatumLitecoinInputSchema = z.object({
   coin: TatumLitecoinCoinSchema.nullish(),
   prevout: TatumLitecoinPrevoutSchema.nullish(),
   script: z.string(),
@@ -40,7 +40,7 @@ export const TatumLitecoinInputSchema = z.object({
 /**
  * Schema for Tatum Litecoin transaction output scriptPubKey
  */
-export const TatumLitecoinScriptPubKeySchema = z.object({
+const TatumLitecoinScriptPubKeySchema = z.object({
   reqSigs: z.number().nullish(),
   type: z.string(),
 });
@@ -48,7 +48,7 @@ export const TatumLitecoinScriptPubKeySchema = z.object({
 /**
  * Schema for Tatum Litecoin transaction output
  */
-export const TatumLitecoinOutputSchema = z.object({
+const TatumLitecoinOutputSchema = z.object({
   address: BitcoinAddressSchema.nullish(),
   script: z.string(),
   scriptPubKey: TatumLitecoinScriptPubKeySchema,
@@ -90,10 +90,5 @@ export const TatumLitecoinBalanceSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type TatumLitecoinCoin = z.infer<typeof TatumLitecoinCoinSchema>;
-export type TatumLitecoinPrevout = z.infer<typeof TatumLitecoinPrevoutSchema>;
-export type TatumLitecoinInput = z.infer<typeof TatumLitecoinInputSchema>;
-export type TatumLitecoinScriptPubKey = z.infer<typeof TatumLitecoinScriptPubKeySchema>;
-export type TatumLitecoinOutput = z.infer<typeof TatumLitecoinOutputSchema>;
 export type TatumLitecoinTransaction = z.infer<typeof TatumLitecoinTransactionSchema>;
 export type TatumLitecoinBalance = z.infer<typeof TatumLitecoinBalanceSchema>;

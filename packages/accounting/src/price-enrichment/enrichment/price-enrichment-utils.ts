@@ -20,7 +20,7 @@ import { calculatePriceFromTrade, extractTradeMovements, stampFiatIdentityPrices
 /**
  * Result of multi-pass price inference
  */
-export interface InferMultiPassResult {
+interface InferMultiPassResult {
   /** Enriched transactions with derived prices */
   transactions: UniversalTransactionData[];
   /** IDs of transactions modified by ratio recalculation (Pass N+2) */
@@ -40,7 +40,7 @@ interface PassResult {
 /**
  * Result of link-based price rederive
  */
-export interface PropagatePricesResult {
+interface PropagatePricesResult {
   /** Enriched transactions with propagated prices */
   enrichedTransactions: UniversalTransactionData[];
   /** IDs of transactions modified by link rederive */

@@ -179,7 +179,5 @@ export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHash
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;
 export type BlockfrostUtxoInput = z.infer<typeof BlockfrostUtxoInputSchema>;
 export type BlockfrostUtxoOutput = z.infer<typeof BlockfrostUtxoOutputSchema>;
-export type BlockfrostTransactionUtxos = z.infer<typeof BlockfrostTransactionUtxosSchema>;
-export type BlockfrostTransactionDetails = z.infer<typeof BlockfrostTransactionDetailsSchema>;
 export type BlockfrostTransactionWithMetadata = z.infer<typeof BlockfrostTransactionWithMetadataSchema>;
 export type BlockfrostAddress = z.infer<typeof BlockfrostAddressSchema>;

@@ -5,7 +5,7 @@ import { TatumLitecoinBalanceSchema, TatumLitecoinTransactionSchema } from './ta
 import type { TatumLitecoinTransaction, TatumLitecoinBalance } from './tatum-litecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-export const tatumLitecoinMetadata: ProviderMetadata = {
+const tatumLitecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/litecoin',
   blockchain: 'litecoin',

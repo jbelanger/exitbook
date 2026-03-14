@@ -10,7 +10,7 @@ import { EvmAddressSchema } from '../../schemas.js';
 /**
  * Schema for Alchemy raw contract structure
  */
-export const AlchemyRawContractSchema = z.object({
+const AlchemyRawContractSchema = z.object({
   address: EvmAddressSchema.nullish(),
   decimal: hexOrNumericToNumericOptional,
   value: hexOrNumericToNumericOptional,
@@ -19,7 +19,7 @@ export const AlchemyRawContractSchema = z.object({
 /**
  * Schema for Alchemy metadata structure
  */
-export const AlchemyMetadataSchema = z.object({
+const AlchemyMetadataSchema = z.object({
   blockTimestamp: timestampToDate.nullish(),
 });
 
@@ -75,14 +75,9 @@ export const AlchemyAssetTransferSchema = z.object({
 });
 
 /**
- * Schema for arrays of Alchemy asset transfers
- */
-export const AlchemyAssetTransferArraySchema = z.array(AlchemyAssetTransferSchema);
-
-/**
  * Schema for Alchemy asset transfers response
  */
-export const AlchemyAssetTransfersResponseSchema = z.object({
+const AlchemyAssetTransfersResponseSchema = z.object({
   pageKey: z.string().nullish(),
   transfers: z.array(AlchemyAssetTransferSchema),
 });
@@ -100,7 +95,7 @@ export const AlchemyTokenMetadataSchema = z.object({
 /**
  * Schema for Alchemy Portfolio API token price
  */
-export const AlchemyPortfolioTokenPriceSchema = z.object({
+const AlchemyPortfolioTokenPriceSchema = z.object({
   currency: z.string(),
   lastUpdatedAt: z.string(),
   value: z.string(),
@@ -109,7 +104,7 @@ export const AlchemyPortfolioTokenPriceSchema = z.object({
 /**
  * Schema for Alchemy Portfolio API token metadata
  */
-export const AlchemyPortfolioTokenMetadataSchema = z.object({
+const AlchemyPortfolioTokenMetadataSchema = z.object({
   decimals: z.number().nullable(),
   logo: z.string().nullable(),
   name: z.string().nullable(),
@@ -119,7 +114,7 @@ export const AlchemyPortfolioTokenMetadataSchema = z.object({
 /**
  * Schema for Alchemy Portfolio API token balance
  */
-export const AlchemyPortfolioTokenBalanceSchema = z.object({
+const AlchemyPortfolioTokenBalanceSchema = z.object({
   address: EvmAddressSchema,
   network: z.string(),
   tokenAddress: EvmAddressSchema.nullish(),
@@ -135,24 +130,6 @@ export const AlchemyPortfolioBalanceResponseSchema = z.object({
   data: z.object({
     tokens: z.array(AlchemyPortfolioTokenBalanceSchema),
   }),
-});
-
-/**
- * Schema for Alchemy Portfolio API request address
- */
-export const AlchemyPortfolioAddressSchema = z.object({
-  address: EvmAddressSchema,
-  networks: z.array(z.string()),
-});
-
-/**
- * Schema for Alchemy Portfolio API balance request
- */
-export const AlchemyPortfolioBalanceRequestSchema = z.object({
-  addresses: z.array(AlchemyPortfolioAddressSchema),
-  includeNativeToken: z.boolean().nullish(),
-  withMetadata: z.boolean().nullish(),
-  withPrices: z.boolean().nullish(),
 });
 
 /**
@@ -210,8 +187,6 @@ export type AlchemyPortfolioTokenPrice = z.infer<typeof AlchemyPortfolioTokenPri
 export type AlchemyPortfolioTokenMetadata = z.infer<typeof AlchemyPortfolioTokenMetadataSchema>;
 export type AlchemyPortfolioTokenBalance = z.infer<typeof AlchemyPortfolioTokenBalanceSchema>;
 export type AlchemyPortfolioBalanceResponse = z.infer<typeof AlchemyPortfolioBalanceResponseSchema>;
-export type AlchemyPortfolioAddress = z.infer<typeof AlchemyPortfolioAddressSchema>;
-export type AlchemyPortfolioBalanceRequest = z.infer<typeof AlchemyPortfolioBalanceRequestSchema>;
 export type AlchemyTransactionReceipt = z.infer<typeof AlchemyTransactionReceiptSchema>;
 export type AlchemyTransactionReceiptResponse = z.infer<typeof AlchemyTransactionReceiptResponseSchema>;
 export type AlchemyAssetTransfersJsonRpcResponse = z.infer<typeof AlchemyAssetTransfersJsonRpcResponseSchema>;

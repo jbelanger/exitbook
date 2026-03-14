@@ -9,7 +9,7 @@ import type { BlockchainsViewState } from './blockchains-view-state.js';
 /**
  * Action types (navigation only — read-only view)
  */
-export type BlockchainsViewAction =
+type BlockchainsViewAction =
   | { type: 'NAVIGATE_UP'; visibleRows: number }
   | { type: 'NAVIGATE_DOWN'; visibleRows: number }
   | { type: 'PAGE_UP'; visibleRows: number }

@@ -9,9 +9,9 @@ import type {
   TransactionLinkScoreBreakdownEntry,
 } from '../shared/types.js';
 
-export const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
+const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
 
-export interface LinkAmountValidationInfo {
+interface LinkAmountValidationInfo {
   allowTargetExcess?:
     | {
         excess: Decimal;

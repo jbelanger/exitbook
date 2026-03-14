@@ -18,7 +18,7 @@ import {
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
 import type { BlockchainViewItem, BlockchainsViewState, ProviderViewItem } from './blockchains-view-state.js';
 
-export const BLOCKCHAINS_DETAIL_LINES = 8;
+const BLOCKCHAINS_DETAIL_LINES = 8;
 
 function getBlockchainsVisibleRows(terminalHeight: number): number {
   const chromeLines = calculateChromeLines({

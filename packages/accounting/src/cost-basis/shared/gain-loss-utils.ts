@@ -10,7 +10,7 @@ import type { AcquisitionLot, LotDisposal } from './schemas.js';
 /**
  * Gain/loss summary for a single disposal
  */
-export interface DisposalGainLoss {
+interface DisposalGainLoss {
   /** Disposal ID */
   disposalId: string;
   /** Asset symbol */
@@ -40,7 +40,7 @@ export interface DisposalGainLoss {
 /**
  * Gain/loss summary for a single asset
  */
-export interface AssetGainLossSummary {
+interface AssetGainLossSummary {
   /** Asset symbol */
   assetSymbol: string;
   /** Total proceeds from all disposals */
@@ -62,7 +62,7 @@ export interface AssetGainLossSummary {
 /**
  * Overall gain/loss calculation result
  */
-export interface GainLossResult {
+interface GainLossResult {
   /** Summaries grouped by asset */
   byAsset: Map<string, AssetGainLossSummary>;
   /** Total proceeds across all assets */

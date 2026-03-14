@@ -35,7 +35,7 @@ const logger = getLogger('cost-basis');
 /**
  * Command options (validated at CLI boundary).
  */
-export type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
+type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
 
 /**
  * Cost basis command result data for JSON output.

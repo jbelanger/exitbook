@@ -5,7 +5,7 @@ import { TatumBCashBalanceSchema, TatumBCashTransactionSchema } from './tatum-bc
 import type { TatumBCashTransaction, TatumBCashBalance } from './tatum-bcash.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 
-export const tatumBcashMetadata: ProviderMetadata = {
+const tatumBcashMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/bcash',
   blockchain: 'bitcoin-cash',

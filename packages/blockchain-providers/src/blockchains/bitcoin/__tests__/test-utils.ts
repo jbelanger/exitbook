@@ -20,24 +20,3 @@ export const mockBitcoinChainConfig: BitcoinChainConfig = {
   nativeCurrency: 'BTC' as Currency,
   nativeDecimals: 8,
 };
-
-export const mockDogecoinChainConfig: BitcoinChainConfig = {
-  chainName: 'dogecoin',
-  displayName: 'Dogecoin',
-  nativeCurrency: 'DOGE' as Currency,
-  nativeDecimals: 8,
-};
-
-export const mockLitecoinChainConfig: BitcoinChainConfig = {
-  chainName: 'litecoin',
-  displayName: 'Litecoin',
-  nativeCurrency: 'LTC' as Currency,
-  nativeDecimals: 8,
-};
-
-export const mockBcashChainConfig: BitcoinChainConfig = {
-  chainName: 'bitcoin-cash',
-  displayName: 'Bitcoin Cash',
-  nativeCurrency: 'BCH' as Currency,
-  nativeDecimals: 8,
-};

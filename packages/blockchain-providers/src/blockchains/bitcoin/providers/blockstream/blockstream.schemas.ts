@@ -6,7 +6,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
 /**
  * Schema for Blockstream.info transaction status
  */
-export const BlockstreamTransactionStatusSchema = z.object({
+const BlockstreamTransactionStatusSchema = z.object({
   block_hash: z.string().nullish(),
   block_height: z.number().nullish(),
   block_time: timestampToDate.nullish(),
@@ -16,7 +16,7 @@ export const BlockstreamTransactionStatusSchema = z.object({
 /**
  * Schema for Blockstream.info transaction input
  */
-export const BlockstreamInputSchema = z.object({
+const BlockstreamInputSchema = z.object({
   is_coinbase: z.boolean(),
   prevout: z.object({
     scriptpubkey: z.string(),
@@ -36,7 +36,7 @@ export const BlockstreamInputSchema = z.object({
 /**
  * Schema for Blockstream.info transaction output
  */
-export const BlockstreamOutputSchema = z.object({
+const BlockstreamOutputSchema = z.object({
   scriptpubkey: z.string(),
   scriptpubkey_address: BitcoinAddressSchema.nullish(),
   scriptpubkey_asm: z.string(),
@@ -64,7 +64,7 @@ export const BlockstreamTransactionSchema = z
 /**
  * Schema for Blockstream.info address statistics (chain or mempool)
  */
-export const BlockstreamAddressStatsSchema = z.object({
+const BlockstreamAddressStatsSchema = z.object({
   funded_txo_count: z.number().nonnegative('Funded transaction output count must be non-negative'),
   funded_txo_sum: z.number().nonnegative('Funded transaction output sum must be non-negative'),
   spent_txo_count: z.number().nonnegative('Spent transaction output count must be non-negative'),
@@ -82,9 +82,5 @@ export const BlockstreamAddressInfoSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type BlockstreamTransactionStatus = z.infer<typeof BlockstreamTransactionStatusSchema>;
-export type BlockstreamInput = z.infer<typeof BlockstreamInputSchema>;
-export type BlockstreamOutput = z.infer<typeof BlockstreamOutputSchema>;
 export type BlockstreamTransaction = z.infer<typeof BlockstreamTransactionSchema>;
-export type BlockstreamAddressStats = z.infer<typeof BlockstreamAddressStatsSchema>;
 export type BlockstreamAddressInfo = z.infer<typeof BlockstreamAddressInfoSchema>;

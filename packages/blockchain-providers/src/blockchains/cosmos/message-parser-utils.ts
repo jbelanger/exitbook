@@ -24,7 +24,7 @@ import type {
 /**
  * Result from parsing a bank send message
  */
-export interface BankSendResult {
+interface BankSendResult {
   from: string;
   to: string;
   amount: string;
@@ -36,7 +36,7 @@ export interface BankSendResult {
 /**
  * Result from parsing an IBC transfer message
  */
-export interface IbcTransferResult {
+interface IbcTransferResult {
   from: string;
   to: string;
   amount: string;
@@ -50,7 +50,7 @@ export interface IbcTransferResult {
 /**
  * Result from parsing a CosmWasm contract execution message
  */
-export interface CosmwasmExecuteResult {
+interface CosmwasmExecuteResult {
   from: string;
   to: string;
   amount: string;
@@ -62,7 +62,7 @@ export interface CosmwasmExecuteResult {
 /**
  * Result from parsing an Injective wasmx contract execution message
  */
-export interface WasmxExecuteResult {
+interface WasmxExecuteResult {
   from: string;
   to: string;
   amount: string;
@@ -74,7 +74,7 @@ export interface WasmxExecuteResult {
 /**
  * Result from parsing a Peggy bridge withdrawal message
  */
-export interface PeggySendToEthResult {
+interface PeggySendToEthResult {
   bridgeType: 'peggy';
   from: string;
   to: string;
@@ -88,7 +88,7 @@ export interface PeggySendToEthResult {
 /**
  * Result from parsing a Peggy bridge deposit message
  */
-export interface PeggyDepositClaimResult {
+interface PeggyDepositClaimResult {
   bridgeType: 'peggy';
   from: string;
   to: string;

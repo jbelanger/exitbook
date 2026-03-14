@@ -64,7 +64,7 @@ export const BlockCypherTransactionSchema = z
 /**
  * Schema for BlockCypher address transaction reference
  */
-export const BlockCypherTxRefSchema = z.object({
+const BlockCypherTxRefSchema = z.object({
   block_height: z.number().nonnegative('Block height must be non-negative'),
   confirmations: z.number().nonnegative('Confirmations must be non-negative'),
   confirmed: z.string().min(1, 'Confirmed timestamp must not be empty'),
@@ -96,8 +96,5 @@ export const BlockCypherAddressSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type BlockCypherInput = z.infer<typeof BlockCypherInputSchema>;
-export type BlockCypherOutput = z.infer<typeof BlockCypherOutputSchema>;
 export type BlockCypherTransaction = z.infer<typeof BlockCypherTransactionSchema>;
-export type BlockCypherTxRef = z.infer<typeof BlockCypherTxRefSchema>;
 export type BlockCypherAddress = z.infer<typeof BlockCypherAddressSchema>;

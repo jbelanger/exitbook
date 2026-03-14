@@ -35,7 +35,7 @@ import { mapCosmosRestTransaction } from './mapper-utils.js';
 /**
  * Extended provider config that includes chainName
  */
-export interface CosmosRestProviderConfig extends ProviderConfig {
+interface CosmosRestProviderConfig extends ProviderConfig {
   chainName?: string;
 }
 

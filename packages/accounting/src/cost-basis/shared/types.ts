@@ -3,26 +3,10 @@
  */
 export type {
   AcquisitionLot,
-  CalculationStatus,
   CostBasisCalculation,
   JurisdictionConfig,
   LotDisposal,
   LotStatus,
   LotTransfer,
-  LotTransferMetadata,
-  LotTransferProvenance,
-  SameAssetTransferFeePolicy,
   TaxAssetIdentityPolicy,
-  VarianceTolerance,
 } from './schemas.js';
-
-import type { AcquisitionLot, CostBasisCalculation, LotDisposal } from './schemas.js';
-
-/**
- * Result of a cost basis calculation
- */
-export interface CalculationResult {
-  calculation: CostBasisCalculation;
-  lots: AcquisitionLot[];
-  disposals: LotDisposal[];
-}

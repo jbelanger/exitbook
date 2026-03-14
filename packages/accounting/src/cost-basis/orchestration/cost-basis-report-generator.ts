@@ -27,7 +27,7 @@ import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } f
 /**
  * Report generator configuration
  */
-export interface CostBasisReportInput {
+interface CostBasisReportInput {
   /** Display currency for the report */
   displayCurrency: Currency;
   /** Calculation record */

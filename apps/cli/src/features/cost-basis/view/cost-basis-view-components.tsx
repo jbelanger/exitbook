@@ -27,8 +27,8 @@ import type {
 } from './cost-basis-view-state.js';
 import { formatUnsignedCurrency, formatSignedCurrency } from './cost-basis-view-utils.js';
 
-export const COST_BASIS_ASSET_DETAIL_LINES = 10;
-export const COST_BASIS_TIMELINE_DETAIL_LINES = 7;
+const COST_BASIS_ASSET_DETAIL_LINES = 10;
+const COST_BASIS_TIMELINE_DETAIL_LINES = 7;
 
 export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

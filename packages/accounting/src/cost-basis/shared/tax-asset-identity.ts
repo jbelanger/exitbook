@@ -3,12 +3,12 @@ import { err, isFiat, ok, parseAssetId, type Result } from '@exitbook/core';
 
 import type { TaxAssetIdentityPolicy } from './types.js';
 
-export interface TaxAssetIdentityInput {
+interface TaxAssetIdentityInput {
   assetId: string;
   assetSymbol: Currency;
 }
 
-export interface ResolvedTaxAssetIdentity {
+interface ResolvedTaxAssetIdentity {
   identityKey: string;
 }
 
@@ -17,7 +17,7 @@ export interface ResolvedTaxAssetIdentity {
  * The relaxed policy intentionally collapses selected symbols across venues and
  * chains so tax pooling can run from imported facts alone.
  */
-export interface TaxAssetIdentityResolutionConfig {
+interface TaxAssetIdentityResolutionConfig {
   policy: TaxAssetIdentityPolicy;
   relaxedSymbolIdentities: readonly string[];
 }

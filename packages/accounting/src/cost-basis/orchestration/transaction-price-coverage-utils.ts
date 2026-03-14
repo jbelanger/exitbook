@@ -7,12 +7,12 @@ import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-p
 import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { filterTransactionsByDateRange, scopedTransactionHasAllPrices } from '../shared/cost-basis-utils.js';
 
-export interface PriceCoverageResult {
+interface PriceCoverageResult {
   complete: boolean;
   reason: string | undefined;
 }
 
-export interface PriceCoverageInput {
+interface PriceCoverageInput {
   startDate: Date;
   endDate: Date;
 }

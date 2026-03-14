@@ -20,7 +20,7 @@ const RATE_CALCULATION_WINDOW_MS = 5000;
 /**
  * Actions that drive state transitions in the ingestion monitor UI.
  */
-export type IngestionMonitorAction =
+type IngestionMonitorAction =
   | {
       event: CliEvent;
       instrumentation: InstrumentationCollector;
@@ -78,7 +78,7 @@ export function ingestionMonitorReducer(
 /**
  * Update dashboard state from event (mutates state in place for performance).
  */
-export function updateStateFromEvent(
+function updateStateFromEvent(
   state: IngestionMonitorState,
   event: CliEvent,
   instrumentation: InstrumentationCollector,

@@ -8,7 +8,7 @@ import { z } from 'zod';
 /**
  * Pagination response from Cosmos SDK
  */
-export const CosmosPaginationSchema = z.object({
+const CosmosPaginationSchema = z.object({
   next_key: z.string().nullable().optional(),
   total: z.string().optional(),
 });
@@ -107,7 +107,7 @@ export const CosmosEventSchema = z.object({
 /**
  * Cosmos SDK Log entry
  */
-export const CosmosLogSchema = z.object({
+const CosmosLogSchema = z.object({
   msg_index: z.number().optional(),
   log: z.string().optional(),
   events: z.array(CosmosEventSchema),
@@ -116,7 +116,7 @@ export const CosmosLogSchema = z.object({
 /**
  * Cosmos SDK Transaction Body
  */
-export const CosmosTxBodySchema = z.object({
+const CosmosTxBodySchema = z.object({
   messages: z.array(CosmosMessageSchema),
   memo: z.string().optional(),
   timeout_height: z.string().optional(),
@@ -127,7 +127,7 @@ export const CosmosTxBodySchema = z.object({
 /**
  * Cosmos SDK Fee
  */
-export const CosmosFeeSchema = z.object({
+const CosmosFeeSchema = z.object({
   amount: z.array(
     z.object({
       denom: z.string(),
@@ -142,7 +142,7 @@ export const CosmosFeeSchema = z.object({
 /**
  * Cosmos SDK Auth Info
  */
-export const CosmosAuthInfoSchema = z.object({
+const CosmosAuthInfoSchema = z.object({
   signer_infos: z.array(z.any()).optional(),
   fee: CosmosFeeSchema,
   tip: z.any().optional(),
@@ -151,7 +151,7 @@ export const CosmosAuthInfoSchema = z.object({
 /**
  * Cosmos SDK Transaction
  */
-export const CosmosTxSchema = z.object({
+const CosmosTxSchema = z.object({
   body: CosmosTxBodySchema,
   auth_info: CosmosAuthInfoSchema,
   signatures: z.array(z.string()),
@@ -189,7 +189,7 @@ export const CosmosRestApiResponseSchema = z.object({
 /**
  * Balance response from /cosmos/bank/v1beta1/balances/{address}
  */
-export const CosmosBalanceSchema = z.object({
+const CosmosBalanceSchema = z.object({
   denom: z.string(),
   amount: z.string(),
 });
@@ -205,12 +205,6 @@ export const CosmosBalanceResponseSchema = z.object({
 export type CosmosMessage = z.infer<typeof CosmosMessageSchema>;
 export type CosmosEvent = z.infer<typeof CosmosEventSchema>;
 export type CosmosEventAttribute = z.infer<typeof CosmosEventAttributeSchema>;
-export type CosmosLog = z.infer<typeof CosmosLogSchema>;
-export type CosmosTxBody = z.infer<typeof CosmosTxBodySchema>;
-export type CosmosFee = z.infer<typeof CosmosFeeSchema>;
-export type CosmosAuthInfo = z.infer<typeof CosmosAuthInfoSchema>;
-export type CosmosTx = z.infer<typeof CosmosTxSchema>;
 export type CosmosTxResponse = z.infer<typeof CosmosTxResponseSchema>;
 export type CosmosRestApiResponse = z.infer<typeof CosmosRestApiResponseSchema>;
-export type CosmosBalance = z.infer<typeof CosmosBalanceSchema>;
 export type CosmosBalanceResponse = z.infer<typeof CosmosBalanceResponseSchema>;

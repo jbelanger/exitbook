@@ -27,7 +27,7 @@ import {
 /**
  * Command options (validated at CLI boundary).
  */
-export type CommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>;
+type CommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>;
 
 /**
  * Register the blockchains view subcommand.

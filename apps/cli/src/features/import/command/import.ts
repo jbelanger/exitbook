@@ -17,7 +17,7 @@ import { buildImportParams } from './import-utils.js';
 /**
  * Import command options validated by Zod at CLI boundary
  */
-export type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
+type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
 /**
  * Summary of a single import session

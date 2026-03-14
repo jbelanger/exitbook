@@ -72,8 +72,6 @@ export interface StoredSnapshotAccountItem {
 
 // ─── State Types ─────────────────────────────────────────────────────────────
 
-export type BalanceViewMode = 'verification' | 'stored-snapshot';
-
 export interface BalanceVerificationState {
   view: 'accounts';
   phase: 'verifying' | 'complete';

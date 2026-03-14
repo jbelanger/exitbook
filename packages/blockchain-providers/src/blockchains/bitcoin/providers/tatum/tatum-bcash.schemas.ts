@@ -6,7 +6,7 @@ import { BitcoinAddressSchema } from '../../schemas.js';
 /**
  * Schema for Tatum BCash scriptSig
  */
-export const TatumBCashScriptSigSchema = z.object({
+const TatumBCashScriptSigSchema = z.object({
   asm: z.string(),
   hex: z.string(),
 });
@@ -14,7 +14,7 @@ export const TatumBCashScriptSigSchema = z.object({
 /**
  * Schema for Tatum BCash transaction input (vin)
  */
-export const TatumBCashVinSchema = z.object({
+const TatumBCashVinSchema = z.object({
   coinbase: z.string().nullish(),
   scriptSig: TatumBCashScriptSigSchema.nullish(),
   sequence: z.number(),
@@ -25,7 +25,7 @@ export const TatumBCashVinSchema = z.object({
 /**
  * Schema for Tatum BCash scriptPubKey
  */
-export const TatumBCashScriptPubKeySchema = z.object({
+const TatumBCashScriptPubKeySchema = z.object({
   addresses: z.array(BitcoinAddressSchema).nullish(),
   asm: z.string(),
   hex: z.string(),
@@ -35,7 +35,7 @@ export const TatumBCashScriptPubKeySchema = z.object({
 /**
  * Schema for Tatum BCash transaction output (vout)
  */
-export const TatumBCashVoutSchema = z.object({
+const TatumBCashVoutSchema = z.object({
   n: z.number().nonnegative(),
   scriptPubKey: TatumBCashScriptPubKeySchema,
   value: z.number().nonnegative('Output value must be non-negative'),
@@ -68,9 +68,5 @@ export const TatumBCashBalanceSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type TatumBCashScriptSig = z.infer<typeof TatumBCashScriptSigSchema>;
-export type TatumBCashVin = z.infer<typeof TatumBCashVinSchema>;
-export type TatumBCashScriptPubKey = z.infer<typeof TatumBCashScriptPubKeySchema>;
-export type TatumBCashVout = z.infer<typeof TatumBCashVoutSchema>;
 export type TatumBCashTransaction = z.infer<typeof TatumBCashTransactionSchema>;
 export type TatumBCashBalance = z.infer<typeof TatumBCashBalanceSchema>;

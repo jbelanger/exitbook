@@ -13,9 +13,9 @@ import { getJurisdictionRules, validateScopedTransactionPrices } from '../shared
 
 import { calculateCostBasisFromScopedTransactions, type CostBasisSummary } from './cost-basis-calculator.js';
 
-export type MissingPricePolicy = 'error' | 'exclude';
+type MissingPricePolicy = 'error' | 'exclude';
 
-export interface CostBasisPipelineOptions {
+interface CostBasisPipelineOptions {
   /**
    * How missing prices should be handled at the accounting boundary.
    *
@@ -30,7 +30,7 @@ export interface CostBasisPipelineOptions {
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
 }
 
-export interface CostBasisPipelineResult {
+interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
   /**

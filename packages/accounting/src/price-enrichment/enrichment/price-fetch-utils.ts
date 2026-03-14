@@ -210,7 +210,7 @@ export function initializeStats(): PriceFetchStats {
 /**
  * Options for determining enrichment stages
  */
-export interface EnrichmentStageOptions {
+interface EnrichmentStageOptions {
   normalizeOnly?: boolean | undefined;
   deriveOnly?: boolean | undefined;
   fetchOnly?: boolean | undefined;
@@ -219,7 +219,7 @@ export interface EnrichmentStageOptions {
 /**
  * Enrichment stages configuration
  */
-export interface EnrichmentStages {
+interface EnrichmentStages {
   normalize: boolean;
   derive: boolean;
   fetch: boolean;

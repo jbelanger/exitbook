@@ -29,7 +29,7 @@ export type CanadaTaxEventProvenanceKind =
   | 'superficial-loss-engine';
 export type CanadaFeeAdjustmentType = 'add-to-pool-cost' | 'same-asset-transfer-fee-add-to-basis';
 
-export interface CanadaEventProvenance {
+interface CanadaEventProvenance {
   provenanceKind: CanadaTaxEventProvenanceKind;
   linkId?: number | undefined;
   movementFingerprint?: string | undefined;
@@ -38,7 +38,7 @@ export interface CanadaEventProvenance {
   targetMovementFingerprint?: string | undefined;
 }
 
-export interface CanadaBaseTaxEvent extends CanadaEventProvenance {
+interface CanadaBaseTaxEvent extends CanadaEventProvenance {
   eventId: string;
   transactionId: number;
   timestamp: Date;

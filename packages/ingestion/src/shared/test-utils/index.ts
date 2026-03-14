@@ -31,49 +31,5 @@
  * ```
  */
 
-// Assertion helpers
-export {
-  expectOk,
-  expectErr,
-  expectMovement,
-  expectFee,
-  expectOperation,
-  expectAddresses,
-  type MovementAssertion,
-  type FeeAssertion,
-  type OperationAssertion,
-} from './assertion-helpers.js';
-
-// Mock factories
-export {
-  createMockBatchSource,
-  createMockImportSessionLookup,
-  createMockProviderManager,
-  createMockExchangeClient,
-  createMockLogger,
-  mockWithTransaction,
-} from './mock-factories.js';
-
-// Test constants
-export {
-  BITCOIN_ADDRESSES,
-  EVM_ADDRESSES,
-  SOLANA_ADDRESSES,
-  COSMOS_ADDRESSES,
-  EVM_CHAIN_CONFIGS,
-  COSMOS_CHAIN_CONFIGS,
-  TEST_TIMESTAMPS,
-  MOCK_EVM_TRANSACTIONS,
-} from './test-constants.js';
-
 // Entry builders
-export {
-  type DeepPartial,
-  BitcoinTransactionBuilder,
-  CosmosTransactionBuilder,
-  EvmTransactionBuilder,
-  SolanaTransactionBuilder,
-  CardanoTransactionBuilder,
-  XrpTransactionBuilder,
-  SubstrateTransactionBuilder,
-} from './entry-builders.js';
+export { type DeepPartial } from './entry-builders.js';
