@@ -4,6 +4,7 @@
 
 import type { AccountType, BalanceSnapshotVerificationStatus } from '@exitbook/core';
 
+import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
 import type { DateRange } from '../shared/balance-diagnostics.js';
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────────
@@ -157,12 +158,7 @@ export type BalanceEvent =
 
 export type BalanceAction =
   // Navigation (both views)
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
 
   // Verification events (all-accounts mode)
   | { accountId: number; type: 'VERIFICATION_STARTED' }

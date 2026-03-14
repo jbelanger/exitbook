@@ -3,7 +3,12 @@
  */
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 import type { AssetBreakdownEntry, MissingPriceMovement } from '../command/prices-view-utils.js';
 
 import { getCoverageChromeLines, getMissingChromeLines } from './prices-view-components.jsx';
@@ -13,12 +18,7 @@ import { missingRowKey, type PricesViewCoverageState, type PricesViewState } fro
  * Action types
  */
 type PricesViewAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   | { type: 'START_INPUT' }
   | { type: 'UPDATE_INPUT'; value: string }
   | { type: 'CANCEL_INPUT' }
@@ -48,56 +48,16 @@ function getItemCount(state: PricesViewState): number {
  * Reducer function
  */
 export function pricesViewReducer(state: PricesViewState, action: PricesViewAction): PricesViewState {
-  const itemCount = getItemCount(state);
-  const buildNavContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
+  if (isListNavigationAction(action)) {
+    const nav = reduceListNavigation(
+      { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+      action,
+      getItemCount(state)
+    );
+    return { ...state, ...nav };
+  }
 
   switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildNavContext(action.visibleRows)
-      );
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildNavContext(action.visibleRows)
-      );
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
-    case 'PAGE_UP': {
-      const next = pageUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildNavContext(action.visibleRows)
-      );
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
-    case 'PAGE_DOWN': {
-      const next = pageDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildNavContext(action.visibleRows)
-      );
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
-    case 'HOME': {
-      const next = home();
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
-    case 'END': {
-      const next = end(buildNavContext(action.visibleRows));
-      return { ...state, selectedIndex: next.selectedIndex, scrollOffset: next.scrollOffset };
-    }
-
     case 'START_INPUT': {
       if (state.mode !== 'missing') return state;
       const movement = state.movements[state.selectedIndex];
@@ -323,28 +283,7 @@ export function handlePricesKeyboardInput(
   }
 
   // Navigation
-  if (key.upArrow || input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-  if (key.downArrow || input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return;
-  }
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return;
-  }
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return;
-  }
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
+  if (dispatchListNavigationKeys(key, input, dispatch, visibleRows)) {
     return;
   }
 

@@ -1,4 +1,9 @@
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import type { AssetViewItem } from '../command/assets-handler.js';
 
@@ -12,12 +17,7 @@ import {
 } from './assets-view-state.js';
 
 export type AssetsViewAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   | { type: 'CYCLE_FILTER' }
   | { type: 'TOGGLE_EXCLUSION' }
   | { type: 'CONFIRM_REVIEW' }
@@ -28,52 +28,16 @@ export type AssetsViewAction =
   | { error: string; type: 'SET_ERROR' };
 
 export function assetsViewReducer(state: AssetsViewState, action: AssetsViewAction): AssetsViewState {
-  const itemCount = state.filteredAssets.length;
-  const buildContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
+  if (isListNavigationAction(action)) {
+    const nav = reduceListNavigation(
+      { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+      action,
+      state.filteredAssets.length
+    );
+    return { ...state, ...nav, error: undefined, statusMessage: undefined };
+  }
 
   switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next, error: undefined, statusMessage: undefined };
-    }
-
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next, error: undefined, statusMessage: undefined };
-    }
-
-    case 'PAGE_UP': {
-      const next = pageUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next, error: undefined, statusMessage: undefined };
-    }
-
-    case 'PAGE_DOWN': {
-      const next = pageDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next, error: undefined, statusMessage: undefined };
-    }
-
-    case 'HOME':
-      return { ...state, ...home(), error: undefined, statusMessage: undefined };
-
-    case 'END':
-      return { ...state, ...end(buildContext(action.visibleRows)), error: undefined, statusMessage: undefined };
-
     case 'CYCLE_FILTER': {
       const nextFilter: AssetsViewFilter = state.filter === 'default' ? 'action-required' : 'default';
       const filteredAssets = applyFilter(state.assets, nextFilter);
@@ -229,33 +193,7 @@ export function handleAssetsKeyboardInput(
     return;
   }
 
-  if (key.upArrow || input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-
-  if (key.downArrow || input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
-
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return;
-  }
-
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return;
-  }
-
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return;
-  }
-
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
+  if (dispatchListNavigationKeys(key, input, dispatch, visibleRows)) {
     return;
   }
 

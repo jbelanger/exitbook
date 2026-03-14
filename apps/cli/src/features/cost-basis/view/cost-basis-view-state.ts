@@ -2,6 +2,8 @@
  * Cost basis view TUI state types, action types, and factory functions.
  */
 
+import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
+
 // ─── Display Items ──────────────────────────────────────────────────────────
 
 /** Per-asset aggregate in the asset summary list */
@@ -201,12 +203,7 @@ export type CostBasisState = CostBasisAssetState | CostBasisTimelineState;
 
 export type CostBasisAction =
   // Navigation (both views)
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
 
   // Drill-down
   | { type: 'DRILL_DOWN' }

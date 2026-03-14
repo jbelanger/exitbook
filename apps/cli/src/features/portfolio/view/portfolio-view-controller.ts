@@ -2,7 +2,12 @@
  * Portfolio view controller — reducer and keyboard handler.
  */
 
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 import { sortPositions } from '../command/portfolio-utils.js';
 
 import { getPortfolioAssetsVisibleRows, getPortfolioHistoryVisibleRows } from './portfolio-view-components.jsx';
@@ -13,14 +18,7 @@ const SORT_CYCLE: ('value' | 'gain' | 'loss' | 'allocation')[] = ['value', 'gain
 const PNL_MODE_CYCLE: ('unrealized' | 'realized' | 'both')[] = ['unrealized', 'realized', 'both'];
 
 export function portfolioViewReducer(state: PortfolioState, action: PortfolioAction): PortfolioState {
-  if (
-    action.type === 'NAVIGATE_UP' ||
-    action.type === 'NAVIGATE_DOWN' ||
-    action.type === 'PAGE_UP' ||
-    action.type === 'PAGE_DOWN' ||
-    action.type === 'HOME' ||
-    action.type === 'END'
-  ) {
+  if (isListNavigationAction(action)) {
     const cleared = state.error ? { ...state, error: undefined } : state;
     return handleNavigation(cleared, action);
   }
@@ -43,45 +41,14 @@ export function portfolioViewReducer(state: PortfolioState, action: PortfolioAct
   }
 }
 
-function handleNavigation(state: PortfolioState, action: PortfolioAction): PortfolioState {
+function handleNavigation(state: PortfolioState, action: ListNavigationAction): PortfolioState {
   const itemCount = state.view === 'assets' ? getVisiblePositions(state).length : state.transactions.length;
-
-  const buildContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
-
-  const current = { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset };
-
-  switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(current, buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(current, buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-    case 'PAGE_UP': {
-      const next = pageUp(current, buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-    case 'PAGE_DOWN': {
-      const next = pageDown(current, buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-    case 'HOME': {
-      const next = home();
-      return { ...state, ...next };
-    }
-    case 'END': {
-      const next = end(buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-    default:
-      return state;
-  }
+  const nav = reduceListNavigation(
+    { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+    action,
+    itemCount
+  );
+  return { ...state, ...nav };
 }
 
 function handleCycleSort(state: PortfolioState): PortfolioState {
@@ -224,32 +191,5 @@ export function handlePortfolioKeyboardInput(
     return;
   }
 
-  if (key.upArrow || input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-
-  if (key.downArrow || input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
-
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return;
-  }
-
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return;
-  }
-
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return;
-  }
-
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
-  }
+  dispatchListNavigationKeys(key, input, dispatch, visibleRows);
 }

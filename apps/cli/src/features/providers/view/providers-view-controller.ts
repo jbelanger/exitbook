@@ -3,7 +3,11 @@
  */
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 
 import { CHROME_LINES } from './providers-view-components.jsx';
 import type { ProvidersViewState } from './providers-view-state.js';
@@ -11,71 +15,18 @@ import type { ProvidersViewState } from './providers-view-state.js';
 /**
  * Action types (navigation only — read-only view)
  */
-type ProvidersViewAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number };
+type ProvidersViewAction = ListNavigationAction;
 
 /**
  * Reducer function for providers view state
  */
 export function providersViewReducer(state: ProvidersViewState, action: ProvidersViewAction): ProvidersViewState {
-  const itemCount = state.providers.length;
-  const buildContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
-
-  switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_UP': {
-      const next = pageUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_DOWN': {
-      const next = pageDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'HOME': {
-      const next = home();
-      return { ...state, ...next };
-    }
-
-    case 'END': {
-      const next = end(buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-
-    default:
-      return state;
-  }
+  const nav = reduceListNavigation(
+    { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+    action,
+    state.providers.length
+  );
+  return { ...state, ...nav };
 }
 
 /**
@@ -99,49 +50,10 @@ export function handleProvidersKeyboardInput(
 ): void {
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
 
-  // Quit
   if (input === 'q' || key.escape) {
     onQuit();
     return;
   }
 
-  // Arrow keys
-  if (key.upArrow) {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-  if (key.downArrow) {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
-
-  // Page up/down
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return;
-  }
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return;
-  }
-
-  // Home/End
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return;
-  }
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
-    return;
-  }
-
-  // Vim keys
-  if (input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-  if (input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
+  dispatchListNavigationKeys(key, input, dispatch, visibleRows);
 }

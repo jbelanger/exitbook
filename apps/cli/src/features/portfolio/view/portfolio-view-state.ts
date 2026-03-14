@@ -4,6 +4,7 @@
 
 import type { Currency } from '@exitbook/core';
 
+import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
 import type { SortMode, PortfolioPositionItem, PortfolioTransactionItem } from '../shared/portfolio-types.js';
 
 export type PortfolioPnlMode = 'unrealized' | 'realized' | 'both';
@@ -56,12 +57,7 @@ export interface PortfolioHistoryState {
 export type PortfolioState = PortfolioAssetsState | PortfolioHistoryState;
 
 export type PortfolioAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   | { type: 'CYCLE_SORT' }
   | { type: 'CYCLE_PNL_MODE' }
   | { type: 'DRILL_DOWN' }

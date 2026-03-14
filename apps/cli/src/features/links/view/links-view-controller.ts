@@ -3,7 +3,12 @@
  */
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 
 import { getGapsChromeLines, LINKS_CHROME_LINES } from './links-view-layout.js';
 import type { LinksViewState } from './links-view-state.js';
@@ -35,12 +40,7 @@ function getRejectActionableLinkIds(state: Extract<LinksViewState, { mode: 'link
  * Action types for state updates
  */
 type LinksViewAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   | { type: 'CONFIRM_SELECTED' }
   | { type: 'REJECT_SELECTED' }
   | { affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected'; type: 'ACTION_SUCCESS' }
@@ -71,91 +71,16 @@ function applyNavigationUpdate(
  * Reducer function for state updates
  */
 export function linksViewReducer(state: LinksViewState, action: LinksViewAction): LinksViewState {
-  const itemCount = getItemCount(state);
-  const buildNavigationContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
+  if (isListNavigationAction(action)) {
+    const nav = reduceListNavigation(
+      { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+      action,
+      getItemCount(state)
+    );
+    return applyNavigationUpdate(state, nav);
+  }
 
   switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(
-        {
-          selectedIndex: state.selectedIndex,
-          scrollOffset: state.scrollOffset,
-        },
-        buildNavigationContext(action.visibleRows)
-      );
-
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(
-        {
-          selectedIndex: state.selectedIndex,
-          scrollOffset: state.scrollOffset,
-        },
-        buildNavigationContext(action.visibleRows)
-      );
-
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
-    case 'PAGE_UP': {
-      const next = pageUp(
-        {
-          selectedIndex: state.selectedIndex,
-          scrollOffset: state.scrollOffset,
-        },
-        buildNavigationContext(action.visibleRows)
-      );
-
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
-    case 'PAGE_DOWN': {
-      const next = pageDown(
-        {
-          selectedIndex: state.selectedIndex,
-          scrollOffset: state.scrollOffset,
-        },
-        buildNavigationContext(action.visibleRows)
-      );
-
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
-    case 'HOME': {
-      const next = home();
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
-    case 'END': {
-      const next = end(buildNavigationContext(action.visibleRows));
-
-      return applyNavigationUpdate(state, {
-        selectedIndex: next.selectedIndex,
-        scrollOffset: next.scrollOffset,
-      });
-    }
-
     case 'CONFIRM_SELECTED': {
       if (state.mode === 'gaps') {
         return state;
@@ -331,53 +256,12 @@ export function handleKeyboardInput(
       ? calculateVisibleRows(terminalHeight, LINKS_CHROME_LINES)
       : calculateVisibleRows(terminalHeight, getGapsChromeLines(gapAssetCount));
 
-  // Quit
   if (input === 'q' || key.escape) {
     onQuit();
     return;
   }
 
-  // Navigation - arrow keys
-  if (key.upArrow) {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-
-  if (key.downArrow) {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return;
-  }
-
-  // Navigation - page up/down (Ctrl+PgUp/PgDn or Ctrl+U/Ctrl+D)
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return;
-  }
-
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return;
-  }
-
-  // Navigation - home/end
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return;
-  }
-
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
-    return;
-  }
-
-  // Navigation - vim keys
-  if (input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return;
-  }
-
-  if (input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
+  if (dispatchListNavigationKeys(key, input, dispatch, visibleRows)) {
     return;
   }
 

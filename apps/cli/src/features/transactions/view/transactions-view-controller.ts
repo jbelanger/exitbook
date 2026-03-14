@@ -3,7 +3,12 @@
  */
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 import type { CsvFormat, ExportFormat } from '../command/transactions-export-utils.js';
 
 import { CHROME_LINES } from './transactions-view-components.jsx';
@@ -22,12 +27,7 @@ export const FORMAT_OPTIONS: { csvFormat: CsvFormat | undefined; format: ExportF
  * Action types for transactions view (navigation + export flow).
  */
 type TransactionsViewAction =
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   | { type: 'OPEN_EXPORT' }
   | { csvFormat: CsvFormat | undefined; format: ExportFormat; type: 'SELECT_FORMAT' }
   | { outputPaths: string[]; transactionCount: number; type: 'EXPORT_COMPLETE' }
@@ -43,56 +43,16 @@ export function transactionsViewReducer(
   state: TransactionsViewState,
   action: TransactionsViewAction
 ): TransactionsViewState {
-  const itemCount = state.transactions.length;
-  const buildContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
+  if (isListNavigationAction(action)) {
+    const nav = reduceListNavigation(
+      { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+      action,
+      state.transactions.length
+    );
+    return { ...state, ...nav };
+  }
 
   switch (action.type) {
-    case 'NAVIGATE_UP': {
-      const next = navigateUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'NAVIGATE_DOWN': {
-      const next = navigateDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_UP': {
-      const next = pageUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_DOWN': {
-      const next = pageDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'HOME': {
-      const next = home();
-      return { ...state, ...next };
-    }
-
-    case 'END': {
-      const next = end(buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-
     case 'OPEN_EXPORT': {
       if (state.phase !== 'browse') return state;
       return { ...state, phase: 'export-format', exportPanel: { phase: 'export-format', selectedFormatIndex: 0 } };
@@ -235,45 +195,6 @@ export function handleTransactionsKeyboardInput(
     return undefined;
   }
 
-  // Arrow keys
-  if (key.upArrow) {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return undefined;
-  }
-  if (key.downArrow) {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return undefined;
-  }
-
-  // Page up/down
-  if (key.pageUp || (key.ctrl && input === 'u')) {
-    dispatch({ type: 'PAGE_UP', visibleRows });
-    return undefined;
-  }
-  if (key.pageDown || (key.ctrl && input === 'd')) {
-    dispatch({ type: 'PAGE_DOWN', visibleRows });
-    return undefined;
-  }
-
-  // Home/End
-  if (key.home) {
-    dispatch({ type: 'HOME' });
-    return undefined;
-  }
-  if (key.end) {
-    dispatch({ type: 'END', visibleRows });
-    return undefined;
-  }
-
-  // Vim keys
-  if (input === 'k') {
-    dispatch({ type: 'NAVIGATE_UP', visibleRows });
-    return undefined;
-  }
-  if (input === 'j') {
-    dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-    return undefined;
-  }
-
+  dispatchListNavigationKeys(key, input, dispatch, visibleRows);
   return undefined;
 }

@@ -3,7 +3,12 @@
  */
 
 import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
-import { end, home, navigateDown, navigateUp, pageDown, pageUp } from '../../../ui/shared/list-navigation.js';
+import {
+  dispatchListNavigationKeys,
+  isListNavigationAction,
+  type ListNavigationAction,
+  reduceListNavigation,
+} from '../../../ui/shared/list-navigation.js';
 import type { FlatDeletionPreview } from '../command/clear-handler.js';
 
 import { CHROME_LINES } from './clear-view-components.jsx';
@@ -14,12 +19,7 @@ import type { ClearViewState } from './clear-view-state.js';
  */
 export type ClearViewAction =
   // Navigation (disabled in executing phase)
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number }
+  | ListNavigationAction
   // Toggle (only in preview phase)
   | { type: 'TOGGLE_INCLUDE_RAW' }
   // Confirmation flow
@@ -34,63 +34,17 @@ export type ClearViewAction =
  * Reducer function for clear view state
  */
 export function clearViewReducer(state: ClearViewState, action: ClearViewAction): ClearViewState {
-  const itemCount = 6; // 3 processed + 3 raw categories
-  const buildContext = (visibleRows: number) => ({
-    itemCount,
-    visibleRows,
-    wrapAround: true,
-  });
+  if (isListNavigationAction(action)) {
+    if (state.phase === 'executing') return state;
+    const nav = reduceListNavigation(
+      { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
+      action,
+      6 // 3 processed + 3 raw categories
+    );
+    return { ...state, ...nav };
+  }
 
   switch (action.type) {
-    // Navigation actions (disabled during execution)
-    case 'NAVIGATE_UP': {
-      if (state.phase === 'executing') return state;
-      const next = navigateUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'NAVIGATE_DOWN': {
-      if (state.phase === 'executing') return state;
-      const next = navigateDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_UP': {
-      if (state.phase === 'executing') return state;
-      const next = pageUp(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'PAGE_DOWN': {
-      if (state.phase === 'executing') return state;
-      const next = pageDown(
-        { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
-        buildContext(action.visibleRows)
-      );
-      return { ...state, ...next };
-    }
-
-    case 'HOME': {
-      if (state.phase === 'executing') return state;
-      const next = home();
-      return { ...state, ...next };
-    }
-
-    case 'END': {
-      if (state.phase === 'executing') return state;
-      const next = end(buildContext(action.visibleRows));
-      return { ...state, ...next };
-    }
-
     // Toggle include-raw (only in preview phase)
     case 'TOGGLE_INCLUDE_RAW': {
       if (state.phase !== 'preview') return state;
@@ -178,30 +132,7 @@ export function handleClearKeyboardInput(
     }
 
     // Navigation
-    if (key.upArrow || input === 'k') {
-      dispatch({ type: 'NAVIGATE_UP', visibleRows });
-      return;
-    }
-    if (key.downArrow || input === 'j') {
-      dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-      return;
-    }
-    if (key.pageUp || (key.ctrl && input === 'u')) {
-      dispatch({ type: 'PAGE_UP', visibleRows });
-      return;
-    }
-    if (key.pageDown || (key.ctrl && input === 'd')) {
-      dispatch({ type: 'PAGE_DOWN', visibleRows });
-      return;
-    }
-    if (key.home) {
-      dispatch({ type: 'HOME' });
-      return;
-    }
-    if (key.end) {
-      dispatch({ type: 'END', visibleRows });
-      return;
-    }
+    dispatchListNavigationKeys(key, input, dispatch, visibleRows);
   }
 
   // Confirming phase
@@ -220,43 +151,17 @@ export function handleClearKeyboardInput(
     dispatch({ type: 'CANCEL_CONFIRM' });
 
     // Process the key as if we were in preview phase
-    // Quit
     if (input === 'q' || key.escape) {
       onQuit();
       return;
     }
 
-    // Toggle include-raw
     if (input === 'r') {
       dispatch({ type: 'TOGGLE_INCLUDE_RAW' });
       return;
     }
 
-    // Navigation
-    if (key.upArrow || input === 'k') {
-      dispatch({ type: 'NAVIGATE_UP', visibleRows });
-      return;
-    }
-    if (key.downArrow || input === 'j') {
-      dispatch({ type: 'NAVIGATE_DOWN', visibleRows });
-      return;
-    }
-    if (key.pageUp || (key.ctrl && input === 'u')) {
-      dispatch({ type: 'PAGE_UP', visibleRows });
-      return;
-    }
-    if (key.pageDown || (key.ctrl && input === 'd')) {
-      dispatch({ type: 'PAGE_DOWN', visibleRows });
-      return;
-    }
-    if (key.home) {
-      dispatch({ type: 'HOME' });
-      return;
-    }
-    if (key.end) {
-      dispatch({ type: 'END', visibleRows });
-      return;
-    }
+    dispatchListNavigationKeys(key, input, dispatch, visibleRows);
   }
 
   // Executing phase - no keyboard input allowed
