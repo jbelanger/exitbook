@@ -111,7 +111,7 @@ export function satoshisToBtcString(satoshis: number): string {
 /**
  * Derive addresses from xpub for wallet service
  */
-export function deriveBitcoinAddressesFromXpub(
+export async function deriveBitcoinAddressesFromXpub(
   xpub: string,
   addressGapLimit = 20
 ): Promise<
@@ -163,7 +163,7 @@ export function deriveBitcoinAddressesFromXpub(
       }
     }
 
-    return Promise.resolve(derivedAddresses);
+    return derivedAddresses;
   } catch (error) {
     logger.error(
       `Failed to derive addresses from xpub - Error: ${String(error)}, Xpub: ${xpub.substring(0, 20) + '...'}`

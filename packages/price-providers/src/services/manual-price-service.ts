@@ -153,7 +153,7 @@ export class ManualPriceService {
       // Create database
       const dbResult = createPricesDatabase(this.databasePath);
       if (dbResult.isErr()) {
-        return err(new Error('Failed to create prices database', { cause: dbResult.error }));
+        return wrapError(dbResult.error, 'Failed to create prices database');
       }
 
       const db = dbResult.value;
@@ -161,7 +161,7 @@ export class ManualPriceService {
       // Run migrations
       const migrationResult = await initializePricesDatabase(db);
       if (migrationResult.isErr()) {
-        return err(new Error('Failed to initialize database', { cause: migrationResult.error }));
+        return wrapError(migrationResult.error, 'Failed to initialize database');
       }
 
       // Create queries

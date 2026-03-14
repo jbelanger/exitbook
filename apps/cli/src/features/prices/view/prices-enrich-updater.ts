@@ -29,23 +29,21 @@ export function pricesEnrichReducer(state: PricesEnrichState, action: PricesEnri
     case 'event':
       return applyEvent(state, action.event);
     case 'refresh':
+      if (state.isComplete) return state;
       return { ...state, apiCalls: action.apiCalls };
-    default:
-      break;
-  }
-
-  if (state.isComplete) {
-    return state;
-  }
-
-  const totalDurationMs = performance.now() - state.startedAt;
-
-  switch (action.type) {
-    case 'complete':
+    case 'complete': {
+      if (state.isComplete) return state;
+      const totalDurationMs = performance.now() - state.startedAt;
       return { ...state, isComplete: true, totalDurationMs };
-    case 'abort':
+    }
+    case 'abort': {
+      if (state.isComplete) return state;
+      const totalDurationMs = performance.now() - state.startedAt;
       return { ...state, isComplete: true, aborted: true, totalDurationMs };
-    case 'fail':
+    }
+    case 'fail': {
+      if (state.isComplete) return state;
+      const totalDurationMs = performance.now() - state.startedAt;
       return {
         ...state,
         isComplete: true,
@@ -53,6 +51,7 @@ export function pricesEnrichReducer(state: PricesEnrichState, action: PricesEnri
         suggestedAction: 'exitbook prices view --missing-only',
         totalDurationMs,
       };
+    }
   }
 }
 

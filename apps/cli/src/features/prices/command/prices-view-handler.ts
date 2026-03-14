@@ -44,7 +44,7 @@ export class ViewPricesHandler {
     const transactions = txResult.value;
 
     // Group transactions by asset and calculate price coverage
-    const { coverageMap, uniqueTransactionIds } = this.calculatePriceCoverage(transactions, params.asset);
+    const { coverageMap, uniqueTransactionIds } = this.aggregateCoverage(transactions, params.asset);
 
     // Convert map to array and sort by asset name
     const allCoverageArray = Array.from(coverageMap.values()).sort((a, b) =>
@@ -315,21 +315,6 @@ export class ViewPricesHandler {
     }
 
     return { coverageMap, uniqueTransactionIds };
-  }
-
-  /**
-   * Calculate price coverage grouped by asset.
-   * For each transaction, check ALL movements (inflows and outflows) to determine price coverage per asset.
-   * Returns both the coverage map and a set of unique transaction IDs that were processed.
-   */
-  private calculatePriceCoverage(
-    transactions: UniversalTransactionData[],
-    assetFilter?: string
-  ): {
-    coverageMap: Map<string, PriceCoverageInfo>;
-    uniqueTransactionIds: Set<number>;
-  } {
-    return this.aggregateCoverage(transactions, assetFilter);
   }
 
   /**
