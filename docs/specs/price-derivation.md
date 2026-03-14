@@ -1,5 +1,5 @@
 ---
-last_verified: 2025-12-12
+last_verified: 2026-03-13
 status: canonical
 ---
 
@@ -15,6 +15,7 @@ How Exitbook assigns USD valuations to movements and fees via deterministic math
 | ------------------ | -------------------------------------------------------------------------------------------------------------- |
 | Stage order        | Derive → Normalize → Fetch → Re-Derive; flags can short-circuit stages                                         |
 | Price priority     | `exchange-execution` (3) > `derived-ratio` / `link-propagated` (2) > providers/manual (1) > tentative fiat (0) |
+| Price shape        | `price` is the normalized/shared value; optional `quotedPrice` preserves the source-native quote               |
 | Simple-trade scope | Multi-pass derivation only runs when there is exactly 1 inflow and 1 outflow                                   |
 | Fiat normalization | Non-USD fiat prices are converted to USD and upgraded from `fiat-execution-tentative` → `derived-ratio`        |
 | Stablecoin quotes  | Provider prices in stablecoins are converted to USD; if stablecoin USD rate missing, assume 1:1 after warn     |
@@ -39,8 +40,9 @@ How Exitbook assigns USD valuations to movements and fees via deterministic math
 ```ts
 type PriceAtTxTime = {
   price: { amount: Decimal; currency: string };
+  quotedPrice?: { amount: Decimal; currency: string };
   source: string;
-  fetchedAt?: Date;
+  fetchedAt: Date;
   granularity?: 'exact' | 'minute' | 'hour' | 'day';
   fxRateToUSD?: Decimal;
   fxSource?: string;
@@ -48,8 +50,11 @@ type PriceAtTxTime = {
 };
 ```
 
-- `price.currency` is intended to be `USD`; non-USD fiat may appear pre-normalization.
+- `price` is the shared normalized/storage value; after normalization its currency is intended to be `USD`.
+- `quotedPrice`, when present, preserves the source-native transaction quote before normalization rewrites `price`.
+- Non-USD fiat may still appear in `price.currency` transiently before normalization runs.
 - `source` drives overwrite priority.
+- `fetchedAt` is required in the persisted shape.
 
 ### Price Source Priority (enforced)
 
@@ -96,13 +101,14 @@ type PriceAtTxTime = {
   - Unpriced fiat fees: USD → `exchange-execution`; non-USD fiat → `fiat-execution-tentative`.
 - Link propagation (`propagatePricesAcrossLinks`):
   - Copy prices from **source outflows → target inflows** when asset matches and gross amounts are within 10% tolerance.
-  - Copied prices keep original price/fetchedAt/granularity/FX metadata; `source` becomes `link-propagated` (priority 2).
+  - Copied prices keep `price`, `quotedPrice`, `fetchedAt`, `granularity`, and FX metadata; `source` becomes `link-propagated` (priority 2).
 
 ### Stage 2: Normalize (non-USD fiat → USD)
 
 - Targets movements/fees whose `price.currency` is fiat and not `USD`.
 - Looks up historical FX at transaction timestamp via FX providers (ECB, Bank of Canada, Frankfurter).
 - Validates FX rate in `(0, 1e3]`; errors on invalid values.
+- Copies the pre-normalization fiat value from `price` into `quotedPrice`.
 - Transforms `price.amount *= fxRate`; sets `price.currency = 'USD'`; records `fxRateToUSD`, `fxSource`, `fxTimestamp`.
 - Upgrades `source` from `fiat-execution-tentative` to `derived-ratio` (priority 2) to prevent later provider overwrite.
 - Crypto in `price.currency` is treated as unexpected and logged; normalization skips.
@@ -143,7 +149,9 @@ type PriceAtTxTime = {
 ### Movements / Fees
 
 - Each movement/fee may hold `priceAtTxTime: PriceAtTxTime`.
-- Persisted prices are intended to be USD; pre-normalization fiat is allowed transiently.
+- `price` is the shared normalized/storage value consumed by enrichment and generic accounting flows.
+- `quotedPrice` is optional source evidence and must not be treated as tax output.
+- Persisted `price` values are intended to be USD; pre-normalization fiat is allowed transiently before the normalize stage runs.
 
 ### Price Cache (`prices.db`)
 
@@ -192,4 +200,4 @@ graph TD
 
 ---
 
-_Last updated: 2025-12-12_
+_Last updated: 2026-03-13_

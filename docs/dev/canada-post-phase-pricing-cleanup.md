@@ -1,22 +1,18 @@
 # Canada Post-Phase Pricing Cleanup
 
-This document records the cleanup work that should happen after the first
-Canada cost basis slice is functional.
+This document now tracks only the Canada pricing cleanup that still remains
+after the first cost-basis slice landed.
 
-It exists because the Canada implementation exposed two schema smells in the
-shared transaction model:
+Completed follow-ups are intentionally removed from this note. The naming
+cleanup, shared tax identity resolution, and Canada-owned valuation records
+are already in place.
 
-- `PriceAtTxTime.quotedPrice`
-- tax asset identity policy / resolution
-
-The first phase should stay focused on getting the Canada workflow correct.
-This document captures the follow-up work needed to make that implementation
-cleaner without turning the current Canada delivery into a full pricing-system
-rewrite.
+What remains is the shared `PriceAtTxTime` boundary. Canada exposed the smell,
+but the question is broader than Canada and should be resolved only if the
+shared pricing pipeline benefits from the split.
 
 ## Goals
 
-- Reduce Canada-specific leakage into `UniversalTransactionData`.
 - Clarify the meaning of transaction-time price fields.
 - Keep the shared USD pricing pipeline stable while Canada migrates.
 - Defer persistence work until the Canada event and pool model stabilize.
@@ -30,20 +26,9 @@ rewrite.
 - Reversing the current shared USD normalization contract in the same phase as
   the Canada math rewrite.
 
-## Current Smells
+## Current Smell
 
-### 1. `quotedPrice` is semantically precise
-
-`quotedPrice` describes what the value is: the price quoted at transaction
-time in the source currency.
-
-What the field actually represents is the source-native quoted price before
-shared normalization rewrites `price` into USD.
-
-That makes `quotedPrice` a better name.
-It reads like a temporary snapshot, not a stable concept.
-
-### 2. `PriceAtTxTime` is carrying two concerns
+### `PriceAtTxTime` is carrying two concerns
 
 Today `PriceAtTxTime.price` acts as the shared normalized/storage price.
 
@@ -52,18 +37,10 @@ movement-leg valuation instead of the normalized USD value.
 
 That means the current shape is mixing:
 
-- source price evidence
-- normalized shared valuation
+- source price evidence (`quotedPrice`)
+- normalized shared valuation (`price`)
 
 Those are related, but they are not the same thing.
-
-### 3. Tax asset identity must stay derived, not persisted
-
-Canada needs an economic identity that is broader than `assetId`, but imported
-data does not justify persisting a Canada-shaped field on raw transactions.
-
-That identity should stay behind a shared resolver and explicit policy rather
-than leaking into `UniversalTransactionData`.
 
 ## Decisions
 
@@ -82,18 +59,6 @@ This means:
 - Canada must not treat normalized USD as its tax truth
 - Canada should build CAD tax valuations from transaction legs or native price
   evidence before falling back to normalized USD
-
-### Rename `originalPrice` to `quotedPrice`
-
-Post-phase, `PriceAtTxTime.originalPrice` should be renamed to `quotedPrice`.
-
-`quotedPrice` better communicates:
-
-- this was the source-native quoted price
-- it predates shared normalization
-- it is evidence, not a Canada-specific field
-
-This is a terminology cleanup, not a behavior change.
 
 ### Treat `PriceAtTxTime` as price evidence, not tax output
 
@@ -125,18 +90,7 @@ Until then, persistence is optional and should stay out of the critical path.
 
 ## Post-Phase Direction
 
-### 1. Make naming honest
-
-Rename:
-
-- `PriceAtTxTime.originalPrice` -> `PriceAtTxTime.quotedPrice`
-
-Follow-up cleanup:
-
-- replace `'original-price'` valuation labels with `'quoted-price'`
-- rename helper/test terminology that still says "original"
-
-### 2. Keep Canada valuation leg-first
+### 1. Keep Canada valuation leg-first
 
 For Canada, valuation should prefer transaction semantics before shared price
 fallbacks.
@@ -151,7 +105,7 @@ Preferred order:
 This keeps Canada closer to transaction truth and reduces dependence on the
 shared normalized representation.
 
-### 3. Consider a later shared projection boundary
+### 2. Consider a later shared projection boundary
 
 After the first Canada slice ships, revisit whether shared pricing should split
 into:
@@ -161,16 +115,6 @@ into:
 
 That work should only happen if more than Canada benefits from the separation.
 It should not be introduced as speculative architecture.
-
-### 4. Keep identity policy explicit
-
-Post-phase, keep making explicit decisions about:
-
-- which assets stay chain-strict
-- which imported-data-only symbols are intentionally collapsed
-- where that policy belongs if more jurisdictions start using it
-
-Do not leave those choices as undocumented heuristics.
 
 ## What This Means For The Current Canada Work
 
@@ -186,8 +130,6 @@ That keeps the first phase focused while preserving a clear cleanup path.
 
 ## Open Questions
 
-- Should relaxed symbol-collapse stay Canada-specific, or move into a shared
-  cross-jurisdiction tax-identity policy layer?
 - Is `PriceAtTxTime` a long-term shared fact shape, or only a transitional
   bridge while USD normalization remains destructive?
 - When the Canada workflow stabilizes, do downstream views need persisted
