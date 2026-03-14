@@ -14,7 +14,7 @@ import {
 } from '../../../../../core/utils/test-utils.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
-import { BlockstreamApiClient, blockstreamMetadata } from '../blockstream-api-client.js';
+import { BlockstreamApiClient, blockstreamMetadata } from '../blockstream.api-client.js';
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from '../blockstream.schemas.js';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────

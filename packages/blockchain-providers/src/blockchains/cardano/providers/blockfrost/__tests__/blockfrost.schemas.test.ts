@@ -9,7 +9,7 @@ import {
   BlockfrostTransactionWithMetadataSchema,
   BlockfrostUtxoInputSchema,
   BlockfrostUtxoOutputSchema,
-} from './blockfrost.schemas.js';
+} from '../blockfrost.schemas.js';
 
 describe('blockfrost.schemas', () => {
   describe('BlockfrostAssetAmountSchema', () => {

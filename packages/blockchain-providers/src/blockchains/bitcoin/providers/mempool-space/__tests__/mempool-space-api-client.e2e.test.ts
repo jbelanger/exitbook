@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createProviderRegistry } from '../../../../../initialize.js';
-import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
+import { MempoolSpaceApiClient } from '../mempool-space.api-client.js';
 
 const providerRegistry = createProviderRegistry();
 

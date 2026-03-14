@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
+import { mapBlockchainComTransaction } from '../blockchain-com.mapper-utils.js';
 import type { BlockchainComTransaction } from '../blockchain-com.schemas.js';
-import { mapBlockchainComTransaction } from '../mapper-utils.js';
 
 describe('mapBlockchainComTransaction', () => {
   it('should map confirmed Blockchain.com transaction', () => {

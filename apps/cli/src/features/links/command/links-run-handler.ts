@@ -11,6 +11,7 @@ import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
+import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { LinksRunMonitor } from '../view/links-run-components.jsx';
 
 const logger = getLogger('LinksRunHandler');
@@ -19,7 +20,7 @@ const logger = getLogger('LinksRunHandler');
  * Tier 2 handler for `links run`.
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
-export class LinksRunHandler {
+export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, LinkingRunResult> {
   constructor(
     private readonly orchestrator: LinkingOrchestrator,
     private readonly overrideStore: OverrideStore,

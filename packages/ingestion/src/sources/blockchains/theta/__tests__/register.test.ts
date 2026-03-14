@@ -6,7 +6,7 @@ import { evmAdapters } from '../../evm/register.js';
 import { allBlockchainAdapters } from '../../index.js';
 import { ThetaImporter } from '../importer.js';
 import { ThetaProcessor } from '../processor.js';
-import { thetaAdapter } from '../register.js';
+import { thetaAdapters } from '../register.js';
 
 function createProviderManager(): BlockchainProviderManager {
   return {
@@ -21,15 +21,16 @@ describe('theta/register', () => {
   test('keeps Theta out of the EVM adapter list and registers it exactly once', () => {
     expect(evmAdapters.some((adapter) => adapter.blockchain === 'theta')).toBe(false);
 
-    const thetaAdapters = allBlockchainAdapters.filter((adapter) => adapter.blockchain === 'theta');
-    expect(thetaAdapters).toEqual([thetaAdapter]);
+    const thetaInAll = allBlockchainAdapters.filter((adapter) => adapter.blockchain === 'theta');
+    expect(thetaInAll).toEqual(thetaAdapters);
   });
 
   test('creates Theta importer and processor from the Theta adapter', () => {
     const providerManager = createProviderManager();
+    const [thetaAdapter] = thetaAdapters;
 
-    const importer = thetaAdapter.createImporter(providerManager, 'thetascan');
-    const processor = thetaAdapter.createProcessor({
+    const importer = thetaAdapter!.createImporter(providerManager, 'thetascan');
+    const processor = thetaAdapter!.createProcessor({
       providerManager,
       scamDetectionService: undefined,
       accountId: 1,
@@ -41,8 +42,9 @@ describe('theta/register', () => {
   });
 
   test('normalizes valid Theta addresses and rejects invalid ones', () => {
-    const valid = thetaAdapter.normalizeAddress('0x1111111111111111111111111111111111111111');
-    const invalid = thetaAdapter.normalizeAddress('not-a-theta-address');
+    const [thetaAdapter] = thetaAdapters;
+    const valid = thetaAdapter!.normalizeAddress('0x1111111111111111111111111111111111111111');
+    const invalid = thetaAdapter!.normalizeAddress('not-a-theta-address');
 
     expect(valid.isOk()).toBe(true);
     expect(invalid.isErr()).toBe(true);

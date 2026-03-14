@@ -14,7 +14,7 @@ import {
 } from '../../../../../core/utils/test-utils.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
-import { MempoolSpaceApiClient, mempoolSpaceMetadata } from '../mempool-space-api-client.js';
+import { MempoolSpaceApiClient, mempoolSpaceMetadata } from '../mempool-space.api-client.js';
 import type { MempoolAddressInfo, MempoolTransaction } from '../mempool-space.schemas.js';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────

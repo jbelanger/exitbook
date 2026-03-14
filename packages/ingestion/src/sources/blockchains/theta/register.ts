@@ -12,12 +12,14 @@ if (!thetaConfig) {
   throw new Error('Theta chain config not found');
 }
 
-export const thetaAdapter: BlockchainAdapter = {
-  blockchain: thetaConfig.chainName,
-  chainModel: 'account-based',
-  normalizeAddress: normalizeThetaAddress,
-  createImporter: (providerManager, preferredProvider) =>
-    new ThetaImporter(thetaConfig, providerManager, { preferredProvider }),
-  createProcessor: ({ providerManager, scamDetectionService }) =>
-    new ThetaProcessor(thetaConfig, providerManager, scamDetectionService),
-};
+export const thetaAdapters: BlockchainAdapter[] = [
+  {
+    blockchain: thetaConfig.chainName,
+    chainModel: 'account-based',
+    normalizeAddress: normalizeThetaAddress,
+    createImporter: (providerManager, preferredProvider) =>
+      new ThetaImporter(thetaConfig, providerManager, { preferredProvider }),
+    createProcessor: ({ providerManager, scamDetectionService }) =>
+      new ThetaProcessor(thetaConfig, providerManager, scamDetectionService),
+  },
+];

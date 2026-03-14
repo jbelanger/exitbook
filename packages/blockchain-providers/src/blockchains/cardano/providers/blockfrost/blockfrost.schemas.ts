@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../core/utils/zod-utils.js';
-import { CardanoAddressSchema } from '../schemas.js';
+import { timestampToDate } from '../../../../core/utils/zod-utils.js';
+import { CardanoAddressSchema } from '../../schemas.js';
 
 /**
  * Schema for Blockfrost transaction hash entry from /addresses/{address}/transactions

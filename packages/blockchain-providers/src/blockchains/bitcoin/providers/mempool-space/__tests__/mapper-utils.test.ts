@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
-import { mapMempoolSpaceTransaction } from '../mapper-utils.js';
+import { mapMempoolSpaceTransaction } from '../mempool-space.mapper-utils.js';
 import type { MempoolTransaction } from '../mempool-space.schemas.js';
 
 describe('mapMempoolSpaceTransaction', () => {

@@ -1,11 +1,11 @@
 import { bitcoinAdapters } from './bitcoin/register.js';
-import { cardanoAdapter } from './cardano/register.js';
+import { cardanoAdapters } from './cardano/register.js';
 import { cosmosAdapters } from './cosmos/register.js';
 import { evmAdapters } from './evm/register.js';
-import { nearAdapter } from './near/register.js';
-import { solanaAdapter } from './solana/register.js';
+import { nearAdapters } from './near/register.js';
+import { solanaAdapters } from './solana/register.js';
 import { substrateAdapters } from './substrate/register.js';
-import { thetaAdapter } from './theta/register.js';
+import { thetaAdapters } from './theta/register.js';
 import { xrpAdapters } from './xrp/register.js';
 
 export const allBlockchainAdapters = [
@@ -13,9 +13,9 @@ export const allBlockchainAdapters = [
   ...bitcoinAdapters,
   ...cosmosAdapters,
   ...substrateAdapters,
-  solanaAdapter,
-  nearAdapter,
-  cardanoAdapter,
-  thetaAdapter,
+  ...solanaAdapters,
+  ...nearAdapters,
+  ...cardanoAdapters,
+  ...thetaAdapters,
   ...xrpAdapters,
 ];

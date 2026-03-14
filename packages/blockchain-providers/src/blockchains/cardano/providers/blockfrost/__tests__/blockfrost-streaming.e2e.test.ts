@@ -1,10 +1,10 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { StreamingBatchResult, StreamingOperation } from '../../../../core/types/index.js';
-import { createProviderRegistry } from '../../../../initialize.js';
-import type { CardanoTransaction } from '../../schemas.js';
-import { BlockfrostApiClient } from '../blockfrost-api-client.js';
+import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
+import type { CardanoTransaction } from '../../../schemas.js';
+import { BlockfrostApiClient } from '../blockfrost.api-client.js';
 
 const providerRegistry = createProviderRegistry();
 

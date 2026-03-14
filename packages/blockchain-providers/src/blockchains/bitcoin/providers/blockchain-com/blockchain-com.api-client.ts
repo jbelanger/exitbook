@@ -26,12 +26,12 @@ import { getBitcoinChainConfig } from '../../chain-registry.js';
 import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
+import { mapBlockchainComTransaction } from './blockchain-com.mapper-utils.js';
 import {
   BlockchainComAddressResponseSchema,
   type BlockchainComAddressResponse,
   type BlockchainComTransaction,
 } from './blockchain-com.schemas.js';
-import { mapBlockchainComTransaction } from './mapper-utils.js';
 import { calculateSimpleBalance } from './utils.js';
 
 export const blockchainComMetadata: ProviderMetadata = {

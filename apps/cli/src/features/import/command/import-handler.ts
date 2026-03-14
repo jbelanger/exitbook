@@ -10,6 +10,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
+import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
 
 export interface ImportExecuteResult {
@@ -21,7 +22,10 @@ export interface ImportExecuteResult {
  * CLI import handler — thin shell over ImportWorkflow.
  * Adds CLI-specific concerns: xpub single-address warning, TUI monitor lifecycle, instrumentation.
  */
-export class ImportHandler {
+export class ImportHandler implements InfrastructureHandler<
+  ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined },
+  ImportExecuteResult
+> {
   private readonly logger = getLogger('ImportHandler');
 
   constructor(

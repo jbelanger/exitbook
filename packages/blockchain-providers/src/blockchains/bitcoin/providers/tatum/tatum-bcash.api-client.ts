@@ -1,9 +1,9 @@
 import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
-import { mapTatumBCashTransaction } from './mapper-utils.js';
 import { TatumBCashBalanceSchema, TatumBCashTransactionSchema } from './tatum-bcash.schemas.js';
 import type { TatumBCashTransaction, TatumBCashBalance } from './tatum-bcash.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
+import { mapTatumBCashTransaction } from './tatum.mapper-utils.js';
 
 const tatumBcashMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',

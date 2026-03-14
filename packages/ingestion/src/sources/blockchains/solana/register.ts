@@ -6,17 +6,19 @@ import { normalizeSolanaAddress } from './address-utils.js';
 import { SolanaImporter } from './importer.js';
 import { SolanaProcessor } from './processor.js';
 
-export const solanaAdapter: BlockchainAdapter = {
-  blockchain: 'solana',
-  chainModel: 'account-based',
+export const solanaAdapters: BlockchainAdapter[] = [
+  {
+    blockchain: 'solana',
+    chainModel: 'account-based',
 
-  normalizeAddress: normalizeSolanaAddress,
+    normalizeAddress: normalizeSolanaAddress,
 
-  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-    new SolanaImporter(providerManager, {
-      preferredProvider: providerName,
-    }),
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+      new SolanaImporter(providerManager, {
+        preferredProvider: providerName,
+      }),
 
-  createProcessor: ({ providerManager, scamDetectionService }) =>
-    new SolanaProcessor(providerManager, scamDetectionService),
-};
+    createProcessor: ({ providerManager, scamDetectionService }) =>
+      new SolanaProcessor(providerManager, scamDetectionService),
+  },
+];

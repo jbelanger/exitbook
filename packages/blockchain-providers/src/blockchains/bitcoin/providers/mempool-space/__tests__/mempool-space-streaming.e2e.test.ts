@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
-import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
+import { MempoolSpaceApiClient } from '../mempool-space.api-client.js';
 
 const providerRegistry = createProviderRegistry();
 

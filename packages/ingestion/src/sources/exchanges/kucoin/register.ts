@@ -1,7 +1,7 @@
 import type { ExchangeAdapter } from '../../../shared/types/exchange-adapter.js';
 
-import { KucoinCsvProcessor } from './csv-processor.js';
-import { KucoinCsvImporter } from './importer-csv.js';
+import { KucoinCsvImporter } from './importer.js';
+import { KucoinCsvProcessor } from './processor.js';
 
 export const kucoinAdapter: ExchangeAdapter = {
   capabilities: {

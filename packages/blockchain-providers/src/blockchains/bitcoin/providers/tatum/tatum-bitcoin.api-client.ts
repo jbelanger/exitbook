@@ -1,7 +1,7 @@
 import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
-import { mapTatumTransaction } from './mapper-utils.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
+import { mapTatumTransaction } from './tatum.mapper-utils.js';
 import { TatumBitcoinBalanceSchema, TatumBitcoinTransactionSchema } from './tatum.schemas.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
 

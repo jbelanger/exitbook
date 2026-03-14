@@ -1,8 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { lovelaceToAda, mapAssetAmounts, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
-import type { BlockfrostAssetAmount, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
+import { lovelaceToAda, mapAssetAmounts, mapBlockfrostTransaction } from '../blockfrost.mapper-utils.js';
+import type { BlockfrostAssetAmount, BlockfrostTransactionWithMetadata } from '../blockfrost.schemas.js';
 
 describe('blockfrost.mapper-utils', () => {
   describe('lovelaceToAda', () => {

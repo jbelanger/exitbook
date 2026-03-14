@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
-import { mapTatumTransaction } from '../mapper-utils.js';
+import { mapTatumTransaction } from '../tatum.mapper-utils.js';
 import type { TatumBitcoinTransaction } from '../tatum.schemas.js';
 
 describe('mapTatumTransaction', () => {

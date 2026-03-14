@@ -6,6 +6,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
+import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
 import { resetProjections } from '../../shared/projection-runtime.js';
 
@@ -23,7 +24,7 @@ interface ProcessHandlerParams {
 
 const logger = getLogger('ProcessHandler');
 
-export class ProcessHandler {
+export class ProcessHandler implements InfrastructureHandler<ProcessHandlerParams, ProcessResultWithMetrics> {
   constructor(
     private readonly database: DataContext,
     private readonly processingWorkflow: ProcessingWorkflow,
