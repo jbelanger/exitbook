@@ -343,15 +343,6 @@
     "explorerUrls": [],
     "transactionTypes": ["normal", "token"]
   },
-  "theta": {
-    "chainId": 361,
-    "chainName": "theta",
-    "nativeCurrency": "TFUEL",
-    "nativeDecimals": 18,
-    "explorerUrls": ["https://explorer.thetatoken.org"],
-    "additionalNativeCurrencies": ["THETA"],
-    "transactionTypes": ["normal"]
-  },
   "fantom": {
     "chainId": 250,
     "chainName": "fantom",

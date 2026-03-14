@@ -1,6 +1,6 @@
 # Theta Family Extraction Plan
 
-Status: proposed refactor plan
+Status: phases 1-4 implemented; phase 5 validation pending
 
 ## Why This Exists
 
@@ -75,7 +75,7 @@ That means keeping Theta inside `evm/` preserves the wrong boundary.
 - Solving every canonical-reference policy question for every chain family.
 - Refactoring unrelated provider-boundary cleanup in CLI.
 
-## Current Smells To Remove
+## Smells This Plan Removes
 
 ### 1. Theta-specific semantics in `EvmChainConfig`
 
@@ -164,11 +164,17 @@ EVM normalization code during this refactor if that reuse stays clean.
 Do not force a rename or shared-module extraction in the same patch unless the
 dependency becomes messy.
 
+It is acceptable for Theta to reuse account-based fund-flow helpers that still
+live under `evm/` for now, but only if Ethereum-only classification rules stay
+behind an EVM-specific entry point. Theta must not run through Ethereum staking
+or beacon-withdrawal classification branches.
+
 Do not keep Theta under `evm/` just to reuse a large processor class.
 
 Good candidates for extraction:
 
 - generic account-based transaction grouping helpers
+- generic correlated-transaction processing helpers
 - generic processed-transaction assembly helpers
 - generic scam-detection invocation plumbing
 
@@ -319,6 +325,12 @@ The Theta processor must:
 If you notice a helper in the EVM processor that is generic enough for Theta,
 extract that helper into a shared module and make both processors call it.
 
+A copied Theta processor is not an acceptable stopping point.
+If `theta/processor.ts` starts as a copy of `evm/processor.ts`, finish the
+phase by extracting the shared correlated-transaction assembly into a narrowly
+named shared module and keep only Theta-specific asset-ID and classification
+logic in the Theta family.
+
 Do not make the Theta processor subclass `EvmProcessor` unless the superclass
 loses all Theta-specific branching first.
 
@@ -327,6 +339,8 @@ loses all Theta-specific branching first.
 - Theta family semantics are defined once in shared mapper-utils
 - Theta providers are thinner adapters over family helpers
 - Theta ingestion source exists with its own importer and processor
+- Theta and EVM processors share extracted correlated-processing helpers
+  instead of near-cloned processor implementations
 
 ## Phase 3: Rewire Blockchain Adapter Registration
 
@@ -530,18 +544,16 @@ This plan is done when all of the following are true:
 - Decision: a multi-native-asset-aware EVM config would be ~30 lines of change
   instead of a new processor, but would make `EvmChainConfig` more permissive
   for a single outlier. The plan chooses correctness over minimalism.
-- Smell: `additionalNativeCurrencies` is debt and should be deleted, not
-  generalized. It is used only by Theta — no other chain in the 100+ entry
-  `evm-chains.json` uses it.
-- Smell: current Theta placement under `evm/` hides a semantic mismatch and
-  distorts downstream logic.
+- Decision: Phase 4 deletes `additionalNativeCurrencies` and the EVM-side
+  Theta asset-ID branch instead of preserving a broader EVM config contract.
 - Smell: Theta will continue to import `EvmTransaction`, `EvmTransactionSchema`,
   and `normalizeEvmAddress` after extraction. These names are misleading for a
   non-EVM chain. Acceptable for this refactor but should be revisited if a
   second non-EVM family reuses them (extract to chain-family-neutral names at
   that point).
-- Smell: `selectThetaCurrency` and `isThetaTokenTransfer` are duplicated across
-  both Theta providers (~50 lines each). Consolidated in Phase 2.
+- Smell: Theta currently reuses account-based helpers that still live under
+  `evm/processor-utils.ts`. This is accepted debt only because Ethereum-only
+  rules are isolated behind `determineEvmOperationFromFundFlow`.
 
 ## Naming Suggestions
 

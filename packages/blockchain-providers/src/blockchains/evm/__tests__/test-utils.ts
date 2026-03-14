@@ -40,13 +40,3 @@ export const mockPolygonChainConfig: EvmChainConfig = {
   explorerUrls: ['https://polygonscan.com'],
   transactionTypes: ['normal', 'internal', 'token'],
 };
-
-export const mockThetaChainConfig: EvmChainConfig = {
-  chainId: 361,
-  chainName: 'theta',
-  nativeCurrency: 'TFUEL' as Currency,
-  nativeDecimals: 18,
-  explorerUrls: ['https://explorer.thetatoken.org'],
-  additionalNativeCurrencies: ['THETA' as Currency],
-  transactionTypes: ['normal'],
-};

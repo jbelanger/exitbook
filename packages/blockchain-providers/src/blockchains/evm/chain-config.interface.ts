@@ -35,16 +35,6 @@ export interface EvmChainConfig {
   nativeDecimals: number;
 
   /**
-   * Optional array of additional native currency symbols for blockchains with multiple native assets.
-   * Used for special cases like Theta (THETA + TFUEL) or Flare (FLR + SGB wrapped).
-   *
-   * @example
-   * // Theta has two native currencies: TFUEL (gas) and THETA (staking/governance)
-   * additionalNativeCurrencies: ['THETA']
-   */
-  additionalNativeCurrencies?: Currency[] | undefined;
-
-  /**
    * Transaction types supported by this chain.
    * Defines which transaction streams the importer should fetch.
    *
