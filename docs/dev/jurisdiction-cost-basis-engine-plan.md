@@ -1,375 +1,549 @@
-# Jurisdiction Cost Basis Engine Plan
+# Jurisdiction Cost Basis Refactor Plan
 
-Status: proposed refactor plan
+Status: ready to implement
 
 ## Why This Exists
 
-We now have two real concerns that should be separated:
+The immediate problem is not that `packages/accounting` lacks an engine
+interface.
 
-- jurisdiction-specific tax math
-- consumer-specific orchestration (`cost-basis` command vs `portfolio`)
+The immediate problem is:
 
-Today those concerns are partially mixed:
+- `CostBasisWorkflow` already owns jurisdiction dispatch in accounting
+- `portfolio` bypasses that workflow for the generic path
+- `portfolio` duplicates part of the Canada orchestration
+- failure snapshot persistence has no shared home
 
-- Canada already follows a separate workflow in
-  `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
-- generic `cost-basis` command runs through
-  `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.ts`
-- generic `portfolio` still calls `runCostBasisPipeline(...)` directly in
-  `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+We should fix those seams first.
 
-That is manageable with two jurisdictions, but it will rot once more
-jurisdiction-specific workflows arrive.
+Do not add a registry/engine abstraction yet just because we may eventually
+have more jurisdiction-specific workflows.
 
-The right fix is not to force Canada into the generic lot pipeline.
-The right fix is to centralize jurisdiction dispatch inside `packages/accounting`
-while keeping consumer-specific output shaping above that boundary.
+## Current Facts To Preserve
+
+### 1. Canada is legitimately different
+
+Canada does not just have a different post-processing step.
+It uses different core accounting primitives:
+
+- ACB workflow
+- superficial loss adjustments
+- tax report + display report generation
+
+This is not a smell by itself.
+We should not force Canada to look like the lot-based generic pipeline.
+
+### 2. `CostBasisWorkflow` is already the accounting-owned dispatcher
+
+Today
+`packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+already does the important jurisdiction branch:
+
+- `CA` -> Canada workflow
+- everything else -> generic pipeline
+
+That is already the right ownership boundary.
+The problem is that not all consumers go through it.
+
+### 3. Portfolio and command need different policies
+
+`cost-basis` and `portfolio` are not the same consumer:
+
+- `cost-basis` should fail closed
+- `portfolio` should be best-effort where possible
+
+That policy difference is real.
+It should be expressed explicitly instead of forcing each consumer to rebuild
+its own execution path.
 
 ## Goals
 
-- Use one shared `IJurisdictionCostBasisEngine` contract for jurisdiction math.
-- Keep Canada free to use Canada-specific event/ACB logic.
-- Keep generic jurisdictions free to use lot-based logic.
-- Remove jurisdiction branching from CLI handlers.
-- Let both `cost-basis` and `portfolio` compose from the same jurisdiction
-  engine selection.
-- Make failure snapshot persistence live in accounting orchestration instead of
-  leaking into handlers.
+- Make `CostBasisWorkflow` consumable by both `cost-basis` and `portfolio`.
+- Remove direct generic pipeline calls from `PortfolioHandler`.
+- Extract the duplicated Canada calculation core so portfolio and workflow share
+  the same Canada math.
+- Add shared accounting-owned failure snapshot persistence (net-new).
+- Keep the current accounting-owned jurisdiction branch in one place.
+- Defer `IJurisdictionCostBasisEngine` until a real third custom jurisdiction
+  forces it.
 
 ## Non-Goals
 
-- Forcing all jurisdictions to return the same internal data structures.
-- Rewriting Canada to look like the lot-based generic path.
-- Building a speculative plugin system before there is a second non-generic
-  jurisdiction engine.
-- Merging `cost-basis` and `portfolio` into one public service API.
+- Introduce a registry or plugin system now.
+- Replace the existing `if (jurisdiction === 'CA')` with extra abstraction.
+- Force Canada and generic jurisdictions into one internal result shape beyond
+  what already exists.
+- Move portfolio position shaping into accounting.
+- Couple portfolio to artifact caching/reuse.
 
-## Target Shape
+## The Real Gaps To Fix
 
-### 1. One shared jurisdiction engine interface
+### 1. `missingPricePolicy` is hardcoded too low
 
-Add a new accounting-owned interface, for example in:
-
-- `packages/accounting/src/cost-basis/jurisdiction-engines/jurisdiction-cost-basis-engine.ts`
-
-Proposed shape:
+In
+`packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`,
+the generic path hardcodes:
 
 ```ts
-export interface JurisdictionCostBasisEngineParams {
-  input: CostBasisInput;
-  transactions: UniversalTransactionData[];
-  context: CostBasisContext;
+missingPricePolicy: 'error';
+```
+
+That makes the workflow unsuitable for `portfolio`, which wants
+best-effort `'exclude'`.
+
+### 2. Canada orchestration is duplicated
+
+`PortfolioHandler.buildCanadaPortfolioCostBasis()` duplicates the Canada core
+calculation sequence that already exists in `CostBasisWorkflow`.
+
+That duplication is the real refactor target.
+
+### 3. Canada pool snapshot semantics differ by consumer
+
+This difference must be made explicit.
+
+The `cost-basis` command wants pool state at report end.
+Portfolio wants pool state through the portfolio `asOf` horizon.
+
+This means we cannot just say "share the Canada workflow" without parameterizing
+the pool snapshot strategy.
+
+### 4. Workflow results lack execution metadata
+
+`CostBasisWorkflow` currently discards pipeline metadata
+(`missingPricesCount`, `rebuildTransactions`) that portfolio needs for its
+missing-price warnings.
+
+The workflow must surface execution metadata so portfolio can build warnings
+without bypassing the workflow to get raw pipeline results.
+
+### 5. No shared failure snapshot persistence exists
+
+Neither `CostBasisArtifactService` nor `PortfolioHandler` currently persists
+failure snapshots. This is a net-new capability that both consumers need, and
+it should live in accounting as a separate concern from artifact caching/reuse.
+
+## Key Design Decisions
+
+### 1. Portfolio does not depend on artifact caching/reuse
+
+Portfolio calculates fresh each time (spot prices change, `asOf` varies).
+Caching is a `cost-basis` command concern.
+Portfolio only needs shared workflow execution plus failure snapshot persistence.
+
+### 2. Failure snapshot persistence is a separate accounting capability
+
+`CostBasisArtifactService` keeps handling success-cache reuse for `cost-basis`.
+A separate accounting-owned failure persister is used by both consumers.
+This avoids coupling portfolio to the full artifact service.
+
+### 3. Workflow results include execution metadata
+
+Both generic and Canada paths return execution metadata:
+
+```ts
+interface CostBasisExecutionMeta {
+  missingPricesCount: number;
+  retainedTransactionIds: number[];
+}
+```
+
+Generic workflow result becomes:
+
+```ts
+interface GenericCostBasisWorkflowResult {
+  kind: 'generic-pipeline';
+  summary: CostBasisSummary;
+  report?: CostBasisReport | undefined;
+  lots: AcquisitionLot[];
+  disposals: LotDisposal[];
+  lotTransfers: LotTransfer[];
+  executionMeta: CostBasisExecutionMeta;
+}
+```
+
+Canada workflow result includes the same `executionMeta` field.
+
+This gives portfolio enough to build warnings without leaking raw transaction
+arrays through the workflow boundary.
+
+### 4. Canada extraction owns missing-price policy
+
+`runCanadaCostBasisCalculation(...)` accepts `missingPricePolicy` and handles
+price-coverage filtering internally (parallel to how `runCostBasisPipeline`
+handles it for the generic path).
+
+Without this, portfolio would still import `getCostBasisRebuildTransactions`
+and pre-filter before calling the Canada extraction, leaving a seam the
+refactor was supposed to close.
+
+## Recommended Direction
+
+### Keep `CostBasisWorkflow` as the dispatcher
+
+Do not replace it with:
+
+- `JurisdictionCostBasisEngineRegistry`
+- `IJurisdictionCostBasisEngine`
+- extra dispatcher classes
+
+yet.
+
+The current accounting-owned branch is sufficient for two paths:
+
+- Canada
+- generic
+
+### Make `CostBasisWorkflow` configurable enough for both consumers
+
+Add an explicit workflow execution option:
+
+```ts
+interface CostBasisWorkflowExecutionOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   missingPricePolicy: 'error' | 'exclude';
 }
-
-export type JurisdictionCostBasisEngineResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
-
-export interface IJurisdictionCostBasisEngine {
-  supports(jurisdiction: CostBasisInput['config']['jurisdiction']): boolean;
-  execute(params: JurisdictionCostBasisEngineParams): Promise<Result<JurisdictionCostBasisEngineResult, Error>>;
-}
 ```
 
-Notes:
+Then:
 
-- `missingPricePolicy` must move into the engine params so `portfolio` and
-  `cost-basis` can share the same dispatch path while still differing on
-  fail-closed vs best-effort behavior.
-- The interface is intentionally about jurisdiction math, not artifact storage
-  and not portfolio position shaping.
+- `cost-basis` passes `'error'`
+- `portfolio` passes `'exclude'`
 
-### 2. Two concrete engines first
+That removes the main reason `portfolio` bypasses the workflow today.
 
-Add:
+### Extract shared Canada core calculation
 
-- `packages/accounting/src/cost-basis/jurisdiction-engines/generic-cost-basis-engine.ts`
-- `packages/accounting/src/cost-basis/jurisdiction-engines/canada-cost-basis-engine.ts`
+Do not keep the Canada orchestration duplicated in:
 
-Responsibilities:
+- `CostBasisWorkflow`
+- `PortfolioHandler`
 
-- `GenericCostBasisEngine`
-  - wraps current generic flow from `runCostBasisPipeline(...)`
-  - returns `GenericCostBasisWorkflowResult`
-  - supports `US`, `UK`, `EU` until another jurisdiction needs its own engine
+Extract the shared Canada core into `packages/accounting/src/cost-basis/canada/`
+as a Canada-owned function.
 
-- `CanadaCostBasisEngine`
-  - wraps the current Canada path now living in
-    `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
-  - returns `CanadaCostBasisWorkflowResult`
-  - supports `CA`
+Suggested file:
 
-This gives us one shared interface without forcing one shared implementation.
-
-### 3. Add a small engine registry/dispatcher
-
-Add:
-
-- `packages/accounting/src/cost-basis/jurisdiction-engines/jurisdiction-cost-basis-engine-registry.ts`
+- `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`
 
 Suggested shape:
 
 ```ts
-export class JurisdictionCostBasisEngineRegistry {
-  constructor(private readonly engines: readonly IJurisdictionCostBasisEngine[]) {}
-
-  resolve(jurisdiction: CostBasisInput['config']['jurisdiction']): Result<IJurisdictionCostBasisEngine, Error> {
-    const engine = this.engines.find((candidate) => candidate.supports(jurisdiction));
-    return engine ? ok(engine) : err(new Error(`No cost basis engine registered for jurisdiction '${jurisdiction}'`));
-  }
+interface RunCanadaCostBasisCalculationParams {
+  input: CostBasisInput;
+  transactions: UniversalTransactionData[];
+  confirmedLinks: TransactionLink[];
+  fxRateProvider: IFxRateProvider;
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
+  missingPricePolicy: 'error' | 'exclude';
+  poolSnapshotStrategy: 'report-end' | 'full-input-range';
 }
 ```
 
-Keep this simple.
-We do not need dynamic discovery yet.
-An explicit array composed in accounting is enough.
+The function should own:
 
-## How `cost-basis` Should Use It
+1. Missing-price filtering (via `getCostBasisRebuildTransactions` or equivalent)
+2. Canada ACB workflow
+3. Superficial loss engine
+4. Adjusted ACB engine pass
+5. Pool snapshot pass according to `poolSnapshotStrategy`
+6. Tax report generation
+7. Display report generation
 
-The `cost-basis` command should still own:
+And return `CanadaCostBasisWorkflowResult` including `executionMeta`.
 
-- artifact reuse / rebuild policy
-- dependency watermark reads
-- snapshot persistence
-- refresh semantics
+## Target Architecture
 
-It should stop owning jurisdiction branching.
-
-### New accounting service boundary
-
-Refactor
-`packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
-into a dispatcher-backed workflow or replace it with a clearer orchestrator such
-as:
-
-- `packages/accounting/src/cost-basis/orchestration/jurisdiction-cost-basis-workflow.ts`
-
-Proposed shape:
-
-```ts
-class JurisdictionCostBasisWorkflow {
-  constructor(
-    private readonly store: ICostBasisContextReader,
-    private readonly registry: JurisdictionCostBasisEngineRegistry
-  ) {}
-
-  async execute(params: {
-    input: CostBasisInput;
-    accountingExclusionPolicy?: AccountingExclusionPolicy;
-    assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>;
-    missingPricePolicy: 'error' | 'exclude';
-  }): Promise<Result<JurisdictionCostBasisEngineResult, Error>> {
-    const contextResult = await this.store.loadCostBasisContext();
-    if (contextResult.isErr()) return err(contextResult.error);
-
-    const engineResult = this.registry.resolve(params.input.config.jurisdiction);
-    if (engineResult.isErr()) return err(engineResult.error);
-
-    return engineResult.value.execute({
-      input: params.input,
-      transactions: contextResult.value.transactions,
-      context: contextResult.value,
-      accountingExclusionPolicy: params.accountingExclusionPolicy,
-      assetReviewSummaries: params.assetReviewSummaries,
-      missingPricePolicy: params.missingPricePolicy,
-    });
-  }
-}
-```
-
-Then
-`packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.ts`
-continues to wrap that workflow and persist success/failure snapshots.
-
-### CLI effect for `cost-basis`
+### `cost-basis` path
 
 `apps/cli/src/features/cost-basis/command/cost-basis-handler.ts`
-should keep constructing one accounting workflow/service object, but it should
-no longer care which jurisdiction engine will run underneath.
+should continue to use accounting orchestration and artifact persistence.
 
-## How `portfolio` Should Use It
+Flow:
 
-`portfolio` should not build positions inside the jurisdiction engine.
-That is portfolio-specific orchestration and should remain a portfolio concern.
+1. CLI ensures upstream inputs are ready.
+2. CLI constructs accounting workflow/service.
+3. Accounting workflow dispatches by jurisdiction.
+4. `CostBasisArtifactService` persists success snapshots (cache/reuse).
+5. Shared failure persister handles failures.
 
-Instead, `portfolio` should call the same accounting workflow/service and then
-translate the returned engine result into positions.
+### `portfolio` path
 
-### Portfolio boundary
+`apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+should stop calling `runCostBasisPipeline(...)` directly for the generic path.
 
-Add a portfolio-facing dispatcher inside CLI, for example:
+Flow:
 
-- `apps/cli/src/features/portfolio/command/portfolio-cost-basis-dispatcher.ts`
+1. Portfolio handler gathers host inputs.
+2. Portfolio calls shared accounting workflow with `missingPricePolicy: 'exclude'`.
+3. Accounting workflow dispatches by jurisdiction.
+4. Portfolio reads `executionMeta` to build missing-price warnings.
+5. Portfolio converts workflow result into positions.
+6. Shared failure persister handles failures.
 
-Its job is not jurisdiction selection.
-Its job is consumer shaping:
+Portfolio should still own:
 
-- call the accounting workflow/service with `missingPricePolicy: 'exclude'`
-- inspect whether the result is `generic-pipeline` or `canada-workflow`
-- map that result into `PortfolioPositionItem[]`, warnings, and realized P&L
+- portfolio position building
+- closed-position aggregation
+- portfolio warning text (using `executionMeta`)
 
-Proposed shape:
+Portfolio should not own:
+
+- jurisdiction dispatch
+- generic pipeline execution
+- missing-price filtering for Canada
+- failure snapshot persistence
+
+## Concrete Plan
+
+### Phase 1: Make workflow usable for portfolio generic path
+
+1. Add `missingPricePolicy` to `CostBasisWorkflow.execute(...)` via
+   `CostBasisWorkflowExecutionOptions`.
+2. Thread that value into the generic path instead of hardcoding `'error'`.
+3. Add `CostBasisExecutionMeta` to `GenericCostBasisWorkflowResult`.
+4. Propagate `missingPricesCount` and `retainedTransactionIds` from
+   `runCostBasisPipeline` through the workflow into the result.
+5. Update the `cost-basis` command to pass `'error'`.
+6. Update portfolio generic path to call `CostBasisWorkflow` instead of
+   `runCostBasisPipeline(...)`.
+7. Update portfolio to read `executionMeta` for its missing-price warning.
+
+Note: after this phase, portfolio still has its own Canada path. That is a
+transitional state — portfolio temporarily imports both `CostBasisWorkflow` and
+Canada accounting internals. Phase 2 resolves this.
+
+Result:
+
+- generic jurisdiction dispatch leaves CLI
+- portfolio gets warning metadata through the workflow
+- no engine abstraction required
+
+### Phase 2: Extract shared Canada core
+
+1. Create `runCanadaCostBasisCalculation(...)` in
+   `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`.
+2. Include `missingPricePolicy` and `poolSnapshotStrategy` as explicit params.
+3. Include `CostBasisExecutionMeta` in the Canada result.
+4. Refactor `CostBasisWorkflow.executeCanadaWorkflow(...)` to call
+   the new shared function with `poolSnapshotStrategy: 'report-end'`.
+5. Refactor `PortfolioHandler.buildCanadaPortfolioCostBasis(...)` to call
+   the new shared function with `poolSnapshotStrategy: 'full-input-range'`.
+6. Remove duplicated Canada orchestration from `PortfolioHandler`.
+7. Move `fxRateProvider` from `CostBasisWorkflow` constructor to a param of
+   the shared Canada function (callers pass it explicitly).
+
+Result:
+
+- no duplicated Canada math
+- consumer differences (pool snapshot, missing-price policy) stay explicit
+- portfolio stops importing Canada accounting internals
+
+### Phase 3: Add shared failure snapshot persistence
+
+This is net-new capability, not migration of existing code.
+
+1. Add a shared accounting-owned failure snapshot persister (function or small
+   class), separate from `CostBasisArtifactService`.
+2. Route both `cost-basis` and `portfolio` through the shared failure persister
+   on workflow errors.
+3. Keep `CostBasisArtifactService` focused on success-cache reuse for
+   `cost-basis` only.
+4. Verify: if portfolio-triggered cost basis fails, the shared path persists
+   the failure snapshot for debugging.
+
+Result:
+
+- failure snapshot persistence lives in accounting
+- portfolio does not depend on artifact caching/reuse
+- both consumers get consistent failure debugging
+
+### Phase 4: Decide whether a new abstraction is actually justified
+
+Only after the above refactor lands, revisit whether a shared
+`IJurisdictionCostBasisEngine` is warranted.
+
+That abstraction becomes justified when:
+
+- we add a real third jurisdiction with distinct tax math, or
+- `CostBasisWorkflow` starts accumulating multiple independent jurisdiction
+  branches that no longer remain readable
+
+Until then, the branch inside accounting is cheaper and clearer than a registry.
+
+## Suggested Code Changes
+
+### 1. `CostBasisWorkflow`
+
+Update
+`packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+to accept options:
 
 ```ts
-interface PortfolioCostBasisResult {
-  positions: PortfolioPositionItem[];
-  closedPositions: PortfolioPositionItem[];
-  realizedGainLossByPortfolioKey: Map<string, Decimal>;
-  warnings: string[];
-}
-
-class PortfolioCostBasisDispatcher {
-  constructor(private readonly workflow: JurisdictionCostBasisWorkflow) {}
-
-  async execute(params: PortfolioCostBasisParams): Promise<Result<PortfolioCostBasisResult, Error>> {
-    const workflowResult = await this.workflow.execute({
-      input: params.costBasisParams,
-      accountingExclusionPolicy: params.accountingExclusionPolicy,
-      assetReviewSummaries: params.assetReviewSummaries,
-      missingPricePolicy: 'exclude',
-    });
-    if (workflowResult.isErr()) return err(workflowResult.error);
-
-    return workflowResult.value.kind === 'generic-pipeline'
-      ? buildGenericPortfolioResult(workflowResult.value, params)
-      : buildCanadaPortfolioResult(workflowResult.value, params);
-  }
+interface CostBasisWorkflowExecutionOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
+  missingPricePolicy: 'error' | 'exclude';
 }
 ```
 
-This keeps:
+Then:
 
-- jurisdiction math in accounting
-- portfolio shaping in portfolio
-- no `if (jurisdiction === 'CA')` in `PortfolioHandler`
+```ts
+const pipelineResult = await runCostBasisPipeline(filteredTransactions, config, this.store, {
+  accountingExclusionPolicy: options.accountingExclusionPolicy,
+  assetReviewSummaries: options.assetReviewSummaries,
+  missingPricePolicy: options.missingPricePolicy,
+});
+```
 
-## Implementation Plan
+And propagate execution metadata into the result:
 
-### Phase 1: Introduce the shared engine abstraction
+```ts
+return ok({
+  kind: 'generic-pipeline',
+  summary,
+  report,
+  lots,
+  disposals,
+  lotTransfers,
+  executionMeta: {
+    missingPricesCount: pipelineResult.value.missingPricesCount,
+    retainedTransactionIds: pipelineResult.value.rebuildTransactions.map((tx) => tx.id),
+  },
+});
+```
 
-1. Add `IJurisdictionCostBasisEngine` and its param/result types.
-2. Add `GenericCostBasisEngine` by extracting the non-Canada half of current
-   `CostBasisWorkflow.execute(...)`.
-3. Add `CanadaCostBasisEngine` by extracting the current
-   `executeCanadaWorkflow(...)` path.
-4. Add `JurisdictionCostBasisEngineRegistry`.
+### 2. Shared Canada core
 
-Do not change CLI handlers in this phase.
-Keep behavior stable.
+Suggested new function:
 
-### Phase 2: Refactor accounting workflow to dispatch through the registry
+```ts
+export async function runCanadaCostBasisCalculation(
+  params: RunCanadaCostBasisCalculationParams
+): Promise<Result<CanadaCostBasisWorkflowResult, Error>>;
+```
 
-1. Replace direct `if (config.jurisdiction === 'CA')` branching in
-   `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
-   with registry resolution.
-2. Move `loadCostBasisContext()` to the outer workflow/orchestrator so engines
-   receive already-loaded context.
-3. Thread `missingPricePolicy` through the workflow interface instead of
-   hardcoding `'error'`.
-4. Keep
-   `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.ts`
-   as the persistence boundary.
+Accepts `missingPricePolicy` and `poolSnapshotStrategy` as explicit params.
+Returns `CanadaCostBasisWorkflowResult` including `executionMeta`.
 
-At the end of this phase, `cost-basis` should be using jurisdiction engines
-without any change to command behavior.
+Use:
 
-### Phase 3: Refactor portfolio to consume the same accounting workflow
+- `poolSnapshotStrategy: 'report-end'` for `cost-basis`
+- `poolSnapshotStrategy: 'full-input-range'` for `portfolio`
+- `missingPricePolicy: 'error'` for `cost-basis`
+- `missingPricePolicy: 'exclude'` for `portfolio`
 
-1. Add `PortfolioCostBasisDispatcher` in CLI.
-2. Move the current generic portfolio cost-basis branch out of
-   `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
-   into dispatcher helpers.
-3. Replace direct `runCostBasisPipeline(...)` calls with one accounting workflow
-   call using `missingPricePolicy: 'exclude'`.
-4. Remove direct failure snapshot persistence from `PortfolioHandler`; that
-   should already happen inside accounting orchestration after Phase 2.
+### 3. Portfolio generic flow
 
-At the end of this phase, `PortfolioHandler` should stop branching by
-jurisdiction and stop knowing about cost-basis artifact persistence.
+Instead of:
 
-### Phase 4: Cleanups after the seam is real
+```ts
+const pipelineResult = await runCostBasisPipeline(...);
+```
 
-1. Rename old types/classes whose names now overstate their role.
-2. Remove dead helpers left behind in `CostBasisWorkflow` and `PortfolioHandler`.
-3. Add focused tests around:
-   - registry dispatch
-   - generic vs Canada engine selection
-   - `missingPricePolicy` differences between `cost-basis` and `portfolio`
-   - failure snapshot persistence through the shared accounting path
+do:
 
-## Suggested File Moves
+```ts
+const workflowResult = await workflow.execute(costBasisParams, transactionsUpToAsOf, {
+  accountingExclusionPolicy: this.accountingExclusionPolicy,
+  assetReviewSummaries,
+  missingPricePolicy: 'exclude',
+});
+```
 
-These are not mandatory, but this is the cleanest layout:
+Then consume:
 
-- add `packages/accounting/src/cost-basis/jurisdiction-engines/`
-- keep `orchestration/` for cross-engine orchestration and persistence
-- keep Canada-specific math under `cost-basis/canada/`
+```ts
+if (workflowResult.value.kind !== 'generic-pipeline') {
+  return err(new Error(`Expected generic-pipeline result for non-CA portfolio flow`));
+}
+```
 
-Suggested new files:
+And build warnings from execution metadata:
 
-- `packages/accounting/src/cost-basis/jurisdiction-engines/jurisdiction-cost-basis-engine.ts`
-- `packages/accounting/src/cost-basis/jurisdiction-engines/jurisdiction-cost-basis-engine-registry.ts`
-- `packages/accounting/src/cost-basis/jurisdiction-engines/generic-cost-basis-engine.ts`
-- `packages/accounting/src/cost-basis/jurisdiction-engines/canada-cost-basis-engine.ts`
-- `apps/cli/src/features/portfolio/command/portfolio-cost-basis-dispatcher.ts`
+```ts
+const { missingPricesCount, retainedTransactionIds } = workflowResult.value.executionMeta;
+```
 
-## Why One Interface Is Still Correct
+This is acceptable because the branching remains consumer-specific output
+shaping, not jurisdiction execution ownership.
 
-Using one `IJurisdictionCostBasisEngine` is fine because the shared abstraction
-is narrow:
+## Why This Is Better Than the Earlier Engine Plan
 
-- given `CostBasisInput`, transactions, context, and policy
-- produce a jurisdiction-specific cost-basis calculation result
+### 1. It removes real duplication first
 
-That is the same job for Canada and generic lot-based jurisdictions even though
-their internal algorithms differ.
+The duplicated Canada orchestration is the immediate maintainability problem.
+This plan targets that directly.
 
-The mistake would be pushing portfolio position building or artifact storage
-into that same interface.
-Those are different concerns and should stay outside it.
+### 2. It keeps the abstraction load proportional
+
+Two paths do not justify:
+
+- registry
+- engine interface
+- `supports()` resolution
+- extra dispatcher classes
+
+The simpler plan preserves optionality without paying abstraction cost early.
+
+### 3. It still prepares for future jurisdictions
+
+If a future jurisdiction needs its own math, we will have:
+
+- one clean workflow boundary
+- one shared Canada extraction seam
+- no handler-owned jurisdiction logic
+
+That makes later extraction of `IJurisdictionCostBasisEngine` straightforward if
+it becomes necessary.
 
 ## Risks To Watch
 
-### 1. One interface can become too broad
+### 1. `CostBasisWorkflow` could become too wide
 
-If we keep adding consumer-specific flags directly to
-`IJurisdictionCostBasisEngine`, the abstraction will become a junk drawer.
-
-Guardrail:
-
-- only pass calculation inputs and accounting policy
-- keep rendering/output concerns above the engine boundary
-
-### 2. Generic engine may become an accidental catch-all
-
-If `UK` or another jurisdiction later needs materially different tax logic,
-do not keep widening `GenericCostBasisEngine`.
+Adding `missingPricePolicy` is justified.
+Do not keep piling unrelated consumer concerns into workflow params.
 
 Guardrail:
 
-- split out a new engine as soon as a jurisdiction stops sharing real tax math
-- the registry already gives us the extension seam
+- workflow options should remain calculation-policy inputs only
 
-### 3. Canada workflow may still need host-owned collaborators
+### 2. Canada extraction could accidentally hide semantic differences
 
-Canada currently depends on FX conversion/report behavior.
-Do not hide those dependencies in CLI again.
+The pool snapshot difference must stay explicit.
+Do not collapse it into hidden branching.
 
 Guardrail:
 
-- keep those collaborators constructed in accounting or passed into accounting
-  orchestration
-- do not rebuild Canada-specific collaboration wiring in `apps/cli`
+- require `poolSnapshotStrategy` as an explicit parameter
+
+### 3. `retainedTransactionIds` could be large
+
+For portfolios with thousands of transactions, returning all retained IDs is
+the highest-cardinality option for data used only to compute a two-number
+warning. If this becomes a concern, consider `excludedTransactionIds` (typically
+smaller) or pre-computed counts instead.
+
+### 4. Shared failure persister must actually be exercised
+
+If portfolio routes through a workflow path that is not covered by the shared
+failure persister, the debugging gap reappears silently.
+
+Guardrail:
+
+- failure snapshot persistence must be verified for both `cost-basis` and
+  `portfolio` error paths after Phase 3
 
 ## Decision To Lock In
 
 Adopt this rule:
 
-> Jurisdiction-specific cost-basis math belongs behind one accounting-owned
-> `IJurisdictionCostBasisEngine` interface, while consumer-specific shaping
-> (`cost-basis` artifact persistence vs `portfolio` position building) stays
-> outside that engine boundary.
-
-This gives us a clean extension seam for future jurisdictions without forcing
-false alignment between Canada and generic lot-based flows.
+> Keep jurisdiction dispatch in `CostBasisWorkflow` for now, make that workflow
+> reusable by both `cost-basis` and `portfolio`, extract the duplicated Canada
+> core calculation with explicit `missingPricePolicy` and `poolSnapshotStrategy`,
+> add shared failure snapshot persistence as a separate accounting capability,
+> and defer `IJurisdictionCostBasisEngine` until a third custom jurisdiction
+> actually forces the abstraction.
