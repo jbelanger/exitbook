@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export function pickLatestDate(...dates: (Date | undefined)[]): Date | undefined {
+  let latest: Date | undefined;
+  for (const date of dates) {
+    if (date && (!latest || date > latest)) {
+      latest = date;
+    }
+  }
+  return latest;
+}
+
 /**
  * Schema for integer fields that may be returned as numbers or strings.
  * Accepts both formats and converts to numeric string.

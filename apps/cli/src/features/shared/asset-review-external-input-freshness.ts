@@ -1,5 +1,5 @@
 import { findLatestTokenMetadataRefreshAt } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, pickLatestDate, type Result } from '@exitbook/core';
 import { OverrideStore } from '@exitbook/data';
 
 const ASSET_REVIEW_OVERRIDE_SCOPES = ['asset-review-confirm', 'asset-review-clear'] as const;
@@ -17,20 +17,4 @@ export async function findLatestAssetReviewExternalInputAt(dataDir: string): Pro
   }
 
   return ok(pickLatestDate(latestOverrideAtResult.value, latestTokenMetadataAtResult.value));
-}
-
-function pickLatestDate(...dates: (Date | undefined)[]): Date | undefined {
-  let latest: Date | undefined;
-
-  for (const date of dates) {
-    if (!date) {
-      continue;
-    }
-
-    if (!latest || date > latest) {
-      latest = date;
-    }
-  }
-
-  return latest;
 }

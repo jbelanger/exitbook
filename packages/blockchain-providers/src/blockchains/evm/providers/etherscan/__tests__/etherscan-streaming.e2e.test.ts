@@ -225,7 +225,6 @@ describe('EtherscanApiClient Streaming E2E', () => {
         // Fetch first batch
         let firstBatchCursor: CursorState | undefined;
         let firstBatchLastTx: string | undefined;
-        let firstBatchCount = 0;
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation)) {
           if (result.isErr()) {
@@ -238,20 +237,16 @@ describe('EtherscanApiClient Streaming E2E', () => {
           if (batch.data.length > 0) {
             firstBatchCursor = batch.cursor;
             firstBatchLastTx = batch.cursor.lastTransactionId;
-            firstBatchCount = batch.data.length;
             break;
           }
         }
 
         expect(firstBatchCursor).toBeDefined();
         expect(firstBatchLastTx).toBeDefined();
-        console.log(`First batch: ${firstBatchCount} withdrawals, last tx: ${firstBatchLastTx}`);
 
         // Resume from cursor
         let resumedBatchFirstTx: string | undefined;
         let resumedBatchCount = 0;
-
-        console.log('[resume test] Resuming with cursor:', JSON.stringify(firstBatchCursor, undefined, 2));
 
         for await (const result of provider.executeStreaming<EvmTransaction>(operation, firstBatchCursor)) {
           if (result.isErr()) {

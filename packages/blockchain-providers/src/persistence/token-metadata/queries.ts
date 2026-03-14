@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type AssetReferenceStatus, type TokenMetadataRecord, wrapError } from '@exitbook/core';
+import { type AssetReferenceStatus, type TokenMetadataRecord, wrapError, pickLatestDate } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -59,22 +59,6 @@ function parseLatestRefreshAt(value: string | null | undefined, fieldName: strin
   }
 
   return ok(parsed);
-}
-
-function pickLatestDate(...dates: (Date | undefined)[]): Date | undefined {
-  let latest: Date | undefined;
-
-  for (const date of dates) {
-    if (!date) {
-      continue;
-    }
-
-    if (!latest || date > latest) {
-      latest = date;
-    }
-  }
-
-  return latest;
 }
 
 function mapTokenReferenceMatchRow(row: TokenReferenceMatchSelectableRow): TokenReferenceMatchRecord {
