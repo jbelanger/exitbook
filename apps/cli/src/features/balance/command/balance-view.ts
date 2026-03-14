@@ -32,9 +32,9 @@ Examples:
 
 Notes:
   - Reads stored balance snapshots only.
-  - Requires a fresh stored snapshot for the selected scope.
+  - Builds the initial stored snapshot automatically if it has never been created.
   - Does not fetch live balances.
-  - If the snapshot is missing or stale, use "exitbook balance refresh" to rebuild it.
+  - If the snapshot is stale, use "exitbook balance refresh" to rebuild it.
 `
     )
     .action(executeBalanceViewCommand);
@@ -64,7 +64,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promi
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: false });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -124,7 +124,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promis
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: false });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

@@ -18,7 +18,10 @@ import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { formatBalanceSnapshotFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
+import {
+  BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
+  formatBalanceSnapshotFreshnessMessage,
+} from '../../shared/balance-snapshot-freshness-message.js';
 import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
@@ -145,7 +148,7 @@ export class BalanceHandler {
       }[] = [];
       for (const requestedAccount of accounts) {
         const scopeAccount = await this.resolveStoredSnapshotScopeAccount(requestedAccount);
-        const readabilityResult = await this.assertStoredSnapshotReadable(requestedAccount, scopeAccount);
+        const readabilityResult = await this.ensureStoredSnapshotReadable(requestedAccount, scopeAccount);
         if (readabilityResult.isErr()) {
           return err(readabilityResult.error);
         }
@@ -561,17 +564,55 @@ export class BalanceHandler {
     return scopeAccountResult.value;
   }
 
-  private async assertStoredSnapshotReadable(
+  private async ensureStoredSnapshotReadable(
     requestedAccount: Account,
     scopeAccount: Account
   ): Promise<Result<void, Error>> {
-    const freshnessResult = await buildBalancesFreshnessPorts(this.db).checkFreshness(scopeAccount.id);
+    const freshnessResult = await this.checkStoredSnapshotFreshness(scopeAccount.id);
     if (freshnessResult.isErr()) {
       return err(freshnessResult.error);
     }
 
     if (freshnessResult.value.status === 'fresh') {
       return ok(undefined);
+    }
+
+    if (freshnessResult.value.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON && this.balanceOperation !== undefined) {
+      logger.info(
+        {
+          requestedAccountId: requestedAccount.id,
+          scopeAccountId: scopeAccount.id,
+          sourceName: scopeAccount.sourceName,
+        },
+        'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
+      );
+
+      const rebuildResult = await this.balanceOperation.rebuildCalculatedSnapshot({
+        accountId: requestedAccount.id,
+      });
+      if (rebuildResult.isErr()) {
+        return err(rebuildResult.error);
+      }
+
+      const refreshedResult = await this.checkStoredSnapshotFreshness(scopeAccount.id);
+      if (refreshedResult.isErr()) {
+        return err(refreshedResult.error);
+      }
+      if (refreshedResult.value.status === 'fresh') {
+        return ok(undefined);
+      }
+
+      return err(
+        new Error(
+          formatBalanceSnapshotFreshnessMessage({
+            requestedAccountId: requestedAccount.id,
+            scopeAccountId: scopeAccount.id,
+            scopeSourceName: scopeAccount.sourceName,
+            status: refreshedResult.value.status,
+            reason: refreshedResult.value.reason,
+          })
+        )
+      );
     }
 
     return err(
@@ -585,6 +626,12 @@ export class BalanceHandler {
         })
       )
     );
+  }
+
+  private async checkStoredSnapshotFreshness(
+    scopeAccountId: number
+  ): Promise<Result<{ reason: string | undefined; status: 'fresh' | 'stale' | 'building' | 'failed' }, Error>> {
+    return buildBalancesFreshnessPorts(this.db).checkFreshness(scopeAccountId);
   }
 
   private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<BalanceSnapshotAsset[]> {
@@ -668,10 +715,10 @@ export class BalanceHandler {
 export async function createBalanceHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { needsOnline: boolean }
+  options: { needsWorkflow: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {
-    if (!options.needsOnline) {
+    if (!options.needsWorkflow) {
       return ok(new BalanceHandler(database, undefined));
     }
 

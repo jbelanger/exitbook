@@ -77,7 +77,7 @@ async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions):
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: true });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-refresh', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -174,7 +174,7 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: true });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
@@ -219,7 +219,7 @@ async function executeBalanceRefreshAllTUI(_options: BalanceRefreshCommandOption
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsOnline: true });
+      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

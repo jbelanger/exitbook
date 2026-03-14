@@ -1,5 +1,7 @@
 import type { ProjectionStatus } from '@exitbook/core';
 
+export const BALANCE_SNAPSHOT_NEVER_BUILT_REASON = 'balance snapshot has never been built';
+
 interface BalanceSnapshotFreshnessMessageParams {
   requestedAccountId: number;
   scopeAccountId: number;
@@ -48,12 +50,20 @@ function describeBalanceFreshness(params: {
 }
 
 export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFreshnessMessageParams): string {
-  const description = describeBalanceFreshness({ reason: params.reason, status: params.status });
   const requestedScopeHint =
     params.requestedAccountId === params.scopeAccountId
       ? `--account-id ${params.scopeAccountId}`
       : `--account-id ${params.requestedAccountId}`;
 
+  if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
+    return (
+      `Stored balance snapshot for scope account #${params.scopeAccountId} (${params.scopeSourceName}) ` +
+      'has not been built yet. ' +
+      `Run "exitbook balance refresh ${requestedScopeHint}" to build it.`
+    );
+  }
+
+  const description = describeBalanceFreshness({ reason: params.reason, status: params.status });
   if (description.affectsAllScopes) {
     return (
       `Stored balance snapshot for scope account #${params.scopeAccountId} (${params.scopeSourceName}) ` +
@@ -71,6 +81,14 @@ export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFre
 }
 
 export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParams): string {
+  if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
+    return (
+      `Assets view requires a stored balance snapshot. Scope account #${params.scopeAccountId} ` +
+      `has not been built yet. Run "exitbook balance refresh --account-id ${params.scopeAccountId}" or ` +
+      '"exitbook balance refresh" to build it.'
+    );
+  }
+
   const description = describeBalanceFreshness({ reason: params.reason, status: params.status });
 
   if (description.affectsAllScopes) {

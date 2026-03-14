@@ -122,8 +122,79 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
     const error = assertErr(result);
 
     expect(error.message).toContain('scope account #1');
-    expect(error.message).toContain('balance snapshot has never been built');
+    expect(error.message).toContain('has not been built yet');
     expect(error.message).toContain('balance refresh --account-id 2');
+    expect(error.message).not.toContain('is stale');
+  });
+
+  it('rebuilds the initial stored snapshot automatically when a workflow is available', async () => {
+    const parentAccount = createAccount({ id: 1, identifier: 'xpub-parent' });
+    const childAccount = createAccount({ id: 2, identifier: 'bc1-child', parentAccountId: parentAccount.id });
+    const snapshotsByScopeId = new Map<number, BalanceSnapshot>();
+    const snapshotAssets: BalanceSnapshotAsset[] = [];
+    const accounts = [parentAccount, childAccount];
+    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    const mockDb = {
+      accounts: {
+        findAll: vi.fn().mockImplementation(async (filters?: { parentAccountId?: number | undefined }) => {
+          if (filters?.parentAccountId !== undefined) {
+            return ok(accounts.filter((account) => account.parentAccountId === filters.parentAccountId));
+          }
+
+          return ok(accounts);
+        }),
+        findById: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
+        findByIdOptional: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
+      },
+      balanceSnapshots: {
+        findAssetsByScope: vi
+          .fn()
+          .mockImplementation(async (scopeAccountIds?: number[]) =>
+            ok(
+              scopeAccountIds
+                ? snapshotAssets.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
+                : snapshotAssets
+            )
+          ),
+        findSnapshot: vi
+          .fn()
+          .mockImplementation(async (scopeAccountId: number) => ok(snapshotsByScopeId.get(scopeAccountId))),
+      },
+      projectionState: {
+        get: vi.fn().mockResolvedValue(ok(undefined)),
+      },
+      transactions: {
+        findAll: vi.fn().mockResolvedValue(ok([])),
+      },
+    };
+    const balanceOperation = {
+      rebuildCalculatedSnapshot: vi.fn().mockImplementation(async ({ accountId }: { accountId: number }) => {
+        expect(accountId).toBe(childAccount.id);
+        snapshotsByScopeId.set(parentAccount.id, createSnapshot(parentAccount.id));
+        snapshotAssets.push(createSnapshotAsset(parentAccount.id, 'blockchain:bitcoin:native', 'BTC'));
+        return ok({
+          requestedAccount: childAccount,
+          scopeAccount: parentAccount,
+          assetCount: 1,
+        });
+      }),
+    };
+
+    const handler = new BalanceHandler(mockDb as unknown as DataContext, balanceOperation as never);
+    const result = await handler.viewStoredSnapshots({ accountId: childAccount.id });
+    const value = assertOk(result);
+
+    expect(balanceOperation.rebuildCalculatedSnapshot).toHaveBeenCalledWith({ accountId: childAccount.id });
+    expect(value.accounts).toHaveLength(1);
+    expect(value.accounts[0]).toMatchObject({
+      account: {
+        id: parentAccount.id,
+      },
+      requestedAccount: {
+        id: childAccount.id,
+      },
+    });
+    expect(value.accounts[0]?.assets).toHaveLength(1);
   });
 
   it('explains when processed-transaction resets invalidate every stored balance snapshot', async () => {
