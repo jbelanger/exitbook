@@ -1,6 +1,6 @@
 # Theta Family Extraction Plan
 
-Status: phases 1-4 implemented; phase 5 validation pending
+Status: implemented
 
 ## Why This Exists
 
@@ -418,6 +418,14 @@ problem persists.
    Theta data to verify whether the `THETA` false positive still occurs.
 2. If resolved, no further code changes are needed — document this in the PR.
 3. If the false positive persists, make token-reference eligibility explicit:
+
+Implementation note:
+
+The extraction alone does not fully eliminate the false-positive path because
+`blockchain:theta:theta` still looks like a non-`native` blockchain asset ID to
+asset-review reference lookup. Phase 5 therefore adds explicit CoinGecko token
+reference eligibility semantics so Theta can declare that only contract-style
+refs are eligible for CoinGecko matching.
 
 ### Conditional changes (only if false positive persists)
 

@@ -133,14 +133,21 @@ class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
       return ok(results);
     }
 
-    const cachedMatchesResult = await this.queries.getReferenceMatches(blockchain, normalizedTokenRefs, 'coingecko');
+    const eligibleTokenRefs = normalizedTokenRefs.filter((tokenRef) =>
+      isTokenRefEligibleForCoinGecko(blockchain, tokenRef)
+    );
+    if (eligibleTokenRefs.length === 0) {
+      return ok(results);
+    }
+
+    const cachedMatchesResult = await this.queries.getReferenceMatches(blockchain, eligibleTokenRefs, 'coingecko');
     if (cachedMatchesResult.isErr()) {
       return err(cachedMatchesResult.error);
     }
 
     const tokenRefsToRefresh: string[] = [];
 
-    for (const tokenRef of normalizedTokenRefs) {
+    for (const tokenRef of eligibleTokenRefs) {
       const cached = cachedMatchesResult.value.get(tokenRef);
       if (!cached) {
         tokenRefsToRefresh.push(tokenRef);
@@ -310,4 +317,20 @@ function mapReferenceMatchToLookup(record: TokenReferenceMatchRecord): TokenRefe
 
 function normalizeReferenceLookupKey(reference: string): string {
   return reference.startsWith('0x') ? reference.toLowerCase() : reference;
+}
+
+function isTokenRefEligibleForCoinGecko(blockchain: string, tokenRef: string): boolean {
+  const tokenRefFormat = getChainCatalogEntry(blockchain)?.providerHints?.coingecko?.tokenRefFormat;
+  if (!tokenRefFormat) {
+    return true;
+  }
+
+  switch (tokenRefFormat) {
+    case 'evm-contract':
+      return /^0x[a-f0-9]{40}$/i.test(tokenRef);
+    case 'platform-address':
+      return tokenRef.trim() !== '';
+    case 'unsupported':
+      return false;
+  }
 }

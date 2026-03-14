@@ -14,6 +14,7 @@ describe('theta/chain-registry', () => {
       providerHints: {
         coingecko: {
           chainIdentifier: 361,
+          tokenRefFormat: 'evm-contract',
         },
       },
       transactionTypes: ['normal'],

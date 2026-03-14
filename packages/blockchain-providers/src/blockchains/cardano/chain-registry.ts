@@ -10,6 +10,7 @@ export const CARDANO_CHAINS: Record<string, CardanoChainConfig> = {
     providerHints: {
       coingecko: {
         platformId: 'cardano',
+        tokenRefFormat: 'platform-address',
       },
     },
   },

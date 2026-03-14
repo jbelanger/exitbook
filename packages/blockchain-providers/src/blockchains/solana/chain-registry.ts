@@ -10,6 +10,7 @@ export const SOLANA_CHAINS: Record<string, SolanaChainConfig> = {
     providerHints: {
       coingecko: {
         platformId: 'solana',
+        tokenRefFormat: 'platform-address',
       },
     },
   },

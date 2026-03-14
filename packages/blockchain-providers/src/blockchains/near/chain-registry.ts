@@ -10,6 +10,7 @@ export const NEAR_CHAINS: Record<string, NearChainConfig> = {
     providerHints: {
       coingecko: {
         platformId: 'near-protocol',
+        tokenRefFormat: 'platform-address',
       },
     },
   },

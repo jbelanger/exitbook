@@ -201,6 +201,67 @@ describe('coingecko-token-reference', () => {
     }
   });
 
+  it('returns reference unknown for Theta native-symbol refs without querying CoinGecko', async () => {
+    const getSpy = vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async () => {
+      throw new Error('CoinGecko should not be queried for Theta native-symbol refs');
+    });
+
+    const resolver = assertOk(createCoinGeckoTokenReferenceResolver(queries, { apiKey: 'demo-key' }));
+
+    try {
+      const result = assertOk(await resolver.resolveBatch('theta', ['theta']));
+
+      expect(result.get('theta')).toEqual({
+        provider: 'coingecko',
+        referenceStatus: 'unknown',
+      });
+      expect(getSpy).not.toHaveBeenCalled();
+      expect(assertOk(await queries.getReferencePlatformMapping('theta', 'coingecko'))).toBeUndefined();
+    } finally {
+      await resolver.close();
+    }
+  });
+
+  it('still resolves Theta contract refs when they look like EVM contract addresses', async () => {
+    const contractAddress = '0x4dc08b15ea0e10b96c41aec22fab934ba15c983e';
+    vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async (endpoint: string) => {
+      if (endpoint === '/asset_platforms') {
+        return ok([{ id: 'theta-token', chain_identifier: 361 }]);
+      }
+
+      if (endpoint === '/coins/list?include_platform=true') {
+        return ok([
+          {
+            id: 'example-theta-token',
+            symbol: 'ett',
+            name: 'Example Theta Token',
+            platforms: {
+              'theta-token': contractAddress,
+            },
+          },
+        ]);
+      }
+
+      return err(new Error(`Unexpected endpoint: ${endpoint}`));
+    });
+
+    const resolver = assertOk(createCoinGeckoTokenReferenceResolver(queries, { apiKey: 'demo-key' }));
+
+    try {
+      const result = assertOk(await resolver.resolveBatch('theta', [contractAddress]));
+
+      expect(result.get(contractAddress)).toMatchObject({
+        provider: 'coingecko',
+        referenceStatus: 'matched',
+        assetPlatformId: 'theta-token',
+        externalAssetId: 'example-theta-token',
+        externalContractAddress: contractAddress,
+      });
+    } finally {
+      await resolver.close();
+    }
+  });
+
   it('returns reference unknown for unsupported blockchains even when CoinGecko is configured', async () => {
     const tokenRef = 'rTokenIssuerExample';
     vi.spyOn(HttpClient.prototype, 'get').mockImplementation(async (endpoint: string) => {

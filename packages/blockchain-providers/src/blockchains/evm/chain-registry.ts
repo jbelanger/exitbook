@@ -23,6 +23,7 @@ export const EVM_CHAINS = Object.fromEntries(
         coingecko: {
           ...config.providerHints?.coingecko,
           chainIdentifier: config.providerHints?.coingecko?.chainIdentifier ?? config.chainId,
+          tokenRefFormat: config.providerHints?.coingecko?.tokenRefFormat ?? 'evm-contract',
         },
       },
     },

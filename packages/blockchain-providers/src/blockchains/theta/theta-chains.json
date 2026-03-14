@@ -17,7 +17,8 @@
     "transactionTypes": ["normal"],
     "providerHints": {
       "coingecko": {
-        "chainIdentifier": 361
+        "chainIdentifier": 361,
+        "tokenRefFormat": "evm-contract"
       }
     }
   }
