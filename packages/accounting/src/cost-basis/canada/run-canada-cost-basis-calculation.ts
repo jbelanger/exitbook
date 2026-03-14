@@ -3,7 +3,10 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../orchestration/cost-basis-workflow.js';
+import type {
+  CostBasisExecutionMeta,
+  CanadaCostBasisWorkflowResult,
+} from '../orchestration/cost-basis-workflow-types.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { getCostBasisRebuildTransactions, type CostBasisInput } from '../shared/cost-basis-utils.js';
 

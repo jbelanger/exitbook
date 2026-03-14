@@ -10,7 +10,7 @@ import {
   THETA_GAS_ASSET_SYMBOL,
   THETA_NATIVE_DECIMALS,
   THETA_PRIMARY_ASSET_SYMBOL,
-} from '../mapper-utils.js';
+} from '../theta-format-utils.js';
 
 describe('theta/mapper-utils', () => {
   it('selects THETA before TFUEL when both amounts are present', () => {

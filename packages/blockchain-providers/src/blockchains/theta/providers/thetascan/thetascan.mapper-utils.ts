@@ -3,13 +3,13 @@ import { type Result, ok } from '@exitbook/core';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import {
   isThetaTokenTransfer,
   parseCommaFormattedNumber,
   selectThetaCurrency,
   THETA_NATIVE_DECIMALS,
-} from '../../mapper-utils.js';
-import { EvmTransactionSchema } from '../../schemas.js';
+} from '../../theta-format-utils.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
@@ -19,7 +19,7 @@ import { ThetaScanTransactionSchema, type ThetaScanTransaction } from './thetasc
  * Pure functions for ThetaScan transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
-export { isThetaTokenTransfer, parseCommaFormattedNumber, selectThetaCurrency } from '../../mapper-utils.js';
+export { isThetaTokenTransfer, parseCommaFormattedNumber, selectThetaCurrency } from '../../theta-format-utils.js';
 
 /**
  * Maps ThetaScan transaction to normalized EvmTransaction (internal)

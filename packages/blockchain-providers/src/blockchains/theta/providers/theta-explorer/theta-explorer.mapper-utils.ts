@@ -4,13 +4,13 @@ import type { Decimal } from 'decimal.js';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';
+import { EvmTransactionSchema } from '../../schemas.js';
 import {
   formatThetaAmount,
   isThetaTokenTransfer,
   selectThetaCurrency,
   THETA_NATIVE_DECIMALS,
-} from '../../mapper-utils.js';
-import { EvmTransactionSchema } from '../../schemas.js';
+} from '../../theta-format-utils.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
 
@@ -25,7 +25,7 @@ import {
  * Pure functions for Theta Explorer transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
-export { formatThetaAmount, isThetaTokenTransfer, selectThetaCurrency } from '../../mapper-utils.js';
+export { formatThetaAmount, isThetaTokenTransfer, selectThetaCurrency } from '../../theta-format-utils.js';
 
 /**
  * Extracts transaction details from Type 2 (Send) transaction

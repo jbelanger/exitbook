@@ -4,58 +4,29 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import type {
-  CanadaCostBasisCalculation,
-  CanadaDisplayCostBasisReport,
-  CanadaTaxInputContext,
-  CanadaTaxReport,
-} from '../canada/canada-tax-types.js';
 import { runCanadaCostBasisCalculation } from '../canada/run-canada-cost-basis-calculation.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import { validateCostBasisInput, type CostBasisInput } from '../shared/cost-basis-utils.js';
 import type { CostBasisReport } from '../shared/report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../shared/types.js';
 
-import type { CostBasisSummary } from './cost-basis-calculator.js';
 import { runCostBasisPipeline } from './cost-basis-pipeline.js';
 import { CostBasisReportGenerator } from './cost-basis-report-generator.js';
+import type {
+  CanadaCostBasisWorkflowResult,
+  CostBasisWorkflowExecutionOptions,
+  CostBasisWorkflowResult,
+} from './cost-basis-workflow-types.js';
+
+export type {
+  CanadaCostBasisWorkflowResult,
+  CostBasisExecutionMeta,
+  CostBasisWorkflowExecutionOptions,
+  CostBasisWorkflowResult,
+  GenericCostBasisWorkflowResult,
+} from './cost-basis-workflow-types.js';
 
 const logger = getLogger('CostBasisWorkflow');
-
-/**
- * Result of the cost basis workflow.
- */
-export interface CostBasisExecutionMeta {
-  missingPricesCount: number;
-  retainedTransactionIds: number[];
-}
-
-export interface CostBasisWorkflowExecutionOptions {
-  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
-  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
-  missingPricePolicy: 'error' | 'exclude';
-}
-
-export interface GenericCostBasisWorkflowResult {
-  kind: 'generic-pipeline';
-  summary: CostBasisSummary;
-  report?: CostBasisReport | undefined;
-  lots: AcquisitionLot[];
-  disposals: LotDisposal[];
-  lotTransfers: LotTransfer[];
-  executionMeta: CostBasisExecutionMeta;
-}
-
-export interface CanadaCostBasisWorkflowResult {
-  kind: 'canada-workflow';
-  calculation: CanadaCostBasisCalculation;
-  taxReport: CanadaTaxReport;
-  displayReport?: CanadaDisplayCostBasisReport | undefined;
-  inputContext?: CanadaTaxInputContext | undefined;
-  executionMeta: CostBasisExecutionMeta;
-}
-
-export type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCostBasisWorkflowResult;
 
 /**
  * Orchestrates cost basis calculation — validates params, fetches/filters
