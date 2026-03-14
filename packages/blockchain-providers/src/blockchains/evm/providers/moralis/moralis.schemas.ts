@@ -82,7 +82,7 @@ export const MoralisNativeBalanceSchema = z.object({
  * Schema for native_transfers[] in the wallet history response.
  * Covers both regular transfers and internal (contract-initiated) transfers.
  */
-export const MoralisWalletHistoryNativeTransferSchema = z.object({
+const MoralisWalletHistoryNativeTransferSchema = z.object({
   direction: z.enum(['send', 'receive']),
   from_address: EvmAddressSchema,
   from_address_label: z.string().nullish(),
@@ -97,7 +97,7 @@ export const MoralisWalletHistoryNativeTransferSchema = z.object({
 /**
  * Schema for erc20_transfers[] in the wallet history response.
  */
-export const MoralisWalletHistoryErc20TransferSchema = z.object({
+const MoralisWalletHistoryErc20TransferSchema = z.object({
   address: EvmAddressSchema, // contract address
   direction: z.enum(['send', 'receive']),
   from_address: EvmAddressSchema,
@@ -119,7 +119,7 @@ export const MoralisWalletHistoryErc20TransferSchema = z.object({
 /**
  * Schema for internal_transactions[] in the wallet history response.
  */
-export const MoralisWalletHistoryInternalTransactionSchema = z.object({
+const MoralisWalletHistoryInternalTransactionSchema = z.object({
   block_hash: z.string().min(1),
   block_number: z.number().int().nonnegative(),
   error: z.string().nullish(),

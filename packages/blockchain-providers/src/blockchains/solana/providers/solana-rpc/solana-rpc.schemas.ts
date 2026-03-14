@@ -68,7 +68,7 @@ const _SolanaRPCTransactionSchema = z.object({
 /**
  * Schema for Solana token accounts response
  */
-export const SolanaTokenAccountsResponseSchema = z.object({
+const SolanaTokenAccountsResponseSchema = z.object({
   value: z.array(SolanaTokenAccountSchema),
 });
 

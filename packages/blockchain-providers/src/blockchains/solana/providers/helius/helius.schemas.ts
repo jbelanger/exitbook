@@ -115,7 +115,7 @@ export const HeliusBalanceJsonRpcResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
-export const SolanaTokenAccountsResponseSchema = z.object({
+const SolanaTokenAccountsResponseSchema = z.object({
   value: z.array(SolanaTokenAccountSchema),
 });
 
