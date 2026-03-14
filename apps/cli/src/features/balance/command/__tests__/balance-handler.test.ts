@@ -161,7 +161,21 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
           .mockImplementation(async (scopeAccountId: number) => ok(snapshotsByScopeId.get(scopeAccountId))),
       },
       projectionState: {
-        get: vi.fn().mockResolvedValue(ok(undefined)),
+        get: vi.fn().mockImplementation(async () =>
+          ok(
+            snapshotsByScopeId.has(parentAccount.id)
+              ? undefined
+              : {
+                  projectionId: 'balances',
+                  scopeKey: 'balance:1',
+                  status: 'stale',
+                  lastBuiltAt: undefined,
+                  lastInvalidatedAt: undefined,
+                  invalidatedBy: 'upstream-rebuilt:processed-transactions',
+                  metadata: undefined,
+                }
+          )
+        ),
       },
       transactions: {
         findAll: vi.fn().mockResolvedValue(ok([])),
@@ -195,6 +209,24 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       },
     });
     expect(value.accounts[0]?.assets).toHaveLength(1);
+  });
+
+  it('reports a missing stored snapshot even when projection freshness was invalidated globally', async () => {
+    const account = createAccount({ id: 1, sourceName: 'kraken' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [],
+      snapshotAssets: [],
+      staleScopes: new Map([[account.id, 'upstream-rebuilt:processed-transactions']]),
+    });
+
+    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const result = await handler.viewStoredSnapshots({ accountId: account.id });
+    const error = assertErr(result);
+
+    expect(error.message).toContain('has not been built yet');
+    expect(error.message).toContain('balance refresh --account-id 1');
+    expect(error.message).not.toContain('invalidated stored balance snapshots for all scopes');
   });
 
   it('explains when processed-transaction resets invalidate every stored balance snapshot', async () => {

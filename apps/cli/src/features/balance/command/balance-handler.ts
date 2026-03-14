@@ -577,12 +577,23 @@ export class BalanceHandler {
       return ok(undefined);
     }
 
-    if (freshnessResult.value.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON && this.balanceOperation !== undefined) {
+    const hasStoredSnapshotResult = await this.hasStoredSnapshot(scopeAccount.id);
+    if (hasStoredSnapshotResult.isErr()) {
+      return err(hasStoredSnapshotResult.error);
+    }
+
+    if (
+      !hasStoredSnapshotResult.value &&
+      this.balanceOperation !== undefined &&
+      freshnessResult.value.status !== 'building'
+    ) {
       logger.info(
         {
           requestedAccountId: requestedAccount.id,
           scopeAccountId: scopeAccount.id,
           sourceName: scopeAccount.sourceName,
+          freshnessReason: freshnessResult.value.reason,
+          freshnessStatus: freshnessResult.value.status,
         },
         'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
       );
@@ -615,6 +626,20 @@ export class BalanceHandler {
       );
     }
 
+    if (!hasStoredSnapshotResult.value) {
+      return err(
+        new Error(
+          formatBalanceSnapshotFreshnessMessage({
+            requestedAccountId: requestedAccount.id,
+            scopeAccountId: scopeAccount.id,
+            scopeSourceName: scopeAccount.sourceName,
+            status: freshnessResult.value.status,
+            reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
+          })
+        )
+      );
+    }
+
     return err(
       new Error(
         formatBalanceSnapshotFreshnessMessage({
@@ -632,6 +657,15 @@ export class BalanceHandler {
     scopeAccountId: number
   ): Promise<Result<{ reason: string | undefined; status: 'fresh' | 'stale' | 'building' | 'failed' }, Error>> {
     return buildBalancesFreshnessPorts(this.db).checkFreshness(scopeAccountId);
+  }
+
+  private async hasStoredSnapshot(scopeAccountId: number): Promise<Result<boolean, Error>> {
+    const snapshotResult = await this.db.balanceSnapshots.findSnapshot(scopeAccountId);
+    if (snapshotResult.isErr()) {
+      return err(snapshotResult.error);
+    }
+
+    return ok(snapshotResult.value !== undefined);
   }
 
   private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<BalanceSnapshotAsset[]> {
