@@ -2,6 +2,7 @@ import {
   initializeStats,
   extractAssetsNeedingPrices,
   createPriceQuery,
+  createAccountingExclusionPolicy,
   validateAssetFilter,
   determineEnrichmentStages,
 } from '@exitbook/accounting';
@@ -298,6 +299,35 @@ describe('extractAssetsNeedingPrices', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it('should ignore excluded assetIds when extracting price fetch symbols', () => {
+    const tx: UniversalTransactionData = {
+      id: 1,
+      accountId: 1,
+      datetime: '2024-01-15T12:00:00.000Z',
+      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
+      source: 'test',
+      sourceType: 'exchange',
+      status: 'success',
+      externalId: 'test-1',
+      operation: { category: 'trade', type: 'buy' },
+      movements: {
+        inflows: [
+          { assetId: 'blockchain:ethereum:0xgood', assetSymbol: 'USDC' as Currency, grossAmount: parseDecimal('10') },
+          { assetId: 'blockchain:ethereum:0xspam', assetSymbol: 'SPAM' as Currency, grossAmount: parseDecimal('5') },
+        ],
+        outflows: [],
+      },
+      fees: [],
+    };
+
+    const result = extractAssetsNeedingPrices(tx, createAccountingExclusionPolicy(['blockchain:ethereum:0xspam']));
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(['USDC']);
     }
   });
 });

@@ -77,10 +77,12 @@ export type { PriceEvent } from './price-enrichment/shared/price-events.js';
 export {
   validateAssetFilter,
   extractAssetsNeedingPrices,
+  extractPriceFetchCandidates,
   createPriceQuery,
   initializeStats,
   determineEnrichmentStages,
 } from './price-enrichment/enrichment/price-fetch-utils.js';
+export type { PriceFetchCandidate } from './price-enrichment/enrichment/price-fetch-utils.js';
 export { PriceEnrichmentPipeline } from './price-enrichment/orchestration/price-enrichment-pipeline.js';
 export type {
   PricesEnrichOptions,

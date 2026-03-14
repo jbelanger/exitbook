@@ -400,7 +400,7 @@ async function ensureTransactionPricesReady(
     if (priceManagerResult.isErr()) return err(priceManagerResult.error);
     const priceManager = priceManagerResult.value;
     try {
-      const pipeline = new PriceEnrichmentPipeline(store);
+      const pipeline = new PriceEnrichmentPipeline(store, undefined, undefined, accountingExclusionPolicy);
       const fxRateProvider = new StandardFxRateProvider(priceManager);
       const result = await pipeline.execute({}, priceManager, fxRateProvider);
       if (result.isErr()) return err(result.error);
@@ -444,7 +444,7 @@ async function ensureTransactionPricesReady(
   try {
     await controller.start();
 
-    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation);
+    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
     const fxRateProvider = new StandardFxRateProvider(priceManager);
     const result = await pipeline.execute({}, priceManager, fxRateProvider);
 

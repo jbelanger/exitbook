@@ -5,6 +5,9 @@ import { err, ok, resultDo, type Result } from '@exitbook/core';
 import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
 
+import type { AccountingExclusionPolicy } from '../../cost-basis/shared/accounting-exclusion-policy.js';
+import { isExcludedAsset } from '../../cost-basis/shared/accounting-exclusion-policy.js';
+
 /**
  * Command options for prices fetch
  */
@@ -43,6 +46,11 @@ export interface PricesFetchResult {
   runStats?: MetricsSummary | undefined;
 }
 
+export interface PriceFetchCandidate {
+  assetId: string;
+  assetSymbol: Currency;
+}
+
 /**
  * Validate asset filter
  */
@@ -73,11 +81,44 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
   });
 }
 
+function addPriceFetchCandidate(
+  candidatesByAssetId: Map<string, PriceFetchCandidate>,
+  entity: {
+    assetId: string;
+    assetSymbol: Currency;
+    priceAtTxTime?: UniversalTransactionData['fees'][number]['priceAtTxTime'] | undefined;
+  },
+  exclusionPolicy?: AccountingExclusionPolicy
+): void {
+  const needsPrice = !entity.priceAtTxTime || entity.priceAtTxTime.source === 'fiat-execution-tentative';
+
+  if (!needsPrice) {
+    return;
+  }
+
+  if (isFiat(entity.assetSymbol)) {
+    return;
+  }
+
+  if (isExcludedAsset(exclusionPolicy, entity.assetId)) {
+    return;
+  }
+
+  candidatesByAssetId.set(entity.assetId, {
+    assetId: entity.assetId,
+    assetSymbol: entity.assetSymbol,
+  });
+}
+
 /**
- * Extract unique assets from a transaction's movements that need prices.
- * Filters out fiat currencies and movements that already have non-tentative prices.
+ * Extract unique assetIds from a transaction's movements that need market prices.
+ * Filters out fiat currencies, excluded assets, and movements that already have
+ * non-tentative prices.
  */
-export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result<string[], Error> {
+export function extractPriceFetchCandidates(
+  tx: UniversalTransactionData,
+  exclusionPolicy?: AccountingExclusionPolicy
+): Result<PriceFetchCandidate[], Error> {
   const inflows = tx.movements.inflows ?? [];
   const outflows = tx.movements.outflows ?? [];
   const fees = tx.fees ?? [];
@@ -86,29 +127,34 @@ export function extractAssetsNeedingPrices(tx: UniversalTransactionData): Result
     return err(new Error(`Transaction ${tx.id} has no movements`));
   }
 
-  const assetsNeedingPrices = new Set<string>();
+  const candidatesByAssetId = new Map<string, PriceFetchCandidate>();
 
   for (const movement of [...inflows, ...outflows]) {
-    const needsPrice = !movement.priceAtTxTime || movement.priceAtTxTime.source === 'fiat-execution-tentative';
-
-    if (needsPrice) {
-      if (!isFiat(movement.assetSymbol)) {
-        assetsNeedingPrices.add(movement.assetSymbol);
-      }
-    }
+    addPriceFetchCandidate(candidatesByAssetId, movement, exclusionPolicy);
   }
 
   for (const fee of fees) {
-    const needsPrice = !fee.priceAtTxTime || fee.priceAtTxTime.source === 'fiat-execution-tentative';
-
-    if (needsPrice) {
-      if (!isFiat(fee.assetSymbol)) {
-        assetsNeedingPrices.add(fee.assetSymbol);
-      }
-    }
+    addPriceFetchCandidate(candidatesByAssetId, fee, exclusionPolicy);
   }
 
-  return ok([...assetsNeedingPrices]);
+  return ok([...candidatesByAssetId.values()]);
+}
+
+/**
+ * Extract unique asset symbols from a transaction's movements that need prices.
+ * Filters out fiat currencies, excluded assets, and movements that already have
+ * non-tentative prices.
+ */
+export function extractAssetsNeedingPrices(
+  tx: UniversalTransactionData,
+  exclusionPolicy?: AccountingExclusionPolicy
+): Result<string[], Error> {
+  const candidatesResult = extractPriceFetchCandidates(tx, exclusionPolicy);
+  if (candidatesResult.isErr()) {
+    return err(candidatesResult.error);
+  }
+
+  return ok([...new Set(candidatesResult.value.map((candidate) => candidate.assetSymbol))]);
 }
 
 /**

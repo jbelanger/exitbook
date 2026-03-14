@@ -1,4 +1,4 @@
-import { type Currency } from '@exitbook/core';
+import { type Currency, type PriceAtTxTime } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
@@ -7,12 +7,16 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
+import type { AccountingExclusionPolicy } from '../../cost-basis/shared/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
-import { enrichMovementsWithPrices, enrichWithPrice } from '../enrichment/movement-enrichment-utils.js';
+import {
+  enrichFeesWithPricesByAssetId,
+  enrichMovementsWithPricesByAssetId,
+} from '../enrichment/movement-enrichment-utils.js';
 import type { PriceFetchStats, PriceFetchOptions, PricesFetchResult } from '../enrichment/price-fetch-utils.js';
 import {
   createPriceQuery,
-  extractAssetsNeedingPrices,
+  extractPriceFetchCandidates,
   initializeStats,
   validateAssetFilter,
 } from '../enrichment/price-fetch-utils.js';
@@ -44,7 +48,8 @@ export class PriceFetchService {
   constructor(
     private readonly store: IPricingPersistence,
     private readonly instrumentation: InstrumentationCollector,
-    private readonly eventBus?: EventBus<PriceEvent>
+    private readonly eventBus?: EventBus<PriceEvent>,
+    private readonly accountingExclusionPolicy?: AccountingExclusionPolicy
   ) {}
 
   /**
@@ -108,22 +113,30 @@ export class PriceFetchService {
         break;
       }
 
-      const assetsResult = extractAssetsNeedingPrices(tx);
-      if (assetsResult.isErr()) {
-        logger.warn(`Skipping transaction ${tx.id}: ${assetsResult.error.message}`);
-        errors.push(`Transaction ${tx.id}: ${assetsResult.error.message}`);
+      const candidatesResult = extractPriceFetchCandidates(tx, this.accountingExclusionPolicy);
+      if (candidatesResult.isErr()) {
+        logger.warn(`Skipping transaction ${tx.id}: ${candidatesResult.error.message}`);
+        errors.push(`Transaction ${tx.id}: ${candidatesResult.error.message}`);
         stats.skipped++;
         continue;
       }
 
-      const assetsNeedingPrices = assetsResult.value;
-      if (assetsNeedingPrices.length === 0) {
+      const priceFetchCandidates = candidatesResult.value;
+      if (priceFetchCandidates.length === 0) {
         stats.skipped++;
         continue;
       }
 
-      const fetchedPrices: {
-        asset: string;
+      const assetIdsBySymbol = new Map<string, Set<string>>();
+      for (const candidate of priceFetchCandidates) {
+        const assetIds = assetIdsBySymbol.get(candidate.assetSymbol) ?? new Set<string>();
+        assetIds.add(candidate.assetId);
+        assetIdsBySymbol.set(candidate.assetSymbol, assetIds);
+      }
+
+      const fetchedPricesByAssetId = new Map<string, PriceAtTxTime>();
+      const fetchedSymbols: {
+        assetSymbol: string;
         fetchedAt: Date;
         granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
         price: { amount: Decimal; currency: Currency };
@@ -132,11 +145,11 @@ export class PriceFetchService {
 
       let txHadFailure = false;
 
-      for (const asset of assetsNeedingPrices) {
-        const queryResult = createPriceQuery(tx, asset);
+      for (const [assetSymbol, targetAssetIds] of assetIdsBySymbol) {
+        const queryResult = createPriceQuery(tx, assetSymbol);
         if (queryResult.isErr()) {
-          logger.warn(`Skipping asset ${asset} for transaction ${tx.id}: ${queryResult.error.message}`);
-          errors.push(`Transaction ${tx.id}, asset ${asset}: ${queryResult.error.message}`);
+          logger.warn(`Skipping asset ${assetSymbol} for transaction ${tx.id}: ${queryResult.error.message}`);
+          errors.push(`Transaction ${tx.id}, asset ${assetSymbol}: ${queryResult.error.message}`);
           txHadFailure = true;
           continue;
         }
@@ -144,13 +157,13 @@ export class PriceFetchService {
         const priceResult = await priceManager.fetchPrice(queryResult.value);
 
         if (priceResult.isErr()) {
-          logger.warn(`Failed to fetch price for ${asset} in transaction ${tx.id}: ${priceResult.error.message}`);
-          errors.push(`Transaction ${tx.id}, asset ${asset}: ${priceResult.error.message}`);
+          logger.warn(`Failed to fetch price for ${assetSymbol} in transaction ${tx.id}: ${priceResult.error.message}`);
+          errors.push(`Transaction ${tx.id}, asset ${assetSymbol}: ${priceResult.error.message}`);
           consecutiveFailures++;
           txHadFailure = true;
 
           if (options.onMissing === 'fail') {
-            return err(new PriceFetchAbortError(asset, String(tx.id), tx.datetime, tx.source, { ...stats }));
+            return err(new PriceFetchAbortError(assetSymbol, String(tx.id), tx.datetime, tx.source, { ...stats }));
           }
 
           continue;
@@ -165,8 +178,22 @@ export class PriceFetchService {
           stats.granularity[priceData.granularity]++;
         }
 
-        fetchedPrices.push({
-          asset,
+        const fetchedPrice: PriceAtTxTime = {
+          fetchedAt: priceData.fetchedAt,
+          price: {
+            amount: priceData.price,
+            currency: priceData.currency,
+          },
+          source: priceData.source,
+          ...(priceData.granularity ? { granularity: priceData.granularity } : {}),
+        };
+
+        for (const assetId of targetAssetIds) {
+          fetchedPricesByAssetId.set(assetId, fetchedPrice);
+        }
+
+        fetchedSymbols.push({
+          assetSymbol,
           fetchedAt: priceData.fetchedAt,
           granularity: priceData.granularity,
           price: {
@@ -177,25 +204,13 @@ export class PriceFetchService {
         });
       }
 
-      if (fetchedPrices.length > 0) {
-        const pricesMap = new Map(
-          fetchedPrices.map((fp) => [
-            fp.asset,
-            {
-              price: fp.price,
-              source: fp.source,
-              fetchedAt: fp.fetchedAt,
-              granularity: fp.granularity,
-            },
-          ])
+      if (fetchedSymbols.length > 0) {
+        const enrichedInflows = enrichMovementsWithPricesByAssetId(tx.movements.inflows ?? [], fetchedPricesByAssetId);
+        const enrichedOutflows = enrichMovementsWithPricesByAssetId(
+          tx.movements.outflows ?? [],
+          fetchedPricesByAssetId
         );
-
-        const enrichedInflows = enrichMovementsWithPrices(tx.movements.inflows ?? [], pricesMap);
-        const enrichedOutflows = enrichMovementsWithPrices(tx.movements.outflows ?? [], pricesMap);
-        const enrichedFees = tx.fees.map((fee) => {
-          const newPrice = pricesMap.get(fee.assetSymbol);
-          return newPrice ? enrichWithPrice(fee, newPrice) : fee;
-        });
+        const enrichedFees = enrichFeesWithPricesByAssetId(tx.fees, fetchedPricesByAssetId);
 
         const enrichedTx = {
           ...tx,
@@ -210,7 +225,7 @@ export class PriceFetchService {
           errors.push(`Transaction ${tx.id}: ${updateResult.error.message}`);
           stats.failures++;
         } else {
-          stats.movementsUpdated += fetchedPrices.length;
+          stats.movementsUpdated += fetchedPricesByAssetId.size;
         }
       }
 

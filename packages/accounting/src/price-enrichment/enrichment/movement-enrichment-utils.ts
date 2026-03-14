@@ -8,7 +8,7 @@
  * 0. fiat-execution-tentative - Pending normalization to USD
  */
 
-import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, PriceAtTxTime } from '@exitbook/core';
 
 /** Price source priority levels */
 const PRICE_SOURCE_PRIORITY = {
@@ -80,5 +80,37 @@ export function enrichMovementsWithPrices(
       return movement;
     }
     return enrichMovementWithPrice(movement, newPrice);
+  });
+}
+
+/**
+ * Enrich an array of movements with prices keyed by assetId.
+ */
+export function enrichMovementsWithPricesByAssetId(
+  movements: AssetMovement[],
+  pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
+): AssetMovement[] {
+  return movements.map((movement) => {
+    const newPrice = pricesByAssetId.get(movement.assetId);
+    if (!newPrice) {
+      return movement;
+    }
+    return enrichMovementWithPrice(movement, newPrice);
+  });
+}
+
+/**
+ * Enrich fee movements with prices keyed by assetId.
+ */
+export function enrichFeesWithPricesByAssetId(
+  fees: FeeMovement[],
+  pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
+): FeeMovement[] {
+  return fees.map((fee) => {
+    const newPrice = pricesByAssetId.get(fee.assetId);
+    if (!newPrice) {
+      return fee;
+    }
+    return enrichWithPrice(fee, newPrice);
   });
 }

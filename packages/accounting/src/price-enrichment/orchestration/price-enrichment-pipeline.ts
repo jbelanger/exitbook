@@ -20,6 +20,7 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
 
+import type { AccountingExclusionPolicy } from '../../cost-basis/shared/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import type { PricesFetchResult } from '../enrichment/price-fetch-utils.js';
 import { determineEnrichmentStages } from '../enrichment/price-fetch-utils.js';
@@ -101,7 +102,8 @@ export class PriceEnrichmentPipeline {
   constructor(
     private readonly store: IPricingPersistence,
     private readonly eventBus?: EventBus<PriceEvent>,
-    instrumentation?: InstrumentationCollector
+    instrumentation?: InstrumentationCollector,
+    private readonly accountingExclusionPolicy?: AccountingExclusionPolicy
   ) {
     this.instrumentation = instrumentation ?? new InstrumentationCollector();
   }
@@ -170,7 +172,12 @@ export class PriceEnrichmentPipeline {
 
         // Stage 3: Fetch (external providers for remaining crypto prices)
         if (stages.fetch) {
-          const fetchService = new PriceFetchService(self.store, self.instrumentation, self.eventBus);
+          const fetchService = new PriceFetchService(
+            self.store,
+            self.instrumentation,
+            self.eventBus,
+            self.accountingExclusionPolicy
+          );
           result.fetch = yield* await self.runStage(
             'Stage 3: Fetching missing prices from external providers',
             'marketPrices',

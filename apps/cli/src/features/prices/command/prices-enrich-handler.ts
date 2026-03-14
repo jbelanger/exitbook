@@ -12,6 +12,7 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
+import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
@@ -85,6 +86,11 @@ export async function createPricesEnrichHandler(
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
   const store = buildPricingPorts(database);
+  const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+  if (accountingExclusionPolicyResult.isErr()) {
+    return err(accountingExclusionPolicyResult.error);
+  }
+  const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
 
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
@@ -95,7 +101,7 @@ export async function createPricesEnrichHandler(
     const priceManager = priceManagerResult.value;
     ctx.onCleanup(async () => priceManager.destroy());
 
-    const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation);
+    const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
     return ok(new PricesEnrichHandler(pipeline, priceManager, undefined));
   }
 
@@ -116,6 +122,6 @@ export async function createPricesEnrichHandler(
   const priceManager = priceManagerResult.value;
   ctx.onCleanup(async () => priceManager.destroy());
 
-  const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation);
+  const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
   return ok(new PricesEnrichHandler(pipeline, priceManager, controller));
 }
