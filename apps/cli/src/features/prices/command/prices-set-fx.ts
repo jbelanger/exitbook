@@ -5,7 +5,6 @@ import path from 'node:path';
 
 import { OverrideStore } from '@exitbook/data';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { getDataDir } from '../../shared/data-dir.js';
@@ -14,11 +13,6 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { PricesSetFxCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
-
-/**
- * Command options (validated at CLI boundary).
- */
-export type CommandOptions = z.infer<typeof PricesSetFxCommandOptionsSchema>;
 
 /**
  * Register prices set-fx command

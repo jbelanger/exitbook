@@ -50,17 +50,17 @@ const logger = getLogger('projection-runtime');
 // Types
 // ---------------------------------------------------------------------------
 
-export interface ProjectionFreshnessResult {
+interface ProjectionFreshnessResult {
   status: ProjectionStatus;
   reason: string | undefined;
 }
 
-export interface ProjectionRuntime {
+interface ProjectionRuntime {
   checkFreshness(): Promise<Result<ProjectionFreshnessResult, Error>>;
   rebuild(): Promise<Result<void, Error>>;
 }
 
-export interface ProjectionRuntimeDeps {
+interface ProjectionRuntimeDeps {
   db: DataContext;
   registry: AdapterRegistry;
   dataDir: string;
@@ -68,9 +68,9 @@ export interface ProjectionRuntimeDeps {
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
 }
 
-export type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
+type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
 
-export interface PricePrereqConfig {
+interface PricePrereqConfig {
   startDate: Date;
   endDate: Date;
 }

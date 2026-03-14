@@ -12,7 +12,7 @@ export interface DerivedAddress {
   derivationPath: string;
 }
 
-export interface BlockchainProcessorContext {
+interface BlockchainProcessorContext {
   providerManager: BlockchainProviderManager;
   scamDetectionService: IScamDetectionService | undefined;
   /** Only needed by NEAR processors for balance-change delta derivation. */

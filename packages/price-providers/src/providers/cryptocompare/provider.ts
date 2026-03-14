@@ -52,7 +52,7 @@ const CRYPTOCOMPARE_RATE_LIMITS = {
 /**
  * Configuration for CryptoCompare provider factory
  */
-export interface CryptoCompareProviderConfig {
+interface CryptoCompareProviderConfig {
   /** API key for CryptoCompare (optional - uses free tier if not provided) */
   apiKey?: string | undefined;
 }

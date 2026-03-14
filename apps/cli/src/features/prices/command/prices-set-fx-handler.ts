@@ -13,7 +13,7 @@ const logger = getLogger('PricesSetFxHandler');
 /**
  * Options for prices set-fx command
  */
-export interface PricesSetFxOptions {
+interface PricesSetFxOptions {
   /** Source currency (e.g., 'EUR', 'CAD') */
   from: string;
 
@@ -33,7 +33,7 @@ export interface PricesSetFxOptions {
 /**
  * Result of prices set-fx command
  */
-export interface PricesSetFxResult {
+interface PricesSetFxResult {
   from: string;
   to: string;
   timestamp: Date;

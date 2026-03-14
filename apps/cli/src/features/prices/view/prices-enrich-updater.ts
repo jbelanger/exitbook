@@ -13,7 +13,7 @@ const RATE_WINDOW_MS = 5000;
 /**
  * Actions that drive state transitions in the prices enrich UI.
  */
-export type PricesEnrichAction =
+type PricesEnrichAction =
   | { apiCalls: ApiCallStats; type: 'refresh' }
   | { errorMessage: string; type: 'fail' }
   | { event: PriceEvent; type: 'event' }

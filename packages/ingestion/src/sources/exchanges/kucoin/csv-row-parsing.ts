@@ -3,17 +3,17 @@ import { err, ok, type Result } from '@exitbook/core';
 
 import type { KucoinCsvRow } from './types.js';
 
-export interface ParsedKucoinTimestamp {
+interface ParsedKucoinTimestamp {
   datetime: string;
   timestamp: number;
 }
 
-export interface ParsedKucoinTradePair {
+interface ParsedKucoinTradePair {
   baseCurrency: Currency;
   quoteCurrency: Currency;
 }
 
-export function parseKucoinUtcTimestamp(timeStr: string | undefined): Result<ParsedKucoinTimestamp, Error> {
+function parseKucoinUtcTimestamp(timeStr: string | undefined): Result<ParsedKucoinTimestamp, Error> {
   if (!timeStr || timeStr.trim() === '') {
     return err(new Error('Missing KuCoin timestamp'));
   }

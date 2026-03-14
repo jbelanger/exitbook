@@ -11,7 +11,7 @@ import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
-export interface AccountKeyParams {
+interface AccountKeyParams {
   accountType: AccountType;
   sourceName: string;
   identifier: string;

@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import { OverrideStore, readAssetReviewDecisions } from '@exitbook/data';
 import type { AssetReviewReferenceResolver, AssetReviewTokenMetadataReader } from '@exitbook/ingestion';
 
-export interface AssetReviewProjectionSupport {
+interface AssetReviewProjectionSupport {
   loadReviewDecisions: () => ReturnType<typeof readAssetReviewDecisions>;
   referenceResolver?: AssetReviewReferenceResolver | undefined;
   tokenMetadataReader?: AssetReviewTokenMetadataReader | undefined;

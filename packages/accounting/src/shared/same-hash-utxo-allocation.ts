@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-export interface SameHashUtxoSourceInput {
+interface SameHashUtxoSourceInput {
   feeAmount: Decimal;
   grossAmount: Decimal;
   txId: number;

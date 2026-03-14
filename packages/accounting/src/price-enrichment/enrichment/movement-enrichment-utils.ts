@@ -28,7 +28,7 @@ const isDerivedSource = (source: string) => source === 'derived-ratio' || source
  * Apply price priority rules to any entity with an optional priceAtTxTime field.
  * Works with both AssetMovement and FeeMovement.
  */
-export function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }>(
+function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }>(
   entity: T,
   newPrice: PriceAtTxTime
 ): T {

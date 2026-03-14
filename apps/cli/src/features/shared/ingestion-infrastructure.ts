@@ -17,7 +17,7 @@ const logger = getLogger('ingestion-infrastructure');
 
 export type CliEvent = IngestionEvent | ProviderEvent;
 
-export interface IngestionInfrastructure {
+interface IngestionInfrastructure {
   processingWorkflow: ProcessingWorkflow;
   providerManager: OpenedBlockchainProviderRuntime['providerManager'];
   instrumentation: InstrumentationCollector;

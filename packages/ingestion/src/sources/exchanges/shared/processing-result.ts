@@ -7,7 +7,7 @@ import type { ExchangeGroupInterpretation } from './exchange-interpretation.js';
 import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnostic.js';
 import { materializeProcessedTransaction } from './materialize-processed-transaction.js';
 
-export interface ExchangeProcessingBatchResult {
+interface ExchangeProcessingBatchResult {
   transactions: ProcessedTransaction[];
   diagnostics: ExchangeProcessingDiagnostic[];
 }

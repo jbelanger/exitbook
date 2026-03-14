@@ -174,11 +174,4 @@ export const MoralisWalletHistoryResponseSchema = z.object({
 });
 
 // Type exports (inferred from schemas)
-export type MoralisTokenBalance = z.infer<typeof MoralisTokenBalanceSchema>;
-export type MoralisTokenMetadata = z.infer<typeof MoralisTokenMetadataSchema>;
-export type MoralisNativeBalance = z.infer<typeof MoralisNativeBalanceSchema>;
-export type MoralisWalletHistoryNativeTransfer = z.infer<typeof MoralisWalletHistoryNativeTransferSchema>;
-export type MoralisWalletHistoryErc20Transfer = z.infer<typeof MoralisWalletHistoryErc20TransferSchema>;
-export type MoralisWalletHistoryInternalTransaction = z.infer<typeof MoralisWalletHistoryInternalTransactionSchema>;
 export type MoralisWalletHistoryTransaction = z.infer<typeof MoralisWalletHistoryTransactionSchema>;
-export type MoralisWalletHistoryResponse = z.infer<typeof MoralisWalletHistoryResponseSchema>;

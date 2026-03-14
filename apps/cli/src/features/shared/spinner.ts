@@ -48,11 +48,3 @@ function completeSpinner(
 export function stopSpinner(spinner: SpinnerWrapper | undefined, message?: string): void {
   completeSpinner(spinner, message, 'succeed');
 }
-
-/**
- * Stop a spinner with a failure message.
- * Safe to call with undefined spinner (no-op).
- */
-export function failSpinner(spinner: SpinnerWrapper | undefined, message?: string): void {
-  completeSpinner(spinner, message, 'fail');
-}

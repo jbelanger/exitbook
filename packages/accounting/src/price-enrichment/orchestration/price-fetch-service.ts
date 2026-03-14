@@ -28,7 +28,7 @@ const logger = getLogger('PriceFetchService');
  * Structured error for when --on-missing=fail triggers an abort.
  * Carries structured data so callers can format their own messages.
  */
-export class PriceFetchAbortError extends Error {
+class PriceFetchAbortError extends Error {
   constructor(
     public readonly asset: string,
     public readonly transactionId: string,

@@ -11,7 +11,7 @@
  * These headers are used to validate CSV files and ensure they contain
  * the expected data structure before processing.
  */
-export const EXPECTED_HEADERS = {
+const EXPECTED_HEADERS = {
   /**
    * KuCoin account history CSV export header format
    * Contains balance changes, trades, deposits, withdrawals
@@ -205,9 +205,3 @@ export const CSV_FILE_TYPES = {
   [EXPECTED_HEADERS.TRADING_BOT_SPOT_CSV]: 'trading_bot',
   [EXPECTED_HEADERS.ASSET_SNAPSHOTS_CSV]: 'not_implemented_snapshots',
 } as const;
-
-/**
- * Type definitions for constants
- */
-export type ExpectedHeaders = typeof EXPECTED_HEADERS;
-export type CsvFileType = keyof typeof CSV_FILE_TYPES;

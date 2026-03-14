@@ -16,7 +16,7 @@ export interface ProcessResultWithMetrics {
   runStats: MetricsSummary;
 }
 
-export interface ProcessHandlerParams {
+interface ProcessHandlerParams {
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
 }

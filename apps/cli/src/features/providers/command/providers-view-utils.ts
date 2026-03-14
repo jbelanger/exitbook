@@ -22,7 +22,7 @@ export type HealthFilter = (typeof VALID_HEALTH_FILTERS)[number];
 /**
  * Intermediate grouping: a provider's presence on a specific blockchain.
  */
-export interface ProviderBlockchainEntry {
+interface ProviderBlockchainEntry {
   blockchain: string;
   providerInfo: ProviderCatalogEntry;
 }

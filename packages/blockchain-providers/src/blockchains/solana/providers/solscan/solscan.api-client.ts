@@ -32,10 +32,6 @@ import {
   SolscanLegacyTransactionsResponseSchema,
 } from './solscan.schemas.js';
 
-export interface SolscanRawBalanceData {
-  lamports: string;
-}
-
 export const solscanMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
   baseUrl: 'https://pro-api.solscan.io/v2.0',

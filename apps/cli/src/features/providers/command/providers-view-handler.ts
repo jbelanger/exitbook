@@ -10,7 +10,7 @@ import {
   type HealthFilter,
 } from './providers-view-utils.js';
 
-export interface ProvidersViewParams {
+interface ProvidersViewParams {
   blockchain?: string | undefined;
   health?: HealthFilter | undefined;
   missingApiKey?: boolean | undefined;

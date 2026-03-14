@@ -15,7 +15,7 @@ import { getDefaultReviewer } from './links-utils.js';
 
 const logger = getLogger('TransferProposalReviewService');
 
-export interface TransferProposalReviewResult {
+interface TransferProposalReviewResult {
   affectedLinkCount: number;
   affectedLinkIds: number[];
   asset?: string | undefined;

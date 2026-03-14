@@ -25,30 +25,6 @@ export interface ViewTransactionsParams extends CommonViewFilters {
 }
 
 /**
- * Get direction icon for transaction movement.
- */
-export function getDirectionIcon(direction: string | null | undefined): string {
-  switch (direction) {
-    case 'in':
-      return '←';
-    case 'out':
-      return '→';
-    default:
-      return '↔';
-  }
-}
-
-/**
- * Format operation label from category and type.
- */
-export function formatOperationLabel(category: string | null | undefined, type: string | null | undefined): string {
-  if (category && type) {
-    return `${category}/${type}`;
-  }
-  return 'Unknown';
-}
-
-/**
  * Apply filters to transactions based on provided parameters.
  */
 export function applyTransactionFilters(
@@ -137,7 +113,7 @@ function toFeeDisplayItem(f: FeeMovement): FeeDisplayItem {
  * - `none`: no non-fiat movement has priceAtTxTime
  * - `not-needed`: all movements are fiat
  */
-export function computePriceStatus(tx: UniversalTransactionData): 'all' | 'partial' | 'none' | 'not-needed' {
+function computePriceStatus(tx: UniversalTransactionData): 'all' | 'partial' | 'none' | 'not-needed' {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
   // Filter to non-fiat movements only (fiat doesn't need pricing)

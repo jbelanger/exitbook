@@ -527,7 +527,7 @@ export function selectPrimaryEvmTransaction(
  * Pure function for case-sensitive address comparison.
  * Addresses should already be normalized to lowercase via EvmAddressSchema.
  */
-export function matchesEvmAddress(address: string | undefined, target: string): boolean {
+function matchesEvmAddress(address: string | undefined, target: string): boolean {
   return address ? address === target : false;
 }
 
@@ -536,7 +536,7 @@ export function matchesEvmAddress(address: string | undefined, target: string): 
  *
  * Pure function that returns true if the user is either the sender or receiver.
  */
-export function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): boolean {
+function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): boolean {
   return matchesEvmAddress(tx.from, userAddress) || matchesEvmAddress(tx.to, userAddress);
 }
 
@@ -546,7 +546,7 @@ export function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): b
  * Pure function that determines if the transaction involves the chain's native currency
  * (ETH, MATIC, etc.) rather than a token.
  */
-export function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
+function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
   const native = chainConfig.nativeCurrency.toLowerCase();
   return tx.currency.toLowerCase() === native || tx.tokenSymbol?.toLowerCase() === native;
 }

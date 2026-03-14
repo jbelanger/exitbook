@@ -48,7 +48,7 @@ interface XrplPaginationMarker {
   seq: number;
 }
 
-export const xrplRpcMetadata: ProviderMetadata = {
+const xrplRpcMetadata: ProviderMetadata = {
   baseUrl: 'https://s1.ripple.com:51234',
   blockchain: 'xrp',
   capabilities: {

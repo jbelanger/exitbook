@@ -36,14 +36,6 @@ import {
   HeliusTokenAccountsJsonRpcResponseSchema,
 } from './helius.schemas.js';
 
-export interface SolanaRawBalanceData {
-  lamports: number;
-}
-
-export interface SolanaRawTokenBalanceData {
-  tokenAccounts: SolanaTokenAccountsResponse;
-}
-
 export const heliusMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'HELIUS_API_KEY',
   baseUrl: 'https://rpc.helius.xyz',

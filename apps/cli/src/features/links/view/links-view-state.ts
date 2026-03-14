@@ -26,7 +26,7 @@ export interface TransferProposalWithTransactions {
   transferProposalKey?: string | undefined;
 }
 
-export interface LinksViewProposalFilters {
+interface LinksViewProposalFilters {
   maxConfidence?: number | undefined;
   minConfidence?: number | undefined;
 }

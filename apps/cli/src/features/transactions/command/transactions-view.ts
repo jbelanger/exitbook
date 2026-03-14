@@ -2,7 +2,6 @@ import { err, ok } from '@exitbook/core';
 // Command registration for view transactions subcommand
 import type { Command } from 'commander';
 import React from 'react';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -17,11 +16,6 @@ import type { ExportCallbackResult, OnExport } from '../view/index.js';
 
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import { applyTransactionFilters, generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
-
-/**
- * Command options (validated at CLI boundary).
- */
-export type CommandOptions = z.infer<typeof TransactionsViewCommandOptionsSchema>;
 
 /**
  * Result data for view transactions command (JSON mode).

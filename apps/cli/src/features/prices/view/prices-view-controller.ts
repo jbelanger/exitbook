@@ -12,7 +12,7 @@ import { missingRowKey, type PricesViewCoverageState, type PricesViewState } fro
 /**
  * Action types
  */
-export type PricesViewAction =
+type PricesViewAction =
   | { type: 'NAVIGATE_UP'; visibleRows: number }
   | { type: 'NAVIGATE_DOWN'; visibleRows: number }
   | { type: 'PAGE_UP'; visibleRows: number }

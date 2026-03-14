@@ -9,7 +9,6 @@
  */
 import type { PricesEnrichOptions } from '@exitbook/accounting';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
@@ -19,11 +18,6 @@ import { PricesEnrichCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
 import { createPricesEnrichHandler } from './prices-enrich-handler.js';
-
-/**
- * Command options (validated at CLI boundary).
- */
-export type CommandOptions = z.infer<typeof PricesEnrichCommandOptionsSchema>;
 
 /**
  * Register the prices enrich subcommand

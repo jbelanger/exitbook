@@ -21,7 +21,7 @@ export const FORMAT_OPTIONS: { csvFormat: CsvFormat | undefined; format: ExportF
 /**
  * Action types for transactions view (navigation + export flow).
  */
-export type TransactionsViewAction =
+type TransactionsViewAction =
   | { type: 'NAVIGATE_UP'; visibleRows: number }
   | { type: 'NAVIGATE_DOWN'; visibleRows: number }
   | { type: 'PAGE_UP'; visibleRows: number }

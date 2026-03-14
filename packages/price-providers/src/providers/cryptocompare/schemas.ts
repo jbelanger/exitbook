@@ -50,17 +50,3 @@ export type CryptoCompareHistoricalResponse = z.infer<typeof CryptoCompareHistor
 export const CryptoComparePriceResponseSchema = z.record(z.string(), z.number());
 
 export type CryptoComparePriceResponse = z.infer<typeof CryptoComparePriceResponseSchema>;
-
-/**
- * CryptoCompare error response
- */
-export const CryptoCompareErrorResponseSchema = z.object({
-  Response: z.literal('Error'),
-  Message: z.string(),
-  HasWarning: z.boolean().optional(),
-  Type: z.number().optional(),
-  RateLimit: z.object({}).passthrough().optional(),
-  Data: z.object({}).optional(),
-});
-
-export type CryptoCompareErrorResponse = z.infer<typeof CryptoCompareErrorResponseSchema>;

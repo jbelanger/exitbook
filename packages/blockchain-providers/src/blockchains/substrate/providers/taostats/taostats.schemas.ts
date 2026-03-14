@@ -9,7 +9,7 @@ import { SubstrateAddressSchema } from '../../schemas.js';
 /**
  * Schema for Taostats address structure
  */
-export const TaostatsAddressSchema = z.object({
+const TaostatsAddressSchema = z.object({
   hex: z.string().min(1, 'Hex address must not be empty'),
   ss58: SubstrateAddressSchema,
 });
@@ -33,7 +33,7 @@ export const TaostatsTransactionSchema = z.object({
 /**
  * Schema for Taostats account data in balance response
  */
-export const TaostatsAccountDataSchema = z.object({
+const TaostatsAccountDataSchema = z.object({
   address: TaostatsAddressSchema,
   alpha_balances: z.unknown().nullish(),
   alpha_balances_24hr_ago: z.unknown().nullish(),
@@ -71,8 +71,5 @@ export const TaostatsTransactionsResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type TaostatsAddress = z.infer<typeof TaostatsAddressSchema>;
 export type TaostatsTransaction = z.infer<typeof TaostatsTransactionSchema>;
-export type TaostatsAccountData = z.infer<typeof TaostatsAccountDataSchema>;
 export type TaostatsBalanceResponse = z.infer<typeof TaostatsBalanceResponseSchema>;
-export type TaostatsTransactionsResponse = z.infer<typeof TaostatsTransactionsResponseSchema>;

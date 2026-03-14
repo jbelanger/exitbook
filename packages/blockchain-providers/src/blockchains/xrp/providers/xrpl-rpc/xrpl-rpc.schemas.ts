@@ -160,7 +160,7 @@ const SignerSchema = z.object({
 /**
  * Transaction object from account_tx or tx response
  */
-export const XrplTransactionSchema = z.object({
+const XrplTransactionSchema = z.object({
   Account: XrpAddressSchema,
   Amount: XrpAmountSchema.optional(),
   DeliverMax: XrpAmountSchema.optional(),
@@ -180,8 +180,6 @@ export const XrplTransactionSchema = z.object({
   inLedger: z.number().optional(),
   ledger_index: z.number().optional(),
 });
-
-export type XrplTransaction = z.infer<typeof XrplTransactionSchema>;
 
 /**
  * Transaction with metadata from account_tx
@@ -242,40 +240,6 @@ export const XrplAccountTxResponseSchema = z.object({
 export type XrplAccountTxResponse = z.infer<typeof XrplAccountTxResponseSchema>;
 
 /**
- * tx result (single transaction lookup)
- */
-const TxResultSchema = XrplTransactionSchema.extend({
-  meta: TransactionMetaSchema,
-  status: z.literal('success'),
-  validated: z.boolean(),
-});
-
-/**
- * JSON-RPC response wrapper for tx
- */
-export const XrplTxResponseSchema = z.object({
-  id: z.union([z.string(), z.number()]).optional(),
-  jsonrpc: z.literal('2.0').optional(),
-  result: TxResultSchema,
-  error: z
-    .object({
-      code: z.number(),
-      message: z.string(),
-    })
-    .optional(),
-  warnings: z
-    .array(
-      z.object({
-        id: z.number(),
-        message: z.string(),
-      })
-    )
-    .optional(),
-});
-
-export type XrplTxResponse = z.infer<typeof XrplTxResponseSchema>;
-
-/**
  * Trust line (for token balances)
  */
 const TrustLineSchema = z.object({
@@ -289,8 +253,6 @@ const TrustLineSchema = z.object({
   quality_in: z.number(),
   quality_out: z.number(),
 });
-
-export type XrplTrustLine = z.infer<typeof TrustLineSchema>;
 
 /**
  * account_lines result (token balances)

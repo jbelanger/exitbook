@@ -12,7 +12,7 @@ export type CoinbaseCredentials = z.infer<typeof CoinbaseCredentialsSchema>;
  * Different transaction types have different nested objects (advanced_trade_fill, buy, sell, send, trade, etc.)
  * This schema captures common fields that appear across different transaction types
  */
-export const RawCoinbaseTransactionDetailsSchema = z
+const RawCoinbaseTransactionDetailsSchema = z
   .object({
     // Correlation ID - present in buy, sell, trade nested objects
     id: z.string().optional(),
@@ -68,7 +68,7 @@ export const RawCoinbaseTransactionDetailsSchema = z
  * Schema for blockchain network information from Coinbase API v2
  * Present for on-chain deposits/withdrawals
  */
-export const CoinbaseNetworkInfoSchema = z.object({
+const CoinbaseNetworkInfoSchema = z.object({
   hash: z.string(),
   network_name: z.string(),
   status: z.string(), // "confirmed", "pending", etc.
@@ -83,7 +83,7 @@ export const CoinbaseNetworkInfoSchema = z.object({
 /**
  * Schema for recipient/destination address from Coinbase API v2
  */
-export const CoinbaseAddressInfoSchema = z.object({
+const CoinbaseAddressInfoSchema = z.object({
   address: z.string(),
   resource: z.string(),
 });
@@ -132,7 +132,6 @@ export const RawCoinbaseLedgerEntrySchema = z
   })
   .passthrough();
 
-export type RawCoinbaseTransactionDetails = z.infer<typeof RawCoinbaseTransactionDetailsSchema>;
 export type RawCoinbaseLedgerEntry = z.infer<typeof RawCoinbaseLedgerEntrySchema>;
 
 /**

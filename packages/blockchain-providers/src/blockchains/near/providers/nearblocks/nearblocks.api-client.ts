@@ -76,7 +76,7 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
  * - Two-hop correlation via receipts (transactions → receipts → balance changes)
  * - Each type independently resumable
  */
-export const nearblocksMetadata: ProviderMetadata = {
+const nearblocksMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
   baseUrl: 'https://api.nearblocks.io',
   blockchain: 'near',

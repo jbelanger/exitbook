@@ -252,7 +252,7 @@ export class RoutescanApiClient extends BaseApiClient {
       endpoint: `?${params.toString()}`,
       validate: (response: unknown) => {
         const data = response as RoutescanApiResponse<unknown>;
-        return !!(data && data.status === '1');
+        return !!(data && data['status'] === '1');
       },
     };
   }

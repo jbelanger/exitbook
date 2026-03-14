@@ -24,7 +24,7 @@ import type {
   ProvidersViewState,
 } from './providers-view-state.js';
 
-export const PROVIDER_DETAIL_LINES = 9;
+const PROVIDER_DETAIL_LINES = 9;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

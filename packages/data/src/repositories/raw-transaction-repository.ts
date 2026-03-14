@@ -19,7 +19,7 @@ export interface RawTransactionQueryParams {
   offset?: number | undefined;
 }
 
-export interface RawTransactionCountParams {
+interface RawTransactionCountParams {
   accountIds?: number[] | undefined;
   processingStatus?: ProcessingStatus | undefined;
 }

@@ -16,13 +16,11 @@ export const CoinGeckoCoinListItemSchema = z.object({
 
 export type CoinGeckoCoinListItem = z.infer<typeof CoinGeckoCoinListItemSchema>;
 
-export const CoinGeckoCoinListSchema = z.array(CoinGeckoCoinListItemSchema);
-
 /**
  * CoinGecko markets response (sorted by market cap)
  * Endpoint: /coins/markets
  */
-export const CoinGeckoMarketItemSchema = z.object({
+const CoinGeckoMarketItemSchema = z.object({
   id: z.string(),
   symbol: z.string(),
   name: z.string(),
@@ -37,8 +35,6 @@ export const CoinGeckoMarketItemSchema = z.object({
     .optional()
     .transform((val) => val ?? undefined),
 });
-
-export type CoinGeckoMarketItem = z.infer<typeof CoinGeckoMarketItemSchema>;
 
 export const CoinGeckoMarketsSchema = z.array(CoinGeckoMarketItemSchema);
 
@@ -87,5 +83,3 @@ export const CoinGeckoErrorResponseSchema = z.object({
     })
     .optional(),
 });
-
-export type CoinGeckoErrorResponse = z.infer<typeof CoinGeckoErrorResponseSchema>;

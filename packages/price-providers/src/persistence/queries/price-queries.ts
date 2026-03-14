@@ -12,7 +12,7 @@ import { roundToMinute, roundToHour, roundToDay } from '../../core/utils.js';
 import type { PriceData } from '../../index.js';
 import type { PricesDB } from '../database.js';
 
-export interface PriceRecord {
+interface PriceRecord {
   id: number;
   asset_symbol: string;
   currency: string;

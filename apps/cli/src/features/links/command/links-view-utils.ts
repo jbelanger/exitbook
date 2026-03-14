@@ -145,7 +145,7 @@ export function formatLinkInfo(
 /**
  * Get status icon for link.
  */
-export function getLinkStatusIcon(status: LinkStatus): string {
+function getLinkStatusIcon(status: LinkStatus): string {
   switch (status) {
     case 'confirmed':
       return '✓';
@@ -161,7 +161,7 @@ export function getLinkStatusIcon(status: LinkStatus): string {
 /**
  * Format confidence score as percentage.
  */
-export function formatConfidence(confidence: string | Decimal): string {
+function formatConfidence(confidence: string | Decimal): string {
   const score = typeof confidence === 'string' ? parseFloat(confidence) : confidence.toNumber();
   return `${(score * 100).toFixed(1)}%`;
 }
@@ -169,7 +169,7 @@ export function formatConfidence(confidence: string | Decimal): string {
 /**
  * Format match criteria for display.
  */
-export function formatMatchCriteria(criteria: MatchCriteria): string {
+function formatMatchCriteria(criteria: MatchCriteria): string {
   const parts: string[] = [];
 
   if (criteria.assetMatch) {
@@ -300,30 +300,4 @@ function formatDisplayLinkType(link: LinkInfo): string {
   }
 
   return link.link_type.replace(/_/g, ' ');
-}
-
-/**
- * Format links list for text display.
- */
-export function formatLinksListForDisplay(links: LinkInfo[], count: number): string {
-  const lines: string[] = [];
-
-  lines.push('');
-  lines.push('Transaction Links:');
-  lines.push('=============================');
-  lines.push('');
-
-  if (links.length === 0) {
-    lines.push('No links found.');
-  } else {
-    for (const link of links) {
-      lines.push(formatLinkForDisplay(link));
-      lines.push('');
-    }
-  }
-
-  lines.push('=============================');
-  lines.push(`Total: ${count} links`);
-
-  return lines.join('\n');
 }

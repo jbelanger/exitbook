@@ -65,7 +65,7 @@ export class Err<T, E> {
 export const ok = <T, E = never>(value: T): Ok<T, E> => new Ok(value);
 
 /** Normalizes unknown values to Error instances. */
-export function normalizeError(value: unknown): Error {
+function normalizeError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 

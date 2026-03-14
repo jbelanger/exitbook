@@ -1,7 +1,7 @@
 import { BufferedSink, type BufferedSinkOptions } from '../buffered-sink.js';
 import type { LogEntry } from '../logger.js';
 
-export interface ConsoleSinkOptions extends BufferedSinkOptions {
+interface ConsoleSinkOptions extends BufferedSinkOptions {
   color?: boolean;
 }
 

@@ -7,7 +7,7 @@ import { err, ok } from '@exitbook/core';
 /**
  * CLI options structure for providers-benchmark command.
  */
-export interface BenchmarkRateLimitCommandOptions {
+interface BenchmarkRateLimitCommandOptions {
   blockchain: string;
   provider: string;
   maxRate?: string | undefined;

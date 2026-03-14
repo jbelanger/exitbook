@@ -79,7 +79,7 @@ export interface PricesEnrichResult {
  * Structured error for when --on-missing=fail triggers an abort during normalization.
  * Carries structured data so callers can format their own messages.
  */
-export class NormalizeAbortError extends Error {
+class NormalizeAbortError extends Error {
   constructor(
     public readonly failures: number,
     public readonly errors: string[],

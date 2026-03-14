@@ -2,9 +2,9 @@
  * Shared helpers for terminal row budgeting in list/detail dashboards.
  */
 
-export type SectionLineCounter = number;
+type SectionLineCounter = number;
 
-export type ChromeSections = Record<string, SectionLineCounter | undefined>;
+type ChromeSections = Record<string, SectionLineCounter | undefined>;
 
 export function conditionalLines(condition: boolean, lines: number): number {
   return condition ? lines : 0;

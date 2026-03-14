@@ -12,13 +12,13 @@ const migrations = {
   '001_initial_schema': initialSchema,
 };
 
-export type OverridesDb = Kysely<OverridesDatabaseSchema>;
+type OverridesDb = Kysely<OverridesDatabaseSchema>;
 
-export function createOverridesDatabase(dbPath: string): Result<OverridesDb, Error> {
+function createOverridesDatabase(dbPath: string): Result<OverridesDb, Error> {
   return createSqliteDatabase<OverridesDatabaseSchema>(dbPath);
 }
 
-export async function initializeOverridesDatabase(dbPath: string): Promise<Result<OverridesDb, Error>> {
+async function initializeOverridesDatabase(dbPath: string): Promise<Result<OverridesDb, Error>> {
   const dbResult = createOverridesDatabase(dbPath);
   if (dbResult.isErr()) {
     return dbResult;
@@ -37,7 +37,7 @@ export async function initializeOverridesDatabase(dbPath: string): Promise<Resul
   return ok(db);
 }
 
-export async function closeOverridesDatabase(db: OverridesDb): Promise<Result<void, Error>> {
+async function closeOverridesDatabase(db: OverridesDb): Promise<Result<void, Error>> {
   return closeSqliteDatabase(db);
 }
 

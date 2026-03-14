@@ -81,7 +81,7 @@ function base64url(input: string | Buffer): string {
   return buf.toString('base64url');
 }
 
-export interface CoinbasePaginatedResponse<T> {
+interface CoinbasePaginatedResponse<T> {
   pagination: {
     ending_before: string | null;
     limit: number;

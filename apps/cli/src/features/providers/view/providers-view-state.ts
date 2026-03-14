@@ -61,7 +61,7 @@ export interface ProviderViewItem {
 /**
  * Active filters (read-only, applied from CLI args)
  */
-export interface ProvidersViewFilters {
+interface ProvidersViewFilters {
   blockchainFilter?: string | undefined;
   healthFilter?: string | undefined;
   missingApiKeyFilter?: boolean | undefined;

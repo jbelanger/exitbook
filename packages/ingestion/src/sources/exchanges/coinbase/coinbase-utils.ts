@@ -14,7 +14,7 @@ interface TypeSpecificIds {
 
 export type CoinbaseCorrelationSource = 'event_id' | 'id' | 'order_id' | 'trade_id' | 'transfer_id';
 
-export interface CoinbaseCorrelationEvidence {
+interface CoinbaseCorrelationEvidence {
   correlationKey: string;
   correlationSource: CoinbaseCorrelationSource;
 }
@@ -79,8 +79,4 @@ export function extractCorrelationEvidence(rawInfo: RawCoinbaseLedgerEntry): Coi
 
   // Fall back to transaction id for non-correlated entries
   return { correlationKey: rawInfo.id, correlationSource: 'event_id' };
-}
-
-export function extractCorrelationId(rawInfo: RawCoinbaseLedgerEntry): string {
-  return extractCorrelationEvidence(rawInfo).correlationKey;
 }

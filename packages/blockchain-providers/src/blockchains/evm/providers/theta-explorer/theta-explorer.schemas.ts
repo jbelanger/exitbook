@@ -6,7 +6,7 @@ import { EvmAddressSchema } from '../../schemas.js';
 /**
  * Schema for Theta blockchain coin balances
  */
-export const ThetaCoinsSchema = z.object({
+const ThetaCoinsSchema = z.object({
   tfuelwei: z.string().regex(/^\d+$/, 'TFuel wei must be numeric string'),
   thetawei: z.string().regex(/^\d+$/, 'Theta wei must be numeric string'),
 });
@@ -14,7 +14,7 @@ export const ThetaCoinsSchema = z.object({
 /**
  * Schema for Theta account information
  */
-export const ThetaAccountSchema = z.object({
+const ThetaAccountSchema = z.object({
   address: EvmAddressSchema,
   coins: ThetaCoinsSchema,
   sequence: z.string().nullish(),
@@ -45,7 +45,7 @@ export const ThetaSmartContractDataSchema = z.object({
 /**
  * Schema capturing any Theta transaction data payload
  */
-export const ThetaTransactionDataSchema = z.union([
+const ThetaTransactionDataSchema = z.union([
   ThetaSendTransactionDataSchema,
   ThetaSmartContractDataSchema,
   z.record(z.string(), z.unknown()),
@@ -54,7 +54,7 @@ export const ThetaTransactionDataSchema = z.union([
 /**
  * Schema for Theta transaction types
  */
-export const ThetaTransactionTypeSchema = z.union([
+const ThetaTransactionTypeSchema = z.union([
   z.literal(0),
   z.literal(1),
   z.literal(2),
@@ -90,17 +90,8 @@ export const ThetaAccountTxResponseSchema = z.object({
   type: z.literal('account_tx_list'),
 });
 
-/**
- * Schema for arrays of Theta transactions
- */
-export const ThetaTransactionArraySchema = z.array(ThetaTransactionSchema);
-
 // Type exports inferred from schemas
-export type ThetaCoins = z.infer<typeof ThetaCoinsSchema>;
-export type ThetaAccount = z.infer<typeof ThetaAccountSchema>;
 export type ThetaSendTransactionData = z.infer<typeof ThetaSendTransactionDataSchema>;
 export type ThetaSmartContractData = z.infer<typeof ThetaSmartContractDataSchema>;
-export type ThetaTransactionData = z.infer<typeof ThetaTransactionDataSchema>;
-export type ThetaTransactionType = z.infer<typeof ThetaTransactionTypeSchema>;
 export type ThetaTransaction = z.infer<typeof ThetaTransactionSchema>;
 export type ThetaAccountTxResponse = z.infer<typeof ThetaAccountTxResponseSchema>;

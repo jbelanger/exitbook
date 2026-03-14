@@ -62,18 +62,3 @@ export function createProviderStats(): ProviderApiStats {
     lastCallTime: 0,
   };
 }
-
-/**
- * Get or create provider stats entry in a stats map
- */
-export function getOrCreateProviderStats(
-  byProvider: Map<string, ProviderApiStats>,
-  provider: string
-): ProviderApiStats {
-  let stats = byProvider.get(provider);
-  if (!stats) {
-    stats = createProviderStats();
-    byProvider.set(provider, stats);
-  }
-  return stats;
-}

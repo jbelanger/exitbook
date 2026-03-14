@@ -47,7 +47,7 @@ const BINANCE_RATE_LIMITS = {
  * Currently empty - Binance public API doesn't require API key
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Empty interface for future extensibility (authenticated API support)
-export interface BinanceProviderConfig {
+interface BinanceProviderConfig {
   // Future: Could add support for authenticated API with higher limits
 }
 

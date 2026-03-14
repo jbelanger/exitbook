@@ -18,7 +18,7 @@ import { validateHealthFilter, type HealthFilter } from './providers-view-utils.
 /**
  * Command options (validated at CLI boundary).
  */
-export type CommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
+type CommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
 
 /**
  * Register the providers view subcommand.

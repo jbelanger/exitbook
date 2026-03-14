@@ -6,7 +6,7 @@ import { SolanaAddressSchema } from '../../schemas.js';
 /**
  * Schema for Solscan input account structure
  */
-export const SolscanInputAccountSchema = z.object({
+const SolscanInputAccountSchema = z.object({
   account: SolanaAddressSchema, // Solana address - case-sensitive
   postBalance: z.number().nonnegative('Post balance must be non-negative'),
   preBalance: z.number().nonnegative('Pre balance must be non-negative'),
@@ -17,7 +17,7 @@ export const SolscanInputAccountSchema = z.object({
 /**
  * Schema for Solscan parsed instruction structure
  */
-export const SolscanParsedInstructionSchema = z.object({
+const SolscanParsedInstructionSchema = z.object({
   params: z.record(z.string(), z.unknown()).nullish(),
   program: z.string().min(1, 'Program must not be empty'),
   programId: SolanaAddressSchema, // Program address - case-sensitive
@@ -44,7 +44,7 @@ export const SolscanTransactionSchema = z.object({
 /**
  * Schema for Solscan balance structure
  */
-export const SolscanBalanceSchema = z.object({
+const _SolscanBalanceSchema = z.object({
   account: SolanaAddressSchema, // Solana address - case-sensitive
   executable: z.boolean(),
   lamports: z.number().nonnegative('Lamports must be non-negative'),
@@ -52,11 +52,6 @@ export const SolscanBalanceSchema = z.object({
   rentEpoch: z.number().nonnegative('Rent epoch must be non-negative'),
   type: z.string().min(1, 'Type must not be empty'),
 });
-
-/**
- * Schema for Solscan raw transaction data (single transaction)
- */
-export const SolscanRawTransactionDataSchema = SolscanTransactionSchema;
 
 /**
  * Schema for Solscan API response wrapper (generic)
@@ -70,7 +65,7 @@ export const SolscanResponseSchema = z.object({
 /**
  * Specific response schemas for Solscan API endpoints
  */
-export const SolscanAccountBalanceDataSchema = z.object({
+const SolscanAccountBalanceDataSchema = z.object({
   lamports: z.string(),
 });
 
@@ -80,7 +75,7 @@ export const SolscanAccountBalanceResponseSchema = z.object({
   data: SolscanAccountBalanceDataSchema.nullish(),
 });
 
-export const SolscanAccountTransactionsDataSchema = z.union([
+const SolscanAccountTransactionsDataSchema = z.union([
   z.array(SolscanTransactionSchema),
   z.object({
     data: z.array(SolscanTransactionSchema).nullish(),
@@ -101,15 +96,7 @@ export const SolscanLegacyTransactionsResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type SolscanInputAccount = z.infer<typeof SolscanInputAccountSchema>;
-export type SolscanParsedInstruction = z.infer<typeof SolscanParsedInstructionSchema>;
 export type SolscanTransaction = z.infer<typeof SolscanTransactionSchema>;
-export type SolscanBalance = z.infer<typeof SolscanBalanceSchema>;
 export type SolscanResponse<T = unknown> = Omit<z.infer<typeof SolscanResponseSchema>, 'data'> & {
   data?: T | undefined;
 };
-export type SolscanAccountBalanceData = z.infer<typeof SolscanAccountBalanceDataSchema>;
-export type SolscanAccountBalanceResponse = z.infer<typeof SolscanAccountBalanceResponseSchema>;
-export type SolscanAccountTransactionsData = z.infer<typeof SolscanAccountTransactionsDataSchema>;
-export type SolscanAccountTransactionsResponse = z.infer<typeof SolscanAccountTransactionsResponseSchema>;
-export type SolscanLegacyTransactionsResponse = z.infer<typeof SolscanLegacyTransactionsResponseSchema>;

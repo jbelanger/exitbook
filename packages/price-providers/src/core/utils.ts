@@ -238,7 +238,7 @@ export interface ProviderRateLimitConfig {
 /**
  * Configuration for creating a provider HTTP client
  */
-export interface ProviderHttpClientConfig {
+interface ProviderHttpClientConfig {
   /** Base URL for the provider API */
   baseUrl: string;
   /** Provider name for logging */

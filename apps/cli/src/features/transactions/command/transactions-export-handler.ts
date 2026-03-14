@@ -7,15 +7,12 @@ import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './transacti
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import { applyTransactionFilters } from './transactions-view-utils.js';
 
-// Re-export for convenience
-export type { ExportHandlerParams };
-
 const logger = getLogger('ExportHandler');
 
 /**
  * Result of the export operation.
  */
-export interface ExportResult {
+interface ExportResult {
   /** Number of transactions exported */
   transactionCount: number;
 
@@ -32,7 +29,7 @@ export interface ExportResult {
   outputs: ExportOutput[];
 }
 
-export interface ExportOutput {
+interface ExportOutput {
   path: string;
   content: string;
 }

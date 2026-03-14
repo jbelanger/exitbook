@@ -6,7 +6,6 @@
  */
 import type { z } from 'zod';
 
-import type { CsvKuCoinRawDataSchema } from './schemas.js';
 import {
   CsvAccountHistoryRowSchema,
   CsvDepositWithdrawalRowSchema,
@@ -18,26 +17,16 @@ import {
 /**
  * Type inference from schemas for use in application code
  */
-export type ValidatedCsvSpotOrderRow = z.infer<typeof CsvSpotOrderRowSchema>;
-export type ValidatedCsvDepositWithdrawalRow = z.infer<typeof CsvDepositWithdrawalRowSchema>;
-export type ValidatedCsvAccountHistoryRow = z.infer<typeof CsvAccountHistoryRowSchema>;
-export type ValidatedCsvOrderSplittingRow = z.infer<typeof CsvOrderSplittingRowSchema>;
-export type ValidatedCsvTradingBotRow = z.infer<typeof CsvTradingBotRowSchema>;
-export type ValidatedCsvKuCoinRawData = z.infer<typeof CsvKuCoinRawDataSchema>;
-
-/**
- * Validation results for individual sections
- */
-export interface KuCoinCsvValidationResult<T> {
-  data?: T | undefined;
-  errors?: z.ZodError | undefined;
-  success: boolean;
-}
+type ValidatedCsvSpotOrderRow = z.infer<typeof CsvSpotOrderRowSchema>;
+type ValidatedCsvDepositWithdrawalRow = z.infer<typeof CsvDepositWithdrawalRowSchema>;
+type ValidatedCsvAccountHistoryRow = z.infer<typeof CsvAccountHistoryRowSchema>;
+type ValidatedCsvOrderSplittingRow = z.infer<typeof CsvOrderSplittingRowSchema>;
+type ValidatedCsvTradingBotRow = z.infer<typeof CsvTradingBotRowSchema>;
 
 /**
  * Batch validation result for KuCoin data sections
  */
-export interface KuCoinCsvBatchValidationResult<T> {
+interface KuCoinCsvBatchValidationResult<T> {
   invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[];
   section: string;
   totalRows: number;

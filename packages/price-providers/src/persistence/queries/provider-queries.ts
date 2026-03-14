@@ -9,7 +9,7 @@ import { err, ok } from '@exitbook/core';
 
 import type { PricesDB } from '../database.js';
 
-export interface ProviderRecord {
+interface ProviderRecord {
   id: number;
   name: string;
   display_name: string;
@@ -21,7 +21,7 @@ export interface ProviderRecord {
   updated_at: string | null;
 }
 
-export interface CoinMappingRecord {
+interface CoinMappingRecord {
   id: number;
   provider_id: number;
   symbol: string;

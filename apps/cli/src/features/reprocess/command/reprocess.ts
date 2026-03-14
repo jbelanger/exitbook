@@ -14,7 +14,7 @@ import { createProcessHandler, type ProcessResultWithMetrics } from './reprocess
 /**
  * Process command options validated by Zod at CLI boundary
  */
-export type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
+type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
 
 /**
  * Process command result structure for JSON output

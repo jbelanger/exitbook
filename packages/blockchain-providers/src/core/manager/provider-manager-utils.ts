@@ -224,7 +224,7 @@ export interface CursorResolutionConfig {
 /**
  * Result of cursor resolution
  */
-export interface ResolvedCursor {
+interface ResolvedCursor {
   /**
    * Page token for provider-specific pagination (most efficient)
    */
@@ -315,7 +315,7 @@ export function resolveCursorForResumption(
 /**
  * Result type for API key validation
  */
-export interface ApiKeyValidationResult {
+interface ApiKeyValidationResult {
   available: boolean;
   envVar: string;
 }

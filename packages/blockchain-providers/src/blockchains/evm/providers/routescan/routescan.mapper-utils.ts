@@ -22,7 +22,7 @@ import type {
  * Transforms Routescan internal transaction to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function transformInternalTransaction(
+function transformInternalTransaction(
   rawData: RoutescanInternalTransaction,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
@@ -61,7 +61,7 @@ export function transformInternalTransaction(
  * Transforms Routescan normal transaction to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function transformNormalTransaction(
+function transformNormalTransaction(
   rawData: RoutescanTransaction,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {
@@ -118,7 +118,7 @@ export function transformNormalTransaction(
  * Transforms Routescan token transfer to normalized EvmTransaction
  * Input data is pre-validated by HTTP client schema validation
  */
-export function transformTokenTransfer(
+function transformTokenTransfer(
   rawData: RoutescanTokenTransfer,
   nativeCurrency: string
 ): Result<EvmTransaction, NormalizationError> {

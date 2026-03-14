@@ -177,16 +177,6 @@ export const AlchemyAssetTransfersJsonRpcResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type AlchemyRawContract = z.infer<typeof AlchemyRawContractSchema>;
-export type AlchemyMetadata = z.infer<typeof AlchemyMetadataSchema>;
 export type AlchemyAssetTransferParams = z.infer<typeof AlchemyAssetTransferParamsSchema>;
 export type AlchemyAssetTransfer = z.infer<typeof AlchemyAssetTransferSchema>;
-export type AlchemyAssetTransfersResponse = z.infer<typeof AlchemyAssetTransfersResponseSchema>;
-export type AlchemyTokenMetadata = z.infer<typeof AlchemyTokenMetadataSchema>;
-export type AlchemyPortfolioTokenPrice = z.infer<typeof AlchemyPortfolioTokenPriceSchema>;
-export type AlchemyPortfolioTokenMetadata = z.infer<typeof AlchemyPortfolioTokenMetadataSchema>;
-export type AlchemyPortfolioTokenBalance = z.infer<typeof AlchemyPortfolioTokenBalanceSchema>;
-export type AlchemyPortfolioBalanceResponse = z.infer<typeof AlchemyPortfolioBalanceResponseSchema>;
 export type AlchemyTransactionReceipt = z.infer<typeof AlchemyTransactionReceiptSchema>;
-export type AlchemyTransactionReceiptResponse = z.infer<typeof AlchemyTransactionReceiptResponseSchema>;
-export type AlchemyAssetTransfersJsonRpcResponse = z.infer<typeof AlchemyAssetTransfersJsonRpcResponseSchema>;

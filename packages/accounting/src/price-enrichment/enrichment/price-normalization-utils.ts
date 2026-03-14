@@ -198,7 +198,7 @@ export function classifyMovementPrice(
 /**
  * Result for normalizing a single item (movement or fee)
  */
-export interface ItemNormalizationResult<T> {
+interface ItemNormalizationResult<T> {
   /** The normalized or original item */
   item: T;
   /** Whether normalization was performed */
@@ -281,7 +281,7 @@ export async function normalizePriceToUSD(
  * @param normalizePriceFn - Function to normalize a single price (injected by caller)
  * @returns Array of normalization results for each movement
  */
-export async function normalizeMovementArray(
+async function normalizeMovementArray(
   movements: AssetMovement[],
   txDatetime: string,
   normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
@@ -330,7 +330,7 @@ export async function normalizeMovementArray(
  * @param fee - Fee to check
  * @returns True if fee has non-USD fiat price
  */
-export function feeNeedsNormalization(fee: FeeMovement): boolean {
+function feeNeedsNormalization(fee: FeeMovement): boolean {
   if (!fee.priceAtTxTime) {
     return false;
   }
@@ -357,7 +357,7 @@ export function feeNeedsNormalization(fee: FeeMovement): boolean {
  * @param normalizePriceFn - Function to normalize a single price (injected by caller)
  * @returns Array of normalization results for each fee
  */
-export async function normalizeFeeArray(
+async function normalizeFeeArray(
   fees: FeeMovement[],
   txDatetime: string,
   normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>

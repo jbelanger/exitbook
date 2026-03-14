@@ -1,13 +1,7 @@
-import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import {
-  closeSqliteDatabase,
-  createSqliteDatabase,
-  Migrator,
-  runMigrations as runSqliteMigrations,
-} from '@exitbook/sqlite';
+import { closeSqliteDatabase, createSqliteDatabase, runMigrations as runSqliteMigrations } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
 
 import type { DatabaseSchema } from './database-schema.js';
@@ -36,27 +30,6 @@ export async function runMigrations(db: KyselyDB): Promise<Result<void, Error>> 
     migrationsLogger.debug('Migrations completed');
   }
   return result;
-}
-
-export async function getMigrationStatus(
-  db: KyselyDB
-): Promise<Result<{ executed: string[]; pending: string[] }, Error>> {
-  try {
-    const migrator = new Migrator({
-      db,
-      provider: { getMigrations: () => Promise.resolve(migrations) },
-    });
-
-    const allMigrations = await migrator.getMigrations();
-
-    const pending = allMigrations.filter((m) => m.executedAt === undefined).map((m) => m.name);
-    const executed = allMigrations.filter((m) => m.executedAt !== undefined).map((m) => m.name);
-
-    return ok({ executed, pending });
-  } catch (error) {
-    migrationsLogger.error({ error }, 'Failed to get migration status');
-    return wrapError(error, 'Failed to get migration status');
-  }
 }
 
 export async function initializeDatabase(dbPath: string): Promise<Result<KyselyDB, Error>> {

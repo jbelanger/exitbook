@@ -9,7 +9,7 @@ import type { PendingInternalLink } from './types.js';
 /**
  * Result of reducing same-hash blockchain groups.
  */
-interface BlockchainGroupReduction {
+export interface BlockchainGroupReduction {
   /** Conservative blockchain_internal links for clearly internal transfers */
   internalLinks: PendingInternalLink[];
 

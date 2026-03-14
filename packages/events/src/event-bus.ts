@@ -1,6 +1,6 @@
 type EventHandler<TEvent> = (event: TEvent) => void;
 
-export interface EventBusOptions {
+interface EventBusOptions {
   /**
    * Maximum number of events to buffer in the queue before dropping.
    * When limit is reached, oldest events are dropped (FIFO).

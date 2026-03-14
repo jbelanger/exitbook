@@ -119,33 +119,6 @@ export const EtherscanTokenTransactionSchema = z.object({
 });
 
 /**
- * Schema for Etherscan ERC-721/ERC-1155 NFT transfer (tokennfttx endpoint).
- *
- * Returns ERC-721 and ERC-1155 token transfer events.
- */
-export const EtherscanNftTransactionSchema = z.object({
-  blockNumber: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-  timeStamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string'),
-  hash: z.string().min(1, 'Transaction hash must not be empty'),
-  nonce: z.string().regex(/^\d+$/, 'Nonce must be numeric string'),
-  blockHash: z.string().min(1, 'Block hash must not be empty'),
-  from: EvmAddressSchema,
-  contractAddress: EvmAddressSchema, // NFT contract address
-  to: EvmAddressSchema,
-  tokenID: z.string(), // Token ID (can be very large number as string)
-  tokenName: z.string().nullish(),
-  tokenSymbol: z.string().nullish(),
-  tokenDecimal: z.string().regex(/^\d+$/, 'Token decimal must be numeric string').nullish(), // Usually 0 for NFTs
-  transactionIndex: z.string().regex(/^\d+$/, 'Transaction index must be numeric string'),
-  gas: z.string().regex(/^\d+$/, 'Gas must be numeric string'),
-  gasPrice: z.string().regex(/^\d+$/, 'Gas price must be numeric string'),
-  gasUsed: z.string().regex(/^\d+$/, 'Gas used must be numeric string'),
-  cumulativeGasUsed: z.string().regex(/^\d+$/, 'Cumulative gas used must be numeric string'),
-  input: z.string().nullish(), // Deprecated field
-  confirmations: z.string().regex(/^\d+$/, 'Confirmations must be numeric string'),
-});
-
-/**
  * Schema for Etherscan API response wrapper for normal transactions.
  */
 export const EtherscanNormalTransactionResponseSchema = z.object({
@@ -172,23 +145,8 @@ export const EtherscanTokenTransactionResponseSchema = z.object({
   result: z.union([z.array(EtherscanTokenTransactionSchema), z.string()]),
 });
 
-/**
- * Schema for Etherscan API response wrapper for NFT transactions.
- */
-export const EtherscanNftTransactionResponseSchema = z.object({
-  status: z.enum(['0', '1']),
-  message: z.string(),
-  result: z.union([z.array(EtherscanNftTransactionSchema), z.string()]),
-});
-
 // Type exports
 export type EtherscanBeaconWithdrawal = z.infer<typeof EtherscanBeaconWithdrawalSchema>;
-export type EtherscanBeaconWithdrawalResponse = z.infer<typeof EtherscanBeaconWithdrawalResponseSchema>;
 export type EtherscanNormalTransaction = z.infer<typeof EtherscanNormalTransactionSchema>;
 export type EtherscanInternalTransaction = z.infer<typeof EtherscanInternalTransactionSchema>;
 export type EtherscanTokenTransaction = z.infer<typeof EtherscanTokenTransactionSchema>;
-export type EtherscanNftTransaction = z.infer<typeof EtherscanNftTransactionSchema>;
-export type EtherscanNormalTransactionResponse = z.infer<typeof EtherscanNormalTransactionResponseSchema>;
-export type EtherscanInternalTransactionResponse = z.infer<typeof EtherscanInternalTransactionResponseSchema>;
-export type EtherscanTokenTransactionResponse = z.infer<typeof EtherscanTokenTransactionResponseSchema>;
-export type EtherscanNftTransactionResponse = z.infer<typeof EtherscanNftTransactionResponseSchema>;

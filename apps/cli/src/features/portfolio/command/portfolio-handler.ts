@@ -60,7 +60,7 @@ type PortfolioMethod = 'fifo' | 'lifo' | 'average-cost';
 /**
  * Portfolio handler parameters (no ctx/dataDir/isJsonMode leaks)
  */
-export interface PortfolioHandlerParams {
+interface PortfolioHandlerParams {
   method: string;
   jurisdiction: string;
   displayCurrency: string;
@@ -70,7 +70,7 @@ export interface PortfolioHandlerParams {
 /**
  * Result of portfolio calculation
  */
-export interface PortfolioResult {
+interface PortfolioResult {
   positions: PortfolioPositionItem[];
   closedPositions: PortfolioPositionItem[];
   transactions: UniversalTransactionData[];

@@ -51,7 +51,7 @@ interface BalanceRebuildResult {
   scopeAccount: Account;
 }
 
-export type { BalanceComparison, BalanceVerificationResult };
+export type { BalanceVerificationResult };
 
 /**
  * Rebuild and refresh persisted balance snapshots for a scope.

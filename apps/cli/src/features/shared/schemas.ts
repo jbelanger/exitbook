@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
-export const JsonFlagSchema = z.object({
+const JsonFlagSchema = z.object({
   json: z.boolean().optional(),
 });
 
-export const VerboseFlagSchema = z.object({
+const VerboseFlagSchema = z.object({
   verbose: z.boolean().optional(),
 });
 
-export const SourceSelectionSchema = z
+const SourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),
     blockchain: z.string().optional(),
@@ -20,7 +20,7 @@ export const SourceSelectionSchema = z
     message: 'Cannot specify both --exchange and --blockchain',
   });
 
-export const OptionalSourceSelectionSchema = z
+const OptionalSourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),
     blockchain: z.string().optional(),
@@ -29,13 +29,13 @@ export const OptionalSourceSelectionSchema = z
     message: 'Cannot specify both --exchange and --blockchain',
   });
 
-export const BlockchainFieldsSchema = z.object({
+const BlockchainFieldsSchema = z.object({
   address: z.string().optional(),
   provider: z.string().optional(),
   xpubGap: z.number().int().positive().optional(),
 });
 
-export const CsvImportSchema = z.object({
+const CsvImportSchema = z.object({
   csvDir: z.string().optional(),
 });
 

@@ -43,7 +43,7 @@ export interface BenchmarkState {
   errorMessage?: string | undefined;
 }
 
-export type BenchmarkAction =
+type BenchmarkAction =
   | { event: BenchmarkProgressEvent; type: 'PROGRESS' }
   | {
       result: {

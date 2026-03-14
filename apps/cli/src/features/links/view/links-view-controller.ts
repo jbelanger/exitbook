@@ -34,7 +34,7 @@ function getRejectActionableLinkIds(state: Extract<LinksViewState, { mode: 'link
 /**
  * Action types for state updates
  */
-export type LinksViewAction =
+type LinksViewAction =
   | { type: 'NAVIGATE_UP'; visibleRows: number }
   | { type: 'NAVIGATE_DOWN'; visibleRows: number }
   | { type: 'PAGE_UP'; visibleRows: number }

@@ -15,7 +15,7 @@ export type PromptStep =
   | { props: Omit<SelectPromptProps, 'onSubmit' | 'onCancel'>; type: 'select' }
   | { props: Omit<TextPromptProps, 'onSubmit' | 'onCancel'>; type: 'text' };
 
-export interface PromptFlowProps {
+interface PromptFlowProps {
   /** Title shown at the top */
   title?: string;
   /** Sequential prompt steps */

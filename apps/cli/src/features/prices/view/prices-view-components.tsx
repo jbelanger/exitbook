@@ -21,8 +21,8 @@ import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-cont
 import type { PricesViewCoverageState, PricesViewMissingState, PricesViewState } from './prices-view-state.js';
 import { missingRowKey } from './prices-view-state.js';
 
-export const COVERAGE_DETAIL_LINES = 10;
-export const MISSING_DETAIL_LINES = 6;
+const COVERAGE_DETAIL_LINES = 10;
+const MISSING_DETAIL_LINES = 6;
 
 export function getCoverageChromeLines(): number {
   return calculateChromeLines({

@@ -7,7 +7,7 @@ import type { FC, ReactNode } from 'react';
 
 import { getSelectionCursor } from './selection-cursor.js';
 
-export interface SelectableRowProps {
+interface SelectableRowProps {
   children: ReactNode;
   dimWhenUnselected?: boolean | undefined;
   isSelected: boolean;

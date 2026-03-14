@@ -48,8 +48,6 @@ export type BinanceKline = z.infer<typeof BinanceKlineSchema>;
  */
 export const BinanceKlinesResponseSchema = z.array(BinanceKlineSchema);
 
-export type BinanceKlinesResponse = z.infer<typeof BinanceKlinesResponseSchema>;
-
 /**
  * Binance error response
  * Binance returns error in this format when request fails
@@ -58,8 +56,6 @@ export const BinanceErrorResponseSchema = z.object({
   code: z.number(),
   msg: z.string(),
 });
-
-export type BinanceErrorResponse = z.infer<typeof BinanceErrorResponseSchema>;
 
 /**
  * Binance Exchange Info Symbol (for symbol validation)
@@ -72,13 +68,9 @@ export const BinanceExchangeInfoSymbolSchema = z.object({
   quoteAsset: z.string(),
 });
 
-export type BinanceExchangeInfoSymbol = z.infer<typeof BinanceExchangeInfoSymbolSchema>;
-
 /**
  * Binance Exchange Info response
  */
 export const BinanceExchangeInfoResponseSchema = z.object({
   symbols: z.array(BinanceExchangeInfoSymbolSchema),
 });
-
-export type BinanceExchangeInfoResponse = z.infer<typeof BinanceExchangeInfoResponseSchema>;

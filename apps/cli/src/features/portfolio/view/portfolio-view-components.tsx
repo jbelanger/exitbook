@@ -42,7 +42,7 @@ const PORTFOLIO_HISTORY_CHROME_LINES = calculateChromeLines({
 
 const PORTFOLIO_LIST_SCROLL_INDICATOR_RESERVE_LINES = 2;
 
-export interface PortfolioAssetsLayout {
+interface PortfolioAssetsLayout {
   hiddenOpenLots: number;
   listVisibleRows: number;
   openLotsVisibleRows: number;

@@ -5,14 +5,13 @@ import {
   SolanaAddressSchema,
   SolanaTokenBalanceSchema,
   SolanaTokenAccountSchema,
-  SolanaSignatureSchema,
   SolanaAccountBalanceSchema,
 } from '../../schemas.js';
 
 /**
  * Schema for Solana RPC transaction header
  */
-export const SolanaRPCHeaderSchema = z.object({
+const SolanaRPCHeaderSchema = z.object({
   numReadonlySignedAccounts: z.number().nonnegative('Num readonly signed accounts must be non-negative'),
   numReadonlyUnsignedAccounts: z.number().nonnegative('Num readonly unsigned accounts must be non-negative'),
   numRequiredSignatures: z.number().nonnegative('Num required signatures must be non-negative'),
@@ -21,7 +20,7 @@ export const SolanaRPCHeaderSchema = z.object({
 /**
  * Schema for Solana RPC instruction
  */
-export const SolanaRPCInstructionSchema = z.object({
+const SolanaRPCInstructionSchema = z.object({
   accounts: z.array(z.number()),
   data: z.string(),
   programIdIndex: z.number().nonnegative('Program ID index must be non-negative'),
@@ -30,7 +29,7 @@ export const SolanaRPCInstructionSchema = z.object({
 /**
  * Schema for Solana RPC transaction message
  */
-export const SolanaRPCMessageSchema = z.object({
+const SolanaRPCMessageSchema = z.object({
   accountKeys: z.array(SolanaAddressSchema), // Solana addresses - case-sensitive
   header: SolanaRPCHeaderSchema,
   instructions: z.array(SolanaRPCInstructionSchema),
@@ -40,7 +39,7 @@ export const SolanaRPCMessageSchema = z.object({
 /**
  * Schema for Solana RPC transaction meta
  */
-export const SolanaRPCMetaSchema = z.object({
+const SolanaRPCMetaSchema = z.object({
   err: z.unknown().nullish(),
   fee: z.number().nonnegative('Fee must be non-negative'),
   innerInstructions: z.array(z.unknown()),
@@ -56,7 +55,7 @@ export const SolanaRPCMetaSchema = z.object({
 /**
  * Schema for Solana RPC transaction structure
  */
-export const SolanaRPCTransactionSchema = z.object({
+const _SolanaRPCTransactionSchema = z.object({
   blockTime: timestampToDate,
   meta: SolanaRPCMetaSchema,
   slot: z.number().nonnegative('Slot must be non-negative'),
@@ -67,29 +66,10 @@ export const SolanaRPCTransactionSchema = z.object({
 });
 
 /**
- * Schema for Solana RPC raw transaction data (single transaction)
- */
-export const SolanaRPCRawTransactionDataSchema = SolanaRPCTransactionSchema;
-
-/**
- * Schema for Solana RPC raw balance data
- */
-export const SolanaRPCRawBalanceDataSchema = z.object({
-  lamports: z.number().nonnegative('Lamports must be non-negative'),
-});
-
-/**
  * Schema for Solana token accounts response
  */
 export const SolanaTokenAccountsResponseSchema = z.object({
   value: z.array(SolanaTokenAccountSchema),
-});
-
-/**
- * Schema for Solana RPC raw token balance data
- */
-export const SolanaRPCRawTokenBalanceDataSchema = z.object({
-  tokenAccounts: SolanaTokenAccountsResponseSchema,
 });
 
 /**
@@ -102,20 +82,6 @@ export const SolanaRPCBalanceJsonRpcResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
-export const SolanaRPCSignaturesJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().nullish(),
-  id: z.union([z.string(), z.number()]).nullish(),
-  result: z.array(SolanaSignatureSchema).nullish(),
-  error: z.object({ code: z.number(), message: z.string() }).nullish(),
-});
-
-export const SolanaRPCTransactionJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string().nullish(),
-  id: z.union([z.string(), z.number()]).nullish(),
-  result: SolanaRPCTransactionSchema.nullish(),
-  error: z.object({ code: z.number(), message: z.string() }).nullish(),
-});
-
 export const SolanaRPCTokenAccountsJsonRpcResponseSchema = z.object({
   jsonrpc: z.string().nullish(),
   id: z.union([z.string(), z.number()]).nullish(),
@@ -124,15 +90,5 @@ export const SolanaRPCTokenAccountsJsonRpcResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type SolanaRPCHeader = z.infer<typeof SolanaRPCHeaderSchema>;
-export type SolanaRPCInstruction = z.infer<typeof SolanaRPCInstructionSchema>;
-export type SolanaRPCMessage = z.infer<typeof SolanaRPCMessageSchema>;
-export type SolanaRPCMeta = z.infer<typeof SolanaRPCMetaSchema>;
-export type SolanaRPCTransaction = z.infer<typeof SolanaRPCTransactionSchema>;
-export type SolanaRPCRawBalanceData = z.infer<typeof SolanaRPCRawBalanceDataSchema>;
+export type SolanaRPCTransaction = z.infer<typeof _SolanaRPCTransactionSchema>;
 export type SolanaTokenAccountsResponse = z.infer<typeof SolanaTokenAccountsResponseSchema>;
-export type SolanaRPCRawTokenBalanceData = z.infer<typeof SolanaRPCRawTokenBalanceDataSchema>;
-export type SolanaRPCBalanceJsonRpcResponse = z.infer<typeof SolanaRPCBalanceJsonRpcResponseSchema>;
-export type SolanaRPCSignaturesJsonRpcResponse = z.infer<typeof SolanaRPCSignaturesJsonRpcResponseSchema>;
-export type SolanaRPCTransactionJsonRpcResponse = z.infer<typeof SolanaRPCTransactionJsonRpcResponseSchema>;
-export type SolanaRPCTokenAccountsJsonRpcResponse = z.infer<typeof SolanaRPCTokenAccountsJsonRpcResponseSchema>;

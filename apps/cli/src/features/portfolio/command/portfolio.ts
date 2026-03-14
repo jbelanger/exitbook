@@ -16,7 +16,7 @@ import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsSta
 import { createPortfolioHandler } from './portfolio-handler.js';
 import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
-export type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
+type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
 
 interface NormalizedPortfolioOptions {
   asOf: Date;

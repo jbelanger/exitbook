@@ -11,7 +11,7 @@ import type { LinksRunState } from './links-run-state.js';
 /**
  * Actions that drive state transitions in the links run UI.
  */
-export type LinksRunAction =
+type LinksRunAction =
   | {
       event: LinkingEvent;
       type: 'event';

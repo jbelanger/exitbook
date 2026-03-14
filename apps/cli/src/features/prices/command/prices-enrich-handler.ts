@@ -24,7 +24,7 @@ const logger = getLogger('PricesEnrichHandler');
  * Tier 2 handler for `prices enrich`.
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
-export class PricesEnrichHandler {
+class PricesEnrichHandler {
   constructor(
     private readonly pipeline: PriceEnrichmentPipeline,
     private readonly priceManager: import('@exitbook/price-providers').PriceProviderManager,

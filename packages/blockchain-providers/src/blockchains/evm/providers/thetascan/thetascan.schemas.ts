@@ -29,11 +29,6 @@ export const ThetaScanTransactionSchema = z.object({
 });
 
 /**
- * Schema for arrays of ThetaScan transactions
- */
-export const ThetaScanTransactionArraySchema = z.array(ThetaScanTransactionSchema);
-
-/**
  * Schema for ThetaScan balance response
  */
 export const ThetaScanBalanceResponseSchema = z.object({

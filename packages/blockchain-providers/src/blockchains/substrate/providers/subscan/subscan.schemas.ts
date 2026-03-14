@@ -160,8 +160,6 @@ export const SubscanAccountResponseSchema = z.object({
 });
 
 // Type exports inferred from schemas
-export type SubscanAccountDisplay = z.infer<typeof SubscanAccountDisplaySchema>;
-export type SubscanItemDetail = z.infer<typeof SubscanItemDetailSchema>;
 export type SubscanTransfer = z.infer<typeof SubscanTransferBaseSchema>;
 export type SubscanTransfersResponse = z.infer<typeof SubscanTransfersResponseSchema>;
 export type SubscanAccountResponse = z.infer<typeof SubscanAccountResponseSchema>;

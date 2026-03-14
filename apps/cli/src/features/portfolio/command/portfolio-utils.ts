@@ -240,7 +240,7 @@ interface CanadaPortfolioAssetGroup {
   sourceAssetIds: string[];
 }
 
-export interface CanadaPortfolioPositionsResult {
+interface CanadaPortfolioPositionsResult {
   closedPositions: PortfolioPositionItem[];
   positions: PortfolioPositionItem[];
   realizedGainLossByPortfolioKey: Map<string, Decimal>;
@@ -1112,7 +1112,7 @@ export function buildAssetIdsBySymbol(transactions: UniversalTransactionData[]):
   return new Map(Array.from(assetIdsBySymbol.entries()).map(([symbol, assetIds]) => [symbol, Array.from(assetIds)]));
 }
 
-export interface NetFiatInComputation {
+interface NetFiatInComputation {
   netFiatInUsd: Decimal;
   skippedNonUsdMovementsWithoutPrice: number;
 }

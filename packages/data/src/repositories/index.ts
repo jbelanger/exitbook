@@ -1,6 +1,5 @@
-export { BaseRepository } from './base-repository.js';
 export { AccountRepository } from './account-repository.js';
-export type { AccountKeyParams, FindOrCreateAccountParams, UpdateAccountParams } from './account-repository.js';
+export type { FindOrCreateAccountParams, UpdateAccountParams } from './account-repository.js';
 export { AssetReviewRepository } from './asset-review-repository.js';
 export { BalanceSnapshotRepository } from './balance-snapshot-repository.js';
 export { ImportSessionRepository } from './import-session-repository.js';

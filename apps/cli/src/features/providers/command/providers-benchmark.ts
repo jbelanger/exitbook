@@ -18,7 +18,7 @@ import { buildConfigOverride } from './providers-benchmark-utils.js';
 /**
  * Command options (validated at CLI boundary).
  */
-export type CommandOptions = z.infer<typeof ProvidersBenchmarkCommandOptionsSchema>;
+type CommandOptions = z.infer<typeof ProvidersBenchmarkCommandOptionsSchema>;
 
 /**
  * Register the providers benchmark subcommand.

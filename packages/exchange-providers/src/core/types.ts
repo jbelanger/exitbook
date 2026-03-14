@@ -9,26 +9,12 @@ export interface FetchParams {
 }
 
 /**
- * Exchange cursor for tracking progress per operation type.
- * Each operation type (trade, deposit, withdrawal, order) maintains its own timestamp.
- */
-export type ExchangeCursor = Record<string, number>;
-
-/**
  * Balance snapshot from exchange
  * Maps currency symbol to total balance as decimal string
  */
 export interface BalanceSnapshot {
   balances: Record<string, string>;
   timestamp: number;
-}
-
-/**
- * Result of fetching transaction data from exchange
- */
-export interface FetchTransactionDataResult {
-  transactions: RawTransactionInput[];
-  cursorUpdates: Record<string, CursorState>;
 }
 
 /**

@@ -14,7 +14,7 @@ import { z } from 'zod';
  *
  * Response contains observations for the requested date range
  */
-export const BankOfCanadaObservationSchema = z.object({
+const BankOfCanadaObservationSchema = z.object({
   d: z.string(), // Date in YYYY-MM-DD format
   FXUSDCAD: z.object({
     v: z.string(), // Rate value as string

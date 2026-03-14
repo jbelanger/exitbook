@@ -93,7 +93,7 @@ export const RoutescanTokenTransferSchema = z.object({
 /**
  * Schema for Routescan API response wrapper (generic)
  */
-export const RoutescanApiResponseSchema = z.object({
+const _RoutescanApiResponseSchema = z.object({
   message: z.string().min(1, 'Message must not be empty'),
   result: z.array(z.any()), // Can be various transaction types
   status: z.string().min(1, 'Status must not be empty'),
@@ -133,7 +133,7 @@ export const RoutescanBalanceResponseSchema = z.object({
 /**
  * Schema for Routescan balance structure
  */
-export const RoutescanBalanceSchema = z.object({
+const _RoutescanBalanceSchema = z.object({
   account: EvmAddressSchema,
   balance: DecimalStringSchema,
 });
@@ -141,7 +141,7 @@ export const RoutescanBalanceSchema = z.object({
 /**
  * Schema for Routescan token balance structure
  */
-export const RoutescanTokenBalanceSchema = z.object({
+const _RoutescanTokenBalanceSchema = z.object({
   TokenAddress: EvmAddressSchema,
   TokenDivisor: IntegerStringSchema,
   TokenName: z.string(),
@@ -149,18 +149,7 @@ export const RoutescanTokenBalanceSchema = z.object({
   TokenSymbol: z.string(),
 });
 
-/**
- * Union schema that can validate any of the three Routescan transaction types
- * Order matters: most specific schemas (with more required fields) should come first
- */
-export const RoutescanAnyTransactionSchema = z.union([
-  RoutescanTokenTransferSchema, // Most specific - has token fields
-  RoutescanInternalTransactionSchema, // Medium specificity - has internal transaction fields
-  RoutescanTransactionSchema, // Least specific - basic transaction fields
-]);
-
-type RoutescanApiResponseBase = z.infer<typeof RoutescanApiResponseSchema>;
-type RoutescanBalanceResponseBase = z.infer<typeof RoutescanBalanceResponseSchema>;
+type RoutescanApiResponseBase = z.infer<typeof _RoutescanApiResponseSchema>;
 
 // Type exports inferred from schemas
 export type RoutescanTransaction = z.infer<typeof RoutescanTransactionSchema>;
@@ -169,6 +158,3 @@ export type RoutescanTokenTransfer = z.infer<typeof RoutescanTokenTransferSchema
 export type RoutescanApiResponse<T = unknown> = Omit<RoutescanApiResponseBase, 'result'> & {
   result: T[];
 };
-export type RoutescanBalanceResponse = RoutescanBalanceResponseBase;
-export type RoutescanBalance = z.infer<typeof RoutescanBalanceSchema>;
-export type RoutescanTokenBalance = z.infer<typeof RoutescanTokenBalanceSchema>;

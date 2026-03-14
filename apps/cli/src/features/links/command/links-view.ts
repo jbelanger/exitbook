@@ -4,7 +4,6 @@ import type { UniversalTransactionData } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { Command } from 'commander';
 import React from 'react';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -46,11 +45,6 @@ async function fetchTransactionsForLinks(
 
   return result;
 }
-
-/**
- * Command options validated by Zod at CLI boundary
- */
-export type LinksViewCommandOptions = z.infer<typeof LinksViewCommandOptionsSchema>;
 
 /**
  * Result data for links view command (JSON mode).

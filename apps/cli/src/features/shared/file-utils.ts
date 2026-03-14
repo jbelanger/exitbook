@@ -9,7 +9,7 @@ import { dirname } from 'node:path';
 
 import { err, ok, type Result } from '@exitbook/core';
 
-export interface FileWrite {
+interface FileWrite {
   path: string;
   content: string;
 }

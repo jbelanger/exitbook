@@ -33,7 +33,7 @@ import type {
   TransactionsViewState,
 } from './transactions-view-state.js';
 
-export const TRANSACTION_DETAIL_LINES = 9;
+const TRANSACTION_DETAIL_LINES = 9;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

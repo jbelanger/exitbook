@@ -1,6 +1,6 @@
 import type { ProjectionStatus } from '@exitbook/core';
 
-export interface BalanceSnapshotFreshnessMessageParams {
+interface BalanceSnapshotFreshnessMessageParams {
   requestedAccountId: number;
   scopeAccountId: number;
   scopeSourceName: string;
@@ -8,7 +8,7 @@ export interface BalanceSnapshotFreshnessMessageParams {
   reason?: string | undefined;
 }
 
-export interface AssetsFreshnessMessageParams {
+interface AssetsFreshnessMessageParams {
   scopeAccountId: number;
   status: ProjectionStatus;
   reason?: string | undefined;

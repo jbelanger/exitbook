@@ -21,7 +21,7 @@ export function assertOk<T, E extends Error>(result: Result<T, E>): T {
   return result.value;
 }
 
-export interface ImportRunResult {
+interface ImportRunResult {
   rawTransactions: RawTransactionInput[];
   cursorUpdates: Record<string, CursorState>;
   warnings?: string[] | undefined;

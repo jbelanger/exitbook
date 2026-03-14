@@ -5,7 +5,6 @@ import { OverrideStore } from '@exitbook/data';
 import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -24,11 +23,6 @@ import type {
   ViewPricesParams,
   ViewPricesResult,
 } from './prices-view-utils.js';
-
-/**
- * Command options (validated at CLI boundary).
- */
-export type CommandOptions = z.infer<typeof PricesViewCommandOptionsSchema>;
 
 /**
  * Result data for view prices command (JSON mode).

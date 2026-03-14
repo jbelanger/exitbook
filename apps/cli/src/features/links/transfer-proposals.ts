@@ -7,7 +7,7 @@ import {
   type TransactionLink,
 } from '@exitbook/accounting';
 
-export interface TransferProposal {
+interface TransferProposal {
   links: TransactionLink[];
   proposalKey: string;
   representativeLink: TransactionLink;
@@ -15,7 +15,7 @@ export interface TransferProposal {
   transferProposalKey?: string | undefined;
 }
 
-export interface TransferProposalItems<TItem extends { link: TransactionLink }> {
+interface TransferProposalItems<TItem extends { link: TransactionLink }> {
   items: TItem[];
   proposalKey: string;
   representativeItem: TItem;

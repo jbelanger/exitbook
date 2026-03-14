@@ -97,13 +97,3 @@ export type KucoinCsvRow =
   | (CsvTradingBotRow & { _rowType: 'trading_bot' });
 
 export type KucoinCsvRowType = KucoinCsvRow['_rowType'];
-
-// Structured raw data type for better flow
-export interface CsvKuCoinRawData {
-  accountHistory: CsvAccountHistoryRow[];
-  deposits: CsvDepositWithdrawalRow[];
-  orderSplitting: CsvOrderSplittingRow[];
-  spotOrders: CsvSpotOrderRow[];
-  tradingBot: CsvTradingBotRow[];
-  withdrawals: CsvDepositWithdrawalRow[];
-}

@@ -13,7 +13,7 @@ const logger = getLogger('PricesSetHandler');
 /**
  * Options for prices set command
  */
-export interface PricesSetOptions {
+interface PricesSetOptions {
   /** Asset symbol (e.g., 'BTC', 'ETH') */
   asset: string;
 
@@ -33,7 +33,7 @@ export interface PricesSetOptions {
 /**
  * Result of prices set command
  */
-export interface PricesSetResult {
+interface PricesSetResult {
   asset: string;
   timestamp: Date;
   price: string;

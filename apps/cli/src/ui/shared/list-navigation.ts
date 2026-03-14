@@ -3,12 +3,12 @@
  * Maintains selected index + scroll offset for a fixed-size viewport.
  */
 
-export interface ListNavigationState {
+interface ListNavigationState {
   selectedIndex: number;
   scrollOffset: number;
 }
 
-export interface ListNavigationContext {
+interface ListNavigationContext {
   itemCount: number;
   visibleRows: number;
   wrapAround?: boolean | undefined;

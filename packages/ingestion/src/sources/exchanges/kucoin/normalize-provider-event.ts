@@ -12,7 +12,7 @@ import {
 } from './csv-row-parsing.js';
 import type { KucoinCsvRow, KucoinCsvRowType } from './types.js';
 
-export interface KucoinProviderMetadataBase extends Record<string, unknown> {
+interface KucoinProviderMetadataBase extends Record<string, unknown> {
   correlationKey: string;
   rowKind: KucoinCsvRowType;
 }

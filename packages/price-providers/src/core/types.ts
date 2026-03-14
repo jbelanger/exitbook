@@ -82,7 +82,7 @@ export interface ProviderRateLimit {
  * Granularity support configuration for a provider
  * Defines what historical data granularity levels are available and for how long
  */
-export interface GranularitySupport {
+interface GranularitySupport {
   /** Granularity level for historical data (minute, hour, day) */
   granularity: HistoricalGranularity;
   /** Maximum days back this granularity is available (undefined = unlimited) */
@@ -146,7 +146,7 @@ export interface ProviderMetadata {
 /**
  * Provider health tracking (re-exported from shared resilience package)
  */
-export type { IProvider, ProviderHealth, ProviderHealthWithCircuit } from '@exitbook/resilience/provider-health';
+export type { ProviderHealth, ProviderHealthWithCircuit } from '@exitbook/resilience/provider-health';
 
 /**
  * Core interface that all price providers must implement

@@ -64,7 +64,7 @@ const COINGECKO_RATE_LIMITS = {
 /**
  * Configuration for CoinGecko provider factory
  */
-export interface CoinGeckoProviderConfig {
+interface CoinGeckoProviderConfig {
   /** API key for CoinGecko (optional - uses free tier if not provided) */
   apiKey?: string | undefined;
   /** Use Pro API endpoint (requires API key) */

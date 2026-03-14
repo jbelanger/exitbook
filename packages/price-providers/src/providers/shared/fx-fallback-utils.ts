@@ -1,7 +1,7 @@
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
-export interface BusinessDayFallbackContext {
+interface BusinessDayFallbackContext {
   attemptIndex: number;
   attemptNumber: number;
   candidateDate: Date;
@@ -10,12 +10,12 @@ export interface BusinessDayFallbackContext {
   requestedDate: Date;
 }
 
-export type BusinessDayFetchAttemptResult<T> =
+type BusinessDayFetchAttemptResult<T> =
   | { error: Error; outcome: 'fail' }
   | { error: Error; outcome: 'retry' }
   | { outcome: 'success'; value: T };
 
-export interface BusinessDayFallbackResult<T> {
+interface BusinessDayFallbackResult<T> {
   actualDate: Date;
   daysBack: number;
   value: T;

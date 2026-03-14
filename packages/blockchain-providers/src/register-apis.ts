@@ -8,17 +8,6 @@ import { substrateProviderFactories } from './blockchains/substrate/register-api
 import { xrpProviderFactories } from './blockchains/xrp/register-apis.js';
 import type { ProviderFactory } from './core/types/index.js';
 
-export {
-  bitcoinProviderFactories,
-  cardanoProviderFactories,
-  cosmosProviderFactories,
-  evmProviderFactories,
-  nearProviderFactories,
-  solanaProviderFactories,
-  substrateProviderFactories,
-  xrpProviderFactories,
-};
-
 /** All registered provider factories across all blockchains */
 export const allProviderFactories: ProviderFactory[] = [
   ...bitcoinProviderFactories,

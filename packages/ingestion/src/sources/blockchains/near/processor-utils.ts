@@ -84,12 +84,12 @@ export interface Movement {
   flowType: 'native' | 'token_transfer' | 'fee' | 'unknown';
 }
 
-export interface DerivedDeltaResult {
+interface DerivedDeltaResult {
   derivedDeltas: Map<string, string>;
   warnings: string[];
 }
 
-export function parseBlockHeight(blockHeight: string | undefined): number {
+function parseBlockHeight(blockHeight: string | undefined): number {
   if (!blockHeight) return 0;
   const parsed = parseInt(blockHeight, 10);
   return Number.isNaN(parsed) ? 0 : parsed;
@@ -200,7 +200,7 @@ export function deriveBalanceChangeDeltasFromAbsolutes(
 /**
  * Fee extraction result with optional warning for conflicts
  */
-export interface FeeExtractionResult {
+interface FeeExtractionResult {
   movements: Movement[];
   warning?: string | undefined;
   source?: 'receipt' | 'balance-change' | undefined;

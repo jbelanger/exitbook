@@ -1,9 +1,9 @@
 import { Box, Text } from 'ink';
 import { cloneElement, Fragment, isValidElement, type FC, type ReactElement } from 'react';
 
-export type FixedDetailRow = ReactElement | false | null | undefined;
+type FixedDetailRow = ReactElement | false | null | undefined;
 
-export interface FixedHeightDetailProps {
+interface FixedHeightDetailProps {
   height: number;
   overflowRow?: ((hiddenRowCount: number) => ReactElement) | undefined;
   rows: FixedDetailRow[];
