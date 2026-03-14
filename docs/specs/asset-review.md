@@ -161,7 +161,13 @@ interface AssetReviewSummary {
   confirmedEvidenceFingerprint?: string;
   warningSummary?: string;
   evidence: Array<{
-    kind: 'provider-spam-flag' | 'scam-note' | 'suspicious-airdrop-note' | 'same-symbol-ambiguity' | 'spam-flag';
+    kind:
+      | 'provider-spam-flag'
+      | 'scam-note'
+      | 'suspicious-airdrop-note'
+      | 'same-symbol-ambiguity'
+      | 'spam-flag'
+      | 'unmatched-reference';
     severity: 'warning' | 'error';
     message: string;
     metadata?: Record<string, unknown>;
@@ -320,6 +326,8 @@ Current evidence rules:
 - one or more `SCAM_TOKEN` notes produce `scam-note`
 - one or more `SUSPICIOUS_AIRDROP` notes produce
   `suspicious-airdrop-note`
+- `referenceStatus === 'unmatched'` produces `unmatched-reference`
+  (`warning`)
 
 Severity rules:
 
@@ -365,7 +373,8 @@ Reference status is resolved separately from risk evidence.
 - `unknown`: reference resolution was unavailable, unsupported, or has not yet
   produced a result
 
-Missing reference data does not create review evidence by itself.
+`unknown` reference data does not create review evidence by itself.
+`unmatched` reference data produces warning evidence so the asset enters review.
 
 ### Evidence Ordering
 

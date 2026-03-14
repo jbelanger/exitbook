@@ -412,7 +412,12 @@ function countDistinctReasonCategories(asset: AssetViewItem): number {
   let count = 0;
   if (asset.confirmationIsStale) count++;
   if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) count++;
-  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag')) count++;
+  if (
+    asset.evidence.some(
+      (item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag' || item.kind === 'unmatched-reference'
+    )
+  )
+    count++;
   if (asset.evidence.some((item) => item.kind === 'scam-note')) count++;
   if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-note')) count++;
   return count;
@@ -427,7 +432,11 @@ function getAssetReason(asset: AssetViewItem): string | undefined {
     return 'same symbol conflict';
   }
 
-  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag')) {
+  if (
+    asset.evidence.some(
+      (item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag' || item.kind === 'unmatched-reference'
+    )
+  ) {
     return 'possible spam';
   }
 
@@ -535,6 +544,8 @@ function formatEvidenceMessage(kind: AssetViewItem['evidence'][number]['kind']):
       return 'A provider marked this token as spam.';
     case 'spam-flag':
       return 'Imported transactions marked this asset as spam.';
+    case 'unmatched-reference':
+      return 'Canonical reference lookup could not match this token.';
     case 'scam-note':
       return 'Imported transactions include scam warnings.';
     case 'suspicious-airdrop-note':

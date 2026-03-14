@@ -304,6 +304,72 @@ describe('AssetsViewApp', () => {
     expect(frame).not.toContain('Reference:');
   });
 
+  it('treats unmatched canonical references as possible spam in the review queue', () => {
+    const initialState = createAssetsViewState(
+      [
+        createAsset({
+          accountingBlocked: false,
+          evidence: [
+            {
+              kind: 'unmatched-reference',
+              severity: 'warning',
+              message: "Provider 'coingecko' could not match this token to a canonical asset",
+              metadata: {
+                provider: 'coingecko',
+              },
+            },
+          ],
+          referenceStatus: 'unmatched',
+          warningSummary: "Provider 'coingecko' could not match this token to a canonical asset",
+        }),
+      ],
+      { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 },
+      'action-required'
+    );
+
+    const { lastFrame } = render(
+      <AssetsViewApp
+        initialState={initialState}
+        onQuit={() => {
+          /* noop */
+        }}
+        onToggleExclusion={noop}
+        onConfirmReview={async () => ({
+          action: 'confirm',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+        onClearReview={async () => ({
+          action: 'clear-review',
+          assetId: 'ignored',
+          assetSymbols: [],
+          changed: false,
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          evidence: [],
+          evidenceFingerprint: 'asset-review:v1:ignored',
+          referenceStatus: 'unknown',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        })}
+      />
+    );
+
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('possible spam');
+    expect(frame).toContain('Why: possible spam');
+    expect(frame).toContain('Canonical reference lookup could not match this token.');
+  });
+
   it('shows a reviewed badge when a confirmed asset still needs exclusion to unblock accounting', () => {
     const initialState = createAssetsViewState(
       [

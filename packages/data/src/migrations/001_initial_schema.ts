@@ -523,7 +523,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('metadata_json', 'text')
     .addCheckConstraint(
       'asset_review_evidence_kind_valid',
-      sql`kind IN ('provider-spam-flag', 'scam-note', 'suspicious-airdrop-note', 'same-symbol-ambiguity', 'spam-flag')`
+      sql`kind IN ('provider-spam-flag', 'scam-note', 'suspicious-airdrop-note', 'same-symbol-ambiguity', 'spam-flag', 'unmatched-reference')`
     )
     .addCheckConstraint('asset_review_evidence_severity_valid', sql`severity IN ('warning', 'error')`)
     .addCheckConstraint(

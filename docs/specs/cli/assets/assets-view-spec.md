@@ -216,7 +216,7 @@ Rows must not show raw review status, reference status, accounting status, or in
 
 - stale confirmation → `new signals since your last review`
 - same-symbol ambiguity → `same symbol conflict`
-- provider spam flag or processed spam flag → `possible spam`
+- provider spam flag, processed spam flag, or unmatched reference → `possible spam`
 - scam-note evidence → `scam warnings in imported transactions`
 - suspicious-airdrop evidence → `suspicious airdrop warnings`
 - multiple categories → append `(+N more)` to the first match

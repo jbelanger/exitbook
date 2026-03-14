@@ -5,7 +5,14 @@ export const AssetReviewStatusSchema = z.enum(['clear', 'needs-review', 'reviewe
 export const AssetReferenceStatusSchema = z.enum(['matched', 'unmatched', 'unknown']);
 
 export const AssetReviewEvidenceSchema = z.object({
-  kind: z.enum(['provider-spam-flag', 'scam-note', 'suspicious-airdrop-note', 'same-symbol-ambiguity', 'spam-flag']),
+  kind: z.enum([
+    'provider-spam-flag',
+    'scam-note',
+    'suspicious-airdrop-note',
+    'same-symbol-ambiguity',
+    'spam-flag',
+    'unmatched-reference',
+  ]),
   severity: z.enum(['warning', 'error']),
   message: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).optional(),

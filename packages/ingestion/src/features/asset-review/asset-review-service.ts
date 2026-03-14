@@ -121,7 +121,7 @@ export async function buildAssetReviewSummaries(
       referenceStatus: 'unknown' as const,
     };
     const ambiguity = ambiguitiesByAssetId.get(assetId);
-    const evidence = buildAssetEvidence(signal, metadata, ambiguity);
+    const evidence = buildAssetEvidence(signal, metadata, reference, ambiguity);
     const evidenceFingerprint = await computeEvidenceFingerprint({
       assetId,
       evidence: evidence.map((item) => ({
@@ -385,6 +385,7 @@ function symbolTargetIsUnambiguous(
 function buildAssetEvidence(
   signal: AssetSignal,
   metadata: TokenMetadataRecord | undefined,
+  reference: TokenReferenceLookupResult,
   ambiguity: SymbolAmbiguityGroup | undefined
 ): AssetReviewEvidence[] {
   const evidence: AssetReviewEvidence[] = [];
@@ -427,6 +428,17 @@ function buildAssetEvidence(
       message: `${signal.suspiciousAirdropNoteCount} processed transaction(s) carried SUSPICIOUS_AIRDROP warnings`,
       metadata: {
         count: signal.suspiciousAirdropNoteCount,
+      },
+    });
+  }
+
+  if (reference.referenceStatus === 'unmatched') {
+    evidence.push({
+      kind: 'unmatched-reference',
+      severity: 'warning',
+      message: `Provider '${reference.provider}' could not match this token to a canonical asset`,
+      metadata: {
+        provider: reference.provider,
       },
     });
   }

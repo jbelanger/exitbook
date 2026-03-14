@@ -334,6 +334,54 @@ describe('buildAssetReviewSummaries', () => {
     });
   });
 
+  it('flags unmatched canonical references for review without blocking accounting', async () => {
+    const assetId = 'blockchain:ethereum:0xdeadbeef';
+    const referenceResolver = {
+      resolveBatch: vi.fn().mockResolvedValue(
+        ok(
+          new Map([
+            [
+              '0xdeadbeef',
+              {
+                provider: 'coingecko',
+                referenceStatus: 'unmatched',
+              },
+            ],
+          ])
+        )
+      ),
+    };
+
+    const result = await buildAssetReviewSummaries(
+      [
+        createTransaction({
+          id: 1,
+          externalId: 'tx-1',
+          assetId,
+          assetSymbol: 'UNDG',
+        }),
+      ],
+      { referenceResolver }
+    );
+
+    expect(assertOk(result).get(assetId)).toMatchObject({
+      referenceStatus: 'unmatched',
+      reviewStatus: 'needs-review',
+      accountingBlocked: false,
+      warningSummary: "Provider 'coingecko' could not match this token to a canonical asset",
+      evidence: [
+        {
+          kind: 'unmatched-reference',
+          severity: 'warning',
+          message: "Provider 'coingecko' could not match this token to a canonical asset",
+          metadata: {
+            provider: 'coingecko',
+          },
+        },
+      ],
+    });
+  });
+
   it('keeps same-symbol ambiguity blocking even when one contract has a matched canonical reference', async () => {
     const firstAssetId = 'blockchain:ethereum:0xaaa';
     const secondAssetId = 'blockchain:ethereum:0xbbb';
