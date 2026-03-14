@@ -20,7 +20,7 @@ import type { CostBasisWorkflow, CostBasisWorkflowResult } from './cost-basis-wo
 
 const logger = getLogger('cost-basis-artifact-service');
 
-export interface CostBasisArtifactServiceExecuteParams {
+interface CostBasisArtifactServiceExecuteParams {
   params: CostBasisInput;
   dependencyWatermark: CostBasisDependencyWatermark;
   refresh?: boolean | undefined;
@@ -28,7 +28,7 @@ export interface CostBasisArtifactServiceExecuteParams {
   assetReviewSummaries?: ReadonlyMap<string, import('@exitbook/core').AssetReviewSummary> | undefined;
 }
 
-export interface CostBasisArtifactServiceResult {
+interface CostBasisArtifactServiceResult {
   artifact: CostBasisWorkflowResult;
   debug: CostBasisArtifactDebugPayload;
   dependencyWatermark: CostBasisDependencyWatermark;

@@ -2,7 +2,7 @@ import { ok, type Result } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
-export interface CostBasisArtifactInvalidationPorts {
+interface CostBasisArtifactInvalidationPorts {
   bumpPricesVersion(): Promise<Result<{ version: number }, Error>>;
 }
 

@@ -403,7 +403,7 @@ export interface CostBasisArtifactDebugPayload {
   superficialLossAdjustmentIds?: string[] | undefined;
 }
 
-export interface CostBasisSnapshotBuildResult {
+interface CostBasisSnapshotBuildResult {
   artifact: CostBasisWorkflowResult;
   debug: CostBasisArtifactDebugPayload;
   snapshot: CostBasisSnapshotRecord;
@@ -411,13 +411,13 @@ export interface CostBasisSnapshotBuildResult {
   snapshotId: string;
 }
 
-export interface CostBasisArtifactReuseResult {
+interface CostBasisArtifactReuseResult {
   artifact: CostBasisWorkflowResult;
   debug: CostBasisArtifactDebugPayload;
   snapshotId: string;
 }
 
-export interface CostBasisArtifactFreshnessResult {
+interface CostBasisArtifactFreshnessResult {
   status: 'fresh' | 'stale';
   reason?: string | undefined;
 }

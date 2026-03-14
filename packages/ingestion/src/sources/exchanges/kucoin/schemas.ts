@@ -409,17 +409,3 @@ export const CsvTradingBotRowSchema = z
       .optional(),
   })
   .strict();
-
-/**
- * Schema for combined raw data from all KuCoin CSV sources
- */
-export const CsvKuCoinRawDataSchema = z
-  .object({
-    accountHistory: z.array(CsvAccountHistoryRowSchema),
-    deposits: z.array(CsvDepositWithdrawalRowSchema),
-    orderSplitting: z.array(CsvOrderSplittingRowSchema),
-    spotOrders: z.array(CsvSpotOrderRowSchema),
-    tradingBot: z.array(CsvTradingBotRowSchema),
-    withdrawals: z.array(CsvDepositWithdrawalRowSchema),
-  })
-  .strict();
