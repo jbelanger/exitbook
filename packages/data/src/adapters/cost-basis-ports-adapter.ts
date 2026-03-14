@@ -1,13 +1,13 @@
-import type { ICostBasisPersistence } from '@exitbook/accounting/ports';
+import type { ICostBasisContextReader } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/core';
 
 import type { DataContext } from '../data-context.js';
 
 /**
- * Bridges DataContext repositories to accounting's ICostBasisPersistence port.
+ * Bridges DataContext repositories to accounting's ICostBasisContextReader port.
  * Mirrors the pattern established by buildLinkingPorts and buildPricingPorts.
  */
-export function buildCostBasisPorts(db: DataContext): ICostBasisPersistence {
+export function buildCostBasisPorts(db: DataContext): ICostBasisContextReader {
   return {
     loadCostBasisContext: () =>
       resultDoAsync(async function* () {

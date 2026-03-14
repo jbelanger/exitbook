@@ -1,4 +1,6 @@
 import {
+  buildAccountingExclusionFingerprint,
+  CostBasisArtifactService,
   CostBasisWorkflow,
   StandardFxRateProvider,
   type AccountingExclusionPolicy,
@@ -6,15 +8,17 @@ import {
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
-import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
+import {
+  buildCostBasisArtifactFreshnessPorts,
+  buildCostBasisArtifactStore,
+  buildCostBasisPorts,
+  type DataContext,
+} from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import {
-  ensureAssetReviewProjectionFresh,
-  readAssetReviewProjectionSummaries,
-} from '../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
@@ -30,8 +34,13 @@ export class CostBasisHandler {
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
   ) {}
 
-  async execute(params: CostBasisInput): Promise<Result<CostBasisWorkflowResult, Error>> {
-    const store = buildCostBasisPorts(this.db);
+  async execute(
+    params: CostBasisInput,
+    options?: { refresh?: boolean | undefined }
+  ): Promise<Result<CostBasisWorkflowResult, Error>> {
+    const contextReader = buildCostBasisPorts(this.db);
+    const artifactStore = buildCostBasisArtifactStore(this.db);
+    const artifactFreshness = buildCostBasisArtifactFreshnessPorts(this.db);
     const priceManagerResult = await createDefaultPriceProviderManager({
       dataDir: this.dataDir,
     });
@@ -42,27 +51,32 @@ export class CostBasisHandler {
     const priceManager = priceManagerResult.value;
     try {
       const fxRateProvider = new StandardFxRateProvider(priceManager);
-      const workflow = new CostBasisWorkflow(store, fxRateProvider);
-
-      const txResult = await this.db.transactions.findAll();
-      if (txResult.isErr()) return err(txResult.error);
-
-      const freshProjectionResult = await ensureAssetReviewProjectionFresh(this.db, this.dataDir);
-      if (freshProjectionResult.isErr()) {
-        return err(freshProjectionResult.error);
-      }
+      const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
+      const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
       const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
       if (assetReviewSummariesResult.isErr()) {
         return err(assetReviewSummariesResult.error);
       }
 
-      return await workflow.execute(
+      const exclusionFingerprint = buildAccountingExclusionFingerprint(this.accountingExclusionPolicy.excludedAssetIds);
+      const watermarkResult = await artifactFreshness.readCurrentWatermark(exclusionFingerprint);
+      if (watermarkResult.isErr()) {
+        return err(watermarkResult.error);
+      }
+
+      const result = await artifactService.execute({
         params,
-        txResult.value,
-        this.accountingExclusionPolicy,
-        assetReviewSummariesResult.value
-      );
+        dependencyWatermark: watermarkResult.value,
+        refresh: options?.refresh,
+        accountingExclusionPolicy: this.accountingExclusionPolicy,
+        assetReviewSummaries: assetReviewSummariesResult.value,
+      });
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok(result.value.artifact);
     } finally {
       await priceManager.destroy();
     }

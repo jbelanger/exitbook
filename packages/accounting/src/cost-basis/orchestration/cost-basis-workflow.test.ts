@@ -2,7 +2,7 @@ import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
+import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import { createCanadaFxProvider } from '../canada/__tests__/test-utils.js';
 
 import { CostBasisWorkflow } from './cost-basis-workflow.js';
@@ -83,7 +83,7 @@ function createDispositionTransaction(params: {
   };
 }
 
-function createStore(): ICostBasisPersistence {
+function createStore(): ICostBasisContextReader {
   return {
     loadCostBasisContext: vi.fn().mockResolvedValue(
       ok({

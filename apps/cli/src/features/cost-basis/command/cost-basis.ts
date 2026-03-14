@@ -161,6 +161,7 @@ export function registerCostBasisCommand(program: Command, registry: AdapterRegi
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
+    .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, registry));
 }
@@ -202,7 +203,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, registry: 
       }
 
       const handler = handlerResult.value;
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, { refresh: options.refresh });
 
       if (result.isErr()) {
         displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -267,7 +268,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
 
       // Step 3: Calculate cost basis
       const spinner = createSpinner('Calculating cost basis...', false);
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, { refresh: options.refresh });
       stopSpinner(spinner);
 
       if (result.isErr()) {

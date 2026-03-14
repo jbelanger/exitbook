@@ -231,6 +231,35 @@ export interface ProjectionStateTable {
   metadata_json: JSONString | null;
 }
 
+export interface CostBasisSnapshotsTable {
+  scope_key: string;
+  snapshot_id: string;
+  storage_schema_version: number;
+  calculation_engine_version: number;
+  artifact_kind: string;
+  links_built_at: DateTime;
+  asset_review_built_at: DateTime;
+  prices_mutation_version: number;
+  exclusion_fingerprint: string;
+  calculation_id: string;
+  jurisdiction: string;
+  method: string;
+  tax_year: number;
+  display_currency: string;
+  start_date: string;
+  end_date: string;
+  artifact_json: JSONString;
+  debug_json: JSONString;
+  created_at: DateTime;
+  updated_at: DateTime;
+}
+
+export interface CostBasisDependencyVersionsTable {
+  dependency_name: string;
+  version: number;
+  last_mutated_at: DateTime;
+}
+
 export interface BalanceSnapshotsTable {
   scope_account_id: number;
   calculated_at: DateTime | null;
@@ -299,6 +328,8 @@ export interface DatabaseSchema {
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
   projection_state: ProjectionStateTable;
+  cost_basis_snapshots: CostBasisSnapshotsTable;
+  cost_basis_dependency_versions: CostBasisDependencyVersionsTable;
   balance_snapshots: BalanceSnapshotsTable;
   balance_snapshot_assets: BalanceSnapshotAssetsTable;
   asset_review_state: AssetReviewStateTable;

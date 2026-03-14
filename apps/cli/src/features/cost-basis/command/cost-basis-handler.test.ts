@@ -1,19 +1,21 @@
-import { CostBasisWorkflow } from '@exitbook/accounting';
+import { CostBasisArtifactService, CostBasisWorkflow } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import {
-  ensureAssetReviewProjectionFresh,
-  readAssetReviewProjectionSummaries,
-} from '../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
-  return { ...actual, CostBasisWorkflow: vi.fn(), StandardFxRateProvider: vi.fn() };
+  return {
+    ...actual,
+    CostBasisArtifactService: vi.fn(),
+    CostBasisWorkflow: vi.fn(),
+    StandardFxRateProvider: vi.fn(),
+  };
 });
 
 vi.mock('@exitbook/price-providers', () => ({
@@ -29,16 +31,13 @@ vi.mock('../../shared/data-dir.js', () => ({
 }));
 
 vi.mock('../../shared/asset-review-projection-runtime.js', () => ({
-  ensureAssetReviewProjectionFresh: vi.fn(),
   readAssetReviewProjectionSummaries: vi.fn(),
 }));
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockTransactionRepo: { findAll: Mock };
-  let mockTransactionLinkRepo: { findAll: Mock };
   let mockPriceManager: PriceProviderManager;
-  let mockWorkflowExecute: Mock;
+  let mockArtifactServiceExecute: Mock;
 
   const validParams = {
     config: {
@@ -54,23 +53,54 @@ describe('CostBasisHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockTransactionRepo = { findAll: vi.fn().mockResolvedValue(ok([])) };
-    mockTransactionLinkRepo = { findAll: vi.fn().mockResolvedValue(ok([])) };
-
     const mockDb = {
-      transactions: mockTransactionRepo,
-      transactionLinks: mockTransactionLinkRepo,
+      transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
+      transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
+      costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
+      costBasisDependencyVersions: {
+        getVersion: vi.fn().mockResolvedValue(ok({ dependencyName: 'prices', version: 2 })),
+      },
+      projectionState: {
+        get: vi.fn().mockImplementation(async (projectionId: string) =>
+          ok({
+            projectionId,
+            scopeKey: '__global__',
+            status: 'fresh',
+            lastBuiltAt: new Date('2026-03-14T12:00:00.000Z'),
+            lastInvalidatedAt: undefined,
+            invalidatedBy: undefined,
+            metadata: undefined,
+          })
+        ),
+      },
     } as unknown as DataContext;
 
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
 
-    mockWorkflowExecute = vi.fn().mockResolvedValue(ok({ summary: {}, lots: [], disposals: [], lotTransfers: [] }));
-    vi.mocked(CostBasisWorkflow).mockImplementation(function () {
-      return { execute: mockWorkflowExecute } as unknown as CostBasisWorkflow;
-    } as unknown as typeof CostBasisWorkflow);
+    mockArtifactServiceExecute = vi.fn().mockResolvedValue(
+      ok({
+        artifact: { kind: 'generic-pipeline', summary: {}, lots: [], disposals: [], lotTransfers: [] },
+        debug: { kind: 'generic-pipeline', scopedTransactionIds: [], appliedConfirmedLinkIds: [] },
+        dependencyWatermark: {
+          links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+          assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+          pricesMutationVersion: 2,
+          exclusionFingerprint: 'excluded-assets:none',
+        },
+        rebuilt: false,
+        scopeKey: 'cost-basis:test',
+        snapshotId: 'snapshot-1',
+      })
+    );
 
-    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
+    vi.mocked(CostBasisWorkflow).mockImplementation(function () {
+      return { execute: vi.fn() } as unknown as CostBasisWorkflow;
+    } as unknown as typeof CostBasisWorkflow);
+    vi.mocked(CostBasisArtifactService).mockImplementation(function () {
+      return { execute: mockArtifactServiceExecute } as unknown as CostBasisArtifactService;
+    } as unknown as typeof CostBasisArtifactService);
+
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
     handler = new CostBasisHandler(mockDb, '/tmp/test-data');
@@ -88,39 +118,44 @@ describe('CostBasisHandler', () => {
       }
     });
 
-    it('returns error when transaction fetch fails', async () => {
-      vi.mocked(mockTransactionRepo.findAll).mockResolvedValue(err(new Error('DB Error')));
+    it('returns error when dependency watermark loading fails', async () => {
+      const failingDb = {
+        transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
+        transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
+        costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
+        costBasisDependencyVersions: {
+          getVersion: vi.fn().mockResolvedValue(ok({ dependencyName: 'prices', version: 2 })),
+        },
+        projectionState: {
+          get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
+        },
+      } as unknown as DataContext;
+      handler = new CostBasisHandler(failingDb, '/tmp/test-data');
 
       const result = await handler.execute(validParams);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toBe('DB Error');
+        expect(result.error.message).toBe('projection read failed');
       }
     });
 
-    it('delegates to CostBasisWorkflow and returns its result', async () => {
-      const workflowResult = {
-        summary: { calculation: { id: 'calc-123' } },
-        lots: [],
-        disposals: [],
-        lotTransfers: [],
-      };
-      mockWorkflowExecute.mockResolvedValue(ok(workflowResult));
-
-      const result = await handler.execute(validParams);
+    it('delegates artifact policy to CostBasisArtifactService and returns its artifact', async () => {
+      const result = await handler.execute(validParams, { refresh: true });
 
       expect(result.isOk()).toBe(true);
-      expect(mockWorkflowExecute).toHaveBeenCalledWith(
-        validParams,
-        [],
-        { excludedAssetIds: new Set<string>() },
-        new Map()
+      expect(mockArtifactServiceExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: validParams,
+          refresh: true,
+          accountingExclusionPolicy: { excludedAssetIds: new Set<string>() },
+          assetReviewSummaries: new Map(),
+        })
       );
     });
 
-    it('destroys price manager even when workflow fails', async () => {
-      mockWorkflowExecute.mockResolvedValue(err(new Error('workflow error')));
+    it('destroys price manager even when artifact execution fails', async () => {
+      mockArtifactServiceExecute.mockResolvedValue(err(new Error('artifact error')));
 
       await handler.execute(validParams);
 

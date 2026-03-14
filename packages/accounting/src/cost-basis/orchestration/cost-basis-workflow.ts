@@ -2,7 +2,7 @@ import type { AssetReviewSummary, Currency, UniversalTransactionData } from '@ex
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
+import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import { runCanadaAcbEngine } from '../canada/canada-acb-engine.js';
 import { runCanadaAcbWorkflow } from '../canada/canada-acb-workflow.js';
@@ -50,12 +50,12 @@ export type CostBasisWorkflowResult = GenericCostBasisWorkflowResult | CanadaCos
  * Orchestrates cost basis calculation — validates params, fetches/filters
  * transactions, runs the pipeline, and optionally generates FX-converted reports.
  *
- * Caller provides persistence via ICostBasisPersistence port and transactions
+ * Caller provides persistence via ICostBasisContextReader port and transactions
  * pre-loaded from the database.
  */
 export class CostBasisWorkflow {
   constructor(
-    private readonly store: ICostBasisPersistence,
+    private readonly store: ICostBasisContextReader,
     private readonly fxRateProvider?: IFxRateProvider | undefined
   ) {}
 

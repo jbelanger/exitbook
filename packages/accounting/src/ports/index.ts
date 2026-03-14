@@ -1,4 +1,13 @@
-export type { ICostBasisPersistence, CostBasisContext } from './cost-basis-persistence.js';
+export type {
+  CostBasisArtifactKind,
+  CostBasisContext,
+  CostBasisDependencyWatermark,
+  CostBasisProjectionWatermark,
+  CostBasisSnapshotRecord,
+  ICostBasisArtifactStore,
+  ICostBasisContextReader,
+  ICostBasisDependencyWatermarkReader,
+} from './cost-basis-persistence.js';
 export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence.js';
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';

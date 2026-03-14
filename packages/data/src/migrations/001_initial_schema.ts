@@ -375,6 +375,51 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
   `.execute(db);
 
+  await sql`
+    CREATE TABLE cost_basis_snapshots (
+      scope_key                    TEXT PRIMARY KEY,
+      snapshot_id                  TEXT NOT NULL,
+      storage_schema_version       INTEGER NOT NULL,
+      calculation_engine_version   INTEGER NOT NULL,
+      artifact_kind                TEXT NOT NULL CHECK(artifact_kind IN ('generic', 'canada')),
+      links_built_at               TEXT NOT NULL,
+      asset_review_built_at        TEXT NOT NULL,
+      prices_mutation_version      INTEGER NOT NULL,
+      exclusion_fingerprint        TEXT NOT NULL,
+      calculation_id               TEXT NOT NULL,
+      jurisdiction                 TEXT NOT NULL,
+      method                       TEXT NOT NULL,
+      tax_year                     INTEGER NOT NULL,
+      display_currency             TEXT NOT NULL,
+      start_date                   TEXT NOT NULL,
+      end_date                     TEXT NOT NULL,
+      artifact_json                TEXT NOT NULL CHECK(json_valid(artifact_json)),
+      debug_json                   TEXT NOT NULL CHECK(json_valid(debug_json)),
+      created_at                   TEXT NOT NULL,
+      updated_at                   TEXT NOT NULL
+    )
+  `.execute(db);
+
+  await db.schema
+    .createIndex('idx_cost_basis_snapshots_scope')
+    .on('cost_basis_snapshots')
+    .column('scope_key')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_cost_basis_snapshots_snapshot_id')
+    .on('cost_basis_snapshots')
+    .column('snapshot_id')
+    .execute();
+
+  await sql`
+    CREATE TABLE cost_basis_dependency_versions (
+      dependency_name   TEXT PRIMARY KEY,
+      version           INTEGER NOT NULL,
+      last_mutated_at   TEXT NOT NULL
+    )
+  `.execute(db);
+
   await db.schema
     .createTable('balance_snapshots')
     .addColumn('scope_account_id', 'integer', (col) => col.primaryKey().references('accounts.id'))
@@ -516,6 +561,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('asset_review_state').ifExists().execute();
   await db.schema.dropTable('balance_snapshot_assets').ifExists().execute();
   await db.schema.dropTable('balance_snapshots').ifExists().execute();
+  await db.schema.dropTable('cost_basis_dependency_versions').ifExists().execute();
+  await db.schema.dropTable('cost_basis_snapshots').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();

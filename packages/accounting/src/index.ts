@@ -24,7 +24,20 @@ export {
 
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
+export { CostBasisArtifactService } from './cost-basis/orchestration/cost-basis-artifact-service.js';
 export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
+export {
+  buildAccountingExclusionFingerprint,
+  buildCostBasisScopeKey,
+  COST_BASIS_CALCULATION_ENGINE_VERSION,
+  COST_BASIS_STORAGE_SCHEMA_VERSION,
+  evaluateCostBasisArtifactFreshness,
+  readCostBasisSnapshotArtifact,
+  StoredCanadaCostBasisArtifactSchema,
+  StoredCostBasisArtifactEnvelopeSchema,
+  StoredCostBasisDebugSchema,
+  StoredGenericCostBasisArtifactSchema,
+} from './cost-basis/orchestration/cost-basis-artifact-storage.js';
 export { buildCostBasisScopedTransactions } from './cost-basis/matching/build-cost-basis-scoped-transactions.js';
 export {
   filterConfirmableTransferProposals,
@@ -45,7 +58,16 @@ export type {
 } from './cost-basis/shared/report-types.js';
 
 // Ports
-export type { ICostBasisPersistence } from './ports/index.js';
+export type {
+  CostBasisArtifactKind,
+  CostBasisContext,
+  CostBasisDependencyWatermark,
+  CostBasisProjectionWatermark,
+  CostBasisSnapshotRecord,
+  ICostBasisArtifactStore,
+  ICostBasisContextReader,
+  ICostBasisDependencyWatermarkReader,
+} from './ports/index.js';
 
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/orchestration/linking-orchestrator.js';

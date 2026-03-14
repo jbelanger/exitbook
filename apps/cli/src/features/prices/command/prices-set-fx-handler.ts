@@ -10,6 +10,10 @@ import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetFxHandler');
 
+interface CostBasisArtifactInvalidation {
+  bumpPricesVersion(): Promise<Result<{ version: number }, Error>>;
+}
+
 /**
  * Options for prices set-fx command
  */
@@ -49,7 +53,8 @@ export class PricesSetFxHandler {
 
   constructor(
     databasePath: string,
-    private readonly overrideStore?: OverrideStore | undefined
+    private readonly overrideStore?: OverrideStore | undefined,
+    private readonly costBasisInvalidation?: CostBasisArtifactInvalidation | undefined
   ) {
     this.service = new ManualPriceService(databasePath);
   }
@@ -78,6 +83,13 @@ export class PricesSetFxHandler {
 
       if (saveResult.isErr()) {
         return err(saveResult.error);
+      }
+
+      if (this.costBasisInvalidation) {
+        const invalidationResult = await this.costBasisInvalidation.bumpPricesVersion();
+        if (invalidationResult.isErr()) {
+          return err(invalidationResult.error);
+        }
       }
 
       logger.info(

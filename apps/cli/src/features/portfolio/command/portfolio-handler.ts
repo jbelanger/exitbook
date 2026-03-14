@@ -15,7 +15,7 @@ import {
   validateCostBasisInput,
   type CanadaCostBasisCalculation,
   type CostBasisInput,
-  type ICostBasisPersistence,
+  type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type AssetReviewSummary, type Currency, type UniversalTransactionData } from '@exitbook/core';
@@ -232,7 +232,7 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
-      const costBasisStore: ICostBasisPersistence = buildCostBasisPorts(this.db);
+      const costBasisStore: ICostBasisContextReader = buildCostBasisPorts(this.db);
       const accountsResult = await this.db.accounts.findAll();
       if (accountsResult.isErr()) {
         return err(accountsResult.error);
@@ -479,7 +479,7 @@ export class PortfolioHandler {
     assetMetadata: Record<string, string>;
     assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
     costBasisParams: CostBasisInput;
-    costBasisStore: ICostBasisPersistence;
+    costBasisStore: ICostBasisContextReader;
     holdings: Record<string, Decimal>;
     spotPrices: Map<string, SpotPriceResult>;
     transactionsUpToAsOf: UniversalTransactionData[];

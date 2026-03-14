@@ -2,7 +2,12 @@ import type { LinksResetImpact } from '@exitbook/accounting/ports';
 import type { Account } from '@exitbook/core';
 import { err, ok, resetPlan, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import { buildIngestionPurgePorts, buildLinksResetPorts, buildProcessedTransactionsResetPorts } from '@exitbook/data';
+import {
+  buildCostBasisResetPorts,
+  buildIngestionPurgePorts,
+  buildLinksResetPorts,
+  buildProcessedTransactionsResetPorts,
+} from '@exitbook/data';
 import type { IngestionPurgeImpact } from '@exitbook/ingestion';
 import type { ProcessedTransactionsResetImpact } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
@@ -185,6 +190,12 @@ export function createClearHandler(deps: ClearHandlerDeps) {
             if (result.isErr()) return wrapError(result.error, 'Failed to reset processed-transactions');
             ptImpact = result.value;
           }
+        }
+
+        // Cost-basis latest snapshots are derived artifacts outside the projection graph.
+        const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset();
+        if (costBasisResetResult.isErr()) {
+          return wrapError(costBasisResetResult.error, 'Failed to reset cost-basis snapshots');
         }
 
         // Optional purge (raw data, sessions, accounts)

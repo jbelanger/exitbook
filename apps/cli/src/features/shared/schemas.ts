@@ -388,6 +388,7 @@ export const CostBasisCommandOptionsSchema = z
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     asset: z.string().optional(),
+    refresh: z.boolean().optional(),
     json: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {

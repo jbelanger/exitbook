@@ -1,7 +1,7 @@
 // Command registration for view prices subcommand
 import path from 'node:path';
 
-import { OverrideStore } from '@exitbook/data';
+import { OverrideStore, buildCostBasisArtifactInvalidationPorts } from '@exitbook/data';
 import { ManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
@@ -148,7 +148,8 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
       const overrideStore = new OverrideStore(ctx.dataDir);
       const pricesSetHandler = new PricesSetHandler(
         new ManualPriceService(path.join(ctx.dataDir, 'prices.db')),
-        overrideStore
+        overrideStore,
+        buildCostBasisArtifactInvalidationPorts(database)
       );
 
       const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
@@ -198,7 +199,8 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
 
       const pricesSetHandler = new PricesSetHandler(
         new ManualPriceService(path.join(ctx.dataDir, 'prices.db')),
-        overrideStore
+        overrideStore,
+        buildCostBasisArtifactInvalidationPorts(database)
       );
 
       const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {

@@ -2,7 +2,7 @@ import { type AssetReviewSummary, type UniversalTransactionData } from '@exitboo
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
+import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
@@ -52,7 +52,7 @@ const logger = getLogger('cost-basis-pipeline');
 export async function runCostBasisPipeline(
   transactions: UniversalTransactionData[],
   config: CostBasisConfig,
-  store: ICostBasisPersistence,
+  store: ICostBasisContextReader,
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   const scopedResult = buildCostBasisScopedTransactions(transactions, logger);

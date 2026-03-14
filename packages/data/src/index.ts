@@ -6,6 +6,8 @@ export {
   AccountRepository,
   AssetReviewRepository,
   BalanceSnapshotRepository,
+  CostBasisDependencyVersionRepository,
+  CostBasisSnapshotRepository,
   ImportSessionRepository,
   NearRawTransactionRepository,
   ProjectionStateRepository,
@@ -17,6 +19,7 @@ export {
 export type {
   FindOrCreateAccountParams,
   ProjectionStateRow,
+  CostBasisDependencyVersionRow,
   UpdateAccountParams,
   RawDataQueryParams,
   TransactionLinkRow,
@@ -30,6 +33,8 @@ export { generateDeterministicTransactionHash } from './utils/transaction-id-uti
 export type {
   DatabaseSchema,
   ProjectionStateTable,
+  CostBasisDependencyVersionsTable,
+  CostBasisSnapshotsTable,
   BalanceSnapshotsTable,
   BalanceSnapshotAssetsTable,
   TransactionLinksTable,
@@ -45,7 +50,11 @@ export { buildAssetReviewProjectionDataPorts } from './adapters/asset-review-pro
 export { buildAssetReviewResetPorts } from './adapters/asset-review-reset-adapter.js';
 export { buildBalancesFreshnessPorts } from './adapters/balances-freshness-adapter.js';
 export { buildBalancesResetPorts } from './adapters/balances-reset-adapter.js';
+export { buildCostBasisArtifactFreshnessPorts } from './adapters/cost-basis-artifact-freshness-adapter.js';
+export { buildCostBasisArtifactInvalidationPorts } from './adapters/cost-basis-artifact-invalidation-adapter.js';
+export { buildCostBasisArtifactStore } from './adapters/cost-basis-artifact-store-adapter.js';
 export { buildCostBasisPorts } from './adapters/cost-basis-ports-adapter.js';
+export { buildCostBasisResetPorts } from './adapters/cost-basis-reset-adapter.js';
 export { buildImportPorts } from './adapters/import-ports-adapter.js';
 export { buildIngestionPurgePorts } from './adapters/ingestion-purge-adapter.js';
 export { buildLinkingPorts } from './adapters/linking-ports-adapter.js';

@@ -12,7 +12,7 @@ import {
   createTransaction,
   createTransactionFromMovements,
 } from '../../__tests__/test-utils.js';
-import type { ICostBasisPersistence } from '../../ports/cost-basis-persistence.js';
+import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import { createAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
 import type { CostBasisConfig } from '../shared/cost-basis-config.js';
 
@@ -27,7 +27,7 @@ const defaultConfig: CostBasisConfig = {
   endDate: new Date('2025-12-31T23:59:59.999Z'),
 };
 
-function stubStore(): ICostBasisPersistence {
+function stubStore(): ICostBasisContextReader {
   return {
     loadCostBasisContext: vi.fn(),
   };

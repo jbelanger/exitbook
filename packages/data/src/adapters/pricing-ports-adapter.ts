@@ -22,6 +22,13 @@ export function buildPricingPorts(db: DataContext): IPricingPersistence {
 
     loadTransactionsNeedingPrices: (assetFilter) => db.transactions.findNeedingPrices(assetFilter),
 
-    saveTransactionPrices: (tx) => db.executeInTransaction((txCtx) => txCtx.transactions.updateMovementsWithPrices(tx)),
+    saveTransactionPrices: (tx) =>
+      db.executeInTransaction((txCtx) =>
+        resultDoAsync(async function* () {
+          yield* await txCtx.transactions.updateMovementsWithPrices(tx);
+          yield* await txCtx.costBasisDependencyVersions.bumpVersion('prices');
+          return undefined;
+        })
+      ),
   };
 }

@@ -5,12 +5,15 @@ import { err, type Result } from '@exitbook/core';
  * CLI options for cost-basis command
  */
 export interface CostBasisCommandOptions {
+  asset?: string | undefined;
   method?: string | undefined;
   jurisdiction?: string | undefined;
   taxYear?: string | number | undefined;
   fiatCurrency?: string | undefined;
   startDate?: string | undefined;
   endDate?: string | undefined;
+  refresh?: boolean | undefined;
+  json?: boolean | undefined;
 }
 
 /**
