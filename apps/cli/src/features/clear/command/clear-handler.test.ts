@@ -12,6 +12,9 @@ describe('clear-handler', () => {
       costBasisSnapshots: {
         count: vi.fn().mockResolvedValue(ok(3)),
       },
+      costBasisFailureSnapshots: {
+        count: vi.fn().mockResolvedValue(ok(1)),
+      },
       users: { findOrCreateDefault: vi.fn() },
       accounts: { findAll: vi.fn() },
       executeInTransaction: vi.fn(),
@@ -26,12 +29,12 @@ describe('clear-handler', () => {
       throw previewResult.error;
     }
 
-    expect(previewResult.value.costBasisSnapshots.snapshots).toBe(3);
+    expect(previewResult.value.costBasisSnapshots.snapshots).toBe(4);
 
     const flat = flattenPreview(previewResult.value);
     expect(flat.transactions).toBe(5);
     expect(flat.links).toBe(2);
-    expect(flat.costBasisSnapshots).toBe(3);
+    expect(flat.costBasisSnapshots).toBe(4);
     expect(calculateTotalDeletionItems(flat)).toBe(flat.transactions + flat.links + flat.costBasisSnapshots);
   });
 });

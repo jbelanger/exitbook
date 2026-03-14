@@ -412,6 +412,39 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .column('snapshot_id')
     .execute();
 
+  await sql`
+    CREATE TABLE cost_basis_failure_snapshots (
+      scope_key                    TEXT NOT NULL,
+      consumer                     TEXT NOT NULL CHECK(consumer IN ('cost-basis', 'portfolio')),
+      snapshot_id                  TEXT NOT NULL,
+      links_status                 TEXT NOT NULL CHECK(links_status IN ('fresh', 'stale', 'building', 'failed', 'missing')),
+      links_built_at               TEXT,
+      asset_review_status          TEXT NOT NULL CHECK(asset_review_status IN ('fresh', 'stale', 'building', 'failed', 'missing')),
+      asset_review_built_at        TEXT,
+      prices_last_mutated_at       TEXT,
+      exclusion_fingerprint        TEXT NOT NULL,
+      jurisdiction                 TEXT NOT NULL,
+      method                       TEXT NOT NULL,
+      tax_year                     INTEGER NOT NULL,
+      display_currency             TEXT NOT NULL,
+      start_date                   TEXT NOT NULL,
+      end_date                     TEXT NOT NULL,
+      error_name                   TEXT NOT NULL,
+      error_message                TEXT NOT NULL,
+      error_stack                  TEXT,
+      debug_json                   TEXT NOT NULL CHECK(json_valid(debug_json)),
+      created_at                   TEXT NOT NULL,
+      updated_at                   TEXT NOT NULL,
+      PRIMARY KEY (scope_key, consumer)
+    )
+  `.execute(db);
+
+  await db.schema
+    .createIndex('idx_cost_basis_failure_snapshots_snapshot_id')
+    .on('cost_basis_failure_snapshots')
+    .column('snapshot_id')
+    .execute();
+
   await db.schema
     .createTable('balance_snapshots')
     .addColumn('scope_account_id', 'integer', (col) => col.primaryKey().references('accounts.id'))
@@ -553,6 +586,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('asset_review_state').ifExists().execute();
   await db.schema.dropTable('balance_snapshot_assets').ifExists().execute();
   await db.schema.dropTable('balance_snapshots').ifExists().execute();
+  await db.schema.dropTable('cost_basis_failure_snapshots').ifExists().execute();
   await db.schema.dropTable('cost_basis_snapshots').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)

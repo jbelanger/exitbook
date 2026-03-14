@@ -1,9 +1,7 @@
-import path from 'node:path';
-
 import {
-  buildAccountingExclusionFingerprint,
   CostBasisArtifactService,
   CostBasisWorkflow,
+  persistCostBasisFailureSnapshot,
   StandardFxRateProvider,
   type AccountingExclusionPolicy,
   type CostBasisInput,
@@ -11,17 +9,18 @@ import {
 } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
 import {
-  buildCostBasisArtifactFreshnessPorts,
   buildCostBasisArtifactStore,
+  buildCostBasisFailureSnapshotStore,
   buildCostBasisPorts,
   type DataContext,
 } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { createDefaultPriceProviderManager, readLatestPriceMutationAt } from '@exitbook/price-providers';
+import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
+import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { CostBasisInput, CostBasisWorkflowResult };
@@ -42,13 +41,7 @@ export class CostBasisHandler {
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
-    const latestPriceMutationResult = await readLatestPriceMutationAt(path.join(this.dataDir, 'prices.db'));
-    if (latestPriceMutationResult.isErr()) {
-      return err(latestPriceMutationResult.error);
-    }
-    const artifactFreshness = buildCostBasisArtifactFreshnessPorts(this.db, {
-      pricesLastMutatedAt: latestPriceMutationResult.value,
-    });
+    const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
     const priceManagerResult = await createDefaultPriceProviderManager({
       dataDir: this.dataDir,
     });
@@ -67,8 +60,11 @@ export class CostBasisHandler {
         return err(assetReviewSummariesResult.error);
       }
 
-      const exclusionFingerprint = buildAccountingExclusionFingerprint(this.accountingExclusionPolicy.excludedAssetIds);
-      const watermarkResult = await artifactFreshness.readCurrentWatermark(exclusionFingerprint);
+      const watermarkResult = await readCostBasisDependencyWatermark(
+        this.db,
+        this.dataDir,
+        this.accountingExclusionPolicy
+      );
       if (watermarkResult.isErr()) {
         return err(watermarkResult.error);
       }
@@ -81,6 +77,24 @@ export class CostBasisHandler {
         assetReviewSummaries: assetReviewSummariesResult.value,
       });
       if (result.isErr()) {
+        const failurePersistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
+          consumer: 'cost-basis',
+          input: params,
+          dependencyWatermark: watermarkResult.value,
+          error: result.error,
+          stage: 'artifact-service.execute',
+          context: {
+            refresh: options?.refresh === true,
+          },
+        });
+        if (failurePersistResult.isErr()) {
+          return err(
+            new Error(
+              `Cost basis failed: ${result.error.message}. Additionally, failure snapshot persistence failed: ${failurePersistResult.error.message}`,
+              { cause: result.error }
+            )
+          );
+        }
         return err(result.error);
       }
 

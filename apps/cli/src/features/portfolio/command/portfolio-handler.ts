@@ -5,8 +5,10 @@
 import {
   CostBasisWorkflow,
   type AccountingExclusionPolicy,
+  persistCostBasisFailureSnapshot,
   runCanadaCostBasisCalculation,
   StandardFxRateProvider,
+  type CostBasisDependencyWatermark,
   validateCostBasisInput,
   type CostBasisInput,
   type ICostBasisContextReader,
@@ -14,7 +16,7 @@ import {
 } from '@exitbook/accounting';
 import { parseCurrency, type AssetReviewSummary, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import { buildCostBasisPorts } from '@exitbook/data';
+import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { AdapterRegistry } from '@exitbook/ingestion';
@@ -28,6 +30,7 @@ import {
   readAssetReviewProjectionSummaries,
 } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
+import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
 
@@ -226,6 +229,16 @@ export class PortfolioHandler {
         return err(costBasisValidation.error);
       }
 
+      const dependencyWatermarkResult = await readCostBasisDependencyWatermark(
+        this.db,
+        this.dataDir,
+        this.accountingExclusionPolicy
+      );
+      if (dependencyWatermarkResult.isErr()) {
+        return err(dependencyWatermarkResult.error);
+      }
+      const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
+
       const costBasisStore: ICostBasisContextReader = buildCostBasisPorts(this.db);
       const accountsResult = await this.db.accounts.findAll();
       if (accountsResult.isErr()) {
@@ -259,7 +272,13 @@ export class PortfolioHandler {
           transactionsUpToAsOf,
         });
         if (canadaPortfolioResult.isErr()) {
-          return err(canadaPortfolioResult.error);
+          return this.persistCostBasisFailure(
+            failureSnapshotStore,
+            costBasisParams,
+            dependencyWatermarkResult.value,
+            canadaPortfolioResult.error,
+            'portfolio.canada-cost-basis'
+          );
         }
 
         warnings.push(...canadaPortfolioResult.value.warnings);
@@ -280,7 +299,13 @@ export class PortfolioHandler {
           missingPricePolicy: 'exclude',
         });
         if (workflowResult.isErr()) {
-          return err(workflowResult.error);
+          return this.persistCostBasisFailure(
+            failureSnapshotStore,
+            costBasisParams,
+            dependencyWatermarkResult.value,
+            workflowResult.error,
+            'portfolio.generic-cost-basis'
+          );
         }
 
         if (workflowResult.value.kind !== 'generic-pipeline') {
@@ -568,6 +593,32 @@ export class PortfolioHandler {
       realizedGainLossByPortfolioKey: built.realizedGainLossByPortfolioKey,
       warnings,
     });
+  }
+
+  private async persistCostBasisFailure(
+    failureSnapshotStore: ReturnType<typeof buildCostBasisFailureSnapshotStore>,
+    input: CostBasisInput,
+    dependencyWatermark: CostBasisDependencyWatermark,
+    error: Error,
+    stage: string
+  ): Promise<Result<PortfolioResult, Error>> {
+    const persistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
+      consumer: 'portfolio',
+      input,
+      dependencyWatermark,
+      error,
+      stage,
+    });
+    if (persistResult.isErr()) {
+      return err(
+        new Error(
+          `Portfolio cost basis failed: ${error.message}. Additionally, failure snapshot persistence failed: ${persistResult.error.message}`,
+          { cause: error }
+        )
+      );
+    }
+
+    return err(error);
   }
 }
 

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-09
+last_verified: 2026-03-14
 status: canonical
 ---
 
@@ -48,17 +48,66 @@ interface CanadaCostBasisWorkflowResult {
   calculation: CanadaCostBasisCalculation;
   taxReport: CanadaTaxReport;
   displayReport?: CanadaDisplayCostBasisReport;
+  executionMeta: {
+    missingPricesCount: number;
+    retainedTransactionIds: number[];
+  };
 }
 ```
 
 Current behavior:
 
 - `config.jurisdiction === 'CA'` branches before `runCostBasisPipeline()`.
+- `CostBasisWorkflow` delegates Canada execution to
+  `runCanadaCostBasisCalculation(...)` with
+  `missingPricePolicy: 'error'` and `poolSnapshotStrategy: 'report-end'`.
+- `PortfolioHandler` reuses the same runner with
+  `missingPricePolicy: 'exclude'` and
+  `poolSnapshotStrategy: 'full-input-range'`.
 - Canada requires an `IFxRateProvider` because tax valuation is CAD-native.
 - The workflow includes all transactions on or before the effective calculation end date so pre-period acquisitions can seed the pool correctly.
 - The workflow expands the transaction window to `endDate + 30 days` so post-period reacquisitions can deny in-period losses.
 - Report rows are still filtered to the requested calculation window.
 - `displayReport` is typed as optional, but the current workflow always builds one, including an identity-CAD projection when `displayCurrency === 'CAD'`.
+- `executionMeta` reports how many scoped transactions were excluded for missing
+  prices and which raw transaction IDs were retained for the surviving
+  calculation input.
+
+### Shared Canada Runner
+
+Canada orchestration now lives behind one shared seam:
+
+```ts
+runCanadaCostBasisCalculation({
+  input,
+  transactions,
+  confirmedLinks,
+  fxRateProvider,
+  accountingExclusionPolicy,
+  assetReviewSummaries,
+  missingPricePolicy,
+  poolSnapshotStrategy,
+});
+```
+
+This runner owns:
+
+- price-completeness filtering
+- Canada ACB workflow execution
+- superficial-loss adjustment generation
+- adjusted pool replay
+- pool snapshot replay for reporting/portfolio
+- tax report generation
+- display report generation
+
+The two explicit policy knobs are:
+
+- `missingPricePolicy`
+  - `'error'` for `cost-basis`
+  - `'exclude'` for `portfolio`
+- `poolSnapshotStrategy`
+  - `'report-end'` for `cost-basis`
+  - `'full-input-range'` for `portfolio`
 
 ## Definitions
 
@@ -215,6 +264,9 @@ This report never recalculates tax results. It only converts CAD tax rows into a
 - Unsupported Canada methods are rejected before workflow dispatch.
 - Non-CA jurisdictions continue to use the generic lot pipeline.
 - Canada loads confirmed links once from persistence and keeps the rest of the workflow inside the accounting capability.
+- Canada missing-price handling is consumer-specific but explicit:
+  `cost-basis` fails closed, while `portfolio` may exclude incomplete scoped
+  transactions and continue.
 
 ### CAD Valuation Happens Before Cost Basis
 
@@ -500,12 +552,19 @@ graph TD
     G --> H["CanadaSuperficialLossEngine"]
     H --> I["Append superficial-loss-adjustment events"]
     I --> J["CanadaAcbEngine (adjusted)"]
-    I --> K["CanadaAcbEngine filtered to report end"]
+    I --> K["CanadaAcbEngine for pool snapshot strategy"]
     J --> L["CanadaTaxReportBuilder"]
     K --> L
     L --> M["CanadaTaxReport"]
     M --> N["CanadaDisplayCostBasisReport"]
 ```
+
+Pool snapshot strategy notes:
+
+- `report-end` filters the augmented input context to `endDate` before the
+  second replay so tax reports only surface report-window pool state.
+- `full-input-range` replays the full augmented input range so portfolio can
+  shape holdings from the complete `asOf` horizon it already requested.
 
 ## Invariants
 

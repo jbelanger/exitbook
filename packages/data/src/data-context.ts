@@ -7,6 +7,7 @@ import { closeDatabase, initializeDatabase } from './database.js';
 import { AccountRepository } from './repositories/account-repository.js';
 import { AssetReviewRepository } from './repositories/asset-review-repository.js';
 import { BalanceSnapshotRepository } from './repositories/balance-snapshot-repository.js';
+import { CostBasisFailureSnapshotRepository } from './repositories/cost-basis-failure-snapshot-repository.js';
 import { CostBasisSnapshotRepository } from './repositories/cost-basis-snapshot-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
@@ -30,6 +31,7 @@ export class DataContext {
   readonly accounts: AccountRepository;
   readonly assetReview: AssetReviewRepository;
   readonly balanceSnapshots: BalanceSnapshotRepository;
+  readonly costBasisFailureSnapshots: CostBasisFailureSnapshotRepository;
   readonly costBasisSnapshots: CostBasisSnapshotRepository;
   readonly transactions: TransactionRepository;
   readonly transactionLinks: TransactionLinkRepository;
@@ -48,6 +50,7 @@ export class DataContext {
     this.accounts = new AccountRepository(connection);
     this.assetReview = new AssetReviewRepository(connection);
     this.balanceSnapshots = new BalanceSnapshotRepository(connection);
+    this.costBasisFailureSnapshots = new CostBasisFailureSnapshotRepository(connection);
     this.costBasisSnapshots = new CostBasisSnapshotRepository(connection);
     this.transactions = new TransactionRepository(connection);
     this.transactionLinks = new TransactionLinkRepository(connection);

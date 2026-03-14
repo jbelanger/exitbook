@@ -254,6 +254,30 @@ export interface CostBasisSnapshotsTable {
   updated_at: DateTime;
 }
 
+export interface CostBasisFailureSnapshotsTable {
+  scope_key: string;
+  consumer: string;
+  snapshot_id: string;
+  links_status: string;
+  links_built_at: DateTime | null;
+  asset_review_status: string;
+  asset_review_built_at: DateTime | null;
+  prices_last_mutated_at: DateTime | null;
+  exclusion_fingerprint: string;
+  jurisdiction: string;
+  method: string;
+  tax_year: number;
+  display_currency: string;
+  start_date: string;
+  end_date: string;
+  error_name: string;
+  error_message: string;
+  error_stack: string | null;
+  debug_json: JSONString;
+  created_at: DateTime;
+  updated_at: DateTime;
+}
+
 export interface BalanceSnapshotsTable {
   scope_account_id: number;
   calculated_at: DateTime | null;
@@ -323,6 +347,7 @@ export interface DatabaseSchema {
   transactions: TransactionsTable;
   projection_state: ProjectionStateTable;
   cost_basis_snapshots: CostBasisSnapshotsTable;
+  cost_basis_failure_snapshots: CostBasisFailureSnapshotsTable;
   balance_snapshots: BalanceSnapshotsTable;
   balance_snapshot_assets: BalanceSnapshotAssetsTable;
   asset_review_state: AssetReviewStateTable;

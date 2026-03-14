@@ -1,4 +1,4 @@
-import { CostBasisArtifactService, CostBasisWorkflow } from '@exitbook/accounting';
+import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import {
@@ -18,6 +18,7 @@ vi.mock('@exitbook/accounting', async () => {
     ...actual,
     CostBasisArtifactService: vi.fn(),
     CostBasisWorkflow: vi.fn(),
+    persistCostBasisFailureSnapshot: vi.fn(),
     StandardFxRateProvider: vi.fn(),
   };
 });
@@ -61,6 +62,7 @@ describe('CostBasisHandler', () => {
     const mockDb = {
       transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
       transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
+      costBasisFailureSnapshots: { replaceLatest: vi.fn() },
       costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
       projectionState: {
         get: vi.fn().mockImplementation(async (projectionId: string) =>
@@ -80,6 +82,9 @@ describe('CostBasisHandler', () => {
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
     vi.mocked(readLatestPriceMutationAt).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
+    vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
+      ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
+    );
 
     mockArtifactServiceExecute = vi.fn().mockResolvedValue(
       ok({
@@ -125,6 +130,7 @@ describe('CostBasisHandler', () => {
       const failingDb = {
         transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
         transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
+        costBasisFailureSnapshots: { replaceLatest: vi.fn() },
         costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
         projectionState: {
           get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
@@ -161,6 +167,29 @@ describe('CostBasisHandler', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method -- we just want to check that destroy was called, not its this context
       expect(mockPriceManager.destroy).toHaveBeenCalled();
+    });
+
+    it('persists a failure snapshot when artifact execution fails', async () => {
+      mockArtifactServiceExecute.mockResolvedValue(err(new Error('artifact error')));
+
+      const result = await handler.execute(validParams);
+
+      expect(result.isErr()).toBe(true);
+      expect(persistCostBasisFailureSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns a combined error when failure snapshot persistence also fails', async () => {
+      mockArtifactServiceExecute.mockResolvedValue(err(new Error('artifact error')));
+      vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(err(new Error('failure snapshot write failed')));
+
+      const result = await handler.execute(validParams);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toBe(
+          'Cost basis failed: artifact error. Additionally, failure snapshot persistence failed: failure snapshot write failed'
+        );
+      }
     });
   });
 });

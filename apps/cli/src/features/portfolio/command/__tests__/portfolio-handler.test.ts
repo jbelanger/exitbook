@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import { runCanadaCostBasisCalculation } from '@exitbook/accounting';
-import { ok, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '@exitbook/accounting';
+import { err, ok, type Currency, type UniversalTransactionData } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { PriceProviderManager } from '@exitbook/price-providers';
@@ -26,6 +26,7 @@ vi.mock('@exitbook/accounting', async () => {
         execute: mockCostBasisWorkflowExecute,
       };
     }),
+    persistCostBasisFailureSnapshot: vi.fn(),
     StandardFxRateProvider: vi.fn().mockImplementation(function () {
       return {
         getRateToUSD: vi.fn(),
@@ -59,6 +60,17 @@ vi.mock('@exitbook/logger', () => ({
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   ensureAssetReviewProjectionFresh: vi.fn(),
   readAssetReviewProjectionSummaries: vi.fn(),
+}));
+
+vi.mock('../../../shared/cost-basis-dependency-watermark-runtime.js', () => ({
+  readCostBasisDependencyWatermark: vi.fn().mockResolvedValue(
+    ok({
+      links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+      assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
+      pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
+      exclusionFingerprint: 'excluded-assets:none',
+    })
+  ),
 }));
 
 function createTransaction(): UniversalTransactionData {
@@ -139,6 +151,9 @@ describe('PortfolioHandler', () => {
 
     vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
+    vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
+      ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
+    );
 
     vi.mocked(runCanadaCostBasisCalculation).mockResolvedValue(
       ok({
@@ -345,5 +360,59 @@ describe('PortfolioHandler', () => {
     expect(transactionRepo.findAll).not.toHaveBeenCalled();
     expect(runCanadaCostBasisCalculation).not.toHaveBeenCalled();
     expect(mockCostBasisWorkflowExecute).not.toHaveBeenCalled();
+  });
+
+  it('persists a failure snapshot when generic portfolio cost basis fails', async () => {
+    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('generic workflow failed')));
+
+    const result = await handler.execute({
+      method: 'fifo',
+      jurisdiction: 'US',
+      displayCurrency: 'USD',
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(persistCostBasisFailureSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists a failure snapshot when Canada portfolio cost basis fails', async () => {
+    vi.mocked(runCanadaCostBasisCalculation).mockResolvedValue(err(new Error('canada workflow failed')));
+
+    const result = await handler.execute({
+      method: 'average-cost',
+      jurisdiction: 'CA',
+      displayCurrency: 'USD',
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(persistCostBasisFailureSnapshot).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        consumer: 'portfolio',
+        stage: 'portfolio.canada-cost-basis',
+        error: expect.objectContaining({ message: 'canada workflow failed' }),
+      })
+    );
+  });
+
+  it('returns a combined error when portfolio failure snapshot persistence fails', async () => {
+    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('generic workflow failed')));
+    vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(err(new Error('failure snapshot write failed')));
+
+    const result = await handler.execute({
+      method: 'fifo',
+      jurisdiction: 'US',
+      displayCurrency: 'USD',
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe(
+        'Portfolio cost basis failed: generic workflow failed. Additionally, failure snapshot persistence failed: failure snapshot write failed'
+      );
+    }
   });
 });

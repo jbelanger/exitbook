@@ -1,6 +1,9 @@
 # Jurisdiction Cost Basis Refactor Plan
 
-Status: ready to implement
+Status: implemented on 2026-03-14
+
+This document is now an implementation record for the refactor that landed.
+Keep it as the rationale for the current shape, not as an open proposal.
 
 ## Why This Exists
 
@@ -437,7 +440,7 @@ Implementation map:
 - `packages/data/src/migrations/001_initial_schema.ts`
   - add the failure snapshot table to the initial schema
 - `packages/data/src/repositories/`
-  - add a repository for latest failure snapshot persistence/readback
+  - add a repository for latest failure snapshot persistence
 - `packages/data/src/adapters/`
   - expose a data adapter that implements the new accounting port
 - `packages/data/src/index.ts`
@@ -689,9 +692,9 @@ Guardrail:
 - failure snapshot persistence must be verified for both `cost-basis` and
   `portfolio` error paths after Phase 3
 
-## Unresolved Design Choice
+## Implemented Storage Decision
 
-Phase 3 still needs one explicit storage decision before coding starts:
+Phase 3 resolved the storage decision as:
 
 - `latest failure only` per scope is the recommended first cut
 - do not build immutable failure history in the same change
@@ -713,6 +716,13 @@ Recommended shape:
 
 This keeps failure persistence aligned with the existing latest-success
 artifact model without pretending both concerns are the same storage object.
+
+Final implementation note:
+
+- the shared accounting port intentionally exposes write-only latest-failure
+  persistence today
+- no shared failure read API was kept because no consumer reads failure
+  snapshots yet
 
 ## Decision To Lock In
 

@@ -25,6 +25,7 @@ export {
 // Cost basis calculation
 export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
 export { CostBasisArtifactService } from './cost-basis/orchestration/cost-basis-artifact-service.js';
+export { persistCostBasisFailureSnapshot } from './cost-basis/orchestration/cost-basis-failure-snapshot-service.js';
 export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
 export {
   buildAccountingExclusionFingerprint,

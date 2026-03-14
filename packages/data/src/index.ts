@@ -6,6 +6,7 @@ export {
   AccountRepository,
   AssetReviewRepository,
   BalanceSnapshotRepository,
+  CostBasisFailureSnapshotRepository,
   CostBasisSnapshotRepository,
   ImportSessionRepository,
   NearRawTransactionRepository,
@@ -32,6 +33,7 @@ export type {
   DatabaseSchema,
   ProjectionStateTable,
   CostBasisSnapshotsTable,
+  CostBasisFailureSnapshotsTable,
   BalanceSnapshotsTable,
   BalanceSnapshotAssetsTable,
   TransactionLinksTable,
@@ -49,6 +51,7 @@ export { buildBalancesFreshnessPorts } from './adapters/balances-freshness-adapt
 export { buildBalancesResetPorts } from './adapters/balances-reset-adapter.js';
 export { buildCostBasisArtifactFreshnessPorts } from './adapters/cost-basis-artifact-freshness-adapter.js';
 export { buildCostBasisArtifactStore } from './adapters/cost-basis-artifact-store-adapter.js';
+export { buildCostBasisFailureSnapshotStore } from './adapters/cost-basis-failure-snapshot-store-adapter.js';
 export { buildCostBasisPorts } from './adapters/cost-basis-ports-adapter.js';
 export { buildCostBasisResetPorts } from './adapters/cost-basis-reset-adapter.js';
 export { buildImportPorts } from './adapters/import-ports-adapter.js';

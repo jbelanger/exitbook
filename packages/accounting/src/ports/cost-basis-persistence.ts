@@ -25,6 +25,7 @@ export interface CostBasisDependencyWatermark {
 }
 
 export type CostBasisArtifactKind = 'generic' | 'canada';
+export type CostBasisFailureConsumer = 'cost-basis' | 'portfolio';
 
 export interface CostBasisSnapshotRecord {
   scopeKey: string;
@@ -49,6 +50,30 @@ export interface CostBasisSnapshotRecord {
   updatedAt: Date;
 }
 
+export interface CostBasisFailureSnapshotRecord {
+  scopeKey: string;
+  consumer: CostBasisFailureConsumer;
+  snapshotId: string;
+  linksStatus: CostBasisProjectionWatermark['status'];
+  linksBuiltAt?: Date | undefined;
+  assetReviewStatus: CostBasisProjectionWatermark['status'];
+  assetReviewBuiltAt?: Date | undefined;
+  pricesLastMutatedAt?: Date | undefined;
+  exclusionFingerprint: string;
+  jurisdiction: string;
+  method: string;
+  taxYear: number;
+  displayCurrency: string;
+  startDate: string;
+  endDate: string;
+  errorName: string;
+  errorMessage: string;
+  errorStack?: string | undefined;
+  debugJson: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /**
  * Port for cost basis calculation persistence.
  *
@@ -63,6 +88,10 @@ export interface ICostBasisContextReader {
 export interface ICostBasisArtifactStore {
   findLatest(scopeKey: string): Promise<Result<CostBasisSnapshotRecord | undefined, Error>>;
   replaceLatest(snapshot: CostBasisSnapshotRecord): Promise<Result<void, Error>>;
+}
+
+export interface ICostBasisFailureSnapshotStore {
+  replaceLatest(snapshot: CostBasisFailureSnapshotRecord): Promise<Result<void, Error>>;
 }
 
 export interface ICostBasisDependencyWatermarkReader {

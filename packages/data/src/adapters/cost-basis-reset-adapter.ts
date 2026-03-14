@@ -10,7 +10,8 @@ export function buildCostBasisResetPorts(db: DataContext): {
     async countResetImpact() {
       return resultDoAsync(async function* () {
         const snapshots = yield* await db.costBasisSnapshots.count();
-        return { snapshots };
+        const failureSnapshots = yield* await db.costBasisFailureSnapshots.count();
+        return { snapshots: snapshots + failureSnapshots };
       });
     },
 
@@ -18,7 +19,8 @@ export function buildCostBasisResetPorts(db: DataContext): {
       return db.executeInTransaction(async (tx) =>
         resultDoAsync(async function* () {
           const snapshots = yield* await tx.costBasisSnapshots.deleteLatest();
-          return { snapshots };
+          const failureSnapshots = yield* await tx.costBasisFailureSnapshots.deleteLatest();
+          return { snapshots: snapshots + failureSnapshots };
         })
       );
     },
