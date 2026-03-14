@@ -10,8 +10,8 @@ import {
 import { Box, render, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 
-import { SelectPrompt, type SelectOption } from '../../../ui/shared/SelectPrompt.jsx';
-import { TextPrompt } from '../../../ui/shared/TextPrompt.jsx';
+import { SelectPrompt, type SelectOption } from '../../../ui/shared/select-prompt.jsx';
+import { TextPrompt } from '../../../ui/shared/text-prompt.jsx';
 
 /** Steps in the cost basis prompt flow */
 type PromptStep = 'jurisdiction' | 'method' | 'tax-year';
