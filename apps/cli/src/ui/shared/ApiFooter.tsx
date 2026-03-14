@@ -24,6 +24,10 @@ interface ApiFooterProps {
   overallDurationMs?: number | undefined;
 }
 
+function sortedProviderEntries(byProvider: Map<string, ProviderApiStats>): [string, ProviderApiStats][] {
+  return Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
+}
+
 /**
  * Check if provider is active (has in-flight requests or called within last 2 seconds)
  */
@@ -245,7 +249,7 @@ export const ApiFooter: FC<ApiFooterProps> = ({ total, byProvider, isComplete, o
  * Live API footer (during operation) - Tabular format with active/idle status
  */
 const ApiFooterLive: FC<{ byProvider: Map<string, ProviderApiStats>; total: number }> = ({ total, byProvider }) => {
-  const providers = Array.from(byProvider.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const providers = sortedProviderEntries(byProvider);
   const singleProvider = providers.length === 1;
 
   return (
