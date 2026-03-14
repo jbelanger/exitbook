@@ -41,6 +41,17 @@ Theta does not fit that pattern today:
 - Theta transaction semantics are not Ethereum-like
 - Theta only reuses the EVM processor path through exceptions
 
+That said, this extraction does not need to eliminate every code-level dependency on
+`evm/`.
+Theta may continue to reuse EVM-normalization contracts and helpers where that reuse
+is still clean and truthful, for example `EvmTransaction`,
+`EvmTransactionSchema`, and `normalizeEvmAddress`.
+
+Note: those EVM-prefixed names are a known naming smell — Theta transactions are
+not EVM transactions. This is acceptable for this refactor but should be revisited
+if additional non-EVM families appear that also reuse these types. At that point,
+extract into chain-family-neutral names (e.g. `AccountBasedTransaction`).
+
 That means keeping Theta inside `evm/` preserves the wrong boundary.
 
 ## Goals
@@ -70,7 +81,7 @@ That means keeping Theta inside `evm/` preserves the wrong boundary.
 
 File:
 
-- [packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts)
+- [packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts](./packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts)
 
 Problem:
 
@@ -81,7 +92,7 @@ Problem:
 
 File:
 
-- [packages/ingestion/src/sources/blockchains/evm/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor.ts)
+- [packages/ingestion/src/sources/blockchains/evm/processor.ts](./packages/ingestion/src/sources/blockchains/evm/processor.ts)
 
 Problem:
 
@@ -93,8 +104,8 @@ Problem:
 
 Files:
 
-- [packages/blockchain-providers/src/blockchains/evm/providers/theta-explorer/theta-explorer.api-client.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/providers/theta-explorer/theta-explorer.api-client.ts)
-- [packages/blockchain-providers/src/blockchains/evm/providers/thetascan/thetascan.api-client.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/providers/thetascan/thetascan.api-client.ts)
+- [packages/blockchain-providers/src/blockchains/evm/providers/theta-explorer/theta-explorer.api-client.ts](./packages/blockchain-providers/src/blockchains/evm/providers/theta-explorer/theta-explorer.api-client.ts)
+- [packages/blockchain-providers/src/blockchains/evm/providers/thetascan/thetascan.api-client.ts](./packages/blockchain-providers/src/blockchains/evm/providers/thetascan/thetascan.api-client.ts)
 
 Problem:
 
@@ -105,7 +116,7 @@ Problem:
 
 File:
 
-- [packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts)
+- [packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts](./packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts)
 
 Problem:
 
@@ -148,6 +159,11 @@ This family should own:
 If there is genuinely reusable logic between EVM and Theta, extract only that
 logic into narrowly named helpers.
 
+It is also acceptable for Theta to keep importing a small amount of existing
+EVM normalization code during this refactor if that reuse stays clean.
+Do not force a rename or shared-module extraction in the same patch unless the
+dependency becomes messy.
+
 Do not keep Theta under `evm/` just to reuse a large processor class.
 
 Good candidates for extraction:
@@ -164,7 +180,7 @@ Bad candidates for extraction:
 
 ## Delivery Plan
 
-Implement this in six ordered phases.
+Implement this in five ordered phases.
 Do not mix all phases into one huge patch.
 
 ## Phase 1: Create the Theta Provider Family
@@ -222,50 +238,26 @@ Important:
 
 ### Files to edit
 
-- [packages/blockchain-providers/src/register-apis.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/register-apis.ts)
-- [packages/blockchain-providers/src/catalog/chain-catalog.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/catalog/chain-catalog.ts)
-- [packages/blockchain-providers/src/index.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/index.ts)
+- [packages/blockchain-providers/src/register-apis.ts](./packages/blockchain-providers/src/register-apis.ts)
+- [packages/blockchain-providers/src/catalog/chain-catalog.ts](./packages/blockchain-providers/src/catalog/chain-catalog.ts)
+- [packages/blockchain-providers/src/index.ts](./packages/blockchain-providers/src/index.ts)
 
 ### Expected outcome
 
 - Theta providers are registered from their own family
 - EVM provider registration no longer imports Theta providers
 
-## Phase 2: Consolidate Theta-Only Shared Logic
+## Phase 2: Create Theta Ingestion Source
 
-### Why this phase exists
-
-The Theta providers already duplicate family-specific logic.
-Before touching ingestion, centralize those semantics in the new family.
-
-### New or updated files
-
-Add a Theta-specific shared helper module, for example:
-
-- `packages/blockchain-providers/src/blockchains/theta/mapper-utils.ts`
-
-Move or consolidate logic from:
-
-- `packages/blockchain-providers/src/blockchains/theta/providers/theta-explorer/theta-explorer.mapper-utils.ts`
-- `packages/blockchain-providers/src/blockchains/theta/providers/thetascan/thetascan.mapper-utils.ts`
-
-Shared candidates:
-
-- `selectThetaCurrency`
-- `isThetaTokenTransfer`
-- Theta amount formatting and native-asset selection helpers
-
-### Expected outcome
-
-- Theta family semantics are defined once
-- Theta providers become thinner adapters over Theta family helpers
-
-## Phase 3: Create Theta Ingestion Source
+This phase also consolidates the duplicated mapper utilities across the two
+Theta providers. Building the processor reveals what shared helpers the family
+actually needs, so consolidation happens here rather than as a separate step.
 
 ### New files and directories
 
 Add:
 
+- `packages/blockchain-providers/src/blockchains/theta/mapper-utils.ts`
 - `packages/ingestion/src/sources/blockchains/theta/importer.ts`
 - `packages/ingestion/src/sources/blockchains/theta/processor.ts`
 - `packages/ingestion/src/sources/blockchains/theta/processor-utils.ts`
@@ -273,11 +265,31 @@ Add:
 - `packages/ingestion/src/sources/blockchains/theta/register.ts`
 - `packages/ingestion/src/sources/blockchains/theta/types.ts`
 
+### Provider mapper consolidation
+
+Consolidate duplicated logic from:
+
+- `packages/blockchain-providers/src/blockchains/theta/providers/theta-explorer/theta-explorer.mapper-utils.ts`
+- `packages/blockchain-providers/src/blockchains/theta/providers/thetascan/thetascan.mapper-utils.ts`
+
+into:
+
+- `packages/blockchain-providers/src/blockchains/theta/mapper-utils.ts`
+
+Shared candidates:
+
+- `selectThetaCurrency`
+- `isThetaTokenTransfer`
+- Theta amount formatting and native-asset selection helpers
+
+Both providers should become thinner adapters that delegate to the shared
+family-level helpers.
+
 ### Importer plan
 
 Start by copying the minimum necessary behavior from:
 
-- [packages/ingestion/src/sources/blockchains/evm/importer.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/importer.ts)
+- [packages/ingestion/src/sources/blockchains/evm/importer.ts](./packages/ingestion/src/sources/blockchains/evm/importer.ts)
 
 Then strip out assumptions that only hold for real EVM chains.
 
@@ -291,7 +303,7 @@ The importer should:
 
 Start by copying the minimum necessary behavior from:
 
-- [packages/ingestion/src/sources/blockchains/evm/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor.ts)
+- [packages/ingestion/src/sources/blockchains/evm/processor.ts](./packages/ingestion/src/sources/blockchains/evm/processor.ts)
 
 Then explicitly replace EVM-only assumptions with Theta-native logic.
 
@@ -310,12 +322,18 @@ extract that helper into a shared module and make both processors call it.
 Do not make the Theta processor subclass `EvmProcessor` unless the superclass
 loses all Theta-specific branching first.
 
-## Phase 4: Rewire Blockchain Adapter Registration
+### Expected outcome
+
+- Theta family semantics are defined once in shared mapper-utils
+- Theta providers are thinner adapters over family helpers
+- Theta ingestion source exists with its own importer and processor
+
+## Phase 3: Rewire Blockchain Adapter Registration
 
 ### Files to edit
 
-- [packages/ingestion/src/sources/blockchains/index.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/index.ts)
-- [packages/ingestion/src/sources/blockchains/evm/register.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/register.ts)
+- [packages/ingestion/src/sources/blockchains/index.ts](./packages/ingestion/src/sources/blockchains/index.ts)
+- [packages/ingestion/src/sources/blockchains/evm/register.ts](./packages/ingestion/src/sources/blockchains/evm/register.ts)
 - new `packages/ingestion/src/sources/blockchains/theta/register.ts`
 
 ### Required changes
@@ -341,14 +359,14 @@ Then include `thetaAdapter` directly in `allBlockchainAdapters`.
 - Theta is no longer instantiated through `EvmImporter` and `EvmProcessor`
 - ingestion boundaries tell the truth about family ownership
 
-## Phase 5: Remove EVM Theta Debt
+## Phase 4: Remove EVM Theta Debt
 
 ### Files to edit
 
-- [packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts)
-- [packages/blockchain-providers/src/blockchains/evm/evm-chains.json](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/evm-chains.json)
-- [packages/ingestion/src/sources/blockchains/evm/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor.ts)
-- [packages/blockchain-providers/src/blockchains/evm/register-apis.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/blockchains/evm/register-apis.ts)
+- [packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts](./packages/blockchain-providers/src/blockchains/evm/chain-config.interface.ts)
+- [packages/blockchain-providers/src/blockchains/evm/evm-chains.json](./packages/blockchain-providers/src/blockchains/evm/evm-chains.json)
+- [packages/ingestion/src/sources/blockchains/evm/processor.ts](./packages/ingestion/src/sources/blockchains/evm/processor.ts)
+- [packages/blockchain-providers/src/blockchains/evm/register-apis.ts](./packages/blockchain-providers/src/blockchains/evm/register-apis.ts)
 
 ### Required changes
 
@@ -364,27 +382,36 @@ Delete:
 - EVM family becomes purely EVM again
 - `buildEvmAssetId()` no longer needs Theta semantics
 
-## Phase 6: Simplify Canonical Reference Eligibility
+## Phase 5: Validate and Fix Reference Eligibility
 
-### Files to edit
+### Why this phase comes last
 
-- [packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts)
-- [packages/blockchain-providers/src/catalog/types.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/catalog/types.ts)
+There is no Theta-specific code in `coingecko-token-reference.ts` today. The
+`THETA` false-positive in asset review comes from upstream logic treating
+native-symbol asset IDs as token-reference candidates — not from resolver-level
+family inference.
 
-### Goal
+Once Theta has its own family, processor, and the EVM debt is removed (Phases
+1–4), the false positive may already be resolved because Theta asset IDs will
+no longer flow through EVM-shaped paths.
 
-Remove temporary family inference added to avoid Theta false positives.
+This phase validates that, and adds explicit reference semantics only if the
+problem persists.
 
-After Theta is its own family, canonical reference rules should be simpler:
+### Steps
 
-- EVM family uses contract-address eligibility
-- Theta family can declare its own reference behavior directly
-- asset review stays orchestration-only
+1. Run `pnpm run dev reprocess` and `pnpm run dev prices enrich` against real
+   Theta data to verify whether the `THETA` false positive still occurs.
+2. If resolved, no further code changes are needed — document this in the PR.
+3. If the false positive persists, make token-reference eligibility explicit:
 
-### Follow-up design question
+### Conditional changes (only if false positive persists)
 
-At this phase, decide whether to make token reference semantics explicit in
-catalog/provider hints.
+Files to edit:
+
+- [packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts](./packages/blockchain-providers/src/reference/coingecko/coingecko-token-reference.ts)
+- [packages/blockchain-providers/src/catalog/types.ts](./packages/blockchain-providers/src/catalog/types.ts)
+- Theta chain catalog entry under `packages/blockchain-providers/src/blockchains/theta/`
 
 Possible shape:
 
@@ -396,38 +423,72 @@ interface CoinGeckoChainHints {
 }
 ```
 
-This should be done only after Theta is out of `evm/`, not before.
+Requirements if this path is needed:
+
+- Theta must declare its CoinGecko token-reference behavior explicitly
+- if Theta cannot support canonical token-reference matching yet, mark it as
+  unsupported rather than relying on inference
+- resolver behavior should be driven by declared chain semantics, not by trying
+  to infer family shape from token refs
+- also remove any temporary family-inference logic that was added to protect
+  against the false positive during the original fix
+
+### Expected outcome
+
+- Theta-native asset IDs do not flow into CoinGecko contract-style matching
+- `THETA` no longer surfaces as a false-positive unmatched reference
+- no unnecessary abstraction is introduced if the extraction alone fixes the
+  problem
 
 ## Testing Plan
 
-### Provider package tests
+### Phase 1 — Provider package tests
 
 Add or update tests for:
 
 - Theta provider registration under the new family
-- Theta mapper utility consolidation
 - Theta chain registry loading
-- CoinGecko reference behavior for Theta after extraction
 
 Target files:
 
 - `packages/blockchain-providers/src/blockchains/theta/**/__tests__/*.test.ts`
-- [packages/blockchain-providers/src/reference/coingecko/**tests**/coingecko-token-reference.test.ts](/Users/joel/Dev/exitbook/packages/blockchain-providers/src/reference/coingecko/__tests__/coingecko-token-reference.test.ts)
 
-### Ingestion tests
+### Phase 2 — Ingestion and mapper tests
 
 Add or update tests for:
 
+- Theta mapper utility consolidation (shared helpers replace per-provider dupes)
 - Theta adapter registration
 - Theta importer construction
 - Theta processor asset ID handling for `TFUEL` and `THETA`
-- no Theta logic remaining in EVM processor tests
 
 Target files:
 
+- `packages/blockchain-providers/src/blockchains/theta/**/__tests__/*.test.ts`
 - `packages/ingestion/src/sources/blockchains/theta/**/*.test.ts`
-- [packages/ingestion/src/sources/blockchains/evm/**tests**/processor.test.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/__tests__/processor.test.ts)
-- [packages/ingestion/src/features/asset-review/**tests**/asset-review-service.test.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/features/asset-review/__tests__/asset-review-service.test.ts)
+
+### Phase 4 — EVM cleanup verification
+
+Verify:
+
+- no Theta logic remaining in EVM processor tests
+- EVM processor tests still pass without `additionalNativeCurrencies`
+
+Target files:
+
+- [packages/ingestion/src/sources/blockchains/evm/**tests**/processor.test.ts](./packages/ingestion/src/sources/blockchains/evm/__tests__/processor.test.ts)
+
+### Phase 5 — Reference eligibility verification
+
+Verify:
+
+- `THETA` no longer surfaces as a false-positive unmatched reference
+- CoinGecko reference behavior for Theta after extraction
+
+Target files (only if explicit reference semantics are needed):
+
+- [packages/blockchain-providers/src/reference/coingecko/**tests**/coingecko-token-reference.test.ts](./packages/blockchain-providers/src/reference/coingecko/__tests__/coingecko-token-reference.test.ts)
+- [packages/ingestion/src/features/asset-review/**tests**/asset-review-service.test.ts](./packages/ingestion/src/features/asset-review/__tests__/asset-review-service.test.ts)
 
 ### Verification commands
 
@@ -442,11 +503,11 @@ Run at minimum:
 ## Rollout Notes
 
 - Keep the current resolver-side Theta false-positive protection in place until
-  Theta is fully extracted.
+  Theta is fully extracted (through Phase 4).
 - Do not remove the protection first or `THETA` review regressions will come
   back mid-refactor.
-- Once Theta is fully moved, simplify the resolver and delete the temporary
-  inference.
+- Phase 5 validates whether the false positive is resolved by the extraction
+  itself. Only add explicit reference semantics if the problem persists.
 
 ## Success Criteria
 
@@ -466,10 +527,21 @@ This plan is done when all of the following are true:
   reuse.
 - Decision: defer any generic "account-based family" abstraction until there
   are multiple real consumers.
+- Decision: a multi-native-asset-aware EVM config would be ~30 lines of change
+  instead of a new processor, but would make `EvmChainConfig` more permissive
+  for a single outlier. The plan chooses correctness over minimalism.
 - Smell: `additionalNativeCurrencies` is debt and should be deleted, not
-  generalized.
+  generalized. It is used only by Theta — no other chain in the 100+ entry
+  `evm-chains.json` uses it.
 - Smell: current Theta placement under `evm/` hides a semantic mismatch and
   distorts downstream logic.
+- Smell: Theta will continue to import `EvmTransaction`, `EvmTransactionSchema`,
+  and `normalizeEvmAddress` after extraction. These names are misleading for a
+  non-EVM chain. Acceptable for this refactor but should be revisited if a
+  second non-EVM family reuses them (extract to chain-family-neutral names at
+  that point).
+- Smell: `selectThetaCurrency` and `isThetaTokenTransfer` are duplicated across
+  both Theta providers (~50 lines each). Consolidated in Phase 2.
 
 ## Naming Suggestions
 
