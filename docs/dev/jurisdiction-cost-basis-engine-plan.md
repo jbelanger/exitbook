@@ -321,6 +321,40 @@ Result:
 - portfolio gets warning metadata through the workflow
 - no engine abstraction required
 
+Implementation map:
+
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+  - add `CostBasisWorkflowExecutionOptions`
+  - change `execute(...)` to accept one options object instead of parallel
+    optional params
+  - add `CostBasisExecutionMeta` to generic results
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.ts`
+  - update the workflow callsite to pass
+    `missingPricePolicy: 'error'` explicitly
+- `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+  - construct `CostBasisWorkflow`
+  - replace direct `runCostBasisPipeline(...)` usage in the non-CA branch
+  - change `buildMissingPriceWarning(...)` to consume
+    `retainedTransactionIds: number[]`
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-storage.ts`
+  - extend stored generic artifact DTOs/schemas if `executionMeta` becomes part
+    of the persisted workflow result
+- `packages/accounting/src/index.ts`
+  - export any new workflow option/meta types if CLI code imports them from the
+    package root
+
+Tests to update in Phase 1:
+
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.test.ts`
+  - assert generic workflow metadata for `'error'` and `'exclude'` paths
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.test.ts`
+  - assert artifact service passes `missingPricePolicy: 'error'`
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-storage.test.ts`
+  - round-trip generic artifacts that now include `executionMeta`
+- `apps/cli/src/features/portfolio/command/__tests__/portfolio-handler.test.ts`
+  - stop mocking `runCostBasisPipeline(...)` for the generic path
+  - mock `CostBasisWorkflow` or its exported workflow result boundary instead
+
 ### Phase 2: Extract shared Canada core
 
 1. Create `runCanadaCostBasisCalculation(...)` in
@@ -341,6 +375,39 @@ Result:
 - consumer differences (pool snapshot, missing-price policy) stay explicit
 - portfolio stops importing Canada accounting internals
 
+Implementation map:
+
+- `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`
+  - new accounting-owned Canada orchestration seam
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+  - replace inline Canada orchestration with the shared function
+- `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+  - replace `getCostBasisRebuildTransactions(...)`,
+    `runCanadaAcbWorkflow(...)`, `runCanadaSuperficialLossEngine(...)`,
+    `runCanadaAcbEngine(...)`, `buildCanadaTaxReport(...)`, and
+    `buildCanadaDisplayCostBasisReport(...)` orchestration with one shared
+    Canada call
+  - keep only portfolio position shaping and warnings
+- `packages/accounting/src/index.ts`
+  - export the new Canada runner if CLI consumes it via package root
+- `docs/specs/average-cost-basis.md`
+  - update the canonical Canada workflow spec once code lands
+
+Tests to update in Phase 2:
+
+- `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.test.ts`
+  - preserve existing Canada behavior and add assertions for
+    `executionMeta`
+- `apps/cli/src/features/portfolio/command/__tests__/portfolio-handler.test.ts`
+  - stop mocking Canada internals that no longer belong to the handler
+  - assert portfolio still uses the Canada path and still avoids the generic
+    lot pipeline for `CA`
+- add focused tests for
+  `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`
+  covering:
+  - `'error'` vs `'exclude'` missing-price policy
+  - `'report-end'` vs `'full-input-range'` pool snapshot strategies
+
 ### Phase 3: Add shared failure snapshot persistence
 
 This is net-new capability, not migration of existing code.
@@ -360,6 +427,38 @@ Result:
 - portfolio does not depend on artifact caching/reuse
 - both consumers get consistent failure debugging
 
+Implementation map:
+
+- `packages/accounting/src/ports/cost-basis-persistence.ts`
+  - add a failure snapshot persistence port instead of routing this through the
+    success artifact store
+- `packages/data/src/database-schema.ts`
+  - add failure snapshot table types
+- `packages/data/src/migrations/001_initial_schema.ts`
+  - add the failure snapshot table to the initial schema
+- `packages/data/src/repositories/`
+  - add a repository for latest failure snapshot persistence/readback
+- `packages/data/src/adapters/`
+  - expose a data adapter that implements the new accounting port
+- `packages/data/src/index.ts`
+  - export the new adapter builder
+- `packages/accounting/src/cost-basis/orchestration/`
+  - add a small failure persistence service or helper that accepts enough
+    context to persist calculation failures deterministically
+- `apps/cli/src/features/cost-basis/command/cost-basis-handler.ts`
+  - wire the failure persister into the `cost-basis` command path
+- `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+  - wire the same failure persister into the portfolio path
+
+Tests to add in Phase 3:
+
+- accounting orchestration tests proving failures are persisted for both:
+  - `cost-basis`
+  - `portfolio`
+- data repository tests for upsert/read behavior of the failure snapshot table
+- command/handler tests verifying failure persistence errors are not silently
+  swallowed
+
 ### Phase 4: Decide whether a new abstraction is actually justified
 
 Only after the above refactor lands, revisit whether a shared
@@ -374,6 +473,59 @@ That abstraction becomes justified when:
 Until then, the branch inside accounting is cheaper and clearer than a registry.
 
 ## Suggested Code Changes
+
+## File-By-File Execution Order
+
+Use this order so each step leaves the repo in a compiling, reviewable state.
+
+1. `packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.ts`
+   Add `CostBasisWorkflowExecutionOptions`, `CostBasisExecutionMeta`, and the
+   new generic result shape first. This establishes the shared boundary.
+2. `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.ts`
+   Update the existing `cost-basis` path to the new workflow signature before
+   touching CLI portfolio code.
+3. `packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-storage.ts`
+   Update stored DTOs/schemas/tests immediately after the workflow result shape
+   changes so artifact round-tripping stays green.
+4. `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+   Move the generic branch onto `CostBasisWorkflow` and adapt warnings to
+   `retainedTransactionIds`.
+5. `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`
+   Extract the shared Canada runner after the generic workflow seam is stable.
+6. `apps/cli/src/features/portfolio/command/portfolio-handler.ts`
+   Replace Canada inline orchestration with the shared runner.
+7. Failure persistence files in `packages/accounting/src/ports/`,
+   `packages/accounting/src/cost-basis/orchestration/`, `packages/data/src/`,
+   and the two CLI handlers.
+8. Specs/docs cleanup:
+   - `docs/specs/average-cost-basis.md`
+   - this plan document if implementation details changed during the work
+
+## Validation Plan
+
+Run these checkpoints after each phase instead of saving verification for the
+end.
+
+Phase 1:
+
+- `pnpm vitest run packages/accounting/src/cost-basis/orchestration/cost-basis-workflow.test.ts`
+- `pnpm vitest run packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-service.test.ts`
+- `pnpm vitest run packages/accounting/src/cost-basis/orchestration/cost-basis-artifact-storage.test.ts`
+- `pnpm vitest run apps/cli/src/features/portfolio/command/__tests__/portfolio-handler.test.ts`
+
+Phase 2:
+
+- rerun the four commands above
+- add the Canada shared-runner test file once it exists
+
+Phase 3:
+
+- targeted repository tests for the new failure snapshot persistence
+- targeted handler/orchestration tests for both consumer failure paths
+- `pnpm build`
+
+Do not defer `pnpm build` until the end of the whole refactor. The workflow
+signature and exported accounting types are likely to break multiple callers.
 
 ### 1. `CostBasisWorkflow`
 
@@ -536,6 +688,31 @@ Guardrail:
 
 - failure snapshot persistence must be verified for both `cost-basis` and
   `portfolio` error paths after Phase 3
+
+## Unresolved Design Choice
+
+Phase 3 still needs one explicit storage decision before coding starts:
+
+- `latest failure only` per scope is the recommended first cut
+- do not build immutable failure history in the same change
+- do not overload `cost_basis_snapshots` with failure rows; success artifact
+  caching and failure debugging have different retention semantics
+
+Recommended shape:
+
+- a dedicated latest-failure table keyed by the same cost-basis scope key
+- enough columns to debug:
+  - scope key
+  - snapshot id
+  - consumer (`cost-basis` or `portfolio`)
+  - config summary
+  - error message
+  - structured debug payload / stack
+  - dependency watermark
+  - created/updated timestamps
+
+This keeps failure persistence aligned with the existing latest-success
+artifact model without pretending both concerns are the same storage object.
 
 ## Decision To Lock In
 
