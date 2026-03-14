@@ -24,7 +24,7 @@ export function findThetaNativeAssetBySymbol(
   return chainConfig.nativeAssets.find((asset) => matchesThetaNativeAsset(asset, symbol));
 }
 
-export function getThetaGasAsset(chainConfig: ThetaChainConfig): Result<ThetaNativeAsset, Error> {
+function getThetaGasAsset(chainConfig: ThetaChainConfig): Result<ThetaNativeAsset, Error> {
   const gasAsset = chainConfig.nativeAssets.find((asset) => asset.role === 'gas');
   if (!gasAsset) {
     return err(new Error(`Theta chain ${chainConfig.chainName} is missing a gas-native asset configuration`));
@@ -33,9 +33,7 @@ export function getThetaGasAsset(chainConfig: ThetaChainConfig): Result<ThetaNat
   return ok(gasAsset);
 }
 
-export function buildThetaFundFlowConfig(
-  chainConfig: ThetaChainConfig
-): Result<AccountBasedNativeCurrencyConfig, Error> {
+function buildThetaFundFlowConfig(chainConfig: ThetaChainConfig): Result<AccountBasedNativeCurrencyConfig, Error> {
   const gasAssetResult = getThetaGasAsset(chainConfig);
   if (gasAssetResult.isErr()) {
     return err(gasAssetResult.error);

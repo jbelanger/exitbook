@@ -17,7 +17,7 @@ import type { MovementWithContext } from '../../../features/scam-detection/scam-
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { AddressContext, ProcessedTransaction } from '../../../shared/types/processors.js';
 
-export interface CorrelatedMovement {
+interface CorrelatedMovement {
   amount: string;
   asset: Currency;
   tokenAddress?: string | undefined;
@@ -29,7 +29,7 @@ export interface CorrelatedMovement {
  * Classification callbacks can require richer chain-specific shapes by binding
  * `TFundFlow` to a subtype such as `EvmFundFlow` or `ThetaFundFlow`.
  */
-export interface CorrelatedFundFlow {
+interface CorrelatedFundFlow {
   feeAmount: string;
   feeCurrency: Currency;
   feePayerAddress?: string | undefined;
@@ -47,7 +47,7 @@ interface BuiltMovement {
   netAmount: ReturnType<typeof parseDecimal>;
 }
 
-export interface ProcessCorrelatedTransactionsParams<
+interface ProcessCorrelatedTransactionsParams<
   TTransaction extends EvmTransaction,
   TFundFlow extends CorrelatedFundFlow,
 > {

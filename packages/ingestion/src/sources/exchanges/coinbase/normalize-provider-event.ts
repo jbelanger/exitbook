@@ -2,6 +2,7 @@ import { parseCurrency, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 
+import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';
 
 import type { CoinbaseCorrelationSource } from './coinbase-utils.js';
@@ -18,20 +19,6 @@ interface CoinbaseProviderMetadata extends Record<string, unknown> {
   networkName?: string | undefined;
   networkStatus?: string | undefined;
   rawStatus?: string | undefined;
-}
-
-function getDirectionHint(amount: string): 'credit' | 'debit' | 'unknown' {
-  const value = parseDecimal(amount);
-
-  if (value.isNegative()) {
-    return 'debit';
-  }
-
-  if (value.isPositive()) {
-    return 'credit';
-  }
-
-  return 'unknown';
 }
 
 function extractCoinbaseFee(raw: RawCoinbaseLedgerEntry): {

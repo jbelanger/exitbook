@@ -1,23 +1,10 @@
-import { parseCurrency, parseDecimal } from '@exitbook/core';
+import { parseCurrency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
 import { normalizeKrakenAsset } from '@exitbook/exchange-providers';
 
+import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';
-
-function getDirectionHint(amount: string): 'credit' | 'debit' | 'unknown' {
-  const value = parseDecimal(amount);
-
-  if (value.isNegative()) {
-    return 'debit';
-  }
-
-  if (value.isPositive()) {
-    return 'credit';
-  }
-
-  return 'unknown';
-}
 
 export function normalizeKrakenProviderEvent(
   raw: KrakenLedgerEntry,
