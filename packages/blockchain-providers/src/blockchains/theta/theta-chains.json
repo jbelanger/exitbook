@@ -1,0 +1,24 @@
+{
+  "theta": {
+    "chainName": "theta",
+    "explorerUrls": ["https://explorer.thetatoken.org"],
+    "nativeAssets": [
+      {
+        "symbol": "TFUEL",
+        "decimals": 18,
+        "role": "gas"
+      },
+      {
+        "symbol": "THETA",
+        "decimals": 18,
+        "role": "primary"
+      }
+    ],
+    "transactionTypes": ["normal"],
+    "providerHints": {
+      "coingecko": {
+        "chainIdentifier": 361
+      }
+    }
+  }
+}

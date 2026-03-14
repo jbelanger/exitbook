@@ -5,6 +5,7 @@ import { evmProviderFactories } from './blockchains/evm/register-apis.js';
 import { nearProviderFactories } from './blockchains/near/register-apis.js';
 import { solanaProviderFactories } from './blockchains/solana/register-apis.js';
 import { substrateProviderFactories } from './blockchains/substrate/register-apis.js';
+import { thetaProviderFactories } from './blockchains/theta/register-apis.js';
 import { xrpProviderFactories } from './blockchains/xrp/register-apis.js';
 import type { ProviderFactory } from './core/types/index.js';
 
@@ -17,5 +18,6 @@ export const allProviderFactories: ProviderFactory[] = [
   ...nearProviderFactories,
   ...solanaProviderFactories,
   ...substrateProviderFactories,
+  ...thetaProviderFactories,
   ...xrpProviderFactories,
 ];

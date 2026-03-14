@@ -5,6 +5,7 @@ import { EVM_CHAINS } from '../blockchains/evm/chain-registry.js';
 import { NEAR_CHAINS } from '../blockchains/near/chain-registry.js';
 import { SOLANA_CHAINS } from '../blockchains/solana/chain-registry.js';
 import { SUBSTRATE_CHAINS } from '../blockchains/substrate/chain-registry.js';
+import { THETA_CHAINS } from '../blockchains/theta/chain-registry.js';
 import { XRP_CHAINS } from '../blockchains/xrp/chain-registry.js';
 
 import type { ChainCatalogEntry } from './types.js';
@@ -17,6 +18,7 @@ export const CHAIN_CATALOG: Record<string, ChainCatalogEntry> = {
   ...NEAR_CHAINS,
   ...SOLANA_CHAINS,
   ...SUBSTRATE_CHAINS,
+  ...THETA_CHAINS,
   ...XRP_CHAINS,
 };
 
