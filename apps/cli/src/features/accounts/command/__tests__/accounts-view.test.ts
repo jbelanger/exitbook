@@ -7,7 +7,7 @@ const {
   mockBuildAccountQueryPorts,
   mockCtx,
   mockDisplayCliError,
-  mockExecute,
+  mockList,
   mockOutputSuccess,
   mockRenderApp,
   mockRunCommand,
@@ -19,7 +19,7 @@ const {
     exitCode: 0,
   },
   mockDisplayCliError: vi.fn(),
-  mockExecute: vi.fn(),
+  mockList: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
@@ -42,10 +42,10 @@ vi.mock('../../query/build-account-query-ports.js', () => ({
   buildAccountQueryPorts: mockBuildAccountQueryPorts,
 }));
 
-vi.mock('../accounts-view-handler.js', () => ({
-  AccountsViewHandler: vi.fn().mockImplementation(function MockAccountsViewHandler() {
+vi.mock('../../query/account-query.js', () => ({
+  AccountQuery: vi.fn().mockImplementation(function MockAccountQuery() {
     return {
-      execute: mockExecute,
+      list: mockList,
     };
   }),
 }));
@@ -119,7 +119,7 @@ describe('registerAccountsViewCommand', () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
-    mockExecute.mockResolvedValue(
+    mockList.mockResolvedValue(
       ok({
         accounts: [account],
         count: 1,
@@ -158,7 +158,7 @@ describe('registerAccountsViewCommand', () => {
     );
 
     expect(mockBuildAccountQueryPorts).toHaveBeenCalledWith({ tag: 'db' });
-    expect(mockExecute).toHaveBeenCalledWith({
+    expect(mockList).toHaveBeenCalledWith({
       accountId: 1,
       accountType: 'exchange-api',
       source: 'kraken',
@@ -218,7 +218,7 @@ describe('registerAccountsViewCommand', () => {
     const account = createAccountSummary();
     let renderedElement: ReactElement | undefined;
 
-    mockExecute.mockResolvedValue(
+    mockList.mockResolvedValue(
       ok({
         accounts: [account],
         count: 1,

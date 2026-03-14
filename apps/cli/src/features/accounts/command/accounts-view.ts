@@ -10,12 +10,14 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { AccountsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
+import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
 import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
 
-import { AccountsViewHandler, type ViewAccountsParams } from './accounts-view-handler.js';
 import { toAccountViewItem } from './accounts-view-utils.js';
+
+type ViewAccountsParams = AccountQueryParams;
 
 /**
  * Result data for view accounts command (JSON mode).
@@ -99,9 +101,9 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new AccountsViewHandler(buildAccountQueryPorts(database));
+      const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
 
-      const result = await handler.execute({
+      const result = await accountQuery.list({
         accountId: params.accountId,
         accountType: params.accountType,
         source: params.source,
@@ -155,9 +157,9 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new AccountsViewHandler(buildAccountQueryPorts(database));
+      const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
 
-      const result = await handler.execute({
+      const result = await accountQuery.list({
         accountId: params.accountId,
         accountType: params.accountType,
         source: params.source,

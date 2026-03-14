@@ -1,12 +1,7 @@
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Command } from 'commander';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { createMockPorts } from '../../query/__tests__/account-test-utils.js';
-import { AccountQuery } from '../../query/account-query.js';
 import type { AccountSummary, SessionSummary } from '../../query/account-query.js';
-import { AccountsViewHandler } from '../accounts-view-handler.js';
 import { toAccountViewItem } from '../accounts-view-utils.js';
 import { registerAccountsCommand } from '../accounts.js';
 
@@ -37,38 +32,6 @@ function createSessionSummary(overrides: Partial<SessionSummary> = {}): SessionS
     completedAt: overrides.completedAt ?? '2026-03-12T10:05:00.000Z',
   };
 }
-
-describe('AccountsViewHandler', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('delegates execute to AccountQuery.list', async () => {
-    const ctx = createMockPorts();
-    const expected = {
-      accounts: [createAccountSummary()],
-      count: 1,
-      sessions: undefined,
-    };
-    const listSpy = vi.spyOn(AccountQuery.prototype, 'list').mockResolvedValue(ok(expected));
-
-    const handler = new AccountsViewHandler(ctx.ports);
-    const result = await handler.execute({ accountId: 7, showSessions: true });
-
-    expect(listSpy).toHaveBeenCalledWith({ accountId: 7, showSessions: true });
-    expect(assertOk(result)).toEqual(expected);
-  });
-
-  it('passes query errors through unchanged', async () => {
-    const ctx = createMockPorts();
-    vi.spyOn(AccountQuery.prototype, 'list').mockResolvedValue(err(new Error('query failed')));
-
-    const handler = new AccountsViewHandler(ctx.ports);
-    const result = await handler.execute({});
-
-    expect(assertErr(result).message).toBe('query failed');
-  });
-});
 
 describe('toAccountViewItem', () => {
   it('maps nested child accounts and optional session details for the TUI', () => {

@@ -8,6 +8,9 @@ import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { err, ok, type Result } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
+
+const logger = getLogger('file-utils');
 
 interface FileWrite {
   path: string;
@@ -48,8 +51,8 @@ export async function writeFilesAtomically(files: FileWrite[]): Promise<Result<s
     // Clean up temp files on failure
     await Promise.allSettled(
       tempPaths.map((path) =>
-        fs.unlink(path).catch(() => {
-          /* empty */
+        fs.unlink(path).catch((unlinkError: unknown) => {
+          logger.warn({ path, error: unlinkError }, 'Failed to clean up temp file after write failure');
         })
       )
     );

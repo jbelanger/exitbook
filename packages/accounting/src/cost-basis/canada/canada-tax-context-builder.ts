@@ -17,6 +17,7 @@ import type {
 import { resolveTaxAssetIdentity } from '../shared/tax-asset-identity.js';
 import type { TaxAssetIdentityPolicy } from '../shared/types.js';
 
+import { sortCanadaEvents } from './canada-tax-event-ordering.js';
 import { buildCanadaTaxPropertyKey } from './canada-tax-identity-utils.js';
 import type {
   CanadaAcquisitionEvent,
@@ -86,38 +87,6 @@ interface CanadaTaxInputContextBuildOptions {
 
 function normalizeDecimal(value: Decimal): Decimal {
   return value.abs().lt(parseDecimal('1e-18')) ? parseDecimal('0') : value;
-}
-
-function getEventPriority(kind: CanadaTaxInputEvent['kind']): number {
-  switch (kind) {
-    case 'transfer-out':
-      return 0;
-    case 'disposition':
-      return 1;
-    case 'acquisition':
-      return 2;
-    case 'transfer-in':
-      return 3;
-    case 'fee-adjustment':
-      return 4;
-    case 'superficial-loss-adjustment':
-      return 5;
-  }
-}
-
-function sortCanadaEvents(events: CanadaTaxInputEvent[]): CanadaTaxInputEvent[] {
-  return [...events].sort((left, right) => {
-    const timestampDiff = left.timestamp.getTime() - right.timestamp.getTime();
-    if (timestampDiff !== 0) return timestampDiff;
-
-    const transactionDiff = left.transactionId - right.transactionId;
-    if (transactionDiff !== 0) return transactionDiff;
-
-    const priorityDiff = getEventPriority(left.kind) - getEventPriority(right.kind);
-    if (priorityDiff !== 0) return priorityDiff;
-
-    return left.eventId.localeCompare(right.eventId);
-  });
 }
 
 async function buildCanadaTaxValuation(
