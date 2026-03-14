@@ -1,5 +1,5 @@
 /**
- * Pure list navigation primitive used by links view reducers.
+ * Shared list navigation for TUI view controllers.
  * Maintains selected index + scroll offset for a fixed-size viewport.
  */
 
@@ -137,7 +137,7 @@ function emptyListState(): ListNavigationState {
 /**
  * Move selection one row up.
  */
-export function navigateUp(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
+function navigateUp(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
   const { itemCount, visibleRows, wrapAround } = normalizeContext(context);
   if (itemCount <= 0) {
     return emptyListState();
@@ -164,7 +164,7 @@ export function navigateUp(state: ListNavigationState, context: ListNavigationCo
 /**
  * Move selection one row down.
  */
-export function navigateDown(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
+function navigateDown(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
   const { itemCount, visibleRows, wrapAround } = normalizeContext(context);
   if (itemCount <= 0) {
     return emptyListState();
@@ -191,7 +191,7 @@ export function navigateDown(state: ListNavigationState, context: ListNavigation
 /**
  * Move selection up by one page.
  */
-export function pageUp(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
+function pageUp(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
   const { itemCount, visibleRows } = normalizeContext(context);
   if (itemCount <= 0) {
     return emptyListState();
@@ -206,7 +206,7 @@ export function pageUp(state: ListNavigationState, context: ListNavigationContex
 /**
  * Move selection down by one page.
  */
-export function pageDown(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
+function pageDown(state: ListNavigationState, context: ListNavigationContext): ListNavigationState {
   const { itemCount, visibleRows } = normalizeContext(context);
   if (itemCount <= 0) {
     return emptyListState();
@@ -221,7 +221,7 @@ export function pageDown(state: ListNavigationState, context: ListNavigationCont
 /**
  * Jump to first row.
  */
-export function home(): ListNavigationState {
+function home(): ListNavigationState {
   return {
     selectedIndex: 0,
     scrollOffset: 0,
@@ -231,7 +231,7 @@ export function home(): ListNavigationState {
 /**
  * Jump to last row.
  */
-export function end(context: ListNavigationContext): ListNavigationState {
+function end(context: ListNavigationContext): ListNavigationState {
   const { itemCount, visibleRows } = normalizeContext(context);
   if (itemCount <= 0) {
     return emptyListState();
