@@ -1,11 +1,113 @@
-import type { CanadaTaxReport } from '@exitbook/accounting';
-import type { CanadaDisplayCostBasisReport } from '@exitbook/accounting';
+import type {
+  AcquisitionLot,
+  CanadaDisplayCostBasisReport,
+  CanadaTaxReport,
+  LotDisposal,
+  LotTransfer,
+} from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { buildCanadaAssetCostBasisItems, computeSummaryTotals } from './cost-basis-view-utils.js';
+import {
+  buildAssetCostBasisItems,
+  buildCanadaAssetCostBasisItems,
+  computeSummaryTotals,
+} from './cost-basis-view-utils.js';
+
+function createAcquisitionLot(overrides?: Partial<AcquisitionLot>): AcquisitionLot {
+  const quantity = overrides?.quantity ?? parseDecimal('1');
+  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
+
+  return {
+    id: '11111111-1111-4111-8111-111111111111',
+    calculationId: '22222222-2222-4222-8222-222222222222',
+    acquisitionTransactionId: 1,
+    assetId: 'blockchain:bitcoin:native',
+    assetSymbol: 'BTC' as Currency,
+    quantity,
+    costBasisPerUnit,
+    totalCostBasis: quantity.times(costBasisPerUnit),
+    acquisitionDate: new Date('2024-01-01T00:00:00Z'),
+    method: 'fifo',
+    remainingQuantity: quantity,
+    status: 'open',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+function createLotDisposal(lotId: string, overrides?: Partial<LotDisposal>): LotDisposal {
+  const quantityDisposed = overrides?.quantityDisposed ?? parseDecimal('0.5');
+  const proceedsPerUnit = overrides?.proceedsPerUnit ?? parseDecimal('120');
+  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
+
+  return {
+    id: '33333333-3333-4333-8333-333333333333',
+    lotId,
+    disposalTransactionId: 2,
+    quantityDisposed,
+    proceedsPerUnit,
+    totalProceeds: quantityDisposed.times(proceedsPerUnit),
+    costBasisPerUnit,
+    totalCostBasis: quantityDisposed.times(costBasisPerUnit),
+    gainLoss: quantityDisposed.times(proceedsPerUnit.minus(costBasisPerUnit)),
+    disposalDate: new Date('2024-02-01T00:00:00Z'),
+    holdingPeriodDays: 31,
+    createdAt: new Date('2024-02-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+function createLotTransfer(sourceLotId: string, overrides?: Partial<LotTransfer>): LotTransfer {
+  const quantityTransferred = overrides?.quantityTransferred ?? parseDecimal('0.25');
+  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
+
+  return {
+    id: '44444444-4444-4444-8444-444444444444',
+    calculationId: '22222222-2222-4222-8222-222222222222',
+    sourceLotId,
+    provenance: {
+      kind: 'confirmed-link',
+      linkId: 1,
+      sourceMovementFingerprint: 'source:movement:1',
+      targetMovementFingerprint: 'target:movement:1',
+    },
+    quantityTransferred,
+    costBasisPerUnit,
+    sourceTransactionId: 3,
+    targetTransactionId: 4,
+    transferDate: new Date('2024-03-01T00:00:00Z'),
+    createdAt: new Date('2024-03-01T00:00:00Z'),
+    ...overrides,
+  };
+}
 
 describe('cost-basis-view-utils', () => {
+  it('builds a US asset item from grouped lots disposals and transfers', () => {
+    const lot = createAcquisitionLot();
+    const disposal = createLotDisposal(lot.id);
+    const transfer = createLotTransfer(lot.id);
+
+    const assetItems = buildAssetCostBasisItems([lot], [disposal], [transfer], 'US', 'USD');
+
+    expect(assetItems).toHaveLength(1);
+    expect(assetItems[0]).toMatchObject({
+      asset: 'BTC',
+      lotCount: 1,
+      disposalCount: 1,
+      transferCount: 1,
+      totalProceeds: '60.00',
+      totalCostBasis: '50.00',
+      totalGainLoss: '10.00',
+      totalTaxableGainLoss: '10.00',
+      shortTermGainLoss: '10.00',
+      longTermGainLoss: '0.00',
+      shortTermCount: 1,
+      longTermCount: 0,
+    });
+  });
+
   it('uses Canada report taxable amounts instead of recomputing them from gain/loss', () => {
     const taxReport: CanadaTaxReport = {
       calculationId: 'calc-1',

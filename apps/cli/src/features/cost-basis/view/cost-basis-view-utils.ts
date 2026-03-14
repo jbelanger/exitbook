@@ -1,7 +1,3 @@
-/**
- * Cost basis view pure utility functions.
- */
-
 import type {
   AcquisitionLot,
   CanadaDisplayCostBasisReport,
@@ -26,12 +22,30 @@ import type {
 
 const logger = getLogger('cost-basis-view-utils');
 
-// ─── Data Transformation ────────────────────────────────────────────────────
+function indexById<T extends { id: string }>(items: readonly T[] | undefined): Map<string, T> {
+  return new Map(items?.map((item) => [item.id, item]) ?? []);
+}
 
-/**
- * Build per-asset aggregate items from lots, disposals, and transfers.
- * Groups by asset, builds timeline events with FX conversion.
- */
+function groupItemsByKey<T>(items: readonly T[], getKey: (item: T) => string | undefined): Map<string, T[]> {
+  const groupedItems = new Map<string, T[]>();
+
+  for (const item of items) {
+    const key = getKey(item);
+    if (key === undefined) {
+      continue;
+    }
+
+    const existingGroup = groupedItems.get(key);
+    if (existingGroup) {
+      existingGroup.push(item);
+    } else {
+      groupedItems.set(key, [item]);
+    }
+  }
+
+  return groupedItems;
+}
+
 export function buildAssetCostBasisItems(
   lots: AcquisitionLot[],
   disposals: LotDisposal[],
@@ -44,79 +58,32 @@ export function buildAssetCostBasisItems(
     lotTransfers: ConvertedLotTransfer[];
   }
 ): AssetCostBasisItem[] {
-  // Build lot lookup
-  const lotsMap = new Map<string, AcquisitionLot>();
-  for (const lot of lots) {
-    lotsMap.set(lot.id, lot);
-  }
+  const lotsMap = indexById(lots);
+  const convertedDisposalsMap = indexById(report?.disposals);
+  const convertedLotsMap = indexById(report?.lots);
+  const convertedTransfersMap = indexById(report?.lotTransfers);
 
-  // Build converted lookups (by ID)
-  const convertedDisposalsMap = new Map<string, ConvertedLotDisposal>();
-  const convertedLotsMap = new Map<string, ConvertedAcquisitionLot>();
-  const convertedTransfersMap = new Map<string, ConvertedLotTransfer>();
-
-  if (report) {
-    for (const cd of report.disposals) {
-      convertedDisposalsMap.set(cd.id, cd);
-    }
-    for (const cl of report.lots) {
-      convertedLotsMap.set(cl.id, cl);
-    }
-    for (const ct of report.lotTransfers) {
-      convertedTransfersMap.set(ct.id, ct);
-    }
-  }
-
-  // Group lots by asset
-  const assetLotsMap = new Map<string, AcquisitionLot[]>();
-  for (const lot of lots) {
-    const asset = lot.assetSymbol;
-    const group = assetLotsMap.get(asset);
-    if (group) {
-      group.push(lot);
-    } else {
-      assetLotsMap.set(asset, [lot]);
-    }
-  }
-
-  // Group disposals by asset (via lot's assetSymbol)
-  const assetDisposalsMap = new Map<string, LotDisposal[]>();
-  for (const disposal of disposals) {
+  const assetLotsMap = groupItemsByKey(lots, (lot) => lot.assetSymbol);
+  const assetDisposalsMap = groupItemsByKey(disposals, (disposal) => {
     const lot = lotsMap.get(disposal.lotId);
     if (!lot) {
       logger.warn({ disposalId: disposal.id, lotId: disposal.lotId }, 'Disposal references missing lot');
-      continue;
+      return undefined;
     }
-    const asset = lot.assetSymbol;
-    const group = assetDisposalsMap.get(asset);
-    if (group) {
-      group.push(disposal);
-    } else {
-      assetDisposalsMap.set(asset, [disposal]);
-    }
-  }
 
-  // Group transfers by asset (via source lot's assetSymbol)
-  const assetTransfersMap = new Map<string, LotTransfer[]>();
-  for (const transfer of lotTransfers) {
+    return lot.assetSymbol;
+  });
+  const assetTransfersMap = groupItemsByKey(lotTransfers, (transfer) => {
     const sourceLot = lotsMap.get(transfer.sourceLotId);
     if (!sourceLot) {
       logger.warn({ transferId: transfer.id, sourceLotId: transfer.sourceLotId }, 'Transfer references missing lot');
-      continue;
+      return undefined;
     }
-    const asset = sourceLot.assetSymbol;
-    const group = assetTransfersMap.get(asset);
-    if (group) {
-      group.push(transfer);
-    } else {
-      assetTransfersMap.set(asset, [transfer]);
-    }
-  }
 
-  // Collect all assets that have any activity (lots, disposals, or transfers)
+    return sourceLot.assetSymbol;
+  });
   const allAssets = new Set<string>([...assetLotsMap.keys(), ...assetDisposalsMap.keys(), ...assetTransfersMap.keys()]);
 
-  // Build aggregate items
   const items: AssetCostBasisItem[] = [];
 
   for (const asset of allAssets) {
@@ -135,7 +102,6 @@ export function buildAssetCostBasisItems(
     let shortestHolding = Infinity;
     let longestHolding = 0;
 
-    // Build acquisition view items
     const acquisitionViewItems: AcquisitionViewItem[] = [];
     for (const lot of assetLots) {
       const converted = convertedLotsMap.get(lot.id);
@@ -163,7 +129,6 @@ export function buildAssetCostBasisItems(
       });
     }
 
-    // Build disposal view items
     const disposalViewItems: DisposalViewItem[] = [];
     for (const disposal of assetDisposals) {
       const converted = convertedDisposalsMap.get(disposal.id);
@@ -177,7 +142,6 @@ export function buildAssetCostBasisItems(
       totalCostBasis = totalCostBasis.plus(costBasis);
       totalGainLoss = totalGainLoss.plus(gainLoss);
 
-      // US short/long-term tracking
       const isLongTerm = disposal.holdingPeriodDays > 365;
       if (isLongTerm) {
         longTermGainLoss = longTermGainLoss.plus(gainLoss);
@@ -187,7 +151,6 @@ export function buildAssetCostBasisItems(
         shortTermCount++;
       }
 
-      // Holding period stats
       totalHoldingDays += disposal.holdingPeriodDays;
       if (disposal.holdingPeriodDays < shortestHolding) shortestHolding = disposal.holdingPeriodDays;
       if (disposal.holdingPeriodDays > longestHolding) longestHolding = disposal.holdingPeriodDays;
@@ -218,7 +181,6 @@ export function buildAssetCostBasisItems(
       });
     }
 
-    // Build transfer view items
     const transferViewItems: TransferViewItem[] = [];
     for (const transfer of assetTransfers) {
       const converted = convertedTransfersMap.get(transfer.id);
@@ -278,7 +240,6 @@ export function buildAssetCostBasisItems(
       transfers: transferViewItems,
     };
 
-    // Add US-specific fields
     if (jurisdiction === 'US') {
       item.shortTermGainLoss = shortTermGainLoss.toFixed(2);
       item.shortTermCount = shortTermCount;
@@ -297,42 +258,18 @@ export function buildCanadaAssetCostBasisItems(
   displayReport?: CanadaDisplayCostBasisReport
 ): AssetCostBasisItem[] {
   const assetLabelsByTaxPropertyKey = buildCanadaAssetLabels(taxReport);
-  const acquisitionsByTaxProperty = new Map<string, CanadaTaxReport['acquisitions']>();
-  for (const acquisition of taxReport.acquisitions) {
-    const group = acquisitionsByTaxProperty.get(acquisition.taxPropertyKey);
-    if (group) {
-      group.push(acquisition);
-    } else {
-      acquisitionsByTaxProperty.set(acquisition.taxPropertyKey, [acquisition]);
-    }
-  }
-
-  const dispositionsByTaxProperty = new Map<string, CanadaTaxReport['dispositions']>();
-  for (const disposition of taxReport.dispositions) {
-    const group = dispositionsByTaxProperty.get(disposition.taxPropertyKey);
-    if (group) {
-      group.push(disposition);
-    } else {
-      dispositionsByTaxProperty.set(disposition.taxPropertyKey, [disposition]);
-    }
-  }
-
-  const displayAcquisitions = new Map(
-    displayReport?.acquisitions.map((acquisition) => [acquisition.id, acquisition]) ?? []
+  const acquisitionsByTaxProperty = groupItemsByKey(
+    taxReport.acquisitions,
+    (acquisition) => acquisition.taxPropertyKey
   );
-  const displayDispositions = new Map(
-    displayReport?.dispositions.map((disposition) => [disposition.id, disposition]) ?? []
+  const dispositionsByTaxProperty = groupItemsByKey(
+    taxReport.dispositions,
+    (disposition) => disposition.taxPropertyKey
   );
-  const transfersByTaxProperty = new Map<string, CanadaTaxReport['transfers']>();
-  for (const transfer of taxReport.transfers) {
-    const group = transfersByTaxProperty.get(transfer.taxPropertyKey);
-    if (group) {
-      group.push(transfer);
-    } else {
-      transfersByTaxProperty.set(transfer.taxPropertyKey, [transfer]);
-    }
-  }
-  const displayTransfers = new Map(displayReport?.transfers.map((transfer) => [transfer.id, transfer]) ?? []);
+  const displayAcquisitions = indexById(displayReport?.acquisitions);
+  const displayDispositions = indexById(displayReport?.dispositions);
+  const transfersByTaxProperty = groupItemsByKey(taxReport.transfers, (transfer) => transfer.taxPropertyKey);
+  const displayTransfers = indexById(displayReport?.transfers);
 
   const allTaxProperties = new Set<string>([
     ...acquisitionsByTaxProperty.keys(),
@@ -479,9 +416,6 @@ function buildCanadaAssetLabels(taxReport: CanadaTaxReport): Map<string, string>
   );
 }
 
-// ─── Sorting ────────────────────────────────────────────────────────────────
-
-/** Sort assets by absolute gain/loss descending (largest impact first) */
 export function sortAssetsByAbsGainLoss(assets: AssetCostBasisItem[]): AssetCostBasisItem[] {
   return [...assets].sort((a, b) => {
     const absA = Math.abs(parseFloat(a.totalGainLoss));
@@ -491,17 +425,11 @@ export function sortAssetsByAbsGainLoss(assets: AssetCostBasisItem[]): AssetCost
   });
 }
 
-// ─── Formatting ─────────────────────────────────────────────────────────────
-
-/**
- * Format a signed currency amount: +CAD 4,100.00 or -CAD 500.00
- */
 export function formatSignedCurrency(amount: string, currency: string): string {
   const decimal = new Decimal(amount);
   const isNegative = decimal.isNegative();
   const absFormatted = decimal.abs().toFixed(2);
 
-  // Add thousands separators
   const parts = absFormatted.split('.');
   if (parts[0]) {
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -512,9 +440,6 @@ export function formatSignedCurrency(amount: string, currency: string): string {
   return `${sign}${currency} ${withSeparators}`;
 }
 
-/**
- * Format an unsigned currency amount: CAD 4,100.00
- */
 export function formatUnsignedCurrency(amount: string, currency: string): string {
   const decimal = new Decimal(amount);
   const formatted = decimal.abs().toFixed(2);
