@@ -1,6 +1,8 @@
 import type { Currency, PriceAtTxTime } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { TaxAssetIdentityPolicy } from '../shared/types.js';
+
 export interface CanadaTaxValuation {
   taxCurrency: 'CAD';
   storagePriceAmount: Decimal;
@@ -314,4 +316,9 @@ export interface CanadaDisplayCostBasisReport {
   dispositions: CanadaDisplayReportDisposition[];
   transfers: CanadaDisplayReportTransfer[];
   summary: CanadaDisplayReportSummary;
+}
+
+export interface CanadaTaxInputContextBuildOptions {
+  taxAssetIdentityPolicy: TaxAssetIdentityPolicy;
+  relaxedTaxIdentitySymbols: readonly string[];
 }
