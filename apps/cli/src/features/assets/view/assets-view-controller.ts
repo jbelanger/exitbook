@@ -171,7 +171,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
       const message = action.review.accountingBlocked
         ? 'Marked as reviewed — exclude a conflicting asset to unblock'
         : 'Marked as reviewed';
-      return rebuildStateAfterMutation(state, assets, message);
+      return rebuildStateAfterMutation(state, assets, message, action.assetId);
     }
 
     case 'CLEAR_REVIEW_SUCCESS': {
@@ -180,7 +180,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         review: action.review,
       });
-      return rebuildStateAfterMutation(state, assets, 'Review reopened');
+      return rebuildStateAfterMutation(state, assets, 'Review reopened', action.assetId);
     }
 
     case 'SET_ERROR':
@@ -277,12 +277,15 @@ export function handleAssetsKeyboardInput(
 function rebuildStateAfterMutation(
   state: AssetsViewState,
   assets: AssetViewItem[],
-  statusMessage?: string  
+  statusMessage?: string,
+  mutatedAssetId?: string
 ): AssetsViewState {
-  const filteredAssets = applyFilter(assets, state.filter);
+  const filteredAssets = buildFilteredAssetsAfterMutation(assets, state.filter, mutatedAssetId);
 
+  const selectedAssetIndex =
+    mutatedAssetId === undefined ? -1 : filteredAssets.findIndex((asset) => asset.assetId === mutatedAssetId);
   const maxIndex = Math.max(0, filteredAssets.length - 1);
-  const selectedIndex = Math.min(state.selectedIndex, maxIndex);
+  const selectedIndex = selectedAssetIndex >= 0 ? selectedAssetIndex : Math.min(state.selectedIndex, maxIndex);
   const scrollOffset = Math.min(state.scrollOffset, selectedIndex);
 
   return {
@@ -298,4 +301,23 @@ function rebuildStateAfterMutation(
     actionRequiredCount: assets.filter(requiresAssetReviewAction).length,
     totalCount: assets.length,
   };
+}
+
+function buildFilteredAssetsAfterMutation(
+  assets: AssetViewItem[],
+  filter: AssetsViewFilter,
+  mutatedAssetId?: string
+): AssetViewItem[] {
+  const filteredAssets = applyFilter(assets, filter);
+  if (filter !== 'default' || mutatedAssetId === undefined) {
+    return filteredAssets;
+  }
+
+  const mutatedAsset = assets.find((asset) => asset.assetId === mutatedAssetId);
+  if (!mutatedAsset || filteredAssets.some((asset) => asset.assetId === mutatedAssetId)) {
+    return filteredAssets;
+  }
+
+  // Keep the just-updated asset visible in the default list so the user can immediately undo or continue acting on it.
+  return [mutatedAsset, ...filteredAssets];
 }

@@ -595,6 +595,8 @@ Pool snapshot strategy notes:
 
 ## Related Specs
 
+- [Cost Basis Orchestration](./cost-basis-orchestration.md) — consumer boundaries and shared Canada runner ownership
+- [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — artifact persistence, `executionMeta`, and failure snapshot storage
 - [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — scoped transaction boundary consumed by the Canada context builder
 - [Transfers & Tax](./transfers-and-tax.md) — validated-link semantics, fee-only carryovers, and transfer fee treatment
 - [Fees](./fees.md) — raw fee semantics that feed Canada fee-adjustment rules
@@ -603,4 +605,4 @@ Pool snapshot strategy notes:
 
 ---
 
-_Last updated: 2026-03-09_
+_Last updated: 2026-03-14_

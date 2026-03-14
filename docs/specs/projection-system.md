@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-12
+last_verified: 2026-03-14
 status: canonical
 ---
 
@@ -107,15 +107,17 @@ processed-transactions --> balances
 processed-transactions --> links
 ```
 
-### Future Extension
+### Cost-Basis Boundary
 
-When persisted cost-basis exists:
+Persisted cost-basis exists today only as an artifact cache, not as a
+projection.
 
-```text
-processed-transactions --> links --> cost-basis
-```
+That means:
 
-Transaction price coverage is intentionally not in this graph.
+- cost-basis does not add a `ProjectionId`
+- cost-basis does not get projection-native freshness rows
+- cost-basis reads projection freshness from `links` and `asset-review`
+- price coverage and artifact reuse remain outside the projection graph
 
 ## Data Model
 
@@ -300,10 +302,11 @@ The readiness API walks `rebuildPlan(target)` then the target itself, checking f
 
 - There is no concurrency guard to prevent two processes from building the same projection at the same time.
 - `balances` uses scoped projection rows, but the generic readiness runtime is still oriented around global consumer flows.
-- Cost-basis is not yet a persisted projection.
+- Cost-basis artifact caching is persisted separately from projection state rather than modeled as a projection.
 
 ## Related Specs
 
+- [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — persisted latest snapshots that intentionally sit outside the projection graph
 - [Balance Projection](./balance-projection.md)
 - [Asset Review](./asset-review.md)
 - [Accounts & Imports](./accounts-and-imports.md)
@@ -311,4 +314,4 @@ The readiness API walks `rebuildPlan(target)` then the target itself, checking f
 
 ---
 
-_Last updated: 2026-03-12_
+_Last updated: 2026-03-14_

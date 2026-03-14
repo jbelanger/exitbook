@@ -108,6 +108,43 @@ function createTransaction(): UniversalTransactionData {
   } as unknown as UniversalTransactionData;
 }
 
+function createExcludedAssetTradeTransaction(): UniversalTransactionData {
+  return {
+    id: 2,
+    accountId: 1,
+    externalId: 'ext-2',
+    datetime: '2024-01-02T00:00:00.000Z',
+    timestamp: new Date('2024-01-02T00:00:00.000Z').getTime(),
+    source: 'base',
+    sourceType: 'blockchain',
+    status: 'success',
+    movements: {
+      inflows: [
+        {
+          assetId: 'blockchain:base:0xspam',
+          assetSymbol: 'SPAM',
+          grossAmount: new Decimal('1000'),
+          netAmount: new Decimal('1000'),
+        },
+      ],
+      outflows: [
+        {
+          assetId: 'blockchain:base:usdt',
+          assetSymbol: 'USDT',
+          grossAmount: new Decimal('147.55110826'),
+          netAmount: new Decimal('147.55110826'),
+        },
+      ],
+    },
+    fees: [],
+    operation: {
+      category: 'trade',
+      type: 'swap',
+    },
+    notes: [],
+  } as unknown as UniversalTransactionData;
+}
+
 describe('PortfolioHandler', () => {
   let handler: PortfolioHandler;
   let mockDb: DataContext;
@@ -413,6 +450,65 @@ describe('PortfolioHandler', () => {
       expect(result.error.message).toBe(
         'Portfolio cost basis failed: generic workflow failed. Additionally, failure snapshot persistence failed: failure snapshot write failed'
       );
+    }
+  });
+
+  it('omits transactions touching excluded assets from portfolio balances, cost basis, and returned transactions', async () => {
+    const excludedTradeTx = createExcludedAssetTradeTransaction();
+    transactionRepo.findAll.mockResolvedValue(ok([tx, excludedTradeTx]));
+
+    vi.mocked(calculateBalances).mockImplementation((transactions) => {
+      expect(transactions).toEqual([tx]);
+      return {
+        balances: { 'exchange:kraken:btc': new Decimal('1') },
+        assetMetadata: { 'exchange:kraken:btc': 'BTC' },
+      };
+    });
+
+    mockCostBasisWorkflowExecute.mockResolvedValue(
+      ok({
+        kind: 'generic-pipeline',
+        summary: {
+          lots: [],
+          disposals: [],
+        },
+        lots: [],
+        disposals: [],
+        lotTransfers: [],
+        executionMeta: {
+          missingPricesCount: 1,
+          retainedTransactionIds: [tx.id],
+        },
+      } as never)
+    );
+
+    handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data', {
+      excludedAssetIds: new Set(['blockchain:base:0xspam']),
+    });
+
+    const result = await handler.execute({
+      method: 'fifo',
+      jurisdiction: 'US',
+      displayCurrency: 'USD',
+      asOf: new Date('2025-01-01T00:00:00.000Z'),
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(mockCostBasisWorkflowExecute).toHaveBeenCalledWith(
+      expect.anything(),
+      [tx],
+      expect.objectContaining({
+        accountingExclusionPolicy: {
+          excludedAssetIds: new Set(['blockchain:base:0xspam']),
+        },
+      })
+    );
+
+    if (result.isOk()) {
+      expect(result.value.transactions).toEqual([tx]);
+      expect(result.value.warnings).toEqual([
+        '1 transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete',
+      ]);
     }
   });
 });

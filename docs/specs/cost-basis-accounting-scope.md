@@ -327,6 +327,8 @@ graph TD
 
 ## Related Specs
 
+- [Cost Basis Orchestration](./cost-basis-orchestration.md) — workflow ownership and consumer execution boundaries above the scoped input layer
+- [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — persisted debug/artifact surfaces built from scoped execution results
 - [Transaction Linking](./transaction-linking.md) — persisted link contract and link-generation rules
 - [Transfers & Tax](./transfers-and-tax.md) — transfer preservation, fee policy, and tax-facing matcher behavior
 - [Lot Matcher Transaction Dependency Ordering](./lot-matcher-transaction-dependency-ordering.md) — dependency ordering once scoped links and carryovers are prepared

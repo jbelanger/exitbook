@@ -143,7 +143,15 @@ export class PortfolioHandler {
         return ok(emptyPortfolioResult(asOf, method, jurisdiction, displayCurrency));
       }
 
-      const fiatFlowComputation = computeNetFiatInUsd(transactionsUpToAsOf);
+      const portfolioTransactions = filterTransactionsTouchingExcludedAssets(
+        transactionsUpToAsOf,
+        this.accountingExclusionPolicy
+      );
+      if (portfolioTransactions.length === 0) {
+        return ok(emptyPortfolioResult(asOf, method, jurisdiction, displayCurrency));
+      }
+
+      const fiatFlowComputation = computeNetFiatInUsd(portfolioTransactions);
       const fiatFlowWarnings: string[] = [];
       if (fiatFlowComputation.skippedNonUsdMovementsWithoutPrice > 0) {
         fiatFlowWarnings.push(
@@ -155,7 +163,7 @@ export class PortfolioHandler {
         );
       }
 
-      const { balances, assetMetadata } = calculateBalances(transactionsUpToAsOf);
+      const { balances, assetMetadata } = calculateBalances(portfolioTransactions);
 
       const holdings: Record<string, Decimal> = {};
       for (const [assetId, balance] of Object.entries(balances)) {
@@ -251,7 +259,7 @@ export class PortfolioHandler {
         ])
       );
 
-      const accountBreakdown = buildAccountAssetBalances(transactionsUpToAsOf, accountMetadataById);
+      const accountBreakdown = buildAccountAssetBalances(portfolioTransactions, accountMetadataById);
       let positions: PortfolioPositionItem[];
       let closedPositions: PortfolioPositionItem[];
       let realizedGainLossByAssetId = new Map<string, Decimal>();
@@ -269,7 +277,7 @@ export class PortfolioHandler {
           costBasisParams,
           holdings,
           spotPrices: displaySpotPrices,
-          transactionsUpToAsOf,
+          transactionsUpToAsOf: portfolioTransactions,
         });
         if (canadaPortfolioResult.isErr()) {
           return this.persistCostBasisFailure(
@@ -288,7 +296,7 @@ export class PortfolioHandler {
         realizedGainLossDisplayContext = { sourceCurrency: 'display' };
       } else {
         const workflow = new CostBasisWorkflow(costBasisStore, new StandardFxRateProvider(this.priceManager));
-        const workflowResult = await workflow.execute(costBasisParams, transactionsUpToAsOf, {
+        const workflowResult = await workflow.execute(costBasisParams, portfolioTransactions, {
           accountingExclusionPolicy: this.accountingExclusionPolicy,
           assetReviewSummaries,
           // Portfolio is a best-effort holdings view, not a tax filing surface.
@@ -318,7 +326,7 @@ export class PortfolioHandler {
 
         const { summary: costBasisSummary, executionMeta } = workflowResult.value;
         const missingPriceWarning = this.buildMissingPriceWarning(
-          transactionsUpToAsOf,
+          portfolioTransactions,
           executionMeta.retainedTransactionIds,
           executionMeta.missingPricesCount
         );
@@ -446,7 +454,7 @@ export class PortfolioHandler {
       return ok({
         positions,
         closedPositions,
-        transactions: transactionsUpToAsOf,
+        transactions: portfolioTransactions,
         totalValue,
         totalCost,
         totalUnrealizedGainLoss,
@@ -762,4 +770,62 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
 
 function isExcludedTransaction(transaction: UniversalTransactionData): boolean {
   return transaction.excludedFromAccounting === true;
+}
+
+function filterTransactionsTouchingExcludedAssets(
+  transactions: UniversalTransactionData[],
+  accountingExclusionPolicy: AccountingExclusionPolicy
+): UniversalTransactionData[] {
+  if (accountingExclusionPolicy.excludedAssetIds.size === 0) {
+    return transactions;
+  }
+
+  const retainedTransactions: UniversalTransactionData[] = [];
+  const excludedTransactionIds: number[] = [];
+
+  for (const transaction of transactions) {
+    if (transactionTouchesExcludedAsset(transaction, accountingExclusionPolicy)) {
+      excludedTransactionIds.push(transaction.id);
+      continue;
+    }
+
+    retainedTransactions.push(transaction);
+  }
+
+  if (excludedTransactionIds.length > 0) {
+    logger.info(
+      {
+        excludedTransactionCount: excludedTransactionIds.length,
+        sampleExcludedTransactionIds: excludedTransactionIds.slice(0, 10),
+      },
+      'Omitting portfolio transactions that touch excluded assets'
+    );
+  }
+
+  return retainedTransactions;
+}
+
+function transactionTouchesExcludedAsset(
+  transaction: UniversalTransactionData,
+  accountingExclusionPolicy: AccountingExclusionPolicy
+): boolean {
+  for (const inflow of transaction.movements.inflows ?? []) {
+    if (accountingExclusionPolicy.excludedAssetIds.has(inflow.assetId)) {
+      return true;
+    }
+  }
+
+  for (const outflow of transaction.movements.outflows ?? []) {
+    if (accountingExclusionPolicy.excludedAssetIds.has(outflow.assetId)) {
+      return true;
+    }
+  }
+
+  for (const fee of transaction.fees ?? []) {
+    if (accountingExclusionPolicy.excludedAssetIds.has(fee.assetId)) {
+      return true;
+    }
+  }
+
+  return false;
 }

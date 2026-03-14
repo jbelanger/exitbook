@@ -142,6 +142,32 @@ describe('assetsViewReducer', () => {
     expect(nextState.statusMessage).toBe('Marked as reviewed');
   });
 
+  it('keeps a just-confirmed zero-balance asset visible in the default list', () => {
+    const state = createAssetsViewState([createAsset({ currentQuantity: '0' })], {
+      totalCount: 1,
+      excludedCount: 0,
+      actionRequiredCount: 1,
+    });
+
+    const nextState = assetsViewReducer(state, {
+      type: 'CONFIRM_REVIEW_SUCCESS',
+      assetId: 'blockchain:ethereum:0xscam',
+      review: {
+        accountingBlocked: false,
+        confirmationIsStale: false,
+        evidence: [],
+        evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+        referenceStatus: 'matched',
+        reviewStatus: 'reviewed',
+        warningSummary: undefined,
+      },
+    });
+
+    expect(nextState.filteredAssets.map((asset) => asset.assetId)).toEqual(['blockchain:ethereum:0xscam']);
+    expect(nextState.selectedIndex).toBe(0);
+    expect(nextState.statusMessage).toBe('Marked as reviewed');
+  });
+
   it('sets blocking status message when confirm leaves accounting blocked', () => {
     const state = createAssetsViewState([createAsset()], { totalCount: 1, excludedCount: 0, actionRequiredCount: 1 });
 
@@ -216,6 +242,43 @@ describe('assetsViewReducer', () => {
       },
     });
 
+    expect(nextState.statusMessage).toBe('Review reopened');
+  });
+
+  it('keeps a just-reopened zero-balance asset visible in the default list', () => {
+    const state = createAssetsViewState(
+      [
+        createAsset({
+          currentQuantity: '0',
+          reviewStatus: 'reviewed',
+          confirmationIsStale: true,
+          evidence: [],
+          warningSummary: undefined,
+        }),
+      ],
+      {
+        totalCount: 1,
+        excludedCount: 0,
+        actionRequiredCount: 1,
+      }
+    );
+
+    const nextState = assetsViewReducer(state, {
+      type: 'CLEAR_REVIEW_SUCCESS',
+      assetId: 'blockchain:ethereum:0xscam',
+      review: {
+        accountingBlocked: false,
+        confirmationIsStale: false,
+        evidence: [],
+        evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+        referenceStatus: 'unknown',
+        reviewStatus: 'clear',
+        warningSummary: undefined,
+      },
+    });
+
+    expect(nextState.filteredAssets.map((asset) => asset.assetId)).toEqual(['blockchain:ethereum:0xscam']);
+    expect(nextState.selectedIndex).toBe(0);
     expect(nextState.statusMessage).toBe('Review reopened');
   });
 
