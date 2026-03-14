@@ -1,4 +1,4 @@
-import { ok, parseDecimal } from '@exitbook/core';
+import { ok, parseDecimal, type Currency } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -67,7 +67,7 @@ function createGenericWorkflowResult(): Extract<CostBasisWorkflowResult, { kind:
           calculationId: '5fe73d65-4b4d-4a57-9289-90913db37373',
           acquisitionTransactionId: 1,
           assetId: 'exchange:kraken:btc',
-          assetSymbol: 'BTC',
+          assetSymbol: 'BTC' as Currency,
           quantity: parseDecimal('1'),
           costBasisPerUnit: parseDecimal('10000'),
           totalCostBasis: parseDecimal('10000'),

@@ -4,11 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
-import type {
-  CostBasisArtifactKind,
-  CostBasisDependencyWatermark,
-  CostBasisSnapshotRecord,
-} from '../../ports/cost-basis-persistence.js';
+import type { CostBasisDependencyWatermark, CostBasisSnapshotRecord } from '../../ports/cost-basis-persistence.js';
 import type {
   CanadaDisplayCostBasisReport,
   CanadaDisplayFxConversion,
@@ -514,32 +510,63 @@ export function buildCostBasisSnapshotRecord(
   const snapshotId = globalThis.crypto.randomUUID();
   const createdAt = new Date();
   const debug = buildDebugPayload(artifact);
-  const artifactKind: CostBasisArtifactKind = artifact.kind === 'generic-pipeline' ? 'generic' : 'canada';
+  let envelope: StoredArtifactEnvelope;
+  let displayCurrency: string;
+  let endDate: string;
+  let jurisdiction: string;
+  let method: string;
+  let startDate: string;
+  let taxYear: number;
 
-  const envelope: StoredArtifactEnvelope =
-    artifact.kind === 'generic-pipeline'
-      ? {
-          artifactKind,
-          storageSchemaVersion: COST_BASIS_STORAGE_SCHEMA_VERSION,
-          calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
-          scopeKey,
-          snapshotId,
-          calculationId: artifact.summary.calculation.id,
-          createdAt: createdAt.toISOString(),
-          artifact: toStoredGenericArtifact(artifact),
-          debug: toStoredGenericDebug(debug),
-        }
-      : {
-          artifactKind,
-          storageSchemaVersion: COST_BASIS_STORAGE_SCHEMA_VERSION,
-          calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
-          scopeKey,
-          snapshotId,
-          calculationId: artifact.calculation.id,
-          createdAt: createdAt.toISOString(),
-          artifact: toStoredCanadaArtifact(artifact),
-          debug: toStoredCanadaDebug(debug),
-        };
+  if (artifact.kind === 'generic-pipeline') {
+    const calculationWindowResult = resolveStoredCostBasisCalculationWindow(artifact.summary.calculation);
+    if (calculationWindowResult.isErr()) {
+      return err(calculationWindowResult.error);
+    }
+    const calculationWindow = calculationWindowResult.value;
+
+    envelope = {
+      artifactKind: 'generic',
+      storageSchemaVersion: COST_BASIS_STORAGE_SCHEMA_VERSION,
+      calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
+      scopeKey,
+      snapshotId,
+      calculationId: artifact.summary.calculation.id,
+      createdAt: createdAt.toISOString(),
+      artifact: toStoredGenericArtifact(artifact, calculationWindow),
+      debug: toStoredGenericDebug(debug),
+    };
+    jurisdiction = artifact.summary.calculation.config.jurisdiction;
+    method = artifact.summary.calculation.config.method;
+    taxYear = artifact.summary.calculation.config.taxYear;
+    displayCurrency = artifact.summary.calculation.config.currency;
+    startDate = calculationWindow.startDate.toISOString();
+    endDate = calculationWindow.endDate.toISOString();
+  } else {
+    const displayReportResult = requireCanadaDisplayReport(artifact);
+    if (displayReportResult.isErr()) {
+      return err(displayReportResult.error);
+    }
+    const displayReport = displayReportResult.value;
+
+    envelope = {
+      artifactKind: 'canada',
+      storageSchemaVersion: COST_BASIS_STORAGE_SCHEMA_VERSION,
+      calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
+      scopeKey,
+      snapshotId,
+      calculationId: artifact.calculation.id,
+      createdAt: createdAt.toISOString(),
+      artifact: toStoredCanadaArtifact(artifact, displayReport),
+      debug: toStoredCanadaDebug(debug),
+    };
+    jurisdiction = artifact.calculation.jurisdiction;
+    method = artifact.calculation.method;
+    taxYear = artifact.calculation.taxYear;
+    displayCurrency = displayReport.displayCurrency;
+    startDate = artifact.calculation.startDate.toISOString();
+    endDate = artifact.calculation.endDate.toISOString();
+  }
 
   const parsedEnvelope = StoredCostBasisArtifactEnvelopeSchema.safeParse(envelope);
   if (!parsedEnvelope.success) {
@@ -551,32 +578,18 @@ export function buildCostBasisSnapshotRecord(
     snapshotId,
     storageSchemaVersion: COST_BASIS_STORAGE_SCHEMA_VERSION,
     calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
-    artifactKind,
+    artifactKind: envelope.artifactKind,
     linksBuiltAt: dependencyWatermark.links.lastBuiltAt,
     assetReviewBuiltAt: dependencyWatermark.assetReview.lastBuiltAt,
     pricesMutationVersion: dependencyWatermark.pricesMutationVersion,
     exclusionFingerprint: dependencyWatermark.exclusionFingerprint,
     calculationId: envelope.calculationId,
-    jurisdiction:
-      artifact.kind === 'generic-pipeline'
-        ? artifact.summary.calculation.config.jurisdiction
-        : artifact.calculation.jurisdiction,
-    method:
-      artifact.kind === 'generic-pipeline' ? artifact.summary.calculation.config.method : artifact.calculation.method,
-    taxYear:
-      artifact.kind === 'generic-pipeline' ? artifact.summary.calculation.config.taxYear : artifact.calculation.taxYear,
-    displayCurrency:
-      artifact.kind === 'generic-pipeline'
-        ? artifact.summary.calculation.config.currency
-        : artifact.displayReport.displayCurrency,
-    startDate:
-      artifact.kind === 'generic-pipeline'
-        ? artifact.summary.calculation.startDate.toISOString()
-        : artifact.calculation.startDate.toISOString(),
-    endDate:
-      artifact.kind === 'generic-pipeline'
-        ? artifact.summary.calculation.endDate.toISOString()
-        : artifact.calculation.endDate.toISOString(),
+    jurisdiction,
+    method,
+    taxYear,
+    displayCurrency,
+    startDate,
+    endDate,
     artifactJson: JSON.stringify(envelope.artifact),
     debugJson: JSON.stringify(envelope.debug),
     createdAt,
@@ -640,11 +653,12 @@ export function readCostBasisSnapshotArtifact(
 }
 
 function toStoredGenericArtifact(
-  result: Extract<CostBasisWorkflowResult, { kind: 'generic-pipeline' }>
+  result: Extract<CostBasisWorkflowResult, { kind: 'generic-pipeline' }>,
+  calculationWindow: { endDate: Date; startDate: Date }
 ): StoredGenericArtifact {
   return {
     kind: 'generic-pipeline',
-    calculation: toStoredCostBasisCalculation(result.summary.calculation),
+    calculation: toStoredCostBasisCalculation(result.summary.calculation, calculationWindow),
     lotsCreated: result.summary.lotsCreated,
     disposalsProcessed: result.summary.disposalsProcessed,
     totalCapitalGainLoss: result.summary.totalCapitalGainLoss.toFixed(),
@@ -685,7 +699,8 @@ function fromStoredGenericArtifact(
 }
 
 function toStoredCanadaArtifact(
-  result: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>
+  result: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>,
+  displayReport: CanadaDisplayCostBasisReport
 ): StoredCanadaArtifact {
   return {
     kind: 'canada-workflow',
@@ -703,7 +718,7 @@ function toStoredCanadaArtifact(
       assetsProcessed: result.calculation.assetsProcessed,
     },
     taxReport: toStoredCanadaTaxReport(result.taxReport),
-    displayReport: toStoredCanadaDisplayReport(result.displayReport),
+    displayReport: toStoredCanadaDisplayReport(displayReport),
   };
 }
 
@@ -814,7 +829,8 @@ function fromStoredDebug(debug: StoredCostBasisDebug): CostBasisArtifactDebugPay
 }
 
 function toStoredCostBasisCalculation(
-  calculation: CostBasisCalculation
+  calculation: CostBasisCalculation,
+  calculationWindow: { endDate: Date; startDate: Date }
 ): z.infer<typeof StoredCostBasisCalculationSchema> {
   return {
     id: calculation.id,
@@ -824,8 +840,8 @@ function toStoredCostBasisCalculation(
       currency: calculation.config.currency,
       jurisdiction: calculation.config.jurisdiction,
       taxYear: calculation.config.taxYear,
-      startDate: calculation.config.startDate?.toISOString() ?? calculation.startDate.toISOString(),
-      endDate: calculation.config.endDate?.toISOString() ?? calculation.endDate.toISOString(),
+      startDate: calculationWindow.startDate.toISOString(),
+      endDate: calculationWindow.endDate.toISOString(),
       ...(calculation.config.specificLotSelectionStrategy
         ? { specificLotSelectionStrategy: calculation.config.specificLotSelectionStrategy }
         : {}),
@@ -833,8 +849,8 @@ function toStoredCostBasisCalculation(
         ? { taxAssetIdentityPolicy: calculation.config.taxAssetIdentityPolicy }
         : {}),
     },
-    startDate: calculation.startDate.toISOString(),
-    endDate: calculation.endDate.toISOString(),
+    startDate: calculationWindow.startDate.toISOString(),
+    endDate: calculationWindow.endDate.toISOString(),
     totalProceeds: calculation.totalProceeds.toFixed(),
     totalCostBasis: calculation.totalCostBasis.toFixed(),
     totalGainLoss: calculation.totalGainLoss.toFixed(),
@@ -885,6 +901,35 @@ function fromStoredCostBasisCalculation(
     createdAt: new Date(calculation.createdAt),
     ...(calculation.completedAt ? { completedAt: new Date(calculation.completedAt) } : {}),
   };
+}
+
+function resolveStoredCostBasisCalculationWindow(
+  calculation: CostBasisCalculation
+): Result<{ endDate: Date; startDate: Date }, Error> {
+  const startDate = calculation.startDate ?? calculation.config.startDate;
+  const endDate = calculation.endDate ?? calculation.config.endDate;
+
+  if (!startDate || !endDate) {
+    return err(
+      new Error(`Cannot persist cost-basis snapshot without calculation window dates for calculation ${calculation.id}`)
+    );
+  }
+
+  return ok({ startDate, endDate });
+}
+
+function requireCanadaDisplayReport(
+  result: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>
+): Result<CanadaDisplayCostBasisReport, Error> {
+  if (!result.displayReport) {
+    return err(
+      new Error(
+        `Cannot persist Canada cost-basis snapshot without a display report for calculation ${result.calculation.id}`
+      )
+    );
+  }
+
+  return ok(result.displayReport);
 }
 
 function toStoredAcquisitionLot(lot: AcquisitionLot): z.infer<typeof StoredAcquisitionLotSchema> {

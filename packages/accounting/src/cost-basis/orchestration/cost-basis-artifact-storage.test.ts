@@ -12,6 +12,10 @@ import {
 } from './cost-basis-artifact-storage.js';
 import { CostBasisWorkflow } from './cost-basis-workflow.js';
 
+const BTC = 'BTC' as Currency;
+const CAD = 'CAD' as Currency;
+const USD = 'USD' as Currency;
+
 function createAcquisitionTransaction(params: {
   assetId: string;
   assetSymbol: Currency;
@@ -106,20 +110,20 @@ describe('cost-basis-artifact-storage', () => {
       createAcquisitionTransaction({
         id: 1,
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: BTC,
         timestamp: '2024-01-01T12:00:00Z',
         quantity: '1',
         unitPrice: '10000',
-        priceCurrency: 'USD',
+        priceCurrency: USD,
       }),
       createDispositionTransaction({
         id: 2,
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: BTC,
         timestamp: '2024-02-01T12:00:00Z',
         quantity: '1',
         unitPrice: '12000',
-        priceCurrency: 'USD',
+        priceCurrency: USD,
       }),
     ];
 
@@ -186,20 +190,20 @@ describe('cost-basis-artifact-storage', () => {
       createAcquisitionTransaction({
         id: 1,
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: BTC,
         timestamp: '2024-01-01T12:00:00Z',
         quantity: '1',
         unitPrice: '10000',
-        priceCurrency: 'CAD',
+        priceCurrency: CAD,
       }),
       createDispositionTransaction({
         id: 2,
         assetId: 'exchange:kraken:btc',
-        assetSymbol: 'BTC',
+        assetSymbol: BTC,
         timestamp: '2024-02-01T12:00:00Z',
         quantity: '1',
         unitPrice: '12000',
-        priceCurrency: 'CAD',
+        priceCurrency: CAD,
       }),
     ];
 
@@ -254,8 +258,12 @@ describe('cost-basis-artifact-storage', () => {
     if (reloadResult.value.artifact.kind !== 'canada-workflow') {
       throw new Error('Expected canada-workflow artifact');
     }
+    const { displayReport } = reloadResult.value.artifact;
+    if (!displayReport) {
+      throw new Error('Expected canada display report');
+    }
 
     expect(reloadResult.value.artifact.taxReport.summary.totalProceedsCad.toFixed()).toBe('12000');
-    expect(reloadResult.value.artifact.displayReport.summary.totalTaxableGainLoss.toFixed()).toBe('1000');
+    expect(displayReport.summary.totalTaxableGainLoss.toFixed()).toBe('1000');
   });
 });

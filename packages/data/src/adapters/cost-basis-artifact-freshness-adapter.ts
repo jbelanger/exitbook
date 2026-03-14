@@ -18,10 +18,10 @@ export function buildCostBasisArtifactFreshnessPorts(db: DataContext): ICostBasi
 
       return ok({
         links: linksResult.value
-          ? { status: linksResult.value.status, lastBuiltAt: linksResult.value.lastBuiltAt }
+          ? { status: linksResult.value.status, lastBuiltAt: linksResult.value.lastBuiltAt ?? undefined }
           : { status: 'missing', lastBuiltAt: undefined },
         assetReview: assetReviewResult.value
-          ? { status: assetReviewResult.value.status, lastBuiltAt: assetReviewResult.value.lastBuiltAt }
+          ? { status: assetReviewResult.value.status, lastBuiltAt: assetReviewResult.value.lastBuiltAt ?? undefined }
           : { status: 'missing', lastBuiltAt: undefined },
         pricesMutationVersion: pricesResult.value.version,
         exclusionFingerprint,
