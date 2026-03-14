@@ -1,9 +1,9 @@
 import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
-import { mapTatumLitecoinTransaction } from './mapper-utils.js';
 import { TatumLitecoinBalanceSchema, TatumLitecoinTransactionSchema } from './tatum-litecoin.schemas.js';
 import type { TatumLitecoinTransaction, TatumLitecoinBalance } from './tatum-litecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
+import { mapTatumLitecoinTransaction } from './tatum.mapper-utils.js';
 
 const tatumLitecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',

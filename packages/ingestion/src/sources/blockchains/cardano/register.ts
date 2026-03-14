@@ -12,47 +12,49 @@ import { normalizeCardanoAddress } from './address-utils.js';
 import { CardanoImporter } from './importer.js';
 import { CardanoProcessor } from './processor.js';
 
-export const cardanoAdapter: BlockchainAdapter = {
-  blockchain: 'cardano',
-  chainModel: 'utxo',
+export const cardanoAdapters: BlockchainAdapter[] = [
+  {
+    blockchain: 'cardano',
+    chainModel: 'utxo',
 
-  normalizeAddress: normalizeCardanoAddress,
+    normalizeAddress: normalizeCardanoAddress,
 
-  isExtendedPublicKey: isCardanoXpub,
+    isExtendedPublicKey: isCardanoXpub,
 
-  deriveAddressesFromXpub: async (
-    xpub: string,
-    providerManager: BlockchainProviderManager,
-    _blockchain: string,
-    gap?: number
-  ): Promise<Result<DerivedAddress[], Error>> => {
-    const walletAddress: CardanoWalletAddress = {
-      address: xpub,
-      type: 'xpub',
-    };
+    deriveAddressesFromXpub: async (
+      xpub: string,
+      providerManager: BlockchainProviderManager,
+      _blockchain: string,
+      gap?: number
+    ): Promise<Result<DerivedAddress[], Error>> => {
+      const walletAddress: CardanoWalletAddress = {
+        address: xpub,
+        type: 'xpub',
+      };
 
-    const initResult = await initializeCardanoXpubWallet(walletAddress, providerManager, gap ?? 10);
+      const initResult = await initializeCardanoXpubWallet(walletAddress, providerManager, gap ?? 10);
 
-    if (initResult.isErr()) {
-      return err(initResult.error);
-    }
+      if (initResult.isErr()) {
+        return err(initResult.error);
+      }
 
-    const optimizedAddresses = walletAddress.derivedAddresses ?? [];
+      const optimizedAddresses = walletAddress.derivedAddresses ?? [];
 
-    return ok(
-      optimizedAddresses.map((address: string, index: number) => {
-        const role = index % 2; // 0 = external, 1 = internal
-        const addressIndex = Math.floor(index / 2);
-        return {
-          address,
-          derivationPath: `${role}/${addressIndex}`,
-        };
-      })
-    );
+      return ok(
+        optimizedAddresses.map((address: string, index: number) => {
+          const role = index % 2; // 0 = external, 1 = internal
+          const addressIndex = Math.floor(index / 2);
+          return {
+            address,
+            derivationPath: `${role}/${addressIndex}`,
+          };
+        })
+      );
+    },
+
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+      new CardanoImporter(providerManager, { preferredProvider: providerName }),
+
+    createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),
   },
-
-  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-    new CardanoImporter(providerManager, { preferredProvider: providerName }),
-
-  createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),
-};
+];

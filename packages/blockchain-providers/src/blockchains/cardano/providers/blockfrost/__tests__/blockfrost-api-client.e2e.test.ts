@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createProviderRegistry } from '../../../../initialize.js';
-import { BlockfrostApiClient } from '../blockfrost-api-client.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
+import { BlockfrostApiClient } from '../blockfrost.api-client.js';
 
 const providerRegistry = createProviderRegistry();
 

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { assertOk, consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import type { ImportBatchResult, StreamingImportParams } from '../../../../shared/types/importers.js';
-import { KucoinCsvImporter } from '../importer-csv.js';
+import { KucoinCsvImporter } from '../importer.js';
 
 vi.mock('node:fs/promises');
 

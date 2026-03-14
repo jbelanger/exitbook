@@ -1,9 +1,9 @@
 import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
 
-import { mapTatumDogecoinTransaction } from './mapper-utils.js';
 import { TatumDogecoinBalanceSchema, TatumDogecoinTransactionSchema } from './tatum-dogecoin.schemas.js';
 import type { TatumDogecoinTransaction, TatumDogecoinBalance } from './tatum-dogecoin.schemas.js';
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
+import { mapTatumDogecoinTransaction } from './tatum.mapper-utils.js';
 
 const tatumDogecoinMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'TATUM_API_KEY',

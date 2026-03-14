@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { expectOk, mockBitcoinChainConfig } from '../../../__tests__/test-utils.js';
 import { satoshisToBtcString } from '../../../utils.js';
+import { mapBlockstreamTransaction } from '../blockstream.mapper-utils.js';
 import type { BlockstreamTransaction } from '../blockstream.schemas.js';
-import { mapBlockstreamTransaction } from '../mapper-utils.js';
 
 describe('mapBlockstreamTransaction', () => {
   it('should map confirmed Blockstream transaction', () => {

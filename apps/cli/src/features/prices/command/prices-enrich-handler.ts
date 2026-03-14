@@ -14,6 +14,7 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
+import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
 import { createDefaultPriceProviderManager } from './prices-utils.js';
@@ -24,7 +25,7 @@ const logger = getLogger('PricesEnrichHandler');
  * Tier 2 handler for `prices enrich`.
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
-class PricesEnrichHandler {
+class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
   constructor(
     private readonly pipeline: PriceEnrichmentPipeline,
     private readonly priceManager: import('@exitbook/price-providers').PriceProviderManager,

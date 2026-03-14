@@ -5,7 +5,7 @@
  * Handles all database initialization internally.
  */
 
-import { type Currency } from '@exitbook/core';
+import { type Currency, wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
@@ -86,8 +86,7 @@ export class ManualPriceService {
 
       return saveResult;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to save manual price: ${errorMessage}`));
+      return wrapError(error, 'Failed to save manual price');
     }
   }
 
@@ -138,8 +137,7 @@ export class ManualPriceService {
 
       return saveResult;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to save manual FX rate: ${errorMessage}`));
+      return wrapError(error, 'Failed to save manual FX rate');
     }
   }
 
@@ -155,7 +153,7 @@ export class ManualPriceService {
       // Create database
       const dbResult = createPricesDatabase(this.databasePath);
       if (dbResult.isErr()) {
-        return err(new Error(`Failed to create prices database: ${dbResult.error.message}`));
+        return err(new Error('Failed to create prices database', { cause: dbResult.error }));
       }
 
       const db = dbResult.value;
@@ -163,7 +161,7 @@ export class ManualPriceService {
       // Run migrations
       const migrationResult = await initializePricesDatabase(db);
       if (migrationResult.isErr()) {
-        return err(new Error(`Failed to initialize database: ${migrationResult.error.message}`));
+        return err(new Error('Failed to initialize database', { cause: migrationResult.error }));
       }
 
       // Create queries
@@ -172,8 +170,7 @@ export class ManualPriceService {
 
       return ok(undefined);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to initialize manual price service: ${errorMessage}`));
+      return wrapError(error, 'Failed to initialize manual price service');
     }
   }
 }

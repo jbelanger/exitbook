@@ -42,6 +42,7 @@ import { getBitcoinChainConfig } from '../../chain-registry.js';
 import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
+import { mapBlockCypherTransaction } from './blockcypher.mapper-utils.js';
 import {
   BlockCypherAddressSchema,
   BlockCypherOutputSchema,
@@ -50,7 +51,6 @@ import {
   type BlockCypherTransaction,
   type BlockCypherAddress,
 } from './blockcypher.schemas.js';
-import { mapBlockCypherTransaction } from './mapper-utils.js';
 import { calculateSimpleBalance } from './utils.js';
 
 export const blockcypherMetadata: ProviderMetadata = {

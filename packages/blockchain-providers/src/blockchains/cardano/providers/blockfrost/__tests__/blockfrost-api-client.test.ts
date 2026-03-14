@@ -9,11 +9,11 @@ import {
   injectMockHttpClient,
   type MockHttpClient,
   resetMockHttpClient,
-} from '../../__tests__/test-utils.js';
-import type { OneShotOperation } from '../../../../core/index.js';
-import { createProviderRegistry } from '../../../../initialize.js';
-import type { CardanoTransaction } from '../../schemas.js';
-import { BlockfrostApiClient, blockfrostMetadata } from '../blockfrost-api-client.js';
+} from '../../../__tests__/test-utils.js';
+import type { OneShotOperation } from '../../../../../core/index.js';
+import { createProviderRegistry } from '../../../../../initialize.js';
+import type { CardanoTransaction } from '../../../schemas.js';
+import { BlockfrostApiClient, blockfrostMetadata } from '../blockfrost.api-client.js';
 import type { BlockfrostAddress, BlockfrostTransactionHash } from '../blockfrost.schemas.js';
 
 // ── Module-level mocks (hoisted by vitest) ──────────────────────────

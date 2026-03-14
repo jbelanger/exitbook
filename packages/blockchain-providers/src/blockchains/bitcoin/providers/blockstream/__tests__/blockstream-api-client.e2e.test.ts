@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createProviderRegistry } from '../../../../../initialize.js';
-import { BlockstreamApiClient } from '../blockstream-api-client.js';
+import { BlockstreamApiClient } from '../blockstream.api-client.js';
 
 const providerRegistry = createProviderRegistry();
 

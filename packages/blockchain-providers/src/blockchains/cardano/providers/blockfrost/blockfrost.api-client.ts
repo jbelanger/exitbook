@@ -3,18 +3,18 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { z } from 'zod';
 
-import { BaseApiClient } from '../../../core/base/api-client.js';
+import { BaseApiClient } from '../../../../core/base/api-client.js';
 import type {
   NormalizedTransactionBase,
   ProviderConfig,
   ProviderFactory,
   ProviderMetadata,
-} from '../../../core/index.js';
+} from '../../../../core/index.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../core/streaming/streaming-adapter.js';
+} from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
   OneShotOperationResult,
@@ -22,10 +22,10 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../core/types/index.js';
-import { maskAddress } from '../../../core/utils/address-utils.js';
-import type { CardanoTransaction } from '../schemas.js';
-import { createRawBalanceData } from '../utils.js';
+} from '../../../../core/types/index.js';
+import { maskAddress } from '../../../../core/utils/address-utils.js';
+import type { CardanoTransaction } from '../../schemas.js';
+import { createRawBalanceData } from '../../utils.js';
 
 import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';

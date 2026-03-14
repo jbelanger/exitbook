@@ -6,18 +6,20 @@ import { normalizeNearAddress } from './address-utils.js';
 import { NearImporter } from './importer.js';
 import { NearProcessor } from './processor.js';
 
-export const nearAdapter: BlockchainAdapter = {
-  blockchain: 'near',
-  chainModel: 'account-based',
+export const nearAdapters: BlockchainAdapter[] = [
+  {
+    blockchain: 'near',
+    chainModel: 'account-based',
 
-  normalizeAddress: normalizeNearAddress,
+    normalizeAddress: normalizeNearAddress,
 
-  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
-    new NearImporter(providerManager, {
-      preferredProvider: providerName,
-    }),
+    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+      new NearImporter(providerManager, {
+        preferredProvider: providerName,
+      }),
 
-  createProcessor: ({ providerManager, scamDetectionService, nearBatchSource, accountId }) => {
-    return new NearProcessor(providerManager, scamDetectionService, nearBatchSource, accountId);
+    createProcessor: ({ providerManager, scamDetectionService, nearBatchSource, accountId }) => {
+      return new NearProcessor(providerManager, scamDetectionService, nearBatchSource, accountId);
+    },
   },
-};
+];
