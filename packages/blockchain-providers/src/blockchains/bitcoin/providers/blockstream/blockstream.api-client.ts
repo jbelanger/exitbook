@@ -34,7 +34,7 @@ import {
   type BlockstreamAddressInfo,
   type BlockstreamTransaction,
 } from './blockstream.schemas.js';
-import { calculateBlockstreamBalance } from './utils.js';
+import { calculateBlockstreamBalance } from './blockstream.utils.js';
 
 export const blockstreamMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKSTREAM_API_KEY',

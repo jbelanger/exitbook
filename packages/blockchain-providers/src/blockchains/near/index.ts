@@ -35,4 +35,4 @@ export type {
 export * from './providers/nearblocks/nearblocks.schemas.js';
 
 // Mapper utilities (used by processor)
-export * from './providers/nearblocks/mapper-utils.js';
+export * from './providers/nearblocks/nearblocks.mapper-utils.js';

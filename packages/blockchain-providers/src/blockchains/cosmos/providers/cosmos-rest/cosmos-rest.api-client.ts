@@ -28,9 +28,9 @@ import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 import { validateBech32Address } from '../../utils.js';
 
+import { mapCosmosRestTransaction } from './cosmos-rest.mapper-utils.js';
 import type { CosmosRestApiResponse, CosmosBalanceResponse, CosmosTxResponse } from './cosmos-rest.schemas.js';
 import { CosmosRestApiResponseSchema, CosmosBalanceResponseSchema } from './cosmos-rest.schemas.js';
-import { mapCosmosRestTransaction } from './mapper-utils.js';
 
 /**
  * Extended provider config that includes chainName

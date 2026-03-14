@@ -23,7 +23,7 @@ import { getBitcoinChainConfig } from '../../chain-registry.js';
 import { BITCOIN_STREAMING_DEDUP_WINDOW } from '../../constants.js';
 import type { BitcoinTransaction } from '../../schemas.js';
 
-import { calculateTatumBalance } from './utils.js';
+import { calculateTatumBalance } from './tatum.utils.js';
 
 /**
  * Chain-specific parameters that differentiate each Tatum UTXO client

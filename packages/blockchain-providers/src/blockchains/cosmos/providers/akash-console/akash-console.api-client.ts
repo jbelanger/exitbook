@@ -29,6 +29,7 @@ import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 import { validateBech32Address } from '../../utils.js';
 
+import { mapAkashConsoleTransaction } from './akash-console.mapper-utils.js';
 import type {
   AkashBalanceResponse,
   AkashTransactionDetail,
@@ -39,7 +40,6 @@ import {
   AkashTransactionDetailSchema,
   AkashTransactionListResponseSchema,
 } from './akash-console.schemas.js';
-import { mapAkashConsoleTransaction } from './mapper-utils.js';
 
 export const akashConsoleMetadata: ProviderMetadata = {
   baseUrl: 'https://console-api.akash.network/v1',

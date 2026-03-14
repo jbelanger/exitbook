@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { mapInjectiveExplorerTransaction } from '../injective-explorer.mapper-utils.js';
 import type { InjectiveTransaction } from '../injective-explorer.schemas.js';
-import { mapInjectiveExplorerTransaction } from '../mapper-utils.js';
 
 const INJ_USER = 'inj1qyqszqgpqyqszqgpqyqszqgpqyqszqgpc6k6ly';
 const INJ_SENDER = 'inj1qgpqyqszqgpqyqszqgpqyqszqgpqyqszf7sl5j';

@@ -125,7 +125,7 @@ function getResidualQuantity(
   return ok(normalizeDecimal(totalQuantity.minus(linkedQuantity)));
 }
 
-export function buildEventIndex(events: CanadaTaxInputEvent[]): {
+function buildEventIndex(events: CanadaTaxInputEvent[]): {
   byMovementFingerprint: Map<string, CanadaTaxInputEvent[]>;
   byTransactionId: Map<number, CanadaTaxInputEvent[]>;
 } {
@@ -148,7 +148,7 @@ export function buildEventIndex(events: CanadaTaxInputEvent[]): {
   return { byMovementFingerprint, byTransactionId };
 }
 
-export function buildMovementIndexes(scopedTransactions: AccountingScopedTransaction[]): {
+function buildMovementIndexes(scopedTransactions: AccountingScopedTransaction[]): {
   inflowsByFingerprint: Map<string, { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }>;
   outflowsByFingerprint: Map<string, { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }>;
   scopedByTxId: Map<number, AccountingScopedTransaction>;

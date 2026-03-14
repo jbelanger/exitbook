@@ -1,2 +1,0 @@
-export * from './nearblocks.schemas.js';
-export * from './nearblocks.types.js';

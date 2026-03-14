@@ -32,7 +32,7 @@ import {
   type BlockchainComAddressResponse,
   type BlockchainComTransaction,
 } from './blockchain-com.schemas.js';
-import { calculateSimpleBalance } from './utils.js';
+import { calculateSimpleBalance } from './blockchain-com.utils.js';
 
 export const blockchainComMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',

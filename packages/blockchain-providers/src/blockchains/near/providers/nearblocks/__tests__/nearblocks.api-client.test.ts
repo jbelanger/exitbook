@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamingOperation } from '../../../../../core/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
-import { sortKeys } from '../mapper-utils.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';
+import { sortKeys } from '../nearblocks.mapper-utils.js';
 import type {
   NearBlocksActivity,
   NearBlocksFtTransaction,

@@ -30,13 +30,13 @@ import { COSMOS_CHAINS } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 import { validateBech32Address } from '../../utils.js';
 
+import { mapInjectiveExplorerTransaction } from './injective-explorer.mapper-utils.js';
 import type {
   InjectiveApiResponse,
   InjectiveBalanceResponse,
   InjectiveTransaction,
 } from './injective-explorer.schemas.js';
 import { InjectiveApiResponseSchema, InjectiveBalanceResponseSchema } from './injective-explorer.schemas.js';
-import { mapInjectiveExplorerTransaction } from './mapper-utils.js';
 
 export const injectiveExplorerMetadata: ProviderMetadata = {
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',

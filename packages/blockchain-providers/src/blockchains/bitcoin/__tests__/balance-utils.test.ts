@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { createRawBalanceData } from '../balance-utils.js';
-import { calculateSimpleBalance } from '../providers/blockcypher/utils.js';
+import { calculateSimpleBalance } from '../providers/blockcypher/blockcypher.utils.js';
 import type { BlockstreamAddressInfo } from '../providers/blockstream/blockstream.schemas.js';
-import { calculateBlockstreamBalance } from '../providers/blockstream/utils.js';
+import { calculateBlockstreamBalance } from '../providers/blockstream/blockstream.utils.js';
 import type { MempoolAddressInfo } from '../providers/mempool-space/mempool-space.schemas.js';
-import { calculateMempoolSpaceBalance } from '../providers/mempool-space/utils.js';
-import { calculateTatumBalance } from '../providers/tatum/utils.js';
+import { calculateMempoolSpaceBalance } from '../providers/mempool-space/mempool-space.utils.js';
+import { calculateTatumBalance } from '../providers/tatum/tatum.utils.js';
 import { satoshisToBtcString } from '../utils.js';
 
 describe('balance-utils', () => {

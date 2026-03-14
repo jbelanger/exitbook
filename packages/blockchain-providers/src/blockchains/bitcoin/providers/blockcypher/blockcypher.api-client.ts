@@ -51,7 +51,7 @@ import {
   type BlockCypherTransaction,
   type BlockCypherAddress,
 } from './blockcypher.schemas.js';
-import { calculateSimpleBalance } from './utils.js';
+import { calculateSimpleBalance } from './blockcypher.utils.js';
 
 export const blockcypherMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',

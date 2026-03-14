@@ -41,7 +41,7 @@ import {
   mapRawFtToTokenTransfer,
   mapRawReceiptToNearReceipt,
   mapRawTransactionToNearTransaction,
-} from './mapper-utils.js';
+} from './nearblocks.mapper-utils.js';
 import {
   NearBlocksAccountSchema,
   NearBlocksActivitiesResponseSchema,

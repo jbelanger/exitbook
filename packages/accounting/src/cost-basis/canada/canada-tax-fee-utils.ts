@@ -19,7 +19,7 @@ export interface CanadaValuedFee {
   valuation: CanadaTaxValuation;
 }
 
-export interface CollectedFiatFee {
+interface CollectedFiatFee {
   amount: Decimal;
   assetSymbol: string;
   date: string;

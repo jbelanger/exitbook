@@ -34,7 +34,7 @@ import {
   type MempoolAddressInfo,
   type MempoolTransaction,
 } from './mempool-space.schemas.js';
-import { calculateMempoolSpaceBalance } from './utils.js';
+import { calculateMempoolSpaceBalance } from './mempool-space.utils.js';
 
 export const mempoolSpaceMetadata: ProviderMetadata = {
   baseUrl: 'https://mempool.space/api',

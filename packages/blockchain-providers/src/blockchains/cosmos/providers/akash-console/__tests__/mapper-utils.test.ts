@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { mapAkashConsoleTransaction } from '../akash-console.mapper-utils.js';
 import type { AkashTransactionDetail } from '../akash-console.schemas.js';
-import { mapAkashConsoleTransaction } from '../mapper-utils.js';
 
 const AKASH_USER = 'akash1qyqszqgpqyqszqgpqyqszqgpqyqszqgplgve5x';
 const AKASH_SENDER = 'akash1qgpqyqszqgpqyqszqgpqyqszqgpqyqszwv2uls';
