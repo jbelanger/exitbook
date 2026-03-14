@@ -8,7 +8,7 @@ import type {
   User,
 } from '@exitbook/core';
 
-export interface AccountFindAllFilters {
+interface AccountFindAllFilters {
   accountType?: AccountType | undefined;
   parentAccountId?: number | undefined;
   sourceName?: string | undefined;

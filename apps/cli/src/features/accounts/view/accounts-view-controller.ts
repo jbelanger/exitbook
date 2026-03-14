@@ -11,7 +11,7 @@ import type { AccountsViewState } from './accounts-view-state.js';
 /**
  * Action types (navigation only — read-only view)
  */
-export type AccountsViewAction =
+type AccountsViewAction =
   | { type: 'NAVIGATE_UP'; visibleRows: number }
   | { type: 'NAVIGATE_DOWN'; visibleRows: number }
   | { type: 'PAGE_UP'; visibleRows: number }

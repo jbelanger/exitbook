@@ -81,7 +81,7 @@ function createProviderCatalogEntry(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.HELIUS_API_KEY;
+  delete process.env['HELIUS_API_KEY'];
   mockRenderApp.mockResolvedValue(undefined);
   mockComputeCategoryCounts.mockReturnValue({ solana: 1 });
   mockCreateBlockchainsViewState.mockReturnValue({ tag: 'state' });

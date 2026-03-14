@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { BalanceCommandResult, ImportCommandResult, ReprocessCommandResult } from './e2e-test-types.js';
 import { canBindUnixSocket, cleanupTestDatabase, executeCLI, getSampleDir, hasSampleData } from './e2e-test-utils.js';
 
-export interface ExchangeConfig {
+interface ExchangeConfig {
   /**
    * Exchange name (e.g., 'kucoin', 'kraken')
    */

@@ -78,21 +78,3 @@ export interface BalanceCommandResult {
   suggestion?: string | undefined;
   warnings?: string[] | undefined;
 }
-
-export interface AccountsViewResult {
-  data: {
-    accounts: {
-      accountType: string;
-      id: number;
-      identifier: string;
-      sourceName: string;
-    }[];
-  };
-  meta: {
-    count: number;
-    filters?: Record<string, string>;
-    hasMore: boolean;
-    limit: number;
-    offset: number;
-  };
-}

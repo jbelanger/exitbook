@@ -1,17 +1,5 @@
-import type { AccountType } from '@exitbook/core';
-
-import type { CommonViewFilters } from '../../shared/view-utils.js';
 import type { AccountSummary, SessionSummary } from '../query/account-query.js';
 import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../view/accounts-view-state.js';
-
-/**
- * Parameters for view accounts command.
- */
-export interface ViewAccountsParams extends CommonViewFilters {
-  accountId?: number | undefined;
-  accountType?: AccountType | undefined;
-  showSessions?: boolean | undefined;
-}
 
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 

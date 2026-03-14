@@ -1,6 +1,5 @@
 import { OverrideStore } from '@exitbook/data';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
@@ -9,8 +8,6 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { AssetsExcludeCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { AssetsHandler, type AssetOverrideResult } from './assets-handler.js';
-
-export type AssetsExcludeCommandOptions = z.infer<typeof AssetsExcludeCommandOptionsSchema>;
 
 export function registerAssetsExcludeCommand(assetsCommand: Command): void {
   assetsCommand

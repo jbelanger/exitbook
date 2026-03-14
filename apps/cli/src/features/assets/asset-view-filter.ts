@@ -8,7 +8,7 @@ export interface AssetReviewActionCandidate {
   reviewStatus: 'clear' | 'needs-review' | 'reviewed';
 }
 
-export type AssetAccountingDisplayStatus = 'allowed' | 'blocked' | 'excluded';
+type AssetAccountingDisplayStatus = 'allowed' | 'blocked' | 'excluded';
 
 /**
  * Derives human-readable next action text from the asset's review and accounting state.

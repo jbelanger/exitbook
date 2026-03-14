@@ -16,7 +16,6 @@ import { toAccountSummary } from './account-query-utils.js';
 export type {
   AccountListResult,
   AccountBalanceProjectionStatus,
-  AccountProjectionFreshness,
   AccountQueryParams,
   AccountSummary,
   AccountVerificationStatus,

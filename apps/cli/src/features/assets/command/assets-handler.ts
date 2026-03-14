@@ -33,16 +33,16 @@ import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from '.
 type AssetOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type AssetQueryDatabase = CommandDatabase;
 
-export interface AssetSelectionParams {
+interface AssetSelectionParams {
   assetId?: string | undefined;
   symbol?: string | undefined;
 }
 
-export interface AssetOverrideParams extends AssetSelectionParams {
+interface AssetOverrideParams extends AssetSelectionParams {
   reason?: string | undefined;
 }
 
-export interface ViewAssetsParams {
+interface ViewAssetsParams {
   actionRequiredOnly?: boolean | undefined;
 }
 
@@ -96,7 +96,7 @@ export interface AssetViewItem {
   transactionCount: number;
 }
 
-export interface AssetsViewResult {
+interface AssetsViewResult {
   actionRequiredCount: number;
   assets: AssetViewItem[];
   excludedCount: number;

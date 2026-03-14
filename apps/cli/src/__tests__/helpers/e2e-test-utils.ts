@@ -9,7 +9,7 @@ import type { CLIResponse } from '../../features/shared/cli-response.js';
 /**
  * Paths for e2e testing
  */
-export function getTestPaths() {
+function getTestPaths() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(__dirname, '../../../../..');
   const cliDir = path.join(repoRoot, 'apps/cli');

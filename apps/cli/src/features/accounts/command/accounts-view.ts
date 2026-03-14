@@ -2,7 +2,6 @@
 import type { AccountType } from '@exitbook/core';
 import type { Command } from 'commander';
 import React from 'react';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -17,11 +16,6 @@ import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from
 
 import { AccountsViewHandler, type ViewAccountsParams } from './accounts-view-handler.js';
 import { toAccountViewItem } from './accounts-view-utils.js';
-
-/**
- * Command options (validated at CLI boundary).
- */
-export type CommandOptions = z.infer<typeof AccountsViewCommandOptionsSchema>;
 
 /**
  * Result data for view accounts command (JSON mode).

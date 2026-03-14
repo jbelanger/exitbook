@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { BalanceCommandResult, ImportCommandResult, ReprocessCommandResult } from './e2e-test-types.js';
 import { canBindUnixSocket, cleanupTestDatabase, executeCLI } from './e2e-test-utils.js';
 
-export interface BlockchainTestCase {
+interface BlockchainTestCase {
   /**
    * Blockchain name (e.g., 'bitcoin', 'ethereum')
    */
@@ -20,7 +20,7 @@ export interface BlockchainTestCase {
   description?: string;
 }
 
-export interface BlockchainConfig {
+interface BlockchainConfig {
   /**
    * Blockchain name (e.g., 'bitcoin', 'ethereum')
    */

@@ -24,7 +24,7 @@ import type {
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 
-export const ACCOUNT_DETAIL_LINES = 7;
+const ACCOUNT_DETAIL_LINES = 7;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line

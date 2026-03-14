@@ -1,6 +1,5 @@
 import { OverrideStore } from '@exitbook/data';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
@@ -9,8 +8,6 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { AssetsConfirmCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { AssetsHandler, type AssetReviewOverrideResult } from './assets-handler.js';
-
-export type AssetsConfirmCommandOptions = z.infer<typeof AssetsConfirmCommandOptionsSchema>;
 
 export function registerAssetsConfirmCommand(assetsCommand: Command): void {
   assetsCommand
