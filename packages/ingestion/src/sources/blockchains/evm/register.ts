@@ -8,6 +8,10 @@ import { EvmImporter } from './importer.js';
 import { EvmProcessor } from './processor.js';
 
 export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap((chainName) => {
+  if (chainName === 'theta') {
+    return [];
+  }
+
   const config = getEvmChainConfig(chainName);
   if (!config) return [];
 

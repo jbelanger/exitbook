@@ -5,6 +5,7 @@ import { evmAdapters } from './evm/register.js';
 import { nearAdapter } from './near/register.js';
 import { solanaAdapter } from './solana/register.js';
 import { substrateAdapters } from './substrate/register.js';
+import { thetaAdapter } from './theta/register.js';
 import { xrpAdapters } from './xrp/register.js';
 
 export const allBlockchainAdapters = [
@@ -15,5 +16,6 @@ export const allBlockchainAdapters = [
   solanaAdapter,
   nearAdapter,
   cardanoAdapter,
+  thetaAdapter,
   ...xrpAdapters,
 ];

@@ -1,4 +1,4 @@
-import type { EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+import type { EvmTransaction } from '@exitbook/blockchain-providers';
 import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
 import { isZeroDecimal, parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -10,6 +10,11 @@ import type { AddressContext } from '../../../shared/types/processors.js';
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
+
+export interface AccountBasedNativeCurrencyConfig {
+  nativeCurrency: Currency;
+  nativeDecimals: number;
+}
 
 /**
  * Tax Classification Rules
@@ -110,12 +115,9 @@ export function determineEvmOperationFromFundFlow(
   fundFlow: EvmFundFlow,
   txGroup: EvmTransaction[]
 ): OperationClassification {
-  const { inflows, outflows } = fundFlow;
-  const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
-  const isZero = amount.isZero();
-
   // Pattern 0: Beacon withdrawal (Ethereum post-Shanghai consensus layer withdrawals)
   // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
+  const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
   const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
   if (beaconTx) {
     // Check if withdrawal amount exceeds the principal threshold
@@ -154,6 +156,14 @@ export function determineEvmOperationFromFundFlow(
       ],
     };
   }
+
+  return determineAccountBasedOperationFromFundFlow(fundFlow);
+}
+
+export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {
+  const { inflows, outflows } = fundFlow;
+  const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
+  const isZero = amount.isZero();
 
   // Pattern 1: Contract interaction with zero value
   // Approvals, staking operations, state changes - classified as transfer with note
@@ -328,7 +338,7 @@ export function groupEvmTransactionsByHash(transactions: EvmTransaction[]): Map<
 export function analyzeEvmFundFlow(
   txGroup: EvmTransaction[],
   context: AddressContext,
-  chainConfig: EvmChainConfig
+  chainConfig: AccountBasedNativeCurrencyConfig
 ): Result<EvmFundFlow, Error> {
   if (txGroup.length === 0) {
     return err('Empty transaction group');
@@ -546,7 +556,7 @@ function isEvmUserParticipant(tx: EvmTransaction, userAddress: string): boolean 
  * Pure function that determines if the transaction involves the chain's native currency
  * (ETH, MATIC, etc.) rather than a token.
  */
-function isEvmNativeMovement(tx: EvmTransaction, chainConfig: EvmChainConfig): boolean {
+function isEvmNativeMovement(tx: EvmTransaction, chainConfig: AccountBasedNativeCurrencyConfig): boolean {
   const native = chainConfig.nativeCurrency.toLowerCase();
   return tx.currency.toLowerCase() === native || tx.tokenSymbol?.toLowerCase() === native;
 }

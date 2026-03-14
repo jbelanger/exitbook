@@ -1,9 +1,14 @@
 import { parseDecimal } from '@exitbook/core';
 import { type Result, ok } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
 
 import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
 import { withValidation } from '../../../../core/index.js';
+import {
+  isThetaTokenTransfer,
+  parseCommaFormattedNumber,
+  selectThetaCurrency,
+  THETA_NATIVE_DECIMALS,
+} from '../../mapper-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { normalizeEvmAddress } from '../../utils.js';
@@ -14,46 +19,7 @@ import { ThetaScanTransactionSchema, type ThetaScanTransaction } from './thetasc
  * Pure functions for ThetaScan transaction mapping
  * Following the Functional Core / Imperative Shell pattern
  */
-
-/**
- * Parses a comma-formatted number string to Decimal.
- * Used for ThetaScan amounts like "1,000,000.000000".
- *
- * @param value - Number string with commas
- * @returns Parsed Decimal value
- */
-export function parseCommaFormattedNumber(value: string): Decimal {
-  return parseDecimal(value.replace(/,/g, ''));
-}
-
-/**
- * Determines which currency was transferred when multiple currencies are available.
- * Prioritizes THETA over TFUEL for Theta blockchain transactions.
- *
- * @param thetaAmount - THETA amount
- * @param tfuelAmount - TFUEL amount
- * @returns Currency symbol and amount
- */
-export function selectThetaCurrency(thetaAmount: Decimal, tfuelAmount: Decimal): { amount: Decimal; currency: string } {
-  if (thetaAmount.gt(0)) {
-    return { currency: 'THETA', amount: thetaAmount };
-  } else if (tfuelAmount.gt(0)) {
-    return { currency: 'TFUEL', amount: tfuelAmount };
-  } else {
-    return { currency: 'TFUEL', amount: parseDecimal('0') };
-  }
-}
-
-/**
- * Determines if a THETA transfer should be mapped as token_transfer.
- * THETA is mapped as token_transfer to preserve symbol, while TFUEL is native.
- *
- * @param currency - Currency symbol ('THETA' or 'TFUEL')
- * @returns True if this should be a token transfer
- */
-export function isThetaTokenTransfer(currency: string): boolean {
-  return currency === 'THETA';
-}
+export { isThetaTokenTransfer, parseCommaFormattedNumber, selectThetaCurrency } from '../../mapper-utils.js';
 
 /**
  * Maps ThetaScan transaction to normalized EvmTransaction (internal)
@@ -75,13 +41,14 @@ function mapThetaScanTransactionInternal(rawData: ThetaScanTransaction): Result<
   const timestamp = rawData.timestamp.getTime();
 
   // Calculate fee in wei
-  const THETA_DECIMALS = 18;
-  const feeInWei = parseDecimal(rawData.fee_tfuel.toString()).mul(parseDecimal('10').pow(THETA_DECIMALS));
+  const feeInWei = parseDecimal(rawData.fee_tfuel.toString()).mul(parseDecimal('10').pow(THETA_NATIVE_DECIMALS));
 
   // Amount handling:
   // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
   // - TFUEL transfers are mapped as native transfer, so amounts should be in wei
-  const amountFormatted = isTheta ? amount.toFixed() : amount.mul(parseDecimal('10').pow(THETA_DECIMALS)).toFixed(0);
+  const amountFormatted = isTheta
+    ? amount.toFixed()
+    : amount.mul(parseDecimal('10').pow(THETA_NATIVE_DECIMALS)).toFixed(0);
   const from = normalizeEvmAddress(rawData.sending_address) ?? '';
   const to = normalizeEvmAddress(rawData.recieving_address);
   const transactionType = isTheta ? 'token_transfer' : 'transfer';
