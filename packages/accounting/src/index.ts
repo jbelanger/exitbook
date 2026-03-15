@@ -129,14 +129,6 @@ export type {
   TaxPackageScopeValidationErrorCode,
   TaxPackageValidatedScope,
 } from './cost-basis/export/tax-package-scope-validator.js';
-export type {
-  CanadaDispositionExportFact,
-  CanadaTransferExportFact,
-  StandardDispositionExportFact,
-  StandardTransferExportFact,
-  TaxPackageGroupingKey,
-  TaxPackageRowFact,
-} from './cost-basis/export/tax-package-row-facts.js';
 
 // Reports
 export type {

@@ -1,6 +1,7 @@
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { buildCostBasisFilingFacts } from '../../filing-facts/filing-facts-builder.js';
 import { evaluateTaxPackageReadiness } from '../tax-package-review-gate.js';
 import { validateTaxPackageScope } from '../tax-package-scope-validator.js';
 import { buildUsTaxPackage } from '../us-tax-package-builder.js';
@@ -28,10 +29,15 @@ describe('buildUsTaxPackage', () => {
       workflowResult: context.workflowResult,
       scope,
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts');
+    }
 
     const result = assertOk(
       buildUsTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })
@@ -61,8 +67,11 @@ describe('buildUsTaxPackage', () => {
     const dispositionsCsv = result.files.find((file) => file.relativePath === 'dispositions.csv')?.content ?? '';
     expect(dispositionsCsv).toContain('DISP-0001');
     expect(dispositionsCsv).toContain('DISP-GROUP-0001');
-    expect(dispositionsCsv).toContain(',short_term,LOT-0002,G,E,-30.00');
-    expect(dispositionsCsv).toContain(',long_term,LOT-0001,J,"W,E",1000.00');
+    expect(dispositionsCsv).toContain(',short_term,LOT-0002');
+    expect(dispositionsCsv).toContain(',long_term,LOT-0001');
+    expect(dispositionsCsv).not.toContain('form_8949_box');
+    expect(dispositionsCsv).not.toContain(',G,');
+    expect(dispositionsCsv).not.toContain(',J,');
 
     const transfersCsv = result.files.find((file) => file.relativePath === 'transfers.csv')?.content ?? '';
     expect(transfersCsv).toContain('lot_carryover');
@@ -79,7 +88,8 @@ describe('buildUsTaxPackage', () => {
     expect(sourceLinksCsv).toContain('txhash-5');
 
     const report = result.files.find((file) => file.relativePath === 'report.md')?.content ?? '';
-    expect(report).toContain('short-term rows map to G and long-term rows map to J');
+    expect(report).toContain('intentionally omits downstream Form 8949 box placement');
+    expect(report).toContain('canonical U.S. holding-period classification');
     expect(report).toContain('basis_source remains lot_carryover');
   });
 
@@ -106,10 +116,15 @@ describe('buildUsTaxPackage', () => {
         fxFallbackCount: 1,
       },
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts');
+    }
 
     const result = assertOk(
       buildUsTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })
@@ -145,10 +160,15 @@ describe('buildUsTaxPackage', () => {
         unresolvedAssetReviewCount: 1,
       },
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts');
+    }
 
     const result = assertOk(
       buildUsTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })
@@ -194,10 +214,15 @@ describe('buildUsTaxPackage', () => {
         incompleteTransferLinkCount: 1,
       },
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts');
+    }
 
     const result = assertOk(
       buildUsTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })

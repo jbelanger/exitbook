@@ -1,5 +1,8 @@
 import { err, ok, type Result } from '@exitbook/core';
 
+import { buildCostBasisFilingFacts } from '../filing-facts/filing-facts-builder.js';
+import type { CostBasisFilingFacts } from '../filing-facts/filing-facts-types.js';
+
 import { buildCanadaTaxPackage } from './canada-tax-package-builder.js';
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import { evaluateTaxPackageReadiness } from './tax-package-review-gate.js';
@@ -34,7 +37,16 @@ export async function exportTaxPackage(
     metadata: input.readinessMetadata,
   });
 
-  const buildResult = buildJurisdictionPackage(input, readiness, deps.now);
+  const filingFactsResult = buildCostBasisFilingFacts({
+    artifact: input.context.workflowResult,
+    scopeKey: input.context.artifactRef.scopeKey,
+    snapshotId: input.context.artifactRef.snapshotId,
+  });
+  if (filingFactsResult.isErr()) {
+    return err(filingFactsResult.error);
+  }
+
+  const buildResult = buildJurisdictionPackage(input, readiness, deps.now, filingFactsResult.value);
   if (buildResult.isErr()) {
     return err(buildResult.error);
   }
@@ -66,18 +78,27 @@ export async function exportTaxPackage(
 function buildJurisdictionPackage(
   input: ExportTaxPackageInput,
   readiness: ReturnType<typeof evaluateTaxPackageReadiness>,
-  now: () => Date
+  now: () => Date,
+  filingFacts: CostBasisFilingFacts
 ) {
   switch (input.scope.config.jurisdiction) {
     case 'CA':
+      if (filingFacts.kind !== 'canada') {
+        return err(new Error('Canada tax package export requires Canada filing facts'));
+      }
       return buildCanadaTaxPackage({
         context: input.context,
+        filingFacts,
         readiness,
         now,
       });
     case 'US':
+      if (filingFacts.kind !== 'standard') {
+        return err(new Error('US tax package export requires standard filing facts'));
+      }
       return buildUsTaxPackage({
         context: input.context,
+        filingFacts,
         readiness,
         now,
       });

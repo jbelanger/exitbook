@@ -2,7 +2,12 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../model/types.js';
+import type {
+  StandardCostBasisAcquisitionFilingFact,
+  StandardCostBasisDispositionFilingFact,
+  StandardCostBasisFilingFacts,
+  StandardCostBasisTransferFilingFact,
+} from '../filing-facts/filing-facts-types.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import {
@@ -12,7 +17,6 @@ import {
   formatMoney,
   formatOptionalMoney,
   formatQuantity,
-  formatSignedOptionalMoney,
   makeRef,
   requireTransaction,
   type TaxPackageSourceLinkRow,
@@ -40,9 +44,6 @@ export interface UsDispositionRow {
   date_disposed: string;
   disposition_group: string;
   disposition_ref: string;
-  form_8949_adjustment_amount: string;
-  form_8949_adjustment_code: string;
-  form_8949_box: UsForm8949Box;
   gain_loss: string;
   holding_period_days: string;
   lot_ref: string;
@@ -85,31 +86,20 @@ interface DispositionRowContext {
   taxTreatment: 'long_term' | 'short_term';
 }
 
-type UsForm8949Box = 'G' | 'J';
-
-const US_DIGITAL_ASSET_FALLBACK_FORM_8949_BOX_BY_TREATMENT: Record<'long_term' | 'short_term', UsForm8949Box> = {
-  short_term: 'G',
-  long_term: 'J',
-};
-
 export function buildUsLotRows(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   rowRefMaps: UsRowRefMaps;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
 }): Result<UsLotRow[], Error> {
-  const sortedLots = [...params.workflowResult.lots].sort((left, right) =>
+  const sortedLots = [...params.filingFacts.acquisitions].sort((left, right) =>
     compareLotsByDateAssetAndId(left, right, params.assetLabeler)
   );
 
   const rows: UsLotRow[] = [];
   for (const lot of sortedLots) {
-    const transactionResult = requireTransaction(
-      params.context,
-      lot.acquisitionTransactionId,
-      `standard lot ${lot.id}`
-    );
+    const transactionResult = requireTransaction(params.context, lot.transactionId, `standard lot ${lot.id}`);
     if (transactionResult.isErr()) {
       return err(transactionResult.error);
     }
@@ -128,17 +118,14 @@ export function buildUsLotRows(params: {
       lot_ref: lotRef,
       asset: params.assetLabeler(lot.assetSymbol, lot.assetId),
       account_label: accountLabelResult.value,
-      date_acquired: formatDate(lot.acquisitionDate),
-      origin_period:
-        lot.acquisitionDate.getUTCFullYear() < params.workflowResult.summary.calculation.config.taxYear
-          ? 'prior_year'
-          : 'current_year',
+      date_acquired: formatDate(lot.acquiredAt),
+      origin_period: lot.acquiredAt.getUTCFullYear() < params.filingFacts.taxYear ? 'prior_year' : 'current_year',
       quantity_acquired: formatQuantity(lot.quantity),
       cost_basis_per_unit: formatMeasure(lot.costBasisPerUnit),
       total_cost_basis: formatMoney(lot.totalCostBasis),
       remaining_quantity: formatQuantity(lot.remainingQuantity),
       lot_status: lot.status === 'fully_disposed' ? 'fully_disposed' : 'open',
-      tax_currency: params.workflowResult.summary.calculation.config.currency,
+      tax_currency: params.filingFacts.taxCurrency,
     });
   }
 
@@ -147,24 +134,22 @@ export function buildUsLotRows(params: {
 
 export function buildUsDispositionRows(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   rowRefMaps: UsRowRefMaps;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
 }): Result<UsDispositionRow[], Error> {
-  const lotsById = new Map(params.workflowResult.lots.map((lot) => [lot.id, lot] as const));
-  const sortedDisposals = [...params.workflowResult.disposals].sort((left, right) =>
-    compareDispositionsForExport(left, right, lotsById, params.assetLabeler)
+  const sortedDisposals = [...params.filingFacts.dispositions].sort((left, right) =>
+    compareDispositionsForExport(left, right, params.assetLabeler)
   );
 
   const rows: UsDispositionRow[] = [];
   for (const disposal of sortedDisposals) {
     const rowContextResult = buildDispositionRowContext({
-      context: params.context,
-      lotsById,
-      disposal,
       accountLabeler: params.accountLabeler,
       assetLabeler: params.assetLabeler,
+      context: params.context,
+      disposal,
       rowRefMaps: params.rowRefMaps,
     });
     if (rowContextResult.isErr()) {
@@ -180,28 +165,23 @@ export function buildUsDispositionRows(params: {
       return err(new Error(`Missing disposition refs for disposal ${disposal.id}`));
     }
 
-    const adjustment = buildForm8949Adjustment(disposal);
-
     rows.push({
       disposition_ref: dispositionRef,
       disposition_group: dispositionGroup,
       asset: rowContext.asset,
       account_label: rowContext.disposalAccountLabel,
-      date_disposed: formatDate(disposal.disposalDate),
-      quantity_disposed: formatQuantity(disposal.quantityDisposed),
+      date_disposed: formatDate(disposal.disposedAt),
+      quantity_disposed: formatQuantity(disposal.quantity),
       proceeds_gross: formatMoney(disposal.grossProceeds),
       selling_expenses: formatOptionalMoney(disposal.sellingExpenses),
       net_proceeds: formatMoney(disposal.netProceeds),
       cost_basis: formatMoney(disposal.totalCostBasis),
       gain_loss: formatMoney(disposal.gainLoss),
-      tax_currency: params.workflowResult.summary.calculation.config.currency,
+      tax_currency: params.filingFacts.taxCurrency,
       date_acquired: formatDate(rowContext.acquisitionDate),
       holding_period_days: String(disposal.holdingPeriodDays),
       tax_treatment: rowContext.taxTreatment,
       lot_ref: rowContext.lotRef,
-      form_8949_box: deriveUsForm8949Box(rowContext.taxTreatment),
-      form_8949_adjustment_code: adjustment.code,
-      form_8949_adjustment_amount: adjustment.amount,
     });
   }
 
@@ -210,29 +190,17 @@ export function buildUsDispositionRows(params: {
 
 export function buildUsTransferRows(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   rowRefMaps: UsRowRefMaps;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
 }): Result<UsTransferRow[], Error> {
-  const lotsById = new Map(params.workflowResult.lots.map((lot) => [lot.id, lot] as const));
-  const sortedTransfers = [...params.workflowResult.lotTransfers].sort((left, right) => {
-    const leftLot = lotsById.get(left.sourceLotId);
-    const rightLot = lotsById.get(right.sourceLotId);
-    if (!leftLot || !rightLot) {
-      return left.id.localeCompare(right.id);
-    }
-
-    return compareTransferRows(left, right, leftLot, rightLot, params.assetLabeler);
-  });
+  const sortedTransfers = [...params.filingFacts.transfers].sort((left, right) =>
+    compareTransferRows(left, right, params.assetLabeler)
+  );
 
   const rows: UsTransferRow[] = [];
   for (const transfer of sortedTransfers) {
-    const sourceLot = lotsById.get(transfer.sourceLotId);
-    if (!sourceLot) {
-      return err(new Error(`Missing source lot ${transfer.sourceLotId} for transfer ${transfer.id}`));
-    }
-
     const sourceTransactionResult = requireTransaction(
       params.context,
       transfer.sourceTransactionId,
@@ -266,21 +234,21 @@ export function buildUsTransferRows(params: {
     }
 
     const costBasisCarried = calculateTransferredBasisIncludingFees(transfer);
-    const effectiveCostBasisPerUnit = transfer.quantityTransferred.isZero()
+    const effectiveCostBasisPerUnit = transfer.quantity.isZero()
       ? transfer.costBasisPerUnit
-      : costBasisCarried.dividedBy(transfer.quantityTransferred);
+      : costBasisCarried.dividedBy(transfer.quantity);
 
     rows.push({
       transfer_ref: transferRef,
-      asset: params.assetLabeler(sourceLot.assetSymbol, sourceLot.assetId),
-      date_transferred: formatDate(transfer.transferDate),
+      asset: params.assetLabeler(transfer.assetSymbol, transfer.assetId),
+      date_transferred: formatDate(transfer.transferredAt),
       transfer_status: deriveUsTransferStatus(transfer),
       transfer_direction: 'internal_transfer',
       source_account_label: sourceAccountLabelResult.value,
       target_account_label: targetAccountLabelResult.value,
-      quantity_transferred: formatQuantity(transfer.quantityTransferred),
+      quantity_transferred: formatQuantity(transfer.quantity),
       cost_basis_carried: formatMoney(costBasisCarried),
-      tax_currency: params.workflowResult.summary.calculation.config.currency,
+      tax_currency: params.filingFacts.taxCurrency,
       cost_basis_per_unit: formatMeasure(effectiveCostBasisPerUnit),
       basis_source: deriveUsTransferBasisSource(transfer),
       source_lot_ref: sourceLotRef,
@@ -292,15 +260,14 @@ export function buildUsTransferRows(params: {
 
 export function buildUsSourceLinkRows(params: {
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   rowRefMaps: UsRowRefMaps;
   sourceNameCounts: Map<string, number>;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
 }): Result<TaxPackageSourceLinkRow[], Error> {
   const rows: TaxPackageSourceLinkRow[] = [];
   const seen = new Set<string>();
-  const lotsById = new Map(params.workflowResult.lots.map((lot) => [lot.id, lot] as const));
 
-  for (const lot of params.workflowResult.lots) {
+  for (const lot of params.filingFacts.acquisitions) {
     const packageRef = params.rowRefMaps.lotRefById.get(lot.id);
     if (!packageRef) continue;
     const appendResult = appendSourceLinkRows(rows, seen, {
@@ -308,35 +275,30 @@ export function buildUsSourceLinkRows(params: {
       packageArtifact: 'lots.csv',
       packageRef,
       sourceNameCounts: params.sourceNameCounts,
-      transactionIds: [lot.acquisitionTransactionId],
+      transactionIds: [lot.transactionId],
     });
     if (appendResult.isErr()) {
       return err(appendResult.error);
     }
   }
 
-  for (const disposal of params.workflowResult.disposals) {
+  for (const disposal of params.filingFacts.dispositions) {
     const packageRef = params.rowRefMaps.dispositionRefById.get(disposal.id);
     if (!packageRef) continue;
-
-    const sourceLot = lotsById.get(disposal.lotId);
-    if (!sourceLot) {
-      return err(new Error(`Missing source lot ${disposal.lotId} for source-links disposal ${disposal.id}`));
-    }
 
     const appendResult = appendSourceLinkRows(rows, seen, {
       context: params.context,
       packageArtifact: 'dispositions.csv',
       packageRef,
       sourceNameCounts: params.sourceNameCounts,
-      transactionIds: [disposal.disposalTransactionId, sourceLot.acquisitionTransactionId],
+      transactionIds: [disposal.disposalTransactionId, disposal.acquisitionTransactionId],
     });
     if (appendResult.isErr()) {
       return err(appendResult.error);
     }
   }
 
-  for (const transfer of params.workflowResult.lotTransfers) {
+  for (const transfer of params.filingFacts.transfers) {
     const packageRef = params.rowRefMaps.transferRefById.get(transfer.id);
     if (!packageRef) continue;
 
@@ -365,33 +327,31 @@ export function buildUsSourceLinkRows(params: {
 
 export function buildUsRowRefMaps(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
+  filingFacts: StandardCostBasisFilingFacts;
 }): Result<UsRowRefMaps, Error> {
   const lotRefById = new Map<string, string>();
   const dispositionRefById = new Map<string, string>();
   const dispositionGroupRefById = new Map<string, string>();
   const transferRefById = new Map<string, string>();
-  const lotsById = new Map(params.workflowResult.lots.map((lot) => [lot.id, lot] as const));
 
-  [...params.workflowResult.lots]
+  [...params.filingFacts.acquisitions]
     .sort((left, right) => compareLotsByDateAssetAndId(left, right, params.assetLabeler))
     .forEach((lot, index) => {
       lotRefById.set(lot.id, makeRef('LOT', index + 1));
     });
 
-  const sortedDisposals = [...params.workflowResult.disposals].sort((left, right) =>
-    compareDispositionsForExport(left, right, lotsById, params.assetLabeler)
+  const sortedDisposals = [...params.filingFacts.dispositions].sort((left, right) =>
+    compareDispositionsForExport(left, right, params.assetLabeler)
   );
   const dispositionGroupIndexByKey = new Map<string, number>();
   for (const [index, disposal] of sortedDisposals.entries()) {
     const rowContextResult = buildDispositionRowContext({
-      context: params.context,
-      lotsById,
-      disposal,
       accountLabeler: params.accountLabeler,
       assetLabeler: params.assetLabeler,
+      context: params.context,
+      disposal,
       rowRefMaps: { lotRefById },
     });
     if (rowContextResult.isErr()) {
@@ -405,16 +365,8 @@ export function buildUsRowRefMaps(params: {
     dispositionGroupRefById.set(groupKey, makeRef('DISP-GROUP', groupIndex));
   }
 
-  [...params.workflowResult.lotTransfers]
-    .sort((left, right) => {
-      const leftLot = lotsById.get(left.sourceLotId);
-      const rightLot = lotsById.get(right.sourceLotId);
-      if (!leftLot || !rightLot) {
-        return left.id.localeCompare(right.id);
-      }
-
-      return compareTransferRows(left, right, leftLot, rightLot, params.assetLabeler);
-    })
+  [...params.filingFacts.transfers]
+    .sort((left, right) => compareTransferRows(left, right, params.assetLabeler))
     .forEach((transfer, index) => {
       transferRefById.set(transfer.id, makeRef('XFER', index + 1));
     });
@@ -428,18 +380,32 @@ export function buildUsRowRefMaps(params: {
 }
 
 export function buildUsAssetLabeler(
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>
-): (symbol: string, assetId: string) => string {
+  filingFacts: StandardCostBasisFilingFacts
+): (symbol: string, assetId: string | undefined) => string {
   const assetIdsBySymbol = new Map<string, Set<string>>();
-  for (const lot of workflowResult.lots) {
-    const assetIds = assetIdsBySymbol.get(lot.assetSymbol) ?? new Set<string>();
-    assetIds.add(lot.assetId);
-    assetIdsBySymbol.set(lot.assetSymbol, assetIds);
+  const register = (symbol: string, assetId: string | undefined) => {
+    if (!assetId) {
+      return;
+    }
+
+    const assetIds = assetIdsBySymbol.get(symbol) ?? new Set<string>();
+    assetIds.add(assetId);
+    assetIdsBySymbol.set(symbol, assetIds);
+  };
+
+  for (const lot of filingFacts.acquisitions) {
+    register(lot.assetSymbol, lot.assetId);
+  }
+  for (const disposal of filingFacts.dispositions) {
+    register(disposal.assetSymbol, disposal.assetId);
+  }
+  for (const transfer of filingFacts.transfers) {
+    register(transfer.assetSymbol, transfer.assetId);
   }
 
-  return (symbol: string, assetId: string) => {
+  return (symbol: string, assetId: string | undefined) => {
     const assetIds = assetIdsBySymbol.get(symbol);
-    if (!assetIds || assetIds.size <= 1) {
+    if (!assetId || !assetIds || assetIds.size <= 1) {
       return symbol;
     }
 
@@ -449,21 +415,15 @@ export function buildUsAssetLabeler(
 
 function buildDispositionRowContext(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
-  disposal: LotDisposal;
-  lotsById: ReadonlyMap<string, AcquisitionLot>;
+  disposal: StandardCostBasisDispositionFilingFact;
   rowRefMaps: Pick<UsRowRefMaps, 'lotRefById'>;
 }): Result<DispositionRowContext, Error> {
-  const sourceLot = params.lotsById.get(params.disposal.lotId);
-  if (!sourceLot) {
-    return err(new Error(`Missing source lot ${params.disposal.lotId} for disposal ${params.disposal.id}`));
-  }
-
   const acquisitionTransactionResult = requireTransaction(
     params.context,
-    sourceLot.acquisitionTransactionId,
-    `standard lot ${sourceLot.id}`
+    params.disposal.acquisitionTransactionId,
+    `standard lot ${params.disposal.lotId}`
   );
   if (acquisitionTransactionResult.isErr()) {
     return err(acquisitionTransactionResult.error);
@@ -477,39 +437,39 @@ function buildDispositionRowContext(params: {
     return err(disposalTransactionResult.error);
   }
 
-  const acquisitionAccountLabelValidation = params.accountLabeler(acquisitionTransactionResult.value.accountId);
-  if (acquisitionAccountLabelValidation.isErr()) {
-    return err(acquisitionAccountLabelValidation.error);
-  }
   const disposalAccountLabelResult = params.accountLabeler(disposalTransactionResult.value.accountId);
   if (disposalAccountLabelResult.isErr()) {
     return err(disposalAccountLabelResult.error);
   }
 
-  const lotRef = params.rowRefMaps.lotRefById.get(sourceLot.id);
+  const lotRef = params.rowRefMaps.lotRefById.get(params.disposal.lotId);
   if (!lotRef) {
-    return err(new Error(`Missing lot_ref for lot ${sourceLot.id}`));
+    return err(new Error(`Missing lot_ref for lot ${params.disposal.lotId}`));
+  }
+
+  if (params.disposal.taxTreatmentCategory !== 'short_term' && params.disposal.taxTreatmentCategory !== 'long_term') {
+    return err(new Error(`Missing canonical US tax treatment for disposal ${params.disposal.id}`));
   }
 
   return ok({
-    acquisitionDate: sourceLot.acquisitionDate,
-    asset: params.assetLabeler(sourceLot.assetSymbol, sourceLot.assetId),
+    acquisitionDate: params.disposal.acquiredAt,
+    asset: params.assetLabeler(params.disposal.assetSymbol, params.disposal.assetId),
     disposalAccountLabel: disposalAccountLabelResult.value,
     lotRef,
-    taxTreatment: normalizeTaxTreatmentCategory(params.disposal),
+    taxTreatment: params.disposal.taxTreatmentCategory,
   });
 }
 
-function buildDispositionGroupKey(disposal: LotDisposal, assetLabel: string): string {
+function buildDispositionGroupKey(disposal: StandardCostBasisDispositionFilingFact, assetLabel: string): string {
   return `${disposal.disposalTransactionId}|${assetLabel}`;
 }
 
 function compareLotsByDateAssetAndId(
-  left: AcquisitionLot,
-  right: AcquisitionLot,
-  assetLabeler: (symbol: string, assetId: string) => string
+  left: StandardCostBasisAcquisitionFilingFact,
+  right: StandardCostBasisAcquisitionFilingFact,
+  assetLabeler: (symbol: string, assetId: string | undefined) => string
 ): number {
-  const dateDiff = left.acquisitionDate.getTime() - right.acquisitionDate.getTime();
+  const dateDiff = left.acquiredAt.getTime() - right.acquiredAt.getTime();
   if (dateDiff !== 0) {
     return dateDiff;
   }
@@ -525,55 +485,27 @@ function compareLotsByDateAssetAndId(
 }
 
 function compareDispositionsForExport(
-  left: LotDisposal,
-  right: LotDisposal,
-  lotsById: ReadonlyMap<string, AcquisitionLot>,
-  assetLabeler: (symbol: string, assetId: string) => string
+  left: StandardCostBasisDispositionFilingFact,
+  right: StandardCostBasisDispositionFilingFact,
+  assetLabeler: (symbol: string, assetId: string | undefined) => string
 ): number {
-  const treatmentDiff =
-    taxTreatmentRank(normalizeTaxTreatmentCategory(left)) - taxTreatmentRank(normalizeTaxTreatmentCategory(right));
+  const treatmentDiff = taxTreatmentRank(left.taxTreatmentCategory) - taxTreatmentRank(right.taxTreatmentCategory);
   if (treatmentDiff !== 0) {
     return treatmentDiff;
   }
 
-  const dateDisposedDiff = left.disposalDate.getTime() - right.disposalDate.getTime();
+  const dateDisposedDiff = left.disposedAt.getTime() - right.disposedAt.getTime();
   if (dateDisposedDiff !== 0) {
     return dateDisposedDiff;
   }
 
-  const leftLot = lotsById.get(left.lotId);
-  const rightLot = lotsById.get(right.lotId);
-  if (leftLot && rightLot) {
-    const dateAcquiredDiff = leftLot.acquisitionDate.getTime() - rightLot.acquisitionDate.getTime();
-    if (dateAcquiredDiff !== 0) {
-      return dateAcquiredDiff;
-    }
-
-    const assetDiff = assetLabeler(leftLot.assetSymbol, leftLot.assetId).localeCompare(
-      assetLabeler(rightLot.assetSymbol, rightLot.assetId)
-    );
-    if (assetDiff !== 0) {
-      return assetDiff;
-    }
+  const dateAcquiredDiff = left.acquiredAt.getTime() - right.acquiredAt.getTime();
+  if (dateAcquiredDiff !== 0) {
+    return dateAcquiredDiff;
   }
 
-  return left.id.localeCompare(right.id);
-}
-
-function compareTransferRows(
-  left: LotTransfer,
-  right: LotTransfer,
-  leftLot: AcquisitionLot,
-  rightLot: AcquisitionLot,
-  assetLabeler: (symbol: string, assetId: string) => string
-): number {
-  const dateDiff = left.transferDate.getTime() - right.transferDate.getTime();
-  if (dateDiff !== 0) {
-    return dateDiff;
-  }
-
-  const assetDiff = assetLabeler(leftLot.assetSymbol, leftLot.assetId).localeCompare(
-    assetLabeler(rightLot.assetSymbol, rightLot.assetId)
+  const assetDiff = assetLabeler(left.assetSymbol, left.assetId).localeCompare(
+    assetLabeler(right.assetSymbol, right.assetId)
   );
   if (assetDiff !== 0) {
     return assetDiff;
@@ -582,54 +514,45 @@ function compareTransferRows(
   return left.id.localeCompare(right.id);
 }
 
-function taxTreatmentRank(value: 'long_term' | 'short_term'): number {
-  return value === 'short_term' ? 0 : 1;
-}
-
-function normalizeTaxTreatmentCategory(disposal: LotDisposal): 'long_term' | 'short_term' {
-  if (disposal.taxTreatmentCategory === 'short_term' || disposal.taxTreatmentCategory === 'long_term') {
-    return disposal.taxTreatmentCategory;
+function compareTransferRows(
+  left: StandardCostBasisTransferFilingFact,
+  right: StandardCostBasisTransferFilingFact,
+  assetLabeler: (symbol: string, assetId: string | undefined) => string
+): number {
+  const dateDiff = left.transferredAt.getTime() - right.transferredAt.getTime();
+  if (dateDiff !== 0) {
+    return dateDiff;
   }
 
-  // Backward-compatibility fallback for older standard-workflow artifacts that
-  // predate persisted taxTreatmentCategory. For the current US package contract,
-  // >= 365 holding-period days is treated as long-term.
-  return disposal.holdingPeriodDays >= 365 ? 'long_term' : 'short_term';
-}
-
-function buildForm8949Adjustment(disposal: LotDisposal): { amount: string; code: string } {
-  const codes: string[] = [];
-  let totalAdjustment = parseDecimal('0');
-
-  if (disposal.lossDisallowed === true) {
-    codes.push('W');
-    totalAdjustment = totalAdjustment.plus(disposal.disallowedLossAmount ?? disposal.gainLoss.abs());
+  const assetDiff = assetLabeler(left.assetSymbol, left.assetId).localeCompare(
+    assetLabeler(right.assetSymbol, right.assetId)
+  );
+  if (assetDiff !== 0) {
+    return assetDiff;
   }
 
-  if (!disposal.sellingExpenses.isZero()) {
-    codes.push('E');
-    totalAdjustment = totalAdjustment.minus(disposal.sellingExpenses);
+  return left.id.localeCompare(right.id);
+}
+
+function taxTreatmentRank(value: string | undefined): number {
+  if (value === 'short_term') {
+    return 0;
   }
-
-  return {
-    code: codes.join(','),
-    amount: formatSignedOptionalMoney(totalAdjustment),
-  };
+  if (value === 'long_term') {
+    return 1;
+  }
+  return 2;
 }
 
-function deriveUsForm8949Box(taxTreatment: 'long_term' | 'short_term'): UsForm8949Box {
-  return US_DIGITAL_ASSET_FALLBACK_FORM_8949_BOX_BY_TREATMENT[taxTreatment];
-}
-
-function deriveUsTransferBasisSource(_transfer: LotTransfer): 'fee_basis' | 'lot_carryover' {
+function deriveUsTransferBasisSource(_transfer: StandardCostBasisTransferFilingFact): 'fee_basis' | 'lot_carryover' {
   return 'lot_carryover';
 }
 
-function deriveUsTransferStatus(transfer: LotTransfer): 'review_needed_inbound' | 'verified' {
-  return transfer.provenance.kind === 'confirmed-link' ? 'verified' : 'review_needed_inbound';
+function deriveUsTransferStatus(transfer: StandardCostBasisTransferFilingFact): 'review_needed_inbound' | 'verified' {
+  return transfer.provenanceKind === 'confirmed-link' ? 'verified' : 'review_needed_inbound';
 }
 
-function calculateTransferredBasisIncludingFees(transfer: LotTransfer): Decimal {
-  const feeBasis = transfer.metadata?.sameAssetFeeUsdValue ?? parseDecimal('0');
-  return transfer.costBasisPerUnit.times(transfer.quantityTransferred).plus(feeBasis);
+function calculateTransferredBasisIncludingFees(transfer: StandardCostBasisTransferFilingFact): Decimal {
+  const feeBasis = transfer.sameAssetFeeAmount ?? parseDecimal('0');
+  return transfer.totalCostBasis.plus(feeBasis);
 }

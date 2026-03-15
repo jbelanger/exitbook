@@ -1,6 +1,7 @@
 import type { Currency } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import type { CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { AcquisitionLot, LotTransfer } from '../model/types.js';
 
 export interface CostBasisFilingTaxTreatmentSummary {
@@ -54,12 +55,14 @@ interface CostBasisFilingAcquisitionFactBase extends CostBasisFilingFactAssetIde
 
 export interface StandardCostBasisAcquisitionFilingFact extends CostBasisFilingAcquisitionFactBase {
   kind: 'standard-acquisition';
+  assetId: string;
   status: AcquisitionLot['status'];
 }
 
 export interface CanadaCostBasisAcquisitionFilingFact extends CostBasisFilingAcquisitionFactBase {
   kind: 'canada-acquisition';
   acquisitionEventId: string;
+  taxPropertyKey: string;
   remainingAllocatedCostBasis: Decimal;
 }
 
@@ -79,6 +82,7 @@ interface CostBasisFilingDispositionFactBase extends CostBasisFilingFactAssetIde
 
 export interface StandardCostBasisDispositionFilingFact extends CostBasisFilingDispositionFactBase {
   kind: 'standard-disposition';
+  assetId: string;
   lotId: string;
   acquiredAt: Date;
   holdingPeriodDays: number;
@@ -93,6 +97,7 @@ export interface StandardCostBasisDispositionFilingFact extends CostBasisFilingD
 export interface CanadaCostBasisDispositionFilingFact extends CostBasisFilingDispositionFactBase {
   kind: 'canada-disposition';
   dispositionEventId: string;
+  taxPropertyKey: string;
   transactionId: number;
 }
 
@@ -106,6 +111,7 @@ interface CostBasisFilingTransferFactBase extends CostBasisFilingFactAssetIdenti
 
 export interface StandardCostBasisTransferFilingFact extends CostBasisFilingTransferFactBase {
   kind: 'standard-transfer';
+  assetId: string;
   sourceLotId: string;
   sourceTransactionId: number;
   targetTransactionId: number;
@@ -118,6 +124,7 @@ export interface StandardCostBasisTransferFilingFact extends CostBasisFilingTran
 export interface CanadaCostBasisTransferFilingFact extends CostBasisFilingTransferFactBase {
   kind: 'canada-transfer';
   direction: 'in' | 'internal' | 'out';
+  taxPropertyKey: string;
   transactionId: number;
   sourceTransferEventId?: string | undefined;
   targetTransferEventId?: string | undefined;
@@ -131,6 +138,7 @@ export interface CanadaSuperficialLossAdjustmentFilingFact extends CostBasisFili
   kind: 'canada-superficial-loss-adjustment';
   id: string;
   adjustedAt: Date;
+  taxPropertyKey: string;
   deniedLossAmount: Decimal;
   deniedQuantity: Decimal;
   relatedDispositionId: string;
@@ -150,7 +158,7 @@ export type CostBasisFilingTransferFact = StandardCostBasisTransferFilingFact | 
 interface CostBasisFilingFactsBase {
   calculationId: string;
   jurisdiction: string;
-  method: string;
+  method: CostBasisMethod;
   taxYear: number;
   taxCurrency: string;
   scopeKey?: string | undefined;

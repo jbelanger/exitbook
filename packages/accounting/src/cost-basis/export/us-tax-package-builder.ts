@@ -1,5 +1,7 @@
 import { err, ok, type Result } from '@exitbook/core';
 
+import type { StandardCostBasisFilingFacts } from '../filing-facts/filing-facts-types.js';
+
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import {
   buildAccountLabeler,
@@ -35,6 +37,7 @@ import {
 
 interface BuildUsTaxPackageParams {
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   now: () => Date;
   readiness: TaxPackageReadinessResult;
 }
@@ -43,22 +46,24 @@ export function buildUsTaxPackage(params: BuildUsTaxPackageParams): Result<TaxPa
   if (params.context.workflowResult.kind !== 'standard-workflow') {
     return err(new Error('US tax package builder requires a standard-workflow artifact'));
   }
+  if (params.filingFacts.kind !== 'standard') {
+    return err(new Error('US tax package builder requires standard filing facts'));
+  }
 
-  const workflowResult = params.context.workflowResult;
   const accountLabeler = buildAccountLabeler(params.context);
-  const assetLabeler = buildUsAssetLabeler(workflowResult);
+  const assetLabeler = buildUsAssetLabeler(params.filingFacts);
   const generatedAt = params.now();
 
   let supportingFiles: TaxPackageFile[];
   if (params.readiness.status === 'blocked') {
     supportingFiles = buildBlockedSupportingFiles(params.readiness);
   } else {
-    const completeResult = buildCompleteSupportingFiles({
+    const completeResult = buildUsSupportingFiles({
       accountLabeler,
       assetLabeler,
       context: params.context,
+      filingFacts: params.filingFacts,
       readiness: params.readiness,
-      workflowResult,
     });
     if (completeResult.isErr()) {
       return err(completeResult.error);
@@ -91,6 +96,7 @@ export function buildUsTaxPackage(params: BuildUsTaxPackageParams): Result<TaxPa
   const manifest = buildManifest({
     artifactIndex,
     context: params.context,
+    filingFacts: params.filingFacts,
     generatedAt,
     readiness: params.readiness,
   });
@@ -123,16 +129,16 @@ export function buildUsTaxPackage(params: BuildUsTaxPackageParams): Result<TaxPa
   });
 }
 
-function buildCompleteSupportingFiles(params: {
+function buildUsSupportingFiles(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
-  assetLabeler: (symbol: string, assetId: string) => string;
+  assetLabeler: (symbol: string, assetId: string | undefined) => string;
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   readiness: TaxPackageReadinessResult;
-  workflowResult: Extract<TaxPackageBuildContext['workflowResult'], { kind: 'standard-workflow' }>;
 }): Result<TaxPackageFile[], Error> {
   const rowRefMapsResult = buildUsRowRefMaps({
-    workflowResult: params.workflowResult,
     context: params.context,
+    filingFacts: params.filingFacts,
     accountLabeler: params.accountLabeler,
     assetLabeler: params.assetLabeler,
   });
@@ -143,8 +149,8 @@ function buildCompleteSupportingFiles(params: {
   const sourceNameCounts = countAccountsBySourceName(params.context);
 
   const dispositionRowsResult = buildUsDispositionRows({
-    workflowResult: params.workflowResult,
     context: params.context,
+    filingFacts: params.filingFacts,
     accountLabeler: params.accountLabeler,
     assetLabeler: params.assetLabeler,
     rowRefMaps,
@@ -154,8 +160,8 @@ function buildCompleteSupportingFiles(params: {
   }
 
   const lotRowsResult = buildUsLotRows({
-    workflowResult: params.workflowResult,
     context: params.context,
+    filingFacts: params.filingFacts,
     accountLabeler: params.accountLabeler,
     assetLabeler: params.assetLabeler,
     rowRefMaps,
@@ -165,8 +171,8 @@ function buildCompleteSupportingFiles(params: {
   }
 
   const transferRowsResult = buildUsTransferRows({
-    workflowResult: params.workflowResult,
     context: params.context,
+    filingFacts: params.filingFacts,
     accountLabeler: params.accountLabeler,
     assetLabeler: params.assetLabeler,
     rowRefMaps,
@@ -178,9 +184,9 @@ function buildCompleteSupportingFiles(params: {
   const issueRows = buildIssueRows(params.readiness.issues);
   const sourceLinkRowsResult = buildUsSourceLinkRows({
     context: params.context,
+    filingFacts: params.filingFacts,
     rowRefMaps,
     sourceNameCounts,
-    workflowResult: params.workflowResult,
   });
   if (sourceLinkRowsResult.isErr()) {
     return err(sourceLinkRowsResult.error);
@@ -214,32 +220,27 @@ function buildBlockedSupportingFiles(readiness: TaxPackageReadinessResult): TaxP
 function buildManifest(params: {
   artifactIndex: readonly TaxPackageArtifactIndexEntry[];
   context: TaxPackageBuildContext;
+  filingFacts: StandardCostBasisFilingFacts;
   generatedAt: Date;
   readiness: TaxPackageReadinessResult;
 }): TaxPackageManifest {
-  if (params.context.workflowResult.kind !== 'standard-workflow') {
-    throw new Error('Expected standard-workflow artifact for US manifest');
-  }
-
-  const calculation = params.context.workflowResult.summary.calculation;
-
   return {
     packageKind: TAX_PACKAGE_KIND,
     packageVersion: TAX_PACKAGE_VERSION,
     packageStatus: params.readiness.status,
     jurisdiction: 'US',
-    taxYear: calculation.config.taxYear,
+    taxYear: params.filingFacts.taxYear,
     calculationId: params.context.artifactRef.calculationId,
     snapshotId: params.context.artifactRef.snapshotId,
     scopeKey: params.context.artifactRef.scopeKey,
     generatedAt: params.generatedAt.toISOString(),
-    method: calculation.config.method,
-    taxCurrency: calculation.config.currency,
+    method: params.filingFacts.method,
+    taxCurrency: params.filingFacts.taxCurrency,
     summaryTotals: {
-      totalProceeds: formatMoney(calculation.totalProceeds),
-      totalCostBasis: formatMoney(calculation.totalCostBasis),
-      totalGainLoss: formatMoney(calculation.totalGainLoss),
-      totalTaxableGainLoss: formatMoney(calculation.totalTaxableGainLoss),
+      totalProceeds: formatMoney(params.filingFacts.summary.totalProceeds),
+      totalCostBasis: formatMoney(params.filingFacts.summary.totalCostBasis),
+      totalGainLoss: formatMoney(params.filingFacts.summary.totalGainLoss),
+      totalTaxableGainLoss: formatMoney(params.filingFacts.summary.totalTaxableGainLoss),
     },
     reviewItems: params.readiness.reviewItems,
     blockingIssues: params.readiness.blockingIssues,
@@ -266,9 +267,8 @@ function buildReport(params: {
       purpose: item.purpose,
     })),
     filingNotes: [
-      'form_8949_box uses the current digital-asset fallback assumption for v1 because statement-reporting and basis-reported metadata are not present in the workflow artifact: short-term rows map to G and long-term rows map to J.',
-      'Rows with selling_expenses populate Form 8949 adjustment code E so gross proceeds can be reconciled to net proceeds.',
-      'Rows with disallowed wash-sale losses populate Form 8949 adjustment code W and a positive adjustment amount.',
+      'dispositions.csv intentionally omits downstream Form 8949 box placement and adjustment-code mapping; use the package facts as preparer support rather than return-placement instructions.',
+      'tax_treatment comes from the shared accounting filing-facts seam, so CLI and export use the same canonical U.S. holding-period classification.',
       'basis_source remains lot_carryover for v1 standard transfers even when cost_basis_carried includes same-asset fee basis; the fee basis is reflected in the amount columns rather than by relabeling the carryover origin.',
       'lots.csv is the lot-identity appendix used to tie each disposition row back to the matched acquisition lot.',
     ],
@@ -297,9 +297,6 @@ function buildDispositionsCsvFile(rows: readonly UsDispositionRow[]): TaxPackage
       'holding_period_days',
       'tax_treatment',
       'lot_ref',
-      'form_8949_box',
-      'form_8949_adjustment_code',
-      'form_8949_adjustment_amount',
     ],
     rows.map((row) => [
       row.disposition_ref,
@@ -318,9 +315,6 @@ function buildDispositionsCsvFile(rows: readonly UsDispositionRow[]): TaxPackage
       row.holding_period_days,
       row.tax_treatment,
       row.lot_ref,
-      row.form_8949_box,
-      row.form_8949_adjustment_code,
-      row.form_8949_adjustment_amount,
     ])
   );
 }

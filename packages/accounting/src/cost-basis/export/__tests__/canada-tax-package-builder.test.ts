@@ -1,6 +1,7 @@
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { buildCostBasisFilingFacts } from '../../filing-facts/filing-facts-builder.js';
 import { buildCanadaTaxPackage } from '../canada-tax-package-builder.js';
 import { evaluateTaxPackageReadiness } from '../tax-package-review-gate.js';
 import { validateTaxPackageScope } from '../tax-package-scope-validator.js';
@@ -19,10 +20,15 @@ describe('buildCanadaTaxPackage', () => {
       workflowResult: context.workflowResult,
       scope,
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'canada') {
+      throw new Error('Expected Canada filing facts');
+    }
 
     const result = assertOk(
       buildCanadaTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })
@@ -76,10 +82,15 @@ describe('buildCanadaTaxPackage', () => {
         fxFallbackCount: 1,
       },
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'canada') {
+      throw new Error('Expected Canada filing facts');
+    }
 
     const result = assertOk(
       buildCanadaTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })
@@ -106,10 +117,15 @@ describe('buildCanadaTaxPackage', () => {
         unresolvedAssetReviewCount: 1,
       },
     });
+    const filingFacts = assertOk(buildCostBasisFilingFacts({ artifact: context.workflowResult }));
+    if (filingFacts.kind !== 'canada') {
+      throw new Error('Expected Canada filing facts');
+    }
 
     const result = assertOk(
       buildCanadaTaxPackage({
         context,
+        filingFacts,
         readiness,
         now: () => new Date('2026-03-15T14:00:00.000Z'),
       })

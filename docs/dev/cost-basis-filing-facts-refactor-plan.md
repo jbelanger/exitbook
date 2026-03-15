@@ -2,6 +2,13 @@
 
 Status: active plan
 
+Current state:
+
+- Phase 1 completed: accounting-owned filing facts now exist under
+  `packages/accounting/src/cost-basis/filing-facts/`
+- Phase 2 completed: tax-package export now consumes filing facts directly
+- Phase 3 pending: CLI presentation still needs to consume the same seam
+
 This note replaces `docs/dev/cost-basis-tax-package.md` as the design center
 for this refactor.
 
@@ -95,7 +102,8 @@ represented in the upstream artifact model.
 The safer direction is:
 
 - keep U.S. tax facts we actually know
-- emit review/readiness issues when a filing-specific classification is missing
+- document intentionally omitted filing-placement decisions without treating
+  that omission as a package defect
 - stop guessing downstream placement in the core package contract
 
 ## Boundary To Preserve
@@ -128,6 +136,10 @@ Adapters must not invent:
 - ordinary-crypto wash-sale treatment where the artifact model does not justify
   it
 
+Readiness issues are for actual package problems such as missing prices,
+unresolved review items, or incomplete transfer linkage. They are not the place
+to restate that a tax preparer owns final filing placement.
+
 ## Target End State
 
 Both output paths should read from one seam:
@@ -147,11 +159,11 @@ The important change is step 3.
 
 ## Proposed Seam
 
-Add a shared facts module under:
+Implemented shared facts module:
 
 - `packages/accounting/src/cost-basis/filing-facts/`
 
-Suggested files:
+Files:
 
 - `packages/accounting/src/cost-basis/filing-facts/filing-facts-types.ts`
 - `packages/accounting/src/cost-basis/filing-facts/filing-facts-builder.ts`
@@ -169,7 +181,7 @@ export function buildCostBasisFilingFacts(input: {
 }): Result<CostBasisFilingFacts, Error>;
 ```
 
-This builder should:
+The builder should:
 
 - start from `CostBasisWorkflowResult`
 - stay independent from source-label resolution
@@ -251,8 +263,8 @@ The important part is one canonical result, not where the exact helper lives.
 
 ## Relationship To Existing Export Types
 
-`packages/accounting/src/cost-basis/export/tax-package-row-facts.ts` should not
-become the permanent shared seam.
+`packages/accounting/src/cost-basis/export/tax-package-row-facts.ts` has now
+been deleted. The only durable shared seam is `CostBasisFilingFacts`.
 
 Target end state:
 
@@ -260,16 +272,11 @@ Target end state:
 - export renderers map filing facts to CSV rows
 - export-only grouping fields and package-local refs remain export-local
 
-During migration, `tax-package-row-facts.ts` may either:
-
-- become a temporary export-local shim, or
-- be deleted once export builders consume filing facts directly
-
-What we should avoid is creating two durable shared fact models.
-
 ## Work Plan
 
 ### Phase 1. Build The Shared Filing-Facts Seam
+
+Status: completed
 
 Goal:
 
@@ -285,13 +292,9 @@ Files to add:
 - `packages/accounting/src/cost-basis/filing-facts/canada-filing-facts-builder.ts`
 - `packages/accounting/src/cost-basis/filing-facts/filing-facts-summary-builder.ts`
 
-Files to update:
+Files updated:
 
 - `packages/accounting/src/index.ts`
-- `packages/accounting/src/cost-basis/export/tax-package-row-facts.ts`
-- `packages/accounting/src/cost-basis/jurisdictions/us/rules.ts`
-- `packages/accounting/src/cost-basis/jurisdictions/jurisdiction-rules.ts`
-- `packages/accounting/src/cost-basis/standard/calculation/gain-loss-utils.ts`
 
 Step order:
 
@@ -308,6 +311,12 @@ Step order:
 5. Canonicalize U.S. tax-treatment normalization once in accounting.
 6. Export the new builder from `packages/accounting/src/index.ts`.
 
+Implementation note:
+
+- the U.S. calendar-date normalization currently lives in the filing-facts seam
+  rather than `IJurisdictionRules`; that keeps this refactor focused on the
+  shared seam without widening the blast radius first
+
 Acceptance criteria:
 
 - per-asset totals come from the shared facts layer
@@ -316,6 +325,8 @@ Acceptance criteria:
 - export and CLI can both consume the result
 
 ### Phase 2. Rewire The Export Path
+
+Status: completed
 
 Goal:
 
@@ -348,6 +359,15 @@ Step order:
 7. Keep the package framed as filing support for a preparer, not direct
    return-prep software.
 
+Implementation note:
+
+- the U.S. package now omits downstream filing placement entirely and explains
+  that omission in `report.md`; it does not emit a blanket review issue just
+  because the preparer owns final placement
+- Canada export still uses `inputContext` for adapter-level gross-proceeds and
+  selling-expense reconstruction; that is acceptable until we explicitly decide
+  those facts belong in the shared Canada filing-facts model
+
 Acceptance criteria:
 
 - Canada package still emits the same kind of facts it emits today
@@ -355,6 +375,8 @@ Acceptance criteria:
 - source-link and account-label behavior remains deterministic
 
 ### Phase 3. Rewire The CLI Display Path
+
+Status: pending
 
 Goal:
 
@@ -434,6 +456,8 @@ Required assertions:
 
 ### PR 1
 
+Status: completed
+
 Shared filing-facts seam.
 
 Scope:
@@ -444,6 +468,8 @@ Scope:
 
 ### PR 2
 
+Status: completed
+
 Export migration.
 
 Scope:
@@ -453,6 +479,8 @@ Scope:
 - docs update
 
 ### PR 3
+
+Status: pending
 
 CLI migration.
 

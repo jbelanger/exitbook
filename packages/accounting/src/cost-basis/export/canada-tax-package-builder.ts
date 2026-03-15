@@ -1,22 +1,37 @@
-import type { Account, UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
 
-import { CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE } from '../jurisdictions/canada/tax/canada-policy.js';
 import type {
-  CanadaDispositionEvent,
-  CanadaSuperficialLossAdjustment,
-  CanadaTaxInputContext,
-  CanadaTaxReport,
-} from '../jurisdictions/canada/tax/canada-tax-types.js';
+  CanadaCostBasisFilingFacts,
+  CanadaSuperficialLossAdjustmentFilingFact,
+} from '../filing-facts/filing-facts-types.js';
+import { CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE } from '../jurisdictions/canada/tax/canada-policy.js';
+import type { CanadaDispositionEvent, CanadaTaxInputContext } from '../jurisdictions/canada/tax/canada-tax-types.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
+import {
+  appendSourceLinkRows,
+  buildAccountLabeler,
+  buildArtifactIndex,
+  buildCsvFile,
+  buildIssueRows,
+  countAccountsBySourceName,
+  countCsvRows,
+  formatDate,
+  formatMeasure,
+  formatMoney,
+  formatOptionalMoney,
+  formatQuantity,
+  makeRef,
+  requireTransaction,
+  resolveOptionalAccountLabel,
+  trimTrailingZeros,
+  type TaxPackageSourceLinkRow,
+} from './tax-package-builder-shared.js';
 import { buildTaxPackageReportTemplate } from './tax-package-report-template.js';
 import type {
   TaxPackageArtifactIndexEntry,
   TaxPackageBuildResult,
   TaxPackageFile,
-  TaxPackageIssue,
   TaxPackageManifest,
   TaxPackageReadinessResult,
 } from './tax-package-types.js';
@@ -24,6 +39,7 @@ import { TAX_PACKAGE_KIND, TAX_PACKAGE_VERSION } from './tax-package-types.js';
 
 interface BuildCanadaTaxPackageParams {
   context: TaxPackageBuildContext;
+  filingFacts: CanadaCostBasisFilingFacts;
   now: () => Date;
   readiness: TaxPackageReadinessResult;
 }
@@ -87,28 +103,6 @@ interface CanadaAdjustmentRow {
   tax_currency: string;
 }
 
-interface CanadaIssueRow {
-  affected_artifact: string;
-  affected_row_ref: string;
-  code: string;
-  details: string;
-  issue_ref: string;
-  recommended_action: string;
-  severity: string;
-  summary: string;
-}
-
-interface CanadaSourceLinkRow {
-  package_artifact: string;
-  package_ref: string;
-  source_account_label: string;
-  source_reference: string;
-  source_reference_kind: string;
-  source_type: string;
-  source_url: string;
-  source_venue_label: string;
-}
-
 interface RowRefMaps {
   acquisitionRefByEventId: Map<string, string>;
   dispositionRefByEventId: Map<string, string>;
@@ -140,6 +134,9 @@ export function buildCanadaTaxPackage(params: BuildCanadaTaxPackageParams): Resu
   if (params.context.workflowResult.kind !== 'canada-workflow') {
     return err(new Error('Canada tax package builder requires a canada-workflow artifact'));
   }
+  if (params.filingFacts.kind !== 'canada') {
+    return err(new Error('Canada tax package builder requires Canada filing facts'));
+  }
 
   const workflowResult = params.context.workflowResult;
   if (!workflowResult.inputContext) {
@@ -147,20 +144,20 @@ export function buildCanadaTaxPackage(params: BuildCanadaTaxPackageParams): Resu
   }
 
   const accountLabeler = buildAccountLabeler(params.context);
-  const assetLabeler = buildAssetLabeler(workflowResult.taxReport, workflowResult.inputContext);
+  const assetLabeler = buildAssetLabeler(params.filingFacts, workflowResult.inputContext);
   const generatedAt = params.now();
 
   let supportingFiles: TaxPackageFile[];
   if (params.readiness.status === 'blocked') {
     supportingFiles = buildBlockedSupportingFiles(params.readiness);
   } else {
-    const completeResult = buildCompleteSupportingFiles({
+    const completeResult = buildCanadaSupportingFiles({
       accountLabeler,
       assetLabeler,
       context: params.context,
+      filingFacts: params.filingFacts,
       inputContext: workflowResult.inputContext,
       readiness: params.readiness,
-      taxReport: workflowResult.taxReport,
       taxYear: workflowResult.calculation.taxYear,
     });
     if (completeResult.isErr()) {
@@ -193,9 +190,9 @@ export function buildCanadaTaxPackage(params: BuildCanadaTaxPackageParams): Resu
 
   const manifest = buildManifest({
     context: params.context,
+    filingFacts: params.filingFacts,
     generatedAt,
     readiness: params.readiness,
-    taxReport: workflowResult.taxReport,
     artifactIndex,
   });
   const report = buildReport({
@@ -227,20 +224,20 @@ export function buildCanadaTaxPackage(params: BuildCanadaTaxPackageParams): Resu
   });
 }
 
-function buildCompleteSupportingFiles(params: {
+function buildCanadaSupportingFiles(params: {
   accountLabeler: (accountId: number) => Result<string, Error>;
   assetLabeler: (symbol: string, taxPropertyKey: string) => string;
   context: TaxPackageBuildContext;
+  filingFacts: CanadaCostBasisFilingFacts;
   inputContext: CanadaTaxInputContext;
   readiness: TaxPackageReadinessResult;
-  taxReport: CanadaTaxReport;
   taxYear: number;
 }): Result<TaxPackageFile[], Error> {
-  const rowRefMaps = buildRowRefMaps(params.taxReport, params.assetLabeler);
+  const rowRefMaps = buildRowRefMaps(params.filingFacts, params.assetLabeler);
   const sourceNameCounts = countAccountsBySourceName(params.context);
 
   const acquisitionRowsResult = buildAcquisitionRows(
-    params.taxReport,
+    params.filingFacts,
     params.context,
     params.accountLabeler,
     params.assetLabeler,
@@ -251,7 +248,7 @@ function buildCompleteSupportingFiles(params: {
   }
 
   const dispositionRowsResult = buildDispositionRows(
-    params.taxReport,
+    params.filingFacts,
     params.inputContext,
     params.context,
     params.accountLabeler,
@@ -262,7 +259,7 @@ function buildCompleteSupportingFiles(params: {
   }
 
   const transferRowsResult = buildTransferRows(
-    params.taxReport,
+    params.filingFacts,
     params.context,
     params.accountLabeler,
     params.assetLabeler
@@ -272,8 +269,8 @@ function buildCompleteSupportingFiles(params: {
   }
 
   const adjustmentRowsResult = buildAdjustmentRows(
-    params.taxReport.superficialLossAdjustments,
-    params.taxReport,
+    params.filingFacts.superficialLossAdjustments,
+    params.filingFacts,
     rowRefMaps,
     params.assetLabeler
   );
@@ -284,9 +281,9 @@ function buildCompleteSupportingFiles(params: {
   const issueRows = buildIssueRows(params.readiness.issues);
   const sourceLinkRowsResult = buildSourceLinkRows({
     context: params.context,
+    filingFacts: params.filingFacts,
     rowRefMaps,
     sourceNameCounts,
-    taxReport: params.taxReport,
   });
   if (sourceLinkRowsResult.isErr()) {
     return err(sourceLinkRowsResult.error);
@@ -531,28 +528,27 @@ function buildBlockedSupportingFiles(readiness: TaxPackageReadinessResult): TaxP
 function buildManifest(params: {
   artifactIndex: readonly TaxPackageArtifactIndexEntry[];
   context: TaxPackageBuildContext;
+  filingFacts: CanadaCostBasisFilingFacts;
   generatedAt: Date;
   readiness: TaxPackageReadinessResult;
-  taxReport: CanadaTaxReport;
 }): TaxPackageManifest {
   return {
     packageKind: TAX_PACKAGE_KIND,
     packageVersion: TAX_PACKAGE_VERSION,
     packageStatus: params.readiness.status,
     jurisdiction: 'CA',
-    taxYear:
-      params.context.workflowResult.kind === 'canada-workflow' ? params.context.workflowResult.calculation.taxYear : 0,
+    taxYear: params.filingFacts.taxYear,
     calculationId: params.context.artifactRef.calculationId,
     snapshotId: params.context.artifactRef.snapshotId,
     scopeKey: params.context.artifactRef.scopeKey,
     generatedAt: params.generatedAt.toISOString(),
-    method: 'average-cost',
-    taxCurrency: params.taxReport.taxCurrency,
+    method: params.filingFacts.method,
+    taxCurrency: params.filingFacts.taxCurrency,
     summaryTotals: {
-      totalProceeds: formatMoney(params.taxReport.summary.totalProceedsCad),
-      totalCostBasis: formatMoney(params.taxReport.summary.totalCostBasisCad),
-      totalGainLoss: formatMoney(params.taxReport.summary.totalGainLossCad),
-      totalTaxableGainLoss: formatMoney(params.taxReport.summary.totalTaxableGainLossCad),
+      totalProceeds: formatMoney(params.filingFacts.summary.totalProceeds),
+      totalCostBasis: formatMoney(params.filingFacts.summary.totalCostBasis),
+      totalGainLoss: formatMoney(params.filingFacts.summary.totalGainLoss),
+      totalTaxableGainLoss: formatMoney(params.filingFacts.summary.totalTaxableGainLoss),
     },
     reviewItems: params.readiness.reviewItems,
     blockingIssues: params.readiness.blockingIssues,
@@ -584,13 +580,13 @@ function buildReport(params: {
 }
 
 function buildAcquisitionRows(
-  taxReport: CanadaTaxReport,
+  filingFacts: CanadaCostBasisFilingFacts,
   context: TaxPackageBuildContext,
   accountLabeler: (accountId: number) => Result<string, Error>,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string,
   taxYear: number
 ): Result<CanadaAcquisitionRow[], Error> {
-  const sorted = [...taxReport.acquisitions].sort((left, right) =>
+  const sorted = [...filingFacts.acquisitions].sort((left, right) =>
     compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.acquiredAt, assetLabeler)
   );
 
@@ -616,12 +612,12 @@ function buildAcquisitionRows(
       account_label: accountLabelResult.value,
       date_acquired: formatDate(acquisition.acquiredAt),
       origin_period: acquisition.acquiredAt.getUTCFullYear() < taxYear ? 'prior_year' : 'current_year',
-      quantity_acquired: formatQuantity(acquisition.quantityAcquired),
-      total_cost_basis: formatMoney(acquisition.totalCostCad),
-      cost_basis_per_unit: formatMeasure(acquisition.costBasisPerUnitCad),
+      quantity_acquired: formatQuantity(acquisition.quantity),
+      total_cost_basis: formatMoney(acquisition.totalCostBasis),
+      cost_basis_per_unit: formatMeasure(acquisition.costBasisPerUnit),
       remaining_quantity: formatQuantity(acquisition.remainingQuantity),
-      remaining_acb: formatMoney(acquisition.remainingAllocatedAcbCad),
-      tax_currency: taxReport.taxCurrency,
+      remaining_acb: formatMoney(acquisition.remainingAllocatedCostBasis),
+      tax_currency: filingFacts.taxCurrency,
     });
   }
 
@@ -629,7 +625,7 @@ function buildAcquisitionRows(
 }
 
 function buildDispositionRows(
-  taxReport: CanadaTaxReport,
+  filingFacts: CanadaCostBasisFilingFacts,
   inputContext: CanadaTaxInputContext,
   context: TaxPackageBuildContext,
   accountLabeler: (accountId: number) => Result<string, Error>,
@@ -641,7 +637,7 @@ function buildDispositionRows(
       .map((event) => [event.eventId, event] as const)
   );
 
-  const sorted = [...taxReport.dispositions].sort((left, right) =>
+  const sorted = [...filingFacts.dispositions].sort((left, right) =>
     compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.disposedAt, assetLabeler)
   );
 
@@ -666,8 +662,9 @@ function buildDispositionRows(
       return err(accountLabelResult.error);
     }
 
-    const sellingExpenses = event.proceedsReductionCad ?? event.valuation.totalValueCad.minus(disposition.proceedsCad);
-    const grossProceeds = disposition.proceedsCad.plus(sellingExpenses);
+    const sellingExpenses =
+      event.proceedsReductionCad ?? event.valuation.totalValueCad.minus(disposition.totalProceeds);
+    const grossProceeds = disposition.totalProceeds.plus(sellingExpenses);
 
     rows.push({
       disposition_ref: makeRef('DISP', index + 1),
@@ -675,16 +672,16 @@ function buildDispositionRows(
       asset: assetLabeler(disposition.assetSymbol, disposition.taxPropertyKey),
       account_label: accountLabelResult.value,
       date_disposed: formatDate(disposition.disposedAt),
-      quantity_disposed: formatQuantity(disposition.quantityDisposed),
+      quantity_disposed: formatQuantity(disposition.quantity),
       proceeds_gross: formatMoney(grossProceeds),
       selling_expenses: formatOptionalMoney(sellingExpenses),
-      net_proceeds: formatMoney(disposition.proceedsCad),
-      cost_basis: formatMoney(disposition.costBasisCad),
-      gain_loss: formatMoney(disposition.gainLossCad),
-      tax_currency: taxReport.taxCurrency,
-      acb_per_unit: formatMeasure(disposition.acbPerUnitCad),
-      denied_loss: formatOptionalMoney(disposition.deniedLossCad),
-      taxable_gain_loss: formatMoney(disposition.taxableGainLossCad),
+      net_proceeds: formatMoney(disposition.totalProceeds),
+      cost_basis: formatMoney(disposition.totalCostBasis),
+      gain_loss: formatMoney(disposition.gainLoss),
+      tax_currency: filingFacts.taxCurrency,
+      acb_per_unit: formatMeasure(disposition.costBasisPerUnit),
+      denied_loss: formatOptionalMoney(disposition.deniedLossAmount),
+      taxable_gain_loss: formatMoney(disposition.taxableGainLoss),
     });
   }
 
@@ -692,12 +689,12 @@ function buildDispositionRows(
 }
 
 function buildTransferRows(
-  taxReport: CanadaTaxReport,
+  filingFacts: CanadaCostBasisFilingFacts,
   context: TaxPackageBuildContext,
   accountLabeler: (accountId: number) => Result<string, Error>,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): Result<CanadaTransferRow[], Error> {
-  const sorted = [...taxReport.transfers].sort((left, right) =>
+  const sorted = [...filingFacts.transfers].sort((left, right) =>
     compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.transferredAt, assetLabeler)
   );
 
@@ -718,7 +715,7 @@ function buildTransferRows(
       asset: assetLabeler(transfer.assetSymbol, transfer.taxPropertyKey),
       date_transferred: formatDate(transfer.transferredAt),
       transfer_status:
-        transfer.linkId !== undefined &&
+        transfer.linkedConfirmedLinkId !== undefined &&
         transfer.sourceTransactionId !== undefined &&
         transfer.targetTransactionId !== undefined
           ? 'verified'
@@ -730,10 +727,10 @@ function buildTransferRows(
       source_account_label: sourceAccountLabelResult.value,
       target_account_label: targetAccountLabelResult.value,
       quantity_transferred: formatQuantity(transfer.quantity),
-      cost_basis_carried: formatMoney(transfer.carriedAcbCad),
-      tax_currency: taxReport.taxCurrency,
-      carried_acb_per_unit: formatMeasure(transfer.carriedAcbPerUnitCad),
-      fee_acb_adjustment: formatOptionalMoney(transfer.feeAdjustmentCad),
+      cost_basis_carried: formatMoney(transfer.totalCostBasis),
+      tax_currency: filingFacts.taxCurrency,
+      carried_acb_per_unit: formatMeasure(transfer.costBasisPerUnit),
+      fee_acb_adjustment: formatOptionalMoney(transfer.feeAdjustment),
     });
   }
 
@@ -741,16 +738,16 @@ function buildTransferRows(
 }
 
 function buildAdjustmentRows(
-  adjustments: readonly CanadaSuperficialLossAdjustment[],
-  taxReport: CanadaTaxReport,
+  adjustments: readonly CanadaSuperficialLossAdjustmentFilingFact[],
+  filingFacts: CanadaCostBasisFilingFacts,
   rowRefMaps: RowRefMaps,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): Result<CanadaAdjustmentRow[], Error> {
   const acquisitionByEventId = new Map(
-    taxReport.acquisitions.map((acquisition) => [acquisition.acquisitionEventId, acquisition] as const)
+    filingFacts.acquisitions.map((acquisition) => [acquisition.acquisitionEventId, acquisition] as const)
   );
   const dispositionByEventId = new Map(
-    taxReport.dispositions.map((disposition) => [disposition.dispositionEventId, disposition] as const)
+    filingFacts.dispositions.map((disposition) => [disposition.dispositionEventId, disposition] as const)
   );
 
   const sorted = [...adjustments].sort((left, right) =>
@@ -790,50 +787,27 @@ function buildAdjustmentRows(
       asset: assetLabeler(adjustment.assetSymbol, adjustment.taxPropertyKey),
       date_disposed: formatDate(relatedDisposition.disposedAt),
       replacement_acquisition_date: formatDate(substitutedAcquisition.acquiredAt),
-      denied_loss: formatMoney(adjustment.deniedLossCad),
+      denied_loss: formatMoney(adjustment.deniedLossAmount),
       denied_quantity: formatQuantity(adjustment.deniedQuantity),
       related_disposition_ref: relatedDispositionRef,
       substituted_acquisition_ref: substitutedAcquisitionRef,
-      tax_currency: taxReport.taxCurrency,
+      tax_currency: filingFacts.taxCurrency,
     });
   }
 
   return ok(rows);
 }
 
-function buildIssueRows(issues: readonly TaxPackageIssue[]): CanadaIssueRow[] {
-  const sorted = [...issues].sort((left, right) => {
-    const severityDiff = severityRank(left.severity) - severityRank(right.severity);
-    if (severityDiff !== 0) return severityDiff;
-    const codeDiff = left.code.localeCompare(right.code);
-    if (codeDiff !== 0) return codeDiff;
-    const artifactDiff = (left.affectedArtifact ?? '').localeCompare(right.affectedArtifact ?? '');
-    if (artifactDiff !== 0) return artifactDiff;
-    return (left.affectedRowRef ?? '').localeCompare(right.affectedRowRef ?? '');
-  });
-
-  return sorted.map((issue, index) => ({
-    issue_ref: makeRef('ISSUE', index + 1),
-    code: issue.code,
-    severity: issue.severity,
-    summary: issue.summary,
-    details: issue.details,
-    affected_artifact: issue.affectedArtifact ?? '',
-    affected_row_ref: issue.affectedRowRef ?? '',
-    recommended_action: issue.recommendedAction ?? defaultRecommendedAction(issue.code),
-  }));
-}
-
 function buildSourceLinkRows(params: {
   context: TaxPackageBuildContext;
+  filingFacts: CanadaCostBasisFilingFacts;
   rowRefMaps: RowRefMaps;
   sourceNameCounts: Map<string, number>;
-  taxReport: CanadaTaxReport;
-}): Result<CanadaSourceLinkRow[], Error> {
-  const rows: CanadaSourceLinkRow[] = [];
+}): Result<TaxPackageSourceLinkRow[], Error> {
+  const rows: TaxPackageSourceLinkRow[] = [];
   const seen = new Set<string>();
 
-  for (const acquisition of params.taxReport.acquisitions) {
+  for (const acquisition of params.filingFacts.acquisitions) {
     const packageRef = params.rowRefMaps.acquisitionRefByEventId.get(acquisition.acquisitionEventId);
     if (!packageRef) continue;
     const appendResult = appendSourceLinkRows(rows, seen, {
@@ -848,7 +822,7 @@ function buildSourceLinkRows(params: {
     }
   }
 
-  for (const disposition of params.taxReport.dispositions) {
+  for (const disposition of params.filingFacts.dispositions) {
     const packageRef = params.rowRefMaps.dispositionRefByEventId.get(disposition.dispositionEventId);
     if (!packageRef) continue;
     const appendResult = appendSourceLinkRows(rows, seen, {
@@ -863,7 +837,7 @@ function buildSourceLinkRows(params: {
     }
   }
 
-  for (const transfer of params.taxReport.transfers) {
+  for (const transfer of params.filingFacts.transfers) {
     const packageRef = params.rowRefMaps.transferRefById.get(transfer.id);
     if (!packageRef) continue;
     const appendResult = appendSourceLinkRows(rows, seen, {
@@ -891,79 +865,15 @@ function buildSourceLinkRows(params: {
   return ok(rows);
 }
 
-function appendSourceLinkRows(
-  target: CanadaSourceLinkRow[],
-  seen: Set<string>,
-  params: {
-    context: TaxPackageBuildContext;
-    packageArtifact: string;
-    packageRef: string;
-    sourceNameCounts: Map<string, number>;
-    transactionIds: readonly number[];
-  }
-): Result<void, Error> {
-  for (const transactionId of params.transactionIds) {
-    const transactionResult = requireTransaction(
-      params.context,
-      transactionId,
-      `${params.packageArtifact}:${params.packageRef}`
-    );
-    if (transactionResult.isErr()) {
-      return err(transactionResult.error);
-    }
-
-    const sourceReference = getSourceReference(transactionResult.value);
-    if (!sourceReference) {
-      continue;
-    }
-
-    const account = params.context.sourceContext.accountsById.get(transactionResult.value.accountId);
-    if (!account) {
-      return err(
-        new Error(`Missing account ${transactionResult.value.accountId} for transaction ${transactionResult.value.id}`)
-      );
-    }
-
-    const row: CanadaSourceLinkRow = {
-      package_ref: params.packageRef,
-      package_artifact: params.packageArtifact,
-      source_type: transactionResult.value.sourceType,
-      source_venue_label: transactionResult.value.source,
-      source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.sourceName) ?? 0),
-      source_reference: sourceReference.value,
-      source_reference_kind: sourceReference.kind,
-      source_url: '',
-    };
-
-    const dedupeKey = [
-      row.package_ref,
-      row.package_artifact,
-      row.source_type,
-      row.source_venue_label,
-      row.source_account_label,
-      row.source_reference,
-      row.source_reference_kind,
-    ].join('|');
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-
-    seen.add(dedupeKey);
-    target.push(row);
-  }
-
-  return ok(undefined);
-}
-
 function buildRowRefMaps(
-  taxReport: CanadaTaxReport,
+  filingFacts: CanadaCostBasisFilingFacts,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): RowRefMaps {
   const acquisitionRefByEventId = new Map<string, string>();
   const dispositionRefByEventId = new Map<string, string>();
   const transferRefById = new Map<string, string>();
 
-  [...taxReport.acquisitions]
+  [...filingFacts.acquisitions]
     .sort((left, right) =>
       compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.acquiredAt, assetLabeler)
     )
@@ -971,7 +881,7 @@ function buildRowRefMaps(
       acquisitionRefByEventId.set(acquisition.acquisitionEventId, makeRef('ACQ', index + 1));
     });
 
-  [...taxReport.dispositions]
+  [...filingFacts.dispositions]
     .sort((left, right) =>
       compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.disposedAt, assetLabeler)
     )
@@ -979,7 +889,7 @@ function buildRowRefMaps(
       dispositionRefByEventId.set(disposition.dispositionEventId, makeRef('DISP', index + 1));
     });
 
-  [...taxReport.transfers]
+  [...filingFacts.transfers]
     .sort((left, right) =>
       compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.transferredAt, assetLabeler)
     )
@@ -994,36 +904,8 @@ function buildRowRefMaps(
   };
 }
 
-function buildAccountLabeler(context: TaxPackageBuildContext): (accountId: number) => Result<string, Error> {
-  const sourceNameCounts = countAccountsBySourceName(context);
-  return (accountId: number) => {
-    const account = context.sourceContext.accountsById.get(accountId);
-    if (!account) {
-      return err(new Error(`Missing account ${accountId} while rendering tax package`));
-    }
-
-    return ok(formatAccountLabel(account, sourceNameCounts.get(account.sourceName) ?? 0));
-  };
-}
-
-function countAccountsBySourceName(context: TaxPackageBuildContext): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const account of context.sourceContext.accountsById.values()) {
-    counts.set(account.sourceName, (counts.get(account.sourceName) ?? 0) + 1);
-  }
-  return counts;
-}
-
-function formatAccountLabel(account: Account, sourceNameCount: number): string {
-  if (sourceNameCount <= 1) {
-    return account.sourceName;
-  }
-
-  return `${account.sourceName} (${account.identifier})`;
-}
-
 function buildAssetLabeler(
-  taxReport: CanadaTaxReport,
+  filingFacts: CanadaCostBasisFilingFacts,
   inputContext: CanadaTaxInputContext
 ): (symbol: string, taxPropertyKey: string) => string {
   const taxKeysBySymbol = new Map<string, Set<string>>();
@@ -1034,16 +916,16 @@ function buildAssetLabeler(
     taxKeysBySymbol.set(symbol, taxKeys);
   };
 
-  for (const acquisition of taxReport.acquisitions) {
+  for (const acquisition of filingFacts.acquisitions) {
     register(acquisition.assetSymbol, acquisition.taxPropertyKey);
   }
-  for (const disposition of taxReport.dispositions) {
+  for (const disposition of filingFacts.dispositions) {
     register(disposition.assetSymbol, disposition.taxPropertyKey);
   }
-  for (const transfer of taxReport.transfers) {
+  for (const transfer of filingFacts.transfers) {
     register(transfer.assetSymbol, transfer.taxPropertyKey);
   }
-  for (const adjustment of taxReport.superficialLossAdjustments) {
+  for (const adjustment of filingFacts.superficialLossAdjustments) {
     register(adjustment.assetSymbol, adjustment.taxPropertyKey);
   }
   for (const event of inputContext.inputEvents) {
@@ -1058,170 +940,4 @@ function buildAssetLabeler(
 
     return `${symbol} (${taxPropertyKey})`;
   };
-}
-
-function requireTransaction(
-  context: TaxPackageBuildContext,
-  transactionId: number,
-  reference: string
-): Result<UniversalTransactionData, Error> {
-  const transaction = context.sourceContext.transactionsById.get(transactionId);
-  if (!transaction) {
-    return err(new Error(`Missing source transaction ${transactionId} for ${reference}`));
-  }
-
-  return ok(transaction);
-}
-
-function resolveOptionalAccountLabel(
-  context: TaxPackageBuildContext,
-  transactionId: number | undefined,
-  accountLabeler: (accountId: number) => Result<string, Error>
-): Result<string, Error> {
-  if (transactionId === undefined) {
-    return ok('');
-  }
-
-  const transactionResult = requireTransaction(context, transactionId, `transaction ${transactionId}`);
-  if (transactionResult.isErr()) {
-    return err(transactionResult.error);
-  }
-
-  return accountLabeler(transactionResult.value.accountId);
-}
-
-function buildArtifactIndex(
-  entries: readonly {
-    logicalName: string;
-    mediaType: string;
-    purpose: string;
-    relativePath: string;
-    rowCount?: number | undefined;
-  }[]
-): TaxPackageArtifactIndexEntry[] {
-  return entries.map((entry) => ({
-    logicalName: entry.logicalName,
-    relativePath: entry.relativePath,
-    mediaType: entry.mediaType,
-    purpose: entry.purpose,
-    ...(entry.rowCount !== undefined ? { rowCount: entry.rowCount } : {}),
-  }));
-}
-
-function buildCsvFile(
-  logicalName: string,
-  relativePath: string,
-  purpose: string,
-  headers: readonly string[],
-  rows: readonly (readonly string[])[]
-): TaxPackageFile {
-  return {
-    logicalName,
-    relativePath,
-    mediaType: 'text/csv',
-    purpose,
-    content: renderCsv(headers, rows),
-  };
-}
-
-function renderCsv(headers: readonly string[], rows: readonly (readonly string[])[]): string {
-  const lines = [headers.map(escapeCsv).join(',')];
-  for (const row of rows) {
-    lines.push(row.map(escapeCsv).join(','));
-  }
-  return `${lines.join('\n')}\n`;
-}
-
-function escapeCsv(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replaceAll('"', '""')}"`;
-  }
-
-  return value;
-}
-
-function countCsvRows(file: TaxPackageFile): number | undefined {
-  if (file.mediaType !== 'text/csv') {
-    return undefined;
-  }
-
-  return Math.max(0, file.content.trimEnd().split('\n').length - 1);
-}
-
-function makeRef(prefix: string, index: number): string {
-  return `${prefix}-${String(index).padStart(4, '0')}`;
-}
-
-function formatDate(value: Date): string {
-  return value.toISOString().slice(0, 10);
-}
-
-function formatMoney(value: Decimal): string {
-  return value.toFixed(2);
-}
-
-function formatOptionalMoney(value: Decimal): string {
-  return value.isZero() ? '' : formatMoney(value);
-}
-
-function formatQuantity(value: Decimal): string {
-  return trimTrailingZeros(value.toFixed());
-}
-
-function formatMeasure(value: Decimal): string {
-  return trimTrailingZeros(value.toFixed());
-}
-
-function trimTrailingZeros(value: string): string {
-  if (!value.includes('.')) {
-    return value;
-  }
-
-  return value.replace(/\.?0+$/, '');
-}
-
-function severityRank(severity: string): number {
-  return severity === 'blocked' ? 0 : 1;
-}
-
-function defaultRecommendedAction(code: TaxPackageIssue['code']): string {
-  switch (code) {
-    case 'MISSING_PRICE_DATA':
-      return 'Enrich or set the missing prices, then rerun the package export.';
-    case 'FX_FALLBACK_USED':
-      return 'Review the FX conversions and confirm the fallback treatment is acceptable.';
-    case 'UNRESOLVED_ASSET_REVIEW':
-      return 'Resolve the pending asset reviews before using this package for filing.';
-    case 'UNKNOWN_TRANSACTION_CLASSIFICATION':
-      return 'Review and classify the affected transactions before filing.';
-    case 'INCOMPLETE_TRANSFER_LINKING':
-      return 'Review the affected transfer rows and confirm the internal carryover treatment.';
-  }
-
-  return 'Review the affected package rows before filing.';
-}
-
-function getSourceReference(transaction: UniversalTransactionData): { kind: string; value: string } | undefined {
-  if (transaction.blockchain?.transaction_hash) {
-    return {
-      kind: 'blockchain_tx_hash',
-      value: transaction.blockchain.transaction_hash,
-    };
-  }
-
-  if (transaction.sourceType === 'exchange' && transaction.externalId) {
-    return {
-      kind: 'exchange_transaction_id',
-      value: transaction.externalId,
-    };
-  }
-
-  if (transaction.externalId) {
-    return {
-      kind: 'internal_reference',
-      value: transaction.externalId,
-    };
-  }
-
-  return undefined;
 }
