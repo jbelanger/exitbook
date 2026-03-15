@@ -235,6 +235,7 @@ Proposed core fields:
 - `generatedAt`
 - `method`
 - `taxCurrency`
+- `summaryTotals`
 - `reviewItems`
 - `blockingIssues`
 - `artifactIndex`
@@ -357,6 +358,8 @@ File roles:
 - `acquisitions.csv`, `transfers.csv`, and `lots.csv` are audit/support
   appendices worth keeping when they match the jurisdiction model closely and
   are low-cost to produce
+- `transfers.csv` should primarily help a preparer confirm that a movement was
+  an internal carryover between owned accounts, not a taxable disposal
 
 What v1 should not do:
 
@@ -409,8 +412,26 @@ transaction references into every filing-support table.
   arbitrary 8dp cap
 - per-unit monetary fields are audit values, not filing totals; they should
   preserve more precision than 2dp where needed
+- date columns should use ISO `YYYY-MM-DD`
+- date columns should reflect the tax recognition date used by the report, not
+  a raw timestamp export
+- gains should render as positive values and losses as negative values
+- denied-loss and fee-adjustment amounts should render as positive values when
+  an amount exists; blank means not applicable
+- transfer carryover basis amounts should render as positive values
+- optional fields that do not apply to a row should render as empty strings,
+  not sentinel values such as `N/A` or `null`
+- enumerated text values should use stable lowercase snake_case values
 - the manifest declares the package tax currency, so CSV column names should be
   generic (`proceeds`, not `proceeds_cad`)
+
+Recommended enum vocab:
+
+- `tax_treatment`: `short_term`, `long_term`
+- `direction`: `in`, `internal`, `out`
+- `basis_source`: `matched_lot_carryover`, `pooled_acb_carryover`,
+  `fee_only_carryover`
+- `lot_status`: `open`, `fully_disposed`
 
 ### Asset Labels
 
@@ -474,6 +495,8 @@ US appended columns:
 Notes:
 
 - keep a stable shared prefix across jurisdictions
+- US rows should be one row per disposal-lot match, so a single sale can emit
+  multiple disposition rows when multiple lots were matched
 - denormalize US acquisition date from the matched lot onto the disposition row
 - do not include raw transaction IDs in the default contract
 
@@ -495,6 +518,12 @@ Columns:
 This file exists because Canada’s ACB model is pool-based and the acquisition
 rows are meaningful filing support, not just engine internals.
 
+Contract note:
+
+- include all acquisition rows in scope for the filing period
+- `remaining_quantity` and `remaining_allocated_acb` are ending-state columns as
+  of the calculation end date, not a filter to open acquisitions only
+
 ### lots.csv
 
 US-default lot inventory appendix.
@@ -508,18 +537,21 @@ Columns:
 - `cost_basis_per_unit`
 - `total_cost_basis`
 - `remaining_quantity`
-- `status`
-- `method`
+- `lot_status`
+- `cost_basis_method`
 
 Notes:
 
 - this is a US-default file because individual lot identity is core to the
   standard workflow
+- include all lots in scope for the filing period, including fully disposed
+  lots, with ending-state columns rendered as of the calculation end date
 - `quantity_acquired` is an intentional export name even though the source field
   is `AcquisitionLot.quantity`; the CSV should describe the original acquired
   lot quantity, while `remaining_quantity` describes the post-disposal balance
 - `lot_ref` is the row identity exported in the package and should be the value
   referenced from `dispositions.csv`
+- `lot_status` should use the shared enum vocab defined above
 
 ### transfers.csv
 
@@ -530,6 +562,8 @@ Shared columns:
 - `transfer_ref`
 - `asset`
 - `date_transferred`
+- `source_account`
+- `target_account`
 - `quantity_transferred`
 - `cost_basis_carried`
 
@@ -542,12 +576,17 @@ Canada appended columns:
 US appended columns:
 
 - `cost_basis_per_unit`
-- `provenance`
+- `basis_source`
 - `source_lot_ref`
 
 Notes:
 
 - do not include source and target transaction IDs in the default contract
+- `source_account` and `target_account` should be human-readable account or
+  venue labels so a preparer can verify that the movement was internal
+- `basis_source` should use the shared enum vocab defined above and should
+  describe the carryover origin in accountant-readable terms rather than engine
+  provenance jargon
 - transfer rows exist to explain basis carryover, not to reproduce the raw link
   graph
 
