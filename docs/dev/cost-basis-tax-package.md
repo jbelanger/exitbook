@@ -355,7 +355,9 @@ File roles:
 - `report.md` is the human entrypoint and should contain readiness status,
   totals, issue summary, a short explanation of each attached file, a note that
   dates use `YYYY-MM-DD`, and a short explanation of how transfer/network fees
-  are represented across `dispositions.csv` and `transfers.csv`
+  are represented across `dispositions.csv` and `transfers.csv`; it should also
+  note that spreadsheet tools may require the date columns to be explicitly
+  formatted as dates for sorting
 - `manifest.json` is the stable machine-readable contract and audit index
 - `dispositions.csv` is the primary filing-support table
 - `acquisitions.csv`, `transfers.csv`, and `lots.csv` are audit/support
@@ -402,19 +404,19 @@ That leads to six design rules:
 ### Source References
 
 Raw `transactionId`, `acquisitionTransactionId`, `disposalTransactionId`,
-`taxPropertyKey`, and event IDs are useful inside the engine and CLI, but they
-are not good primary contract columns for accountant-facing CSVs.
+`taxPropertyKey`, and event IDs are useful for internal workflow traceability,
+but they are not good primary contract columns for accountant-facing CSVs.
 
 Recommendation:
 
 - do not include raw transaction IDs in default package CSVs
-- do not expose engine UUIDs or Canada event IDs directly as the exported row
+- do not expose internal UUIDs or Canada event IDs directly as the exported row
   identity
 - generate deterministic package-local row refs such as `DISP-0001`,
   `ACQ-0001`, `LOT-0001`, `XFER-0001`, and `SLA-0001`
 - use those refs for cross-file links and for `issues.csv`
-- when multiple rows come from one underlying sale, transfer, or issue,
-  generate a second package-local event/group ref such as `SALE-0001`
+- when multiple rows come from one underlying disposition, transfer, or issue,
+  generate a second package-local event/group ref such as `DISP-EVENT-0001`
 
 If we later need source-level audit export, add a separate optional appendix
 such as `source-transactions.csv` or `source-links.csv` rather than mixing raw
@@ -499,7 +501,7 @@ This is the primary filing-support table.
 Shared core columns:
 
 - `disposition_ref`
-- `disposal_event_ref`
+- `disposition_event_ref`
 - `asset`
 - `account_label`
 - `date_disposed`
@@ -530,15 +532,17 @@ US appended columns:
 Notes:
 
 - keep a stable shared prefix across jurisdictions
-- US rows should be one row per disposal-lot match, so a single sale can emit
-  multiple disposition rows when multiple lots were matched
-- `disposition_ref` is the row identity; `disposal_event_ref` groups all rows
-  that belong to one underlying sale or disposal event
+- US rows should be one row per matched lot on a disposition, so a single sale
+  can emit multiple disposition rows when multiple lots were matched
+- `disposition_ref` is the row identity; `disposition_event_ref` groups all
+  rows that belong to one underlying disposition event
 - denormalize US acquisition date from the matched lot onto the disposition row
 - do not include raw transaction IDs in the default contract
 - `account_label` should identify the owned account or venue where the disposal
   occurred so a preparer can reconcile the row to exchange statements or
   custodian exports
+- taxable transfer or network fees that are treated as dispositions should
+  appear in `dispositions.csv`, not only in `transfers.csv`
 - `proceeds_gross`, `selling_expenses`, `net_proceeds`, and `cost_basis` should
   be defined in the report and manifest glossary so an accountant can reconcile
   them to source statements without guessing which adjustments were already
@@ -549,11 +553,19 @@ Notes:
   `denied_loss` is the superficial-loss amount denied on the disposition and
   should render as a positive amount when present
 - Canada formula note:
-  `taxable_gain_loss = (gain_loss + denied_loss) * 0.5` under the current
-  Canada capital-gains inclusion rule used by the engine
+  `taxable_gain_loss = (gain_loss + denied_loss) * 0.5` under the Canada
+  capital-gains inclusion rate applied by the package calculation
+- Canada filing note:
+  `report.md` should state the inclusion rate applied so a preparer can verify
+  the taxable amount without inferring the rule from the formula alone
 - US filing note:
-  `form_8949_box` should identify the preparer bucket for the row (`A`-`L`)
-  based on statement type, holding period, and whether basis was reported
+  `form_8949_box` should identify the applicable Form 8949 bucket for the row;
+  for digital assets that means the current `G`-`L` buckets based on holding
+  period, statement reporting, and whether basis was reported
+- US filing note:
+  `report.md` should explain which statement inputs determined
+  `form_8949_box`, including the fallback assumption used when basis-reporting
+  data is unavailable
 - US filing note:
   `form_8949_adjustment_code` and `form_8949_adjustment_amount` should support
   Form 8949 column `(f)` and `(g)` workflows, including wash sale (`W`) and
@@ -571,22 +583,24 @@ Columns:
 - `date_acquired`
 - `origin_period`
 - `quantity_acquired`
-- `total_cost`
+- `total_cost_basis`
 - `cost_basis_per_unit`
 - `remaining_quantity`
-- `remaining_allocated_acb`
+- `remaining_acb`
 - `tax_currency`
 
 This file exists because Canada’s ACB model is pool-based and the acquisition
-rows are meaningful filing support, not just engine internals.
+rows are meaningful filing support, not just internal calculation support.
+It is acquisition support for the pooled ACB result, not a running chronological
+ACB ledger.
 
 Contract note:
 
 - include all acquisition rows needed to explain the filing-year result,
   including pre-year carry-in layers that remain open at year start or are
   consumed by an in-year disposition
-- `remaining_quantity` and `remaining_allocated_acb` are ending-state columns as
-  of the calculation end date, not a filter to open acquisitions only
+- `remaining_quantity` and `remaining_acb` are ending-state columns as of the
+  calculation end date, not a filter to open acquisitions only
 - `origin_period` should distinguish carry-in support rows from true in-year
   acquisitions
 - `account_label` should identify the owned account or venue where the
@@ -675,8 +689,8 @@ Notes:
   boundary: `deposit` means into owned accounts, `withdrawal` means out of owned
   accounts, and `internal_transfer` means between owned accounts
 - `basis_source` should use the shared enum vocab defined above and should
-  describe the carryover origin in accountant-readable terms rather than engine
-  provenance jargon
+  describe the carryover origin in tax-reporting terms rather than internal
+  lineage jargon
 - transfer rows exist to explain basis carryover, not to reproduce the raw link
   graph
 
