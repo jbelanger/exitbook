@@ -136,6 +136,7 @@ describe('cli-response', () => {
       expect(exitCodeToErrorCode(ExitCodes.CANCELLED)).toBe('CANCELLED');
       expect(exitCodeToErrorCode(ExitCodes.TIMEOUT)).toBe('TIMEOUT');
       expect(exitCodeToErrorCode(ExitCodes.CONFIG_ERROR)).toBe('CONFIG_ERROR');
+      expect(exitCodeToErrorCode(ExitCodes.BLOCKED_PACKAGE)).toBe('BLOCKED_PACKAGE');
       expect(exitCodeToErrorCode(ExitCodes.PERMISSION_DENIED)).toBe('PERMISSION_DENIED');
     });
 

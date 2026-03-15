@@ -3,6 +3,7 @@ import {
   CostBasisWorkflow,
   persistCostBasisFailureSnapshot,
   StandardFxRateProvider,
+  type CostBasisContext,
   type AccountingExclusionPolicy,
   type CostBasisInput,
   type CostBasisWorkflowResult,
@@ -25,6 +26,13 @@ import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { CostBasisInput, CostBasisWorkflowResult };
 
+export interface CostBasisArtifactExecutionResult {
+  artifact: CostBasisWorkflowResult;
+  scopeKey: string;
+  snapshotId: string;
+  sourceContext: CostBasisContext;
+}
+
 /**
  * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisWorkflow.
  */
@@ -39,6 +47,18 @@ export class CostBasisHandler {
     params: CostBasisInput,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
+    const artifactResult = await this.executeArtifact(params, options);
+    if (artifactResult.isErr()) {
+      return err(artifactResult.error);
+    }
+
+    return ok(artifactResult.value.artifact);
+  }
+
+  async executeArtifact(
+    params: CostBasisInput,
+    options?: { refresh?: boolean | undefined }
+  ): Promise<Result<CostBasisArtifactExecutionResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
@@ -98,7 +118,17 @@ export class CostBasisHandler {
         return err(result.error);
       }
 
-      return ok(result.value.artifact);
+      const sourceContextResult = await contextReader.loadCostBasisContext();
+      if (sourceContextResult.isErr()) {
+        return err(sourceContextResult.error);
+      }
+
+      return ok({
+        artifact: result.value.artifact,
+        scopeKey: result.value.scopeKey,
+        snapshotId: result.value.snapshotId,
+        sourceContext: sourceContextResult.value,
+      });
     } finally {
       await priceManager.destroy();
     }

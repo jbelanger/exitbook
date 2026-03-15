@@ -409,6 +409,38 @@ export const CostBasisCommandOptionsSchema = z
     }
   });
 
+export const CostBasisExportCommandOptionsSchema = z
+  .object({
+    method: z.string().optional(),
+    jurisdiction: z.string().optional(),
+    taxYear: z.string().optional(),
+    fiatCurrency: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    asset: z.string().optional(),
+    refresh: z.boolean().optional(),
+    json: z.boolean().optional(),
+    format: z.literal('tax-package').optional(),
+    output: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'average-cost method is only valid with CA jurisdiction',
+        path: ['method'],
+      });
+    }
+
+    if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'CA jurisdiction currently supports only average-cost (ACB)',
+        path: ['method'],
+      });
+    }
+  });
+
 /**
  * Accounts view command options
  */

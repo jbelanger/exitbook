@@ -67,11 +67,46 @@ export type {
   StandardCostBasisWorkflowResult,
 } from './cost-basis/workflow/cost-basis-workflow.js';
 export { buildTaxPackageBuildContext } from './cost-basis/export/tax-package-context-builder.js';
+export { buildCanadaTaxPackage } from './cost-basis/export/canada-tax-package-builder.js';
+export { evaluateTaxPackageReadiness } from './cost-basis/export/tax-package-review-gate.js';
+export { exportTaxPackage } from './cost-basis/export/tax-package-exporter.js';
+export type { ExportTaxPackageInput } from './cost-basis/export/tax-package-exporter.js';
+export {
+  TaxPackageScopeValidationError,
+  validateTaxPackageScope,
+} from './cost-basis/export/tax-package-scope-validator.js';
 export type {
   TaxPackageArtifactRef,
   TaxPackageBuildContext,
   TaxPackageSourceContext,
 } from './cost-basis/export/tax-package-build-context.js';
+export type {
+  ExportTaxPackageArtifactRef,
+  ITaxPackageFileWriter,
+  TaxPackageArtifactIndexEntry,
+  TaxPackageConfigScope,
+  TaxPackageBuildResult,
+  TaxPackageExportResult,
+  TaxPackageFile,
+  TaxPackageIssue,
+  TaxPackageIssueCode,
+  TaxPackageIssueSeverity,
+  TaxPackageKind,
+  TaxPackageManifest,
+  TaxPackageReadinessMetadata,
+  TaxPackageReadinessResult,
+  TaxPackageReviewGateInput,
+  TaxPackageStatus,
+  TaxPackageSummaryTotals,
+  TaxPackageVersion,
+  WrittenTaxPackageFile,
+} from './cost-basis/export/tax-package-types.js';
+export { TAX_PACKAGE_KIND, TAX_PACKAGE_VERSION } from './cost-basis/export/tax-package-types.js';
+export type {
+  TaxPackageScopeRequest,
+  TaxPackageScopeValidationErrorCode,
+  TaxPackageValidatedScope,
+} from './cost-basis/export/tax-package-scope-validator.js';
 export type {
   CanadaDispositionExportFact,
   CanadaTransferExportFact,

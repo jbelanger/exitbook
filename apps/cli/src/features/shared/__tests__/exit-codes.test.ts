@@ -20,6 +20,7 @@ describe('exit-codes', () => {
       expect(ExitCodes.CANCELLED).toBe(9);
       expect(ExitCodes.TIMEOUT).toBe(10);
       expect(ExitCodes.CONFIG_ERROR).toBe(11);
+      expect(ExitCodes.BLOCKED_PACKAGE).toBe(12);
       expect(ExitCodes.PERMISSION_DENIED).toBe(13);
     });
 

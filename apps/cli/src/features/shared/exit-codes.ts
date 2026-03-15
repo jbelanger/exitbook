@@ -39,6 +39,9 @@ export const ExitCodes = {
   /** Configuration error */
   CONFIG_ERROR: 11,
 
+  /** Export completed, but package readiness is blocked */
+  BLOCKED_PACKAGE: 12,
+
   /** Permission denied */
   PERMISSION_DENIED: 13,
 } as const;

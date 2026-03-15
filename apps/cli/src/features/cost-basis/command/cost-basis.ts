@@ -26,6 +26,7 @@ import {
   sortAssetsByAbsGainLoss,
 } from '../view/cost-basis-view-utils.js';
 
+import { registerCostBasisExportCommand } from './cost-basis-export.js';
 import type { CostBasisWorkflowResult, CostBasisInput } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
@@ -152,7 +153,7 @@ interface CostBasisPresentationModel {
  * Register the cost-basis command.
  */
 export function registerCostBasisCommand(program: Command, registry: AdapterRegistry): void {
-  program
+  const costBasisCommand = program
     .command('cost-basis')
     .description('Calculate cost basis and capital gains/losses for tax reporting')
     .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost (CA defaults to ACB)')
@@ -165,6 +166,8 @@ export function registerCostBasisCommand(program: Command, registry: AdapterRegi
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, registry));
+
+  registerCostBasisExportCommand(costBasisCommand, registry);
 }
 
 async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {

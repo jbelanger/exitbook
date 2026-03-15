@@ -111,6 +111,7 @@ export function exitCodeToErrorCode(exitCode: ExitCode): string {
     9: 'CANCELLED',
     10: 'TIMEOUT',
     11: 'CONFIG_ERROR',
+    12: 'BLOCKED_PACKAGE',
     13: 'PERMISSION_DENIED',
   };
   return codes[exitCode] ?? 'UNKNOWN_ERROR';
