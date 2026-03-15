@@ -115,6 +115,27 @@ interface RowRefMaps {
   transferRefById: Map<string, string>;
 }
 
+function compareCanadaExportRowsByDateAssetAndId<T extends { assetSymbol: string; id: string; taxPropertyKey: string }>(
+  left: T,
+  right: T,
+  getDate: (value: T) => Date,
+  assetLabeler: (symbol: string, taxPropertyKey: string) => string
+): number {
+  const dateDiff = getDate(left).getTime() - getDate(right).getTime();
+  if (dateDiff !== 0) {
+    return dateDiff;
+  }
+
+  const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
+    assetLabeler(right.assetSymbol, right.taxPropertyKey)
+  );
+  if (assetDiff !== 0) {
+    return assetDiff;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
 export function buildCanadaTaxPackage(params: BuildCanadaTaxPackageParams): Result<TaxPackageBuildResult, Error> {
   if (params.context.workflowResult.kind !== 'canada-workflow') {
     return err(new Error('Canada tax package builder requires a canada-workflow artifact'));
@@ -569,15 +590,9 @@ function buildAcquisitionRows(
   assetLabeler: (symbol: string, taxPropertyKey: string) => string,
   taxYear: number
 ): Result<CanadaAcquisitionRow[], Error> {
-  const sorted = [...taxReport.acquisitions].sort((left, right) => {
-    const dateDiff = left.acquiredAt.getTime() - right.acquiredAt.getTime();
-    if (dateDiff !== 0) return dateDiff;
-    const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-      assetLabeler(right.assetSymbol, right.taxPropertyKey)
-    );
-    if (assetDiff !== 0) return assetDiff;
-    return left.id.localeCompare(right.id);
-  });
+  const sorted = [...taxReport.acquisitions].sort((left, right) =>
+    compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.acquiredAt, assetLabeler)
+  );
 
   const rows: CanadaAcquisitionRow[] = [];
   for (const [index, acquisition] of sorted.entries()) {
@@ -626,15 +641,9 @@ function buildDispositionRows(
       .map((event) => [event.eventId, event] as const)
   );
 
-  const sorted = [...taxReport.dispositions].sort((left, right) => {
-    const dateDiff = left.disposedAt.getTime() - right.disposedAt.getTime();
-    if (dateDiff !== 0) return dateDiff;
-    const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-      assetLabeler(right.assetSymbol, right.taxPropertyKey)
-    );
-    if (assetDiff !== 0) return assetDiff;
-    return left.id.localeCompare(right.id);
-  });
+  const sorted = [...taxReport.dispositions].sort((left, right) =>
+    compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.disposedAt, assetLabeler)
+  );
 
   const rows: CanadaDispositionRow[] = [];
   for (const [index, disposition] of sorted.entries()) {
@@ -688,15 +697,9 @@ function buildTransferRows(
   accountLabeler: (accountId: number) => Result<string, Error>,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): Result<CanadaTransferRow[], Error> {
-  const sorted = [...taxReport.transfers].sort((left, right) => {
-    const dateDiff = left.transferredAt.getTime() - right.transferredAt.getTime();
-    if (dateDiff !== 0) return dateDiff;
-    const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-      assetLabeler(right.assetSymbol, right.taxPropertyKey)
-    );
-    if (assetDiff !== 0) return assetDiff;
-    return left.id.localeCompare(right.id);
-  });
+  const sorted = [...taxReport.transfers].sort((left, right) =>
+    compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.transferredAt, assetLabeler)
+  );
 
   const rows: CanadaTransferRow[] = [];
   for (const [index, transfer] of sorted.entries()) {
@@ -750,15 +753,9 @@ function buildAdjustmentRows(
     taxReport.dispositions.map((disposition) => [disposition.dispositionEventId, disposition] as const)
   );
 
-  const sorted = [...adjustments].sort((left, right) => {
-    const dateDiff = left.adjustedAt.getTime() - right.adjustedAt.getTime();
-    if (dateDiff !== 0) return dateDiff;
-    const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-      assetLabeler(right.assetSymbol, right.taxPropertyKey)
-    );
-    if (assetDiff !== 0) return assetDiff;
-    return left.id.localeCompare(right.id);
-  });
+  const sorted = [...adjustments].sort((left, right) =>
+    compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.adjustedAt, assetLabeler)
+  );
 
   const rows: CanadaAdjustmentRow[] = [];
   for (const [index, adjustment] of sorted.entries()) {
@@ -967,43 +964,25 @@ function buildRowRefMaps(
   const transferRefById = new Map<string, string>();
 
   [...taxReport.acquisitions]
-    .sort((left, right) => {
-      const dateDiff = left.acquiredAt.getTime() - right.acquiredAt.getTime();
-      if (dateDiff !== 0) return dateDiff;
-      const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-        assetLabeler(right.assetSymbol, right.taxPropertyKey)
-      );
-      if (assetDiff !== 0) return assetDiff;
-      return left.id.localeCompare(right.id);
-    })
+    .sort((left, right) =>
+      compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.acquiredAt, assetLabeler)
+    )
     .forEach((acquisition, index) => {
       acquisitionRefByEventId.set(acquisition.acquisitionEventId, makeRef('ACQ', index + 1));
     });
 
   [...taxReport.dispositions]
-    .sort((left, right) => {
-      const dateDiff = left.disposedAt.getTime() - right.disposedAt.getTime();
-      if (dateDiff !== 0) return dateDiff;
-      const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-        assetLabeler(right.assetSymbol, right.taxPropertyKey)
-      );
-      if (assetDiff !== 0) return assetDiff;
-      return left.id.localeCompare(right.id);
-    })
+    .sort((left, right) =>
+      compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.disposedAt, assetLabeler)
+    )
     .forEach((disposition, index) => {
       dispositionRefByEventId.set(disposition.dispositionEventId, makeRef('DISP', index + 1));
     });
 
   [...taxReport.transfers]
-    .sort((left, right) => {
-      const dateDiff = left.transferredAt.getTime() - right.transferredAt.getTime();
-      if (dateDiff !== 0) return dateDiff;
-      const assetDiff = assetLabeler(left.assetSymbol, left.taxPropertyKey).localeCompare(
-        assetLabeler(right.assetSymbol, right.taxPropertyKey)
-      );
-      if (assetDiff !== 0) return assetDiff;
-      return left.id.localeCompare(right.id);
-    })
+    .sort((left, right) =>
+      compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.transferredAt, assetLabeler)
+    )
     .forEach((transfer, index) => {
       transferRefById.set(transfer.id, makeRef('XFER', index + 1));
     });

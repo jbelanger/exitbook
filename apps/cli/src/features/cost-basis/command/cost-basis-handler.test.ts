@@ -44,6 +44,9 @@ describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
   let mockPriceManager: PriceProviderManager;
   let mockArtifactServiceExecute: Mock;
+  let mockTransactionsFindAll: Mock;
+  let mockTransactionLinksFindAll: Mock;
+  let mockAccountsFindAll: Mock;
 
   const validParams = {
     config: {
@@ -59,9 +62,14 @@ describe('CostBasisHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mockTransactionsFindAll = vi.fn().mockResolvedValue(ok([]));
+    mockTransactionLinksFindAll = vi.fn().mockResolvedValue(ok([]));
+    mockAccountsFindAll = vi.fn().mockResolvedValue(ok([]));
+
     const mockDb = {
-      transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
-      transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
+      transactions: { findAll: mockTransactionsFindAll },
+      transactionLinks: { findAll: mockTransactionLinksFindAll },
+      accounts: { findAll: mockAccountsFindAll },
       costBasisFailureSnapshots: { replaceLatest: vi.fn() },
       costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
       projectionState: {
@@ -160,6 +168,15 @@ describe('CostBasisHandler', () => {
       );
     });
 
+    it('does not load source context for the normal execute path', async () => {
+      const result = await handler.execute(validParams);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockTransactionsFindAll).not.toHaveBeenCalled();
+      expect(mockTransactionLinksFindAll).not.toHaveBeenCalled();
+      expect(mockAccountsFindAll).not.toHaveBeenCalled();
+    });
+
     it('destroys price manager even when artifact execution fails', async () => {
       mockArtifactServiceExecute.mockResolvedValue(err(new Error('artifact error')));
 
@@ -190,6 +207,17 @@ describe('CostBasisHandler', () => {
           'Cost basis failed: artifact error. Additionally, failure snapshot persistence failed: failure snapshot write failed'
         );
       }
+    });
+  });
+
+  describe('executeArtifactWithContext', () => {
+    it('loads source context for export-aware callers', async () => {
+      const result = await handler.executeArtifactWithContext(validParams);
+
+      expect(result.isOk()).toBe(true);
+      expect(mockTransactionsFindAll).toHaveBeenCalledTimes(1);
+      expect(mockTransactionLinksFindAll).toHaveBeenCalledTimes(1);
+      expect(mockAccountsFindAll).toHaveBeenCalledTimes(1);
     });
   });
 });

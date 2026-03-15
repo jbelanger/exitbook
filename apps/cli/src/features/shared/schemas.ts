@@ -376,6 +376,32 @@ export const AssetsViewCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
 });
 
+interface CostBasisMethodJurisdictionOptions {
+  jurisdiction?: string | undefined;
+  method?: string | undefined;
+}
+
+function validateCostBasisMethodJurisdictionCombination(
+  data: CostBasisMethodJurisdictionOptions,
+  ctx: z.RefinementCtx
+): void {
+  if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'average-cost method is only valid with CA jurisdiction',
+      path: ['method'],
+    });
+  }
+
+  if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'CA jurisdiction currently supports only average-cost (ACB)',
+      path: ['method'],
+    });
+  }
+}
+
 /**
  * Cost-basis command options
  */
@@ -391,23 +417,7 @@ export const CostBasisCommandOptionsSchema = z
     refresh: z.boolean().optional(),
     json: z.boolean().optional(),
   })
-  .superRefine((data, ctx) => {
-    if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'average-cost method is only valid with CA jurisdiction',
-        path: ['method'],
-      });
-    }
-
-    if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'CA jurisdiction currently supports only average-cost (ACB)',
-        path: ['method'],
-      });
-    }
-  });
+  .superRefine(validateCostBasisMethodJurisdictionCombination);
 
 export const CostBasisExportCommandOptionsSchema = z
   .object({
@@ -423,23 +433,7 @@ export const CostBasisExportCommandOptionsSchema = z
     format: z.literal('tax-package').optional(),
     output: z.string().optional(),
   })
-  .superRefine((data, ctx) => {
-    if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'average-cost method is only valid with CA jurisdiction',
-        path: ['method'],
-      });
-    }
-
-    if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'CA jurisdiction currently supports only average-cost (ACB)',
-        path: ['method'],
-      });
-    }
-  });
+  .superRefine(validateCostBasisMethodJurisdictionCombination);
 
 /**
  * Accounts view command options

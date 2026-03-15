@@ -25,10 +25,6 @@ export function assertNoScopedAssetsRequireReview(
   scopedTransactions: AccountingScopedTransaction[],
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): Result<void, Error> {
-  if (!assetReviewSummaries || assetReviewSummaries.size === 0) {
-    return ok(undefined);
-  }
-
   const assetsInScope = new Set<string>();
   for (const scopedTransaction of scopedTransactions) {
     for (const inflow of scopedTransaction.movements.inflows) {
@@ -42,18 +38,28 @@ export function assertNoScopedAssetsRequireReview(
     }
   }
 
-  const flaggedAssets = [...assetsInScope]
-    .map((assetId) => assetReviewSummaries.get(assetId))
-    .filter(
-      (summary): summary is AssetReviewSummary => summary !== undefined && stillBlocksAccounting(summary, assetsInScope)
-    )
-    .sort((left, right) => left.assetId.localeCompare(right.assetId));
-
+  const flaggedAssets = collectBlockingAssetReviewSummaries(assetsInScope, assetReviewSummaries);
   if (flaggedAssets.length === 0) {
     return ok(undefined);
   }
 
   return err(new Error(formatNeedsReviewMessage(flaggedAssets)));
+}
+
+export function collectBlockingAssetReviewSummaries(
+  assetsInScope: ReadonlySet<string>,
+  assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
+): AssetReviewSummary[] {
+  if (!assetReviewSummaries || assetReviewSummaries.size === 0) {
+    return [];
+  }
+
+  return [...assetsInScope]
+    .map((assetId) => assetReviewSummaries.get(assetId))
+    .filter(
+      (summary): summary is AssetReviewSummary => summary !== undefined && stillBlocksAccounting(summary, assetsInScope)
+    )
+    .sort((left, right) => left.assetId.localeCompare(right.assetId));
 }
 
 function stillBlocksAccounting(summary: AssetReviewSummary, assetsInScope: ReadonlySet<string>): boolean {

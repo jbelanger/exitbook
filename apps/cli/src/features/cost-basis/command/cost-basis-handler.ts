@@ -8,7 +8,7 @@ import {
   type CostBasisInput,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type AssetReviewSummary, type Result } from '@exitbook/core';
 import {
   buildCostBasisArtifactStore,
   buildCostBasisFailureSnapshotStore,
@@ -31,6 +31,14 @@ export interface CostBasisArtifactExecutionResult {
   scopeKey: string;
   snapshotId: string;
   sourceContext: CostBasisContext;
+  assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
+}
+
+interface PreparedCostBasisArtifactResult {
+  artifact: CostBasisWorkflowResult;
+  scopeKey: string;
+  snapshotId: string;
+  assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
 }
 
 /**
@@ -47,7 +55,7 @@ export class CostBasisHandler {
     params: CostBasisInput,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
-    const artifactResult = await this.executeArtifact(params, options);
+    const artifactResult = await this.executePreparedArtifact(params, options);
     if (artifactResult.isErr()) {
       return err(artifactResult.error);
     }
@@ -55,10 +63,33 @@ export class CostBasisHandler {
     return ok(artifactResult.value.artifact);
   }
 
-  async executeArtifact(
+  async executeArtifactWithContext(
     params: CostBasisInput,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<CostBasisArtifactExecutionResult, Error>> {
+    const artifactResult = await this.executePreparedArtifact(params, options);
+    if (artifactResult.isErr()) {
+      return err(artifactResult.error);
+    }
+
+    const sourceContextResult = await buildCostBasisPorts(this.db).loadCostBasisContext();
+    if (sourceContextResult.isErr()) {
+      return err(sourceContextResult.error);
+    }
+
+    return ok({
+      artifact: artifactResult.value.artifact,
+      scopeKey: artifactResult.value.scopeKey,
+      snapshotId: artifactResult.value.snapshotId,
+      sourceContext: sourceContextResult.value,
+      assetReviewSummaries: artifactResult.value.assetReviewSummaries,
+    });
+  }
+
+  private async executePreparedArtifact(
+    params: CostBasisInput,
+    options?: { refresh?: boolean | undefined }
+  ): Promise<Result<PreparedCostBasisArtifactResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
@@ -118,16 +149,11 @@ export class CostBasisHandler {
         return err(result.error);
       }
 
-      const sourceContextResult = await contextReader.loadCostBasisContext();
-      if (sourceContextResult.isErr()) {
-        return err(sourceContextResult.error);
-      }
-
       return ok({
         artifact: result.value.artifact,
         scopeKey: result.value.scopeKey,
         snapshotId: result.value.snapshotId,
-        sourceContext: sourceContextResult.value,
+        assetReviewSummaries: assetReviewSummariesResult.value,
       });
     } finally {
       await priceManager.destroy();

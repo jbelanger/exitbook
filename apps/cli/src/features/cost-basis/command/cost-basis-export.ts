@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
   buildTaxPackageBuildContext,
+  deriveTaxPackageReadinessMetadata,
   exportTaxPackage,
   type ITaxPackageFileWriter,
   validateTaxPackageScope,
@@ -34,6 +35,17 @@ interface CostBasisExportCommandResult {
   packageStatus: 'blocked' | 'ready' | 'review_required';
   snapshotId?: string | undefined;
 }
+
+const V1_TAX_PACKAGE_OUTPUT_FILES = new Set([
+  'manifest.json',
+  'report.md',
+  'dispositions.csv',
+  'transfers.csv',
+  'acquisitions.csv',
+  'issues.csv',
+  'superficial-loss-adjustments.csv',
+  'source-links.csv',
+]);
 
 export function registerCostBasisExportCommand(costBasisCommand: Command, registry: AdapterRegistry): void {
   costBasisCommand
@@ -110,7 +122,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
         displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }
 
-      const artifactResult = await handlerResult.value.executeArtifact(params, { refresh: options.refresh });
+      const artifactResult = await handlerResult.value.executeArtifactWithContext(params, { refresh: options.refresh });
       if (artifactResult.isErr()) {
         displayCliError('cost-basis-export', artifactResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }
@@ -130,9 +142,15 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
         );
       }
 
+      const readinessMetadata = deriveTaxPackageReadinessMetadata({
+        context: buildContextResult.value,
+        assetReviewSummaries: artifactResult.value.assetReviewSummaries,
+      });
+
       const exportResult = await exportTaxPackage(
         {
           context: buildContextResult.value,
+          readinessMetadata,
           scope,
         },
         {
@@ -176,7 +194,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
   }
 }
 
-class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
+export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
   constructor(private readonly outputDir: string) {}
 
   async writeAll(files: readonly TaxPackageFile[]): Promise<Result<WrittenTaxPackageFile[], Error>> {
@@ -190,24 +208,67 @@ class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
       return err(writeResult.error);
     }
 
-    return ok(
-      files.map((file, index) => {
-        const absolutePath = writeResult.value[index];
-        if (!absolutePath) {
-          throw new Error(`Missing output path for tax package file ${file.relativePath}`);
-        }
-
-        return {
-          ...file,
-          absolutePath,
-          sha256: createHash('sha256').update(file.content, 'utf8').digest('hex'),
-          bytesWritten: Buffer.byteLength(file.content, 'utf8'),
-        };
-      })
+    const staleFileCleanupResult = await removeStaleManagedTaxPackageFiles(
+      this.outputDir,
+      new Set(files.map((file) => file.relativePath))
     );
+    if (staleFileCleanupResult.isErr()) {
+      return err(staleFileCleanupResult.error);
+    }
+
+    try {
+      return ok(
+        files.map((file, index) => {
+          const absolutePath = writeResult.value[index];
+          if (!absolutePath) {
+            throw new Error(`Missing output path for tax package file ${file.relativePath}`);
+          }
+
+          return {
+            ...file,
+            absolutePath,
+            sha256: createHash('sha256').update(file.content, 'utf8').digest('hex'),
+            bytesWritten: Buffer.byteLength(file.content, 'utf8'),
+          };
+        })
+      );
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }
 
 function buildDefaultOutputDir(params: CostBasisInput): string {
   return path.join('reports', `${params.config.taxYear}-${params.config.jurisdiction.toLowerCase()}-tax-package`);
+}
+
+async function removeStaleManagedTaxPackageFiles(
+  outputDir: string,
+  currentRelativePaths: ReadonlySet<string>
+): Promise<Result<void, Error>> {
+  try {
+    await Promise.all(
+      [...V1_TAX_PACKAGE_OUTPUT_FILES]
+        .filter((relativePath) => !currentRelativePaths.has(relativePath))
+        .map(async (relativePath) => {
+          try {
+            await unlink(path.join(outputDir, relativePath));
+          } catch (error) {
+            if (isFileNotFoundError(error)) {
+              return;
+            }
+
+            throw error;
+          }
+        })
+    );
+
+    return ok(undefined);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
