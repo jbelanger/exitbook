@@ -2,18 +2,18 @@ import type { AssetMovement, FeeMovement, Currency, PriceAtTxTime } from '@exitb
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import { resolveTaxAssetIdentity } from '../model/tax-asset-identity.js';
-import { collectFiatFees, extractCryptoFee } from '../standard/lots/lot-fee-utils.js';
+import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
+import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fee-utils.js';
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
   ScopedAssetMovement,
-} from '../standard/matching/build-cost-basis-scoped-transactions.js';
+} from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type {
   ValidatedScopedTransferLink,
   ValidatedScopedTransferSet,
-} from '../standard/matching/validated-scoped-transfer-links.js';
+} from '../../../standard/matching/validated-scoped-transfer-links.js';
 
 import { buildValuedFee, valueCollectedFiatFees, valueScopedFees } from './canada-tax-fee-utils.js';
 import type { CanadaValuedFee } from './canada-tax-fee-utils.js';

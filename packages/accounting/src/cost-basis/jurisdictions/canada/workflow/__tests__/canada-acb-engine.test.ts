@@ -2,8 +2,6 @@ import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { runCanadaAcbEngine } from '../canada-acb-engine.js';
-
 import {
   createCanadaAcquisitionEvent,
   createCanadaDispositionEvent,
@@ -11,7 +9,8 @@ import {
   createCanadaInputContext,
   createCanadaTransferInEvent,
   createCanadaTransferOutEvent,
-} from './test-utils.js';
+} from '../../__tests__/test-utils.js';
+import { runCanadaAcbEngine } from '../canada-acb-engine.js';
 
 describe('runCanadaAcbEngine', () => {
   it('pools acquisitions and disposes using pooled ACB in CAD', () => {

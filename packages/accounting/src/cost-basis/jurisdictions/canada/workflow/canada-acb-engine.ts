@@ -2,7 +2,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok, parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import { sortCanadaEvents } from './canada-tax-event-ordering.js';
+import { sortCanadaEvents } from '../tax/canada-tax-event-ordering.js';
 import type {
   CanadaAcquisitionEvent,
   CanadaAcbEngineResult,
@@ -16,7 +16,7 @@ import type {
   CanadaSuperficialLossAdjustmentEvent,
   CanadaTaxInputEvent,
   CanadaTaxInputContext,
-} from './canada-tax-types.js';
+} from '../tax/canada-tax-types.js';
 
 function normalizeDecimal(value: Decimal): Decimal {
   return value.abs().lt(parseDecimal('1e-18')) ? parseDecimal('0') : value;

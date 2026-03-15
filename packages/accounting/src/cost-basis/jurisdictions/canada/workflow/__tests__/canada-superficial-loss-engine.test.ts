@@ -2,11 +2,14 @@ import { parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import {
+  createCanadaAcquisitionEvent,
+  createCanadaDispositionEvent,
+  createCanadaInputContext,
+} from '../../__tests__/test-utils.js';
 import { runCanadaAcbEngine } from '../canada-acb-engine.js';
 import { runCanadaSuperficialLossEngine } from '../canada-superficial-loss-engine.js';
 import type { CanadaSuperficialLossEngineResult } from '../canada-superficial-loss-types.js';
-
-import { createCanadaAcquisitionEvent, createCanadaDispositionEvent, createCanadaInputContext } from './test-utils.js';
 
 function applySuperficialLossAdjustments(
   inputContext: ReturnType<typeof createCanadaInputContext>,

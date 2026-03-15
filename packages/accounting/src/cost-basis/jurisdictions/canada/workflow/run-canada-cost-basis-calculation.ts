@@ -2,17 +2,17 @@ import type { AssetReviewSummary, Currency, TransactionLink, UniversalTransactio
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
-import type { CostBasisInput } from '../workflow/cost-basis-input.js';
-import { getCostBasisRebuildTransactions } from '../workflow/price-completeness.js';
-import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
+import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
+import type { CostBasisInput } from '../../../workflow/cost-basis-input.js';
+import { getCostBasisRebuildTransactions } from '../../../workflow/price-completeness.js';
+import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../../../workflow/workflow-result-types.js';
+import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../tax/canada-tax-report-builder.js';
+import type { CanadaCostBasisCalculation, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
 import { runCanadaAcbWorkflow } from './canada-acb-workflow.js';
 import { runCanadaSuperficialLossEngine } from './canada-superficial-loss-engine.js';
-import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from './canada-tax-report-builder.js';
-import type { CanadaCostBasisCalculation, CanadaTaxInputContext } from './canada-tax-types.js';
 
 const logger = getLogger('run-canada-cost-basis-calculation');
 

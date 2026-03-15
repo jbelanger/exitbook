@@ -3,7 +3,7 @@ import { ok, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
-import { createCanadaFxProvider } from '../../canada/__tests__/test-utils.js';
+import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../../workflow/cost-basis-workflow.js';
 import {
   buildCostBasisSnapshotRecord,

@@ -2,8 +2,6 @@ import type { Currency } from '@exitbook/core';
 import { err, ok, parseDecimal, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import { runCanadaAcbEngine } from './canada-acb-engine.js';
-import type { CanadaSuperficialLossEngineResult } from './canada-superficial-loss-types.js';
 import type {
   CanadaAcbEngineResult,
   CanadaAcbPoolState,
@@ -13,7 +11,10 @@ import type {
   CanadaSuperficialLossAdjustmentEvent,
   CanadaTaxInputContext,
   CanadaTaxValuation,
-} from './canada-tax-types.js';
+} from '../tax/canada-tax-types.js';
+
+import { runCanadaAcbEngine } from './canada-acb-engine.js';
+import type { CanadaSuperficialLossEngineResult } from './canada-superficial-loss-types.js';
 
 const SUPERFICIAL_LOSS_WINDOW_DAYS = 30;
 

@@ -125,23 +125,26 @@ export type {
   PricesEnrichResult,
 } from './price-enrichment/orchestration/price-enrichment-pipeline.js';
 export { StandardFxRateProvider } from './price-enrichment/fx/standard-fx-rate-provider.js';
-export { buildCanadaTaxInputContext } from './cost-basis/canada/canada-tax-context-builder.js';
-export { runCanadaAcbWorkflow } from './cost-basis/canada/canada-acb-workflow.js';
-export type { CanadaAcbWorkflowOptions, CanadaAcbWorkflowResult } from './cost-basis/canada/canada-acb-workflow.js';
-export { runCanadaCostBasisCalculation } from './cost-basis/canada/run-canada-cost-basis-calculation.js';
-export type { RunCanadaCostBasisCalculationParams } from './cost-basis/canada/run-canada-cost-basis-calculation.js';
+export { buildCanadaTaxInputContext } from './cost-basis/jurisdictions/canada/tax/canada-tax-context-builder.js';
+export { runCanadaAcbWorkflow } from './cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.js';
+export type {
+  CanadaAcbWorkflowOptions,
+  CanadaAcbWorkflowResult,
+} from './cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.js';
+export { runCanadaCostBasisCalculation } from './cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
+export type { RunCanadaCostBasisCalculationParams } from './cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
 export type {
   CanadaTaxInputEvent,
   CanadaTaxInputEventKind,
   CanadaTaxInputContext,
   CanadaTaxValuation,
-} from './cost-basis/canada/canada-tax-types.js';
-export { runCanadaAcbEngine } from './cost-basis/canada/canada-acb-engine.js';
-export { runCanadaSuperficialLossEngine } from './cost-basis/canada/canada-superficial-loss-engine.js';
+} from './cost-basis/jurisdictions/canada/tax/canada-tax-types.js';
+export { runCanadaAcbEngine } from './cost-basis/jurisdictions/canada/workflow/canada-acb-engine.js';
+export { runCanadaSuperficialLossEngine } from './cost-basis/jurisdictions/canada/workflow/canada-superficial-loss-engine.js';
 export {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
-} from './cost-basis/canada/canada-tax-report-builder.js';
+} from './cost-basis/jurisdictions/canada/tax/canada-tax-report-builder.js';
 export type {
   CanadaAcbEngineResult,
   CanadaAcbPoolState,
@@ -161,8 +164,8 @@ export type {
   CanadaTaxReportDisposition,
   CanadaTaxReportSummary,
   CanadaTaxReportTransfer,
-} from './cost-basis/canada/canada-tax-types.js';
+} from './cost-basis/jurisdictions/canada/tax/canada-tax-types.js';
 export type {
   CanadaSuperficialLossDispositionAdjustment,
   CanadaSuperficialLossEngineResult,
-} from './cost-basis/canada/canada-superficial-loss-types.js';
+} from './cost-basis/jurisdictions/canada/workflow/canada-superficial-loss-types.js';

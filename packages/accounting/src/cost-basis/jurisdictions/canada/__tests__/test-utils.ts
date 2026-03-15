@@ -4,12 +4,12 @@ import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { vi } from 'vitest';
 
-import type { IFxRateProvider } from '../../../price-enrichment/shared/types.js';
-import { getJurisdictionConfig } from '../../jurisdictions/jurisdiction-configs.js';
-import type { TaxAssetIdentityPolicy } from '../../model/types.js';
-import { buildCostBasisScopedTransactions } from '../../standard/matching/build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../../standard/matching/validated-scoped-transfer-links.js';
-import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
+import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
+import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
+import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
+import { getJurisdictionConfig } from '../../jurisdiction-configs.js';
+import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type {
   CanadaAcquisitionEvent,
   CanadaDispositionEvent,
@@ -20,7 +20,7 @@ import type {
   CanadaTaxValuation,
   CanadaTransferInEvent,
   CanadaTransferOutEvent,
-} from '../canada-tax-types.js';
+} from '../tax/canada-tax-types.js';
 
 export function createCanadaFxProvider(options?: {
   fiatToUsd?: Record<string, string>;

@@ -2,7 +2,7 @@ import type { Currency, PriceAtTxTime } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
+import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 
 import type { CanadaTaxValuation } from './canada-tax-types.js';
 

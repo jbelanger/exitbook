@@ -2,9 +2,6 @@ import { type Currency } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { runCanadaAcbEngine } from '../canada-acb-engine.js';
-import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../canada-tax-report-builder.js';
-
 import {
   createCanadaFeeAdjustmentEvent,
   createCanadaFxProvider,
@@ -12,7 +9,9 @@ import {
   createCanadaInputContext,
   createCanadaTransferInEvent,
   createCanadaTransferOutEvent,
-} from './test-utils.js';
+} from '../../__tests__/test-utils.js';
+import { runCanadaAcbEngine } from '../../workflow/canada-acb-engine.js';
+import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../canada-tax-report-builder.js';
 
 function createCalculation() {
   return {

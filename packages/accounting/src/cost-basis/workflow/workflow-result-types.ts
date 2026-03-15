@@ -5,7 +5,7 @@ import type {
   CanadaDisplayCostBasisReport,
   CanadaTaxInputContext,
   CanadaTaxReport,
-} from '../canada/canada-tax-types.js';
+} from '../jurisdictions/canada/tax/canada-tax-types.js';
 import type { CostBasisReport } from '../model/report-types.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../model/types.js';
 import type { CostBasisSummary } from '../standard/calculation/standard-calculator.js';

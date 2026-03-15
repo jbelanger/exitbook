@@ -1,6 +1,6 @@
 import type { Decimal } from 'decimal.js';
 
-import type { CanadaSuperficialLossAdjustment, CanadaSuperficialLossAdjustmentEvent } from './canada-tax-types.js';
+import type { CanadaSuperficialLossAdjustment, CanadaSuperficialLossAdjustmentEvent } from '../tax/canada-tax-types.js';
 
 export interface CanadaSuperficialLossDispositionAdjustment {
   deniedLossCad: Decimal;

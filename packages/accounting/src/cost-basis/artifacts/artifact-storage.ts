@@ -13,7 +13,7 @@ import type {
   CanadaTaxReportAcquisition,
   CanadaTaxReportDisposition,
   CanadaTaxReportTransfer,
-} from '../canada/canada-tax-types.js';
+} from '../jurisdictions/canada/tax/canada-tax-types.js';
 import type {
   CostBasisReport,
   ConvertedAcquisitionLot,

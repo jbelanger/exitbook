@@ -28,19 +28,18 @@ vi.mock('../canada-superficial-loss-engine.js', () => ({
   runCanadaSuperficialLossEngine: mockRunCanadaSuperficialLossEngine,
 }));
 
-vi.mock('../canada-tax-report-builder.js', () => ({
+vi.mock('../../tax/canada-tax-report-builder.js', () => ({
   buildCanadaDisplayCostBasisReport: mockBuildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport: mockBuildCanadaTaxReport,
 }));
-
-import { runCanadaCostBasisCalculation } from '../run-canada-cost-basis-calculation.js';
 
 import {
   createCanadaAcquisitionEvent,
   createCanadaFeeAdjustmentEvent,
   createCanadaFxProvider,
   createCanadaInputContext,
-} from './test-utils.js';
+} from '../../__tests__/test-utils.js';
+import { runCanadaCostBasisCalculation } from '../run-canada-cost-basis-calculation.js';
 
 function createAcquisitionTransaction(params: {
   assetId: string;

@@ -2,9 +2,9 @@ import type { Currency } from '@exitbook/core';
 import { err, ok, parseDecimal, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
+import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { CanadaSuperficialLossEngineResult } from '../workflow/canada-superficial-loss-types.js';
 
-import type { CanadaSuperficialLossEngineResult } from './canada-superficial-loss-types.js';
 import { compareCanadaEvents } from './canada-tax-event-ordering.js';
 import type {
   CanadaAcbEngineResult,

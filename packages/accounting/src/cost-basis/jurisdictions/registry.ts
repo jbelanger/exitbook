@@ -1,10 +1,10 @@
 import { err, ok, type Result } from '@exitbook/core';
 
-import { runCanadaCostBasisCalculation } from '../canada/run-canada-cost-basis-calculation.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
 import { CANADA_JURISDICTION_CONFIG } from './canada/config.js';
 import { CanadaRules } from './canada/rules.js';
+import { runCanadaCostBasisCalculation } from './canada/workflow/run-canada-cost-basis-calculation.js';
 import { requireJurisdictionConfig } from './jurisdiction-configs.js';
 import type { ICostBasisJurisdictionModule, RunCostBasisJurisdictionWorkflowInput } from './jurisdiction-module.js';
 import type { IJurisdictionRules } from './jurisdiction-rules.js';

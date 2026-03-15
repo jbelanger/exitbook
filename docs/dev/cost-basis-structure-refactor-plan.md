@@ -344,7 +344,7 @@ Completion check:
 
 Status:
 
-- [ ] not started
+- [x] complete
 
 Goal:
 
@@ -417,18 +417,25 @@ Create:
 Move:
 
 - `packages/accounting/src/cost-basis/canada/run-canada-cost-basis-calculation.ts`
-  -> `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis.ts`
+  -> `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.ts`
 - `packages/accounting/src/cost-basis/canada/canada-acb-workflow.ts`
   -> `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.ts`
 - `packages/accounting/src/cost-basis/canada/canada-superficial-loss-engine.ts`
   -> `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/canada-superficial-loss-engine.ts`
 - all `canada-tax-*` files
   -> `packages/accounting/src/cost-basis/jurisdictions/canada/tax/`
+- `packages/accounting/src/cost-basis/canada/__tests__/test-utils.ts`
+  -> `packages/accounting/src/cost-basis/jurisdictions/canada/__tests__/test-utils.ts`
+- workflow tests
+  -> `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/__tests__/`
+- tax tests
+  -> `packages/accounting/src/cost-basis/jurisdictions/canada/tax/__tests__/`
 
 Completion check:
 
 - the Canada slice has one entrypoint for execution
 - Canada tax files are no longer mixed with top-level cost-basis directories
+- the legacy `cost-basis/canada/` directory is removed
 
 ### Phase 5. Land Shared Export Infrastructure
 
@@ -511,16 +518,22 @@ Keep completed items short and factual.
   - aligned the newly moved workflow tests under `workflow/__tests__/`
   - updated package exports, tests, and internal imports to the new slice boundaries
   - removed the legacy `shared/` and `orchestration/` directories after their contents were rehomed
+- Phase 4 Canada slice nesting landed:
+  - moved Canada workflow internals into `jurisdictions/canada/workflow/`
+  - moved Canada tax/reporting types and builders into `jurisdictions/canada/tax/`
+  - moved shared Canada test helpers into `jurisdictions/canada/__tests__/test-utils.ts`
+  - aligned Canada workflow and tax tests under slice-local `__tests__/` directories
+  - updated the jurisdiction registry, workflow/artifact dependencies, and package exports to the new Canada slice paths
+  - removed the legacy top-level `cost-basis/canada/` directory
 
 ### In Progress
 
-- No active phase beyond the completed Phase 3 structural split
-- Phase 4 Canada slice nesting is the next structural step
+- No active phase beyond the completed Phase 4 Canada slice nesting
 - Shared export infrastructure still remains to be carved out into top-level `export/`
 
 ### Next Up
 
-- Phase 4: nest Canada specialized workflow internals under `jurisdictions/canada/workflow/` and `jurisdictions/canada/tax/`
+- Phase 5: land shared export infrastructure under `cost-basis/export/`
 
 ## Naming Cleanup To Apply During The Refactor
 

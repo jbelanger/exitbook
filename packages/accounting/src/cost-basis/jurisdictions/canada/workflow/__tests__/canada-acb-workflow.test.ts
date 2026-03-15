@@ -3,10 +3,9 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { createAccountingExclusionPolicy } from '../../standard/validation/accounting-exclusion-policy.js';
+import { createCanadaFxProvider, createConfirmedTransferLink } from '../../__tests__/test-utils.js';
+import { createAccountingExclusionPolicy } from '../../../../standard/validation/accounting-exclusion-policy.js';
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
-
-import { createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
 
 function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
   return {

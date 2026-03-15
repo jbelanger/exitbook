@@ -4,17 +4,16 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { getJurisdictionConfig } from '../../jurisdictions/jurisdiction-configs.js';
-import { buildCostBasisScopedTransactions } from '../../standard/matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../../standard/matching/validated-scoped-transfer-links.js';
-import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
-
 import {
   buildCanadaTestInputContext,
   createCanadaFxProvider,
   createConfirmedTransferLink,
   noopLogger,
-} from './test-utils.js';
+} from '../../__tests__/test-utils.js';
+import { buildCostBasisScopedTransactions } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
+import type { ValidatedScopedTransferSet } from '../../../../standard/matching/validated-scoped-transfer-links.js';
+import { getJurisdictionConfig } from '../../../jurisdiction-configs.js';
+import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
   it('uses preserved quoted CAD price without fetching USD->CAD FX', async () => {
