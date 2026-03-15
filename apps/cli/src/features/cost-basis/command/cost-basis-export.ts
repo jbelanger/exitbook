@@ -42,6 +42,7 @@ const V1_TAX_PACKAGE_OUTPUT_FILES = new Set([
   'dispositions.csv',
   'transfers.csv',
   'acquisitions.csv',
+  'lots.csv',
   'issues.csv',
   'superficial-loss-adjustments.csv',
   'source-links.csv',
@@ -57,6 +58,7 @@ export function registerCostBasisExportCommand(costBasisCommand: Command, regist
 Examples:
   $ exitbook cost-basis export --format tax-package --jurisdiction CA --tax-year 2024
   $ exitbook cost-basis export --format tax-package --jurisdiction CA --tax-year 2024 --output ./reports/2024-ca-tax-package
+  $ exitbook cost-basis export --format tax-package --jurisdiction US --tax-year 2024 --output ./reports/2024-us-tax-package
 `
     )
     .option('--format <type>', 'Export format', 'tax-package')
@@ -99,14 +101,6 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
     }
 
     const scope = scopeValidation.value;
-    if (scope.config.jurisdiction === 'US') {
-      displayCliError(
-        'cost-basis-export',
-        new Error('US tax package export is not implemented yet. Canada is the only supported filing package today.'),
-        ExitCodes.CONFIG_ERROR,
-        isJson ? 'json' : 'text'
-      );
-    }
 
     const outputDir = path.resolve(options.output ?? buildDefaultOutputDir(params));
     await mkdir(outputDir, { recursive: true });

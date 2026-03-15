@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
 import { deriveTaxPackageReadinessMetadata } from '../tax-package-readiness-metadata.js';
 
-import { createCanadaPackageBuildContext, createStandardWorkflowArtifact } from './test-utils.js';
+import {
+  createCanadaPackageBuildContext,
+  createStandardPackageBuildContext,
+  createStandardWorkflowArtifact,
+} from './test-utils.js';
 
 describe('deriveTaxPackageReadinessMetadata', () => {
   it('derives live Canada readiness signals from retained transactions and tax-report transfers', () => {
@@ -139,6 +143,29 @@ describe('deriveTaxPackageReadinessMetadata', () => {
     expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
       fxFallbackCount: 3,
       incompleteTransferLinkCount: 0,
+      unknownTransactionClassificationCount: 0,
+      unresolvedAssetReviewCount: 0,
+    });
+  });
+
+  it('treats fee-only standard carryovers as incomplete transfer linking', () => {
+    const context = createStandardPackageBuildContext();
+    if (context.workflowResult.kind !== 'standard-workflow') {
+      throw new Error('Expected standard-workflow test fixture');
+    }
+
+    context.workflowResult.lotTransfers[0] = {
+      ...context.workflowResult.lotTransfers[0]!,
+      provenance: {
+        kind: 'fee-only-carryover',
+        sourceMovementFingerprint: 'movement:exchange:source:4:btc:outflow:0',
+        targetMovementFingerprint: 'movement:blockchain:target:5:btc:inflow:0',
+      },
+    };
+
+    expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
+      fxFallbackCount: 0,
+      incompleteTransferLinkCount: 1,
       unknownTransactionClassificationCount: 0,
       unresolvedAssetReviewCount: 0,
     });

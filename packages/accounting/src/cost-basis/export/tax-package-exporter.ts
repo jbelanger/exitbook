@@ -13,6 +13,7 @@ import type {
   TaxPackageManifest,
   TaxPackageReadinessMetadata,
 } from './tax-package-types.js';
+import { buildUsTaxPackage } from './us-tax-package-builder.js';
 
 export interface ExportTaxPackageInput {
   context: TaxPackageBuildContext;
@@ -75,7 +76,11 @@ function buildJurisdictionPackage(
         now,
       });
     case 'US':
-      return err(new Error('US tax package export is not implemented yet.'));
+      return buildUsTaxPackage({
+        context: input.context,
+        readiness,
+        now,
+      });
     default:
       return err(
         new Error(`Tax package export is not supported for jurisdiction '${input.scope.config.jurisdiction}'.`)

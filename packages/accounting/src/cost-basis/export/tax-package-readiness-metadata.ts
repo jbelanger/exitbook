@@ -63,7 +63,7 @@ function countIncompleteTransferLinks(context: TaxPackageBuildContext): number {
     ).length;
   }
 
-  return 0;
+  return context.workflowResult.lotTransfers.filter((transfer) => transfer.provenance.kind !== 'confirmed-link').length;
 }
 
 function countFxFallbackRows(context: TaxPackageBuildContext): number {

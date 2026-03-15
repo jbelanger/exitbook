@@ -336,6 +336,218 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
   );
 }
 
+export function createStandardPackageBuildContext(): TaxPackageBuildContext {
+  const baseArtifact = createStandardWorkflowArtifact();
+  const artifact = createStandardWorkflowArtifact({
+    summary: {
+      ...baseArtifact.summary,
+      calculation: {
+        ...baseArtifact.summary.calculation,
+        totalProceeds: parseDecimal('14925'),
+        totalCostBasis: parseDecimal('16000'),
+        totalGainLoss: parseDecimal('-1075'),
+        totalTaxableGainLoss: parseDecimal('-30'),
+        transactionsProcessed: 5,
+        lotsCreated: 2,
+        disposalsProcessed: 2,
+      },
+      lotsCreated: 2,
+      disposalsProcessed: 2,
+      totalCapitalGainLoss: parseDecimal('-1075'),
+      totalTaxableGainLoss: parseDecimal('-30'),
+    },
+    lots: [
+      {
+        id: 'lot-1',
+        calculationId: baseArtifact.summary.calculation.id,
+        acquisitionTransactionId: 1,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: 'BTC' as Currency,
+        quantity: parseDecimal('1'),
+        costBasisPerUnit: parseDecimal('10000'),
+        totalCostBasis: parseDecimal('10000'),
+        acquisitionDate: new Date('2023-01-05T00:00:00.000Z'),
+        method: 'fifo',
+        remainingQuantity: parseDecimal('0'),
+        status: 'fully_disposed',
+        createdAt: new Date('2026-03-15T12:00:00.000Z'),
+        updatedAt: new Date('2026-03-15T12:00:00.000Z'),
+      },
+      {
+        id: 'lot-2',
+        calculationId: baseArtifact.summary.calculation.id,
+        acquisitionTransactionId: 2,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: 'BTC' as Currency,
+        quantity: parseDecimal('1'),
+        costBasisPerUnit: parseDecimal('15000'),
+        totalCostBasis: parseDecimal('15000'),
+        acquisitionDate: new Date('2024-06-01T00:00:00.000Z'),
+        method: 'fifo',
+        remainingQuantity: parseDecimal('0.35'),
+        status: 'partially_disposed',
+        createdAt: new Date('2026-03-15T12:00:00.000Z'),
+        updatedAt: new Date('2026-03-15T12:00:00.000Z'),
+      },
+    ],
+    disposals: [
+      {
+        id: 'disp-1',
+        lotId: 'lot-1',
+        disposalTransactionId: 3,
+        quantityDisposed: parseDecimal('1'),
+        proceedsPerUnit: parseDecimal('9000'),
+        totalProceeds: parseDecimal('8955'),
+        grossProceeds: parseDecimal('9000'),
+        sellingExpenses: parseDecimal('45'),
+        netProceeds: parseDecimal('8955'),
+        costBasisPerUnit: parseDecimal('10000'),
+        totalCostBasis: parseDecimal('10000'),
+        gainLoss: parseDecimal('-1045'),
+        disposalDate: new Date('2024-11-01T00:00:00.000Z'),
+        holdingPeriodDays: 666,
+        lossDisallowed: true,
+        disallowedLossAmount: parseDecimal('1045'),
+        taxTreatmentCategory: 'long_term',
+        createdAt: new Date('2026-03-15T12:00:00.000Z'),
+      },
+      {
+        id: 'disp-2',
+        lotId: 'lot-2',
+        disposalTransactionId: 3,
+        quantityDisposed: parseDecimal('0.4'),
+        proceedsPerUnit: parseDecimal('15000'),
+        totalProceeds: parseDecimal('5970'),
+        grossProceeds: parseDecimal('6000'),
+        sellingExpenses: parseDecimal('30'),
+        netProceeds: parseDecimal('5970'),
+        costBasisPerUnit: parseDecimal('15000'),
+        totalCostBasis: parseDecimal('6000'),
+        gainLoss: parseDecimal('-30'),
+        disposalDate: new Date('2024-11-01T00:00:00.000Z'),
+        holdingPeriodDays: 153,
+        lossDisallowed: false,
+        taxTreatmentCategory: 'short_term',
+        createdAt: new Date('2026-03-15T12:00:00.000Z'),
+      },
+    ],
+    lotTransfers: [
+      {
+        id: 'transfer-1',
+        calculationId: baseArtifact.summary.calculation.id,
+        sourceLotId: 'lot-2',
+        provenance: {
+          kind: 'confirmed-link',
+          linkId: 11,
+          sourceMovementFingerprint: 'movement:exchange:source:4:btc:outflow:0',
+          targetMovementFingerprint: 'movement:blockchain:target:5:btc:inflow:0',
+        },
+        quantityTransferred: parseDecimal('0.25'),
+        costBasisPerUnit: parseDecimal('15000'),
+        sourceTransactionId: 4,
+        targetTransactionId: 5,
+        transferDate: new Date('2024-12-15T00:00:00.000Z'),
+        metadata: {
+          sameAssetFeeUsdValue: parseDecimal('12.50'),
+        },
+        createdAt: new Date('2026-03-15T12:00:00.000Z'),
+      },
+    ],
+    executionMeta: {
+      missingPricesCount: 0,
+      retainedTransactionIds: [1, 2, 3, 4, 5],
+    },
+  });
+
+  const sourceContext: CostBasisContext = {
+    transactions: [
+      createTransaction({
+        id: 1,
+        accountId: 1,
+        datetime: '2023-01-05T00:00:00.000Z',
+        source: 'kraken',
+        inflows: [{ amount: '1', assetSymbol: 'BTC', assetId: 'exchange:kraken:btc' }],
+      }),
+      createTransaction({
+        id: 2,
+        accountId: 1,
+        datetime: '2024-06-01T00:00:00.000Z',
+        source: 'kraken',
+        inflows: [{ amount: '1', assetSymbol: 'BTC', assetId: 'exchange:kraken:btc' }],
+      }),
+      createTransaction({
+        id: 3,
+        accountId: 2,
+        datetime: '2024-11-01T00:00:00.000Z',
+        source: 'kraken',
+        outflows: [{ amount: '1.4', assetSymbol: 'BTC', assetId: 'exchange:kraken:btc' }],
+      }),
+      createTransaction({
+        id: 4,
+        accountId: 2,
+        datetime: '2024-12-15T00:00:00.000Z',
+        source: 'kraken',
+        outflows: [{ amount: '0.25', assetSymbol: 'BTC', assetId: 'exchange:kraken:btc' }],
+      }),
+      createTransaction({
+        id: 5,
+        accountId: 3,
+        datetime: '2024-12-15T00:00:00.000Z',
+        source: 'bitcoin',
+        sourceType: 'blockchain',
+        inflows: [{ amount: '0.25', assetSymbol: 'BTC', assetId: 'blockchain:bitcoin:native' }],
+        blockchain: {
+          name: 'bitcoin',
+          transaction_hash: 'txhash-5',
+          is_confirmed: true,
+        },
+      }),
+    ],
+    confirmedLinks: [
+      createLink({
+        id: 11,
+        sourceTransactionId: 4,
+        targetTransactionId: 5,
+        assetSymbol: 'BTC',
+        sourceAmount: parseDecimal('0.25'),
+        targetAmount: parseDecimal('0.25'),
+      }),
+    ],
+    accounts: [
+      {
+        id: 1,
+        accountType: 'exchange-api',
+        sourceName: 'kraken',
+        identifier: 'spot-wallet',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      },
+      {
+        id: 2,
+        accountType: 'exchange-api',
+        sourceName: 'kraken',
+        identifier: 'trading-wallet',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      },
+      {
+        id: 3,
+        accountType: 'blockchain',
+        sourceName: 'bitcoin',
+        identifier: 'bc1qstandardtestwallet',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      },
+    ],
+  };
+
+  return assertOk(
+    buildTaxPackageBuildContext({
+      artifact,
+      sourceContext,
+      scopeKey: 'scope:us:2024',
+      snapshotId: 'aab94276-851c-44e3-b7c1-54c22f6a1435',
+    })
+  );
+}
+
 function createCanadaValuation(unitValueCad: string, totalValueCad: string) {
   return {
     taxCurrency: 'CAD' as const,

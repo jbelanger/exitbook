@@ -68,6 +68,7 @@ export type {
 } from './cost-basis/workflow/cost-basis-workflow.js';
 export { buildTaxPackageBuildContext } from './cost-basis/export/tax-package-context-builder.js';
 export { buildCanadaTaxPackage } from './cost-basis/export/canada-tax-package-builder.js';
+export { buildUsTaxPackage } from './cost-basis/export/us-tax-package-builder.js';
 export { deriveTaxPackageReadinessMetadata } from './cost-basis/export/tax-package-readiness-metadata.js';
 export { evaluateTaxPackageReadiness } from './cost-basis/export/tax-package-review-gate.js';
 export { exportTaxPackage } from './cost-basis/export/tax-package-exporter.js';
