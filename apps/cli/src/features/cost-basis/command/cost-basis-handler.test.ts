@@ -3,7 +3,7 @@ import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import {
   createDefaultPriceProviderManager,
-  readLatestPriceMutationAt,
+  readPriceCacheFreshness,
   type PriceProviderManager,
 } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -25,7 +25,7 @@ vi.mock('@exitbook/accounting', async () => {
 
 vi.mock('@exitbook/price-providers', () => ({
   createDefaultPriceProviderManager: vi.fn(),
-  readLatestPriceMutationAt: vi.fn(),
+  readPriceCacheFreshness: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -89,7 +89,7 @@ describe('CostBasisHandler', () => {
 
     mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
     vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
-    vi.mocked(readLatestPriceMutationAt).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
+    vi.mocked(readPriceCacheFreshness).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
     );
