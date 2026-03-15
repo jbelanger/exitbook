@@ -3,7 +3,10 @@ import type { AssetReviewSummary, UniversalTransactionData } from '@exitbook/cor
 import { collectBlockingAssetReviewSummaries } from '../standard/validation/asset-review-preflight.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
-import type { TaxPackageReadinessMetadata } from './tax-package-types.js';
+import type {
+  TaxPackageReadinessMetadata,
+  TaxPackageUnknownTransactionClassificationDetail,
+} from './tax-package-types.js';
 
 const UNKNOWN_CLASSIFICATION_NOTE_TYPES = new Set(['classification_uncertain', 'classification_failed']);
 
@@ -12,11 +15,13 @@ export function deriveTaxPackageReadinessMetadata(params: {
   context: TaxPackageBuildContext;
 }): TaxPackageReadinessMetadata {
   const retainedTransactions = getRetainedTransactions(params.context);
+  const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(retainedTransactions);
 
   return {
     fxFallbackCount: countFxFallbackRows(params.context),
     incompleteTransferLinkCount: countIncompleteTransferLinks(params.context),
-    unknownTransactionClassificationCount: countUnknownTransactionClassificationTransactions(retainedTransactions),
+    unknownTransactionClassificationCount: unknownTransactionClassificationDetails.length,
+    unknownTransactionClassificationDetails,
     unresolvedAssetReviewCount: countScopedAssetsRequiringReview(retainedTransactions, params.assetReviewSummaries),
   };
 }
@@ -27,10 +32,32 @@ function getRetainedTransactions(context: TaxPackageBuildContext): UniversalTran
     .filter((transaction): transaction is UniversalTransactionData => transaction !== undefined);
 }
 
-function countUnknownTransactionClassificationTransactions(transactions: readonly UniversalTransactionData[]): number {
-  return transactions.filter(
-    (transaction) => transaction.notes?.some((note) => UNKNOWN_CLASSIFICATION_NOTE_TYPES.has(note.type)) ?? false
-  ).length;
+function collectUnknownTransactionClassificationDetails(
+  transactions: readonly UniversalTransactionData[]
+): TaxPackageUnknownTransactionClassificationDetail[] {
+  return transactions.flatMap((transaction) => {
+    const classificationNote = transaction.notes?.find((note) => UNKNOWN_CLASSIFICATION_NOTE_TYPES.has(note.type));
+    if (!classificationNote) {
+      return [];
+    }
+
+    return [
+      {
+        noteMessage: classificationNote.message,
+        noteType: classificationNote.type,
+        operationCategory: transaction.operation.category,
+        operationType: transaction.operation.type,
+        reference: buildTransactionReference(transaction),
+        sourceName: transaction.source,
+        transactionDatetime: transaction.datetime,
+        transactionId: transaction.id,
+      },
+    ];
+  });
+}
+
+function buildTransactionReference(transaction: UniversalTransactionData): string {
+  return transaction.blockchain?.transaction_hash ?? transaction.externalId ?? `tx:${transaction.id}`;
 }
 
 function countScopedAssetsRequiringReview(

@@ -45,6 +45,17 @@ export interface TaxPackageSummaryTotals {
   totalTaxableGainLoss: string;
 }
 
+export interface TaxPackageUnknownTransactionClassificationDetail {
+  noteMessage: string;
+  noteType: string;
+  operationCategory?: string | undefined;
+  operationType?: string | undefined;
+  reference: string;
+  sourceName: string;
+  transactionDatetime: string;
+  transactionId: number;
+}
+
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;
   packageVersion: TaxPackageVersion;
@@ -109,6 +120,7 @@ export interface TaxPackageReadinessMetadata {
   fxFallbackCount?: number | undefined;
   incompleteTransferLinkCount?: number | undefined;
   unknownTransactionClassificationCount?: number | undefined;
+  unknownTransactionClassificationDetails?: readonly TaxPackageUnknownTransactionClassificationDetail[] | undefined;
   unresolvedAssetReviewCount?: number | undefined;
 }
 

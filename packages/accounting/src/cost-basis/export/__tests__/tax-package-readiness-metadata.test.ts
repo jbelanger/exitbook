@@ -67,6 +67,18 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       fxFallbackCount: 0,
       incompleteTransferLinkCount: 1,
       unknownTransactionClassificationCount: 1,
+      unknownTransactionClassificationDetails: [
+        {
+          noteMessage: 'Needs review',
+          noteType: 'classification_uncertain',
+          operationCategory: retainedTransaction.operation.category,
+          operationType: retainedTransaction.operation.type,
+          reference: retainedTransaction.externalId,
+          sourceName: retainedTransaction.source,
+          transactionDatetime: retainedTransaction.datetime,
+          transactionId: retainedTransaction.id,
+        },
+      ],
       unresolvedAssetReviewCount: 1,
     });
   });
@@ -144,6 +156,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       fxFallbackCount: 3,
       incompleteTransferLinkCount: 0,
       unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
       unresolvedAssetReviewCount: 0,
     });
   });
@@ -167,6 +180,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       fxFallbackCount: 0,
       incompleteTransferLinkCount: 1,
       unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
       unresolvedAssetReviewCount: 0,
     });
   });

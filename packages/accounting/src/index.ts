@@ -120,6 +120,7 @@ export type {
   TaxPackageReviewGateInput,
   TaxPackageStatus,
   TaxPackageSummaryTotals,
+  TaxPackageUnknownTransactionClassificationDetail,
   TaxPackageVersion,
   WrittenTaxPackageFile,
 } from './cost-basis/export/tax-package-types.js';

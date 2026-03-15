@@ -60,6 +60,9 @@ describe('evaluateTaxPackageReadiness', () => {
     expect(result.status).toBe('blocked');
     expect(result.blockingIssues).toHaveLength(1);
     expect(result.blockingIssues[0]?.code).toBe('MISSING_PRICE_DATA');
+    expect(result.blockingIssues[0]?.recommendedAction).toBe(
+      'Enrich or set the missing prices, then rerun the package export.'
+    );
   });
 
   it('marks export review_required when only review issues remain', () => {
@@ -89,6 +92,9 @@ describe('evaluateTaxPackageReadiness', () => {
     expect(result.status).toBe('review_required');
     expect(result.blockingIssues).toEqual([]);
     expect(result.reviewItems.map((issue) => issue.code)).toEqual(['FX_FALLBACK_USED', 'INCOMPLETE_TRANSFER_LINKING']);
+    expect(result.reviewItems[0]?.recommendedAction).toBe(
+      'Review the FX conversions and confirm the fallback treatment is acceptable.'
+    );
   });
 
   it('keeps blocked status when review and blocking issues are both present', () => {
@@ -150,11 +156,34 @@ describe('evaluateTaxPackageReadiness', () => {
       }),
       scope: scope.value,
       metadata: {
-        unknownTransactionClassificationCount: 3,
+        unknownTransactionClassificationCount: 1,
+        unknownTransactionClassificationDetails: [
+          {
+            noteMessage:
+              'Kraken group TSDEF5I-HNFS4-PZQ2KE has complex multi-leg fund flow and was materialized conservatively as a transfer.',
+            noteType: 'classification_uncertain',
+            operationCategory: 'transfer',
+            operationType: 'transfer',
+            reference: 'LI54ES-YRZMF-F2MYUQ',
+            sourceName: 'kraken',
+            transactionDatetime: '2023-11-28T04:59:06.764Z',
+            transactionId: 2926,
+          },
+        ],
       },
     });
 
     expect(result.status).toBe('blocked');
     expect(result.blockingIssues.map((issue) => issue.code)).toEqual(['UNKNOWN_TRANSACTION_CLASSIFICATION']);
+    expect(result.blockingIssues[0]?.summary).toBe(
+      'A retained transaction still has unresolved operation classification.'
+    );
+    expect(result.blockingIssues[0]?.affectedArtifact).toBe('source transaction');
+    expect(result.blockingIssues[0]?.affectedRowRef).toBe('LI54ES-YRZMF-F2MYUQ');
+    expect(result.blockingIssues[0]?.details).toContain('kraken LI54ES-YRZMF-F2MYUQ');
+    expect(result.blockingIssues[0]?.details).toContain('materialized as transfer/transfer');
+    expect(result.blockingIssues[0]?.recommendedAction).toBe(
+      'Review the transaction operation classification (for example transfer, swap, reward, or fee) before filing.'
+    );
   });
 });

@@ -1,5 +1,11 @@
+import { getDefaultRecommendedAction } from './tax-package-issue-recommendations.js';
 import type { TaxPackageValidatedScope } from './tax-package-scope-validator.js';
-import type { TaxPackageIssue, TaxPackageReadinessResult, TaxPackageReviewGateInput } from './tax-package-types.js';
+import type {
+  TaxPackageIssue,
+  TaxPackageReadinessResult,
+  TaxPackageReviewGateInput,
+  TaxPackageUnknownTransactionClassificationDetail,
+} from './tax-package-types.js';
 
 export function evaluateTaxPackageReadiness(
   input: TaxPackageReviewGateInput<TaxPackageValidatedScope>
@@ -8,48 +14,76 @@ export function evaluateTaxPackageReadiness(
   const missingPricesCount = input.workflowResult.executionMeta.missingPricesCount;
 
   if (missingPricesCount > 0) {
-    issues.push({
-      code: 'MISSING_PRICE_DATA',
-      severity: 'blocked',
-      summary: 'Required transaction price data is missing.',
-      details: `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${missingPricesCount} retained transactions are missing required price data.`,
-    });
+    issues.push(
+      buildReadinessIssue(
+        'MISSING_PRICE_DATA',
+        'blocked',
+        'Required transaction price data is missing.',
+        `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${missingPricesCount} retained transactions are missing required price data.`
+      )
+    );
   }
 
   if ((input.metadata?.unresolvedAssetReviewCount ?? 0) > 0) {
-    issues.push({
-      code: 'UNRESOLVED_ASSET_REVIEW',
-      severity: 'blocked',
-      summary: 'Assets still require review before filing export.',
-      details: `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unresolvedAssetReviewCount ?? 0} assets still require review resolution.`,
-    });
+    issues.push(
+      buildReadinessIssue(
+        'UNRESOLVED_ASSET_REVIEW',
+        'blocked',
+        'Assets still require review before filing export.',
+        `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unresolvedAssetReviewCount ?? 0} assets still require review resolution.`
+      )
+    );
   }
 
   if ((input.metadata?.unknownTransactionClassificationCount ?? 0) > 0) {
-    issues.push({
-      code: 'UNKNOWN_TRANSACTION_CLASSIFICATION',
-      severity: 'blocked',
-      summary: 'Some transactions still have unresolved tax classification.',
-      details: `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unknownTransactionClassificationCount ?? 0} transactions still require tax classification review.`,
-    });
+    const classificationDetails = input.metadata?.unknownTransactionClassificationDetails ?? [];
+    if (classificationDetails.length > 0) {
+      for (const detail of classificationDetails) {
+        issues.push(
+          buildReadinessIssue(
+            'UNKNOWN_TRANSACTION_CLASSIFICATION',
+            'blocked',
+            'A retained transaction still has unresolved operation classification.',
+            buildUnknownTransactionClassificationDetail(detail),
+            {
+              affectedArtifact: 'source transaction',
+              affectedRowRef: detail.reference,
+            }
+          )
+        );
+      }
+    } else {
+      issues.push(
+        buildReadinessIssue(
+          'UNKNOWN_TRANSACTION_CLASSIFICATION',
+          'blocked',
+          'Some retained transactions still have unresolved operation classification.',
+          `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unknownTransactionClassificationCount ?? 0} retained transactions still require operation classification review.`
+        )
+      );
+    }
   }
 
   if ((input.metadata?.fxFallbackCount ?? 0) > 0) {
-    issues.push({
-      code: 'FX_FALLBACK_USED',
-      severity: 'review',
-      summary: 'Fallback FX handling was used.',
-      details: `${input.metadata?.fxFallbackCount ?? 0} rows relied on fallback FX handling and should be reviewed before filing.`,
-    });
+    issues.push(
+      buildReadinessIssue(
+        'FX_FALLBACK_USED',
+        'review',
+        'Fallback FX handling was used.',
+        `${input.metadata?.fxFallbackCount ?? 0} rows relied on fallback FX handling and should be reviewed before filing.`
+      )
+    );
   }
 
   if ((input.metadata?.incompleteTransferLinkCount ?? 0) > 0) {
-    issues.push({
-      code: 'INCOMPLETE_TRANSFER_LINKING',
-      severity: 'review',
-      summary: 'Some transfers were not fully linked.',
-      details: `${input.metadata?.incompleteTransferLinkCount ?? 0} transfers require manual review because linking is incomplete.`,
-    });
+    issues.push(
+      buildReadinessIssue(
+        'INCOMPLETE_TRANSFER_LINKING',
+        'review',
+        'Some transfers were not fully linked.',
+        `${input.metadata?.incompleteTransferLinkCount ?? 0} transfers require manual review because linking is incomplete.`
+      )
+    );
   }
 
   const blockingIssues = issues.filter((issue) => issue.severity === 'blocked');
@@ -61,4 +95,30 @@ export function evaluateTaxPackageReadiness(
     reviewItems,
     blockingIssues,
   };
+}
+
+function buildReadinessIssue(
+  code: TaxPackageIssue['code'],
+  severity: TaxPackageIssue['severity'],
+  summary: string,
+  details: string,
+  metadata?: Pick<TaxPackageIssue, 'affectedArtifact' | 'affectedRowRef'>
+): TaxPackageIssue {
+  return {
+    code,
+    severity,
+    summary,
+    details,
+    ...metadata,
+    recommendedAction: getDefaultRecommendedAction(code),
+  };
+}
+
+function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTransactionClassificationDetail): string {
+  const operationLabel =
+    detail.operationCategory !== undefined && detail.operationType !== undefined
+      ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
+      : '';
+
+  return `Retained transaction ${detail.sourceName} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
 }

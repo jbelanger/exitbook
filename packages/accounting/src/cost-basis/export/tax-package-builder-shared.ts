@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
+import { getDefaultRecommendedAction } from './tax-package-issue-recommendations.js';
 import type { TaxPackageArtifactIndexEntry, TaxPackageFile, TaxPackageIssue } from './tax-package-types.js';
 
 export interface TaxPackageIssueCsvRow {
@@ -116,7 +117,7 @@ export function buildIssueRows(issues: readonly TaxPackageIssue[]): TaxPackageIs
     details: issue.details,
     affected_artifact: issue.affectedArtifact ?? '',
     affected_row_ref: issue.affectedRowRef ?? '',
-    recommended_action: issue.recommendedAction ?? defaultRecommendedAction(issue.code),
+    recommended_action: issue.recommendedAction ?? getDefaultRecommendedAction(issue.code),
   }));
 }
 
@@ -268,23 +269,6 @@ function escapeCsv(value: string): string {
 
 function severityRank(severity: string): number {
   return severity === 'blocked' ? 0 : 1;
-}
-
-function defaultRecommendedAction(code: TaxPackageIssue['code']): string {
-  switch (code) {
-    case 'MISSING_PRICE_DATA':
-      return 'Enrich or set the missing prices, then rerun the package export.';
-    case 'FX_FALLBACK_USED':
-      return 'Review the FX conversions and confirm the fallback treatment is acceptable.';
-    case 'UNRESOLVED_ASSET_REVIEW':
-      return 'Resolve the pending asset reviews before using this package for filing.';
-    case 'UNKNOWN_TRANSACTION_CLASSIFICATION':
-      return 'Review and classify the affected transactions before filing.';
-    case 'INCOMPLETE_TRANSFER_LINKING':
-      return 'Review the affected transfer rows and confirm the internal carryover treatment.';
-  }
-
-  return 'Review the affected package rows before filing.';
 }
 
 function getSourceReference(transaction: UniversalTransactionData): { kind: string; value: string } | undefined {

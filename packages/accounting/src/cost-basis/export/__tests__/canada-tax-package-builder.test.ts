@@ -136,6 +136,9 @@ describe('buildCanadaTaxPackage', () => {
     expect(result.files.find((file) => file.relativePath === 'issues.csv')?.content ?? '').toContain(
       'UNRESOLVED_ASSET_REVIEW'
     );
+    expect(result.files.find((file) => file.relativePath === 'report.md')?.content ?? '').toContain(
+      'Recommended action: Resolve the pending asset reviews before using this package for filing.'
+    );
   });
 });
 

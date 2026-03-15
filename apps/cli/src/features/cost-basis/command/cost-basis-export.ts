@@ -7,8 +7,10 @@ import {
   deriveTaxPackageReadinessMetadata,
   exportTaxPackage,
   type ITaxPackageFileWriter,
+  type TaxPackageExportResult,
   validateTaxPackageScope,
   type TaxPackageFile,
+  type TaxPackageIssue,
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
@@ -106,7 +108,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
 
     const scope = scopeValidation.value;
 
-    const outputDir = path.resolve(options.output ?? buildDefaultOutputDir(params));
+    const outputDir = resolveCostBasisExportOutputDir(options.output, buildDefaultOutputDir(params));
     await mkdir(outputDir, { recursive: true });
 
     await runCommand(async (ctx) => {
@@ -173,6 +175,10 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
       } else {
         console.log(`Exported tax package to: ${outputDir}`);
         console.log(`Package status: ${exportResult.value.status}`);
+        for (const line of buildTaxPackageStatusSummaryLines(exportResult.value, outputDir)) {
+          console.log(line);
+        }
+        console.log('Files:');
         for (const file of exportResult.value.files) {
           console.log(`  - ${file.absolutePath}`);
         }
@@ -238,6 +244,67 @@ export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
 
 function buildDefaultOutputDir(params: CostBasisInput): string {
   return path.join('reports', `${params.config.taxYear}-${params.config.jurisdiction.toLowerCase()}-tax-package`);
+}
+
+export function resolveCostBasisExportOutputDir(
+  requestedOutputDir: string | undefined,
+  defaultOutputDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd()
+): string {
+  const invocationCwd = env['INIT_CWD'];
+  const baseDir = invocationCwd !== undefined && invocationCwd.trim().length > 0 ? invocationCwd : cwd;
+  return path.resolve(baseDir, requestedOutputDir ?? defaultOutputDir);
+}
+
+export function buildTaxPackageStatusSummaryLines(
+  exportResult: Pick<TaxPackageExportResult, 'manifest' | 'status'>,
+  outputDir: string
+): string[] {
+  const reportPath = path.join(outputDir, 'report.md');
+  const issuesPath = path.join(outputDir, 'issues.csv');
+
+  switch (exportResult.status) {
+    case 'ready':
+      return [];
+    case 'blocked': {
+      const lines = [
+        'This package was written for inspection, but it is not filing-ready.',
+        ...renderIssueGroup('Blocking issues', exportResult.manifest.blockingIssues),
+      ];
+
+      if (exportResult.manifest.reviewItems.length > 0) {
+        lines.push('', ...renderIssueGroup('Review items', exportResult.manifest.reviewItems));
+      }
+
+      lines.push('', `Review ${reportPath} and ${issuesPath} for full details.`);
+      return lines;
+    }
+    case 'review_required':
+      return [
+        'This package needs manual review before filing.',
+        ...renderIssueGroup('Review items', exportResult.manifest.reviewItems),
+        '',
+        `Review ${reportPath} and ${issuesPath} for full details.`,
+      ];
+  }
+}
+
+function renderIssueGroup(title: string, issues: readonly TaxPackageIssue[]): string[] {
+  if (issues.length === 0) {
+    return [`${title}: 0`];
+  }
+
+  return [`${title}: ${issues.length}`, ...issues.flatMap((issue) => renderIssueLines(issue))];
+}
+
+function renderIssueLines(issue: TaxPackageIssue): string[] {
+  const lines = [`  - ${issue.code}: ${issue.summary}`, `    ${issue.details}`];
+  if (issue.recommendedAction) {
+    lines.push(`    Recommended action: ${issue.recommendedAction}`);
+  }
+
+  return lines;
 }
 
 async function removeStaleManagedTaxPackageFiles(
