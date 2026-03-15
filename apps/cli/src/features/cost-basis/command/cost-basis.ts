@@ -1,4 +1,8 @@
-import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting';
+import {
+  buildCostBasisFilingFacts,
+  getDefaultCostBasisMethodForJurisdiction,
+  type CostBasisJurisdiction,
+} from '@exitbook/accounting';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -20,9 +24,9 @@ import {
   createCostBasisTimelineState,
 } from '../view/cost-basis-view-state.js';
 import {
-  buildAssetCostBasisItems,
   buildCanadaAssetCostBasisItems,
-  computeSummaryTotals,
+  buildStandardAssetCostBasisItems,
+  buildSummaryTotalsFromAssetItems,
   sortAssetsByAbsGainLoss,
 } from '../view/cost-basis-view-utils.js';
 
@@ -342,22 +346,28 @@ function resolveAssetFilter(
 }
 
 function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
+  const filingFacts = unwrapResult(buildCostBasisFilingFacts({ artifact: costBasisResult }));
+
   if (costBasisResult.kind === 'standard-workflow') {
-    const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
-    const currency = summary.calculation.config.currency;
-    const jurisdiction = summary.calculation.config.jurisdiction;
-    const assetItems = sortAssetsByAbsGainLoss(
-      buildAssetCostBasisItems(lots, disposals, lotTransfers, jurisdiction, currency, report)
-    );
-    const summaryTotals = computeSummaryTotals(assetItems, jurisdiction);
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts for standard-workflow artifact');
+    }
+
+    const { summary, report } = costBasisResult;
+    const jurisdiction = filingFacts.jurisdiction;
+    const currency = report?.displayCurrency ?? filingFacts.taxCurrency;
+    const assetItems = sortAssetsByAbsGainLoss(buildStandardAssetCostBasisItems(filingFacts, report));
+    const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems, {
+      includeTaxTreatmentSplit: jurisdiction === 'US',
+    });
 
     return {
       assetItems,
       context: {
-        calculationId: summary.calculation.id,
-        method: summary.calculation.config.method,
+        calculationId: filingFacts.calculationId,
+        method: filingFacts.method,
         jurisdiction,
-        taxYear: summary.calculation.config.taxYear,
+        taxYear: filingFacts.taxYear,
         currency,
         dateRange: {
           startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
@@ -365,8 +375,8 @@ function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostB
         },
       },
       summary: {
-        lotsCreated: summary.lotsCreated,
-        disposalsProcessed: summary.disposalsProcessed,
+        lotsCreated: filingFacts.summary.acquisitionCount,
+        disposalsProcessed: filingFacts.summary.dispositionCount,
         assetsProcessed: summary.assetsProcessed,
         transactionsProcessed: summary.calculation.transactionsProcessed,
         totalProceeds: summaryTotals.totalProceeds,
@@ -379,19 +389,23 @@ function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostB
     };
   }
 
-  const currency = costBasisResult.displayReport?.displayCurrency ?? costBasisResult.taxReport.taxCurrency;
+  if (filingFacts.kind !== 'canada') {
+    throw new Error('Expected Canada filing facts for canada-workflow artifact');
+  }
+
+  const currency = costBasisResult.displayReport?.displayCurrency ?? filingFacts.taxCurrency;
   const assetItems = sortAssetsByAbsGainLoss(
-    buildCanadaAssetCostBasisItems(costBasisResult.taxReport, costBasisResult.displayReport)
+    buildCanadaAssetCostBasisItems(filingFacts, costBasisResult.displayReport)
   );
-  const summary = costBasisResult.displayReport?.summary;
+  const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems);
 
   return {
     assetItems,
     context: {
-      calculationId: costBasisResult.calculation.id,
-      method: costBasisResult.calculation.method,
-      jurisdiction: costBasisResult.calculation.jurisdiction,
-      taxYear: costBasisResult.calculation.taxYear,
+      calculationId: filingFacts.calculationId,
+      method: filingFacts.method,
+      jurisdiction: filingFacts.jurisdiction,
+      taxYear: filingFacts.taxYear,
       currency,
       dateRange: {
         startDate: costBasisResult.calculation.startDate.toISOString().split('T')[0] ?? '',
@@ -399,16 +413,14 @@ function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostB
       },
     },
     summary: {
-      lotsCreated: costBasisResult.taxReport.acquisitions.length,
-      disposalsProcessed: costBasisResult.taxReport.dispositions.length,
+      lotsCreated: filingFacts.summary.acquisitionCount,
+      disposalsProcessed: filingFacts.summary.dispositionCount,
       assetsProcessed: costBasisResult.calculation.assetsProcessed,
       transactionsProcessed: costBasisResult.calculation.transactionsProcessed,
-      totalProceeds: (summary?.totalProceeds ?? costBasisResult.taxReport.summary.totalProceedsCad).toFixed(2),
-      totalCostBasis: (summary?.totalCostBasis ?? costBasisResult.taxReport.summary.totalCostBasisCad).toFixed(2),
-      totalGainLoss: (summary?.totalGainLoss ?? costBasisResult.taxReport.summary.totalGainLossCad).toFixed(2),
-      totalTaxableGainLoss: (
-        summary?.totalTaxableGainLoss ?? costBasisResult.taxReport.summary.totalTaxableGainLossCad
-      ).toFixed(2),
+      totalProceeds: summaryTotals.totalProceeds,
+      totalCostBasis: summaryTotals.totalCostBasis,
+      totalGainLoss: summaryTotals.totalGainLoss,
+      totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
     },
   };
 }

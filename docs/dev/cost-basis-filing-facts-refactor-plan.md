@@ -7,7 +7,7 @@ Current state:
 - Phase 1 completed: accounting-owned filing facts now exist under
   `packages/accounting/src/cost-basis/filing-facts/`
 - Phase 2 completed: tax-package export now consumes filing facts directly
-- Phase 3 pending: CLI presentation still needs to consume the same seam
+- Phase 3 completed: CLI presentation now consumes the same filing-facts seam
 
 This note replaces `docs/dev/cost-basis-tax-package.md` as the design center
 for this refactor.
@@ -376,7 +376,7 @@ Acceptance criteria:
 
 ### Phase 3. Rewire The CLI Display Path
 
-Status: pending
+Status: completed
 
 Goal:
 
@@ -400,12 +400,21 @@ Step order:
    - sorting
    - view-model mapping
 4. Remove duplicated domain logic from the CLI, especially:
-   - `buildAssetCostBasisItems(...)` summary derivation
-   - `buildCanadaAssetCostBasisItems(...)` summary derivation
+   - raw workflow-row aggregation inside `buildAssetCostBasisItems(...)`
+   - raw Canada tax-report aggregation inside `buildCanadaAssetCostBasisItems(...)`
    - `computeTaxableAmount(...)`
-   - `computeSummaryTotals(...)`
+   - jurisdiction-aware `computeSummaryTotals(...)`
    - ad hoc U.S. long-term vs short-term recomputation
 5. Keep display-currency overlay behavior in the CLI adapter only.
+
+Implementation note:
+
+- `buildPresentationModel(...)` now builds filing facts once and passes those
+  facts into CLI view mappers
+- CLI totals now come from filing-facts-backed asset items instead of reusing
+  raw workflow rows or raw Canada tax-report rows
+- standard CLI taxable amounts now respect canonical filing facts, including
+  disallowed-loss handling, instead of approximating from converted gain/loss
 
 Acceptance criteria:
 
@@ -480,7 +489,7 @@ Scope:
 
 ### PR 3
 
-Status: pending
+Status: completed
 
 CLI migration.
 

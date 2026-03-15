@@ -1,98 +1,136 @@
 import type {
-  AcquisitionLot,
+  CanadaCostBasisFilingFacts,
   CanadaDisplayCostBasisReport,
-  CanadaTaxReport,
-  LotDisposal,
-  LotTransfer,
+  ConvertedLotDisposal,
+  StandardCostBasisFilingFacts,
 } from '@exitbook/accounting';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildAssetCostBasisItems,
   buildCanadaAssetCostBasisItems,
-  computeSummaryTotals,
+  buildStandardAssetCostBasisItems,
+  buildSummaryTotalsFromAssetItems,
 } from './cost-basis-view-utils.js';
 
-function createAcquisitionLot(overrides?: Partial<AcquisitionLot>): AcquisitionLot {
-  const quantity = overrides?.quantity ?? parseDecimal('1');
-  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
-
+function createStandardFilingFacts(): StandardCostBasisFilingFacts {
   return {
-    id: '11111111-1111-4111-8111-111111111111',
-    calculationId: '22222222-2222-4222-8222-222222222222',
-    acquisitionTransactionId: 1,
-    assetId: 'blockchain:bitcoin:native',
-    assetSymbol: 'BTC' as Currency,
-    quantity,
-    costBasisPerUnit,
-    totalCostBasis: quantity.times(costBasisPerUnit),
-    acquisitionDate: new Date('2024-01-01T00:00:00Z'),
+    kind: 'standard',
+    calculationId: 'calc-1',
+    jurisdiction: 'US',
     method: 'fifo',
-    remainingQuantity: quantity,
-    status: 'open',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-    ...overrides,
-  };
-}
-
-function createLotDisposal(lotId: string, overrides?: Partial<LotDisposal>): LotDisposal {
-  const quantityDisposed = overrides?.quantityDisposed ?? parseDecimal('0.5');
-  const proceedsPerUnit = overrides?.proceedsPerUnit ?? parseDecimal('120');
-  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
-
-  return {
-    id: '33333333-3333-4333-8333-333333333333',
-    lotId,
-    disposalTransactionId: 2,
-    quantityDisposed,
-    proceedsPerUnit,
-    totalProceeds: quantityDisposed.times(proceedsPerUnit),
-    grossProceeds: quantityDisposed.times(proceedsPerUnit),
-    sellingExpenses: parseDecimal('0'),
-    netProceeds: quantityDisposed.times(proceedsPerUnit),
-    costBasisPerUnit,
-    totalCostBasis: quantityDisposed.times(costBasisPerUnit),
-    gainLoss: quantityDisposed.times(proceedsPerUnit.minus(costBasisPerUnit)),
-    disposalDate: new Date('2024-02-01T00:00:00Z'),
-    holdingPeriodDays: 31,
-    createdAt: new Date('2024-02-01T00:00:00Z'),
-    ...overrides,
-  };
-}
-
-function createLotTransfer(sourceLotId: string, overrides?: Partial<LotTransfer>): LotTransfer {
-  const quantityTransferred = overrides?.quantityTransferred ?? parseDecimal('0.25');
-  const costBasisPerUnit = overrides?.costBasisPerUnit ?? parseDecimal('100');
-
-  return {
-    id: '44444444-4444-4444-8444-444444444444',
-    calculationId: '22222222-2222-4222-8222-222222222222',
-    sourceLotId,
-    provenance: {
-      kind: 'confirmed-link',
-      linkId: 1,
-      sourceMovementFingerprint: 'source:movement:1',
-      targetMovementFingerprint: 'target:movement:1',
+    taxYear: 2024,
+    taxCurrency: 'USD',
+    summary: {
+      assetCount: 1,
+      acquisitionCount: 1,
+      dispositionCount: 1,
+      transferCount: 1,
+      totalProceeds: parseDecimal('60'),
+      totalCostBasis: parseDecimal('50'),
+      totalGainLoss: parseDecimal('10'),
+      totalTaxableGainLoss: parseDecimal('10'),
+      totalDeniedLoss: parseDecimal('0'),
+      byTaxTreatment: [
+        {
+          taxTreatmentCategory: 'short_term',
+          dispositionCount: 1,
+          totalGainLoss: parseDecimal('10'),
+          totalTaxableGainLoss: parseDecimal('10'),
+        },
+      ],
     },
-    quantityTransferred,
-    costBasisPerUnit,
-    sourceTransactionId: 3,
-    targetTransactionId: 4,
-    transferDate: new Date('2024-03-01T00:00:00Z'),
-    createdAt: new Date('2024-03-01T00:00:00Z'),
-    ...overrides,
+    assetSummaries: [
+      {
+        assetGroupingKey: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC' as Currency,
+        assetId: 'blockchain:bitcoin:native',
+        acquisitionCount: 1,
+        dispositionCount: 1,
+        transferCount: 1,
+        totalProceeds: parseDecimal('60'),
+        totalCostBasis: parseDecimal('50'),
+        totalGainLoss: parseDecimal('10'),
+        totalTaxableGainLoss: parseDecimal('10'),
+        totalDeniedLoss: parseDecimal('0'),
+        byTaxTreatment: [
+          {
+            taxTreatmentCategory: 'short_term',
+            dispositionCount: 1,
+            totalGainLoss: parseDecimal('10'),
+            totalTaxableGainLoss: parseDecimal('10'),
+          },
+        ],
+      },
+    ],
+    acquisitions: [
+      {
+        kind: 'standard-acquisition',
+        id: 'lot-1',
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC' as Currency,
+        acquiredAt: new Date('2024-01-01T00:00:00Z'),
+        quantity: parseDecimal('1'),
+        remainingQuantity: parseDecimal('0.75'),
+        totalCostBasis: parseDecimal('100'),
+        costBasisPerUnit: parseDecimal('100'),
+        transactionId: 1,
+        status: 'open',
+      },
+    ],
+    dispositions: [
+      {
+        kind: 'standard-disposition',
+        id: 'disp-1',
+        lotId: 'lot-1',
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC' as Currency,
+        acquiredAt: new Date('2024-01-01T00:00:00Z'),
+        disposedAt: new Date('2024-02-01T00:00:00Z'),
+        quantity: parseDecimal('0.5'),
+        proceedsPerUnit: parseDecimal('120'),
+        totalProceeds: parseDecimal('60'),
+        totalCostBasis: parseDecimal('50'),
+        costBasisPerUnit: parseDecimal('100'),
+        gainLoss: parseDecimal('10'),
+        taxableGainLoss: parseDecimal('10'),
+        deniedLossAmount: parseDecimal('0'),
+        taxTreatmentCategory: 'short_term',
+        holdingPeriodDays: 31,
+        acquisitionTransactionId: 1,
+        disposalTransactionId: 2,
+        grossProceeds: parseDecimal('60'),
+        sellingExpenses: parseDecimal('0'),
+        netProceeds: parseDecimal('60'),
+        lossDisallowed: false,
+      },
+    ],
+    transfers: [
+      {
+        kind: 'standard-transfer',
+        id: 'xfer-1',
+        sourceLotId: 'lot-1',
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC' as Currency,
+        transferredAt: new Date('2024-03-01T00:00:00Z'),
+        quantity: parseDecimal('0.25'),
+        totalCostBasis: parseDecimal('25'),
+        costBasisPerUnit: parseDecimal('100'),
+        sourceTransactionId: 3,
+        targetTransactionId: 4,
+        provenanceKind: 'confirmed-link',
+        linkedConfirmedLinkId: 1,
+        sourceAcquiredAt: new Date('2024-01-01T00:00:00Z'),
+        sameAssetFeeAmount: parseDecimal('2.50'),
+      },
+    ],
   };
 }
 
 describe('cost-basis-view-utils', () => {
-  it('builds a US asset item from grouped lots disposals and transfers', () => {
-    const lot = createAcquisitionLot();
-    const disposal = createLotDisposal(lot.id);
-    const transfer = createLotTransfer(lot.id);
-
-    const assetItems = buildAssetCostBasisItems([lot], [disposal], [transfer], 'US', 'USD');
+  it('builds a US asset item from filing facts', () => {
+    const assetItems = buildStandardAssetCostBasisItems(createStandardFilingFacts());
+    const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems, { includeTaxTreatmentSplit: true });
 
     expect(assetItems).toHaveLength(1);
     expect(assetItems[0]).toMatchObject({
@@ -109,66 +147,172 @@ describe('cost-basis-view-utils', () => {
       shortTermCount: 1,
       longTermCount: 0,
     });
+    expect(summaryTotals).toMatchObject({
+      totalProceeds: '60.00',
+      totalCostBasis: '50.00',
+      totalGainLoss: '10.00',
+      totalTaxableGainLoss: '10.00',
+      shortTermGainLoss: '10.00',
+      longTermGainLoss: '0.00',
+    });
   });
 
-  it('uses Canada report taxable amounts instead of recomputing them from gain/loss', () => {
-    const taxReport: CanadaTaxReport = {
+  it('uses standard filing-facts taxable amounts instead of recomputing them from converted gain/loss', () => {
+    const filingFacts = createStandardFilingFacts();
+    filingFacts.summary.totalProceeds = parseDecimal('90');
+    filingFacts.summary.totalCostBasis = parseDecimal('100');
+    filingFacts.summary.totalGainLoss = parseDecimal('-10');
+    filingFacts.summary.totalTaxableGainLoss = parseDecimal('0');
+    filingFacts.summary.totalDeniedLoss = parseDecimal('10');
+    filingFacts.summary.byTaxTreatment = [
+      {
+        taxTreatmentCategory: 'short_term',
+        dispositionCount: 1,
+        totalGainLoss: parseDecimal('-10'),
+        totalTaxableGainLoss: parseDecimal('0'),
+      },
+    ];
+    filingFacts.assetSummaries[0]!.totalProceeds = parseDecimal('90');
+    filingFacts.assetSummaries[0]!.totalCostBasis = parseDecimal('100');
+    filingFacts.assetSummaries[0]!.totalGainLoss = parseDecimal('-10');
+    filingFacts.assetSummaries[0]!.totalTaxableGainLoss = parseDecimal('0');
+    filingFacts.assetSummaries[0]!.totalDeniedLoss = parseDecimal('10');
+    filingFacts.assetSummaries[0]!.byTaxTreatment = [
+      {
+        taxTreatmentCategory: 'short_term',
+        dispositionCount: 1,
+        totalGainLoss: parseDecimal('-10'),
+        totalTaxableGainLoss: parseDecimal('0'),
+      },
+    ];
+    filingFacts.dispositions[0] = {
+      ...filingFacts.dispositions[0]!,
+      proceedsPerUnit: parseDecimal('180'),
+      totalProceeds: parseDecimal('90'),
+      gainLoss: parseDecimal('-10'),
+      taxableGainLoss: parseDecimal('0'),
+      deniedLossAmount: parseDecimal('10'),
+      grossProceeds: parseDecimal('90'),
+      netProceeds: parseDecimal('90'),
+      lossDisallowed: true,
+    };
+
+    const report = {
+      disposals: [
+        {
+          id: 'disp-1',
+          displayProceedsPerUnit: parseDecimal('135'),
+          displayTotalProceeds: parseDecimal('67.50'),
+          displayCostBasisPerUnit: parseDecimal('150'),
+          displayTotalCostBasis: parseDecimal('75.00'),
+          displayGainLoss: parseDecimal('-7.50'),
+          fxConversion: {
+            originalCurrency: 'USD',
+            displayCurrency: 'CAD',
+            fxRate: parseDecimal('0.75'),
+            fxSource: 'test',
+            fxFetchedAt: new Date('2024-02-01T00:00:00Z'),
+          },
+        } as ConvertedLotDisposal,
+      ],
+      lots: [],
+      lotTransfers: [],
+    };
+
+    const assetItems = buildStandardAssetCostBasisItems(filingFacts, report);
+    const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems, { includeTaxTreatmentSplit: true });
+
+    expect(assetItems[0]?.disposals[0]?.gainLoss).toBe('-7.50');
+    expect(assetItems[0]?.disposals[0]?.taxableGainLoss).toBe('0.00');
+    expect(assetItems[0]?.totalTaxableGainLoss).toBe('0.00');
+    expect(summaryTotals.totalTaxableGainLoss).toBe('0.00');
+    expect(summaryTotals.shortTermGainLoss).toBe('-7.50');
+  });
+
+  it('uses Canada filing-facts taxable amounts and display overrides', () => {
+    const filingFacts = {
+      kind: 'canada',
       calculationId: 'calc-1',
+      jurisdiction: 'CA',
+      method: 'average-cost',
+      taxYear: 2024,
       taxCurrency: 'CAD',
+      summary: {
+        assetCount: 1,
+        acquisitionCount: 1,
+        dispositionCount: 1,
+        transferCount: 0,
+        totalProceeds: parseDecimal('80'),
+        totalCostBasis: parseDecimal('100'),
+        totalGainLoss: parseDecimal('-20'),
+        totalTaxableGainLoss: parseDecimal('0'),
+        totalDeniedLoss: parseDecimal('10'),
+        byTaxTreatment: [],
+      },
+      assetSummaries: [
+        {
+          assetGroupingKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          taxPropertyKey: 'ca:btc',
+          acquisitionCount: 1,
+          dispositionCount: 1,
+          transferCount: 0,
+          totalProceeds: parseDecimal('80'),
+          totalCostBasis: parseDecimal('100'),
+          totalGainLoss: parseDecimal('-20'),
+          totalTaxableGainLoss: parseDecimal('0'),
+          totalDeniedLoss: parseDecimal('10'),
+          byTaxTreatment: [],
+        },
+      ],
       acquisitions: [
         {
+          kind: 'canada-acquisition',
           id: 'layer-1',
           acquisitionEventId: 'acq-1',
           transactionId: 1,
           taxPropertyKey: 'ca:btc',
           assetSymbol: 'BTC' as Currency,
           acquiredAt: new Date('2024-01-01T00:00:00Z'),
-          quantityAcquired: parseDecimal('1'),
+          quantity: parseDecimal('1'),
           remainingQuantity: parseDecimal('0'),
-          totalCostCad: parseDecimal('100'),
-          remainingAllocatedAcbCad: parseDecimal('0'),
-          costBasisPerUnitCad: parseDecimal('100'),
+          totalCostBasis: parseDecimal('100'),
+          remainingAllocatedCostBasis: parseDecimal('0'),
+          costBasisPerUnit: parseDecimal('100'),
         },
       ],
       dispositions: [
         {
+          kind: 'canada-disposition',
           id: 'disp-1',
           dispositionEventId: 'disp-1',
           transactionId: 2,
           taxPropertyKey: 'ca:btc',
           assetSymbol: 'BTC' as Currency,
           disposedAt: new Date('2024-02-01T00:00:00Z'),
-          quantityDisposed: parseDecimal('1'),
-          proceedsCad: parseDecimal('80'),
-          costBasisCad: parseDecimal('100'),
-          gainLossCad: parseDecimal('-20'),
-          deniedLossCad: parseDecimal('10'),
-          taxableGainLossCad: parseDecimal('0'),
-          acbPerUnitCad: parseDecimal('100'),
+          quantity: parseDecimal('1'),
+          proceedsPerUnit: parseDecimal('80'),
+          totalProceeds: parseDecimal('80'),
+          totalCostBasis: parseDecimal('100'),
+          gainLoss: parseDecimal('-20'),
+          taxableGainLoss: parseDecimal('0'),
+          deniedLossAmount: parseDecimal('10'),
+          costBasisPerUnit: parseDecimal('100'),
         },
       ],
       transfers: [],
       superficialLossAdjustments: [],
-      displayContext: { transferMarketValueCadByTransferId: new Map() },
-      summary: {
-        totalProceedsCad: parseDecimal('80'),
-        totalCostBasisCad: parseDecimal('100'),
-        totalGainLossCad: parseDecimal('-20'),
-        totalTaxableGainLossCad: parseDecimal('0'),
-        totalDeniedLossCad: parseDecimal('10'),
-      },
-    };
+    } as CanadaCostBasisFilingFacts;
 
-    const displayReport: CanadaDisplayCostBasisReport = {
+    const displayReport = {
       calculationId: 'calc-1',
       sourceTaxCurrency: 'CAD',
       displayCurrency: 'USD' as Currency,
       acquisitions: [
         {
-          ...taxReport.acquisitions[0]!,
+          id: 'layer-1',
           displayCostBasisPerUnit: parseDecimal('75'),
           displayTotalCost: parseDecimal('75'),
-          displayRemainingAllocatedCost: parseDecimal('0'),
           fxConversion: {
             sourceTaxCurrency: 'CAD',
             displayCurrency: 'USD' as Currency,
@@ -180,11 +324,10 @@ describe('cost-basis-view-utils', () => {
       ],
       dispositions: [
         {
-          ...taxReport.dispositions[0]!,
+          id: 'disp-1',
           displayProceeds: parseDecimal('60'),
           displayCostBasis: parseDecimal('75'),
           displayGainLoss: parseDecimal('-15'),
-          displayDeniedLoss: parseDecimal('7.5'),
           displayTaxableGainLoss: parseDecimal('0'),
           displayAcbPerUnit: parseDecimal('75'),
           fxConversion: {
@@ -204,10 +347,10 @@ describe('cost-basis-view-utils', () => {
         totalTaxableGainLoss: parseDecimal('0'),
         totalDeniedLoss: parseDecimal('7.5'),
       },
-    };
+    } as unknown as CanadaDisplayCostBasisReport;
 
-    const assetItems = buildCanadaAssetCostBasisItems(taxReport, displayReport);
-    const summaryTotals = computeSummaryTotals(assetItems, 'CA');
+    const assetItems = buildCanadaAssetCostBasisItems(filingFacts, displayReport);
+    const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems);
 
     expect(assetItems).toHaveLength(1);
     expect(assetItems[0]?.totalGainLoss).toBe('-15.00');
@@ -218,82 +361,126 @@ describe('cost-basis-view-utils', () => {
   });
 
   it('keeps distinct Canada tax properties separate even when they share a symbol', () => {
-    const taxReport: CanadaTaxReport = {
+    const filingFacts = {
+      kind: 'canada',
       calculationId: 'calc-2',
+      jurisdiction: 'CA',
+      method: 'average-cost',
+      taxYear: 2024,
       taxCurrency: 'CAD',
+      summary: {
+        assetCount: 2,
+        acquisitionCount: 2,
+        dispositionCount: 2,
+        transferCount: 0,
+        totalProceeds: parseDecimal('155'),
+        totalCostBasis: parseDecimal('150'),
+        totalGainLoss: parseDecimal('5'),
+        totalTaxableGainLoss: parseDecimal('2.5'),
+        totalDeniedLoss: parseDecimal('0'),
+        byTaxTreatment: [],
+      },
+      assetSummaries: [
+        {
+          assetGroupingKey: 'ca:erc20:ethereum:0xa0b8',
+          assetSymbol: 'USDC' as Currency,
+          taxPropertyKey: 'ca:erc20:ethereum:0xa0b8',
+          acquisitionCount: 1,
+          dispositionCount: 1,
+          transferCount: 0,
+          totalProceeds: parseDecimal('110'),
+          totalCostBasis: parseDecimal('100'),
+          totalGainLoss: parseDecimal('10'),
+          totalTaxableGainLoss: parseDecimal('5'),
+          totalDeniedLoss: parseDecimal('0'),
+          byTaxTreatment: [],
+        },
+        {
+          assetGroupingKey: 'ca:spl:solana:EPjFWdd5',
+          assetSymbol: 'USDC' as Currency,
+          taxPropertyKey: 'ca:spl:solana:EPjFWdd5',
+          acquisitionCount: 1,
+          dispositionCount: 1,
+          transferCount: 0,
+          totalProceeds: parseDecimal('45'),
+          totalCostBasis: parseDecimal('50'),
+          totalGainLoss: parseDecimal('-5'),
+          totalTaxableGainLoss: parseDecimal('-2.5'),
+          totalDeniedLoss: parseDecimal('0'),
+          byTaxTreatment: [],
+        },
+      ],
       acquisitions: [
         {
+          kind: 'canada-acquisition',
           id: 'layer-eth-usdc',
           acquisitionEventId: 'acq-eth-usdc',
           transactionId: 10,
           taxPropertyKey: 'ca:erc20:ethereum:0xa0b8',
           assetSymbol: 'USDC' as Currency,
           acquiredAt: new Date('2024-01-01T00:00:00Z'),
-          quantityAcquired: parseDecimal('100'),
+          quantity: parseDecimal('100'),
           remainingQuantity: parseDecimal('0'),
-          totalCostCad: parseDecimal('100'),
-          remainingAllocatedAcbCad: parseDecimal('0'),
-          costBasisPerUnitCad: parseDecimal('1'),
+          totalCostBasis: parseDecimal('100'),
+          remainingAllocatedCostBasis: parseDecimal('0'),
+          costBasisPerUnit: parseDecimal('1'),
         },
         {
+          kind: 'canada-acquisition',
           id: 'layer-sol-usdc',
           acquisitionEventId: 'acq-sol-usdc',
           transactionId: 11,
           taxPropertyKey: 'ca:spl:solana:EPjFWdd5',
           assetSymbol: 'USDC' as Currency,
           acquiredAt: new Date('2024-01-02T00:00:00Z'),
-          quantityAcquired: parseDecimal('50'),
+          quantity: parseDecimal('50'),
           remainingQuantity: parseDecimal('0'),
-          totalCostCad: parseDecimal('50'),
-          remainingAllocatedAcbCad: parseDecimal('0'),
-          costBasisPerUnitCad: parseDecimal('1'),
+          totalCostBasis: parseDecimal('50'),
+          remainingAllocatedCostBasis: parseDecimal('0'),
+          costBasisPerUnit: parseDecimal('1'),
         },
       ],
       dispositions: [
         {
+          kind: 'canada-disposition',
           id: 'disp-eth-usdc',
           dispositionEventId: 'disp-eth-usdc',
           transactionId: 20,
           taxPropertyKey: 'ca:erc20:ethereum:0xa0b8',
           assetSymbol: 'USDC' as Currency,
           disposedAt: new Date('2024-02-01T00:00:00Z'),
-          quantityDisposed: parseDecimal('100'),
-          proceedsCad: parseDecimal('110'),
-          costBasisCad: parseDecimal('100'),
-          gainLossCad: parseDecimal('10'),
-          deniedLossCad: parseDecimal('0'),
-          taxableGainLossCad: parseDecimal('5'),
-          acbPerUnitCad: parseDecimal('1'),
+          quantity: parseDecimal('100'),
+          proceedsPerUnit: parseDecimal('1.1'),
+          totalProceeds: parseDecimal('110'),
+          totalCostBasis: parseDecimal('100'),
+          gainLoss: parseDecimal('10'),
+          taxableGainLoss: parseDecimal('5'),
+          deniedLossAmount: parseDecimal('0'),
+          costBasisPerUnit: parseDecimal('1'),
         },
         {
+          kind: 'canada-disposition',
           id: 'disp-sol-usdc',
           dispositionEventId: 'disp-sol-usdc',
           transactionId: 21,
           taxPropertyKey: 'ca:spl:solana:EPjFWdd5',
           assetSymbol: 'USDC' as Currency,
           disposedAt: new Date('2024-02-02T00:00:00Z'),
-          quantityDisposed: parseDecimal('50'),
-          proceedsCad: parseDecimal('45'),
-          costBasisCad: parseDecimal('50'),
-          gainLossCad: parseDecimal('-5'),
-          deniedLossCad: parseDecimal('0'),
-          taxableGainLossCad: parseDecimal('-2.5'),
-          acbPerUnitCad: parseDecimal('1'),
+          quantity: parseDecimal('50'),
+          proceedsPerUnit: parseDecimal('0.9'),
+          totalProceeds: parseDecimal('45'),
+          totalCostBasis: parseDecimal('50'),
+          gainLoss: parseDecimal('-5'),
+          taxableGainLoss: parseDecimal('-2.5'),
+          deniedLossAmount: parseDecimal('0'),
+          costBasisPerUnit: parseDecimal('1'),
         },
       ],
       transfers: [],
       superficialLossAdjustments: [],
-      displayContext: { transferMarketValueCadByTransferId: new Map() },
-      summary: {
-        totalProceedsCad: parseDecimal('155'),
-        totalCostBasisCad: parseDecimal('150'),
-        totalGainLossCad: parseDecimal('5'),
-        totalTaxableGainLossCad: parseDecimal('2.5'),
-        totalDeniedLossCad: parseDecimal('0'),
-      },
-    };
+    } as CanadaCostBasisFilingFacts;
 
-    const assetItems = buildCanadaAssetCostBasisItems(taxReport);
+    const assetItems = buildCanadaAssetCostBasisItems(filingFacts);
     const assetLabels = assetItems.map((item) => item.asset).sort();
 
     expect(assetItems).toHaveLength(2);
@@ -301,43 +488,68 @@ describe('cost-basis-view-utils', () => {
     expect(assetItems.every((item) => item.disposalCount === 1)).toBe(true);
   });
 
-  it('builds Canada transfer timeline rows from report transfers instead of dropping them', () => {
-    const taxReport: CanadaTaxReport = {
+  it('builds Canada transfer timeline rows from filing facts instead of dropping them', () => {
+    const filingFacts = {
+      kind: 'canada',
       calculationId: 'calc-3',
+      jurisdiction: 'CA',
+      method: 'average-cost',
+      taxYear: 2024,
       taxCurrency: 'CAD',
+      summary: {
+        assetCount: 1,
+        acquisitionCount: 0,
+        dispositionCount: 0,
+        transferCount: 1,
+        totalProceeds: parseDecimal('0'),
+        totalCostBasis: parseDecimal('0'),
+        totalGainLoss: parseDecimal('0'),
+        totalTaxableGainLoss: parseDecimal('0'),
+        totalDeniedLoss: parseDecimal('0'),
+        byTaxTreatment: [],
+      },
+      assetSummaries: [
+        {
+          assetGroupingKey: 'ca:btc',
+          assetSymbol: 'BTC' as Currency,
+          taxPropertyKey: 'ca:btc',
+          acquisitionCount: 0,
+          dispositionCount: 0,
+          transferCount: 1,
+          totalProceeds: parseDecimal('0'),
+          totalCostBasis: parseDecimal('0'),
+          totalGainLoss: parseDecimal('0'),
+          totalTaxableGainLoss: parseDecimal('0'),
+          totalDeniedLoss: parseDecimal('0'),
+          byTaxTreatment: [],
+        },
+      ],
       acquisitions: [],
       dispositions: [],
       transfers: [
         {
+          kind: 'canada-transfer',
           id: 'link:10:transfer',
           direction: 'internal',
           sourceTransferEventId: 'link:10:transfer-out',
           targetTransferEventId: 'link:10:transfer-in',
           sourceTransactionId: 2,
           targetTransactionId: 3,
-          linkId: 10,
+          linkedConfirmedLinkId: 10,
           transactionId: 3,
           taxPropertyKey: 'ca:btc',
           assetSymbol: 'BTC' as Currency,
           transferredAt: new Date('2024-01-10T00:00:00Z'),
           quantity: parseDecimal('1'),
-          carriedAcbCad: parseDecimal('10025'),
-          carriedAcbPerUnitCad: parseDecimal('10025'),
-          feeAdjustmentCad: parseDecimal('25'),
+          totalCostBasis: parseDecimal('10025'),
+          costBasisPerUnit: parseDecimal('10025'),
+          feeAdjustment: parseDecimal('25'),
         },
       ],
       superficialLossAdjustments: [],
-      displayContext: { transferMarketValueCadByTransferId: new Map() },
-      summary: {
-        totalProceedsCad: parseDecimal('0'),
-        totalCostBasisCad: parseDecimal('0'),
-        totalGainLossCad: parseDecimal('0'),
-        totalTaxableGainLossCad: parseDecimal('0'),
-        totalDeniedLossCad: parseDecimal('0'),
-      },
-    };
+    } as CanadaCostBasisFilingFacts;
 
-    const displayReport: CanadaDisplayCostBasisReport = {
+    const displayReport = {
       calculationId: 'calc-3',
       sourceTaxCurrency: 'CAD',
       displayCurrency: 'USD' as Currency,
@@ -345,8 +557,7 @@ describe('cost-basis-view-utils', () => {
       dispositions: [],
       transfers: [
         {
-          ...taxReport.transfers[0]!,
-          marketValueCad: parseDecimal('12000'),
+          id: 'link:10:transfer',
           displayCarriedAcb: parseDecimal('7518.75'),
           displayCarriedAcbPerUnit: parseDecimal('7518.75'),
           displayMarketValue: parseDecimal('9000'),
@@ -367,9 +578,9 @@ describe('cost-basis-view-utils', () => {
         totalTaxableGainLoss: parseDecimal('0'),
         totalDeniedLoss: parseDecimal('0'),
       },
-    };
+    } as unknown as CanadaDisplayCostBasisReport;
 
-    const assetItems = buildCanadaAssetCostBasisItems(taxReport, displayReport);
+    const assetItems = buildCanadaAssetCostBasisItems(filingFacts, displayReport);
 
     expect(assetItems).toHaveLength(1);
     expect(assetItems[0]?.transferCount).toBe(1);
