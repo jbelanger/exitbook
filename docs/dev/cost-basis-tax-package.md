@@ -177,8 +177,8 @@ Recommended exit behavior:
 
 Recommended v1 CLI mapping:
 
-- add `ExitCodes.BLOCKED_PACKAGE` as a dedicated non-zero exit code for this
-  outcome
+- add `ExitCodes.BLOCKED_PACKAGE = 12` as a dedicated non-zero exit code for
+  this outcome
 - keep `ExitCodes.VALIDATION_ERROR` for invalid flags and invalid export scope
   requests
 - reserve `Err(...)` for infrastructure, rendering, or unexpected domain errors
@@ -368,6 +368,221 @@ What v1 should not do:
 We should not block the feature on PDF.
 If we add PDF later, it should render from the same domain-owned report model.
 
+## CSV Contract
+
+The CSVs should optimize for accountant use first and internal traceability
+second.
+
+That leads to four design rules:
+
+- keep filing-support rows human-readable
+- use one stable shared prefix where jurisdictions overlap
+- use package-local cross-reference fields instead of leaking internal engine
+  IDs into the contract
+- keep raw source-system traceability out of v1 unless we intentionally add a
+  separate support appendix for it
+
+### Source References
+
+Raw `transactionId`, `acquisitionTransactionId`, `disposalTransactionId`,
+`taxPropertyKey`, and event IDs are useful inside the engine and CLI, but they
+are not good primary contract columns for accountant-facing CSVs.
+
+Recommendation:
+
+- do not include raw transaction IDs in default package CSVs
+- do not expose engine UUIDs or Canada event IDs directly as the exported row
+  identity
+- generate deterministic package-local row refs such as `DISP-0001`,
+  `ACQ-0001`, `LOT-0001`, `XFER-0001`, and `SLA-0001`
+- use those refs for cross-file links and for `issues.csv`
+
+If we later need source-level audit export, add a separate optional appendix
+such as `source-transactions.csv` or `source-links.csv` rather than mixing raw
+transaction references into every filing-support table.
+
+### Formatting Rules
+
+- tax-currency monetary totals should be rendered as fixed 2-decimal strings
+- quantity and other non-fiat precision fields should be rendered with
+  `Decimal.toFixed()` semantics, without scientific notation and without an
+  arbitrary 8dp cap
+- per-unit monetary fields are audit values, not filing totals; they should
+  preserve more precision than 2dp where needed
+- the manifest declares the package tax currency, so CSV column names should be
+  generic (`proceeds`, not `proceeds_cad`)
+
+### Asset Labels
+
+The `asset` column should be a user-facing label, not a raw internal key.
+
+Recommendation:
+
+- use the plain asset symbol when it is unique in the package
+- if one symbol maps to multiple tax properties or asset identities in scope,
+  use a collision-safe label that disambiguates them
+- do not expose raw `taxPropertyKey` as a standalone default column unless we
+  later add a more technical support appendix
+
+### Sort Order
+
+Sort order should be part of the contract so package-local refs are
+deterministic.
+
+Recommended defaults:
+
+- Canada `dispositions.csv`: `date_disposed`, then `asset`, then
+  `disposition_ref`
+- US `dispositions.csv`: `tax_treatment` (`short_term`, then `long_term`),
+  then `date_disposed`, then `date_acquired`, then `asset`, then
+  `disposition_ref`
+- `acquisitions.csv`: `date_acquired`, then `asset`, then `acquisition_ref`
+- `lots.csv`: `date_acquired`, then `asset`, then `lot_ref`
+- `transfers.csv`: `date_transferred`, then `asset`, then `transfer_ref`
+- `superficial-loss-adjustments.csv`: `date_adjusted`, then `asset`, then
+  `adjustment_ref`
+- `issues.csv`: blocked rows first, then review rows, then `code`, then
+  `affected_artifact`, then `affected_row_ref`
+
+### dispositions.csv
+
+This is the primary filing-support table.
+
+Shared core columns:
+
+- `disposition_ref`
+- `asset`
+- `date_disposed`
+- `quantity_disposed`
+- `proceeds`
+- `cost_basis`
+- `gain_loss`
+
+Canada appended columns:
+
+- `acb_per_unit`
+- `denied_loss`
+- `taxable_gain_loss`
+
+US appended columns:
+
+- `date_acquired`
+- `holding_period_days`
+- `tax_treatment`
+- `lot_ref`
+
+Notes:
+
+- keep a stable shared prefix across jurisdictions
+- denormalize US acquisition date from the matched lot onto the disposition row
+- do not include raw transaction IDs in the default contract
+
+### acquisitions.csv
+
+Canada-default pool-support appendix.
+
+Columns:
+
+- `acquisition_ref`
+- `asset`
+- `date_acquired`
+- `quantity_acquired`
+- `total_cost`
+- `cost_basis_per_unit`
+- `remaining_quantity`
+- `remaining_allocated_acb`
+
+This file exists because Canada’s ACB model is pool-based and the acquisition
+rows are meaningful filing support, not just engine internals.
+
+### lots.csv
+
+US-default lot inventory appendix.
+
+Columns:
+
+- `lot_ref`
+- `asset`
+- `date_acquired`
+- `quantity_acquired`
+- `cost_basis_per_unit`
+- `total_cost_basis`
+- `remaining_quantity`
+- `status`
+- `method`
+
+Notes:
+
+- this is a US-default file because individual lot identity is core to the
+  standard workflow
+- `quantity_acquired` is an intentional export name even though the source field
+  is `AcquisitionLot.quantity`; the CSV should describe the original acquired
+  lot quantity, while `remaining_quantity` describes the post-disposal balance
+- `lot_ref` is the row identity exported in the package and should be the value
+  referenced from `dispositions.csv`
+
+### transfers.csv
+
+Audit/support appendix shared by both jurisdiction families.
+
+Shared columns:
+
+- `transfer_ref`
+- `asset`
+- `date_transferred`
+- `quantity_transferred`
+- `cost_basis_carried`
+
+Canada appended columns:
+
+- `direction`
+- `carried_acb_per_unit`
+- `fee_adjustment`
+
+US appended columns:
+
+- `cost_basis_per_unit`
+- `provenance`
+- `source_lot_ref`
+
+Notes:
+
+- do not include source and target transaction IDs in the default contract
+- transfer rows exist to explain basis carryover, not to reproduce the raw link
+  graph
+
+### superficial-loss-adjustments.csv
+
+Canada-only conditional appendix.
+
+Columns:
+
+- `adjustment_ref`
+- `asset`
+- `date_adjusted`
+- `denied_loss`
+- `denied_quantity`
+- `related_disposition_ref`
+- `substituted_acquisition_ref`
+
+This file should use package-local refs rather than raw Canada event IDs.
+
+### issues.csv
+
+Conditional file emitted only when issues exist.
+
+Columns:
+
+- `code`
+- `severity`
+- `summary`
+- `details`
+- `affected_artifact`
+- `affected_row_ref`
+
+`affected_row_ref` should reference package-local row refs such as
+`DISP-0004` or `LOT-0002`.
+
 ## Host Integration
 
 The CLI host should reuse the existing cost-basis execution path to obtain a
@@ -512,6 +727,4 @@ Deliverables:
 
 ## Remaining Questions
 
-- Do we want to reserve exit-code value `12` for `ExitCodes.BLOCKED_PACKAGE`,
-  since `12` is currently unused between `CONFIG_ERROR` and
-  `PERMISSION_DENIED`?
+None right now.
