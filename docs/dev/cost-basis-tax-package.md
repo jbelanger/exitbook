@@ -342,6 +342,7 @@ Conditional files:
 
 - `issues.csv`
 - `superficial-loss-adjustments.csv`
+- `source-links.csv`
 
 `blocked` should still emit at least:
 
@@ -352,7 +353,9 @@ Conditional files:
 File roles:
 
 - `report.md` is the human entrypoint and should contain readiness status,
-  totals, issue summary, and a short explanation of each attached file
+  totals, issue summary, a short explanation of each attached file, a note that
+  dates use `YYYY-MM-DD`, and a short explanation of how transfer/network fees
+  are represented across `dispositions.csv` and `transfers.csv`
 - `manifest.json` is the stable machine-readable contract and audit index
 - `dispositions.csv` is the primary filing-support table
 - `acquisitions.csv`, `transfers.csv`, and `lots.csv` are audit/support
@@ -360,6 +363,9 @@ File roles:
   are low-cost to produce
 - `transfers.csv` should primarily help a preparer confirm that a movement was
   an internal carryover between owned accounts, not a taxable disposal
+- `source-links.csv` is the audit traceability appendix that maps package-local
+  refs back to source-system references without polluting the primary
+  accountant-facing tables
 
 What v1 should not do:
 
@@ -367,6 +373,11 @@ What v1 should not do:
 - duplicate package summary data across multiple standalone files without a
   clear downstream consumer
 - create jurisdiction-specific appendices that are always empty or rarely used
+
+We should still include one narrow traceability appendix in v1.
+Accountant-facing CSVs should stay clean, but an audit package should not force
+the preparer to re-open the CLI or database just to connect `DISP-0001` to the
+underlying exchange trade, broker statement row, or on-chain transaction.
 
 We should not block the feature on PDF.
 If we add PDF later, it should render from the same domain-owned report model.
@@ -376,12 +387,15 @@ If we add PDF later, it should render from the same domain-owned report model.
 The CSVs should optimize for accountant use first and internal traceability
 second.
 
-That leads to four design rules:
+That leads to six design rules:
 
-- keep filing-support rows human-readable
+- keep filing-support rows human-readable and easy to reconcile in a spreadsheet
+- make each CSV understandable on its own without requiring `manifest.json`
 - use one stable shared prefix where jurisdictions overlap
 - use package-local cross-reference fields instead of leaking internal engine
   IDs into the contract
+- separate row identity from grouped business-event identity when one source
+  event can emit multiple rows
 - keep raw source-system traceability out of v1 unless we intentionally add a
   separate support appendix for it
 
@@ -399,10 +413,16 @@ Recommendation:
 - generate deterministic package-local row refs such as `DISP-0001`,
   `ACQ-0001`, `LOT-0001`, `XFER-0001`, and `SLA-0001`
 - use those refs for cross-file links and for `issues.csv`
+- when multiple rows come from one underlying sale, transfer, or issue,
+  generate a second package-local event/group ref such as `SALE-0001`
 
 If we later need source-level audit export, add a separate optional appendix
 such as `source-transactions.csv` or `source-links.csv` rather than mixing raw
 transaction references into every filing-support table.
+
+V1 should include `source-links.csv` when source references are available.
+That preserves clean primary CSVs while still giving the preparer a direct
+bridge from package-local refs to the underlying transaction evidence.
 
 ### Formatting Rules
 
@@ -410,6 +430,8 @@ transaction references into every filing-support table.
 - quantity and other non-fiat precision fields should be rendered with
   `Decimal.toFixed()` semantics, without scientific notation and without an
   arbitrary 8dp cap
+- quantity and other non-fiat precision fields may trim trailing zeros after
+  fixed-point rendering so the CSV stays readable
 - per-unit monetary fields are audit values, not filing totals; they should
   preserve more precision than 2dp where needed
 - date columns should use ISO `YYYY-MM-DD`
@@ -422,16 +444,21 @@ transaction references into every filing-support table.
 - optional fields that do not apply to a row should render as empty strings,
   not sentinel values such as `N/A` or `null`
 - enumerated text values should use stable lowercase snake_case values
-- the manifest declares the package tax currency, so CSV column names should be
-  generic (`proceeds`, not `proceeds_cad`)
+- the manifest still declares the package tax currency, but each CSV should
+  also include a `tax_currency` column so the file is self-describing when
+  opened on its own
+- monetary column names should describe the economic meaning of the amount, not
+  rely on an accountant to infer whether a number is gross, net, or adjusted
 
 Recommended enum vocab:
 
 - `tax_treatment`: `short_term`, `long_term`
-- `direction`: `in`, `internal`, `out`
+- `transfer_direction`: `deposit`, `internal_transfer`, `withdrawal`
+- `transfer_status`: `matched_internal`, `source_only`, `target_only`
 - `basis_source`: `matched_lot_carryover`, `pooled_acb_carryover`,
   `fee_only_carryover`
 - `lot_status`: `open`, `fully_disposed`
+- `origin_period`: `opening_carry_in`, `in_tax_year`
 
 ### Asset Labels
 
@@ -460,7 +487,7 @@ Recommended defaults:
 - `acquisitions.csv`: `date_acquired`, then `asset`, then `acquisition_ref`
 - `lots.csv`: `date_acquired`, then `asset`, then `lot_ref`
 - `transfers.csv`: `date_transferred`, then `asset`, then `transfer_ref`
-- `superficial-loss-adjustments.csv`: `date_adjusted`, then `asset`, then
+- `superficial-loss-adjustments.csv`: `disposition_date`, then `asset`, then
   `adjustment_ref`
 - `issues.csv`: blocked rows first, then review rows, then `code`, then
   `affected_artifact`, then `affected_row_ref`
@@ -472,12 +499,17 @@ This is the primary filing-support table.
 Shared core columns:
 
 - `disposition_ref`
+- `disposal_event_ref`
 - `asset`
+- `account_label`
 - `date_disposed`
 - `quantity_disposed`
-- `proceeds`
+- `proceeds_gross`
+- `selling_expenses`
+- `net_proceeds`
 - `cost_basis`
 - `gain_loss`
+- `tax_currency`
 
 Canada appended columns:
 
@@ -491,14 +523,41 @@ US appended columns:
 - `holding_period_days`
 - `tax_treatment`
 - `lot_ref`
+- `form_8949_box`
+- `form_8949_adjustment_code`
+- `form_8949_adjustment_amount`
 
 Notes:
 
 - keep a stable shared prefix across jurisdictions
 - US rows should be one row per disposal-lot match, so a single sale can emit
   multiple disposition rows when multiple lots were matched
+- `disposition_ref` is the row identity; `disposal_event_ref` groups all rows
+  that belong to one underlying sale or disposal event
 - denormalize US acquisition date from the matched lot onto the disposition row
 - do not include raw transaction IDs in the default contract
+- `account_label` should identify the owned account or venue where the disposal
+  occurred so a preparer can reconcile the row to exchange statements or
+  custodian exports
+- `proceeds_gross`, `selling_expenses`, `net_proceeds`, and `cost_basis` should
+  be defined in the report and manifest glossary so an accountant can reconcile
+  them to source statements without guessing which adjustments were already
+  applied
+- Canada formula note:
+  `gain_loss = net_proceeds - cost_basis`
+- Canada formula note:
+  `denied_loss` is the superficial-loss amount denied on the disposition and
+  should render as a positive amount when present
+- Canada formula note:
+  `taxable_gain_loss = (gain_loss + denied_loss) * 0.5` under the current
+  Canada capital-gains inclusion rule used by the engine
+- US filing note:
+  `form_8949_box` should identify the preparer bucket for the row (`A`-`L`)
+  based on statement type, holding period, and whether basis was reported
+- US filing note:
+  `form_8949_adjustment_code` and `form_8949_adjustment_amount` should support
+  Form 8949 column `(f)` and `(g)` workflows, including wash sale (`W`) and
+  selling-expense correction (`E`) cases when applicable
 
 ### acquisitions.csv
 
@@ -508,21 +567,33 @@ Columns:
 
 - `acquisition_ref`
 - `asset`
+- `account_label`
 - `date_acquired`
+- `origin_period`
 - `quantity_acquired`
 - `total_cost`
 - `cost_basis_per_unit`
 - `remaining_quantity`
 - `remaining_allocated_acb`
+- `tax_currency`
 
 This file exists because Canada’s ACB model is pool-based and the acquisition
 rows are meaningful filing support, not just engine internals.
 
 Contract note:
 
-- include all acquisition rows in scope for the filing period
+- include all acquisition rows needed to explain the filing-year result,
+  including pre-year carry-in layers that remain open at year start or are
+  consumed by an in-year disposition
 - `remaining_quantity` and `remaining_allocated_acb` are ending-state columns as
   of the calculation end date, not a filter to open acquisitions only
+- `origin_period` should distinguish carry-in support rows from true in-year
+  acquisitions
+- `account_label` should identify the owned account or venue where the
+  acquisition was recorded so the row can be reconciled to statements
+- `cost_basis_per_unit` should represent the acquisition row's own per-unit cost
+  including acquisition-side costs allocated to that row, not the pooled ACB
+  after later events
 
 ### lots.csv
 
@@ -532,26 +603,37 @@ Columns:
 
 - `lot_ref`
 - `asset`
+- `account_label`
 - `date_acquired`
+- `origin_period`
 - `quantity_acquired`
 - `cost_basis_per_unit`
 - `total_cost_basis`
 - `remaining_quantity`
 - `lot_status`
-- `cost_basis_method`
+- `tax_currency`
 
 Notes:
 
 - this is a US-default file because individual lot identity is core to the
   standard workflow
-- include all lots in scope for the filing period, including fully disposed
-  lots, with ending-state columns rendered as of the calculation end date
+- include all lots needed to explain the filing-year result, including pre-year
+  carry-in lots that are sold during the year or remain open at year-end
+- include fully disposed lots when they were used by an in-year disposition,
+  with ending-state columns rendered as of the calculation end date
 - `quantity_acquired` is an intentional export name even though the source field
   is `AcquisitionLot.quantity`; the CSV should describe the original acquired
   lot quantity, while `remaining_quantity` describes the post-disposal balance
 - `lot_ref` is the row identity exported in the package and should be the value
   referenced from `dispositions.csv`
 - `lot_status` should use the shared enum vocab defined above
+- `origin_period` should distinguish carry-in lots from current-year
+  acquisitions so early-year sales are auditable without separate reconstruction
+- `account_label` should identify the owned account or venue where the lot was
+  acquired or is primarily held for reconciliation purposes
+- cost-basis method should remain a package- or manifest-level field rather
+  than a per-lot column in v1; if lot-specific identification metadata is
+  needed later, add a more precise field name tied to disposition matching
 
 ### transfers.csv
 
@@ -562,14 +644,16 @@ Shared columns:
 - `transfer_ref`
 - `asset`
 - `date_transferred`
-- `source_account`
-- `target_account`
+- `transfer_status`
+- `transfer_direction`
+- `source_account_label`
+- `target_account_label`
 - `quantity_transferred`
 - `cost_basis_carried`
+- `tax_currency`
 
 Canada appended columns:
 
-- `direction`
 - `carried_acb_per_unit`
 - `fee_adjustment`
 
@@ -582,8 +666,14 @@ US appended columns:
 Notes:
 
 - do not include source and target transaction IDs in the default contract
-- `source_account` and `target_account` should be human-readable account or
-  venue labels so a preparer can verify that the movement was internal
+- `source_account_label` and `target_account_label` should be human-readable
+  account or venue labels so a preparer can verify that the movement was
+  internal
+- `transfer_status` should distinguish fully matched internal carryovers from
+  one-sided rows that still need review
+- `transfer_direction` should be interpreted from the taxpayer-owned account
+  boundary: `deposit` means into owned accounts, `withdrawal` means out of owned
+  accounts, and `internal_transfer` means between owned accounts
 - `basis_source` should use the shared enum vocab defined above and should
   describe the carryover origin in accountant-readable terms rather than engine
   provenance jargon
@@ -598,13 +688,18 @@ Columns:
 
 - `adjustment_ref`
 - `asset`
-- `date_adjusted`
+- `disposition_date`
+- `replacement_acquisition_date`
 - `denied_loss`
 - `denied_quantity`
 - `related_disposition_ref`
 - `substituted_acquisition_ref`
+- `tax_currency`
 
 This file should use package-local refs rather than raw Canada event IDs.
+`disposition_date` should tie the denial back to the triggering disposition, and
+`replacement_acquisition_date` should identify the substituted acquisition that
+received the denied-loss ACB carryover.
 
 ### issues.csv
 
@@ -612,15 +707,47 @@ Conditional file emitted only when issues exist.
 
 Columns:
 
+- `issue_ref`
 - `code`
 - `severity`
 - `summary`
 - `details`
 - `affected_artifact`
 - `affected_row_ref`
+- `recommended_action`
 
 `affected_row_ref` should reference package-local row refs such as
 `DISP-0004` or `LOT-0002`.
+
+### source-links.csv
+
+Conditional audit appendix emitted when source references are available.
+
+Columns:
+
+- `package_ref`
+- `package_artifact`
+- `source_type`
+- `source_venue_label`
+- `source_account_label`
+- `source_reference`
+- `source_reference_kind`
+- `source_url`
+
+Notes:
+
+- this file exists for audit traceability, not day-to-day tax preparation
+- `package_ref` should reference package-local refs such as `DISP-0004`,
+  `ACQ-0007`, `LOT-0002`, or `XFER-0003`
+- `package_artifact` identifies which package file owns the referenced row, such
+  as `dispositions.csv` or `transfers.csv`
+- `source_reference` may be an exchange order ID, broker reference, transaction
+  hash, movement fingerprint, or equivalent venue-native identifier
+- `source_reference_kind` should describe the identifier type using stable
+  values such as `exchange_order_id`, `exchange_fill_id`,
+  `broker_transaction_id`, `blockchain_tx_hash`, or `internal_reference`
+- `source_url` should be included when a stable human-openable source URL exists
+  and omitted otherwise
 
 ## Host Integration
 
