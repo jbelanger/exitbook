@@ -66,6 +66,26 @@ export type {
   CostBasisWorkflowResult,
   StandardCostBasisWorkflowResult,
 } from './cost-basis/workflow/cost-basis-workflow.js';
+export { buildCostBasisFilingFacts } from './cost-basis/filing-facts/filing-facts-builder.js';
+export type {
+  CanadaCostBasisAcquisitionFilingFact,
+  CanadaCostBasisDispositionFilingFact,
+  CanadaCostBasisFilingFacts,
+  CanadaCostBasisTransferFilingFact,
+  CanadaSuperficialLossAdjustmentFilingFact,
+  CostBasisFilingAcquisitionFact,
+  CostBasisFilingAssetSummary,
+  CostBasisFilingDispositionFact,
+  CostBasisFilingFactAssetIdentity,
+  CostBasisFilingFacts,
+  CostBasisFilingFactsSummary,
+  CostBasisFilingTaxTreatmentSummary,
+  CostBasisFilingTransferFact,
+  StandardCostBasisAcquisitionFilingFact,
+  StandardCostBasisDispositionFilingFact,
+  StandardCostBasisFilingFacts,
+  StandardCostBasisTransferFilingFact,
+} from './cost-basis/filing-facts/filing-facts-types.js';
 export { buildTaxPackageBuildContext } from './cost-basis/export/tax-package-context-builder.js';
 export { buildCanadaTaxPackage } from './cost-basis/export/canada-tax-package-builder.js';
 export { buildUsTaxPackage } from './cost-basis/export/us-tax-package-builder.js';
