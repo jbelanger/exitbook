@@ -6,6 +6,7 @@ import {
   createCanadaFeeAdjustmentEvent,
   createCanadaFxProvider,
   createCanadaAcquisitionEvent,
+  createCanadaDispositionEvent,
   createCanadaInputContext,
   createCanadaTransferInEvent,
   createCanadaTransferOutEvent,
@@ -167,5 +168,46 @@ describe('canada-tax-report-builder', () => {
     });
     expect(taxReport.transfers[0]?.carriedAcbCad.toFixed()).toBe('10000');
     expect(taxReport.transfers[0]?.feeAdjustmentCad.toFixed()).toBe('0');
+  });
+
+  it('applies the Canada inclusion-rate seam when building taxable gain rows and summary totals', () => {
+    const inputContext = createCanadaInputContext({
+      inputEvents: [
+        createCanadaAcquisitionEvent({
+          eventId: 'tx:1:acquisition',
+          transactionId: 1,
+          timestamp: '2024-01-01T00:00:00Z',
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          quantity: '1',
+          unitValueCad: '10000',
+        }),
+        createCanadaDispositionEvent({
+          eventId: 'tx:2:disposition',
+          transactionId: 2,
+          timestamp: '2024-02-01T00:00:00Z',
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          quantity: '1',
+          unitValueCad: '14000',
+        }),
+      ],
+    });
+    const acbEngineResult = assertOk(runCanadaAcbEngine(inputContext));
+
+    const taxReport = assertOk(
+      buildCanadaTaxReport({
+        calculation: createCalculation(),
+        inputContext,
+        acbEngineResult,
+        poolSnapshot: acbEngineResult,
+      })
+    );
+
+    expect(taxReport.dispositions).toHaveLength(1);
+    expect(taxReport.dispositions[0]?.gainLossCad.toFixed()).toBe('4000');
+    expect(taxReport.dispositions[0]?.taxableGainLossCad.toFixed()).toBe('2000');
+    expect(taxReport.summary.totalGainLossCad.toFixed()).toBe('4000');
+    expect(taxReport.summary.totalTaxableGainLossCad.toFixed()).toBe('2000');
   });
 });

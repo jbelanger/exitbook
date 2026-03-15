@@ -4,6 +4,7 @@ import type { JurisdictionConfig } from '../../model/types.js';
 import type { IJurisdictionRules } from '../jurisdiction-rules.js';
 
 import { CANADA_JURISDICTION_CONFIG } from './config.js';
+import { CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE } from './tax/canada-policy.js';
 
 /**
  * Canada tax rules
@@ -26,11 +27,6 @@ export class CanadaRules implements IJurisdictionRules {
   private readonly config = CANADA_JURISDICTION_CONFIG;
 
   /**
-   * Capital gains inclusion rate (50% as of 2024)
-   */
-  private readonly inclusionRate = 0.5;
-
-  /**
    * Superficial loss window: 30 days before and after
    */
   private readonly superficialLossWindowDays = 30;
@@ -49,8 +45,7 @@ export class CanadaRules implements IJurisdictionRules {
   }
 
   calculateTaxableGain(gain: Decimal, _holdingPeriodDays: number): Decimal {
-    // Only 50% of capital gains are taxable in Canada
-    return gain.mul(this.inclusionRate);
+    return gain.times(CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE);
   }
 
   isLossDisallowed(disposalDate: Date, reacquisitionDates: Date[]): boolean {

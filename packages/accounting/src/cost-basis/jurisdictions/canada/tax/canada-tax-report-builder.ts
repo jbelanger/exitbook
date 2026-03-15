@@ -5,6 +5,7 @@ import type { Decimal } from 'decimal.js';
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { CanadaSuperficialLossEngineResult } from '../workflow/canada-superficial-loss-types.js';
 
+import { CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE } from './canada-policy.js';
 import { compareCanadaEvents } from './canada-tax-event-ordering.js';
 import type {
   CanadaAcbEngineResult,
@@ -23,14 +24,6 @@ import type {
   CanadaTransferInEvent,
   CanadaTransferOutEvent,
 } from './canada-tax-types.js';
-
-const CANADA_CAPITAL_GAINS_INCLUSION_RATE = parseDecimal('0.5');
-
-function calculateTaxableGainLoss(gainLossCad: Decimal): Decimal {
-  // Superficial-loss denied amounts must be reflected in gainLossCad before the
-  // Canada inclusion rate is applied here.
-  return gainLossCad.times(CANADA_CAPITAL_GAINS_INCLUSION_RATE);
-}
 
 function getDateKey(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
@@ -112,7 +105,9 @@ export function buildCanadaTaxReport(params: {
         costBasisCad: disposition.costBasisCad,
         gainLossCad: disposition.gainLossCad,
         deniedLossCad,
-        taxableGainLossCad: calculateTaxableGainLoss(allowableGainLossCad),
+        // Superficial-loss denied amounts must be reflected in gainLossCad
+        // before the Canada inclusion rate is applied here.
+        taxableGainLossCad: allowableGainLossCad.times(CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE),
         acbPerUnitCad: disposition.acbPerUnitCad,
       };
     });
