@@ -22,6 +22,9 @@ or tax preparation workflows with:
 The package shape should be selected from `--jurisdiction`.
 The user should not need to specify a form name such as `us-8949`.
 
+Implementation should start from the package contract and readiness logic, not
+from CLI wiring. The CLI is a thin host for this feature, not its design center.
+
 ## Goals
 
 - Add `cost-basis export --format tax-package` as a first-class command.
@@ -78,7 +81,7 @@ Initial expectations:
 - `--format` accepts `tax-package`
 - `--jurisdiction` is required
 - `--tax-year` is required
-- `--output` points to a package directory or package path prefix
+- `--output` points to a package directory
 - `--json` remains CLI metadata output, not the package itself
 
 ### Domain Entry Point
@@ -99,6 +102,12 @@ export interface TaxPackageFile {
   content: string;
 }
 
+export interface ExportTaxPackageArtifactRef {
+  calculationId: string;
+  snapshotId: string;
+  scopeKey: string;
+}
+
 export async function exportTaxPackage(
   input: ExportTaxPackageInput,
   deps: {
@@ -109,6 +118,17 @@ export async function exportTaxPackage(
 ```
 
 The file writer is the only required infrastructure port for the export step.
+
+Recommended behavior:
+
+- `exportTaxPackage(...)` returns `Ok(...)` when package generation and writing
+  succeed, even if the resulting package status is `blocked`
+- render or write failures return `Err(...)`
+- readiness is package state, not transport failure
+- the CLI maps package status to exit code policy
+
+If we want early rejection before artifact reuse or rebuild, add a small pure
+scope validator in the domain and call it before invoking the artifact service.
 
 ## Readiness Model
 
@@ -133,13 +153,33 @@ Proposed issue classes:
 
 Rules:
 
-- `blocked` means export fails or emits only a manifest explaining why the
-  package cannot be used.
+- `blocked` means export writes a minimal package that explains why the package
+  cannot be used yet
 - `review_required` means export succeeds with explicit review items.
 - `ready` means no known blocking or review issues remain under the current
   ruleset.
 
 We should never silently hide readiness problems.
+
+Recommended exit behavior:
+
+- `ready` exits `0`
+- `review_required` exits `0`
+- `blocked` writes the package, then exits non-zero because the export
+  completed but the dataset is not filing-usable
+
+Recommended v1 CLI mapping:
+
+- use `ExitCodes.VALIDATION_ERROR` for `blocked`
+- reserve `Err(...)` for infrastructure, rendering, or unexpected domain errors
+
+The readiness gate should be pure logic:
+
+- input: `CostBasisWorkflowResult`, export scope metadata, jurisdiction config
+- output: `ready | review_required | blocked` with structured issue list
+- no I/O
+
+This makes the first PR small, deterministic, and test-heavy.
 
 ## Scope Rules
 
@@ -152,6 +192,10 @@ Initial rules:
 - reject custom partial date windows in v1
 - reject unsupported method and jurisdiction combinations when the package is
   meant to support filing
+
+These checks should happen before rendering work.
+Where possible, they should happen before artifact reuse or rebuild so we do not
+compute a workflow result for a request that can never produce a filing package.
 
 Example:
 
@@ -170,6 +214,8 @@ Proposed core fields:
 - `jurisdiction`
 - `taxYear`
 - `calculationId`
+- `snapshotId`
+- `scopeKey`
 - `generatedAt`
 - `method`
 - `taxCurrency`
@@ -179,6 +225,33 @@ Proposed core fields:
 
 The manifest should identify every generated file with logical purpose, not
 just filename.
+
+Issue records should use one shared schema across manifest and flat-file output.
+Recommended minimum fields:
+
+- `code`
+- `severity`
+- `summary`
+- `details`
+- `affectedLogicalName`
+- `affectedRowRef`
+
+Traceability should distinguish:
+
+- `calculationId`: the workflow calculation identifier embedded in lots, tax
+  reports, and summaries
+- `snapshotId`: the persisted latest-artifact snapshot identifier returned by
+  `CostBasisArtifactService`
+- `scopeKey`: the artifact cache key for the export scope
+
+Recommended `artifactIndex` fields:
+
+- `logicalName`
+- `relativePath`
+- `mediaType`
+- `purpose`
+- `rowCount` where applicable
+- `sha256` if we want cheap audit integrity in v1
 
 ## Jurisdiction Ownership
 
@@ -203,8 +276,12 @@ V1 Canada package should likely include:
 - acquisitions appendix
 - transfers appendix
 - superficial loss adjustments appendix
-- review items
+- issues
 - audit manifest
+
+Canada should be the first builder because the current output already speaks tax
+filing language closely enough that the package is mostly contract shaping and
+readiness policy, not conceptual remapping.
 
 ### US
 
@@ -215,7 +292,7 @@ US package likely needs:
 - short-term and long-term grouping
 - acquisition context for each disposal
 - transfer appendix where relevant
-- review items
+- issues
 - audit manifest
 
 US will likely need more shaping work than Canada because the current generic
@@ -225,25 +302,46 @@ pipeline is less explicitly modeled as a filing artifact.
 
 Phase 1 should be multi-file and text-first.
 
-Candidate file set:
+V1 should stay intentionally small.
+We should avoid emitting multiple representations of the same information unless
+they serve different user jobs.
+
+Recommended default file set:
 
 - `manifest.json`
-- `summary.json`
-- `summary.csv`
-- `dispositions.csv`
-- `review-items.csv`
 - `report.md`
-
-Canada-specific files:
-
+- `dispositions.csv`
 - `acquisitions.csv`
 - `transfers.csv`
+
+Conditional files:
+
+- `issues.csv`
 - `superficial-loss-adjustments.csv`
+- `lots.csv` when a jurisdiction needs separate lot-level acquisition context
+  that does not fit cleanly in `dispositions.csv`
 
-US-specific files:
+`blocked` should still emit at least:
 
-- `lots.csv`
-- `transfers.csv`
+- `manifest.json`
+- `issues.csv`
+- `report.md`
+
+File roles:
+
+- `report.md` is the human entrypoint and should contain readiness status,
+  totals, issue summary, and a short explanation of each attached file
+- `manifest.json` is the stable machine-readable contract and audit index
+- `dispositions.csv` is the primary filing-support table
+- `acquisitions.csv` and `transfers.csv` are audit/support appendices worth
+  keeping because they are useful and low-cost to produce
+
+What v1 should not do:
+
+- emit both `summary.json` and `summary.csv`
+- duplicate package summary data across multiple standalone files without a
+  clear downstream consumer
+- create jurisdiction-specific appendices that are always empty or rarely used
 
 We should not block the feature on PDF.
 If we add PDF later, it should render from the same domain-owned report model.
@@ -256,13 +354,31 @@ The CLI host should reuse the existing cost-basis execution path to obtain a
 Expected host flow:
 
 1. parse export flags
-2. build cost-basis input
-3. execute or reuse the current stored artifact
-4. construct the concrete file writer
-5. call `exportTaxPackage(...)`
-6. print paths and readiness status
+2. run domain scope validation for `tax-package`
+3. build cost-basis input
+4. call `CostBasisArtifactService.execute(...)`
+5. construct the concrete file writer
+6. call `exportTaxPackage(...)`
+7. print paths and readiness status
+8. map package status to CLI exit code policy
 
 This keeps the host thin while still letting the domain own the export package.
+
+The artifact service already gives us the right seam:
+
+- reuse vs rebuild stays in accounting
+- tax-package export does not need its own cache policy
+- manifest traceability can include `snapshotId`, `scopeKey`, and
+  `calculationId`
+
+The CLI file-writer implementation should either:
+
+- stage writes into a temporary sibling directory and rename on success, or
+- validate directory creation and writability before expensive rendering if full
+  atomic replacement is not worth the complexity in v1
+
+We should not spend time rendering a full package only to discover the target
+directory is not writable.
 
 ## Suggested Package Structure
 
@@ -270,7 +386,7 @@ Candidate module layout:
 
 - `packages/accounting/src/cost-basis/export/tax-package-types.ts`
 - `packages/accounting/src/cost-basis/export/tax-package-review-gate.ts`
-- `packages/accounting/src/cost-basis/export/tax-package-render-model.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-scope-validator.ts`
 - `packages/accounting/src/cost-basis/export/tax-package-exporter.ts`
 - `packages/accounting/src/cost-basis/export/canada-tax-package-builder.ts`
 - `packages/accounting/src/cost-basis/export/us-tax-package-builder.ts`
@@ -283,43 +399,88 @@ CLI side:
 
 ### Phase 1
 
-- dev/spec docs
-- command surface
-- domain package contract
-- readiness gate
-- JSON/CSV/Markdown package output
-- Canada and US support
+Types and readiness gate.
+
+Recommended first PR:
+
+- `tax-package-types.ts`
+- `tax-package-review-gate.ts`
+- `tax-package-scope-validator.ts`
+- unit tests for status and issue classification
+
+Deliverables:
+
+- stable package/result types
+- structured issue model
+- pure readiness classification
+- pure scope validation
 
 ### Phase 2
 
-- HTML and PDF rendering
-- print-friendly cover sheet
-- reconciliation appendix
-- better accountant-facing narrative formatting
+Canada builder.
+
+Recommended second PR:
+
+- `canada-tax-package-builder.ts`
+- jurisdiction-owned CSV, JSON, and Markdown renderers inline with the builder
+- package contract tests for deterministic file names and conditional file
+  presence
+
+Deliverables:
+
+- first end-to-end jurisdiction package
+- manifest generation
+- blocked/review/ready package rendering
 
 ### Phase 3
 
-- package validation tooling
-- machine-readable downstream integrations
-- import adapters for external tax software if justified
+Exporter orchestrator and CLI wiring.
 
-## Open Questions
+Recommended third PR:
 
-- Should `blocked` prevent all file output, or should we still emit a manifest
-  plus issue report?
-- Should `review_required` be considered a successful exit code or a special
-  non-zero code?
-- Should `--output` always mean directory for `tax-package`, even if other
-  export commands treat it as a single file path?
-- Do we want one common `report.md` format across jurisdictions, or
-  jurisdiction-owned markdown templates?
-- How much of the package schema should be shared versus jurisdiction-specific?
+- `tax-package-exporter.ts`
+- CLI `cost-basis-export.ts`
+- filesystem writer implementation
+- artifact-service reuse through `CostBasisArtifactService.execute(...)`
 
-## Current Leaning
+Deliverables:
 
-- Keep tax-package assembly in the domain.
-- Pass in only a file-writer port from the host.
-- Make Canada the first high-confidence package because the domain model is
-  already closer to filing language.
-- Keep PDF out of the first delivery unless it falls out naturally from the
-  render model.
+- end-to-end command path
+- exit-code policy
+- output directory handling
+- traceability fields populated from artifact execution
+
+### Phase 4
+
+US builder.
+
+Recommended fourth PR:
+
+- `us-tax-package-builder.ts`
+- explicit short-term and long-term shaping
+- lot-to-disposal acquisition context rules
+
+Deliverables:
+
+- second jurisdiction package
+- validation that the common manifest contract is sufficient even when content
+  files differ materially by jurisdiction
+
+## Recommended Decisions
+
+- Start from the contract layer, not the CLI.
+- Keep one common manifest schema and let jurisdictions own content files.
+- Treat `--output` as a directory for `tax-package`.
+- Keep `report.md` structurally similar where useful, but jurisdiction builders
+  own their sections and narratives.
+- Keep the default package small: one human entrypoint, one manifest, one
+  primary detail CSV, plus a short list of genuinely useful appendices.
+- Write a minimal package for `blocked` instead of failing silently or emitting
+  nothing.
+- Treat `review_required` as successful export with explicit issues.
+- Keep PDF and external tax-software adapters out of the first delivery.
+
+## Remaining Questions
+
+- Is `sha256` in `artifactIndex` worth the small extra work in v1, or should it
+  wait until package validation tooling lands?
