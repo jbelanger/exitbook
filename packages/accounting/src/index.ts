@@ -8,9 +8,23 @@
 // Configuration
 export type { FiatCurrency } from './cost-basis/shared/cost-basis-config.js';
 export { getDefaultDateRange } from './cost-basis/shared/cost-basis-config.js';
+export type { CostBasisJurisdiction, CostBasisMethod } from './cost-basis/jurisdictions/jurisdiction-configs.js';
+export {
+  getDefaultCostBasisCurrencyForJurisdiction,
+  getDefaultCostBasisMethodForJurisdiction,
+  listCostBasisJurisdictionCapabilities,
+  listCostBasisMethodCapabilitiesForJurisdiction,
+  SUPPORTED_COST_BASIS_FIAT_CURRENCIES,
+} from './cost-basis/jurisdictions/jurisdiction-configs.js';
 
 // Domain types
-export type { AcquisitionLot, LotDisposal, LotTransfer, TaxAssetIdentityPolicy } from './cost-basis/shared/types.js';
+export type {
+  AcquisitionLot,
+  CostBasisMethodSupport,
+  LotDisposal,
+  LotTransfer,
+  TaxAssetIdentityPolicy,
+} from './cost-basis/shared/types.js';
 export type {
   AccountingExclusionApplyResult,
   AccountingExclusionPolicy,

@@ -20,9 +20,6 @@ export interface CostBasisCommandOptions {
  * Build cost basis input from CLI flags
  */
 export function buildCostBasisInputFromFlags(options: CostBasisCommandOptions): Result<CostBasisInput, Error> {
-  if (!options.method) {
-    return err(new Error('--method is required (fifo, lifo, specific-id, average-cost)'));
-  }
   if (!options.jurisdiction) {
     return err(new Error('--jurisdiction is required (CA, US, UK, EU)'));
   }

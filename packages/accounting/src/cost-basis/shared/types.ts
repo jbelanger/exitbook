@@ -4,6 +4,7 @@
 export type {
   AcquisitionLot,
   CostBasisCalculation,
+  CostBasisMethodSupport,
   JurisdictionConfig,
   LotDisposal,
   LotStatus,

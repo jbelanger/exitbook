@@ -3,7 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { buildCostBasisInputFromFlags, type CostBasisCommandOptions } from './cost-basis-utils.js';
 
 describe('buildCostBasisInputFromFlags', () => {
-  it('should error if method is missing', () => {
+  it('should infer average-cost when CA is selected without a method', () => {
+    const options: CostBasisCommandOptions = {
+      jurisdiction: 'CA',
+      taxYear: 2024,
+    };
+
+    const result = buildCostBasisInputFromFlags(options);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.config.method).toBe('average-cost');
+    }
+  });
+
+  it('should error if method is missing for jurisdictions with multiple supported methods', () => {
     const options: CostBasisCommandOptions = {
       jurisdiction: 'US',
       taxYear: 2024,
@@ -13,7 +27,8 @@ describe('buildCostBasisInputFromFlags', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('--method is required');
+      expect(result.error.message).toContain("--method is required for jurisdiction 'US'");
+      expect(result.error.message).toContain('fifo, lifo');
     }
   });
 

@@ -1,4 +1,40 @@
-import type { JurisdictionConfig } from '../shared/types.js';
+import type { CostBasisConfig, FiatCurrency } from '../shared/cost-basis-config.js';
+import type { CostBasisMethodSupport, JurisdictionConfig } from '../shared/types.js';
+
+export type CostBasisMethod = CostBasisConfig['method'];
+export type CostBasisJurisdiction = CostBasisConfig['jurisdiction'];
+
+export const SUPPORTED_COST_BASIS_FIAT_CURRENCIES: FiatCurrency[] = ['USD', 'CAD', 'EUR', 'GBP'];
+
+const US_METHODS: CostBasisMethodSupport[] = [
+  {
+    code: 'fifo',
+    label: 'FIFO (First In, First Out)',
+    description: 'Dispose oldest lots first',
+    implemented: true,
+  },
+  {
+    code: 'lifo',
+    label: 'LIFO (Last In, First Out)',
+    description: 'Dispose newest lots first',
+    implemented: true,
+  },
+  {
+    code: 'specific-id',
+    label: 'Specific Lot Identification',
+    description: 'Choose specific lots for each disposal',
+    implemented: false,
+  },
+];
+
+const CANADA_METHODS: CostBasisMethodSupport[] = [
+  {
+    code: 'average-cost',
+    label: 'Average Cost (ACB)',
+    description: 'CRA pooled Adjusted Cost Base workflow',
+    implemented: true,
+  },
+];
 
 /**
  * Predefined jurisdiction configurations for major tax jurisdictions.
@@ -12,24 +48,41 @@ import type { JurisdictionConfig } from '../shared/types.js';
 export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
   US: {
     code: 'US',
+    label: 'United States (US)',
+    defaultCurrency: 'USD',
+    costBasisImplemented: true,
+    supportedMethods: US_METHODS,
     sameAssetTransferFeePolicy: 'disposal',
     taxAssetIdentityPolicy: 'strict-onchain-tokens',
     relaxedTaxIdentitySymbols: [],
   },
   CA: {
     code: 'CA',
+    label: 'Canada (CA)',
+    defaultCurrency: 'CAD',
+    costBasisImplemented: true,
+    supportedMethods: CANADA_METHODS,
+    defaultMethod: 'average-cost',
     sameAssetTransferFeePolicy: 'add-to-basis',
     taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
     relaxedTaxIdentitySymbols: ['usdc'],
   },
   UK: {
     code: 'UK',
+    label: 'United Kingdom (UK)',
+    defaultCurrency: 'GBP',
+    costBasisImplemented: false,
+    supportedMethods: US_METHODS,
     sameAssetTransferFeePolicy: 'disposal',
     taxAssetIdentityPolicy: 'strict-onchain-tokens',
     relaxedTaxIdentitySymbols: [],
   },
   EU: {
     code: 'EU',
+    label: 'European Union (EU)',
+    defaultCurrency: 'EUR',
+    costBasisImplemented: false,
+    supportedMethods: US_METHODS,
     sameAssetTransferFeePolicy: 'disposal',
     taxAssetIdentityPolicy: 'strict-onchain-tokens',
     relaxedTaxIdentitySymbols: [],
@@ -53,4 +106,24 @@ export function requireJurisdictionConfig(code: JurisdictionConfig['code']): Jur
   }
 
   return config;
+}
+
+export function listCostBasisJurisdictionCapabilities(): JurisdictionConfig[] {
+  return Object.values(JURISDICTION_CONFIGS);
+}
+
+export function listCostBasisMethodCapabilitiesForJurisdiction(
+  jurisdiction: CostBasisJurisdiction
+): CostBasisMethodSupport[] {
+  return requireJurisdictionConfig(jurisdiction).supportedMethods;
+}
+
+export function getDefaultCostBasisCurrencyForJurisdiction(jurisdiction: CostBasisJurisdiction): FiatCurrency {
+  return requireJurisdictionConfig(jurisdiction).defaultCurrency;
+}
+
+export function getDefaultCostBasisMethodForJurisdiction(
+  jurisdiction: CostBasisJurisdiction
+): CostBasisMethod | undefined {
+  return requireJurisdictionConfig(jurisdiction).defaultMethod;
 }

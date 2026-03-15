@@ -1,3 +1,4 @@
+import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
@@ -154,10 +155,10 @@ export function registerCostBasisCommand(program: Command, registry: AdapterRegi
   program
     .command('cost-basis')
     .description('Calculate cost basis and capital gains/losses for tax reporting')
-    .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost')
+    .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost (CA defaults to ACB)')
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US, UK, EU')
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')
-    .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
+    .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP (defaults by jurisdiction)')
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
@@ -247,8 +248,14 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
 
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: CostBasisInput;
-      if (!options.method && !options.jurisdiction && !options.taxYear) {
-        const promptResult = await promptForCostBasisParams();
+      const defaultMethodForJurisdiction = options.jurisdiction
+        ? getDefaultCostBasisMethodForJurisdiction(options.jurisdiction as CostBasisJurisdiction)
+        : undefined;
+      const needsPrompt =
+        !options.jurisdiction || !options.taxYear || (!options.method && !defaultMethodForJurisdiction);
+
+      if (needsPrompt) {
+        const promptResult = await promptForCostBasisParams(options);
         if (!promptResult) {
           console.log('\nCost basis calculation cancelled');
           return;

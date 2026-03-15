@@ -269,6 +269,27 @@ describe('cost-basis-utils', () => {
         const resultError = assertErr(result);
         expect(resultError.message).toContain('supports only average-cost');
       });
+
+      it('should infer average-cost when Canada omits method', () => {
+        const result = buildCostBasisInput({
+          jurisdiction: 'CA',
+          taxYear: 2024,
+        });
+
+        const resultValue = assertOk(result);
+        expect(resultValue.config.method).toBe('average-cost');
+      });
+
+      it('should error when method is omitted for US', () => {
+        const result = buildCostBasisInput({
+          jurisdiction: 'US',
+          taxYear: 2024,
+        });
+
+        const resultError = assertErr(result);
+        expect(resultError.message).toContain("--method is required for jurisdiction 'US'");
+        expect(resultError.message).toContain('fifo, lifo');
+      });
     });
   });
 

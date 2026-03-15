@@ -1,185 +1,156 @@
 import {
-  getDefaultDateRange,
+  buildCostBasisInput,
+  getDefaultCostBasisMethodForJurisdiction,
+  listCostBasisJurisdictionCapabilities,
+  listCostBasisMethodCapabilitiesForJurisdiction,
   type CostBasisInput,
-  type FiatCurrency,
-  type ValidatedCostBasisConfig,
+  type CostBasisJurisdiction,
+  type CostBasisMethod,
 } from '@exitbook/accounting';
 import { Box, render, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 
-import { ConfirmPrompt } from '../../../ui/shared/ConfirmPrompt.jsx';
 import { SelectPrompt, type SelectOption } from '../../../ui/shared/SelectPrompt.jsx';
 import { TextPrompt } from '../../../ui/shared/TextPrompt.jsx';
 
-type Jurisdiction = 'CA' | 'US';
-type Method = 'fifo' | 'lifo' | 'average-cost';
-
 /** Steps in the cost basis prompt flow */
-type PromptStep =
-  | 'jurisdiction'
-  | 'method'
-  | 'tax-year'
-  | 'currency'
-  | 'use-custom-dates'
-  | 'start-date'
-  | 'end-date'
-  | 'confirm';
+type PromptStep = 'jurisdiction' | 'method' | 'tax-year';
 
 /** Collected answers as we progress through steps */
 interface PromptAnswers {
-  jurisdiction?: Jurisdiction | undefined;
-  method?: Method | undefined;
+  jurisdiction?: CostBasisJurisdiction | undefined;
+  method?: CostBasisMethod | undefined;
   taxYear?: number | undefined;
-  currency?: FiatCurrency | undefined;
-  useCustomDates?: boolean | undefined;
-  startDate?: string | undefined;
+}
+
+interface PromptSeedValues {
   endDate?: string | undefined;
+  fiatCurrency?: string | undefined;
+  jurisdiction?: string | undefined;
+  method?: string | undefined;
+  startDate?: string | undefined;
+  taxYear?: number | string | undefined;
 }
 
 // ─── Option builders ─────────────────────────────────────────────────────────
 
-const jurisdictionOptions: SelectOption[] = [
-  { label: 'Canada (CA)', value: 'CA' },
-  { label: 'United States (US)', value: 'US' },
-  { label: 'United Kingdom (UK) - coming soon', value: 'UK', hint: 'Not yet implemented', disabled: true },
-  { label: 'European Union (EU) - coming soon', value: 'EU', hint: 'Not yet implemented', disabled: true },
-];
+const jurisdictionOptions: SelectOption[] = listCostBasisJurisdictionCapabilities().map((capability) => ({
+  label: capability.costBasisImplemented ? capability.label : `${capability.label} - coming soon`,
+  value: capability.code,
+  hint: capability.costBasisImplemented ? undefined : 'Not yet implemented',
+  disabled: !capability.costBasisImplemented,
+}));
 
-function buildMethodOptions(jurisdiction: Jurisdiction): SelectOption[] {
-  const options: SelectOption[] =
-    jurisdiction === 'CA'
-      ? [
-          {
-            label: 'Average Cost (ACB)',
-            value: 'average-cost',
-            hint: 'CRA pooled Adjusted Cost Base workflow',
-          },
-        ]
-      : [
-          { label: 'FIFO (First In, First Out)', value: 'fifo' },
-          { label: 'LIFO (Last In, First Out)', value: 'lifo' },
-        ];
-
-  if (jurisdiction !== 'CA') {
-    options.push({
-      label: 'Average Cost (ACB)',
-      value: 'average-cost',
-      hint: 'Canada only',
-      disabled: true,
-    });
-  }
-
-  options.push({
-    label: 'Specific Lot Identification (coming soon)',
-    value: 'specific-id',
-    hint: 'Not yet implemented',
-    disabled: true,
-  });
-
-  return options;
+function buildMethodOptions(jurisdiction: CostBasisJurisdiction): SelectOption[] {
+  return listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction).map((capability) => ({
+    label: capability.implemented ? capability.label : `${capability.label} (coming soon)`,
+    value: capability.code,
+    hint: capability.implemented ? capability.description : 'Not yet implemented',
+    disabled: !capability.implemented,
+  }));
 }
 
-const currencyOptions: SelectOption[] = [
-  { label: 'US Dollar (USD)', value: 'USD' },
-  { label: 'Canadian Dollar (CAD)', value: 'CAD' },
-  { label: 'Euro (EUR)', value: 'EUR' },
-  { label: 'British Pound (GBP)', value: 'GBP' },
-];
+function isJurisdiction(value: string | undefined): value is CostBasisJurisdiction {
+  return listCostBasisJurisdictionCapabilities().some((capability) => capability.code === value);
+}
+
+function isMethod(value: string | undefined): value is CostBasisMethod {
+  if (!value) {
+    return false;
+  }
+
+  return listCostBasisJurisdictionCapabilities().some((jurisdiction) =>
+    listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction.code).some((capability) => capability.code === value)
+  );
+}
+
+function getInitialAnswers(initialValues: PromptSeedValues): PromptAnswers {
+  const jurisdiction = isJurisdiction(initialValues.jurisdiction) ? initialValues.jurisdiction : undefined;
+  const method = isMethod(initialValues.method) ? initialValues.method : undefined;
+  const taxYear =
+    typeof initialValues.taxYear === 'number'
+      ? initialValues.taxYear
+      : typeof initialValues.taxYear === 'string'
+        ? Number.parseInt(initialValues.taxYear, 10)
+        : undefined;
+
+  return {
+    jurisdiction,
+    method: jurisdiction ? (getDefaultCostBasisMethodForJurisdiction(jurisdiction) ?? method) : method,
+    taxYear: Number.isNaN(taxYear) ? undefined : taxYear,
+  };
+}
+
+function getPromptStep(answers: PromptAnswers): PromptStep {
+  if (!answers.jurisdiction) {
+    return 'jurisdiction';
+  }
+
+  if (!answers.method) {
+    return 'method';
+  }
+
+  return 'tax-year';
+}
 
 // ─── Main prompt app ─────────────────────────────────────────────────────────
 
 interface CostBasisPromptAppProps {
+  initialValues: PromptSeedValues;
   onComplete: (params: CostBasisInput) => void;
   onCancel: () => void;
+  onError: (error: Error) => void;
 }
 
-const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel }) => {
-  const [step, setStep] = useState<PromptStep>('jurisdiction');
-  const [answers, setAnswers] = useState<PromptAnswers>({});
+const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComplete, onCancel, onError }) => {
+  const [answers, setAnswers] = useState<PromptAnswers>(() => getInitialAnswers(initialValues));
+  const [step, setStep] = useState<PromptStep>(() => getPromptStep(getInitialAnswers(initialValues)));
 
   const currentYear = new Date().getUTCFullYear();
 
   // Step transitions
   const handleJurisdiction = (value: string): void => {
-    const jurisdiction = value as Jurisdiction;
-    setAnswers((prev) => ({ ...prev, jurisdiction }));
-    setStep('method');
+    const jurisdiction = value as CostBasisJurisdiction;
+    const method = getDefaultCostBasisMethodForJurisdiction(jurisdiction);
+    setAnswers((prev) => ({ ...prev, jurisdiction, method }));
+    setStep(method ? 'tax-year' : 'method');
   };
 
   const handleMethod = (value: string): void => {
-    const method = value as Method;
+    const method = value as CostBasisMethod;
     setAnswers((prev) => ({ ...prev, method }));
     setStep('tax-year');
   };
 
   const handleTaxYear = (value: string): void => {
     const taxYear = parseInt(value, 10);
-    setAnswers((prev) => ({ ...prev, taxYear }));
-    setStep('currency');
-  };
+    const nextAnswers = { ...answers, taxYear };
+    setAnswers(nextAnswers);
 
-  const handleCurrency = (value: string): void => {
-    setAnswers((prev) => ({ ...prev, currency: value as FiatCurrency }));
-    setStep('use-custom-dates');
-  };
+    const inputResult = buildCostBasisInput({
+      jurisdiction: nextAnswers.jurisdiction!,
+      method: nextAnswers.method,
+      taxYear: nextAnswers.taxYear,
+      fiatCurrency: initialValues.fiatCurrency,
+      startDate: initialValues.startDate,
+      endDate: initialValues.endDate,
+    });
 
-  const handleUseCustomDates = (value: boolean): void => {
-    setAnswers((prev) => ({ ...prev, useCustomDates: value }));
-    if (value) {
-      setStep('start-date');
-    } else {
-      setStep('confirm');
-    }
-  };
-
-  const handleStartDate = (value: string): void => {
-    setAnswers((prev) => ({ ...prev, startDate: value }));
-    setStep('end-date');
-  };
-
-  const handleEndDate = (value: string): void => {
-    setAnswers((prev) => ({ ...prev, endDate: value }));
-    setStep('confirm');
-  };
-
-  const handleConfirm = (value: boolean): void => {
-    if (!value) {
-      onCancel();
+    if (inputResult.isErr()) {
+      onError(inputResult.error);
       return;
     }
 
-    const { jurisdiction, method, taxYear, currency, useCustomDates, startDate, endDate } = answers;
-
-    let start: Date;
-    let end: Date;
-
-    if (useCustomDates && startDate && endDate) {
-      start = new Date(startDate);
-      end = new Date(endDate);
-    } else {
-      const defaultRange = getDefaultDateRange(taxYear!, jurisdiction!);
-      start = defaultRange.startDate;
-      end = defaultRange.endDate;
-    }
-
-    const config: ValidatedCostBasisConfig = {
-      method: method!,
-      jurisdiction: jurisdiction!,
-      taxYear: taxYear!,
-      currency: currency!,
-      startDate: start,
-      endDate: end,
-    };
-
-    onComplete({ config });
+    onComplete(inputResult.value);
   };
-
-  const defaultCurrency = answers.jurisdiction === 'CA' ? 'CAD' : 'USD';
 
   return (
     <Box flexDirection="column">
       <Text> </Text>
       <Text bold>exitbook cost-basis</Text>
+      <Text dimColor>
+        Uses the full tax year and the jurisdiction default fiat currency unless flags override them.
+      </Text>
       <Text> </Text>
 
       {step === 'jurisdiction' && (
@@ -196,7 +167,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
         <SelectPrompt
           message="Select cost basis calculation method:"
           options={buildMethodOptions(answers.jurisdiction!)}
-          initialValue={answers.jurisdiction === 'CA' ? 'average-cost' : 'fifo'}
+          initialValue={getDefaultCostBasisMethodForJurisdiction(answers.jurisdiction!) ?? 'fifo'}
           onSubmit={handleMethod}
           onCancel={onCancel}
         />
@@ -216,66 +187,6 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
           onCancel={onCancel}
         />
       )}
-
-      {step === 'currency' && (
-        <SelectPrompt
-          message="Select fiat currency for cost basis:"
-          options={currencyOptions}
-          initialValue={defaultCurrency}
-          onSubmit={handleCurrency}
-          onCancel={onCancel}
-        />
-      )}
-
-      {step === 'use-custom-dates' && (
-        <ConfirmPrompt
-          message="Use custom date range? (default: full tax year)"
-          initialValue={false}
-          onSubmit={handleUseCustomDates}
-          onCancel={onCancel}
-        />
-      )}
-
-      {step === 'start-date' && (
-        <TextPrompt
-          message="Enter start date (YYYY-MM-DD):"
-          placeholder={`${answers.taxYear}-01-01`}
-          validate={(value: string) => {
-            if (!value) return 'Start date is required';
-            const date = new Date(value);
-            if (isNaN(date.getTime())) return 'Invalid date format. Use YYYY-MM-DD';
-          }}
-          onSubmit={handleStartDate}
-          onCancel={onCancel}
-        />
-      )}
-
-      {step === 'end-date' && (
-        <TextPrompt
-          message="Enter end date (YYYY-MM-DD):"
-          placeholder={`${answers.taxYear}-12-31`}
-          validate={(value: string) => {
-            if (!value) return 'End date is required';
-            const date = new Date(value);
-            if (isNaN(date.getTime())) return 'Invalid date format. Use YYYY-MM-DD';
-            if (answers.startDate) {
-              const start = new Date(answers.startDate);
-              if (date <= start) return 'End date must be after start date';
-            }
-          }}
-          onSubmit={handleEndDate}
-          onCancel={onCancel}
-        />
-      )}
-
-      {step === 'confirm' && (
-        <ConfirmPrompt
-          message="Start cost basis calculation?"
-          initialValue={true}
-          onSubmit={handleConfirm}
-          onCancel={onCancel}
-        />
-      )}
     </Box>
   );
 };
@@ -284,10 +195,11 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ onComplete, onCancel 
  * Prompt user for cost basis parameters in interactive mode using Ink.
  * Returns null if the user cancels.
  */
-export async function promptForCostBasisParams(): Promise<CostBasisInput | null> {
-  return new Promise<CostBasisInput | null>((resolve) => {
+export async function promptForCostBasisParams(initialValues: PromptSeedValues = {}): Promise<CostBasisInput | null> {
+  return new Promise<CostBasisInput | null>((resolve, reject) => {
     const { unmount } = render(
       React.createElement(CostBasisPromptApp, {
+        initialValues,
         onComplete: (params: CostBasisInput) => {
           unmount();
           resolve(params);
@@ -295,6 +207,10 @@ export async function promptForCostBasisParams(): Promise<CostBasisInput | null>
         onCancel: () => {
           unmount();
           resolve(null);
+        },
+        onError: (error: Error) => {
+          unmount();
+          reject(error);
         },
       })
     );

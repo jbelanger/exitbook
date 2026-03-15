@@ -11,6 +11,12 @@ import type { Decimal } from 'decimal.js';
 
 import type { IJurisdictionRules } from '../jurisdictions/base-rules.js';
 import { CanadaRules } from '../jurisdictions/canada-rules.js';
+import {
+  getDefaultCostBasisCurrencyForJurisdiction,
+  listCostBasisJurisdictionCapabilities,
+  listCostBasisMethodCapabilitiesForJurisdiction,
+  SUPPORTED_COST_BASIS_FIAT_CURRENCIES,
+} from '../jurisdictions/jurisdiction-configs.js';
 import { USRules } from '../jurisdictions/us-rules.js';
 import type {
   AccountingScopedBuildResult,
@@ -41,18 +47,53 @@ export interface CostBasisInput {
  * Validate cost basis method
  */
 function validateMethod(method: string): Result<CostBasisConfig['method'], Error> {
-  const validMethods: CostBasisConfig['method'][] = ['fifo', 'lifo', 'specific-id', 'average-cost'];
+  const validMethods = Array.from(
+    new Set(
+      listCostBasisJurisdictionCapabilities().flatMap((jurisdiction) =>
+        jurisdiction.supportedMethods.map((methodCapability) => methodCapability.code)
+      )
+    )
+  );
   if (!validMethods.includes(method as CostBasisConfig['method'])) {
     return err(new Error(`Invalid method '${method}'. Must be one of: ${validMethods.join(', ')}`));
   }
   return ok(method as CostBasisConfig['method']);
 }
 
+function getSelectableMethodsForJurisdiction(
+  jurisdiction: CostBasisConfig['jurisdiction']
+): CostBasisConfig['method'][] {
+  return listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction)
+    .filter((capability) => capability.implemented)
+    .map((capability) => capability.code);
+}
+
+function resolveMethod(
+  method: string | undefined,
+  jurisdiction: CostBasisConfig['jurisdiction']
+): Result<CostBasisConfig['method'], Error> {
+  if (method) {
+    return validateMethod(method);
+  }
+
+  const selectableMethods = getSelectableMethodsForJurisdiction(jurisdiction);
+  const [singleMethod] = selectableMethods;
+  if (singleMethod && selectableMethods.length === 1) {
+    return ok(singleMethod);
+  }
+
+  return err(
+    new Error(
+      `--method is required for jurisdiction '${jurisdiction}'. Available methods: ${selectableMethods.join(', ')}`
+    )
+  );
+}
+
 /**
  * Validate jurisdiction
  */
 function validateJurisdiction(jurisdiction: string): Result<CostBasisConfig['jurisdiction'], Error> {
-  const validJurisdictions: CostBasisConfig['jurisdiction'][] = ['CA', 'US', 'UK', 'EU'];
+  const validJurisdictions = listCostBasisJurisdictionCapabilities().map((capability) => capability.code);
   if (!validJurisdictions.includes(jurisdiction as CostBasisConfig['jurisdiction'])) {
     return err(new Error(`Invalid jurisdiction '${jurisdiction}'. Must be one of: ${validJurisdictions.join(', ')}`));
   }
@@ -80,7 +121,7 @@ function validateMethodJurisdictionCombination(
  * Validate fiat currency
  */
 function validateFiatCurrency(currency: string): Result<FiatCurrency, Error> {
-  const validCurrencies: FiatCurrency[] = ['USD', 'CAD', 'EUR', 'GBP'];
+  const validCurrencies = SUPPORTED_COST_BASIS_FIAT_CURRENCIES;
   if (!validCurrencies.includes(currency as FiatCurrency)) {
     return err(new Error(`Invalid fiat currency '${currency}'. Must be one of: ${validCurrencies.join(', ')}`));
   }
@@ -105,13 +146,7 @@ function validateTaxYear(year: number | string): Result<number, Error> {
  * Get default fiat currency for jurisdiction
  */
 function getDefaultCurrency(jurisdiction: CostBasisConfig['jurisdiction']): FiatCurrency {
-  const currencyMap: Record<CostBasisConfig['jurisdiction'], FiatCurrency> = {
-    CA: 'CAD',
-    US: 'USD',
-    UK: 'GBP',
-    EU: 'EUR',
-  };
-  return currencyMap[jurisdiction];
+  return getDefaultCostBasisCurrencyForJurisdiction(jurisdiction);
 }
 
 /**
@@ -163,17 +198,17 @@ export function buildCostBasisInput(fields: {
   endDate?: string | undefined;
   fiatCurrency?: string | undefined;
   jurisdiction: string;
-  method: string;
+  method?: string | undefined;
   startDate?: string | undefined;
   taxYear: number | string;
 }): Result<CostBasisInput, Error> {
-  const methodResult = validateMethod(fields.method);
-  if (methodResult.isErr()) return err(methodResult.error);
-  const method = methodResult.value;
-
   const jurisdictionResult = validateJurisdiction(fields.jurisdiction);
   if (jurisdictionResult.isErr()) return err(jurisdictionResult.error);
   const jurisdiction = jurisdictionResult.value;
+
+  const methodResult = resolveMethod(fields.method, jurisdiction);
+  if (methodResult.isErr()) return err(methodResult.error);
+  const method = methodResult.value;
 
   const combinationResult = validateMethodJurisdictionCombination(method, jurisdiction);
   if (combinationResult.isErr()) return err(combinationResult.error);

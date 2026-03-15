@@ -5,14 +5,21 @@ import { z } from 'zod';
  * Zod schemas for validation and parsing
  */
 
-const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
+export const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
 
-const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
+export const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 
-const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
+export const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
 const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
 export const TaxAssetIdentityPolicySchema = z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']);
+
+export const CostBasisMethodSupportSchema = z.object({
+  code: CostBasisMethodSchema,
+  description: z.string().min(1),
+  implemented: z.boolean(),
+  label: z.string().min(1),
+});
 
 const VarianceToleranceSchema = z.object({
   warn: z.number().nonnegative(),
@@ -21,6 +28,11 @@ const VarianceToleranceSchema = z.object({
 
 export const JurisdictionConfigSchema = z.object({
   code: JurisdictionSchema,
+  label: z.string().min(1),
+  defaultCurrency: FiatCurrencySchema,
+  costBasisImplemented: z.boolean(),
+  supportedMethods: z.array(CostBasisMethodSupportSchema).min(1),
+  defaultMethod: CostBasisMethodSchema.optional(),
   sameAssetTransferFeePolicy: SameAssetTransferFeePolicySchema,
   taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema,
   relaxedTaxIdentitySymbols: z.array(z.string().min(1)),
@@ -142,5 +154,6 @@ export type LotDisposal = z.infer<typeof LotDisposalSchema>;
 export type LotTransfer = z.infer<typeof LotTransferSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
 export type LotStatus = z.infer<typeof LotStatusSchema>;
+export type CostBasisMethodSupport = z.infer<typeof CostBasisMethodSupportSchema>;
 export type JurisdictionConfig = z.infer<typeof JurisdictionConfigSchema>;
 export type TaxAssetIdentityPolicy = z.infer<typeof TaxAssetIdentityPolicySchema>;
