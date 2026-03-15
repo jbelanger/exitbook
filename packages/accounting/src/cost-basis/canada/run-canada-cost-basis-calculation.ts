@@ -3,12 +3,10 @@ import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import type {
-  CostBasisExecutionMeta,
-  CanadaCostBasisWorkflowResult,
-} from '../orchestration/cost-basis-workflow-types.js';
-import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
-import { getCostBasisRebuildTransactions, type CostBasisInput } from '../shared/cost-basis-utils.js';
+import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
+import type { CostBasisInput } from '../workflow/cost-basis-input.js';
+import { getCostBasisRebuildTransactions } from '../workflow/price-completeness.js';
+import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
 import { runCanadaAcbWorkflow } from './canada-acb-workflow.js';

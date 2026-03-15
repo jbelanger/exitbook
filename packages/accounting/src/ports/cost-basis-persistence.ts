@@ -24,7 +24,7 @@ export interface CostBasisDependencyWatermark {
   exclusionFingerprint: string;
 }
 
-export type CostBasisArtifactKind = 'generic' | 'canada';
+export type CostBasisArtifactKind = 'standard' | 'canada';
 export type CostBasisFailureConsumer = 'cost-basis' | 'portfolio';
 
 export interface CostBasisSnapshotRecord {

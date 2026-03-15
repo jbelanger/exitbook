@@ -7,7 +7,7 @@ import type { Decimal } from 'decimal.js';
 import {
   buildCostBasisScopedTransactions,
   type AccountingScopedTransaction,
-} from '../../cost-basis/matching/build-cost-basis-scoped-transactions.js';
+} from '../../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
 import type { ILinkingPersistence } from '../../ports/linking-persistence.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildMatchingConfig } from '../matching/matching-config.js';

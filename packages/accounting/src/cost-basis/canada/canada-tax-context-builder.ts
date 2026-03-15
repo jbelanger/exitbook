@@ -4,8 +4,8 @@ import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
-} from '../matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../matching/validated-scoped-transfer-links.js';
+} from '../standard/matching/build-cost-basis-scoped-transactions.js';
+import type { ValidatedScopedTransferSet } from '../standard/matching/validated-scoped-transfer-links.js';
 
 import {
   applyCarryoverSemantics,

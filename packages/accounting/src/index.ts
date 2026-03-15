@@ -6,8 +6,8 @@
  */
 
 // Configuration
-export type { FiatCurrency } from './cost-basis/shared/cost-basis-config.js';
-export { getDefaultDateRange } from './cost-basis/shared/cost-basis-config.js';
+export type { FiatCurrency } from './cost-basis/model/cost-basis-config.js';
+export { getDefaultDateRange } from './cost-basis/model/cost-basis-config.js';
 export type { CostBasisJurisdiction, CostBasisMethod } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 export {
   getDefaultCostBasisCurrencyForJurisdiction,
@@ -24,23 +24,23 @@ export type {
   LotDisposal,
   LotTransfer,
   TaxAssetIdentityPolicy,
-} from './cost-basis/shared/types.js';
+} from './cost-basis/model/types.js';
 export type {
   AccountingExclusionApplyResult,
   AccountingExclusionPolicy,
-} from './cost-basis/shared/accounting-exclusion-policy.js';
+} from './cost-basis/standard/validation/accounting-exclusion-policy.js';
 export {
   applyAccountingExclusionPolicy,
   createAccountingExclusionPolicy,
   hasAccountingExclusions,
   isExcludedAsset,
-} from './cost-basis/shared/accounting-exclusion-policy.js';
+} from './cost-basis/standard/validation/accounting-exclusion-policy.js';
 
 // Cost basis calculation
-export { runCostBasisPipeline } from './cost-basis/orchestration/cost-basis-pipeline.js';
-export { CostBasisArtifactService } from './cost-basis/orchestration/cost-basis-artifact-service.js';
-export { persistCostBasisFailureSnapshot } from './cost-basis/orchestration/cost-basis-failure-snapshot-service.js';
-export { CostBasisWorkflow } from './cost-basis/orchestration/cost-basis-workflow.js';
+export { runCostBasisPipeline } from './cost-basis/standard/calculation/run-standard-cost-basis.js';
+export { CostBasisArtifactService } from './cost-basis/artifacts/artifact-service.js';
+export { persistCostBasisFailureSnapshot } from './cost-basis/artifacts/failure-snapshot-service.js';
+export { CostBasisWorkflow } from './cost-basis/workflow/cost-basis-workflow.js';
 export {
   buildAccountingExclusionFingerprint,
   buildCostBasisScopeKey,
@@ -51,28 +51,28 @@ export {
   StoredCanadaCostBasisArtifactSchema,
   StoredCostBasisArtifactEnvelopeSchema,
   StoredCostBasisDebugSchema,
-  StoredGenericCostBasisArtifactSchema,
-} from './cost-basis/orchestration/cost-basis-artifact-storage.js';
-export { buildCostBasisScopedTransactions } from './cost-basis/matching/build-cost-basis-scoped-transactions.js';
+  StoredStandardCostBasisArtifactSchema,
+} from './cost-basis/artifacts/artifact-storage.js';
+export { buildCostBasisScopedTransactions } from './cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
 export {
   filterConfirmableTransferProposals,
   validateTransferProposalConfirmability,
-} from './cost-basis/matching/transfer-proposal-confirmability.js';
-export { validateScopedTransferLinks } from './cost-basis/matching/validated-scoped-transfer-links.js';
+} from './cost-basis/standard/matching/transfer-proposal-confirmability.js';
+export { validateScopedTransferLinks } from './cost-basis/standard/matching/validated-scoped-transfer-links.js';
 export type {
   CanadaCostBasisWorkflowResult,
   CostBasisExecutionMeta,
   CostBasisWorkflowExecutionOptions,
   CostBasisWorkflowResult,
-  GenericCostBasisWorkflowResult,
-} from './cost-basis/orchestration/cost-basis-workflow.js';
+  StandardCostBasisWorkflowResult,
+} from './cost-basis/workflow/cost-basis-workflow.js';
 
 // Reports
 export type {
   ConvertedAcquisitionLot,
   ConvertedLotDisposal,
   ConvertedLotTransfer,
-} from './cost-basis/shared/report-types.js';
+} from './cost-basis/model/report-types.js';
 
 // Ports
 export type {
@@ -102,15 +102,12 @@ export {
 export { hasImpliedFeeAmount, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Cost basis utilities
+export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';
+export { buildCostBasisInput, validateCostBasisInput } from './cost-basis/workflow/cost-basis-input.js';
 export {
-  buildCostBasisInput,
+  checkTransactionPriceCoverage,
   getCostBasisRebuildTransactions,
-  validateCostBasisInput,
-} from './cost-basis/shared/cost-basis-utils.js';
-export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/shared/cost-basis-utils.js';
-
-// Transaction price coverage
-export { checkTransactionPriceCoverage } from './cost-basis/orchestration/transaction-price-coverage-utils.js';
+} from './cost-basis/workflow/price-completeness.js';
 
 export type { PriceEvent } from './price-enrichment/shared/price-events.js';
 export {

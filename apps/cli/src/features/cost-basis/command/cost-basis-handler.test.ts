@@ -88,8 +88,8 @@ describe('CostBasisHandler', () => {
 
     mockArtifactServiceExecute = vi.fn().mockResolvedValue(
       ok({
-        artifact: { kind: 'generic-pipeline', summary: {}, lots: [], disposals: [], lotTransfers: [] },
-        debug: { kind: 'generic-pipeline', scopedTransactionIds: [], appliedConfirmedLinkIds: [] },
+        artifact: { kind: 'standard-workflow', summary: {}, lots: [], disposals: [], lotTransfers: [] },
+        debug: { kind: 'standard-workflow', scopedTransactionIds: [], appliedConfirmedLinkIds: [] },
         dependencyWatermark: {
           links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
           assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },

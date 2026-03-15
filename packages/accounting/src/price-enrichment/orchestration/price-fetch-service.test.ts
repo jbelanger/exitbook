@@ -6,7 +6,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createAccountingExclusionPolicy } from '../../cost-basis/shared/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 
 import { PriceFetchService } from './price-fetch-service.js';

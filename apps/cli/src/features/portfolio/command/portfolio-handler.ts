@@ -312,14 +312,14 @@ export class PortfolioHandler {
             costBasisParams,
             dependencyWatermarkResult.value,
             workflowResult.error,
-            'portfolio.generic-cost-basis'
+            'portfolio.standard-cost-basis'
           );
         }
 
-        if (workflowResult.value.kind !== 'generic-pipeline') {
+        if (workflowResult.value.kind !== 'standard-workflow') {
           return err(
             new Error(
-              `Expected generic-pipeline result for non-CA portfolio flow, received ${workflowResult.value.kind}`
+              `Expected standard-workflow result for non-CA portfolio flow, received ${workflowResult.value.kind}`
             )
           );
         }

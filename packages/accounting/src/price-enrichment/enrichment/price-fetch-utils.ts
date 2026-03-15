@@ -5,8 +5,8 @@ import { err, ok, resultDo, type Result } from '@exitbook/core';
 import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
 
-import type { AccountingExclusionPolicy } from '../../cost-basis/shared/accounting-exclusion-policy.js';
-import { isExcludedAsset } from '../../cost-basis/shared/accounting-exclusion-policy.js';
+import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
+import { isExcludedAsset } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
 
 /**
  * Command options for prices fetch

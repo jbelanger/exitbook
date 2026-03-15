@@ -1,7 +1,7 @@
 import type { Currency, PriceAtTxTime } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { TaxAssetIdentityPolicy } from '../shared/types.js';
+import type { TaxAssetIdentityPolicy } from '../model/types.js';
 
 export interface CanadaTaxValuation {
   taxCurrency: 'CAD';

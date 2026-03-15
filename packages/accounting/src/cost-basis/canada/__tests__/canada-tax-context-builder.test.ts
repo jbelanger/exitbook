@@ -5,8 +5,8 @@ import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { getJurisdictionConfig } from '../../jurisdictions/jurisdiction-configs.js';
-import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../../matching/validated-scoped-transfer-links.js';
+import { buildCostBasisScopedTransactions } from '../../standard/matching/build-cost-basis-scoped-transactions.js';
+import type { ValidatedScopedTransferSet } from '../../standard/matching/validated-scoped-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 import {

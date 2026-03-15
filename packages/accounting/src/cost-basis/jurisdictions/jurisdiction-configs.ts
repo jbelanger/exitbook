@@ -1,40 +1,13 @@
-import type { CostBasisConfig, FiatCurrency } from '../shared/cost-basis-config.js';
-import type { CostBasisMethodSupport, JurisdictionConfig } from '../shared/types.js';
+import type { CostBasisConfig, FiatCurrency } from '../model/cost-basis-config.js';
+import type { CostBasisMethodSupport, JurisdictionConfig } from '../model/types.js';
+
+import { CANADA_JURISDICTION_CONFIG } from './canada/config.js';
+import { US_COST_BASIS_METHODS, US_JURISDICTION_CONFIG } from './us/config.js';
 
 export type CostBasisMethod = CostBasisConfig['method'];
 export type CostBasisJurisdiction = CostBasisConfig['jurisdiction'];
 
 export const SUPPORTED_COST_BASIS_FIAT_CURRENCIES: FiatCurrency[] = ['USD', 'CAD', 'EUR', 'GBP'];
-
-const US_METHODS: CostBasisMethodSupport[] = [
-  {
-    code: 'fifo',
-    label: 'FIFO (First In, First Out)',
-    description: 'Dispose oldest lots first',
-    implemented: true,
-  },
-  {
-    code: 'lifo',
-    label: 'LIFO (Last In, First Out)',
-    description: 'Dispose newest lots first',
-    implemented: true,
-  },
-  {
-    code: 'specific-id',
-    label: 'Specific Lot Identification',
-    description: 'Choose specific lots for each disposal',
-    implemented: false,
-  },
-];
-
-const CANADA_METHODS: CostBasisMethodSupport[] = [
-  {
-    code: 'average-cost',
-    label: 'Average Cost (ACB)',
-    description: 'CRA pooled Adjusted Cost Base workflow',
-    implemented: true,
-  },
-];
 
 /**
  * Predefined jurisdiction configurations for major tax jurisdictions.
@@ -46,33 +19,14 @@ const CANADA_METHODS: CostBasisMethodSupport[] = [
  * - EU: Most member states treat fees as disposals, though individual countries may vary
  */
 export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
-  US: {
-    code: 'US',
-    label: 'United States (US)',
-    defaultCurrency: 'USD',
-    costBasisImplemented: true,
-    supportedMethods: US_METHODS,
-    sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    relaxedTaxIdentitySymbols: [],
-  },
-  CA: {
-    code: 'CA',
-    label: 'Canada (CA)',
-    defaultCurrency: 'CAD',
-    costBasisImplemented: true,
-    supportedMethods: CANADA_METHODS,
-    defaultMethod: 'average-cost',
-    sameAssetTransferFeePolicy: 'add-to-basis',
-    taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
-    relaxedTaxIdentitySymbols: ['usdc'],
-  },
+  US: US_JURISDICTION_CONFIG,
+  CA: CANADA_JURISDICTION_CONFIG,
   UK: {
     code: 'UK',
     label: 'United Kingdom (UK)',
     defaultCurrency: 'GBP',
     costBasisImplemented: false,
-    supportedMethods: US_METHODS,
+    supportedMethods: US_COST_BASIS_METHODS,
     sameAssetTransferFeePolicy: 'disposal',
     taxAssetIdentityPolicy: 'strict-onchain-tokens',
     relaxedTaxIdentitySymbols: [],
@@ -82,7 +36,7 @@ export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
     label: 'European Union (EU)',
     defaultCurrency: 'EUR',
     costBasisImplemented: false,
-    supportedMethods: US_METHODS,
+    supportedMethods: US_COST_BASIS_METHODS,
     sameAssetTransferFeePolicy: 'disposal',
     taxAssetIdentityPolicy: 'strict-onchain-tokens',
     relaxedTaxIdentitySymbols: [],

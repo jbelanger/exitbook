@@ -3,8 +3,8 @@ import { err, isFiat, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
-import type { ScopedFeeMovement } from '../matching/build-cost-basis-scoped-transactions.js';
-import { resolveTaxAssetIdentity } from '../shared/tax-asset-identity.js';
+import { resolveTaxAssetIdentity } from '../model/tax-asset-identity.js';
+import type { ScopedFeeMovement } from '../standard/matching/build-cost-basis-scoped-transactions.js';
 
 import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 import type { CanadaTaxValuation } from './canada-tax-types.js';

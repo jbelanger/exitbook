@@ -319,7 +319,7 @@ describe('PortfolioHandler', () => {
 
     mockCostBasisWorkflowExecute.mockResolvedValue(
       ok({
-        kind: 'generic-pipeline',
+        kind: 'standard-workflow',
         summary: {
           lots: [],
           disposals: [],
@@ -339,7 +339,7 @@ describe('PortfolioHandler', () => {
     handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data');
   });
 
-  it('routes CA portfolio calculations through the Canada path instead of the generic pipeline', async () => {
+  it('routes CA portfolio calculations through the Canada path instead of the standard workflow', async () => {
     const result = await handler.execute({
       method: 'average-cost',
       jurisdiction: 'CA',
@@ -399,8 +399,8 @@ describe('PortfolioHandler', () => {
     expect(mockCostBasisWorkflowExecute).not.toHaveBeenCalled();
   });
 
-  it('persists a failure snapshot when generic portfolio cost basis fails', async () => {
-    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('generic workflow failed')));
+  it('persists a failure snapshot when standard portfolio cost basis fails', async () => {
+    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('standard workflow failed')));
 
     const result = await handler.execute({
       method: 'fifo',
@@ -435,7 +435,7 @@ describe('PortfolioHandler', () => {
   });
 
   it('returns a combined error when portfolio failure snapshot persistence fails', async () => {
-    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('generic workflow failed')));
+    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('standard workflow failed')));
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(err(new Error('failure snapshot write failed')));
 
     const result = await handler.execute({
@@ -448,7 +448,7 @@ describe('PortfolioHandler', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe(
-        'Portfolio cost basis failed: generic workflow failed. Additionally, failure snapshot persistence failed: failure snapshot write failed'
+        'Portfolio cost basis failed: standard workflow failed. Additionally, failure snapshot persistence failed: failure snapshot write failed'
       );
     }
   });
@@ -467,7 +467,7 @@ describe('PortfolioHandler', () => {
 
     mockCostBasisWorkflowExecute.mockResolvedValue(
       ok({
-        kind: 'generic-pipeline',
+        kind: 'standard-workflow',
         summary: {
           lots: [],
           disposals: [],

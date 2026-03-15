@@ -381,7 +381,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       snapshot_id                  TEXT NOT NULL,
       storage_schema_version       INTEGER NOT NULL,
       calculation_engine_version   INTEGER NOT NULL,
-      artifact_kind                TEXT NOT NULL CHECK(artifact_kind IN ('generic', 'canada')),
+      artifact_kind                TEXT NOT NULL CHECK(artifact_kind IN ('standard', 'canada')),
       links_built_at               TEXT NOT NULL,
       asset_review_built_at        TEXT NOT NULL,
       prices_last_mutated_at       TEXT,

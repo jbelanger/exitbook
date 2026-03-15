@@ -6,9 +6,9 @@ import { vi } from 'vitest';
 
 import type { IFxRateProvider } from '../../../price-enrichment/shared/types.js';
 import { getJurisdictionConfig } from '../../jurisdictions/jurisdiction-configs.js';
-import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../../matching/validated-scoped-transfer-links.js';
-import type { TaxAssetIdentityPolicy } from '../../shared/types.js';
+import type { TaxAssetIdentityPolicy } from '../../model/types.js';
+import { buildCostBasisScopedTransactions } from '../../standard/matching/build-cost-basis-scoped-transactions.js';
+import { validateScopedTransferLinks } from '../../standard/matching/validated-scoped-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 import type {
   CanadaAcquisitionEvent,

@@ -339,7 +339,7 @@ function resolveAssetFilter(
 }
 
 function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
-  if (costBasisResult.kind === 'generic-pipeline') {
+  if (costBasisResult.kind === 'standard-workflow') {
     const { summary, report, lots, disposals, lotTransfers } = costBasisResult;
     const currency = summary.calculation.config.currency;
     const jurisdiction = summary.calculation.config.jurisdiction;

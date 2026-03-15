@@ -4,12 +4,12 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import { getJurisdictionConfig } from '../jurisdictions/jurisdiction-configs.js';
-import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
-import type { AccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
-import { applyAccountingExclusionPolicy } from '../shared/accounting-exclusion-policy.js';
-import { assertNoScopedAssetsRequireReview } from '../shared/asset-review-preflight.js';
-import type { TaxAssetIdentityPolicy } from '../shared/types.js';
+import type { TaxAssetIdentityPolicy } from '../model/types.js';
+import { buildCostBasisScopedTransactions } from '../standard/matching/build-cost-basis-scoped-transactions.js';
+import { validateScopedTransferLinks } from '../standard/matching/validated-scoped-transfer-links.js';
+import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
+import { applyAccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
+import { assertNoScopedAssetsRequireReview } from '../standard/validation/asset-review-preflight.js';
 
 import { runCanadaAcbEngine } from './canada-acb-engine.js';
 import { buildCanadaTaxInputContext } from './canada-tax-context-builder.js';

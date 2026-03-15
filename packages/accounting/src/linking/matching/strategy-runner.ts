@@ -1,8 +1,8 @@
 import { ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
-import type { AccountingScopedTransaction } from '../../cost-basis/matching/build-cost-basis-scoped-transactions.js';
-import { filterConfirmableTransferProposals } from '../../cost-basis/matching/transfer-proposal-confirmability.js';
+import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
+import { filterConfirmableTransferProposals } from '../../cost-basis/standard/matching/transfer-proposal-confirmability.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
 import type { ILinkingStrategy } from '../strategies/types.js';

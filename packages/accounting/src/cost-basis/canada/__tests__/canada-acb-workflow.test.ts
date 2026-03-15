@@ -3,7 +3,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { createAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../standard/validation/accounting-exclusion-policy.js';
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 
 import { createCanadaFxProvider, createConfirmedTransferLink } from './test-utils.js';
