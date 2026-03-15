@@ -127,6 +127,7 @@ function createStore(): ICostBasisContextReader {
       ok({
         transactions: [],
         confirmedLinks: [],
+        accounts: [],
       })
     ),
   };

@@ -183,7 +183,7 @@ describe('PortfolioHandler', () => {
     });
 
     vi.mocked(buildCostBasisPorts).mockReturnValue({
-      loadCostBasisContext: vi.fn().mockResolvedValue(ok({ confirmedLinks: [] })),
+      loadCostBasisContext: vi.fn().mockResolvedValue(ok({ confirmedLinks: [], accounts: [], transactions: [] })),
     } as never);
 
     vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));

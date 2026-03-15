@@ -13,10 +13,12 @@ export function buildCostBasisPorts(db: DataContext): ICostBasisContextReader {
       resultDoAsync(async function* () {
         const transactions = yield* await db.transactions.findAll();
         const confirmedLinks = yield* await db.transactionLinks.findAll('confirmed');
+        const accounts = yield* await db.accounts.findAll();
 
         return {
           transactions,
           confirmedLinks,
+          accounts,
         };
       }),
   };

@@ -99,6 +99,7 @@ function createStore(transactions: UniversalTransactionData[]): ICostBasisContex
       ok({
         transactions,
         confirmedLinks: [],
+        accounts: [],
       }),
   };
 }

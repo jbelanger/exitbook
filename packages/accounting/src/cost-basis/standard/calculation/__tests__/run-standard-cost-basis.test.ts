@@ -136,7 +136,7 @@ describe('runCostBasisPipeline', () => {
   it('does not block excluded assets that still need review', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const safe = createTransaction(11, '2025-01-10T00:00:00.000Z', [
       { assetSymbol: 'BTC', amount: '1', price: '50000' },
@@ -172,7 +172,7 @@ describe('runCostBasisPipeline', () => {
   it('allows reviewed assets through the pipeline', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const reviewRequired = createTransactionFromMovements(
       13,
@@ -285,7 +285,7 @@ describe('runCostBasisPipeline', () => {
   it('allows reviewed same-symbol ambiguity through once the conflicting asset is excluded from scope', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const first = createTransactionFromMovements(
       17,
@@ -360,7 +360,7 @@ describe('runCostBasisPipeline', () => {
   it('allows warning-only review summaries through the pipeline', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const warningOnly = createTransactionFromMovements(
       16,
@@ -405,7 +405,7 @@ describe('runCostBasisPipeline', () => {
   it('excludes transactions missing prices in soft mode and continues with the price-complete subset', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const priced = createTransaction(1, '2025-01-10T00:00:00.000Z', [
       { assetSymbol: 'BTC', amount: '1', price: '50000' },
@@ -556,7 +556,9 @@ describe('runCostBasisPipeline', () => {
     };
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [confirmedLink] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(
+      ok({ transactions: [], confirmedLinks: [confirmedLink], accounts: [] })
+    );
 
     const result = await runCostBasisPipeline(
       [acquisition, sender, internalReceiver, exchangeDeposit, missingPriceTx],
@@ -576,7 +578,7 @@ describe('runCostBasisPipeline', () => {
   it('prunes excluded assets before price validation in mixed transactions', async () => {
     const store = stubStore();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- acceptable for tests
-    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    vi.mocked(store.loadCostBasisContext).mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
 
     const mixed = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
       inflows: [createMovement('ETH', '1', '3000'), createMovement('SCAM', '1000')],

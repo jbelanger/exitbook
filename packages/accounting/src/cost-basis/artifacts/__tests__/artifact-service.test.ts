@@ -86,6 +86,9 @@ function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind
           quantityDisposed: parseDecimal('1'),
           proceedsPerUnit: parseDecimal('12000'),
           totalProceeds: parseDecimal('12000'),
+          grossProceeds: parseDecimal('12000'),
+          sellingExpenses: parseDecimal('0'),
+          netProceeds: parseDecimal('12000'),
           costBasisPerUnit: parseDecimal('10000'),
           totalCostBasis: parseDecimal('10000'),
           gainLoss: parseDecimal('2000'),
@@ -209,7 +212,7 @@ describe('CostBasisArtifactService', () => {
 
   it('rebuilds when refresh is requested', async () => {
     const workflowResult = createStandardWorkflowResult();
-    const loadCostBasisContext = vi.fn().mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    const loadCostBasisContext = vi.fn().mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
     const contextReader: ICostBasisContextReader = {
       loadCostBasisContext,
     };
@@ -246,7 +249,7 @@ describe('CostBasisArtifactService', () => {
 
   it('rebuilds when a fresh snapshot payload is unreadable', async () => {
     const workflowResult = createStandardWorkflowResult();
-    const loadCostBasisContext = vi.fn().mockResolvedValue(ok({ transactions: [], confirmedLinks: [] }));
+    const loadCostBasisContext = vi.fn().mockResolvedValue(ok({ transactions: [], confirmedLinks: [], accounts: [] }));
     const contextReader: ICostBasisContextReader = {
       loadCostBasisContext,
     };

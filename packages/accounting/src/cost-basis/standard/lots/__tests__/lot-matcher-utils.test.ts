@@ -672,8 +672,10 @@ describe('lot-matcher-utils', () => {
       // Gross: 1 * 52000 = 52000
       // Fee subtracted: $0 (platform fee not included)
       // Proceeds per unit: 52000
+      expect(resultValue.grossProceeds.toFixed()).toBe('52000');
+      expect(resultValue.sellingExpenses.toFixed()).toBe('0');
+      expect(resultValue.netProceeds.toFixed()).toBe('52000');
       expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
-      expect(resultValue.totalFeeAmount.toFixed()).toBe('0');
     });
 
     it('should subtract on-chain fees from disposal proceeds (ADR-005)', () => {
@@ -694,8 +696,10 @@ describe('lot-matcher-utils', () => {
       // Fee: 0.002 * 3500 = 7
       // Net proceeds: 3500 - 7 = 3493
       // Per unit: 3493 / 1 = 3493
+      expect(resultValue.grossProceeds.toFixed()).toBe('3500');
+      expect(resultValue.sellingExpenses.toFixed()).toBe('7');
+      expect(resultValue.netProceeds.toFixed()).toBe('3493');
       expect(resultValue.proceedsPerUnit.toFixed()).toBe('3493');
-      expect(resultValue.totalFeeAmount.toFixed()).toBe('7');
     });
 
     it('should error on missing price', () => {
@@ -717,8 +721,10 @@ describe('lot-matcher-utils', () => {
       const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
 
       const resultValue = assertOk(result);
+      expect(resultValue.grossProceeds.toFixed()).toBe('104000');
+      expect(resultValue.sellingExpenses.toFixed()).toBe('0');
+      expect(resultValue.netProceeds.toFixed()).toBe('104000');
       expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
-      expect(resultValue.totalFeeAmount.toFixed()).toBe('0');
     });
   });
 

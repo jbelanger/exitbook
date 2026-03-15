@@ -416,7 +416,7 @@ Recommendation:
   `ACQ-0001`, `LOT-0001`, `XFER-0001`, and `SLA-0001`
 - use those refs for cross-file links and for `issues.csv`
 - when multiple rows come from one underlying disposition, transfer, or issue,
-  generate a second package-local event/group ref such as `DISP-EVENT-0001`
+  generate a second package-local grouping ref such as `DISP-GROUP-0001`
 
 If we later need source-level audit export, add a separate optional appendix
 such as `source-transactions.csv` or `source-links.csv` rather than mixing raw
@@ -456,11 +456,11 @@ Recommended enum vocab:
 
 - `tax_treatment`: `short_term`, `long_term`
 - `transfer_direction`: `deposit`, `internal_transfer`, `withdrawal`
-- `transfer_status`: `matched_internal`, `source_only`, `target_only`
-- `basis_source`: `matched_lot_carryover`, `pooled_acb_carryover`,
-  `fee_only_carryover`
+- `transfer_status`: `verified`, `review_needed_outbound`,
+  `review_needed_inbound`
+- `basis_source`: `lot_carryover`, `pool_carryover`, `fee_basis`
 - `lot_status`: `open`, `fully_disposed`
-- `origin_period`: `opening_carry_in`, `in_tax_year`
+- `origin_period`: `prior_year`, `current_year`
 
 ### Asset Labels
 
@@ -489,7 +489,7 @@ Recommended defaults:
 - `acquisitions.csv`: `date_acquired`, then `asset`, then `acquisition_ref`
 - `lots.csv`: `date_acquired`, then `asset`, then `lot_ref`
 - `transfers.csv`: `date_transferred`, then `asset`, then `transfer_ref`
-- `superficial-loss-adjustments.csv`: `disposition_date`, then `asset`, then
+- `superficial-loss-adjustments.csv`: `date_disposed`, then `asset`, then
   `adjustment_ref`
 - `issues.csv`: blocked rows first, then review rows, then `code`, then
   `affected_artifact`, then `affected_row_ref`
@@ -501,7 +501,7 @@ This is the primary filing-support table.
 Shared core columns:
 
 - `disposition_ref`
-- `disposition_event_ref`
+- `disposition_group`
 - `asset`
 - `account_label`
 - `date_disposed`
@@ -534,8 +534,8 @@ Notes:
 - keep a stable shared prefix across jurisdictions
 - US rows should be one row per matched lot on a disposition, so a single sale
   can emit multiple disposition rows when multiple lots were matched
-- `disposition_ref` is the row identity; `disposition_event_ref` groups all
-  rows that belong to one underlying disposition event
+- `disposition_ref` is the row identity; `disposition_group` groups all rows
+  that belong to one underlying disposition
 - denormalize US acquisition date from the matched lot onto the disposition row
 - do not include raw transaction IDs in the default contract
 - `account_label` should identify the owned account or venue where the disposal
@@ -553,8 +553,9 @@ Notes:
   `denied_loss` is the superficial-loss amount denied on the disposition and
   should render as a positive amount when present
 - Canada formula note:
-  `taxable_gain_loss = (gain_loss + denied_loss) * 0.5` under the Canada
-  capital-gains inclusion rate applied by the package calculation
+  `taxable_gain_loss` should equal `gain_loss + denied_loss`, multiplied by the
+  applicable Canada capital-gains inclusion rate used by the package
+  calculation
 - Canada filing note:
   `report.md` should state the inclusion rate applied so a preparer can verify
   the taxable amount without inferring the rule from the formula alone
@@ -669,7 +670,7 @@ Shared columns:
 Canada appended columns:
 
 - `carried_acb_per_unit`
-- `fee_adjustment`
+- `fee_acb_adjustment`
 
 US appended columns:
 
@@ -702,7 +703,7 @@ Columns:
 
 - `adjustment_ref`
 - `asset`
-- `disposition_date`
+- `date_disposed`
 - `replacement_acquisition_date`
 - `denied_loss`
 - `denied_quantity`
@@ -711,7 +712,7 @@ Columns:
 - `tax_currency`
 
 This file should use package-local refs rather than raw Canada event IDs.
-`disposition_date` should tie the denial back to the triggering disposition, and
+`date_disposed` should tie the denial back to the triggering disposition, and
 `replacement_acquisition_date` should identify the substituted acquisition that
 received the denied-loss ACB carryover.
 

@@ -1,4 +1,4 @@
-import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Account, TransactionLink, UniversalTransactionData } from '@exitbook/core';
 import type { ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
@@ -10,6 +10,8 @@ export interface CostBasisContext {
   transactions: UniversalTransactionData[];
   /** Confirmed transaction links for transfer detection */
   confirmedLinks: TransactionLink[];
+  /** Accounts needed for source labeling and export rejoin context */
+  accounts: Account[];
 }
 
 export interface CostBasisProjectionWatermark {

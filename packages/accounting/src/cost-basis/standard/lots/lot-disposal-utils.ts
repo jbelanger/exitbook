@@ -1,4 +1,4 @@
-import { wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -15,14 +15,14 @@ function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTran
 }
 
 /**
- * Calculate net proceeds from an outflow after fees
+ * Calculate disposal proceeds facts from an outflow after fees.
  *
- * @returns Object with proceedsPerUnit and totalFeeAmount
+ * @returns Gross, expense, and net proceeds facts for the outflow
  */
 export function calculateNetProceeds(
   transaction: CostBasisTransactionLike,
   outflow: AssetMovement
-): Result<{ proceedsPerUnit: Decimal; totalFeeAmount: Decimal }, Error> {
+): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal; }, Error> {
   const rawTransaction = getRawTransaction(transaction);
 
   if (!outflow.priceAtTxTime) {
@@ -46,8 +46,34 @@ export function calculateNetProceeds(
   const proceedsPerUnit = netProceeds.dividedBy(outflow.grossAmount);
 
   return ok({
+    grossProceeds,
+    sellingExpenses: feeAmount,
+    netProceeds,
     proceedsPerUnit,
-    totalFeeAmount: feeAmount,
+  });
+}
+
+function applyDisposalProceedsBreakdown(
+  lotDisposals: LotDisposal[],
+  params: {
+    grossProceedsPerUnit: Decimal;
+    netProceedsPerUnit: Decimal;
+    sellingExpensesPerUnit: Decimal;
+  }
+): LotDisposal[] {
+  return lotDisposals.map((lotDisposal) => {
+    const grossProceeds = lotDisposal.quantityDisposed.times(params.grossProceedsPerUnit);
+    const sellingExpenses = lotDisposal.quantityDisposed.times(params.sellingExpensesPerUnit);
+    const netProceeds = lotDisposal.quantityDisposed.times(params.netProceedsPerUnit);
+
+    return {
+      ...lotDisposal,
+      totalProceeds: netProceeds,
+      grossProceeds,
+      sellingExpenses,
+      netProceeds,
+      gainLoss: netProceeds.minus(lotDisposal.totalCostBasis),
+    };
   });
 }
 
@@ -75,7 +101,12 @@ export function matchOutflowDisposal(
     if (proceedsResult.isErr()) {
       return err(proceedsResult.error);
     }
-    const { proceedsPerUnit } = proceedsResult.value;
+    if (!outflow.priceAtTxTime) {
+      return err(
+        new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${outflow.assetSymbol}`)
+      );
+    }
+    const { proceedsPerUnit, sellingExpenses } = proceedsResult.value;
 
     // Create disposal request
     const disposal = {
@@ -91,7 +122,13 @@ export function matchOutflowDisposal(
     if (disposalResult.isErr()) {
       return err(disposalResult.error);
     }
-    const lotDisposals = disposalResult.value;
+    const lotDisposals = applyDisposalProceedsBreakdown(disposalResult.value, {
+      grossProceedsPerUnit: outflow.priceAtTxTime.price.amount,
+      netProceedsPerUnit: proceedsPerUnit,
+      sellingExpensesPerUnit: outflow.grossAmount.isZero()
+        ? parseDecimal('0')
+        : sellingExpenses.dividedBy(outflow.grossAmount),
+    });
 
     // Create updated lots array (no mutation)
     const updatedLots = allLots.map((lot) => {

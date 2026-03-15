@@ -84,11 +84,16 @@ const StoredLotDisposalSchema = z.object({
   quantityDisposed: DecimalStringSchema,
   proceedsPerUnit: DecimalStringSchema,
   totalProceeds: DecimalStringSchema,
+  grossProceeds: DecimalStringSchema,
+  sellingExpenses: DecimalStringSchema,
+  netProceeds: DecimalStringSchema,
   costBasisPerUnit: DecimalStringSchema,
   totalCostBasis: DecimalStringSchema,
   gainLoss: DecimalStringSchema,
   disposalDate: IsoDateTimeStringSchema,
   holdingPeriodDays: z.number().int().nonnegative(),
+  lossDisallowed: z.boolean().optional(),
+  disallowedLossAmount: DecimalStringSchema.optional(),
   taxTreatmentCategory: z.string().optional(),
   createdAt: IsoDateTimeStringSchema,
 });
@@ -428,7 +433,7 @@ interface CostBasisArtifactFreshnessResult {
   reason?: string | undefined;
 }
 
-export const COST_BASIS_STORAGE_SCHEMA_VERSION = 2;
+export const COST_BASIS_STORAGE_SCHEMA_VERSION = 3;
 export const COST_BASIS_CALCULATION_ENGINE_VERSION = 1;
 
 export function buildCostBasisScopeKey(config: {
@@ -1004,11 +1009,16 @@ function toStoredLotDisposal(disposal: LotDisposal): z.infer<typeof StoredLotDis
     quantityDisposed: disposal.quantityDisposed.toFixed(),
     proceedsPerUnit: disposal.proceedsPerUnit.toFixed(),
     totalProceeds: disposal.totalProceeds.toFixed(),
+    grossProceeds: disposal.grossProceeds.toFixed(),
+    sellingExpenses: disposal.sellingExpenses.toFixed(),
+    netProceeds: disposal.netProceeds.toFixed(),
     costBasisPerUnit: disposal.costBasisPerUnit.toFixed(),
     totalCostBasis: disposal.totalCostBasis.toFixed(),
     gainLoss: disposal.gainLoss.toFixed(),
     disposalDate: disposal.disposalDate.toISOString(),
     holdingPeriodDays: disposal.holdingPeriodDays,
+    ...(disposal.lossDisallowed !== undefined ? { lossDisallowed: disposal.lossDisallowed } : {}),
+    ...(disposal.disallowedLossAmount ? { disallowedLossAmount: disposal.disallowedLossAmount.toFixed() } : {}),
     ...(disposal.taxTreatmentCategory ? { taxTreatmentCategory: disposal.taxTreatmentCategory } : {}),
     createdAt: disposal.createdAt.toISOString(),
   };
@@ -1022,11 +1032,16 @@ function fromStoredLotDisposal(disposal: z.infer<typeof StoredLotDisposalSchema>
     quantityDisposed: parseDecimal(disposal.quantityDisposed),
     proceedsPerUnit: parseDecimal(disposal.proceedsPerUnit),
     totalProceeds: parseDecimal(disposal.totalProceeds),
+    grossProceeds: parseDecimal(disposal.grossProceeds),
+    sellingExpenses: parseDecimal(disposal.sellingExpenses),
+    netProceeds: parseDecimal(disposal.netProceeds),
     costBasisPerUnit: parseDecimal(disposal.costBasisPerUnit),
     totalCostBasis: parseDecimal(disposal.totalCostBasis),
     gainLoss: parseDecimal(disposal.gainLoss),
     disposalDate: new Date(disposal.disposalDate),
     holdingPeriodDays: disposal.holdingPeriodDays,
+    ...(disposal.lossDisallowed !== undefined ? { lossDisallowed: disposal.lossDisallowed } : {}),
+    ...(disposal.disallowedLossAmount ? { disallowedLossAmount: parseDecimal(disposal.disallowedLossAmount) } : {}),
     ...(disposal.taxTreatmentCategory ? { taxTreatmentCategory: disposal.taxTreatmentCategory } : {}),
     createdAt: new Date(disposal.createdAt),
   };

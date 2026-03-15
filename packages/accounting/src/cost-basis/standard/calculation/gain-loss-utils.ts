@@ -128,6 +128,8 @@ export function calculateGainLoss(
 
         // Update disposal with tax treatment category for persistence
         disposal.taxTreatmentCategory = taxTreatmentCategory;
+        disposal.lossDisallowed = lossDisallowed;
+        disposal.disallowedLossAmount = lossDisallowed ? disposal.gainLoss.abs() : undefined;
 
         disposalGainLosses.push({
           disposalId: disposal.id,
