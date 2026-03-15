@@ -261,13 +261,109 @@ describe('cost-basis-artifact-storage', () => {
     if (reloadResult.value.artifact.kind !== 'canada-workflow') {
       throw new Error('Expected canada-workflow artifact');
     }
-    const { displayReport } = reloadResult.value.artifact;
+    if (result.value.kind !== 'canada-workflow') {
+      throw new Error('Expected canada-workflow result');
+    }
+    const { displayReport, inputContext } = reloadResult.value.artifact;
     if (!displayReport) {
       throw new Error('Expected canada display report');
     }
+    if (!inputContext || !result.value.inputContext) {
+      throw new Error('Expected canada input context');
+    }
 
+    expect(inputContext.inputEvents.map((event) => event.eventId)).toEqual(
+      result.value.inputContext.inputEvents.map((event) => event.eventId)
+    );
+    expect(inputContext.inputEvents[0]?.valuation.totalValueCad.toFixed()).toBe('10000');
     expect(reloadResult.value.artifact.taxReport.summary.totalProceedsCad.toFixed()).toBe('12000');
     expect(displayReport.summary.totalTaxableGainLoss.toFixed()).toBe('1000');
     expect(reloadResult.value.artifact.executionMeta).toEqual(result.value.executionMeta);
+  });
+
+  it('persists Canada artifacts without a display report while preserving input context', async () => {
+    const transactions = [
+      createAcquisitionTransaction({
+        id: 1,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: BTC,
+        timestamp: '2024-01-01T12:00:00Z',
+        quantity: '1',
+        unitPrice: '10000',
+        priceCurrency: CAD,
+      }),
+      createDispositionTransaction({
+        id: 2,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: BTC,
+        timestamp: '2024-02-01T12:00:00Z',
+        quantity: '1',
+        unitPrice: '12000',
+        priceCurrency: CAD,
+      }),
+    ];
+
+    const workflow = new CostBasisWorkflow(
+      createStore(transactions),
+      createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } })
+    );
+    const result = await workflow.execute(
+      {
+        config: {
+          method: 'average-cost',
+          jurisdiction: 'CA',
+          taxYear: 2024,
+          currency: 'CAD',
+          startDate: new Date('2024-01-01T00:00:00Z'),
+          endDate: new Date('2024-12-31T23:59:59Z'),
+        },
+      },
+      transactions,
+      { missingPricePolicy: 'error' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+    if (result.value.kind !== 'canada-workflow') {
+      throw new Error('Expected canada-workflow result');
+    }
+
+    const snapshotResult = buildCostBasisSnapshotRecord(
+      { ...result.value, displayReport: undefined },
+      {
+        links: { status: 'fresh', lastBuiltAt: new Date('2026-03-15T12:00:00Z') },
+        assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-15T12:00:01Z') },
+        pricesLastMutatedAt: new Date('2026-03-15T12:00:02Z'),
+        exclusionFingerprint: 'excluded-assets:none',
+      },
+      'cost-basis:test-ca:no-display'
+    );
+
+    expect(snapshotResult.isOk()).toBe(true);
+    if (snapshotResult.isErr()) {
+      throw snapshotResult.error;
+    }
+
+    const reloadResult = readCostBasisSnapshotArtifact(snapshotResult.value.snapshot);
+    expect(reloadResult.isOk()).toBe(true);
+    if (reloadResult.isErr()) {
+      throw reloadResult.error;
+    }
+
+    expect(reloadResult.value.artifact.kind).toBe('canada-workflow');
+    if (reloadResult.value.artifact.kind !== 'canada-workflow') {
+      throw new Error('Expected canada-workflow artifact');
+    }
+    if (!reloadResult.value.artifact.inputContext || !result.value.inputContext) {
+      throw new Error('Expected canada input context');
+    }
+
+    expect(reloadResult.value.artifact.displayReport).toBeUndefined();
+    expect(reloadResult.value.artifact.inputContext.inputEvents.map((event) => event.eventId)).toEqual(
+      result.value.inputContext.inputEvents.map((event) => event.eventId)
+    );
+    expect(reloadResult.value.artifact.taxReport.summary.totalProceedsCad.toFixed()).toBe('12000');
   });
 });

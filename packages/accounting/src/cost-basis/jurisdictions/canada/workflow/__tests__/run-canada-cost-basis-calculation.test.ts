@@ -338,6 +338,13 @@ describe('runCanadaCostBasisCalculation', () => {
 
     expect(result.isOk()).toBe(true);
     expect(engineInputs).toHaveLength(2);
+    if (result.isOk()) {
+      expect(result.value.inputContext?.inputEvents.map((event) => event.eventId)).toEqual([
+        'evt-before',
+        'evt-after',
+        'evt-adjustment',
+      ]);
+    }
     expect(engineInputs[0]?.inputEvents.map((event) => event.eventId)).toEqual([
       'evt-before',
       'evt-after',
@@ -415,6 +422,13 @@ describe('runCanadaCostBasisCalculation', () => {
 
     expect(result.isOk()).toBe(true);
     expect(engineInputs).toHaveLength(2);
+    if (result.isOk()) {
+      expect(result.value.inputContext?.inputEvents.map((event) => event.eventId)).toEqual([
+        'evt-before',
+        'evt-after',
+        'evt-adjustment',
+      ]);
+    }
     expect(engineInputs[1]?.inputEvents.map((event) => event.eventId)).toEqual([
       'evt-before',
       'evt-after',

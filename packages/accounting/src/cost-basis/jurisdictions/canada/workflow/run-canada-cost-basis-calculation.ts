@@ -107,7 +107,7 @@ export async function runCanadaCostBasisCalculation(
 
   const taxReportResult = buildCanadaTaxReport({
     calculation,
-    inputContext: acbWorkflowResult.value.inputContext,
+    inputContext: augmentedInputContext,
     acbEngineResult: adjustedAcbEngineResult.value,
     poolSnapshot: poolSnapshotResult.value,
     superficialLossEngineResult: superficialLossResult.value,
@@ -130,7 +130,7 @@ export async function runCanadaCostBasisCalculation(
     calculation,
     taxReport: taxReportResult.value,
     displayReport: displayReportResult.value,
-    inputContext: acbWorkflowResult.value.inputContext,
+    inputContext: augmentedInputContext,
     executionMeta,
   });
 }

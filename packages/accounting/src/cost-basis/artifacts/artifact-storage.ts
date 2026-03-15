@@ -5,15 +5,13 @@ import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import type { CostBasisDependencyWatermark, CostBasisSnapshotRecord } from '../../ports/cost-basis-persistence.js';
-import type {
-  CanadaDisplayCostBasisReport,
-  CanadaDisplayFxConversion,
-  CanadaSuperficialLossAdjustment,
-  CanadaTaxReport,
-  CanadaTaxReportAcquisition,
-  CanadaTaxReportDisposition,
-  CanadaTaxReportTransfer,
-} from '../jurisdictions/canada/tax/canada-tax-types.js';
+import {
+  buildCanadaArtifactSnapshotParts,
+  fromStoredCanadaArtifact,
+  fromStoredCanadaDebug,
+  StoredCanadaCostBasisArtifactSchema,
+  StoredCanadaDebugSchema,
+} from '../jurisdictions/canada/artifacts/canada-artifact-codec.js';
 import type {
   CostBasisReport,
   ConvertedAcquisitionLot,
@@ -24,10 +22,17 @@ import type {
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../model/schemas.js';
 import type { CostBasisWorkflowResult } from '../workflow/cost-basis-workflow.js';
 
+import {
+  DecimalStringSchema,
+  IsoDateTimeStringSchema,
+  StoredCostBasisExecutionMetaSchema,
+  type CostBasisArtifactDebugPayload,
+} from './artifact-storage-shared.js';
+
 const logger = getLogger('cost-basis.artifacts.storage');
 
-const DecimalStringSchema = z.string().regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/);
-const IsoDateTimeStringSchema = z.string().datetime({ offset: true });
+export { StoredCanadaCostBasisArtifactSchema };
+export type { CostBasisArtifactDebugPayload };
 
 const StoredCostBasisConfigSchema = z.object({
   method: z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']),
@@ -186,11 +191,6 @@ const StoredCostBasisReportSchema = z.object({
   }),
 });
 
-const StoredCostBasisExecutionMetaSchema = z.object({
-  missingPricesCount: z.number().int().nonnegative(),
-  retainedTransactionIds: z.array(z.number().int().positive()),
-});
-
 export const StoredStandardCostBasisArtifactSchema = z.object({
   kind: z.literal('standard-workflow'),
   calculation: StoredCostBasisCalculationSchema,
@@ -206,170 +206,10 @@ export const StoredStandardCostBasisArtifactSchema = z.object({
   report: StoredCostBasisReportSchema.optional(),
 });
 
-const StoredCanadaDisplayFxConversionSchema = z.object({
-  sourceTaxCurrency: z.literal('CAD'),
-  displayCurrency: z.string().min(1),
-  fxRate: DecimalStringSchema,
-  fxSource: z.string().min(1),
-  fxFetchedAt: IsoDateTimeStringSchema,
-});
-
-const StoredCanadaCalculationSchema = z.object({
-  id: z.string().uuid(),
-  calculationDate: IsoDateTimeStringSchema,
-  method: z.literal('average-cost'),
-  jurisdiction: z.literal('CA'),
-  taxYear: z.number().int().min(2000).max(2100),
-  displayCurrency: z.string().min(1),
-  taxCurrency: z.literal('CAD'),
-  startDate: IsoDateTimeStringSchema,
-  endDate: IsoDateTimeStringSchema,
-  transactionsProcessed: z.number().int().nonnegative(),
-  assetsProcessed: z.array(z.string().min(1)),
-});
-
-const StoredCanadaTaxReportAcquisitionSchema = z.object({
-  id: z.string().min(1),
-  acquisitionEventId: z.string().min(1),
-  transactionId: z.number().int().positive(),
-  taxPropertyKey: z.string().min(1),
-  assetSymbol: z.string().min(1),
-  acquiredAt: IsoDateTimeStringSchema,
-  quantityAcquired: DecimalStringSchema,
-  remainingQuantity: DecimalStringSchema,
-  totalCostCad: DecimalStringSchema,
-  remainingAllocatedAcbCad: DecimalStringSchema,
-  costBasisPerUnitCad: DecimalStringSchema,
-});
-
-const StoredCanadaTaxReportDispositionSchema = z.object({
-  id: z.string().min(1),
-  dispositionEventId: z.string().min(1),
-  transactionId: z.number().int().positive(),
-  taxPropertyKey: z.string().min(1),
-  assetSymbol: z.string().min(1),
-  disposedAt: IsoDateTimeStringSchema,
-  quantityDisposed: DecimalStringSchema,
-  proceedsCad: DecimalStringSchema,
-  costBasisCad: DecimalStringSchema,
-  gainLossCad: DecimalStringSchema,
-  deniedLossCad: DecimalStringSchema,
-  taxableGainLossCad: DecimalStringSchema,
-  acbPerUnitCad: DecimalStringSchema,
-});
-
-const StoredCanadaTaxReportTransferSchema = z.object({
-  id: z.string().min(1),
-  direction: z.enum(['in', 'internal', 'out']),
-  sourceTransferEventId: z.string().min(1).optional(),
-  targetTransferEventId: z.string().min(1).optional(),
-  sourceTransactionId: z.number().int().positive().optional(),
-  targetTransactionId: z.number().int().positive().optional(),
-  linkId: z.number().int().positive().optional(),
-  transactionId: z.number().int().positive(),
-  taxPropertyKey: z.string().min(1),
-  assetSymbol: z.string().min(1),
-  transferredAt: IsoDateTimeStringSchema,
-  quantity: DecimalStringSchema,
-  carriedAcbCad: DecimalStringSchema,
-  carriedAcbPerUnitCad: DecimalStringSchema,
-  feeAdjustmentCad: DecimalStringSchema,
-});
-
-const StoredCanadaSuperficialLossAdjustmentSchema = z.object({
-  id: z.string().min(1),
-  adjustedAt: IsoDateTimeStringSchema,
-  assetSymbol: z.string().min(1),
-  deniedLossCad: DecimalStringSchema,
-  deniedQuantity: DecimalStringSchema,
-  relatedDispositionId: z.string().min(1),
-  taxPropertyKey: z.string().min(1),
-  substitutedPropertyAcquisitionId: z.string().min(1),
-});
-
-const StoredCanadaTaxReportSchema = z.object({
-  calculationId: z.string().uuid(),
-  taxCurrency: z.literal('CAD'),
-  acquisitions: z.array(StoredCanadaTaxReportAcquisitionSchema),
-  dispositions: z.array(StoredCanadaTaxReportDispositionSchema),
-  transfers: z.array(StoredCanadaTaxReportTransferSchema),
-  superficialLossAdjustments: z.array(StoredCanadaSuperficialLossAdjustmentSchema),
-  summary: z.object({
-    totalProceedsCad: DecimalStringSchema,
-    totalCostBasisCad: DecimalStringSchema,
-    totalGainLossCad: DecimalStringSchema,
-    totalTaxableGainLossCad: DecimalStringSchema,
-    totalDeniedLossCad: DecimalStringSchema,
-  }),
-  displayContext: z.object({
-    transferMarketValueCadByTransferId: z.record(z.string(), DecimalStringSchema),
-  }),
-});
-
-const StoredCanadaDisplayReportAcquisitionSchema = StoredCanadaTaxReportAcquisitionSchema.extend({
-  displayCostBasisPerUnit: DecimalStringSchema,
-  displayTotalCost: DecimalStringSchema,
-  displayRemainingAllocatedCost: DecimalStringSchema,
-  fxConversion: StoredCanadaDisplayFxConversionSchema,
-});
-
-const StoredCanadaDisplayReportDispositionSchema = StoredCanadaTaxReportDispositionSchema.extend({
-  displayProceeds: DecimalStringSchema,
-  displayCostBasis: DecimalStringSchema,
-  displayGainLoss: DecimalStringSchema,
-  displayDeniedLoss: DecimalStringSchema,
-  displayTaxableGainLoss: DecimalStringSchema,
-  displayAcbPerUnit: DecimalStringSchema,
-  fxConversion: StoredCanadaDisplayFxConversionSchema,
-});
-
-const StoredCanadaDisplayReportTransferSchema = StoredCanadaTaxReportTransferSchema.extend({
-  marketValueCad: DecimalStringSchema,
-  displayCarriedAcb: DecimalStringSchema,
-  displayCarriedAcbPerUnit: DecimalStringSchema,
-  displayMarketValue: DecimalStringSchema,
-  displayFeeAdjustment: DecimalStringSchema,
-  fxConversion: StoredCanadaDisplayFxConversionSchema,
-});
-
-const StoredCanadaDisplayCostBasisReportSchema = z.object({
-  calculationId: z.string().uuid(),
-  sourceTaxCurrency: z.literal('CAD'),
-  displayCurrency: z.string().min(1),
-  acquisitions: z.array(StoredCanadaDisplayReportAcquisitionSchema),
-  dispositions: z.array(StoredCanadaDisplayReportDispositionSchema),
-  transfers: z.array(StoredCanadaDisplayReportTransferSchema),
-  summary: z.object({
-    totalProceeds: DecimalStringSchema,
-    totalCostBasis: DecimalStringSchema,
-    totalGainLoss: DecimalStringSchema,
-    totalTaxableGainLoss: DecimalStringSchema,
-    totalDeniedLoss: DecimalStringSchema,
-  }),
-});
-
-export const StoredCanadaCostBasisArtifactSchema = z.object({
-  kind: z.literal('canada-workflow'),
-  calculation: StoredCanadaCalculationSchema,
-  taxReport: StoredCanadaTaxReportSchema,
-  displayReport: StoredCanadaDisplayCostBasisReportSchema,
-  executionMeta: StoredCostBasisExecutionMetaSchema,
-});
-
 const StoredStandardDebugSchema = z.object({
   kind: z.literal('standard-workflow'),
   scopedTransactionIds: z.array(z.number().int().positive()),
   appliedConfirmedLinkIds: z.array(z.number().int().positive()),
-});
-
-const StoredCanadaDebugSchema = z.object({
-  kind: z.literal('canada-workflow'),
-  scopedTransactionIds: z.array(z.number().int().positive()),
-  appliedConfirmedLinkIds: z.array(z.number().int().positive()),
-  acquisitionEventIds: z.array(z.string().min(1)),
-  dispositionEventIds: z.array(z.string().min(1)),
-  transferIds: z.array(z.string().min(1)),
-  superficialLossAdjustmentIds: z.array(z.string().min(1)),
 });
 
 export const StoredCostBasisDebugSchema = z.discriminatedUnion('kind', [
@@ -400,19 +240,8 @@ export const StoredCostBasisArtifactEnvelopeSchema = z.discriminatedUnion('artif
 ]);
 
 type StoredStandardArtifact = z.infer<typeof StoredStandardCostBasisArtifactSchema>;
-type StoredCanadaArtifact = z.infer<typeof StoredCanadaCostBasisArtifactSchema>;
 type StoredCostBasisDebug = z.infer<typeof StoredCostBasisDebugSchema>;
 type StoredArtifactEnvelope = z.infer<typeof StoredCostBasisArtifactEnvelopeSchema>;
-
-export interface CostBasisArtifactDebugPayload {
-  kind: 'standard-workflow' | 'canada-workflow';
-  scopedTransactionIds: number[];
-  appliedConfirmedLinkIds: number[];
-  acquisitionEventIds?: string[] | undefined;
-  dispositionEventIds?: string[] | undefined;
-  transferIds?: string[] | undefined;
-  superficialLossAdjustmentIds?: string[] | undefined;
-}
 
 interface CostBasisSnapshotBuildResult {
   artifact: CostBasisWorkflowResult;
@@ -433,7 +262,7 @@ interface CostBasisArtifactFreshnessResult {
   reason?: string | undefined;
 }
 
-export const COST_BASIS_STORAGE_SCHEMA_VERSION = 3;
+export const COST_BASIS_STORAGE_SCHEMA_VERSION = 4;
 export const COST_BASIS_CALCULATION_ENGINE_VERSION = 1;
 
 export function buildCostBasisScopeKey(config: {
@@ -522,7 +351,7 @@ export function buildCostBasisSnapshotRecord(
 
   const snapshotId = globalThis.crypto.randomUUID();
   const createdAt = new Date();
-  const debug = buildDebugPayload(artifact);
+  let debug: CostBasisArtifactDebugPayload;
   let envelope: StoredArtifactEnvelope;
   let displayCurrency: string;
   let endDate: string;
@@ -537,6 +366,7 @@ export function buildCostBasisSnapshotRecord(
       return err(calculationWindowResult.error);
     }
     const calculationWindow = calculationWindowResult.value;
+    const standardDebug = buildStandardDebugPayload(artifact);
 
     envelope = {
       artifactKind: 'standard',
@@ -547,8 +377,9 @@ export function buildCostBasisSnapshotRecord(
       calculationId: artifact.summary.calculation.id,
       createdAt: createdAt.toISOString(),
       artifact: toStoredStandardArtifact(artifact, calculationWindow),
-      debug: toStoredStandardDebug(debug),
+      debug: toStoredStandardDebug(standardDebug),
     };
+    debug = standardDebug;
     jurisdiction = artifact.summary.calculation.config.jurisdiction;
     method = artifact.summary.calculation.config.method;
     taxYear = artifact.summary.calculation.config.taxYear;
@@ -556,11 +387,11 @@ export function buildCostBasisSnapshotRecord(
     startDate = calculationWindow.startDate.toISOString();
     endDate = calculationWindow.endDate.toISOString();
   } else {
-    const displayReportResult = requireCanadaDisplayReport(artifact);
-    if (displayReportResult.isErr()) {
-      return err(displayReportResult.error);
+    const canadaSnapshotPartsResult = buildCanadaArtifactSnapshotParts(artifact);
+    if (canadaSnapshotPartsResult.isErr()) {
+      return err(canadaSnapshotPartsResult.error);
     }
-    const displayReport = displayReportResult.value;
+    const canadaSnapshotParts = canadaSnapshotPartsResult.value;
 
     envelope = {
       artifactKind: 'canada',
@@ -568,17 +399,18 @@ export function buildCostBasisSnapshotRecord(
       calculationEngineVersion: COST_BASIS_CALCULATION_ENGINE_VERSION,
       scopeKey,
       snapshotId,
-      calculationId: artifact.calculation.id,
+      calculationId: canadaSnapshotParts.metadata.calculationId,
       createdAt: createdAt.toISOString(),
-      artifact: toStoredCanadaArtifact(artifact, displayReport),
-      debug: toStoredCanadaDebug(debug),
+      artifact: canadaSnapshotParts.artifact,
+      debug: canadaSnapshotParts.debug,
     };
-    jurisdiction = artifact.calculation.jurisdiction;
-    method = artifact.calculation.method;
-    taxYear = artifact.calculation.taxYear;
-    displayCurrency = displayReport.displayCurrency;
-    startDate = artifact.calculation.startDate.toISOString();
-    endDate = artifact.calculation.endDate.toISOString();
+    debug = canadaSnapshotParts.debugPayload;
+    jurisdiction = canadaSnapshotParts.metadata.jurisdiction;
+    method = canadaSnapshotParts.metadata.method;
+    taxYear = canadaSnapshotParts.metadata.taxYear;
+    displayCurrency = canadaSnapshotParts.metadata.displayCurrency;
+    startDate = canadaSnapshotParts.metadata.startDate;
+    endDate = canadaSnapshotParts.metadata.endDate;
   }
 
   const parsedEnvelope = StoredCostBasisArtifactEnvelopeSchema.safeParse(envelope);
@@ -721,103 +553,30 @@ function fromStoredStandardArtifact(
   };
 }
 
-function toStoredCanadaArtifact(
-  result: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>,
-  displayReport: CanadaDisplayCostBasisReport
-): StoredCanadaArtifact {
-  return {
-    kind: 'canada-workflow',
-    calculation: {
-      id: result.calculation.id,
-      calculationDate: result.calculation.calculationDate.toISOString(),
-      method: result.calculation.method,
-      jurisdiction: result.calculation.jurisdiction,
-      taxYear: result.calculation.taxYear,
-      displayCurrency: result.calculation.displayCurrency,
-      taxCurrency: result.calculation.taxCurrency,
-      startDate: result.calculation.startDate.toISOString(),
-      endDate: result.calculation.endDate.toISOString(),
-      transactionsProcessed: result.calculation.transactionsProcessed,
-      assetsProcessed: result.calculation.assetsProcessed,
-    },
-    taxReport: toStoredCanadaTaxReport(result.taxReport),
-    displayReport: toStoredCanadaDisplayReport(displayReport),
-    executionMeta: {
-      missingPricesCount: result.executionMeta.missingPricesCount,
-      retainedTransactionIds: result.executionMeta.retainedTransactionIds,
-    },
-  };
-}
+function buildStandardDebugPayload(
+  artifact: Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>
+): CostBasisArtifactDebugPayload {
+  const scopedTransactionIds = new Set<number>();
+  const appliedConfirmedLinkIds = new Set<number>();
 
-function fromStoredCanadaArtifact(
-  artifact: StoredCanadaArtifact
-): Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }> {
-  return {
-    kind: 'canada-workflow',
-    calculation: {
-      id: artifact.calculation.id,
-      calculationDate: new Date(artifact.calculation.calculationDate),
-      method: artifact.calculation.method,
-      jurisdiction: artifact.calculation.jurisdiction,
-      taxYear: artifact.calculation.taxYear,
-      displayCurrency: artifact.calculation.displayCurrency as Currency,
-      taxCurrency: artifact.calculation.taxCurrency,
-      startDate: new Date(artifact.calculation.startDate),
-      endDate: new Date(artifact.calculation.endDate),
-      transactionsProcessed: artifact.calculation.transactionsProcessed,
-      assetsProcessed: artifact.calculation.assetsProcessed,
-    },
-    taxReport: fromStoredCanadaTaxReport(artifact.taxReport),
-    displayReport: fromStoredCanadaDisplayReport(artifact.displayReport),
-    executionMeta: {
-      missingPricesCount: artifact.executionMeta.missingPricesCount,
-      retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
-    },
-  };
-}
-
-function buildDebugPayload(artifact: CostBasisWorkflowResult): CostBasisArtifactDebugPayload {
-  if (artifact.kind === 'standard-workflow') {
-    const scopedTransactionIds = new Set<number>();
-    const appliedConfirmedLinkIds = new Set<number>();
-
-    for (const lot of artifact.lots) {
-      scopedTransactionIds.add(lot.acquisitionTransactionId);
+  for (const lot of artifact.lots) {
+    scopedTransactionIds.add(lot.acquisitionTransactionId);
+  }
+  for (const disposal of artifact.disposals) {
+    scopedTransactionIds.add(disposal.disposalTransactionId);
+  }
+  for (const transfer of artifact.lotTransfers) {
+    scopedTransactionIds.add(transfer.sourceTransactionId);
+    scopedTransactionIds.add(transfer.targetTransactionId);
+    if (transfer.provenance.kind === 'confirmed-link') {
+      appliedConfirmedLinkIds.add(transfer.provenance.linkId);
     }
-    for (const disposal of artifact.disposals) {
-      scopedTransactionIds.add(disposal.disposalTransactionId);
-    }
-    for (const transfer of artifact.lotTransfers) {
-      scopedTransactionIds.add(transfer.sourceTransactionId);
-      scopedTransactionIds.add(transfer.targetTransactionId);
-      if (transfer.provenance.kind === 'confirmed-link') {
-        appliedConfirmedLinkIds.add(transfer.provenance.linkId);
-      }
-    }
-
-    return {
-      kind: 'standard-workflow',
-      scopedTransactionIds: [...scopedTransactionIds].sort((a, b) => a - b),
-      appliedConfirmedLinkIds: [...appliedConfirmedLinkIds].sort((a, b) => a - b),
-    };
   }
 
-  const linkIds = artifact.taxReport.transfers
-    .map((transfer) => transfer.linkId)
-    .filter((linkId): linkId is number => typeof linkId === 'number');
-
   return {
-    kind: 'canada-workflow',
-    scopedTransactionIds: uniqueSortedNumbers([
-      ...artifact.taxReport.acquisitions.map((item) => item.transactionId),
-      ...artifact.taxReport.dispositions.map((item) => item.transactionId),
-      ...artifact.taxReport.transfers.map((item) => item.transactionId),
-    ]),
-    appliedConfirmedLinkIds: uniqueSortedNumbers(linkIds),
-    acquisitionEventIds: artifact.taxReport.acquisitions.map((item) => item.acquisitionEventId),
-    dispositionEventIds: artifact.taxReport.dispositions.map((item) => item.dispositionEventId),
-    transferIds: artifact.taxReport.transfers.map((item) => item.id),
-    superficialLossAdjustmentIds: artifact.taxReport.superficialLossAdjustments.map((item) => item.id),
+    kind: 'standard-workflow',
+    scopedTransactionIds: [...scopedTransactionIds].sort((a, b) => a - b),
+    appliedConfirmedLinkIds: [...appliedConfirmedLinkIds].sort((a, b) => a - b),
   };
 }
 
@@ -829,18 +588,6 @@ function toStoredStandardDebug(debug: CostBasisArtifactDebugPayload): z.infer<ty
   };
 }
 
-function toStoredCanadaDebug(debug: CostBasisArtifactDebugPayload): z.infer<typeof StoredCanadaDebugSchema> {
-  return {
-    kind: 'canada-workflow',
-    scopedTransactionIds: debug.scopedTransactionIds,
-    appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
-    acquisitionEventIds: debug.acquisitionEventIds ?? [],
-    dispositionEventIds: debug.dispositionEventIds ?? [],
-    transferIds: debug.transferIds ?? [],
-    superficialLossAdjustmentIds: debug.superficialLossAdjustmentIds ?? [],
-  };
-}
-
 function fromStoredDebug(debug: StoredCostBasisDebug): CostBasisArtifactDebugPayload {
   return debug.kind === 'standard-workflow'
     ? {
@@ -848,15 +595,7 @@ function fromStoredDebug(debug: StoredCostBasisDebug): CostBasisArtifactDebugPay
         scopedTransactionIds: debug.scopedTransactionIds,
         appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
       }
-    : {
-        kind: debug.kind,
-        scopedTransactionIds: debug.scopedTransactionIds,
-        appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
-        acquisitionEventIds: debug.acquisitionEventIds,
-        dispositionEventIds: debug.dispositionEventIds,
-        transferIds: debug.transferIds,
-        superficialLossAdjustmentIds: debug.superficialLossAdjustmentIds,
-      };
+    : fromStoredCanadaDebug(debug);
 }
 
 function toStoredCostBasisCalculation(
@@ -947,20 +686,6 @@ function resolveStoredCostBasisCalculationWindow(
   }
 
   return ok({ startDate, endDate });
-}
-
-function requireCanadaDisplayReport(
-  result: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>
-): Result<CanadaDisplayCostBasisReport, Error> {
-  if (!result.displayReport) {
-    return err(
-      new Error(
-        `Cannot persist Canada cost-basis snapshot without a display report for calculation ${result.calculation.id}`
-      )
-    );
-  }
-
-  return ok(result.displayReport);
 }
 
 function toStoredAcquisitionLot(lot: AcquisitionLot): z.infer<typeof StoredAcquisitionLotSchema> {
@@ -1187,322 +912,6 @@ function fromStoredCostBasisReport(report: z.infer<typeof StoredCostBasisReportS
       totalTaxableGainLoss: parseDecimal(report.originalSummary.totalTaxableGainLoss),
     },
   };
-}
-
-function toStoredCanadaTaxReport(report: CanadaTaxReport): z.infer<typeof StoredCanadaTaxReportSchema> {
-  return {
-    calculationId: report.calculationId,
-    taxCurrency: report.taxCurrency,
-    acquisitions: report.acquisitions.map(toStoredCanadaTaxReportAcquisition),
-    dispositions: report.dispositions.map(toStoredCanadaTaxReportDisposition),
-    transfers: report.transfers.map(toStoredCanadaTaxReportTransfer),
-    superficialLossAdjustments: report.superficialLossAdjustments.map(toStoredCanadaSuperficialLossAdjustment),
-    summary: {
-      totalProceedsCad: report.summary.totalProceedsCad.toFixed(),
-      totalCostBasisCad: report.summary.totalCostBasisCad.toFixed(),
-      totalGainLossCad: report.summary.totalGainLossCad.toFixed(),
-      totalTaxableGainLossCad: report.summary.totalTaxableGainLossCad.toFixed(),
-      totalDeniedLossCad: report.summary.totalDeniedLossCad.toFixed(),
-    },
-    displayContext: {
-      transferMarketValueCadByTransferId: Object.fromEntries(
-        [...report.displayContext.transferMarketValueCadByTransferId.entries()].map(([key, value]) => [
-          key,
-          value.toFixed(),
-        ])
-      ),
-    },
-  };
-}
-
-function fromStoredCanadaTaxReport(report: z.infer<typeof StoredCanadaTaxReportSchema>): CanadaTaxReport {
-  return {
-    calculationId: report.calculationId,
-    taxCurrency: report.taxCurrency,
-    acquisitions: report.acquisitions.map(fromStoredCanadaTaxReportAcquisition),
-    dispositions: report.dispositions.map(fromStoredCanadaTaxReportDisposition),
-    transfers: report.transfers.map(fromStoredCanadaTaxReportTransfer),
-    superficialLossAdjustments: report.superficialLossAdjustments.map(fromStoredCanadaSuperficialLossAdjustment),
-    summary: {
-      totalProceedsCad: parseDecimal(report.summary.totalProceedsCad),
-      totalCostBasisCad: parseDecimal(report.summary.totalCostBasisCad),
-      totalGainLossCad: parseDecimal(report.summary.totalGainLossCad),
-      totalTaxableGainLossCad: parseDecimal(report.summary.totalTaxableGainLossCad),
-      totalDeniedLossCad: parseDecimal(report.summary.totalDeniedLossCad),
-    },
-    displayContext: {
-      transferMarketValueCadByTransferId: new Map(
-        Object.entries(report.displayContext.transferMarketValueCadByTransferId).map(([key, value]) => [
-          key,
-          parseDecimal(value),
-        ])
-      ),
-    },
-  };
-}
-
-function toStoredCanadaDisplayFxConversion(
-  fx: CanadaDisplayFxConversion
-): z.infer<typeof StoredCanadaDisplayFxConversionSchema> {
-  return {
-    sourceTaxCurrency: fx.sourceTaxCurrency,
-    displayCurrency: fx.displayCurrency,
-    fxRate: fx.fxRate.toFixed(),
-    fxSource: fx.fxSource,
-    fxFetchedAt: fx.fxFetchedAt.toISOString(),
-  };
-}
-
-function fromStoredCanadaDisplayFxConversion(
-  fx: z.infer<typeof StoredCanadaDisplayFxConversionSchema>
-): CanadaDisplayFxConversion {
-  return {
-    sourceTaxCurrency: fx.sourceTaxCurrency,
-    displayCurrency: fx.displayCurrency as Currency,
-    fxRate: parseDecimal(fx.fxRate),
-    fxSource: fx.fxSource,
-    fxFetchedAt: new Date(fx.fxFetchedAt),
-  };
-}
-
-function toStoredCanadaDisplayReport(
-  report: CanadaDisplayCostBasisReport
-): z.infer<typeof StoredCanadaDisplayCostBasisReportSchema> {
-  return {
-    calculationId: report.calculationId,
-    sourceTaxCurrency: report.sourceTaxCurrency,
-    displayCurrency: report.displayCurrency,
-    acquisitions: report.acquisitions.map((item) => ({
-      ...toStoredCanadaTaxReportAcquisition(item),
-      displayCostBasisPerUnit: item.displayCostBasisPerUnit.toFixed(),
-      displayTotalCost: item.displayTotalCost.toFixed(),
-      displayRemainingAllocatedCost: item.displayRemainingAllocatedCost.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    dispositions: report.dispositions.map((item) => ({
-      ...toStoredCanadaTaxReportDisposition(item),
-      displayProceeds: item.displayProceeds.toFixed(),
-      displayCostBasis: item.displayCostBasis.toFixed(),
-      displayGainLoss: item.displayGainLoss.toFixed(),
-      displayDeniedLoss: item.displayDeniedLoss.toFixed(),
-      displayTaxableGainLoss: item.displayTaxableGainLoss.toFixed(),
-      displayAcbPerUnit: item.displayAcbPerUnit.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    transfers: report.transfers.map((item) => ({
-      ...toStoredCanadaTaxReportTransfer(item),
-      marketValueCad: item.marketValueCad.toFixed(),
-      displayCarriedAcb: item.displayCarriedAcb.toFixed(),
-      displayCarriedAcbPerUnit: item.displayCarriedAcbPerUnit.toFixed(),
-      displayMarketValue: item.displayMarketValue.toFixed(),
-      displayFeeAdjustment: item.displayFeeAdjustment.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    summary: {
-      totalProceeds: report.summary.totalProceeds.toFixed(),
-      totalCostBasis: report.summary.totalCostBasis.toFixed(),
-      totalGainLoss: report.summary.totalGainLoss.toFixed(),
-      totalTaxableGainLoss: report.summary.totalTaxableGainLoss.toFixed(),
-      totalDeniedLoss: report.summary.totalDeniedLoss.toFixed(),
-    },
-  };
-}
-
-function fromStoredCanadaDisplayReport(
-  report: z.infer<typeof StoredCanadaDisplayCostBasisReportSchema>
-): CanadaDisplayCostBasisReport {
-  return {
-    calculationId: report.calculationId,
-    sourceTaxCurrency: report.sourceTaxCurrency,
-    displayCurrency: report.displayCurrency as Currency,
-    acquisitions: report.acquisitions.map((item) => ({
-      ...fromStoredCanadaTaxReportAcquisition(item),
-      displayCostBasisPerUnit: parseDecimal(item.displayCostBasisPerUnit),
-      displayTotalCost: parseDecimal(item.displayTotalCost),
-      displayRemainingAllocatedCost: parseDecimal(item.displayRemainingAllocatedCost),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    dispositions: report.dispositions.map((item) => ({
-      ...fromStoredCanadaTaxReportDisposition(item),
-      displayProceeds: parseDecimal(item.displayProceeds),
-      displayCostBasis: parseDecimal(item.displayCostBasis),
-      displayGainLoss: parseDecimal(item.displayGainLoss),
-      displayDeniedLoss: parseDecimal(item.displayDeniedLoss),
-      displayTaxableGainLoss: parseDecimal(item.displayTaxableGainLoss),
-      displayAcbPerUnit: parseDecimal(item.displayAcbPerUnit),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    transfers: report.transfers.map((item) => ({
-      ...fromStoredCanadaTaxReportTransfer(item),
-      marketValueCad: parseDecimal(item.marketValueCad),
-      displayCarriedAcb: parseDecimal(item.displayCarriedAcb),
-      displayCarriedAcbPerUnit: parseDecimal(item.displayCarriedAcbPerUnit),
-      displayMarketValue: parseDecimal(item.displayMarketValue),
-      displayFeeAdjustment: parseDecimal(item.displayFeeAdjustment),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    summary: {
-      totalProceeds: parseDecimal(report.summary.totalProceeds),
-      totalCostBasis: parseDecimal(report.summary.totalCostBasis),
-      totalGainLoss: parseDecimal(report.summary.totalGainLoss),
-      totalTaxableGainLoss: parseDecimal(report.summary.totalTaxableGainLoss),
-      totalDeniedLoss: parseDecimal(report.summary.totalDeniedLoss),
-    },
-  };
-}
-
-function toStoredCanadaTaxReportAcquisition(
-  item: CanadaTaxReportAcquisition
-): z.infer<typeof StoredCanadaTaxReportAcquisitionSchema> {
-  return {
-    id: item.id,
-    acquisitionEventId: item.acquisitionEventId,
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol,
-    acquiredAt: item.acquiredAt.toISOString(),
-    quantityAcquired: item.quantityAcquired.toFixed(),
-    remainingQuantity: item.remainingQuantity.toFixed(),
-    totalCostCad: item.totalCostCad.toFixed(),
-    remainingAllocatedAcbCad: item.remainingAllocatedAcbCad.toFixed(),
-    costBasisPerUnitCad: item.costBasisPerUnitCad.toFixed(),
-  };
-}
-
-function fromStoredCanadaTaxReportAcquisition(
-  item: z.infer<typeof StoredCanadaTaxReportAcquisitionSchema>
-): CanadaTaxReportAcquisition {
-  return {
-    id: item.id,
-    acquisitionEventId: item.acquisitionEventId,
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol as Currency,
-    acquiredAt: new Date(item.acquiredAt),
-    quantityAcquired: parseDecimal(item.quantityAcquired),
-    remainingQuantity: parseDecimal(item.remainingQuantity),
-    totalCostCad: parseDecimal(item.totalCostCad),
-    remainingAllocatedAcbCad: parseDecimal(item.remainingAllocatedAcbCad),
-    costBasisPerUnitCad: parseDecimal(item.costBasisPerUnitCad),
-  };
-}
-
-function toStoredCanadaTaxReportDisposition(
-  item: CanadaTaxReportDisposition
-): z.infer<typeof StoredCanadaTaxReportDispositionSchema> {
-  return {
-    id: item.id,
-    dispositionEventId: item.dispositionEventId,
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol,
-    disposedAt: item.disposedAt.toISOString(),
-    quantityDisposed: item.quantityDisposed.toFixed(),
-    proceedsCad: item.proceedsCad.toFixed(),
-    costBasisCad: item.costBasisCad.toFixed(),
-    gainLossCad: item.gainLossCad.toFixed(),
-    deniedLossCad: item.deniedLossCad.toFixed(),
-    taxableGainLossCad: item.taxableGainLossCad.toFixed(),
-    acbPerUnitCad: item.acbPerUnitCad.toFixed(),
-  };
-}
-
-function fromStoredCanadaTaxReportDisposition(
-  item: z.infer<typeof StoredCanadaTaxReportDispositionSchema>
-): CanadaTaxReportDisposition {
-  return {
-    id: item.id,
-    dispositionEventId: item.dispositionEventId,
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol as Currency,
-    disposedAt: new Date(item.disposedAt),
-    quantityDisposed: parseDecimal(item.quantityDisposed),
-    proceedsCad: parseDecimal(item.proceedsCad),
-    costBasisCad: parseDecimal(item.costBasisCad),
-    gainLossCad: parseDecimal(item.gainLossCad),
-    deniedLossCad: parseDecimal(item.deniedLossCad),
-    taxableGainLossCad: parseDecimal(item.taxableGainLossCad),
-    acbPerUnitCad: parseDecimal(item.acbPerUnitCad),
-  };
-}
-
-function toStoredCanadaTaxReportTransfer(
-  item: CanadaTaxReportTransfer
-): z.infer<typeof StoredCanadaTaxReportTransferSchema> {
-  return {
-    id: item.id,
-    direction: item.direction,
-    ...(item.sourceTransferEventId ? { sourceTransferEventId: item.sourceTransferEventId } : {}),
-    ...(item.targetTransferEventId ? { targetTransferEventId: item.targetTransferEventId } : {}),
-    ...(item.sourceTransactionId ? { sourceTransactionId: item.sourceTransactionId } : {}),
-    ...(item.targetTransactionId ? { targetTransactionId: item.targetTransactionId } : {}),
-    ...(item.linkId ? { linkId: item.linkId } : {}),
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol,
-    transferredAt: item.transferredAt.toISOString(),
-    quantity: item.quantity.toFixed(),
-    carriedAcbCad: item.carriedAcbCad.toFixed(),
-    carriedAcbPerUnitCad: item.carriedAcbPerUnitCad.toFixed(),
-    feeAdjustmentCad: item.feeAdjustmentCad.toFixed(),
-  };
-}
-
-function fromStoredCanadaTaxReportTransfer(
-  item: z.infer<typeof StoredCanadaTaxReportTransferSchema>
-): CanadaTaxReportTransfer {
-  return {
-    id: item.id,
-    direction: item.direction,
-    ...(item.sourceTransferEventId ? { sourceTransferEventId: item.sourceTransferEventId } : {}),
-    ...(item.targetTransferEventId ? { targetTransferEventId: item.targetTransferEventId } : {}),
-    ...(item.sourceTransactionId ? { sourceTransactionId: item.sourceTransactionId } : {}),
-    ...(item.targetTransactionId ? { targetTransactionId: item.targetTransactionId } : {}),
-    ...(item.linkId ? { linkId: item.linkId } : {}),
-    transactionId: item.transactionId,
-    taxPropertyKey: item.taxPropertyKey,
-    assetSymbol: item.assetSymbol as Currency,
-    transferredAt: new Date(item.transferredAt),
-    quantity: parseDecimal(item.quantity),
-    carriedAcbCad: parseDecimal(item.carriedAcbCad),
-    carriedAcbPerUnitCad: parseDecimal(item.carriedAcbPerUnitCad),
-    feeAdjustmentCad: parseDecimal(item.feeAdjustmentCad),
-  };
-}
-
-function toStoredCanadaSuperficialLossAdjustment(
-  item: CanadaSuperficialLossAdjustment
-): z.infer<typeof StoredCanadaSuperficialLossAdjustmentSchema> {
-  return {
-    id: item.id,
-    adjustedAt: item.adjustedAt.toISOString(),
-    assetSymbol: item.assetSymbol,
-    deniedLossCad: item.deniedLossCad.toFixed(),
-    deniedQuantity: item.deniedQuantity.toFixed(),
-    relatedDispositionId: item.relatedDispositionId,
-    taxPropertyKey: item.taxPropertyKey,
-    substitutedPropertyAcquisitionId: item.substitutedPropertyAcquisitionId,
-  };
-}
-
-function fromStoredCanadaSuperficialLossAdjustment(
-  item: z.infer<typeof StoredCanadaSuperficialLossAdjustmentSchema>
-): CanadaSuperficialLossAdjustment {
-  return {
-    id: item.id,
-    adjustedAt: new Date(item.adjustedAt),
-    assetSymbol: item.assetSymbol as Currency,
-    deniedLossCad: parseDecimal(item.deniedLossCad),
-    deniedQuantity: parseDecimal(item.deniedQuantity),
-    relatedDispositionId: item.relatedDispositionId,
-    taxPropertyKey: item.taxPropertyKey,
-    substitutedPropertyAcquisitionId: item.substitutedPropertyAcquisitionId,
-  };
-}
-
-function uniqueSortedNumbers(values: number[]): number[] {
-  return [...new Set(values)].sort((a, b) => a - b);
 }
 
 function hashString(value: string): string {
