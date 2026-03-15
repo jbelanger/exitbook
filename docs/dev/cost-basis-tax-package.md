@@ -127,8 +127,15 @@ Recommended behavior:
 - readiness is package state, not transport failure
 - the CLI maps package status to exit code policy
 
-If we want early rejection before artifact reuse or rebuild, add a small pure
-scope validator in the domain and call it before invoking the artifact service.
+Invalid export requests should be rejected before artifact reuse or rebuild.
+Examples:
+
+- partial-scope requests such as `--asset`
+- unsupported filing-package method and jurisdiction combinations
+- custom partial date windows in v1
+
+Those are request-validation failures, not package readiness outcomes.
+They should fail fast and should not write a package directory.
 
 ## Readiness Model
 
@@ -144,8 +151,6 @@ Proposed package statuses:
 Proposed issue classes:
 
 - `MISSING_PRICE_DATA`
-- `PARTIAL_SCOPE`
-- `UNSUPPORTED_METHOD_FOR_JURISDICTION`
 - `FX_FALLBACK_USED`
 - `UNRESOLVED_ASSET_REVIEW`
 - `UNKNOWN_TRANSACTION_CLASSIFICATION`
@@ -153,8 +158,8 @@ Proposed issue classes:
 
 Rules:
 
-- `blocked` means export writes a minimal package that explains why the package
-  cannot be used yet
+- `blocked` means a valid export request produced a minimal package that
+  explains why the dataset cannot be used yet
 - `review_required` means export succeeds with explicit review items.
 - `ready` means no known blocking or review issues remain under the current
   ruleset.
@@ -165,12 +170,17 @@ Recommended exit behavior:
 
 - `ready` exits `0`
 - `review_required` exits `0`
+- invalid export requests fail before package generation with a normal
+  validation-style CLI error
 - `blocked` writes the package, then exits non-zero because the export
   completed but the dataset is not filing-usable
 
 Recommended v1 CLI mapping:
 
-- use `ExitCodes.VALIDATION_ERROR` for `blocked`
+- add `ExitCodes.BLOCKED_PACKAGE` as a dedicated non-zero exit code for this
+  outcome
+- keep `ExitCodes.VALIDATION_ERROR` for invalid flags and invalid export scope
+  requests
 - reserve `Err(...)` for infrastructure, rendering, or unexpected domain errors
 
 The readiness gate should be pure logic:
@@ -196,6 +206,12 @@ Initial rules:
 These checks should happen before rendering work.
 Where possible, they should happen before artifact reuse or rebuild so we do not
 compute a workflow result for a request that can never produce a filing package.
+
+These are request-validation rules, not readiness issues.
+They should fail the command early rather than producing a `blocked` package.
+If we want shared code names for preflight failures, `PARTIAL_SCOPE` and
+`UNSUPPORTED_METHOD_FOR_JURISDICTION` belong here instead of in the readiness
+issue list.
 
 Example:
 
@@ -233,7 +249,7 @@ Recommended minimum fields:
 - `severity`
 - `summary`
 - `details`
-- `affectedLogicalName`
+- `affectedArtifact`
 - `affectedRowRef`
 
 Traceability should distinguish:
@@ -251,7 +267,7 @@ Recommended `artifactIndex` fields:
 - `mediaType`
 - `purpose`
 - `rowCount` where applicable
-- `sha256` if we want cheap audit integrity in v1
+- `sha256`
 
 ## Jurisdiction Ownership
 
@@ -306,20 +322,25 @@ V1 should stay intentionally small.
 We should avoid emitting multiple representations of the same information unless
 they serve different user jobs.
 
-Recommended default file set:
+Core files across jurisdictions:
 
 - `manifest.json`
 - `report.md`
 - `dispositions.csv`
-- `acquisitions.csv`
 - `transfers.csv`
+
+Canada-default files:
+
+- `acquisitions.csv`
+
+US-default files:
+
+- `lots.csv`
 
 Conditional files:
 
 - `issues.csv`
 - `superficial-loss-adjustments.csv`
-- `lots.csv` when a jurisdiction needs separate lot-level acquisition context
-  that does not fit cleanly in `dispositions.csv`
 
 `blocked` should still emit at least:
 
@@ -333,8 +354,9 @@ File roles:
   totals, issue summary, and a short explanation of each attached file
 - `manifest.json` is the stable machine-readable contract and audit index
 - `dispositions.csv` is the primary filing-support table
-- `acquisitions.csv` and `transfers.csv` are audit/support appendices worth
-  keeping because they are useful and low-cost to produce
+- `acquisitions.csv`, `transfers.csv`, and `lots.csv` are audit/support
+  appendices worth keeping when they match the jurisdiction model closely and
+  are low-cost to produce
 
 What v1 should not do:
 
@@ -387,6 +409,7 @@ Candidate module layout:
 - `packages/accounting/src/cost-basis/export/tax-package-types.ts`
 - `packages/accounting/src/cost-basis/export/tax-package-review-gate.ts`
 - `packages/accounting/src/cost-basis/export/tax-package-scope-validator.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-report-template.ts`
 - `packages/accounting/src/cost-basis/export/tax-package-exporter.ts`
 - `packages/accounting/src/cost-basis/export/canada-tax-package-builder.ts`
 - `packages/accounting/src/cost-basis/export/us-tax-package-builder.ts`
@@ -423,6 +446,8 @@ Recommended second PR:
 
 - `canada-tax-package-builder.ts`
 - jurisdiction-owned CSV, JSON, and Markdown renderers inline with the builder
+- shared `tax-package-report-template.ts` for common report envelope, with
+  jurisdiction builders owning body sections
 - package contract tests for deterministic file names and conditional file
   presence
 
@@ -441,6 +466,7 @@ Recommended third PR:
 - `tax-package-exporter.ts`
 - CLI `cost-basis-export.ts`
 - filesystem writer implementation
+- `ExitCodes.BLOCKED_PACKAGE` in the CLI host
 - artifact-service reuse through `CostBasisArtifactService.execute(...)`
 
 Deliverables:
@@ -471,10 +497,14 @@ Deliverables:
 - Start from the contract layer, not the CLI.
 - Keep one common manifest schema and let jurisdictions own content files.
 - Treat `--output` as a directory for `tax-package`.
-- Keep `report.md` structurally similar where useful, but jurisdiction builders
-  own their sections and narratives.
+- Keep `report.md` structurally similar via a small shared template, while
+  jurisdiction builders own their sections and narratives.
 - Keep the default package small: one human entrypoint, one manifest, one
   primary detail CSV, plus a short list of genuinely useful appendices.
+- Make `lots.csv` a US-default file rather than a rare conditional appendix.
+- Include `sha256` in `artifactIndex` in v1.
+- Add a dedicated `ExitCodes.BLOCKED_PACKAGE` now instead of overloading
+  `ExitCodes.VALIDATION_ERROR`.
 - Write a minimal package for `blocked` instead of failing silently or emitting
   nothing.
 - Treat `review_required` as successful export with explicit issues.
@@ -482,5 +512,6 @@ Deliverables:
 
 ## Remaining Questions
 
-- Is `sha256` in `artifactIndex` worth the small extra work in v1, or should it
-  wait until package validation tooling lands?
+- Do we want to reserve exit-code value `12` for `ExitCodes.BLOCKED_PACKAGE`,
+  since `12` is currently unused between `CONFIG_ERROR` and
+  `PERMISSION_DENIED`?
