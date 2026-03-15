@@ -14,11 +14,13 @@ This spec defines the command taxonomy, presentation mode rules, naming conventi
 | Concept                | Rule                                                          |
 | ---------------------- | ------------------------------------------------------------- |
 | `--json`               | Always machine output; never launches TUI                     |
-| Browse flags           | Narrow initial state; do not force non-TUI                    |
-| Human non-TUI output   | Uses `text` or `text-progress` internally, selected by intent |
+| Browse flags           | Narrow initial state; do not force text mode                  |
+| Human text output      | Uses `text` or `text-progress` internally, selected by intent |
 | Long-running workflows | One execution engine, multiple renderers                      |
 | `--text`               | Canonical non-TUI override for human-readable output          |
 | One-shot mutations     | Stay simple by default; no TUI unless explicitly justified    |
+| `--json` + `--text`    | Mutually exclusive; CLI exits with validation error           |
+| Acceptance scope       | Applies to the full currently registered CLI surface          |
 
 ## Goals
 
@@ -34,6 +36,8 @@ This spec defines the command taxonomy, presentation mode rules, naming conventi
 - Rename every current command in one pass.
 - Introduce backward-compatibility aliases unless they materially reduce migration risk.
 - Specify per-command keyboard behavior already covered by existing view specs.
+
+This spec applies to the full currently registered runnable CLI surface, not only to TUI-heavy commands or to commands touched during an initial migration slice. The migration plan and acceptance criteria must therefore cover every currently registered runnable command.
 
 ## Problem Statement
 
@@ -108,7 +112,7 @@ Users do not choose between `text` and `text-progress` directly. Command intent 
 
 Some browse commands (`cost-basis`, `portfolio`, `balance view`) implicitly rebuild upstream projections (processed transactions, links, price coverage) before rendering. When a browse command triggers a prereq rebuild, the rebuild uses its own presenter selected by the current presentation mode — it does not inherit the browse command's static text renderer. This means a `cost-basis --text` invocation may emit `text-progress` output for stale projections before printing the final text snapshot.
 
-This is intentional: the prereq rebuild is a workflow sub-operation with different rendering needs than the parent browse command. Phase 4 of the migration plan formalizes this by introducing a projection monitor contract.
+This is intentional: the prereq rebuild is a workflow sub-operation with different rendering needs than the parent browse command. Phase 5 of the migration plan formalizes this by introducing a projection monitor contract.
 
 ### Command Taxonomy
 
@@ -142,6 +146,8 @@ This is intentional: the prereq rebuild is a workflow sub-operation with differe
 | `transactions export` | `export`             | `text`                          | `text`                                                                       |
 | `clear`               | `destructive-review` | `tui`                           | `text` preview only; execution requires `--confirm`, otherwise exit non-zero |
 
+The taxonomy table above is exhaustive for the current runnable CLI surface. Top-level namespace commands such as `accounts`, `assets`, `balance`, `blockchains`, `links`, `prices`, `providers`, and `transactions` are grouping commands, not standalone execution targets, so they are not assigned intents separately.
+
 ## Mode Selection Rules
 
 ### Precedence
@@ -161,14 +167,24 @@ This spec standardizes one explicit human-output override:
 
 `--text` means "render human-readable output without TUI." Command intent then determines whether that renderer is `text` or `text-progress`.
 
+For `mutate` and `export` commands, `--text` is a no-op because these commands already default to `text` in all contexts. Implementations should accept the flag silently rather than erroring, but should not register special `--text` handling for these intents.
+
 This spec does not standardize `--tui` as a canonical public flag. For commands where TUI is appropriate, it is already the default on an interactive terminal, so a force-TUI flag is redundant unless a concrete use case emerges later.
 
 `--no-tui` is not the preferred surface because it describes implementation rather than output behavior. It may exist as a temporary compatibility alias for `--text` during migration, but it is not the canonical flag.
+
+### Flag Conflicts
+
+`--json` and `--text` are mutually exclusive. If both are passed, the CLI must exit with a validation error and a clear message. Silent precedence would mask user confusion.
 
 ### Resolution Algorithm
 
 ```ts
 function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOptions): PresentationMode {
+  if (options.json === true && options.text === true) {
+    throw new Error('--json and --text are mutually exclusive');
+  }
+
   if (options.json === true) return 'json';
 
   if (options.text === true) {
@@ -187,7 +203,7 @@ function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOpti
 }
 ```
 
-This resolves the top-level command's presentation mode. Browse commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 4 governs that behavior — the resolver above does not override it.
+This resolves the top-level command's presentation mode. Browse commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 5 governs that behavior — the resolver above does not override it.
 
 ### Fallback Safety Rules
 
@@ -297,7 +313,7 @@ Use verbs consistently:
 | --------------------- | -------------------------------------- |
 | `view`                | Open a browse/review surface           |
 | `run`                 | Execute a workflow process             |
-| `enrich`              | Execute a named domain workflow        |
+| `enrich`              | Fill gaps in existing domain data      |
 | `benchmark`           | Run a measurement workflow             |
 | `export`              | Emit report/file output                |
 | `set`                 | Write one explicit value               |
@@ -316,6 +332,7 @@ Replace the current boolean `isJsonMode` branching with explicit presentation co
 type CommandIntent = 'browse' | 'workflow' | 'mutate' | 'destructive-review' | 'export';
 
 interface CommandPresentationSpec {
+  /** Identifies the command in diagnostics and logging; not used by the resolver. */
   commandId: string;
   intent: CommandIntent;
   interactiveDefaultMode: Extract<PresentationMode, 'tui' | 'text' | 'text-progress'>;
@@ -325,6 +342,54 @@ interface CommandPresentationSpec {
 ```
 
 Each command must define its spec as a const export co-located with the command registration. The shared resolver consumes these directly — there is no central registry map. A registry is unnecessary because `resolvePresentationMode` receives the spec from the caller; it does not look it up by name.
+
+For commands with fixed presentation behavior, use intent-based helper constructors to eliminate boilerplate:
+
+```ts
+function browsePresentationSpec(commandId: string): CommandPresentationSpec {
+  return {
+    commandId,
+    intent: 'browse',
+    interactiveDefaultMode: 'tui',
+    nonTuiOverrideMode: 'text',
+    fallbackNonInteractiveMode: 'text',
+  };
+}
+
+function workflowPresentationSpec(commandId: string): CommandPresentationSpec {
+  return {
+    commandId,
+    intent: 'workflow',
+    interactiveDefaultMode: 'tui',
+    nonTuiOverrideMode: 'text-progress',
+    fallbackNonInteractiveMode: 'text-progress',
+  };
+}
+
+function mutatePresentationSpec(commandId: string): CommandPresentationSpec {
+  return {
+    commandId,
+    intent: 'mutate',
+    interactiveDefaultMode: 'text',
+    nonTuiOverrideMode: 'text',
+    fallbackNonInteractiveMode: 'text',
+  };
+}
+
+function exportPresentationSpec(commandId: string): CommandPresentationSpec {
+  return {
+    commandId,
+    intent: 'export',
+    interactiveDefaultMode: 'text',
+    nonTuiOverrideMode: 'text',
+    fallbackNonInteractiveMode: 'text',
+  };
+}
+```
+
+Commands with non-standard combinations (e.g., `clear` with `destructive-review`) define their spec inline. The helpers cover the common cases — most commands should use one without modification.
+
+The shared presentation model must live in one module family only. Do not introduce duplicate definitions of `PresentationMode`, `CommandIntent`, or resolver helpers in multiple directories during migration. All presentation primitives belong under `apps/cli/src/features/shared/presentation/`.
 
 ### Renderer Split
 
@@ -337,7 +402,7 @@ interface WorkflowPresenter<TEvent, TResult> {
   onEvent(event: TEvent): void;
   succeed(result: TResult): Promise<void>;
   fail(error: Error): Promise<void>;
-  abort(): void;
+  abort(): Promise<void>;
 }
 ```
 
@@ -359,21 +424,21 @@ The orchestrator or pipeline must not know which presenter is active.
 Human-readable progress output should not be interleaved with JSON payloads.
 Human-readable text modes must remain CI-safe and readable in log streams.
 
-## File-Level Migration Plan
+## Migration Plan
 
-### Phase 1: Shared Presentation Resolver
+### Phase 1: Shared Presentation Primitives
 
-Add a new shared module:
+Add a new shared presentation module family:
 
-- `apps/cli/src/features/shared/command-presentation.ts`
+- `apps/cli/src/features/shared/presentation/`
 
-Responsibilities:
+Expected files:
 
-- define `PresentationMode`
-- define `CommandIntent`
-- implement `isInteractiveTerminal()`
-- implement `resolvePresentationMode()`
-- provide shared option helpers for `--json` and `--text`
+- `presentation-mode.ts` — `PresentationMode`, `CommandIntent`
+- `command-presentation.ts` — `CommandPresentationSpec`, intent-based helper constructors (`browsePresentationSpec`, `workflowPresentationSpec`, `mutatePresentationSpec`, `exportPresentationSpec`), `resolvePresentationMode()`
+- `interactive-terminal.ts` — `isInteractiveTerminal()`
+
+Also provide shared option helpers for `--json` and `--text`, including the mutual-exclusion validation.
 
 Then retire or narrow:
 
@@ -381,7 +446,7 @@ Then retire or narrow:
 
 `isJsonMode()` may remain only as a low-level compatibility shim during migration, but it must no longer be the primary decision point.
 
-### Phase 2: Shared Presenter Interfaces
+### Phase 2: Presenter Contracts and Factory
 
 Introduce shared presenter contracts in:
 
@@ -389,15 +454,15 @@ Introduce shared presenter contracts in:
 
 Expected files:
 
-- `presentation-mode.ts`
 - `workflow-presenter.ts`
+- `workflow-presenter-factory.ts`
 - `text-progress-presenter.ts`
 
 Do not put feature-specific rendering logic here. Shared code should only define contracts and reusable human-progress primitives.
 
 The existing `EventDrivenController<TEvent>` in `ui/shared/event-driven-controller.ts` already covers most of the Ink presenter surface (`start`, `stop`, `complete`, `abort`, `fail`). The Ink presenter variant should wrap or evolve `EventDrivenController` rather than replacing it from scratch, since three workflow commands already depend on it.
 
-### Phase 3: Refactor Workflow Commands First
+### Phase 3: Workflow Commands
 
 Refactor these commands away from `{ isJsonMode: boolean }` factories:
 
@@ -411,10 +476,18 @@ Refactor these commands away from `{ isJsonMode: boolean }` factories:
 - `apps/cli/src/features/prices/command/prices-enrich-handler.ts`
 - `apps/cli/src/features/providers/command/providers-benchmark.ts`
 - `apps/cli/src/features/providers/command/providers-benchmark-handler.ts`
+- `apps/cli/src/features/balance/command/balance-refresh.ts`
+- `apps/cli/src/features/balance/command/balance-handler.ts`
 
 Known bug to fix in this phase: `createIngestionInfrastructure` always mounts the Ink `IngestionMonitor` even in JSON mode, unlike `prices enrich` and `links run` which gate the controller on `isJsonMode`. The import command is the highest-priority target for this refactor because it is the only workflow that currently renders TUI in JSON mode.
 
-Pseudo-code shape:
+`balance refresh` must use the same presentation architecture as the other workflow commands. Do not introduce a balance-specific mode resolver, presenter contract, or parallel execution path. The command has scope-dependent result views (single-scope vs all-scope refresh), but scope affects the result shape, not presenter selection. Presenter selection must flow through the same `resolvePresentationMode()` and shared workflow presenter factory used by the rest of the workflow surface.
+
+#### Prerequisite: JSON/TUI Business-Logic Divergence Audit
+
+The current `executeXxxJSON` / `executeXxxTUI` dual-function pattern sometimes contains different business logic between the two paths — not just different rendering. The presenter-injection model only works if presenter choice does not change business behavior. Before unifying any command's two paths into a single handler + injected presenter, audit both paths for logic differences and resolve them. Any divergence is a bug that must be fixed as a prerequisite, not deferred.
+
+Pseudo-code shape after migration:
 
 ```ts
 const mode = resolvePresentationMode(commandSpec, rawOptions);
@@ -423,11 +496,15 @@ const handler = await createWorkflowHandler(ctx, db, { presenter });
 await handler.execute(params);
 ```
 
-### Migration Risk: JSON/TUI Business-Logic Divergence
+Exit criteria:
 
-The current `executeXxxJSON` / `executeXxxTUI` dual-function pattern sometimes contains different business logic between the two paths — not just different rendering. The presenter-injection model only works if presenter choice does not change business behavior. Before unifying any command's two paths into a single handler + injected presenter, audit both paths for logic differences and resolve them. Any divergence is a bug that must be fixed as a prerequisite, not deferred.
+- each workflow command has one execution engine and presenter-selected rendering
+- `balance refresh` uses the same shared presenter path as the other workflow commands
+- no workflow command chooses business logic by `isJsonMode`
 
-### Phase 4: Refactor Projection Prereqs
+### Phase 4: Projection Prereqs
+
+This is the highest-risk phase because prereq rebuilds sit underneath multiple top-level commands and can easily regress output-mode consistency. Do not start this phase until Phase 3 workflow presenters and command-level presentation resolution are stable.
 
 Update:
 
@@ -445,8 +522,6 @@ This is critical for:
 - `portfolio`
 - future commands that implicitly ensure projections before rendering
 
-This is the highest-risk migration phase because prereq rebuilds sit underneath multiple top-level commands and can easily regress output-mode consistency. Do not start this phase until workflow presenters and command-level presentation resolution are already stable.
-
 Recommended sub-plan:
 
 1. Introduce a projection monitor contract that accepts `presentationMode` instead of `isJsonMode`.
@@ -461,25 +536,21 @@ interface ProjectionMonitor {
   notifyRebuildStarted(projection: string): void;
   notifyRebuildProgress(projection: string, event: unknown): void;
   notifyRebuildCompleted(projection: string): void;
+  notifyRebuildFailed(projection: string, error: Error): void;
 }
 ```
 
 The three variants (Ink, text-progress, silent/JSON) implement this interface. The projection runtime receives a `ProjectionMonitor` instead of `isJsonMode: boolean`.
 
-### Phase 5: Refactor Browse Commands
+### Phase 5: Remaining Commands and Cleanup
 
-Update browse command registration and handlers to use the same shared resolver:
+This phase covers all non-workflow commands. The work is mechanical once the shared resolver and projection runtime are stable.
 
-- `accounts view`
-- `assets view`
-- `transactions view`
-- `links view`
-- `prices view`
-- `providers view`
-- `blockchains view`
-- `portfolio`
-- `cost-basis`
-- `balance view`
+#### Browse commands
+
+Update browse command registration and handlers to use the shared resolver:
+
+- `accounts view`, `assets view`, `transactions view`, `links view`, `prices view`, `providers view`, `blockchains view`, `portfolio`, `cost-basis`, `balance view`
 
 Rules:
 
@@ -487,27 +558,57 @@ Rules:
 - `--text` produces a readable snapshot
 - filters never imply text mode
 
-### Phase 6: Surface Cleanup and Rename Review
+Prerequisite: Phase 4 must be complete before migrating `cost-basis` and `portfolio`, since these commands trigger projection prereq rebuilds.
 
-Once behavior is stable, review the public names and help text.
+#### Destructive review, mutate, and export commands
 
-Likely candidates:
+- `apps/cli/src/features/clear/command/clear.ts`
+- `apps/cli/src/features/links/command/links-confirm.ts`
+- `apps/cli/src/features/links/command/links-reject.ts`
+- `apps/cli/src/features/prices/command/prices-set.ts`
+- `apps/cli/src/features/prices/command/prices-set-fx.ts`
+- `apps/cli/src/features/assets/command/assets-include.ts`
+- `apps/cli/src/features/assets/command/assets-exclude.ts`
+- `apps/cli/src/features/assets/command/assets-confirm.ts`
+- `apps/cli/src/features/assets/command/assets-clear-review.ts`
+- `apps/cli/src/features/assets/command/assets-exclusions.ts`
+- `apps/cli/src/features/transactions/command/transactions-export.ts`
 
-- `assets exclusions`
+Requirements:
 
-Possible replacements:
+- `clear` uses the shared presentation resolver instead of bespoke `json`/confirm branching
+- `clear --text` on an interactive terminal remains text preview + stdin confirmation
+- mutate/export commands resolve through the same presentation policy API even when they only support `text` and `json`
 
-- `assets excluded`
-- `assets overrides`
-- `assets overrides list`
+#### Surface cleanup
 
-This rename should happen only after mode behavior is stable so naming work does not get mixed with rendering refactors.
+Once behavior is stable:
+
+- Remove remaining `isJsonMode()` compatibility branches
+- Remove temporary `--no-tui` aliases, if any were introduced during migration
+- Update help text to reflect presentation behavior consistently
+- Review `assets exclusions` naming (candidates: `assets excluded`, `assets overrides`)
+
+### Verification Gate Per Phase
+
+Each phase must include command-level verification across the modes that command claims to support.
+
+Minimum expectation:
+
+- interactive default path
+- `--text`
+- `--json`
+- non-interactive stdout redirection / CI-safe fallback behavior
+
+No phase is complete until every command touched in that phase has explicit mode-coverage tests or an equivalent command-level verification checklist.
 
 ## Acceptance Criteria
 
 - Every command has an explicit intent and presentation policy.
+- The migration checklist (Appendix A) covers the full currently registered runnable CLI surface with no omissions.
 - Browse commands with filters still open in TUI by default on an interactive terminal.
 - Workflow commands can run with TUI, text-progress, or JSON without duplicating business logic.
+- `balance refresh` uses the same shared workflow presenter architecture as the other workflow commands.
 - `--text` is the only canonical human-readable override flag.
 - `clear` never performs deletion in non-interactive contexts unless `--confirm` is present.
 - No handler factory uses `isJsonMode` as its primary branching API.
@@ -540,10 +641,54 @@ This rename should happen only after mode behavior is stable so naming work does
 - Naming issue: `textOverrideMode` was misleading because it can resolve to `text-progress`; `nonTuiOverrideMode` is more accurate.
 - Smell: `assets exclusions` is a low-signal command name and likely does not match the rest of the surface.
 
+### Smell Mitigations Required by This Plan
+
+- `isJsonMode` spread: addressed by Phases 1, 3, 4, and 5. The shim may exist temporarily, but every runnable command must migrate off it before completion.
+- `destructive-review` singleton risk: addressed by the narrow admission rule in Definitions plus Phase 5, which keeps `clear` inside the shared presentation system instead of preserving a bespoke branch.
+- JSON/TUI business-logic divergence: addressed by the mandatory divergence audit in Phase 3 before any workflow unification lands. The migration checklist (Appendix A) tracks which commands have been audited.
+- `createIngestionInfrastructure` JSON bug: addressed explicitly in Phase 3 as the first workflow bug fix.
+- `assets exclusions` naming smell: addressed in Phase 5 cleanup only after behavioral migration stabilizes.
+
 ### Resolved Decisions (from review)
 
 - **`isInteractiveTerminal()` stderr:** Decided to check `stdin` + `stdout` only. stderr piping is a legitimate terminal use case.
 - **`transactions export` intent:** Confirmed as `export`. Today's implementation is a non-interactive file writer. If a future version adds interactive format selection, reclassify at that time.
+
+## Appendix A: Migration Checklist
+
+This checklist tracks per-command migration status across the full runnable CLI surface. No command may be omitted. Update as each command is migrated.
+
+| Command               | Registration file                             | Current branching      | Target intent        | Divergence audited | Migrated | Phase |
+| --------------------- | --------------------------------------------- | ---------------------- | -------------------- | ------------------ | -------- | ----- |
+| `import`              | `import/command/import.ts`                    | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `reprocess`           | `reprocess/command/reprocess.ts`              | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `links run`           | `links/command/links-run.ts`                  | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `prices enrich`       | `prices/command/prices-enrich.ts`             | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `providers benchmark` | `providers/command/providers-benchmark.ts`    | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `balance refresh`     | `balance/command/balance-refresh.ts`          | `isJsonMode` dual-fn   | `workflow`           | [ ]                | [ ]      | 3     |
+| `accounts view`       | `accounts/command/accounts-view.ts`           | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `transactions view`   | `transactions/command/transactions-view.ts`   | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `links view`          | `links/command/links-view.ts`                 | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `prices view`         | `prices/command/prices-view.ts`               | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `providers view`      | `providers/command/providers-view.ts`         | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `blockchains view`    | `blockchains/command/blockchains-view.ts`     | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `assets view`         | `assets/command/assets-view.ts`               | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `portfolio`           | `portfolio/command/portfolio.ts`              | `isJsonMode` dual-fn   | `browse`             | [ ]                | [ ]      | 5     |
+| `cost-basis`          | `cost-basis/command/cost-basis.ts`            | `isJsonMode` dual-fn   | `browse`             | [ ]                | [ ]      | 5     |
+| `balance view`        | `balance/command/balance-view.ts`             | `isJsonMode` inline    | `browse`             | —                  | [ ]      | 5     |
+| `clear`               | `clear/command/clear.ts`                      | `isJsonMode` + confirm | `destructive-review` | [ ]                | [ ]      | 5     |
+| `links confirm`       | `links/command/links-confirm.ts`              | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `links reject`        | `links/command/links-reject.ts`               | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `prices set`          | `prices/command/prices-set.ts`                | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `prices set-fx`       | `prices/command/prices-set-fx.ts`             | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `assets include`      | `assets/command/assets-include.ts`            | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `assets exclude`      | `assets/command/assets-exclude.ts`            | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `assets confirm`      | `assets/command/assets-confirm.ts`            | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `assets clear-review` | `assets/command/assets-clear-review.ts`       | `isJsonMode` inline    | `mutate`             | —                  | [ ]      | 5     |
+| `assets exclusions`   | `assets/command/assets-exclusions.ts`         | `isJsonMode` inline    | `export`             | —                  | [ ]      | 5     |
+| `transactions export` | `transactions/command/transactions-export.ts` | `isJsonMode` inline    | `export`             | —                  | [ ]      | 5     |
+
+All file paths are relative to `apps/cli/src/features/`. "Divergence audited" applies to commands with dual `executeXxxJSON`/`executeXxxTUI` functions — inline-branching commands with trivial JSON output do not need a formal audit (marked `—`).
 
 ---
 
