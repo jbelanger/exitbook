@@ -72,7 +72,9 @@ Examples:
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--output <dir>', 'Output directory for the tax package')
     .option('--json', 'Output command metadata in JSON format')
-    .action((rawOptions: unknown) => executeCostBasisExportCommand(rawOptions, registry));
+    .action((_rawOptions: unknown, command: Command) =>
+      executeCostBasisExportCommand(command.optsWithGlobals(), registry)
+    );
 }
 
 async function executeCostBasisExportCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
@@ -85,6 +87,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
       ExitCodes.INVALID_ARGS,
       isJson ? 'json' : 'text'
     );
+    return;
   }
 
   const options = parseResult.data;
@@ -98,6 +101,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
     });
     if (scopeValidation.isErr()) {
       displayCliError('cost-basis-export', scopeValidation.error, ExitCodes.VALIDATION_ERROR, isJson ? 'json' : 'text');
+      return;
     }
 
     const scope = scopeValidation.value;

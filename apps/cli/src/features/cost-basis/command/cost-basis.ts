@@ -185,6 +185,7 @@ async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterReg
       ExitCodes.INVALID_ARGS,
       isJson ? 'json' : 'text'
     );
+    return;
   }
 
   const options = parseResult.data;
