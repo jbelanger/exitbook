@@ -66,6 +66,20 @@ export type {
   CostBasisWorkflowResult,
   StandardCostBasisWorkflowResult,
 } from './cost-basis/workflow/cost-basis-workflow.js';
+export { buildTaxPackageBuildContext } from './cost-basis/export/tax-package-context-builder.js';
+export type {
+  TaxPackageArtifactRef,
+  TaxPackageBuildContext,
+  TaxPackageSourceContext,
+} from './cost-basis/export/tax-package-build-context.js';
+export type {
+  CanadaDispositionExportFact,
+  CanadaTransferExportFact,
+  StandardDispositionExportFact,
+  StandardTransferExportFact,
+  TaxPackageGroupingKey,
+  TaxPackageRowFact,
+} from './cost-basis/export/tax-package-row-facts.js';
 
 // Reports
 export type {
