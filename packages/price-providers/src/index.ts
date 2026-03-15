@@ -24,6 +24,8 @@ export { createPriceProviders, getAvailableProviderNames, createPriceProviderMan
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
 export { createDefaultPriceProviderManager } from './host/index.js';
 export type { DefaultPriceProviderManagerOptions } from './host/index.js';
+export { createManualPriceService } from './host/index.js';
+export { readPriceCacheFreshness } from './host/index.js';
 // Events
 export type { PriceProviderEvent } from './events.js';
 

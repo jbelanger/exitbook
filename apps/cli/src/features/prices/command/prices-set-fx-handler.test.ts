@@ -6,12 +6,6 @@ import { PricesSetFxHandler } from './prices-set-fx-handler.js';
 
 const saveFxRate = vi.fn();
 
-vi.mock('@exitbook/price-providers', () => ({
-  ManualPriceService: vi.fn().mockImplementation(function () {
-    return { saveFxRate };
-  }),
-}));
-
 describe('PricesSetFxHandler', () => {
   it('saves a manual fx rate and appends the override event', async () => {
     saveFxRate.mockResolvedValue(ok(undefined));
@@ -20,7 +14,8 @@ describe('PricesSetFxHandler', () => {
       append: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
-    const handler = new PricesSetFxHandler('/tmp/prices.db', overrideStore as never);
+    const mockService = { saveFxRate } as never;
+    const handler = new PricesSetFxHandler(mockService, overrideStore as never);
     const result = await handler.execute({
       from: 'CAD',
       to: 'USD',

@@ -1,9 +1,7 @@
 // Prices set command - manually set price for an asset
 // Allows bulk preparation of manual prices without interrupting enrichment
 
-import path from 'node:path';
-
-import { ManualPriceService } from '@exitbook/price-providers';
+import { createManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../../shared/cli-error.js';
@@ -57,7 +55,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
-    const service = new ManualPriceService(path.join(dataDir, 'prices.db'));
+    const service = createManualPriceService(dataDir);
     const handler = new PricesSetHandler(service, overrideStore);
     const result = await handler.execute({
       asset: options.asset,

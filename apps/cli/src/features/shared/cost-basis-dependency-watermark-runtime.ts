@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import {
   buildAccountingExclusionFingerprint,
   type AccountingExclusionPolicy,
@@ -7,14 +5,14 @@ import {
 } from '@exitbook/accounting';
 import { err, type Result } from '@exitbook/core';
 import { buildCostBasisArtifactFreshnessPorts, type DataContext } from '@exitbook/data';
-import { readLatestPriceMutationAt } from '@exitbook/price-providers';
+import { readPriceCacheFreshness } from '@exitbook/price-providers';
 
 export async function readCostBasisDependencyWatermark(
   db: DataContext,
   dataDir: string,
   accountingExclusionPolicy: AccountingExclusionPolicy
 ): Promise<Result<CostBasisDependencyWatermark, Error>> {
-  const latestPriceMutationResult = await readLatestPriceMutationAt(path.join(dataDir, 'prices.db'));
+  const latestPriceMutationResult = await readPriceCacheFreshness(dataDir);
   if (latestPriceMutationResult.isErr()) {
     return err(latestPriceMutationResult.error);
   }

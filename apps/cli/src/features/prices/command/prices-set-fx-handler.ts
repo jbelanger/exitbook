@@ -5,7 +5,7 @@ import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { ManualPriceService } from '@exitbook/price-providers';
+import type { ManualPriceService } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetFxHandler');
@@ -45,14 +45,10 @@ interface PricesSetFxResult {
  * Handler for prices set-fx command
  */
 export class PricesSetFxHandler {
-  private service: ManualPriceService;
-
   constructor(
-    databasePath: string,
+    private readonly service: ManualPriceService,
     private readonly overrideStore?: OverrideStore | undefined
-  ) {
-    this.service = new ManualPriceService(databasePath);
-  }
+  ) {}
 
   /**
    * Execute prices set-fx command
