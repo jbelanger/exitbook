@@ -289,6 +289,32 @@ export const TransactionsExportCommandOptionsSchema = z
   });
 
 /**
+ * Transactions edit note command options
+ */
+export const TransactionsEditNoteCommandOptionsSchema = z
+  .object({
+    clear: z.boolean().optional(),
+    message: z.string().min(1).optional(),
+    reason: z.string().min(1).optional(),
+    json: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.message && !data.clear) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Either --message or --clear is required',
+      });
+    }
+
+    if (data.message && data.clear) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Cannot specify both --message and --clear',
+      });
+    }
+  });
+
+/**
  * Prices view command options
  */
 export const PricesViewCommandOptionsSchema = z.object({

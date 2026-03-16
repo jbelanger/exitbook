@@ -4,8 +4,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ExportHandlerParams, NormalizedCsvOutput } from './transactions-export-utils.js';
 import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './transactions-export-utils.js';
-import type { ViewTransactionsParams } from './transactions-view-utils.js';
-import { applyTransactionFilters } from './transactions-view-utils.js';
+import { readTransactionsForCommand } from './transactions-read-support.js';
 
 const logger = getLogger('ExportHandler');
 
@@ -39,45 +38,32 @@ interface ExportOutput {
  * Reusable by both CLI command and other contexts.
  */
 export class ExportHandler {
-  constructor(private readonly db: DataContext) {}
+  constructor(
+    private readonly db: DataContext,
+    private readonly dataDir: string
+  ) {}
 
   /**
    * Execute the export operation.
    */
   async execute(params: ExportHandlerParams): Promise<Result<ExportResult, Error>> {
     try {
-      // Build filter object conditionally to avoid passing undefined values
-      const filters = {
-        ...(params.sourceName && { sourceName: params.sourceName }),
-        ...(params.since && { since: params.since }),
-        includeExcluded: true, // Include all transactions in exports
-      };
-
-      // Fetch transactions from database
-      const transactionsResult = await this.db.transactions.findAll(filters);
-
-      if (transactionsResult.isErr()) {
-        return err(new Error(`Failed to retrieve transactions: ${transactionsResult.error.message}`));
-      }
-
-      let transactions = transactionsResult.value;
-      logger.info(`Retrieved ${transactions.length} transactions from database`);
-
-      // Apply in-memory filters (asset, operationType, noPrice, until)
-      const filterParams: Partial<ViewTransactionsParams> = {
+      const transactionsResult = await readTransactionsForCommand({
+        db: this.db,
+        dataDir: this.dataDir,
+        sourceName: params.sourceName,
+        since: params.since,
         until: params.until,
         assetSymbol: params.assetSymbol,
         operationType: params.operationType,
         noPrice: params.noPrice,
-      };
-
-      const filteredResult = applyTransactionFilters(transactions, filterParams as ViewTransactionsParams);
-      if (filteredResult.isErr()) {
-        return err(filteredResult.error);
+      });
+      if (transactionsResult.isErr()) {
+        return err(transactionsResult.error);
       }
 
-      transactions = filteredResult.value;
-      logger.info(`Filtered to ${transactions.length} transactions`);
+      const transactions = transactionsResult.value;
+      logger.info(`Retrieved ${transactions.length} transactions from database`);
 
       // Convert to requested format
       let outputs: ExportOutput[];

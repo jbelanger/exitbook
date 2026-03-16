@@ -68,7 +68,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const exportHandler = new ExportHandler(database);
+      const exportHandler = new ExportHandler(database, ctx.dataDir);
 
       const format = options.format ?? 'csv';
       const csvFormat = options.csvFormat ?? (format === 'csv' ? 'normalized' : undefined);

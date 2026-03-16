@@ -8,6 +8,7 @@ export const ScopeSchema = z.enum([
   'fx',
   'link',
   'unlink',
+  'transaction-note',
   'asset-exclude',
   'asset-include',
   'asset-review-confirm',
@@ -82,6 +83,35 @@ export const UnlinkOverridePayloadSchema = z.object({
 });
 
 /**
+ * Transaction note override payload
+ * User attaches or clears a durable note on a specific transaction fingerprint.
+ */
+export const TransactionNoteOverridePayloadSchema = z
+  .object({
+    type: z.literal('transaction_note_override'),
+    tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
+    action: z.enum(['set', 'clear']),
+    message: z.string().min(1, 'Note message must not be empty').optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.action === 'set' && !data.message) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "action 'set' requires message",
+        path: ['message'],
+      });
+    }
+
+    if (data.action === 'clear' && data.message !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "action 'clear' must not include message",
+        path: ['message'],
+      });
+    }
+  });
+
+/**
  * Asset exclusion payload
  * User excludes an asset from accounting-scoped processing.
  */
@@ -126,6 +156,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   FxOverridePayloadSchema,
   LinkOverridePayloadSchema,
   UnlinkOverridePayloadSchema,
+  TransactionNoteOverridePayloadSchema,
   AssetExcludePayloadSchema,
   AssetIncludePayloadSchema,
   AssetReviewConfirmPayloadSchema,
@@ -141,6 +172,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   fx: 'fx_override',
   link: 'link_override',
   unlink: 'unlink_override',
+  'transaction-note': 'transaction_note_override',
   'asset-exclude': 'asset_exclude',
   'asset-include': 'asset_include',
   'asset-review-confirm': 'asset_review_confirm',
@@ -183,6 +215,7 @@ export type PriceOverridePayload = z.infer<typeof PriceOverridePayloadSchema>;
 export type FxOverridePayload = z.infer<typeof FxOverridePayloadSchema>;
 export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
+export type TransactionNoteOverridePayload = z.infer<typeof TransactionNoteOverridePayloadSchema>;
 export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
 export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayloadSchema>;

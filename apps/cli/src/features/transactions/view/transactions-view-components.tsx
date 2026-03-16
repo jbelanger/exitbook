@@ -354,7 +354,40 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
     );
   }
 
+  if (selected.notes.length > 0) {
+    rows.push(<Text key="blank-notes"> </Text>, ...buildNoteRows(selected));
+  }
+
   rows.push(<Text key="blank-blockchain"> </Text>, ...buildBlockchainRows(selected));
+  return rows;
+}
+
+function buildNoteRows(selected: TransactionViewItem): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text
+      key="notes-label"
+      dimColor
+    >
+      {'  '}Notes
+    </Text>,
+  ];
+
+  rows.push(
+    ...selected.notes.map((note, index) => {
+      const prefix = note.type === 'user_note' ? 'user' : note.type;
+      const severity = note.severity ? ` [${note.severity}]` : '';
+      return (
+        <Text key={`note-${index}`}>
+          {'    '}
+          {note.type === 'user_note' ? <Text color="cyan">{prefix}</Text> : <Text>{prefix}</Text>}
+          <Text dimColor>{severity}</Text>
+          {'  '}
+          {note.message}
+        </Text>
+      );
+    })
+  );
+
   return rows;
 }
 

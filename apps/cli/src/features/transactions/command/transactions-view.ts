@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 // Command registration for view transactions subcommand
 import type { Command } from 'commander';
 import React from 'react';
@@ -14,8 +14,9 @@ import { buildViewMeta, parseDate } from '../../shared/view-utils.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import type { ExportCallbackResult, OnExport } from '../view/index.js';
 
+import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
-import { applyTransactionFilters, generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
+import { generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
 
 /**
  * Result data for view transactions command (JSON mode).
@@ -107,42 +108,31 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
     await runCommand(async (ctx) => {
       const database = await ctx.database();
 
-      let since: number | undefined;
-      if (params.since) {
-        const sinceResult = parseDate(params.since);
-        if (sinceResult.isErr()) {
-          console.error('\n⚠ Error:', sinceResult.error.message);
-          ctx.exitCode = ExitCodes.INVALID_ARGS;
-          return;
-        }
-        since = Math.floor(sinceResult.value.getTime() / 1000);
+      const sinceResult = parseSinceToUnixSeconds(params.since);
+      if (sinceResult.isErr()) {
+        console.error('\n⚠ Error:', sinceResult.error.message);
+        ctx.exitCode = ExitCodes.INVALID_ARGS;
+        return;
       }
 
-      const filters = {
-        ...(params.source && { sourceName: params.source }),
-        ...(since && { since }),
-        includeExcluded: true,
-      };
-
-      const txResult = await database.transactions.findAll(filters);
-      if (txResult.isErr()) {
-        console.error('\n⚠ Error:', txResult.error.message);
+      const transactionsResult = await readTransactionsForCommand({
+        db: database,
+        dataDir: ctx.dataDir,
+        sourceName: params.source,
+        since: sinceResult.value,
+        until: params.until,
+        assetSymbol: params.assetSymbol,
+        operationType: params.operationType,
+        noPrice: params.noPrice,
+      });
+      if (transactionsResult.isErr()) {
+        console.error('\n⚠ Error:', transactionsResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      let transactions = txResult.value;
-
-      const filterResult = applyTransactionFilters(transactions, params);
-      if (filterResult.isErr()) {
-        console.error('\n⚠ Error:', filterResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-      transactions = filterResult.value;
-
-      const totalCount = transactions.length;
-      const allViewItems = transactions.map(toTransactionViewItem);
+      const totalCount = transactionsResult.value.length;
+      const allViewItems = transactionsResult.value.map(toTransactionViewItem);
       const categoryCounts = computeCategoryCounts(allViewItems);
       const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
 
@@ -156,7 +146,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
       const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
 
       const { ExportHandler } = await import('./transactions-export-handler.js');
-      const exportHandler = new ExportHandler(database);
+      const exportHandler = new ExportHandler(database, ctx.dataDir);
 
       const onExport: OnExport = async (format, csvFormat) => {
         try {
@@ -218,40 +208,28 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
     await runCommand(async (ctx) => {
       const database = await ctx.database();
 
-      // Convert since to unix timestamp if provided
-      let since: number | undefined;
-      if (params.since) {
-        const sinceResult = parseDate(params.since);
-        if (sinceResult.isErr()) {
-          displayCliError('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS, 'json');
-          return;
-        }
-        since = Math.floor(sinceResult.value.getTime() / 1000);
-      }
-
-      const filters = {
-        ...(params.source && { sourceName: params.source }),
-        ...(since && { since }),
-        includeExcluded: true,
-      };
-
-      const txResult = await database.transactions.findAll(filters);
-      if (txResult.isErr()) {
-        displayCliError('view-transactions', txResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      const sinceResult = parseSinceToUnixSeconds(params.since);
+      if (sinceResult.isErr()) {
+        displayCliError('view-transactions', sinceResult.error, ExitCodes.INVALID_ARGS, 'json');
         return;
       }
 
-      let transactions = txResult.value;
-
-      // Apply client-side filters
-      const filterResult = applyTransactionFilters(transactions, params);
-      if (filterResult.isErr()) {
-        displayCliError('view-transactions', filterResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      const transactionsResult = await readTransactionsForCommand({
+        db: database,
+        dataDir: ctx.dataDir,
+        sourceName: params.source,
+        since: sinceResult.value,
+        until: params.until,
+        assetSymbol: params.assetSymbol,
+        operationType: params.operationType,
+        noPrice: params.noPrice,
+      });
+      if (transactionsResult.isErr()) {
+        displayCliError('view-transactions', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
-      transactions = filterResult.value;
 
-      const totalCount = transactions.length;
+      let transactions = transactionsResult.value;
 
       // Apply limit
       if (params.limit) {
@@ -261,7 +239,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
       // Build result with full transaction details (same as TUI)
       const viewItems = transactions.map(toTransactionViewItem);
 
-      handleViewTransactionsJSON(viewItems, params, totalCount);
+      handleViewTransactionsJSON(viewItems, params, transactionsResult.value.length);
     });
   } catch (error) {
     displayCliError(
@@ -271,6 +249,19 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
       'json'
     );
   }
+}
+
+function parseSinceToUnixSeconds(since: string | undefined): Result<number | undefined, Error> {
+  if (!since) {
+    return ok(undefined);
+  }
+
+  const sinceResult = parseDate(since);
+  if (sinceResult.isErr()) {
+    return err(sinceResult.error);
+  }
+
+  return ok(Math.floor(sinceResult.value.getTime() / 1000));
 }
 
 /**
