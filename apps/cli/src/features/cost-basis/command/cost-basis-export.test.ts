@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import type { TaxPackageManifest } from '@exitbook/accounting';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -83,7 +84,7 @@ describe('buildTaxPackageStatusSummaryLines', () => {
               },
             ],
             warnings: [],
-          },
+          } as unknown as TaxPackageManifest,
         },
         '/workspace/root/reports/2023-ca-tax-package'
       )

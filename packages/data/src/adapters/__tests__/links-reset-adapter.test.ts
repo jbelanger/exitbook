@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../../data-context.js';
 import type { KyselyDB } from '../../database.js';
-import { seedUser, seedAccount } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { buildLinksResetPorts } from '../links-reset-adapter.js';
 
@@ -24,12 +24,15 @@ describe('buildLinksResetPorts', () => {
   });
 
   async function seedTransactionPair() {
+    const tx1ExternalId = 'test-tx-1';
     const tx1 = await db
       .insertInto('transactions')
       .values({
         account_id: 1,
         source_name: 'test',
         source_type: 'exchange',
+        external_id: tx1ExternalId,
+        tx_fingerprint: seedTxFingerprint('test', 1, tx1ExternalId),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,
@@ -38,12 +41,15 @@ describe('buildLinksResetPorts', () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    const tx2ExternalId = 'test-tx-2';
     const tx2 = await db
       .insertInto('transactions')
       .values({
         account_id: 2,
         source_name: 'test',
         source_type: 'exchange',
+        external_id: tx2ExternalId,
+        tx_fingerprint: seedTxFingerprint('test', 2, tx2ExternalId),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

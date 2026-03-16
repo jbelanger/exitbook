@@ -7,7 +7,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { TransactionLinkRepository } from '../transaction-link-repository.js';
 
-import { seedAccount, seedImportSession, seedUser } from './helpers.js';
+import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,6 +44,7 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
   await seedImportSession(db, 1, 1);
 
   for (let i = 1; i <= 10; i++) {
+    const externalId = `test-tx-${i}`;
     await db
       .insertInto('transactions')
       .values({
@@ -51,6 +52,8 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
         account_id: 1,
         source_name: 'test',
         source_type: 'exchange',
+        external_id: externalId,
+        tx_fingerprint: seedTxFingerprint('test', 1, externalId),
         transaction_status: 'success',
         transaction_datetime: new Date().toISOString(),
         is_spam: false,
@@ -294,6 +297,7 @@ describe('TransactionLinkRepository', () => {
         .execute();
 
       for (const id of [11, 12]) {
+        const externalId = `test-2-tx-${id}`;
         await db
           .insertInto('transactions')
           .values({
@@ -301,6 +305,8 @@ describe('TransactionLinkRepository', () => {
             account_id: 2,
             source_name: 'test-2',
             source_type: 'exchange',
+            external_id: externalId,
+            tx_fingerprint: seedTxFingerprint('test-2', 2, externalId),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,

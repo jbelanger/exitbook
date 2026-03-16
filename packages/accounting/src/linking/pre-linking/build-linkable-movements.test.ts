@@ -106,6 +106,22 @@ describe('buildLinkableMovements', () => {
     ]);
   });
 
+  it('uses persisted movement fingerprints instead of recomputing them', () => {
+    const transaction = createTransaction({
+      id: 7,
+      source: 'kraken',
+      sourceType: 'exchange',
+      datetime: '2026-01-01T00:00:00Z',
+      outflows: [{ assetSymbol: 'BTC', amount: '1' }],
+    });
+    transaction.txFingerprint = 'tx:v2:kraken:1:stored-override';
+    transaction.movements.outflows![0]!.movementFingerprint = 'movement:stored:outflow:0';
+
+    const result = assertOk(buildLinkableMovements([transaction], logger));
+
+    expect(result.linkableMovements[0]?.movementFingerprint).toBe('movement:stored:outflow:0');
+  });
+
   it('marks structural trades as excluded', () => {
     const transactions = [
       createTransaction({

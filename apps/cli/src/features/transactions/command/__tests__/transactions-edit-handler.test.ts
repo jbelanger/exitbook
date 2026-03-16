@@ -12,6 +12,7 @@ function createTransaction(id: number, externalId = `ext-${id}`): UniversalTrans
     id,
     accountId: 1,
     externalId,
+    txFingerprint: `tx:v2:kraken:1:${externalId}`,
     source: 'kraken',
     sourceType: 'exchange',
     datetime: '2024-01-01T00:00:00.000Z',

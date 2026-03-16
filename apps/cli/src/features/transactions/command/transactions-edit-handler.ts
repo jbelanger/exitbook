@@ -1,11 +1,4 @@
-import {
-  computeTxFingerprint,
-  err,
-  ok,
-  type CreateOverrideEventOptions,
-  type Result,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { err, ok, type CreateOverrideEventOptions, type Result, type UniversalTransactionData } from '@exitbook/core';
 import {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,
@@ -193,23 +186,14 @@ export class TransactionsEditHandler {
   }
 
   private computeIdentity(transaction: UniversalTransactionData): Result<TransactionIdentity, Error> {
-    const txFingerprintResult = computeTxFingerprint({
-      source: transaction.source,
-      accountId: transaction.accountId,
-      externalId: transaction.externalId,
-    });
-    if (txFingerprintResult.isErr()) {
-      return err(
-        new Error(
-          `Failed to compute transaction fingerprint for transaction ${transaction.id}: ${txFingerprintResult.error.message}`
-        )
-      );
+    if (!transaction.txFingerprint) {
+      return err(new Error(`Transaction ${transaction.id} is missing persisted txFingerprint`));
     }
 
     return ok({
       externalId: transaction.externalId,
       source: transaction.source,
-      txFingerprint: txFingerprintResult.value,
+      txFingerprint: transaction.txFingerprint,
     });
   }
 }

@@ -5,6 +5,7 @@ import {
   FeeMovementSchema,
   TransactionNoteSchema,
   type TransactionMaterializationScope,
+  computeMovementFingerprint,
   computeTxFingerprint,
   parseDecimal,
   type AssetMovement,
@@ -95,6 +96,7 @@ function assetMovementToRow(
   movement: AssetMovement,
   transactionId: number,
   position: number,
+  movementFingerprint: string,
   movementType: 'inflow' | 'outflow'
 ): Result<Insertable<TransactionMovementsTable>, Error> {
   if (!movement.grossAmount) {
@@ -111,6 +113,7 @@ function assetMovementToRow(
     transaction_id: transactionId,
     position,
     movement_type: movementType,
+    movement_fingerprint: movementFingerprint,
     asset_id: movement.assetId,
     asset_symbol: movement.assetSymbol,
     gross_amount: movement.grossAmount.toFixed(),
@@ -138,12 +141,14 @@ function assetMovementToRow(
 function feeMovementToRow(
   fee: FeeMovement,
   transactionId: number,
-  position: number
+  position: number,
+  movementFingerprint: string
 ): Result<Insertable<TransactionMovementsTable>, Error> {
   const row: Insertable<TransactionMovementsTable> = {
     transaction_id: transactionId,
     position,
     movement_type: 'fee',
+    movement_fingerprint: movementFingerprint,
     asset_id: fee.assetId,
     asset_symbol: fee.assetSymbol,
     gross_amount: null,
@@ -176,6 +181,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
   const movement: AssetMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
+    movementFingerprint: row.movement_fingerprint,
     grossAmount: parseDecimal(row.gross_amount),
     netAmount: row.net_amount ? parseDecimal(row.net_amount) : parseDecimal(row.gross_amount),
   };
@@ -215,6 +221,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
   const fee: FeeMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
+    movementFingerprint: row.movement_fingerprint,
     amount: parseDecimal(row.fee_amount),
     scope: row.fee_scope,
     settlement: row.fee_settlement,
@@ -243,9 +250,15 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
   return ok(validation.data);
 }
 
+interface BuildInsertValuesResult {
+  insertValues: Insertable<TransactionsTable>;
+  txFingerprint: string;
+}
+
 function buildMovementRows(
   transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
-  transactionId: number
+  transactionId: number,
+  txFingerprint: string
 ): Result<Insertable<TransactionMovementsTable>[], Error> {
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
@@ -259,20 +272,47 @@ function buildMovementRows(
   const rows: Insertable<TransactionMovementsTable>[] = [];
   let position = 0;
 
-  for (const inflow of inflows) {
-    const result = assetMovementToRow(inflow, transactionId, position++, 'inflow');
+  for (const [inflowIndex, inflow] of inflows.entries()) {
+    const movementFingerprintResult = computeMovementFingerprint({
+      txFingerprint,
+      movementType: 'inflow',
+      position: inflowIndex,
+    });
+    if (movementFingerprintResult.isErr()) {
+      return err(movementFingerprintResult.error);
+    }
+
+    const result = assetMovementToRow(inflow, transactionId, position++, movementFingerprintResult.value, 'inflow');
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
 
-  for (const outflow of outflows) {
-    const result = assetMovementToRow(outflow, transactionId, position++, 'outflow');
+  for (const [outflowIndex, outflow] of outflows.entries()) {
+    const movementFingerprintResult = computeMovementFingerprint({
+      txFingerprint,
+      movementType: 'outflow',
+      position: outflowIndex,
+    });
+    if (movementFingerprintResult.isErr()) {
+      return err(movementFingerprintResult.error);
+    }
+
+    const result = assetMovementToRow(outflow, transactionId, position++, movementFingerprintResult.value, 'outflow');
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
 
-  for (const fee of fees) {
-    const result = feeMovementToRow(fee, transactionId, position++);
+  for (const [feeIndex, fee] of fees.entries()) {
+    const movementFingerprintResult = computeMovementFingerprint({
+      txFingerprint,
+      movementType: 'fee',
+      position: feeIndex,
+    });
+    if (movementFingerprintResult.isErr()) {
+      return err(movementFingerprintResult.error);
+    }
+
+    const result = feeMovementToRow(fee, transactionId, position++, movementFingerprintResult.value);
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
@@ -284,7 +324,7 @@ function buildInsertValues(
   transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
   accountId: number,
   createdAt?: string
-): Result<Insertable<TransactionsTable>, Error> {
+): Result<BuildInsertValuesResult, Error> {
   if (transaction.notes !== undefined) {
     const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
     if (!notesValidation.success) {
@@ -312,27 +352,41 @@ function buildInsertValues(
     return err(notesJsonResult.error);
   }
 
+  const externalId = transaction.externalId || generateDeterministicTransactionHash(transaction);
+  const txFingerprintResult = computeTxFingerprint({
+    source: transaction.source,
+    accountId,
+    externalId,
+  });
+  if (txFingerprintResult.isErr()) {
+    return err(txFingerprintResult.error);
+  }
+
   return ok({
-    created_at: createdAt ?? new Date().toISOString(),
-    external_id: transaction.externalId || generateDeterministicTransactionHash(transaction),
-    from_address: transaction.from ?? null,
-    account_id: accountId,
-    notes_json: notesJsonResult.value ?? null,
-    is_spam: transaction.isSpam ?? false,
-    excluded_from_accounting: transaction.excludedFromAccounting ?? false,
-    source_name: transaction.source,
-    source_type: transaction.sourceType,
-    to_address: transaction.to ?? null,
-    transaction_datetime: transaction.datetime
-      ? new Date(transaction.datetime).toISOString()
-      : new Date().toISOString(),
-    transaction_status: transaction.status,
-    operation_category: transaction.operation?.category ?? null,
-    operation_type: transaction.operation?.type ?? null,
-    blockchain_name: transaction.blockchain?.name ?? null,
-    blockchain_block_height: transaction.blockchain?.block_height ?? null,
-    blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
-    blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
+    insertValues: {
+      created_at: createdAt ?? new Date().toISOString(),
+      external_id: externalId,
+      tx_fingerprint: txFingerprintResult.value,
+      from_address: transaction.from ?? null,
+      account_id: accountId,
+      notes_json: notesJsonResult.value ?? null,
+      is_spam: transaction.isSpam ?? false,
+      excluded_from_accounting: transaction.excludedFromAccounting ?? false,
+      source_name: transaction.source,
+      source_type: transaction.sourceType,
+      to_address: transaction.to ?? null,
+      transaction_datetime: transaction.datetime
+        ? new Date(transaction.datetime).toISOString()
+        : new Date().toISOString(),
+      transaction_status: transaction.status,
+      operation_category: transaction.operation?.category ?? null,
+      operation_type: transaction.operation?.type ?? null,
+      blockchain_name: transaction.blockchain?.name ?? null,
+      blockchain_block_height: transaction.blockchain?.block_height ?? null,
+      blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
+      blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
+    },
+    txFingerprint: txFingerprintResult.value,
   });
 }
 
@@ -427,7 +481,7 @@ export class TransactionRepository extends BaseRepository {
       return err(valuesResult.error);
     }
 
-    const values = valuesResult.value;
+    const { insertValues: values, txFingerprint } = valuesResult.value;
 
     try {
       const txResult = await this.db
@@ -455,7 +509,7 @@ export class TransactionRepository extends BaseRepository {
 
       const transactionId = txResult.id;
 
-      const movementRowsResult = buildMovementRows(transaction, transactionId);
+      const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
       if (movementRowsResult.isErr()) {
         return err(movementRowsResult.error);
       }
@@ -495,7 +549,7 @@ export class TransactionRepository extends BaseRepository {
         if (valuesResult.isErr()) {
           return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
         }
-        const values = valuesResult.value;
+        const { insertValues: values, txFingerprint } = valuesResult.value;
 
         const txResult = await this.db
           .insertInto('transactions')
@@ -531,7 +585,7 @@ export class TransactionRepository extends BaseRepository {
         }
 
         if (!isDuplicate) {
-          const movementRowsResult = buildMovementRows(transaction, transactionId);
+          const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
           if (movementRowsResult.isErr()) {
             return err(movementRowsResult.error);
           }
@@ -708,7 +762,7 @@ export class TransactionRepository extends BaseRepository {
     try {
       const txExists = await this.db
         .selectFrom('transactions')
-        .select('id')
+        .select(['id', 'tx_fingerprint'])
         .where('id', '=', transaction.id)
         .executeTakeFirst();
 
@@ -724,7 +778,11 @@ export class TransactionRepository extends BaseRepository {
         accountId: undefined,
       } as Omit<UniversalTransactionData, 'id' | 'accountId'>;
 
-      const movementRowsResult = buildMovementRows(transactionForMovementRebuild, transaction.id);
+      const movementRowsResult = buildMovementRows(
+        transactionForMovementRebuild,
+        transaction.id,
+        txExists.tx_fingerprint
+      );
       if (movementRowsResult.isErr()) {
         return err(movementRowsResult.error);
       }
@@ -982,6 +1040,7 @@ export class TransactionRepository extends BaseRepository {
       id: row.id,
       accountId: row.account_id,
       externalId: row.external_id ?? `${row.source_name}-${row.id}`,
+      txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,
       source: row.source_name,

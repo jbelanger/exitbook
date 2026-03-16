@@ -1,4 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for db */
+import { computeMovementFingerprint, computeTxFingerprint } from '@exitbook/core';
+
 import type { KyselyDB } from '../../database.js';
 
 export async function seedUser(db: KyselyDB): Promise<void> {
@@ -45,4 +47,26 @@ export async function seedImportSession(db: KyselyDB, sessionId: number, account
       completed_at: new Date().toISOString(),
     })
     .execute();
+}
+
+export function seedTxFingerprint(source: string, accountId: number, externalId: string): string {
+  const result = computeTxFingerprint({ source, accountId, externalId });
+  if (result.isErr()) {
+    throw result.error;
+  }
+
+  return result.value;
+}
+
+export function seedMovementFingerprint(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow' | 'fee',
+  position: number
+): string {
+  const result = computeMovementFingerprint({ txFingerprint, movementType, position });
+  if (result.isErr()) {
+    throw result.error;
+  }
+
+  return result.value;
 }

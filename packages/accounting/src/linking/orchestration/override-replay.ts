@@ -1,4 +1,4 @@
-import { computeResolvedLinkFingerprint, computeTxFingerprint, wrapError } from '@exitbook/core';
+import { computeResolvedLinkFingerprint, wrapError } from '@exitbook/core';
 import type { LinkOverridePayload, OverrideEvent, OverrideLinkType, UnlinkOverridePayload } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -6,14 +6,11 @@ import { getLogger } from '@exitbook/logger';
 const logger = getLogger('OverrideReplay');
 
 /**
- * Transaction-like object with fingerprint lookup capability.
- * Uses domain model field names (source/externalId) matching UniversalTransactionData.
+ * Transaction-like object with persisted fingerprint lookup capability.
  */
 interface TransactionWithFingerprint {
   id: number;
-  accountId: number;
-  source: string;
-  externalId: string;
+  txFingerprint?: string | undefined;
   [key: string]: unknown;
 }
 
@@ -36,20 +33,14 @@ interface LinkWithStatus {
 }
 
 /**
- * Build a fingerprint lookup map for transactions
- * Fingerprint format: tx:v2:${source}:${accountId}:${externalId}
+ * Build a fingerprint lookup map for transactions using persisted tx fingerprints.
  */
 export function buildFingerprintMap(transactions: TransactionWithFingerprint[]): Map<string, number> {
   const map = new Map<string, number>();
 
   for (const tx of transactions) {
-    const fingerprintResult = computeTxFingerprint({
-      source: tx.source,
-      accountId: tx.accountId,
-      externalId: tx.externalId,
-    });
-    if (fingerprintResult.isOk()) {
-      map.set(fingerprintResult.value, tx.id);
+    if (tx.txFingerprint) {
+      map.set(tx.txFingerprint, tx.id);
     }
   }
 
@@ -63,13 +54,8 @@ function buildTransactionMaps(transactions: TransactionWithFingerprint[]): { fin
   const fingerprintMap = new Map<string, number>();
 
   for (const tx of transactions) {
-    const fingerprintResult = computeTxFingerprint({
-      source: tx.source,
-      accountId: tx.accountId,
-      externalId: tx.externalId,
-    });
-    if (fingerprintResult.isOk()) {
-      fingerprintMap.set(fingerprintResult.value, tx.id);
+    if (tx.txFingerprint) {
+      fingerprintMap.set(tx.txFingerprint, tx.id);
     }
   }
 

@@ -8,7 +8,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { TransactionRepository } from '../transaction-repository.js';
 
-import { seedAccount, seedImportSession, seedUser } from './helpers.js';
+import { seedAccount, seedImportSession, seedMovementFingerprint, seedTxFingerprint, seedUser } from './helpers.js';
 
 describe('TransactionRepository', () => {
   let db: KyselyDB;
@@ -31,14 +31,18 @@ describe('TransactionRepository', () => {
 
       // 3 kraken + 2 ethereum transactions
       for (let i = 1; i <= 5; i++) {
+        const accountId = i <= 3 ? 1 : 2;
+        const sourceName = i <= 3 ? 'kraken' : 'ethereum';
+        const externalId = `tx-${i}`;
         await db
           .insertInto('transactions')
           .values({
             id: i,
-            account_id: i <= 3 ? 1 : 2,
-            source_name: i <= 3 ? 'kraken' : 'ethereum',
+            account_id: accountId,
+            source_name: sourceName,
             source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
-            external_id: `tx-${i}`,
+            external_id: externalId,
+            tx_fingerprint: seedTxFingerprint(sourceName, accountId, externalId),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,
@@ -86,6 +90,8 @@ describe('TransactionRepository', () => {
 
       // 3 normal transactions
       for (let i = 1; i <= 3; i++) {
+        const externalId = `tx-${i}`;
+        const txFingerprint = seedTxFingerprint('ethereum', 1, externalId);
         await db
           .insertInto('transactions')
           .values({
@@ -93,7 +99,8 @@ describe('TransactionRepository', () => {
             account_id: 1,
             source_name: 'ethereum',
             source_type: 'blockchain',
-            external_id: `tx-${i}`,
+            external_id: externalId,
+            tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,
@@ -109,6 +116,7 @@ describe('TransactionRepository', () => {
             transaction_id: i,
             position: 0,
             movement_type: 'inflow',
+            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
             asset_id: 'blockchain:ethereum:native',
             asset_symbol: 'ETH',
             gross_amount: '1.0',
@@ -130,6 +138,8 @@ describe('TransactionRepository', () => {
 
       // 2 scam token transactions (is_spam persisted, excluded_from_accounting true for filter coverage)
       for (let i = 4; i <= 5; i++) {
+        const externalId = `scam-tx-${i}`;
+        const txFingerprint = seedTxFingerprint('ethereum', 1, externalId);
         await db
           .insertInto('transactions')
           .values({
@@ -137,7 +147,8 @@ describe('TransactionRepository', () => {
             account_id: 1,
             source_name: 'ethereum',
             source_type: 'blockchain',
-            external_id: `scam-tx-${i}`,
+            external_id: externalId,
+            tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
@@ -154,6 +165,7 @@ describe('TransactionRepository', () => {
             transaction_id: i,
             position: 0,
             movement_type: 'inflow',
+            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
             asset_id: 'blockchain:ethereum:0xscam',
             asset_symbol: 'SCAM',
             gross_amount: '1000.0',
@@ -179,6 +191,10 @@ describe('TransactionRepository', () => {
 
       expect(txs).toHaveLength(3);
       expect(txs.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
+      expect(txs[0]?.txFingerprint).toBe(seedTxFingerprint('ethereum', 1, 'tx-1'));
+      expect(txs[0]?.movements.inflows?.[0]?.movementFingerprint).toBe(
+        seedMovementFingerprint(seedTxFingerprint('ethereum', 1, 'tx-1'), 'inflow', 0)
+      );
     });
 
     it('excludes spam/excluded transactions when includeExcluded is false', async () => {
@@ -242,8 +258,17 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('external_id', '=', 'spam-tx-1')
         .executeTakeFirst();
+      const movementRow = await db
+        .selectFrom('transaction_movements')
+        .selectAll()
+        .where('transaction_id', '=', row!.id)
+        .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
       expect(row?.excluded_from_accounting).toBe(0);
+      expect(row?.tx_fingerprint).toBe(seedTxFingerprint('ethereum', 1, 'spam-tx-1'));
+      expect(movementRow?.movement_fingerprint).toBe(
+        seedMovementFingerprint(seedTxFingerprint('ethereum', 1, 'spam-tx-1'), 'inflow', 0)
+      );
     });
 
     it('persists isSpam=false and does not exclude from accounting', async () => {
@@ -377,6 +402,7 @@ describe('TransactionRepository', () => {
     });
 
     it('persists enriched movements and fees with price data', async () => {
+      const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-1');
       await db
         .insertInto('transactions')
         .values({
@@ -385,6 +411,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-1',
+          tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
@@ -402,6 +429,7 @@ describe('TransactionRepository', () => {
             transaction_id: 1,
             position: 0,
             movement_type: 'inflow',
+            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
             asset_id: 'blockchain:bitcoin:native',
             asset_symbol: 'BTC',
             gross_amount: '1.0',
@@ -422,6 +450,7 @@ describe('TransactionRepository', () => {
             transaction_id: 1,
             position: 1,
             movement_type: 'fee',
+            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'fee', 0),
             asset_id: 'blockchain:bitcoin:native',
             asset_symbol: 'BTC',
             gross_amount: null,
@@ -499,11 +528,14 @@ describe('TransactionRepository', () => {
 
       expect(inflow?.price_source).toBe('coingecko');
       expect(inflow?.price_amount).toBe('50000');
+      expect(inflow?.movement_fingerprint).toBe(seedMovementFingerprint(txFingerprint, 'inflow', 0));
       expect(fee?.price_source).toBe('coingecko');
       expect(fee?.price_amount).toBe('50000');
+      expect(fee?.movement_fingerprint).toBe(seedMovementFingerprint(txFingerprint, 'fee', 0));
     });
 
     it('replaces all existing movement rows and preserves position ordering', async () => {
+      const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-2');
       await db
         .insertInto('transactions')
         .values({
@@ -512,6 +544,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-2',
+          tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
@@ -528,6 +561,7 @@ describe('TransactionRepository', () => {
           transaction_id: 2,
           position: 0,
           movement_type: 'inflow',
+          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
           asset_id: 'legacy:asset',
           asset_symbol: 'OLD',
           gross_amount: '1.0',
@@ -615,10 +649,16 @@ describe('TransactionRepository', () => {
       expect(movements).toHaveLength(3);
       expect(movements.map((m) => m.position)).toEqual([0, 1, 2]);
       expect(movements.map((m) => m.movement_type)).toEqual(['inflow', 'outflow', 'fee']);
+      expect(movements.map((m) => m.movement_fingerprint)).toEqual([
+        seedMovementFingerprint(txFingerprint, 'inflow', 0),
+        seedMovementFingerprint(txFingerprint, 'outflow', 0),
+        seedMovementFingerprint(txFingerprint, 'fee', 0),
+      ]);
       expect(movements.some((m) => m.asset_id === 'legacy:asset')).toBe(false);
     });
 
     it('rejects invalid movement price metadata and leaves rows unchanged', async () => {
+      const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-3');
       await db
         .insertInto('transactions')
         .values({
@@ -627,6 +667,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-3',
+          tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
@@ -643,6 +684,7 @@ describe('TransactionRepository', () => {
           transaction_id: 3,
           position: 0,
           movement_type: 'inflow',
+          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
           asset_id: 'test:btc',
           asset_symbol: 'BTC',
           gross_amount: '1.0',
@@ -708,6 +750,7 @@ describe('TransactionRepository', () => {
     });
 
     it('cascades movement deletion when the transaction is deleted', async () => {
+      const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-4');
       await db
         .insertInto('transactions')
         .values({
@@ -716,6 +759,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-4',
+          tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'deposit',
@@ -732,6 +776,7 @@ describe('TransactionRepository', () => {
           transaction_id: 4,
           position: 0,
           movement_type: 'inflow',
+          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
           asset_id: 'test:eth',
           asset_symbol: 'ETH',
           gross_amount: '2.0',
@@ -821,6 +866,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-11',
+          tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-11' })),
           transaction_status: 'success',
           transaction_datetime: '2025-01-01T00:00:00.000Z',
           notes_json: JSON.stringify([
@@ -884,6 +930,7 @@ describe('TransactionRepository', () => {
             source_name: 'kraken',
             source_type: 'exchange',
             external_id: 'tx-21',
+            tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-21' })),
             transaction_status: 'success',
             transaction_datetime: '2025-01-02T00:00:00.000Z',
             notes_json: JSON.stringify([
@@ -907,6 +954,7 @@ describe('TransactionRepository', () => {
             source_name: 'coinbase',
             source_type: 'exchange',
             external_id: 'tx-22',
+            tx_fingerprint: assertOk(computeTxFingerprint({ source: 'coinbase', accountId: 2, externalId: 'tx-22' })),
             transaction_status: 'success',
             transaction_datetime: '2025-01-03T00:00:00.000Z',
             notes_json: JSON.stringify([

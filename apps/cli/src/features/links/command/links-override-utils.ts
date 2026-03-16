@@ -1,12 +1,7 @@
 // Shared utility for writing link/unlink override events from CLI handlers.
 // Resolves transaction fingerprints and delegates to OverrideStore.
 
-import {
-  computeResolvedLinkFingerprint,
-  computeTxFingerprint,
-  type CreateOverrideEventOptions,
-  type TransactionLink,
-} from '@exitbook/core';
+import { computeResolvedLinkFingerprint, type CreateOverrideEventOptions, type TransactionLink } from '@exitbook/core';
 import { type OverrideStore, type TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
@@ -14,7 +9,7 @@ const logger = getLogger('LinkOverrideUtils');
 
 /**
  * Write a link_override (confirm) event to the override store.
- * Fetches both transactions to compute fingerprints.
+ * Fetches both transactions to read persisted fingerprints.
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeLinkOverrideEvent(
@@ -52,7 +47,7 @@ export async function writeLinkOverrideEvent(
 
 /**
  * Write an unlink_override event to the override store.
- * Fetches both transactions to compute the resolved link fingerprint.
+ * Fetches both transactions to read the persisted transaction fingerprints.
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeUnlinkOverrideEvent(
@@ -104,19 +99,8 @@ async function resolveFingerprints(
       return undefined;
     }
 
-    const sourceFp = computeTxFingerprint({
-      source: sourceTx.source,
-      accountId: sourceTx.accountId,
-      externalId: sourceTx.externalId,
-    });
-    const targetFp = computeTxFingerprint({
-      source: targetTx.source,
-      accountId: targetTx.accountId,
-      externalId: targetTx.externalId,
-    });
-
-    if (sourceFp.isErr() || targetFp.isErr()) {
-      logger.warn('Failed to compute fingerprints for override event');
+    if (!sourceTx.txFingerprint || !targetTx.txFingerprint) {
+      logger.warn('Failed to read persisted transaction fingerprints for override event');
       return undefined;
     }
 
@@ -133,8 +117,8 @@ async function resolveFingerprints(
     }
 
     return {
-      sourceFp: sourceFp.value,
-      targetFp: targetFp.value,
+      sourceFp: sourceTx.txFingerprint,
+      targetFp: targetTx.txFingerprint,
       resolvedLinkFp: resolvedLinkFpResult.value,
     };
   } catch (error) {

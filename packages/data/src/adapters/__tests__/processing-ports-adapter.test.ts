@@ -33,6 +33,7 @@ describe('buildProcessingPorts', () => {
         source_name: 'kraken',
         source_type: 'exchange',
         external_id: 'tx-1',
+        tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-1' })),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

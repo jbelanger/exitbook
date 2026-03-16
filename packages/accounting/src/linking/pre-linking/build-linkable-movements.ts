@@ -1,5 +1,5 @@
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
-import { computeMovementFingerprint, computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -49,31 +49,21 @@ export function buildLinkableMovements(
     const normalizedHash = tx.blockchain?.transaction_hash
       ? normalizeTransactionHash(tx.blockchain.transaction_hash)
       : undefined;
-
-    // Compute tx fingerprint once per transaction for movement fingerprints
-    const txFpResult = computeTxFingerprint({
-      source: tx.source,
-      accountId: tx.accountId,
-      externalId: tx.externalId,
-    });
-    if (txFpResult.isErr()) {
-      return err(txFpResult.error);
+    if (!tx.txFingerprint) {
+      return err(new Error(`Transaction ${tx.id} is missing persisted txFingerprint`));
     }
-    const txFingerprint = txFpResult.value;
 
     const inflows = tx.movements.inflows ?? [];
     for (let inflowIdx = 0; inflowIdx < inflows.length; inflowIdx++) {
       const inflow = inflows[inflowIdx]!;
       const amount = inflow.netAmount ?? inflow.grossAmount;
       const grossAmount = inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
-
-      const movementFingerprintResult = computeMovementFingerprint({
-        txFingerprint,
-        movementType: 'inflow',
-        position: inflowIdx,
-      });
-      if (movementFingerprintResult.isErr()) {
-        return err(movementFingerprintResult.error);
+      if (!inflow.movementFingerprint) {
+        return err(
+          new Error(
+            `Transaction ${tx.id} inflow ${inflowIdx} (${inflow.assetId}) is missing persisted movementFingerprint`
+          )
+        );
       }
 
       linkableMovements.push(
@@ -90,7 +80,7 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             position: inflowIdx,
-            movementFingerprint: movementFingerprintResult.value,
+            movementFingerprint: inflow.movementFingerprint,
           }
         )
       );
@@ -104,14 +94,12 @@ export function buildLinkableMovements(
       const amount = reduction ?? outflow.netAmount ?? outflow.grossAmount;
       const grossAmount =
         outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount) ? outflow.grossAmount : undefined;
-
-      const movementFingerprintResult = computeMovementFingerprint({
-        txFingerprint,
-        movementType: 'outflow',
-        position: outflowIdx,
-      });
-      if (movementFingerprintResult.isErr()) {
-        return err(movementFingerprintResult.error);
+      if (!outflow.movementFingerprint) {
+        return err(
+          new Error(
+            `Transaction ${tx.id} outflow ${outflowIdx} (${outflow.assetId}) is missing persisted movementFingerprint`
+          )
+        );
       }
 
       linkableMovements.push(
@@ -128,7 +116,7 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             position: outflowIdx,
-            movementFingerprint: movementFingerprintResult.value,
+            movementFingerprint: outflow.movementFingerprint,
           }
         )
       );

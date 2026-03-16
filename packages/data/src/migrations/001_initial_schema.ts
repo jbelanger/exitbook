@@ -121,6 +121,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('source_name', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('external_id', 'text')
+    .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('transaction_datetime', 'text', (col) => col.notNull())
     .addColumn('from_address', 'text')
@@ -160,6 +161,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   // Create index on account_id for fast account-scoped queries
   await db.schema.createIndex('idx_transactions_account_id').on('transactions').column('account_id').execute();
 
+  // Create index on tx_fingerprint for override and replay lookups
+  await db.schema.createIndex('idx_transactions_tx_fingerprint').on('transactions').column('tx_fingerprint').execute();
+
   // Create unique index on (account_id, blockchain_transaction_hash) to prevent duplicate blockchain transactions per account
   // Only applies when blockchain_transaction_hash is not null (blockchain transactions, not exchange transactions)
   await sql`
@@ -182,6 +186,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id').onDelete('cascade'))
     .addColumn('position', 'integer', (col) => col.notNull())
     .addColumn('movement_type', 'text', (col) => col.notNull())
+    .addColumn('movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('asset_symbol', 'text', (col) => col.notNull())
     // Amount fields
@@ -236,6 +241,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createIndex('idx_transaction_movements_transaction_id')
     .on('transaction_movements')
     .column('transaction_id')
+    .execute();
+
+  // Create index on movement_fingerprint for linking and override replay
+  await db.schema
+    .createIndex('idx_transaction_movements_movement_fingerprint')
+    .on('transaction_movements')
+    .column('movement_fingerprint')
     .execute();
 
   // Token metadata cache tables moved to token-metadata.db.

@@ -39,9 +39,9 @@ function createLinkOverridePayload(targetTxFingerprint = targetFingerprint): Lin
 describe('buildFingerprintMap', () => {
   it('should build fingerprint to ID map', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'TRADE-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
-      { id: 3, accountId: 3, source: 'coinbase', externalId: 'DEPOSIT-456' },
+      { id: 1, txFingerprint: 'tx:v2:kraken:1:TRADE-123' },
+      { id: 2, txFingerprint: 'tx:v2:blockchain:bitcoin:2:abc123' },
+      { id: 3, txFingerprint: 'tx:v2:coinbase:3:DEPOSIT-456' },
     ];
 
     const map = buildFingerprintMap(transactions);
@@ -79,8 +79,8 @@ describe('resolveTxId', () => {
 describe('applyLinkOverrides', () => {
   it('should confirm suggested link', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links = [
@@ -127,8 +127,8 @@ describe('applyLinkOverrides', () => {
 
   it('should mark link as rejected for unlink override', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links = [
@@ -175,8 +175,8 @@ describe('applyLinkOverrides', () => {
 
   it('should return orphaned override when transactions exist but algorithm produced no link', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     // Empty links — algorithm didn't produce a match for this pair
@@ -221,7 +221,7 @@ describe('applyLinkOverrides', () => {
   });
 
   it('should handle unresolved link override when transaction not found', () => {
-    const transactions = [{ id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' }];
+    const transactions = [{ id: 1, txFingerprint: sourceFingerprint }];
 
     const links = [
       {
@@ -266,8 +266,8 @@ describe('applyLinkOverrides', () => {
 
   it('should handle empty overrides array', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links = [
@@ -299,8 +299,8 @@ describe('applyLinkOverrides', () => {
 
   it('should not create orphaned link when later unlinked (THE BUG)', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links: {
@@ -346,8 +346,8 @@ describe('applyLinkOverrides', () => {
 
   it('should handle multiple state changes with last event winning', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links = [
@@ -409,8 +409,8 @@ describe('applyLinkOverrides', () => {
 
   it('should apply final confirm state after reject', () => {
     const transactions = [
-      { id: 1, accountId: 1, source: 'kraken', externalId: 'WITHDRAWAL-123' },
-      { id: 2, accountId: 2, source: 'blockchain:bitcoin', externalId: 'abc123' },
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
     ];
 
     const links = [

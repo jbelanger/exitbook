@@ -1,4 +1,10 @@
-import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import {
+  computeMovementFingerprint,
+  computeTxFingerprint,
+  type Currency,
+  type UniversalTransactionData,
+  parseDecimal,
+} from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
@@ -92,10 +98,22 @@ export function createTransaction(params: {
   to?: string;
 }): UniversalTransactionData {
   const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
+  const accountId = params.accountId ?? 1;
+  const externalId = `${params.source}-${params.id}`;
+  const txFingerprintResult = computeTxFingerprint({
+    source: params.source,
+    accountId,
+    externalId,
+  });
+  if (txFingerprintResult.isErr()) {
+    throw txFingerprintResult.error;
+  }
+
   return {
     id: params.id,
-    accountId: params.accountId ?? 1,
-    externalId: `${params.source}-${params.id}`,
+    accountId,
+    externalId,
+    txFingerprint: txFingerprintResult.value,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
@@ -105,20 +123,44 @@ export function createTransaction(params: {
     to: params.to,
     movements: {
       inflows: params.inflows
-        ? params.inflows.map((m) => ({
-            assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol as Currency,
-            grossAmount: parseDecimal(m.amount),
-            netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
-          }))
+        ? params.inflows.map((m, index) => {
+            const movementFingerprintResult = computeMovementFingerprint({
+              txFingerprint: txFingerprintResult.value,
+              movementType: 'inflow',
+              position: index,
+            });
+            if (movementFingerprintResult.isErr()) {
+              throw movementFingerprintResult.error;
+            }
+
+            return {
+              assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
+              assetSymbol: m.assetSymbol as Currency,
+              movementFingerprint: movementFingerprintResult.value,
+              grossAmount: parseDecimal(m.amount),
+              netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
+            };
+          })
         : [],
       outflows: params.outflows
-        ? params.outflows.map((m) => ({
-            assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
-            assetSymbol: m.assetSymbol as Currency,
-            grossAmount: parseDecimal(m.amount),
-            netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
-          }))
+        ? params.outflows.map((m, index) => {
+            const movementFingerprintResult = computeMovementFingerprint({
+              txFingerprint: txFingerprintResult.value,
+              movementType: 'outflow',
+              position: index,
+            });
+            if (movementFingerprintResult.isErr()) {
+              throw movementFingerprintResult.error;
+            }
+
+            return {
+              assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
+              assetSymbol: m.assetSymbol as Currency,
+              movementFingerprint: movementFingerprintResult.value,
+              grossAmount: parseDecimal(m.amount),
+              netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
+            };
+          })
         : [],
     },
     fees: [],

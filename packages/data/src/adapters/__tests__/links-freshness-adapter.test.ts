@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../../data-context.js';
 import type { KyselyDB } from '../../database.js';
-import { seedUser, seedAccount } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { buildLinksFreshnessPorts } from '../links-freshness-adapter.js';
@@ -22,12 +22,15 @@ describe('buildLinksFreshnessPorts', () => {
   });
 
   async function seedTransaction(accountId: number, createdAt: string) {
+    const externalId = `test-tx-${accountId}-${createdAt}`;
     await db
       .insertInto('transactions')
       .values({
         account_id: accountId,
         source_name: 'test',
         source_type: 'exchange',
+        external_id: externalId,
+        tx_fingerprint: seedTxFingerprint('test', accountId, externalId),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

@@ -68,6 +68,7 @@ export const AssetMovementSchema = z
     // Asset identity (required)
     assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
     assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
+    movementFingerprint: z.string().min(1).optional(), // Persisted movement identity, hydrated on repository reads
 
     // Amount fields
     grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
@@ -146,6 +147,7 @@ export const FeeMovementSchema = z.object({
   // Asset identity (required)
   assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
+  movementFingerprint: z.string().min(1).optional(), // Persisted movement identity, hydrated on repository reads
   amount: DecimalSchema,
 
   // Fee semantics (required)
@@ -184,6 +186,7 @@ const hasAccountingImpact = (data: {
 const BaseUniversalTransactionObjectSchema = z.object({
   // Core fields
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
+  txFingerprint: z.string().min(1).optional(), // Persisted transaction identity, hydrated on repository reads
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
   source: z.string().min(1, 'Source must not be empty'),

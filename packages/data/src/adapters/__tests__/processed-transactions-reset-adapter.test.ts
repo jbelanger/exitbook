@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../../data-context.js';
 import type { KyselyDB } from '../../database.js';
-import { seedUser, seedAccount, seedImportSession } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { buildProcessedTransactionsResetPorts } from '../processed-transactions-reset-adapter.js';
 
@@ -40,12 +40,15 @@ describe('buildProcessedTransactionsResetPorts', () => {
   }
 
   async function seedTransaction(accountId: number) {
+    const externalId = `test-tx-${accountId}-${globalThis.crypto.randomUUID()}`;
     const result = await db
       .insertInto('transactions')
       .values({
         account_id: accountId,
         source_name: 'test',
         source_type: 'blockchain',
+        external_id: externalId,
+        tx_fingerprint: seedTxFingerprint('test', accountId, externalId),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,
