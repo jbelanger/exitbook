@@ -11,16 +11,16 @@ This spec defines the command taxonomy, presentation mode rules, naming conventi
 
 ## Quick Reference
 
-| Concept                | Rule                                                          |
-| ---------------------- | ------------------------------------------------------------- |
-| `--json`               | Always machine output; never launches TUI                     |
-| Browse flags           | Narrow initial state; do not force text mode                  |
-| Human text output      | Uses `text` or `text-progress` internally, selected by intent |
-| Long-running workflows | One execution engine, multiple renderers                      |
-| `--text`               | Canonical non-TUI override for human-readable output          |
-| One-shot mutations     | Stay simple by default; no TUI unless explicitly justified    |
-| `--json` + `--text`    | Mutually exclusive; CLI exits with validation error           |
-| Acceptance scope       | Applies to the full currently registered CLI surface          |
+| Concept                   | Rule                                                  |
+| ------------------------- | ----------------------------------------------------- |
+| Browse commands           | TUI by default; `--text` for snapshots                |
+| Workflow commands         | `text-progress` by default; `--tui` for Ink dashboard |
+| Mutate / export           | `text` always; no TUI unless explicitly justified     |
+| `--json`                  | Machine output; never launches TUI or text-progress   |
+| `--json`/`--text`/`--tui` | Mutually exclusive; CLI exits with validation error   |
+| Browse flags              | Narrow initial state; do not force text mode          |
+| Long-running workflows    | One execution engine, multiple renderers              |
+| Acceptance scope          | Applies to the full currently registered CLI surface  |
 
 ## Goals
 
@@ -98,21 +98,25 @@ Common edge case: `exitbook transactions view | head` is non-interactive for pre
 
 ### Core Rule
 
-The CLI has two human-readable text renderer categories plus TUI:
+Default presentation follows directly from command intent:
 
-- `text`
-- `text-progress`
-- `tui`
+| Intent               | Default (interactive) | Default (non-interactive) |
+| -------------------- | --------------------- | ------------------------- |
+| `browse`             | `tui`                 | `text`                    |
+| `workflow`           | `text-progress`       | `text-progress`           |
+| `mutate`             | `text`                | `text`                    |
+| `export`             | `text`                | `text`                    |
+| `destructive-review` | `tui`                 | `text` (no execute)       |
+
+TUI is reserved for commands with real interaction value: list/detail navigation, drill-down, inline actions. Workflow monitors — progress displays without keyboard interaction — use `text-progress` by default. Users can opt into the Ink dashboard for workflows via `--tui`.
 
 `json` remains the machine-facing mode.
-
-Users do not choose between `text` and `text-progress` directly. Command intent selects which text renderer applies when a command runs outside TUI, either because the terminal is non-interactive or because the user requested `--text`.
 
 ### Browse Commands May Trigger Workflow-Style Prereqs
 
 Some browse commands (`cost-basis`, `portfolio`, `balance view`) implicitly rebuild upstream projections (processed transactions, links, price coverage) before rendering. When a browse command triggers a prereq rebuild, the rebuild uses its own presenter selected by the current presentation mode — it does not inherit the browse command's static text renderer. This means a `cost-basis --text` invocation may emit `text-progress` output for stale projections before printing the final text snapshot.
 
-This is intentional: the prereq rebuild is a workflow sub-operation with different rendering needs than the parent browse command. Phase 5 of the migration plan formalizes this by introducing a projection monitor contract.
+This is intentional: the prereq rebuild is a workflow sub-operation with different rendering needs than the parent browse command. Phase 4 of the migration plan formalizes this by introducing a projection monitor contract.
 
 ### Command Taxonomy
 
@@ -128,12 +132,12 @@ This is intentional: the prereq rebuild is a workflow sub-operation with differe
 | `portfolio`           | `browse`             | `tui`                           | `text`                                                                       |
 | `cost-basis`          | `browse`             | `tui`                           | `text`                                                                       |
 | `balance view`        | `browse`             | `tui`                           | `text`                                                                       |
-| `balance refresh`     | `workflow`           | `tui`                           | `text-progress`                                                              |
-| `import`              | `workflow`           | `tui`                           | `text-progress`                                                              |
-| `reprocess`           | `workflow`           | `tui`                           | `text-progress`                                                              |
-| `links run`           | `workflow`           | `tui`                           | `text-progress`                                                              |
-| `prices enrich`       | `workflow`           | `tui`                           | `text-progress`                                                              |
-| `providers benchmark` | `workflow`           | `tui`                           | `text-progress`                                                              |
+| `balance refresh`     | `workflow`           | `text-progress`                 | `text-progress`                                                              |
+| `import`              | `workflow`           | `text-progress`                 | `text-progress`                                                              |
+| `reprocess`           | `workflow`           | `text-progress`                 | `text-progress`                                                              |
+| `links run`           | `workflow`           | `text-progress`                 | `text-progress`                                                              |
+| `prices enrich`       | `workflow`           | `text-progress`                 | `text-progress`                                                              |
+| `providers benchmark` | `workflow`           | `text-progress`                 | `text-progress`                                                              |
 | `links confirm`       | `mutate`             | `text`                          | `text`                                                                       |
 | `links reject`        | `mutate`             | `text`                          | `text`                                                                       |
 | `prices set`          | `mutate`             | `text`                          | `text`                                                                       |
@@ -161,31 +165,38 @@ Mode resolution follows this order:
 
 ### Override Flags
 
-This spec standardizes one explicit human-output override:
+This spec standardizes two explicit output overrides:
 
-- `--text`
+- `--text` — force human-readable text output without TUI or live progress. Command intent determines whether the renderer is `text` or `text-progress`.
+- `--tui` — force the Ink dashboard for workflow commands. Only meaningful for `workflow` intent; ignored or errors for other intents.
 
-`--text` means "render human-readable output without TUI." Command intent then determines whether that renderer is `text` or `text-progress`.
+`--tui` exists because workflow commands default to `text-progress`, not TUI. Users who prefer the Ink progress dashboard can opt in per invocation. Browse commands do not need `--tui` because they already default to TUI on interactive terminals.
 
 For `mutate` and `export` commands, `--text` is a no-op because these commands already default to `text` in all contexts. Implementations should accept the flag silently rather than erroring, but should not register special `--text` handling for these intents.
-
-This spec does not standardize `--tui` as a canonical public flag. For commands where TUI is appropriate, it is already the default on an interactive terminal, so a force-TUI flag is redundant unless a concrete use case emerges later.
 
 `--no-tui` is not the preferred surface because it describes implementation rather than output behavior. It may exist as a temporary compatibility alias for `--text` during migration, but it is not the canonical flag.
 
 ### Flag Conflicts
 
-`--json` and `--text` are mutually exclusive. If both are passed, the CLI must exit with a validation error and a clear message. Silent precedence would mask user confusion.
+`--json`, `--text`, and `--tui` are mutually exclusive. If any combination is passed together, the CLI must exit with a validation error and a clear message. Silent precedence would mask user confusion.
 
 ### Resolution Algorithm
 
 ```ts
 function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOptions): PresentationMode {
-  if (options.json === true && options.text === true) {
-    throw new Error('--json and --text are mutually exclusive');
+  const flagCount = [options.json, options.text, options.tui].filter(Boolean).length;
+  if (flagCount > 1) {
+    throw new Error('--json, --text, and --tui are mutually exclusive');
   }
 
   if (options.json === true) return 'json';
+
+  if (options.tui === true) {
+    if (spec.intent !== 'workflow' && spec.intent !== 'browse' && spec.intent !== 'destructive-review') {
+      throw new Error('--tui is not supported for this command');
+    }
+    return 'tui';
+  }
 
   if (options.text === true) {
     return spec.nonTuiOverrideMode;
@@ -203,7 +214,7 @@ function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOpti
 }
 ```
 
-This resolves the top-level command's presentation mode. Browse commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 5 governs that behavior — the resolver above does not override it.
+This resolves the top-level command's presentation mode. Browse commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 4 governs that behavior — the resolver above does not override it.
 
 ### Fallback Safety Rules
 
@@ -360,7 +371,7 @@ function workflowPresentationSpec(commandId: string): CommandPresentationSpec {
   return {
     commandId,
     intent: 'workflow',
-    interactiveDefaultMode: 'tui',
+    interactiveDefaultMode: 'text-progress',
     nonTuiOverrideMode: 'text-progress',
     fallbackNonInteractiveMode: 'text-progress',
   };
@@ -424,6 +435,54 @@ The orchestrator or pipeline must not know which presenter is active.
 Human-readable progress output should not be interleaved with JSON payloads.
 Human-readable text modes must remain CI-safe and readable in log streams.
 
+### Text-Progress Rendering Contract
+
+`text-progress` is the default renderer for workflow commands. It is not a spinner plus "done." It is a curated line-oriented stream that preserves operational visibility — the same signal the Ink monitors provide, in a form that works in scrollback, logs, and pipes.
+
+#### Event Categories
+
+The text-progress presenter receives the same event stream as the Ink presenter. It emits three categories of output:
+
+**State changes** — emitted immediately when they occur:
+
+- Provider selected, failover, backoff, rate-limit hit, auth failure, retry exhaustion
+- Workflow phase transitions (e.g., "started", "processing", "complete")
+- Errors and warnings that require user attention
+
+**Heartbeat summaries** — emitted periodically (every few seconds) during active work:
+
+- Current provider, request rate, items processed, error count, queue depth
+- Collapsed into a single line per heartbeat; no cumulative scroll noise
+
+**Final summaries** — emitted once at workflow completion:
+
+- Per-provider stats: requests, failures, average latency, fallback path used
+- Workflow totals: items imported/processed/fetched, duration, error count
+
+#### Example Output
+
+```
+[import] bitcoin address bc1q... started
+[providers] 3 providers ready
+[stream:transactions] started · provider=mempool.space
+[stream:transactions] 4,280 imported · provider=mempool.space · 2.8 req/s
+[provider] mempool.space rate-limited · backoff 1200ms
+[provider] failover mempool.space → blockstream
+[stream:transactions] 8,940 imported · provider=blockstream · 1.9 req/s
+[processing] token-metadata fetched=42 cached=380 · provider=alchemy · 4.1 req/s
+[complete] imported=8,940 processed=8,940 duration=00:42
+[provider-summary] mempool.space requests=112 failures=3 avg=240ms
+[provider-summary] blockstream requests=87 failures=0 avg=180ms
+```
+
+#### Design Constraints
+
+- Every line must answer at least one of: is it stuck? which provider? is it failing? how far along?
+- State changes are not optional — provider failover and rate-limiting must be visible at default verbosity.
+- Heartbeat frequency should be adaptive: more frequent during active fetching, suppressed when idle.
+- `--verbose` increases detail level (per-request logging, full error stacks) without changing which presenter is selected. It is orthogonal to presentation mode.
+- Output must be CI-safe: no cursor control, no ANSI escape sequences beyond basic color, no terminal-width assumptions.
+
 ## Migration Plan
 
 ### Phase 1: Shared Presentation Primitives
@@ -438,7 +497,7 @@ Expected files:
 - `command-presentation.ts` — `CommandPresentationSpec`, intent-based helper constructors (`browsePresentationSpec`, `workflowPresentationSpec`, `mutatePresentationSpec`, `exportPresentationSpec`), `resolvePresentationMode()`
 - `interactive-terminal.ts` — `isInteractiveTerminal()`
 
-Also provide shared option helpers for `--json` and `--text`, including the mutual-exclusion validation.
+Also provide shared option helpers for `--json`, `--text`, and `--tui`, including the mutual-exclusion validation.
 
 Then retire or narrow:
 
@@ -479,6 +538,8 @@ Refactor these commands away from `{ isJsonMode: boolean }` factories:
 - `apps/cli/src/features/balance/command/balance-refresh.ts`
 - `apps/cli/src/features/balance/command/balance-handler.ts`
 
+The primary renderer for all workflow commands is now `text-progress`. The Ink presenter remains available via `--tui` but is no longer the default path. This means the text-progress presenter must be built first and must satisfy the rendering contract defined in this spec — it is not a degraded fallback.
+
 Known bug to fix in this phase: `createIngestionInfrastructure` always mounts the Ink `IngestionMonitor` even in JSON mode, unlike `prices enrich` and `links run` which gate the controller on `isJsonMode`. The import command is the highest-priority target for this refactor because it is the only workflow that currently renders TUI in JSON mode.
 
 `balance refresh` must use the same presentation architecture as the other workflow commands. Do not introduce a balance-specific mode resolver, presenter contract, or parallel execution path. The command has scope-dependent result views (single-scope vs all-scope refresh), but scope affects the result shape, not presenter selection. Presenter selection must flow through the same `resolvePresentationMode()` and shared workflow presenter factory used by the rest of the workflow surface.
@@ -499,8 +560,10 @@ await handler.execute(params);
 Exit criteria:
 
 - each workflow command has one execution engine and presenter-selected rendering
+- `text-progress` is the default presenter and satisfies the rendering contract (state changes, heartbeats, final summaries)
+- `--tui` selects the Ink presenter for users who prefer the dashboard
 - `balance refresh` uses the same shared presenter path as the other workflow commands
-- no workflow command chooses business logic by `isJsonMode`
+- no workflow command chooses business logic by presentation mode
 
 ### Phase 4: Projection Prereqs
 
@@ -598,6 +661,7 @@ Minimum expectation:
 - interactive default path
 - `--text`
 - `--json`
+- `--tui` (workflow commands only)
 - non-interactive stdout redirection / CI-safe fallback behavior
 
 No phase is complete until every command touched in that phase has explicit mode-coverage tests or an equivalent command-level verification checklist.
@@ -607,12 +671,12 @@ No phase is complete until every command touched in that phase has explicit mode
 - Every command has an explicit intent and presentation policy.
 - The migration checklist (Appendix A) covers the full currently registered runnable CLI surface with no omissions.
 - Browse commands with filters still open in TUI by default on an interactive terminal.
-- Workflow commands can run with TUI, text-progress, or JSON without duplicating business logic.
+- Workflow commands default to `text-progress` on all terminals, with `--tui` opt-in for the Ink dashboard.
+- Workflow `text-progress` output satisfies the rendering contract: state changes, heartbeat summaries, final per-provider summaries. It must not be less observable than the current Ink monitors.
 - `balance refresh` uses the same shared workflow presenter architecture as the other workflow commands.
-- `--text` is the only canonical human-readable override flag.
+- `--text` and `--tui` are the canonical human-output override flags. `--json` remains the only machine-output guarantee.
 - `clear` never performs deletion in non-interactive contexts unless `--confirm` is present.
 - No handler factory uses `isJsonMode` as its primary branching API.
-- `--json` remains the only machine-output guarantee.
 - The CLI help text reflects presentation behavior consistently.
 
 ## Related Specs
@@ -629,15 +693,20 @@ No phase is complete until every command touched in that phase has explicit mode
 - Decision: model the surface around command intent, not around whether flags were supplied.
 - Decision: keep `--json` as the single machine-output switch.
 - Decision: keep `text` and `text-progress` as distinct internal renderer categories because snapshot output and workflow progress have different requirements.
-- Decision: expose only `--text` as the canonical non-TUI override; do not standardize `--tui` unless a real forcing use case appears.
+- Decision: workflow commands default to `text-progress`, not TUI. The current Ink monitors are progress displays, not interactive apps — full-screen TUI is heavier, harder to copy from, worse in scrollback, and creates more implementation complexity for monitors that have no keyboard interaction. `--tui` opts into the Ink dashboard.
+- Decision: `--text` is the canonical non-TUI override for browse commands. `--tui` is the canonical TUI opt-in for workflow commands. `--json` is machine output. The three are mutually exclusive.
+- Decision: `text-progress` must preserve operational visibility — provider state changes, heartbeat summaries, and final rollups are not optional. Moving workflows off TUI must not make them less observable.
+- Decision: `--verbose` controls detail level within a presentation mode (e.g., per-request logging in text-progress). It is orthogonal to presenter selection.
 - Decision: `clear` fails closed in CI and other non-interactive contexts; preview without `--confirm` is an error path, not a silent no-op success.
 - Decision: `destructive-review` remains a narrow intent reserved for review-gated safety flows, not a generic label for dangerous mutations.
 - Decision: `clear --text` on an interactive terminal renders text preview + stdin confirmation prompt. It does not exit non-zero, because the user is present.
 - Decision: `CommandPresentationSpec` is co-located with each command, not centralized in a registry map.
+- Decision: `balance refresh` is a workflow, `balance view` is the browser. The refresh command should not open a full-screen app by default.
 - Smell: `isJsonMode` is an underspecified abstraction and has spread too deeply into handlers and projection prereq code.
 - Smell: `destructive-review` is still a category of one today, so the admission rule needs to stay explicit or future commands will get misclassified.
 - Smell: the `executeXxxJSON` / `executeXxxTUI` dual-function pattern may hide business-logic divergence between modes. Each must be audited before unification.
 - Smell: `createIngestionInfrastructure` always mounts the Ink `IngestionMonitor` even in JSON mode — the only workflow command with this bug.
+- Smell: `cost-basis` mixes "report" and "browser" semantics in one command. The name reads like an action ("calculate cost basis"), but the TUI is a browse surface. Strongest candidate for a future `cost-basis` (report) + `cost-basis view` (browser) split, but out of scope for this migration.
 - Naming issue: `textOverrideMode` was misleading because it can resolve to `text-progress`; `nonTuiOverrideMode` is more accurate.
 - Smell: `assets exclusions` is a low-signal command name and likely does not match the rest of the surface.
 
