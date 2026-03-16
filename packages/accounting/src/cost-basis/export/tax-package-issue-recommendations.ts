@@ -10,6 +10,8 @@ export function getDefaultRecommendedAction(code: TaxPackageIssue['code']): stri
       return 'Resolve the pending asset reviews before using this package for filing.';
     case 'UNKNOWN_TRANSACTION_CLASSIFICATION':
       return 'Review the transaction operation classification (for example transfer, swap, reward, or fee) before filing.';
+    case 'UNCERTAIN_PROCEEDS_ALLOCATION':
+      return 'Inspect the source transaction if exact per-asset proceeds allocation matters for filing.';
     case 'INCOMPLETE_TRANSFER_LINKING':
       return 'Review the affected transfer rows and confirm the internal carryover treatment.';
   }

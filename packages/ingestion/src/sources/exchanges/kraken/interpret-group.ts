@@ -17,6 +17,27 @@ interface InterpretedKrakenEvent {
   feeAmount: ReturnType<typeof parseDecimal>;
 }
 
+function getKrakenSubtype(event: ExchangeProviderEvent): string | undefined {
+  const subtype = event.providerMetadata['subtype'];
+  if (typeof subtype !== 'string') {
+    return undefined;
+  }
+
+  const normalized = subtype.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function getSharedKrakenSubtype(interpretedEvents: readonly InterpretedKrakenEvent[]): string | undefined {
+  const subtypes = new Set(
+    interpretedEvents.map((event) => getKrakenSubtype(event.event)).filter((value) => value !== undefined)
+  );
+  if (subtypes.size !== 1) {
+    return undefined;
+  }
+
+  return [...subtypes][0];
+}
+
 function buildMovementDraft(assetSymbol: Currency, amount: string): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kraken', assetSymbol);
   if (assetIdResult.isErr()) {
@@ -146,6 +167,36 @@ function buildDraft(
   };
 }
 
+function buildDustSweepingNotes(
+  group: ExchangeCorrelationGroup,
+  inflows: ExchangeMovementDraft[],
+  outflows: ExchangeMovementDraft[]
+): TransactionNote[] | undefined {
+  if (inflows.length <= 1 && outflows.length <= 1) {
+    return undefined;
+  }
+
+  return [
+    {
+      type: 'allocation_uncertain',
+      severity: 'warning',
+      message: `Kraken dustsweeping group ${group.correlationKey} was classified as a dust conversion, but Kraken does not provide an exact per-asset proceeds allocation across every disposed asset in the group.`,
+      metadata: {
+        inflows: inflows.map((movement) => ({
+          assetId: movement.assetId,
+          amount: movement.grossAmount,
+        })),
+        outflows: outflows.map((movement) => ({
+          assetId: movement.assetId,
+          amount: movement.grossAmount,
+        })),
+        providerEventIds: group.events.map((event) => event.providerEventId),
+        providerSubtype: 'dustsweeping',
+      },
+    },
+  ];
+}
+
 export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
   const interpretedEvents: InterpretedKrakenEvent[] = [];
 
@@ -210,6 +261,7 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
   const consolidatedInflows = consolidateMovements(inflows);
   const consolidatedOutflows = consolidateMovements(outflows);
   const consolidatedFees = consolidateFees(fees);
+  const sharedSubtype = getSharedKrakenSubtype(interpretedEvents);
 
   const overlappingAssetIds = consolidatedInflows
     .map((movement) => movement.assetId)
@@ -322,6 +374,20 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
     return {
       kind: 'confirmed',
       draft: buildDraft(group, { category: 'fee', type: 'fee' }, [], [], consolidatedFees),
+    };
+  }
+
+  if (sharedSubtype === 'dustsweeping' && consolidatedInflows.length > 0 && consolidatedOutflows.length > 0) {
+    return {
+      kind: 'confirmed',
+      draft: buildDraft(
+        group,
+        { category: 'trade', type: 'swap' },
+        consolidatedInflows,
+        consolidatedOutflows,
+        consolidatedFees,
+        buildDustSweepingNotes(group, consolidatedInflows, consolidatedOutflows)
+      ),
     };
   }
 

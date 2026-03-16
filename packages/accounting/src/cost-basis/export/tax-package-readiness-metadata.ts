@@ -5,9 +5,11 @@ import { collectBlockingAssetReviewSummaries } from '../standard/validation/asse
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import type {
   TaxPackageReadinessMetadata,
+  TaxPackageUncertainProceedsAllocationDetail,
   TaxPackageUnknownTransactionClassificationDetail,
 } from './tax-package-types.js';
 
+const ALLOCATION_UNCERTAIN_NOTE_TYPES = new Set(['allocation_uncertain']);
 const UNKNOWN_CLASSIFICATION_NOTE_TYPES = new Set(['classification_uncertain', 'classification_failed']);
 
 export function deriveTaxPackageReadinessMetadata(params: {
@@ -15,9 +17,15 @@ export function deriveTaxPackageReadinessMetadata(params: {
   context: TaxPackageBuildContext;
 }): TaxPackageReadinessMetadata {
   const retainedTransactions = getRetainedTransactions(params.context);
+  const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
+    retainedTransactions,
+    ALLOCATION_UNCERTAIN_NOTE_TYPES
+  );
   const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(retainedTransactions);
 
   return {
+    allocationUncertainCount: allocationUncertainDetails.length,
+    allocationUncertainDetails,
     fxFallbackCount: countFxFallbackRows(params.context),
     incompleteTransferLinkCount: countIncompleteTransferLinks(params.context),
     unknownTransactionClassificationCount: unknownTransactionClassificationDetails.length,
@@ -35,23 +43,33 @@ function getRetainedTransactions(context: TaxPackageBuildContext): UniversalTran
 function collectUnknownTransactionClassificationDetails(
   transactions: readonly UniversalTransactionData[]
 ): TaxPackageUnknownTransactionClassificationDetail[] {
+  return collectTransactionIssueDetails<TaxPackageUnknownTransactionClassificationDetail>(
+    transactions,
+    UNKNOWN_CLASSIFICATION_NOTE_TYPES
+  );
+}
+
+function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
+  transactions: readonly UniversalTransactionData[],
+  noteTypes: ReadonlySet<string>
+): TDetail[] {
   return transactions.flatMap((transaction) => {
-    const classificationNote = transaction.notes?.find((note) => UNKNOWN_CLASSIFICATION_NOTE_TYPES.has(note.type));
-    if (!classificationNote) {
+    const matchingNote = transaction.notes?.find((note) => noteTypes.has(note.type));
+    if (!matchingNote) {
       return [];
     }
 
     return [
       {
-        noteMessage: classificationNote.message,
-        noteType: classificationNote.type,
+        noteMessage: matchingNote.message,
+        noteType: matchingNote.type,
         operationCategory: transaction.operation.category,
         operationType: transaction.operation.type,
         reference: buildTransactionReference(transaction),
         sourceName: transaction.source,
         transactionDatetime: transaction.datetime,
         transactionId: transaction.id,
-      },
+      } as TDetail,
     ];
   });
 }

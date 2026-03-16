@@ -4,6 +4,7 @@ import type {
   TaxPackageIssue,
   TaxPackageReadinessResult,
   TaxPackageReviewGateInput,
+  TaxPackageUncertainProceedsAllocationDetail,
   TaxPackageUnknownTransactionClassificationDetail,
 } from './tax-package-types.js';
 
@@ -68,7 +69,7 @@ export function evaluateTaxPackageReadiness(
     issues.push(
       buildReadinessIssue(
         'FX_FALLBACK_USED',
-        'review',
+        'warning',
         'Fallback FX handling was used.',
         `${input.metadata?.fxFallbackCount ?? 0} rows relied on fallback FX handling and should be reviewed before filing.`
       )
@@ -79,20 +80,49 @@ export function evaluateTaxPackageReadiness(
     issues.push(
       buildReadinessIssue(
         'INCOMPLETE_TRANSFER_LINKING',
-        'review',
+        'warning',
         'Some transfers were not fully linked.',
         `${input.metadata?.incompleteTransferLinkCount ?? 0} transfers require manual review because linking is incomplete.`
       )
     );
   }
 
+  if ((input.metadata?.allocationUncertainCount ?? 0) > 0) {
+    const allocationDetails = input.metadata?.allocationUncertainDetails ?? [];
+    if (allocationDetails.length > 0) {
+      for (const detail of allocationDetails) {
+        issues.push(
+          buildReadinessIssue(
+            'UNCERTAIN_PROCEEDS_ALLOCATION',
+            'warning',
+            'A retained transaction has uncertain proceeds allocation across disposed assets.',
+            buildUncertainProceedsAllocationDetail(detail),
+            {
+              affectedArtifact: 'source transaction',
+              affectedRowRef: detail.reference,
+            }
+          )
+        );
+      }
+    } else {
+      issues.push(
+        buildReadinessIssue(
+          'UNCERTAIN_PROCEEDS_ALLOCATION',
+          'warning',
+          'Some retained transactions have uncertain proceeds allocation across disposed assets.',
+          `${input.metadata?.allocationUncertainCount ?? 0} retained transactions could not be assigned an exact per-asset proceeds split from provider data.`
+        )
+      );
+    }
+  }
+
   const blockingIssues = issues.filter((issue) => issue.severity === 'blocked');
-  const reviewItems = issues.filter((issue) => issue.severity === 'review');
+  const warnings = issues.filter((issue) => issue.severity === 'warning');
 
   return {
-    status: blockingIssues.length > 0 ? 'blocked' : reviewItems.length > 0 ? 'review_required' : 'ready',
+    status: blockingIssues.length > 0 ? 'blocked' : 'ready',
     issues,
-    reviewItems,
+    warnings,
     blockingIssues,
   };
 }
@@ -121,4 +151,13 @@ function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTr
       : '';
 
   return `Retained transaction ${detail.sourceName} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
+}
+
+function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProceedsAllocationDetail): string {
+  const operationLabel =
+    detail.operationCategory !== undefined && detail.operationType !== undefined
+      ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
+      : '';
+
+  return `Retained transaction ${detail.sourceName} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
 }

@@ -34,7 +34,7 @@ interface CostBasisExportCommandResult {
   calculationId: string;
   outputDir: string;
   outputPaths: string[];
-  packageStatus: 'blocked' | 'ready' | 'review_required';
+  packageStatus: 'blocked' | 'ready';
   snapshotId?: string | undefined;
 }
 
@@ -266,27 +266,29 @@ export function buildTaxPackageStatusSummaryLines(
 
   switch (exportResult.status) {
     case 'ready':
-      return [];
+      if (exportResult.manifest.warnings.length === 0) {
+        return [];
+      }
+
+      return [
+        'This package is filing-ready, but it includes warnings you should understand before filing.',
+        ...renderIssueGroup('Warnings', exportResult.manifest.warnings),
+        '',
+        `Review ${reportPath} and ${issuesPath} for full details.`,
+      ];
     case 'blocked': {
       const lines = [
         'This package was written for inspection, but it is not filing-ready.',
         ...renderIssueGroup('Blocking issues', exportResult.manifest.blockingIssues),
       ];
 
-      if (exportResult.manifest.reviewItems.length > 0) {
-        lines.push('', ...renderIssueGroup('Review items', exportResult.manifest.reviewItems));
+      if (exportResult.manifest.warnings.length > 0) {
+        lines.push('', ...renderIssueGroup('Warnings', exportResult.manifest.warnings));
       }
 
       lines.push('', `Review ${reportPath} and ${issuesPath} for full details.`);
       return lines;
     }
-    case 'review_required':
-      return [
-        'This package needs manual review before filing.',
-        ...renderIssueGroup('Review items', exportResult.manifest.reviewItems),
-        '',
-        `Review ${reportPath} and ${issuesPath} for full details.`,
-      ];
   }
 }
 

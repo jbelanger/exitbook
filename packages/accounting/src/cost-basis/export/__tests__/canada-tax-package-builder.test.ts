@@ -68,7 +68,7 @@ describe('buildCanadaTaxPackage', () => {
     expect(report).toContain('Canada capital-gains inclusion rate of 0.5');
   });
 
-  it('includes issues.csv for review-required packages', () => {
+  it('includes issues.csv for ready packages with warnings', () => {
     const context = createCanadaPackageBuildContext();
     const scope = assertOk(
       validateTaxPackageScope({
@@ -96,7 +96,7 @@ describe('buildCanadaTaxPackage', () => {
       })
     );
 
-    expect(result.status).toBe('review_required');
+    expect(result.status).toBe('ready');
     expect(result.files.some((file) => file.relativePath === 'issues.csv')).toBe(true);
     expect(result.files.find((file) => file.relativePath === 'issues.csv')?.content ?? '').toContain(
       'FX_FALLBACK_USED'

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type -- for clarity */
 import type { Result } from '@exitbook/core';
 
 import type { CostBasisJurisdiction, CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
@@ -10,13 +11,14 @@ export const TAX_PACKAGE_VERSION = 1;
 export type TaxPackageKind = typeof TAX_PACKAGE_KIND;
 export type TaxPackageVersion = typeof TAX_PACKAGE_VERSION;
 
-export type TaxPackageStatus = 'ready' | 'review_required' | 'blocked';
-export type TaxPackageIssueSeverity = 'review' | 'blocked';
+export type TaxPackageStatus = 'ready' | 'blocked';
+export type TaxPackageIssueSeverity = 'warning' | 'blocked';
 export type TaxPackageIssueCode =
   | 'MISSING_PRICE_DATA'
   | 'FX_FALLBACK_USED'
   | 'UNRESOLVED_ASSET_REVIEW'
   | 'UNKNOWN_TRANSACTION_CLASSIFICATION'
+  | 'UNCERTAIN_PROCEEDS_ALLOCATION'
   | 'INCOMPLETE_TRANSFER_LINKING';
 
 export interface TaxPackageIssue {
@@ -45,7 +47,7 @@ export interface TaxPackageSummaryTotals {
   totalTaxableGainLoss: string;
 }
 
-export interface TaxPackageUnknownTransactionClassificationDetail {
+interface TaxPackageTransactionIssueDetailBase {
   noteMessage: string;
   noteType: string;
   operationCategory?: string | undefined;
@@ -55,6 +57,10 @@ export interface TaxPackageUnknownTransactionClassificationDetail {
   transactionDatetime: string;
   transactionId: number;
 }
+
+export interface TaxPackageUnknownTransactionClassificationDetail extends TaxPackageTransactionIssueDetailBase {}
+
+export interface TaxPackageUncertainProceedsAllocationDetail extends TaxPackageTransactionIssueDetailBase {}
 
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;
@@ -69,7 +75,7 @@ export interface TaxPackageManifest {
   method: CostBasisMethod;
   taxCurrency: string;
   summaryTotals: TaxPackageSummaryTotals;
-  reviewItems: readonly TaxPackageIssue[];
+  warnings: readonly TaxPackageIssue[];
   blockingIssues: readonly TaxPackageIssue[];
   artifactIndex: readonly TaxPackageArtifactIndexEntry[];
 }
@@ -117,6 +123,8 @@ export type TaxPackageConfigScope = Pick<
 >;
 
 export interface TaxPackageReadinessMetadata {
+  allocationUncertainCount?: number | undefined;
+  allocationUncertainDetails?: readonly TaxPackageUncertainProceedsAllocationDetail[] | undefined;
   fxFallbackCount?: number | undefined;
   incompleteTransferLinkCount?: number | undefined;
   unknownTransactionClassificationCount?: number | undefined;
@@ -133,6 +141,6 @@ export interface TaxPackageReviewGateInput<TScope> {
 export interface TaxPackageReadinessResult {
   status: TaxPackageStatus;
   issues: readonly TaxPackageIssue[];
-  reviewItems: readonly TaxPackageIssue[];
+  warnings: readonly TaxPackageIssue[];
   blockingIssues: readonly TaxPackageIssue[];
 }

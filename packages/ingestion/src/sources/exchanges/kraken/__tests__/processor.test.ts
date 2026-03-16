@@ -11,6 +11,45 @@ import cleanDeposit from './fixtures/clean-deposit.json' with { type: 'json' };
 import cleanWithdrawal from './fixtures/clean-withdrawal.json' with { type: 'json' };
 import netZeroTransferReversalPair from './fixtures/net-zero-transfer-reversal-pair.json' with { type: 'json' };
 
+const dustSweepingRows: KrakenLedgerEntry[] = [
+  {
+    id: 'LI54ES-YRZMF-F2MYUQ',
+    refid: 'TSDEF5I-HNFS4-PZQ2KE',
+    time: 1701143946.764,
+    type: 'receive',
+    subtype: 'dustsweeping',
+    aclass: 'currency',
+    asset: 'ZCAD',
+    amount: '0.2768',
+    fee: '0.0080',
+    balance: '0.2768',
+  },
+  {
+    id: 'L2BSPZ-23EEJ-YO53ED',
+    refid: 'TSDEF5I-HNFS4-PZQ2KE',
+    time: 1701143946.764,
+    type: 'spend',
+    subtype: 'dustsweeping',
+    aclass: 'currency',
+    asset: 'XXBT',
+    amount: '-0.0000055100',
+    fee: '0.0000',
+    balance: '0.0000',
+  },
+  {
+    id: 'LSCF2I-ZNTRC-KOAGGB',
+    refid: 'TSDEF5I-HNFS4-PZQ2KE',
+    time: 1701143946.764,
+    type: 'spend',
+    subtype: 'dustsweeping',
+    aclass: 'currency',
+    asset: 'ADA',
+    amount: '-0.00000004',
+    fee: '0.0000',
+    balance: '0.0000',
+  },
+];
+
 function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLedgerEntry>[] {
   return rows.map((row) => ({
     raw: row,
@@ -109,5 +148,31 @@ describe('KrakenProcessor', () => {
     expect(transaction.fees).toHaveLength(1);
     expect(transaction.fees[0]?.amount.toFixed()).toBe('2.668');
     expect(transaction.fees[0]?.assetSymbol).toBe('ONDO');
+  });
+
+  test('classifies dustsweeping as a swap with allocation warning instead of transfer fallback', async () => {
+    const processor = new KrakenProcessor();
+
+    const result = await processor.process(toInputs(dustSweepingRows));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) {
+      return;
+    }
+
+    expect(transaction.operation).toEqual({ category: 'trade', type: 'swap' });
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.outflows).toHaveLength(2);
+    expect(transaction.notes?.[0]?.type).toBe('allocation_uncertain');
+    expect(transaction.notes?.[0]?.message).toContain('dust conversion');
+    expect(transaction.notes?.[0]?.message).toContain('exact per-asset proceeds allocation');
+    expect(transaction.fees[0]?.assetSymbol).toBe('CAD');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.008');
   });
 });

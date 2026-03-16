@@ -120,6 +120,7 @@ export type {
   TaxPackageReviewGateInput,
   TaxPackageStatus,
   TaxPackageSummaryTotals,
+  TaxPackageUncertainProceedsAllocationDetail,
   TaxPackageUnknownTransactionClassificationDetail,
   TaxPackageVersion,
   WrittenTaxPackageFile,

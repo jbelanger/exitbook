@@ -82,7 +82,7 @@ describe('buildTaxPackageStatusSummaryLines', () => {
                 recommendedAction: 'Review and classify the affected transactions before filing.',
               },
             ],
-            reviewItems: [],
+            warnings: [],
           },
         },
         '/workspace/root/reports/2023-ca-tax-package'

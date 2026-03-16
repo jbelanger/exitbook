@@ -186,7 +186,7 @@ describe('buildCostBasisFilingFacts', () => {
     expect(result.superficialLossAdjustments[0]).toMatchObject({
       id: 'sla-1',
       relatedDispositionId: 'disp-1',
-      substitutedPropertyAcquisitionId: 'acq-1',
+      substitutedPropertyAcquisitionId: 'layer-1',
       taxPropertyKey: 'BTC',
       assetSymbol: 'BTC',
     });

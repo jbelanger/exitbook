@@ -231,7 +231,7 @@ export function createCanadaWorkflowArtifact(
           deniedQuantity: parseDecimal('0.1'),
           relatedDispositionId: 'disp-1',
           taxPropertyKey: 'BTC',
-          substitutedPropertyAcquisitionId: 'acq-1',
+          substitutedPropertyAcquisitionId: 'layer-1',
         },
       ],
       summary: {

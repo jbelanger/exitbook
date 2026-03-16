@@ -16,7 +16,7 @@ Defines the `exitbook cost-basis export --format tax-package` feature. This spec
 | Intent           | `tax-package` is a filing-support artifact, not a generic dump of current CLI state        |
 | Jurisdictions    | v1 supports only `CA` and `US`                                                             |
 | Scope            | Export requires the full default tax-year scope; no `--asset`, no custom date windows      |
-| Readiness        | Package status is `ready`, `review_required`, or `blocked`                                 |
+| Readiness        | Package status is `ready` or `blocked`; non-blocking caveats are warnings                  |
 | Blocked behavior | A blocked package still writes a minimal package with `manifest.json`, `report.md`, issues |
 | Manifest         | `manifest.json` is the stable machine-readable contract and artifact index                 |
 | Facts seam       | Export builders consume `CostBasisFilingFacts`, not export-specific row-fact types         |
@@ -26,7 +26,7 @@ Defines the `exitbook cost-basis export --format tax-package` feature. This spec
 
 - **Filing-support export**: Produce a jurisdiction-aware package meant for preparer review, not exploratory browsing.
 - **Deterministic contract**: Emit stable files, stable row refs, and a manifest that identifies every generated artifact.
-- **Explicit readiness**: Export must surface blocking and review issues instead of silently degrading.
+- **Explicit readiness**: Export must surface blocking issues and warnings instead of silently degrading.
 - **Accounting-owned assembly**: Package selection, readiness, and rendering stay inside the cost-basis export capability rather than the CLI host.
 
 ## Non-Goals
@@ -58,11 +58,11 @@ Semantics:
 ### Readiness Result
 
 ```ts
-type TaxPackageStatus = 'ready' | 'review_required' | 'blocked';
+type TaxPackageStatus = 'ready' | 'blocked';
 
 interface TaxPackageIssue {
   code: TaxPackageIssueCode;
-  severity: 'review' | 'blocked';
+  severity: 'warning' | 'blocked';
   summary: string;
   details: string;
   affectedArtifact?: string | undefined;
@@ -73,8 +73,7 @@ interface TaxPackageIssue {
 
 Readiness is package state, not transport failure:
 
-- `ready`: no known review or blocking issues
-- `review_required`: export succeeds with explicit review items
+- `ready`: no blocking issues; the package may still carry non-blocking warnings
 - `blocked`: export succeeds, writes a minimal package, and marks the dataset unusable for filing under current rules
 
 ### Build Context
@@ -224,7 +223,7 @@ Every package includes `manifest.json` with:
 interface TaxPackageManifest {
   packageKind: 'tax-package';
   packageVersion: 1;
-  packageStatus: 'ready' | 'review_required' | 'blocked';
+  packageStatus: 'ready' | 'blocked';
   jurisdiction: CostBasisJurisdiction;
   taxYear: number;
   calculationId: string;
@@ -239,7 +238,7 @@ interface TaxPackageManifest {
     totalGainLoss: string;
     totalTaxableGainLoss: string;
   };
-  reviewItems: readonly TaxPackageIssue[];
+  warnings: readonly TaxPackageIssue[];
   blockingIssues: readonly TaxPackageIssue[];
   artifactIndex: readonly TaxPackageArtifactIndexEntry[];
 }
@@ -616,7 +615,7 @@ The current Canada report explicitly documents that:
 - **Blocked is not failure**: Rendering a blocked package is a successful export path with a non-zero CLI exit code.
 - **Stale file cleanup matters**: If a later export shrinks the package, the writer removes now-stale managed files such as a previous `dispositions.csv`.
 - **Canada source dependency**: Canada export requires `inputContext` because some export-only fields are reconstructed from source events.
-- **FX fallback is review-only**: FX fallback does not block export by itself; it produces `review_required`.
+- **FX fallback is warning-only**: FX fallback does not block export by itself; it stays `ready` and is surfaced as a warning.
 
 ## Known Limitations (Current Implementation)
 

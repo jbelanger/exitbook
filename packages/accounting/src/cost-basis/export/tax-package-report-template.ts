@@ -9,7 +9,7 @@ interface TaxPackageReportTemplateInput {
     TaxPackageManifest,
     'jurisdiction' | 'method' | 'packageStatus' | 'summaryTotals' | 'taxCurrency' | 'taxYear'
   >;
-  reviewItems: readonly TaxPackageIssue[];
+  warnings: readonly TaxPackageIssue[];
   title: string;
 }
 
@@ -35,10 +35,10 @@ export function buildTaxPackageReportTemplate(input: TaxPackageReportTemplateInp
     '## Readiness',
     '',
     `- Blocking issues: ${input.blockingIssues.length}`,
-    `- Review items: ${input.reviewItems.length}`,
+    `- Warnings: ${input.warnings.length}`,
     '',
     ...renderIssueSection('Blocking Issues', input.blockingIssues),
-    ...renderIssueSection('Review Items', input.reviewItems),
+    ...renderIssueSection('Warnings', input.warnings),
     '## Included Files',
     '',
     ...input.fileDescriptions.map((file) => `- ${file.name}: ${file.purpose}`),
@@ -81,8 +81,6 @@ function describeStatus(status: TaxPackageStatus): string {
   switch (status) {
     case 'ready':
       return 'ready';
-    case 'review_required':
-      return 'review required';
     case 'blocked':
       return 'blocked';
   }

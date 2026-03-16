@@ -242,7 +242,7 @@ function buildManifest(params: {
       totalGainLoss: formatMoney(params.filingFacts.summary.totalGainLoss),
       totalTaxableGainLoss: formatMoney(params.filingFacts.summary.totalTaxableGainLoss),
     },
-    reviewItems: params.readiness.reviewItems,
+    warnings: params.readiness.warnings,
     blockingIssues: params.readiness.blockingIssues,
     artifactIndex: params.artifactIndex,
   };
@@ -261,7 +261,7 @@ function buildReport(params: {
       packageStatus: params.readiness.status,
     },
     blockingIssues: params.readiness.blockingIssues,
-    reviewItems: params.readiness.reviewItems,
+    warnings: params.readiness.warnings,
     fileDescriptions: params.manifest.artifactIndex.map((item) => ({
       name: item.relativePath,
       purpose: item.purpose,

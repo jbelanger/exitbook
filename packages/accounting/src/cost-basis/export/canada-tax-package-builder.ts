@@ -104,7 +104,7 @@ interface CanadaAdjustmentRow {
 }
 
 interface RowRefMaps {
-  acquisitionRefByEventId: Map<string, string>;
+  acquisitionRefById: Map<string, string>;
   dispositionRefByEventId: Map<string, string>;
   transferRefById: Map<string, string>;
 }
@@ -500,7 +500,7 @@ function buildBlockedSupportingFiles(readiness: TaxPackageReadinessResult): TaxP
     buildCsvFile(
       'issues',
       'issues.csv',
-      'Readiness and review issues for the tax package.',
+      'Readiness warnings and blocking issues for the tax package.',
       [
         'issue_ref',
         'code',
@@ -550,7 +550,7 @@ function buildManifest(params: {
       totalGainLoss: formatMoney(params.filingFacts.summary.totalGainLoss),
       totalTaxableGainLoss: formatMoney(params.filingFacts.summary.totalTaxableGainLoss),
     },
-    reviewItems: params.readiness.reviewItems,
+    warnings: params.readiness.warnings,
     blockingIssues: params.readiness.blockingIssues,
     artifactIndex: params.artifactIndex,
   };
@@ -566,7 +566,7 @@ function buildReport(params: {
     generatedAt: params.generatedAt,
     manifest: params.manifest,
     blockingIssues: params.readiness.blockingIssues,
-    reviewItems: params.readiness.reviewItems,
+    warnings: params.readiness.warnings,
     fileDescriptions: params.manifest.artifactIndex.map((item) => ({
       name: item.relativePath,
       purpose: item.purpose,
@@ -743,8 +743,8 @@ function buildAdjustmentRows(
   rowRefMaps: RowRefMaps,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): Result<CanadaAdjustmentRow[], Error> {
-  const acquisitionByEventId = new Map(
-    filingFacts.acquisitions.map((acquisition) => [acquisition.acquisitionEventId, acquisition] as const)
+  const acquisitionById = new Map(
+    filingFacts.acquisitions.map((acquisition) => [acquisition.id, acquisition] as const)
   );
   const dispositionByEventId = new Map(
     filingFacts.dispositions.map((disposition) => [disposition.dispositionEventId, disposition] as const)
@@ -765,7 +765,7 @@ function buildAdjustmentRows(
       );
     }
 
-    const substitutedAcquisition = acquisitionByEventId.get(adjustment.substitutedPropertyAcquisitionId);
+    const substitutedAcquisition = acquisitionById.get(adjustment.substitutedPropertyAcquisitionId);
     if (!substitutedAcquisition) {
       return err(
         new Error(
@@ -775,9 +775,7 @@ function buildAdjustmentRows(
     }
 
     const relatedDispositionRef = rowRefMaps.dispositionRefByEventId.get(adjustment.relatedDispositionId);
-    const substitutedAcquisitionRef = rowRefMaps.acquisitionRefByEventId.get(
-      adjustment.substitutedPropertyAcquisitionId
-    );
+    const substitutedAcquisitionRef = rowRefMaps.acquisitionRefById.get(adjustment.substitutedPropertyAcquisitionId);
     if (!relatedDispositionRef || !substitutedAcquisitionRef) {
       return err(new Error(`Missing package-local row ref for superficial-loss adjustment ${adjustment.id}`));
     }
@@ -808,7 +806,7 @@ function buildSourceLinkRows(params: {
   const seen = new Set<string>();
 
   for (const acquisition of params.filingFacts.acquisitions) {
-    const packageRef = params.rowRefMaps.acquisitionRefByEventId.get(acquisition.acquisitionEventId);
+    const packageRef = params.rowRefMaps.acquisitionRefById.get(acquisition.id);
     if (!packageRef) continue;
     const appendResult = appendSourceLinkRows(rows, seen, {
       context: params.context,
@@ -869,7 +867,7 @@ function buildRowRefMaps(
   filingFacts: CanadaCostBasisFilingFacts,
   assetLabeler: (symbol: string, taxPropertyKey: string) => string
 ): RowRefMaps {
-  const acquisitionRefByEventId = new Map<string, string>();
+  const acquisitionRefById = new Map<string, string>();
   const dispositionRefByEventId = new Map<string, string>();
   const transferRefById = new Map<string, string>();
 
@@ -878,7 +876,7 @@ function buildRowRefMaps(
       compareCanadaExportRowsByDateAssetAndId(left, right, (value) => value.acquiredAt, assetLabeler)
     )
     .forEach((acquisition, index) => {
-      acquisitionRefByEventId.set(acquisition.acquisitionEventId, makeRef('ACQ', index + 1));
+      acquisitionRefById.set(acquisition.id, makeRef('ACQ', index + 1));
     });
 
   [...filingFacts.dispositions]
@@ -898,7 +896,7 @@ function buildRowRefMaps(
     });
 
   return {
-    acquisitionRefByEventId,
+    acquisitionRefById,
     dispositionRefByEventId,
     transferRefById,
   };

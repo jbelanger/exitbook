@@ -25,6 +25,11 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         message: 'Needs review',
         severity: 'warning',
       },
+      {
+        type: 'allocation_uncertain',
+        message: 'Per-asset proceeds split is not exact',
+        severity: 'warning',
+      },
     ];
 
     if (context.workflowResult.kind !== 'canada-workflow') {
@@ -64,6 +69,19 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         assetReviewSummaries,
       })
     ).toEqual({
+      allocationUncertainCount: 1,
+      allocationUncertainDetails: [
+        {
+          noteMessage: 'Per-asset proceeds split is not exact',
+          noteType: 'allocation_uncertain',
+          operationCategory: retainedTransaction.operation.category,
+          operationType: retainedTransaction.operation.type,
+          reference: retainedTransaction.externalId,
+          sourceName: retainedTransaction.source,
+          transactionDatetime: retainedTransaction.datetime,
+          transactionId: retainedTransaction.id,
+        },
+      ],
       fxFallbackCount: 0,
       incompleteTransferLinkCount: 1,
       unknownTransactionClassificationCount: 1,
@@ -153,6 +171,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
     };
 
     expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
+      allocationUncertainCount: 0,
+      allocationUncertainDetails: [],
       fxFallbackCount: 3,
       incompleteTransferLinkCount: 0,
       unknownTransactionClassificationCount: 0,
@@ -177,6 +197,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
     };
 
     expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
+      allocationUncertainCount: 0,
+      allocationUncertainDetails: [],
       fxFallbackCount: 0,
       incompleteTransferLinkCount: 1,
       unknownTransactionClassificationCount: 0,

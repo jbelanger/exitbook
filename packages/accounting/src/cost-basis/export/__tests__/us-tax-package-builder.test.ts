@@ -93,7 +93,7 @@ describe('buildUsTaxPackage', () => {
     expect(report).toContain('basis_source remains lot_carryover');
   });
 
-  it('includes issues.csv for review-required packages', () => {
+  it('includes issues.csv for ready packages with warnings', () => {
     const context = createStandardPackageBuildContext();
     const scope = assertOk(
       validateTaxPackageScope({
@@ -130,7 +130,7 @@ describe('buildUsTaxPackage', () => {
       })
     );
 
-    expect(result.status).toBe('review_required');
+    expect(result.status).toBe('ready');
     expect(result.files.some((file) => file.relativePath === 'issues.csv')).toBe(true);
     expect(result.files.find((file) => file.relativePath === 'issues.csv')?.content ?? '').toContain(
       'FX_FALLBACK_USED'
@@ -228,7 +228,7 @@ describe('buildUsTaxPackage', () => {
       })
     );
 
-    expect(result.status).toBe('review_required');
+    expect(result.status).toBe('ready');
     expect(result.files.find((file) => file.relativePath === 'issues.csv')?.content ?? '').toContain(
       'INCOMPLETE_TRANSFER_LINKING'
     );
