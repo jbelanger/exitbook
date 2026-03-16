@@ -105,6 +105,67 @@ describe('runCanadaAcbEngine', () => {
     expect(error.message).toContain('Insufficient holdings');
   });
 
+  it('tolerates dust-level layer residual after prior prorated dispositions', () => {
+    const context = createCanadaInputContext({
+      inputEvents: [
+        createCanadaAcquisitionEvent({
+          eventId: 'tx:1:acquisition',
+          transactionId: 1,
+          timestamp: '2024-01-01T00:00:00Z',
+          assetId: 'exchange:kraken:algo',
+          assetSymbol: 'ALGO',
+          quantity: '0.00001',
+          unitValueCad: '1',
+        }),
+        createCanadaAcquisitionEvent({
+          eventId: 'tx:2:acquisition',
+          transactionId: 2,
+          timestamp: '2024-01-02T00:00:00Z',
+          assetId: 'exchange:kraken:algo',
+          assetSymbol: 'ALGO',
+          quantity: '0.00002',
+          unitValueCad: '1',
+        }),
+        createCanadaDispositionEvent({
+          eventId: 'tx:3:disposition',
+          transactionId: 3,
+          timestamp: '2024-01-03T00:00:00Z',
+          assetId: 'exchange:kraken:algo',
+          assetSymbol: 'ALGO',
+          quantity: '0.00001',
+          unitValueCad: '1',
+        }),
+        createCanadaDispositionEvent({
+          eventId: 'tx:4:disposition',
+          transactionId: 4,
+          timestamp: '2024-01-04T00:00:00Z',
+          assetId: 'exchange:kraken:algo',
+          assetSymbol: 'ALGO',
+          quantity: '0.00001',
+          unitValueCad: '1',
+        }),
+        createCanadaDispositionEvent({
+          eventId: 'tx:5:disposition',
+          transactionId: 5,
+          timestamp: '2024-01-05T00:00:00Z',
+          assetId: 'exchange:kraken:algo',
+          assetSymbol: 'ALGO',
+          quantity: '0.00001',
+          unitValueCad: '1',
+        }),
+      ],
+    });
+
+    const result = runCanadaAcbEngine(context);
+    const value = assertOk(result);
+
+    expect(value.dispositions).toHaveLength(3);
+    expect(value.pools).toHaveLength(1);
+    expect(value.pools[0]?.quantityHeld.toFixed()).toBe('0');
+    expect(value.pools[0]?.totalAcbCad.toFixed()).toBe('0');
+    expect(value.pools[0]?.acquisitionLayers.map((layer) => layer.remainingQuantity.toFixed())).toEqual(['0', '0']);
+  });
+
   it('ignores transfer events and preserves the pooled ACB state', () => {
     const context = createCanadaInputContext({
       validatedTransferLinkIds: [10],

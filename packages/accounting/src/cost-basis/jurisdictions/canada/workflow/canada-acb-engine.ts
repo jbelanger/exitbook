@@ -18,8 +18,10 @@ import type {
   CanadaTaxInputContext,
 } from '../tax/canada-tax-types.js';
 
-function normalizeDecimal(value: Decimal): Decimal {
-  return value.abs().lt(parseDecimal('1e-18')) ? parseDecimal('0') : value;
+const DECIMAL_EPSILON = parseDecimal('1e-18');
+
+function clampNearZeroToZero(value: Decimal): Decimal {
+  return value.abs().lt(DECIMAL_EPSILON) ? parseDecimal('0') : value;
 }
 
 function getOrInitPool(
@@ -95,8 +97,8 @@ function rebalanceRemainingLayerCosts(pool: CanadaAcbPoolState): void {
   for (const [index, layer] of openLayers.entries()) {
     const isLastLayer = index === openLayers.length - 1;
     const remainingAllocatedAcbCad = isLastLayer
-      ? normalizeDecimal(pool.totalAcbCad.minus(allocatedCostCad))
-      : normalizeDecimal(pool.totalAcbCad.times(layer.remainingQuantity).dividedBy(pool.quantityHeld));
+      ? clampNearZeroToZero(pool.totalAcbCad.minus(allocatedCostCad))
+      : clampNearZeroToZero(pool.totalAcbCad.times(layer.remainingQuantity).dividedBy(pool.quantityHeld));
     layer.remainingAllocatedAcbCad = remainingAllocatedAcbCad;
     allocatedCostCad = allocatedCostCad.plus(remainingAllocatedAcbCad);
   }
@@ -115,7 +117,8 @@ function depleteLayersProRata(
     });
 
   const totalRemaining = openLayers.reduce((sum, layer) => sum.plus(layer.remainingQuantity), parseDecimal('0'));
-  if (quantityToDispose.gt(totalRemaining)) {
+  const layerShortfall = clampNearZeroToZero(quantityToDispose.minus(totalRemaining));
+  if (layerShortfall.gt(0)) {
     return err(
       new Error(
         `Insufficient acquisition layers for ${pool.taxPropertyKey}. ` +
@@ -123,6 +126,7 @@ function depleteLayersProRata(
       )
     );
   }
+  const reconciledTotalRemaining = layerShortfall.isZero() ? quantityToDispose : totalRemaining;
 
   const depletions: CanadaLayerDepletion[] = [];
   let totalAllocated = parseDecimal('0');
@@ -131,9 +135,9 @@ function depleteLayersProRata(
     const isLastLayer = index === openLayers.length - 1;
     const quantityDisposed = isLastLayer
       ? quantityToDispose.minus(totalAllocated)
-      : quantityToDispose.times(layer.remainingQuantity.dividedBy(totalRemaining));
+      : quantityToDispose.times(layer.remainingQuantity.dividedBy(reconciledTotalRemaining));
 
-    layer.remainingQuantity = normalizeDecimal(layer.remainingQuantity.minus(quantityDisposed));
+    layer.remainingQuantity = clampNearZeroToZero(layer.remainingQuantity.minus(quantityDisposed));
     totalAllocated = totalAllocated.plus(quantityDisposed);
 
     if (quantityDisposed.gt(0)) {
@@ -145,7 +149,7 @@ function depleteLayersProRata(
   }
 
   const difference = totalAllocated.minus(quantityToDispose).abs();
-  if (difference.gt(parseDecimal('1e-18'))) {
+  if (difference.gt(DECIMAL_EPSILON)) {
     return err(
       new Error(
         `Canada ACB layer depletion drifted by ${difference.toFixed()} for ${pool.taxPropertyKey} ` +
@@ -181,8 +185,8 @@ function applyDispositionToPool(
     return err(depletionResult.error);
   }
 
-  pool.quantityHeld = normalizeDecimal(pool.quantityHeld.minus(event.quantity));
-  pool.totalAcbCad = normalizeDecimal(Decimal.max(parseDecimal('0'), pool.totalAcbCad.minus(costBasisCad)));
+  pool.quantityHeld = clampNearZeroToZero(pool.quantityHeld.minus(event.quantity));
+  pool.totalAcbCad = clampNearZeroToZero(Decimal.max(parseDecimal('0'), pool.totalAcbCad.minus(costBasisCad)));
   pool.acbPerUnitCad = pool.quantityHeld.isZero() ? parseDecimal('0') : pool.totalAcbCad.dividedBy(pool.quantityHeld);
   rebalanceRemainingLayerCosts(pool);
 
@@ -244,8 +248,8 @@ function applySameAssetTransferFeeAdjustment(
   }
 
   const removedCostCad = pool.acbPerUnitCad.times(quantityReduced);
-  const nextQuantityHeld = normalizeDecimal(pool.quantityHeld.minus(quantityReduced));
-  const nextTotalAcbCad = normalizeDecimal(
+  const nextQuantityHeld = clampNearZeroToZero(pool.quantityHeld.minus(quantityReduced));
+  const nextTotalAcbCad = clampNearZeroToZero(
     Decimal.max(parseDecimal('0'), pool.totalAcbCad.minus(removedCostCad).plus(event.valuation.totalValueCad))
   );
 
