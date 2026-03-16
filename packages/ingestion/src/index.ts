@@ -66,6 +66,7 @@ export type {
   IAssetReviewDecisionSource,
   IAssetReviewProjectionDataSource,
   IAssetReviewProjectionStore,
+  ITransactionNoteProjection,
   ProcessingPorts,
 } from './ports/index.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ports/index.js';

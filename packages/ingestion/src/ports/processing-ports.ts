@@ -6,6 +6,12 @@ import type { INearBatchSource } from './near-batch-source.js';
 import type { IProcessedTransactionSink } from './processed-transaction-sink.js';
 import type { IProcessingBatchSource } from './processing-batch-source.js';
 
+export interface ITransactionNoteProjection {
+  materializeStoredNotes(
+    scope?: import('@exitbook/core').TransactionMaterializationScope
+  ): Promise<Result<number, Error>>;
+}
+
 /**
  * All driven ports required by the processing pipeline.
  * Constructed in the composition root (CLI) and injected into ProcessingWorkflow.
@@ -16,6 +22,7 @@ export interface ProcessingPorts {
   transactionSink: IProcessedTransactionSink;
   accountLookup: IAccountLookup;
   importSessionLookup: IImportSessionLookup;
+  transactionNotes: ITransactionNoteProjection;
 
   /** Mark processed-transactions projection as building. */
   markProcessedTransactionsBuilding(): Promise<Result<void, Error>>;

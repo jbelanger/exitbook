@@ -1,13 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import type { Currency, UniversalTransactionData } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
-import { OverrideStore, type DataContext } from '@exitbook/data';
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { type DataContext } from '@exitbook/data';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { ExportHandler } from '../transactions-export-handler.js';
 import type { ExportHandlerParams } from '../transactions-export-utils.js';
@@ -20,11 +16,9 @@ describe('ExportHandler', () => {
     findByTransactionIds: Mock;
   };
   let handler: ExportHandler;
-  let tempDir: string;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    tempDir = mkdtempSync(join(tmpdir(), 'transactions-export-handler-'));
 
     mockTransactionRepository = {
       findAll: vi.fn(),
@@ -39,11 +33,7 @@ describe('ExportHandler', () => {
       transactionLinks: mockTransactionLinkQueries,
     } as unknown as DataContext;
 
-    handler = new ExportHandler(mockDb, tempDir);
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    handler = new ExportHandler(mockDb);
   });
 
   const createMockTransaction = (id: number, source: string, assetSymbol: string): UniversalTransactionData => ({
@@ -122,25 +112,27 @@ describe('ExportHandler', () => {
       expect(parsedContent[0]?.source).toBe('kraken');
     });
 
-    it('should include projected user notes in JSON exports', async () => {
+    it('should include materialized user notes in JSON exports', async () => {
       const params: ExportHandlerParams = {
         format: 'json',
         outputPath: './data/transactions.json',
       };
-      const transactions = [createMockTransaction(1, 'kraken', 'BTC')];
-      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
-
-      const overrideStore = new OverrideStore(tempDir);
-      const appendResult = await overrideStore.append({
-        scope: 'transaction-note',
-        payload: {
-          type: 'transaction_note_override',
-          action: 'set',
-          tx_fingerprint: 'tx:v2:kraken:1:ext-1',
-          message: 'Cold storage transfer',
+      const transactions = [
+        {
+          ...createMockTransaction(1, 'kraken', 'BTC'),
+          notes: [
+            {
+              type: 'user_note',
+              message: 'Cold storage transfer',
+              metadata: {
+                actor: 'user',
+                source: 'override-store',
+              },
+            },
+          ],
         },
-      });
-      assertOk(appendResult);
+      ];
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
 
       const result = await handler.execute(params);
       const exportResult = assertOk(result);

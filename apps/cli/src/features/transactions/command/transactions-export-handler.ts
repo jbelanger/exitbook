@@ -38,10 +38,7 @@ interface ExportOutput {
  * Reusable by both CLI command and other contexts.
  */
 export class ExportHandler {
-  constructor(
-    private readonly db: DataContext,
-    private readonly dataDir: string
-  ) {}
+  constructor(private readonly db: DataContext) {}
 
   /**
    * Execute the export operation.
@@ -50,7 +47,6 @@ export class ExportHandler {
     try {
       const transactionsResult = await readTransactionsForCommand({
         db: this.db,
-        dataDir: this.dataDir,
         sourceName: params.sourceName,
         since: params.since,
         until: params.until,

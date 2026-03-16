@@ -117,7 +117,6 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        dataDir: ctx.dataDir,
         sourceName: params.source,
         since: sinceResult.value,
         until: params.until,
@@ -146,7 +145,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
       const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
 
       const { ExportHandler } = await import('./transactions-export-handler.js');
-      const exportHandler = new ExportHandler(database, ctx.dataDir);
+      const exportHandler = new ExportHandler(database);
 
       const onExport: OnExport = async (format, csvFormat) => {
         try {
@@ -216,7 +215,6 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        dataDir: ctx.dataDir,
         sourceName: params.source,
         since: sinceResult.value,
         until: params.until,

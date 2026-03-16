@@ -6,7 +6,11 @@ import {
   type Result,
   type UniversalTransactionData,
 } from '@exitbook/core';
-import { readTransactionNoteOverrides, type OverrideStore } from '@exitbook/data';
+import {
+  materializeStoredTransactionNoteOverrides,
+  readTransactionNoteOverrides,
+  type OverrideStore,
+} from '@exitbook/data';
 
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
@@ -84,6 +88,11 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
+    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    if (materializeResult.isErr()) {
+      return err(materializeResult.error);
+    }
+
     return ok({
       action: 'set',
       changed: true,
@@ -130,6 +139,11 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
+    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    if (materializeResult.isErr()) {
+      return err(materializeResult.error);
+    }
+
     return ok({
       action: 'clear',
       changed: true,
@@ -144,6 +158,21 @@ export class TransactionsEditHandler {
     const appendResult = await this.overrideStore.append(options);
     if (appendResult.isErr()) {
       return err(new Error(`Failed to write transaction note override event: ${appendResult.error.message}`));
+    }
+
+    return ok(undefined);
+  }
+
+  private async materializeTransactionNote(transactionId: number): Promise<Result<void, Error>> {
+    const materializeResult = await materializeStoredTransactionNoteOverrides(
+      this.db.transactions,
+      this.overrideStore,
+      {
+        transactionIds: [transactionId],
+      }
+    );
+    if (materializeResult.isErr()) {
+      return err(new Error(`Failed to materialize transaction note override: ${materializeResult.error.message}`));
     }
 
     return ok(undefined);

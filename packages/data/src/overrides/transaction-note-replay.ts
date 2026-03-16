@@ -1,4 +1,6 @@
-import { err, ok, type OverrideEvent, type Result } from '@exitbook/core';
+import { err, ok, type OverrideEvent, type Result, type TransactionMaterializationScope } from '@exitbook/core';
+
+import type { TransactionRepository } from '../repositories/transaction-repository.js';
 
 import type { OverrideStore } from './override-store.js';
 
@@ -66,4 +68,26 @@ export async function readTransactionNoteOverrides(
   }
 
   return replayTransactionNoteOverrides(overridesResult.value);
+}
+
+type TransactionNoteMaterializationRepository = Pick<TransactionRepository, 'materializeTransactionNoteOverrides'>;
+type TransactionNoteMaterializationStore = Pick<OverrideStore, 'exists' | 'readByScopes'>;
+
+/**
+ * Read, replay, and materialize durable transaction-note overrides into transactions.notes_json.
+ */
+export async function materializeStoredTransactionNoteOverrides(
+  transactions: TransactionNoteMaterializationRepository,
+  overrideStore: TransactionNoteMaterializationStore,
+  scope: TransactionMaterializationScope = {}
+): Promise<Result<number, Error>> {
+  const noteOverridesResult = await readTransactionNoteOverrides(overrideStore);
+  if (noteOverridesResult.isErr()) {
+    return err(noteOverridesResult.error);
+  }
+
+  return transactions.materializeTransactionNoteOverrides({
+    ...scope,
+    notesByFingerprint: noteOverridesResult.value,
+  });
 }

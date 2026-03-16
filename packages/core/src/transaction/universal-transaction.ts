@@ -164,6 +164,11 @@ export const TransactionNoteSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+export interface TransactionMaterializationScope {
+  accountIds?: number[] | undefined;
+  transactionIds?: number[] | undefined;
+}
+
 const hasAccountingImpact = (data: {
   fees?: unknown[] | undefined;
   movements: { inflows?: unknown[] | undefined; outflows?: unknown[] | undefined };

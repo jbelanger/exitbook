@@ -2,6 +2,8 @@ import { resultDoAsync } from '@exitbook/core';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
+import type { OverrideStore } from '../overrides/override-store.js';
+import { materializeStoredTransactionNoteOverrides } from '../overrides/transaction-note-replay.js';
 import { computeAccountHash } from '../utils/account-hash.js';
 
 import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
@@ -13,6 +15,7 @@ import { markDownstreamProjectionsStale } from './projection-invalidation-utils.
 export function buildProcessingPorts(
   db: DataContext,
   options: {
+    overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
     rebuildAssetReviewProjection: () => Promise<import('@exitbook/core').Result<void, Error>>;
   }
 ): ProcessingPorts {
@@ -57,6 +60,11 @@ export function buildProcessingPorts(
           const accounts = yield* await db.accounts.findAll({ userId });
           return accounts.filter((account) => account.sourceName === blockchain).map((account) => account.identifier);
         }),
+    },
+
+    transactionNotes: {
+      materializeStoredNotes: (scope) =>
+        materializeStoredTransactionNoteOverrides(db.transactions, options.overrideStore, scope),
     },
 
     importSessionLookup: {

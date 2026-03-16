@@ -119,8 +119,10 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
           },
         });
 
+        const overrideStore = new OverrideStore(dataDir);
         const ports = buildProcessingPorts(db, {
           rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
+          overrideStore,
         });
         const processingWorkflow = new ProcessingWorkflow(ports, providerManager, eventBus, registry);
 

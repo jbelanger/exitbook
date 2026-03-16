@@ -1,4 +1,4 @@
-import type { Currency, OverrideEvent, UniversalTransactionData } from '@exitbook/core';
+import type { CreateOverrideEventOptions, Currency, OverrideEvent, UniversalTransactionData } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
@@ -51,41 +51,43 @@ function createTransactionNoteEvent(txFingerprint: string, message: string): Ove
   };
 }
 
-function createStoredOverrideEvent(): OverrideEvent {
+function createMockOverrideStore(
+  initialEvents: OverrideEvent[] = []
+): Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'> {
+  const events = [...initialEvents];
   return {
-    id: 'override-event-1',
-    created_at: '2026-03-15T12:05:00.000Z',
-    actor: 'user',
-    source: 'cli',
-    scope: 'transaction-note',
-    payload: {
-      type: 'transaction_note_override',
-      action: 'set',
-      tx_fingerprint: 'tx:v2:kraken:1:trade-42',
-      message: 'Moved to hardware wallet',
-    },
-  };
-}
-
-function createMockOverrideStore(): Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'> {
-  return {
-    append: vi.fn(),
-    exists: vi.fn(),
-    readByScopes: vi.fn(),
+    append: vi.fn().mockImplementation(async (options: CreateOverrideEventOptions) => {
+      const event: OverrideEvent = {
+        id: `override-event-${events.length + 1}`,
+        created_at: '2026-03-15T12:05:00.000Z',
+        actor: 'user',
+        source: 'cli',
+        scope: options.scope,
+        payload: options.payload,
+      };
+      events.push(event);
+      return ok(event);
+    }),
+    exists: vi.fn().mockImplementation(() => events.length > 0),
+    readByScopes: vi
+      .fn()
+      .mockImplementation(async (scopes: OverrideEvent['scope'][]) =>
+        ok(events.filter((event) => scopes.includes(event.scope)))
+      ),
   };
 }
 
 describe('TransactionsEditHandler', () => {
   it('appends a transaction note override when setting a new note', async () => {
     const transaction = createTransaction(42, 'trade-42');
+    const materializeTransactionNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
+        materializeTransactionNoteOverrides,
       },
     } as unknown as Pick<CommandDatabase, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
-    vi.mocked(mockOverrideStore.exists).mockReturnValue(false);
-    vi.mocked(mockOverrideStore.append).mockResolvedValue(ok(createStoredOverrideEvent()));
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
@@ -113,20 +115,24 @@ describe('TransactionsEditHandler', () => {
       },
       reason: 'manual reminder',
     });
+    expect(materializeTransactionNoteOverrides).toHaveBeenCalledWith({
+      transactionIds: [42],
+      notesByFingerprint: new Map([['tx:v2:kraken:1:trade-42', 'Moved to hardware wallet']]),
+    });
   });
 
   it('does not append when the stored note already matches', async () => {
     const transaction = createTransaction(42, 'trade-42');
+    const materializeTransactionNoteOverrides = vi.fn().mockResolvedValue(ok(0));
     const mockDb = {
       transactions: {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
+        materializeTransactionNoteOverrides,
       },
     } as unknown as Pick<CommandDatabase, 'transactions'>;
-    const mockOverrideStore = createMockOverrideStore();
-    vi.mocked(mockOverrideStore.exists).mockReturnValue(true);
-    vi.mocked(mockOverrideStore.readByScopes).mockResolvedValue(
-      ok([createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet')])
-    );
+    const mockOverrideStore = createMockOverrideStore([
+      createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet'),
+    ]);
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
@@ -141,21 +147,21 @@ describe('TransactionsEditHandler', () => {
       note: 'Moved to hardware wallet',
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
+    expect(materializeTransactionNoteOverrides).not.toHaveBeenCalled();
   });
 
   it('appends a clear event when clearing an existing note', async () => {
     const transaction = createTransaction(42, 'trade-42');
+    const materializeTransactionNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
+        materializeTransactionNoteOverrides,
       },
     } as unknown as Pick<CommandDatabase, 'transactions'>;
-    const mockOverrideStore = createMockOverrideStore();
-    vi.mocked(mockOverrideStore.exists).mockReturnValue(true);
-    vi.mocked(mockOverrideStore.readByScopes).mockResolvedValue(
-      ok([createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet')])
-    );
-    vi.mocked(mockOverrideStore.append).mockResolvedValue(ok(createStoredOverrideEvent()));
+    const mockOverrideStore = createMockOverrideStore([
+      createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet'),
+    ]);
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
@@ -178,17 +184,22 @@ describe('TransactionsEditHandler', () => {
       },
       reason: 'no longer needed',
     });
+    expect(materializeTransactionNoteOverrides).toHaveBeenCalledWith({
+      transactionIds: [42],
+      notesByFingerprint: new Map(),
+    });
   });
 
   it('returns changed=false when clearing a missing note', async () => {
     const transaction = createTransaction(42, 'trade-42');
+    const materializeTransactionNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
+        materializeTransactionNoteOverrides,
       },
     } as unknown as Pick<CommandDatabase, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
-    vi.mocked(mockOverrideStore.exists).mockReturnValue(false);
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
@@ -201,16 +212,17 @@ describe('TransactionsEditHandler', () => {
       transactionId: 42,
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
+    expect(materializeTransactionNoteOverrides).not.toHaveBeenCalled();
   });
 
   it('returns an error when the transaction does not exist', async () => {
     const mockDb = {
       transactions: {
         findById: vi.fn().mockResolvedValue(ok(undefined)),
+        materializeTransactionNoteOverrides: vi.fn(),
       },
     } as unknown as Pick<CommandDatabase, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
-    vi.mocked(mockOverrideStore.exists).mockReturnValue(false);
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({

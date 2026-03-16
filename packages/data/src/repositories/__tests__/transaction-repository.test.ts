@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import type { UniversalTransactionData } from '@exitbook/core';
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { computeTxFingerprint, type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -797,6 +797,182 @@ describe('TransactionRepository', () => {
       if (result.isErr()) {
         expect(result.error.message).toContain('Transaction 999 not found');
       }
+    });
+  });
+
+  describe('materializeTransactionNoteOverrides', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedUser(db);
+      await seedAccount(db, 1, 'exchange-api', 'kraken');
+      await seedAccount(db, 2, 'exchange-api', 'coinbase');
+      await seedImportSession(db, 1, 1);
+      await seedImportSession(db, 2, 2);
+    });
+
+    it('appends a materialized user note while preserving existing non-override notes', async () => {
+      await db
+        .insertInto('transactions')
+        .values({
+          id: 11,
+          account_id: 1,
+          source_name: 'kraken',
+          source_type: 'exchange',
+          external_id: 'tx-11',
+          transaction_status: 'success',
+          transaction_datetime: '2025-01-01T00:00:00.000Z',
+          notes_json: JSON.stringify([
+            {
+              type: 'system_flag',
+              message: 'Imported from CSV',
+            },
+          ]),
+          is_spam: false,
+          excluded_from_accounting: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const fingerprint = assertOk(
+        computeTxFingerprint({
+          source: 'kraken',
+          accountId: 1,
+          externalId: 'tx-11',
+        })
+      );
+
+      const updated = assertOk(
+        await repo.materializeTransactionNoteOverrides({
+          accountIds: [1],
+          notesByFingerprint: new Map([[fingerprint, 'Moved to cold storage']]),
+        })
+      );
+
+      expect(updated).toBe(1);
+
+      const row = await db
+        .selectFrom('transactions')
+        .select(['notes_json'])
+        .where('id', '=', 11)
+        .executeTakeFirstOrThrow();
+      expect(JSON.parse((row.notes_json as string | null) ?? '[]')).toEqual([
+        {
+          type: 'system_flag',
+          message: 'Imported from CSV',
+        },
+        {
+          type: 'user_note',
+          message: 'Moved to cold storage',
+          metadata: {
+            actor: 'user',
+            source: 'override-store',
+          },
+        },
+      ]);
+    });
+
+    it('replaces stale materialized user notes and clears them when no override remains', async () => {
+      await db
+        .insertInto('transactions')
+        .values([
+          {
+            id: 21,
+            account_id: 1,
+            source_name: 'kraken',
+            source_type: 'exchange',
+            external_id: 'tx-21',
+            transaction_status: 'success',
+            transaction_datetime: '2025-01-02T00:00:00.000Z',
+            notes_json: JSON.stringify([
+              {
+                type: 'user_note',
+                message: 'Old note',
+                metadata: {
+                  actor: 'user',
+                  source: 'override-store',
+                },
+              },
+            ]),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 22,
+            account_id: 2,
+            source_name: 'coinbase',
+            source_type: 'exchange',
+            external_id: 'tx-22',
+            transaction_status: 'success',
+            transaction_datetime: '2025-01-03T00:00:00.000Z',
+            notes_json: JSON.stringify([
+              {
+                type: 'user_note',
+                message: 'Remove me',
+                metadata: {
+                  actor: 'user',
+                  source: 'override-store',
+                },
+              },
+            ]),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .execute();
+
+      const fingerprint = assertOk(
+        computeTxFingerprint({
+          source: 'kraken',
+          accountId: 1,
+          externalId: 'tx-21',
+        })
+      );
+
+      const updated = assertOk(
+        await repo.materializeTransactionNoteOverrides({
+          transactionIds: [21, 22],
+          notesByFingerprint: new Map([[fingerprint, 'Updated note']]),
+        })
+      );
+
+      expect(updated).toBe(2);
+
+      const rows = await db
+        .selectFrom('transactions')
+        .select(['id', 'notes_json'])
+        .where('id', 'in', [21, 22])
+        .orderBy('id', 'asc')
+        .execute();
+
+      expect(JSON.parse((rows[0]?.notes_json as string | null) ?? '[]')).toEqual([
+        {
+          type: 'user_note',
+          message: 'Updated note',
+          metadata: {
+            actor: 'user',
+            source: 'override-store',
+          },
+        },
+      ]);
+      expect(rows[1]?.notes_json).toBeNull();
+    });
+
+    it('returns zero when scoping is explicitly empty', async () => {
+      const updated = assertOk(
+        await repo.materializeTransactionNoteOverrides({
+          accountIds: [],
+          notesByFingerprint: new Map(),
+        })
+      );
+
+      expect(updated).toBe(0);
     });
   });
 });

@@ -18,7 +18,7 @@ export type {
 } from './asset-review-projection-ports.js';
 
 // Aggregate dependency types
-export type { ProcessingPorts } from './processing-ports.js';
+export type { ITransactionNoteProjection, ProcessingPorts } from './processing-ports.js';
 export type {
   ImportPorts,
   IImportUserLookup,

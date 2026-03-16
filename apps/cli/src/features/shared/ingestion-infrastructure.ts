@@ -1,5 +1,5 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-import { type DataContext, buildProcessingPorts } from '@exitbook/data';
+import { OverrideStore, type DataContext, buildProcessingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -49,8 +49,10 @@ export async function createIngestionInfrastructure(
   });
 
   try {
+    const overrideStore = new OverrideStore(ctx.dataDir);
     const ports = buildProcessingPorts(database, {
       rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(database, ctx.dataDir),
+      overrideStore,
     });
     const processingWorkflow = new ProcessingWorkflow(
       ports,
