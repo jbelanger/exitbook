@@ -9,7 +9,7 @@ import type {
   BalanceSnapshotAsset,
   Currency,
   ImportSession,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -42,7 +42,7 @@ function createCompletedImportSession(accountId = 1): ImportSession {
   };
 }
 
-function createTransaction(overrides: Partial<UniversalTransactionData>): UniversalTransactionData {
+function createTransaction(overrides: Partial<Transaction>): Transaction {
   return {
     id: 100,
     accountId: 1,
@@ -85,8 +85,8 @@ function createProviderManager(
 
 function createPortsMock(params: {
   accounts: Account[];
-  excludedTransactions: UniversalTransactionData[];
-  normalTransactions: UniversalTransactionData[];
+  excludedTransactions: Transaction[];
+  normalTransactions: Transaction[];
   sessions: ImportSession[];
 }): {
   findById: ReturnType<typeof vi.fn<(accountId: number) => Promise<Result<Account | undefined, Error>>>>;
@@ -143,10 +143,7 @@ function createPortsMock(params: {
       findByAccountIds: vi
         .fn()
         .mockImplementation(
-          (query: {
-            accountIds: number[];
-            includeExcluded?: boolean | undefined;
-          }): Result<UniversalTransactionData[], Error> => {
+          (query: { accountIds: number[]; includeExcluded?: boolean | undefined }): Result<Transaction[], Error> => {
             const normalTransactions = params.normalTransactions.filter((tx) =>
               query.accountIds.includes(tx.accountId)
             );

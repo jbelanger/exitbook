@@ -31,6 +31,18 @@ export const OperationTypeSchema = z.enum([
   'airdrop',
 ]);
 
+/**
+ * Operation classification result with optional notes
+ * Used by transaction processors to classify operations
+ */
+export interface OperationClassification {
+  operation: {
+    category: OperationCategory;
+    type: OperationType;
+  };
+  notes?: TransactionNote[] | undefined;
+}
+
 // Movement direction schema
 export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
@@ -138,7 +150,7 @@ export const AssetMovementSchema = z
  * - Include ALL fees (all settlements, all scopes)
  * - Fees increase what you paid to acquire the asset
  *
- * For Balance Calculation (balance-utils.ts):
+ * For Balance Calculation (balance-utils.js):
  * - UTXO chains (settlement='on-chain'): Deduct grossAmount (fee embedded), skip fee subtraction
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
  * - This ensures accurate balance tracking across different blockchain architectures
@@ -183,7 +195,7 @@ const hasAccountingImpact = (data: {
 
 // Base transaction schema (without id and accountId)
 // Used for ProcessedTransaction type in processors before saving to database
-const BaseUniversalTransactionObjectSchema = z.object({
+const TransactionFieldsSchema = z.object({
   // Core fields
   externalId: z.string().min(1, 'Transaction ID must not be empty'),
   txFingerprint: z.string().min(1).optional(), // Persisted transaction identity, hydrated on repository reads
@@ -236,20 +248,17 @@ const accountingImpactValidation = {
     'Transactions with no accounting impact should not be stored.',
 };
 
-const BaseUniversalTransactionSchema = BaseUniversalTransactionObjectSchema.refine(
+export const TransactionDraftSchema = TransactionFieldsSchema.refine(
   (data) => hasAccountingImpact(data),
   accountingImpactValidation
 );
 
-// Universal Transaction schema (full version with id and accountId)
+// Transaction schema (full version with id and accountId)
 // Used for database storage and retrieval
-export const UniversalTransactionSchema = BaseUniversalTransactionObjectSchema.extend({
+export const TransactionSchema = TransactionFieldsSchema.extend({
   id: z.number().int().positive(),
   accountId: z.number().int().positive(),
 }).refine((data) => hasAccountingImpact(data), accountingImpactValidation);
-
-// Export base schema for use in processors (ProcessedTransaction type)
-export { BaseUniversalTransactionSchema };
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type TransactionStatus = z.infer<typeof TransactionStatusSchema>;
@@ -261,21 +270,5 @@ export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 export type FeeMovement = z.infer<typeof FeeMovementSchema>;
 
-/**
- * Operation classification result with optional notes
- * Used by transaction processors to classify operations
- */
-export interface OperationClassification {
-  operation: {
-    category: OperationCategory;
-    type: OperationType;
-  };
-  notes?: TransactionNote[] | undefined;
-}
-
-/**
- * Input DTO for creating universal transaction records
- * Used by processors before persistence
- * Write-side
- */
-export type UniversalTransactionData = z.infer<typeof UniversalTransactionSchema>;
+export type TransactionDraft = z.infer<typeof TransactionDraftSchema>;
+export type Transaction = z.infer<typeof TransactionSchema>;

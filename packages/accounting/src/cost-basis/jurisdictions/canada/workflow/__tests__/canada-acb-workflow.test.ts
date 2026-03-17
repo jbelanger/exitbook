@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -31,7 +31,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('fails closed when same-chain blockchain tokens share a symbol across multiple asset IDs', async () => {
     const fxProvider = createCanadaFxProvider();
 
-    const first: UniversalTransactionData = {
+    const first: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'tx-1',
@@ -60,7 +60,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const second: UniversalTransactionData = {
+    const second: Transaction = {
       id: 2,
       accountId: 1,
       externalId: 'tx-2',
@@ -134,7 +134,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('allows reviewed same-symbol ambiguity once the conflicting contract is excluded', async () => {
     const fxProvider = createCanadaFxProvider();
 
-    const first: UniversalTransactionData = {
+    const first: Transaction = {
       id: 3,
       accountId: 1,
       externalId: 'tx-3',
@@ -163,7 +163,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const second: UniversalTransactionData = {
+    const second: Transaction = {
       id: 4,
       accountId: 1,
       externalId: 'tx-4',
@@ -234,7 +234,7 @@ describe('runCanadaAcbWorkflow', () => {
 
   it('blocks included assets that still need review on the Canada workflow path', async () => {
     const fxProvider = createCanadaFxProvider();
-    const reviewRequired: UniversalTransactionData = {
+    const reviewRequired: Transaction = {
       id: 10,
       accountId: 1,
       externalId: 'tx-10',
@@ -274,7 +274,7 @@ describe('runCanadaAcbWorkflow', () => {
 
   it('does not block excluded assets that still need review on the Canada workflow path', async () => {
     const fxProvider = createCanadaFxProvider();
-    const safeAcquisition: UniversalTransactionData = {
+    const safeAcquisition: Transaction = {
       id: 11,
       accountId: 1,
       externalId: 'tx-11',
@@ -302,7 +302,7 @@ describe('runCanadaAcbWorkflow', () => {
       fees: [],
       operation: { category: 'trade', type: 'buy' },
     };
-    const reviewRequired: UniversalTransactionData = {
+    const reviewRequired: Transaction = {
       id: 12,
       accountId: 1,
       externalId: 'tx-12',
@@ -346,7 +346,7 @@ describe('runCanadaAcbWorkflow', () => {
 
   it('does not block warning-only review summaries on the Canada workflow path', async () => {
     const fxProvider = createCanadaFxProvider();
-    const warningOnly: UniversalTransactionData = {
+    const warningOnly: Transaction = {
       id: 13,
       accountId: 1,
       externalId: 'tx-13',
@@ -400,7 +400,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {
     const fxProvider = createCanadaFxProvider();
 
-    const acquisition: UniversalTransactionData = {
+    const acquisition: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'tx-1',
@@ -429,7 +429,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'trade', type: 'buy' },
     };
 
-    const transferOut: UniversalTransactionData = {
+    const transferOut: Transaction = {
       id: 2,
       accountId: 1,
       externalId: 'tx-2',
@@ -458,7 +458,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const transferIn: UniversalTransactionData = {
+    const transferIn: Transaction = {
       id: 3,
       accountId: 2,
       externalId: 'tx-3',
@@ -487,7 +487,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const disposition: UniversalTransactionData = {
+    const disposition: Transaction = {
       id: 4,
       accountId: 2,
       externalId: 'tx-4',
@@ -551,7 +551,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('handles fee-bearing acquisitions end to end', async () => {
     const fxProvider = createCanadaFxProvider({ usdToCad: '1.4' });
 
-    const acquisition: UniversalTransactionData = {
+    const acquisition: Transaction = {
       id: 11,
       accountId: 1,
       externalId: 'tx-11',
@@ -588,7 +588,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'trade', type: 'buy' },
     };
 
-    const disposition: UniversalTransactionData = {
+    const disposition: Transaction = {
       id: 12,
       accountId: 1,
       externalId: 'tx-12',
@@ -631,7 +631,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('preserves basis through same-hash fee-only internal carryovers', async () => {
     const fxProvider = createCanadaFxProvider();
 
-    const acquisition: UniversalTransactionData = {
+    const acquisition: Transaction = {
       id: 21,
       accountId: 1,
       externalId: 'tx-21',
@@ -660,7 +660,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'trade', type: 'buy' },
     };
 
-    const internalSource: UniversalTransactionData = {
+    const internalSource: Transaction = {
       id: 22,
       accountId: 1,
       externalId: 'tx-22',
@@ -709,7 +709,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const internalTarget: UniversalTransactionData = {
+    const internalTarget: Transaction = {
       id: 23,
       accountId: 2,
       externalId: 'tx-23',
@@ -743,7 +743,7 @@ describe('runCanadaAcbWorkflow', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const disposition: UniversalTransactionData = {
+    const disposition: Transaction = {
       id: 24,
       accountId: 2,
       externalId: 'tx-24',
@@ -797,7 +797,7 @@ describe('runCanadaAcbWorkflow', () => {
   it('drops fully excluded assets before building the Canada tax input context', async () => {
     const fxProvider = createCanadaFxProvider();
 
-    const excludedAcquisition: UniversalTransactionData = {
+    const excludedAcquisition: Transaction = {
       id: 90,
       accountId: 1,
       externalId: 'tx-90',

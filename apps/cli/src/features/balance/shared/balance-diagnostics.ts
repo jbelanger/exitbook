@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -24,7 +24,7 @@ export interface BalanceAssetDiagnosticsSummary {
 export function buildBalanceAssetDiagnosticsSummary(params: {
   assetId: string;
   assetSymbol?: string | undefined;
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
 }): BalanceAssetDiagnosticsSummary {
   let assetSymbol = params.assetSymbol;
 

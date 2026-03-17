@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
@@ -14,9 +14,9 @@ function createTransaction(params: {
   id: number;
   includeFeeWithSameAsset?: boolean | undefined;
   isSpam?: boolean | undefined;
-  notes?: UniversalTransactionData['notes'];
+  notes?: Transaction['notes'];
   source?: string | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -55,7 +55,7 @@ function createTransaction(params: {
         amount: parseDecimal('1'),
         scope: 'platform' as const,
         settlement: 'balance' as const,
-      })) as UniversalTransactionData['fees']),
+      })) as Transaction['fees']),
     ],
     operation: {
       category: 'transfer',
@@ -70,10 +70,10 @@ function createMultiAssetTransaction(params: {
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   isSpam?: boolean | undefined;
-  notes?: UniversalTransactionData['notes'];
+  notes?: Transaction['notes'];
   primaryAssets: { assetId: string; assetSymbol: string }[];
   source?: string | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -98,7 +98,7 @@ function createMultiAssetTransaction(params: {
       amount: parseDecimal('1'),
       scope: 'platform' as const,
       settlement: 'balance' as const,
-    })) as UniversalTransactionData['fees'],
+    })) as Transaction['fees'],
     operation: {
       category: 'transfer',
       type: 'deposit',

@@ -1,4 +1,4 @@
-import { err, ok, type Result, type TransactionNote, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Result, type TransactionNote, type Transaction } from '@exitbook/core';
 
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
@@ -22,7 +22,7 @@ interface ReadTransactionsForCommandParams {
  */
 export async function readTransactionsForCommand(
   params: ReadTransactionsForCommandParams
-): Promise<Result<UniversalTransactionData[], Error>> {
+): Promise<Result<Transaction[], Error>> {
   const transactionsResult = await params.db.transactions.findAll({
     ...(params.sourceName ? { sourceName: params.sourceName } : {}),
     ...(params.since !== undefined ? { since: params.since } : {}),
@@ -41,10 +41,10 @@ export async function readTransactionsForCommand(
 }
 
 export function applyTransactionNoteOverrides(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   notesByFingerprint: ReadonlyMap<string, string>
-): Result<UniversalTransactionData[], Error> {
-  const projectedTransactions: UniversalTransactionData[] = [];
+): Result<Transaction[], Error> {
+  const projectedTransactions: Transaction[] = [];
 
   for (const transaction of transactions) {
     if (!transaction.txFingerprint) {
@@ -94,7 +94,7 @@ function isProjectedUserNote(note: TransactionNote): boolean {
   return note.type === PROJECTED_USER_NOTE_TYPE && note.metadata?.['source'] === PROJECTED_USER_NOTE_SOURCE;
 }
 
-function omitNotes(transaction: UniversalTransactionData): UniversalTransactionData {
+function omitNotes(transaction: Transaction): Transaction {
   const { notes: _notes, ...transactionWithoutNotes } = transaction;
   return transactionWithoutNotes;
 }

@@ -5,7 +5,7 @@ import type {
   BalanceSnapshotAsset,
   ExchangeCredentials,
   ImportSession,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 import { parseAssetId, parseDecimal, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -409,10 +409,9 @@ export class BalanceWorkflow {
         return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.sourceName}`));
       }
 
-      const transactionsResult: Result<UniversalTransactionData[], Error> =
-        await this.ports.transactionSource.findByAccountIds({
-          accountIds,
-        });
+      const transactionsResult: Result<Transaction[], Error> = await this.ports.transactionSource.findByAccountIds({
+        accountIds,
+      });
       if (transactionsResult.isErr()) return err(transactionsResult.error);
 
       const allTransactions = transactionsResult.value;
@@ -492,11 +491,10 @@ export class BalanceWorkflow {
         return ok({ balanceAdjustments: {}, spamAssetIds: new Set() });
       }
 
-      const excludedTxResult: Result<UniversalTransactionData[], Error> =
-        await this.ports.transactionSource.findByAccountIds({
-          accountIds,
-          includeExcluded: true,
-        });
+      const excludedTxResult: Result<Transaction[], Error> = await this.ports.transactionSource.findByAccountIds({
+        accountIds,
+        includeExcluded: true,
+      });
       if (excludedTxResult.isErr()) return err(excludedTxResult.error);
 
       return ok(collectExcludedAssetInfo(excludedTxResult.value));
@@ -750,7 +748,7 @@ function removeAssetsById<T>(balances: Record<string, T>, assetIds: Set<string>)
 /**
  * Collect excluded asset amounts and spam assetIds from transactions.
  */
-function collectExcludedAssetInfo(transactions: UniversalTransactionData[]): {
+function collectExcludedAssetInfo(transactions: Transaction[]): {
   balanceAdjustments: Record<string, Decimal>;
   spamAssetIds: Set<string>;
 } {

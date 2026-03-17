@@ -8,7 +8,7 @@ import type {
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '@exitbook/accounting';
-import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { PriceProviderManager, PriceQuery } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
@@ -852,10 +852,10 @@ export function computeWeightedAvgCost(openLots: AcquisitionLot[]): Decimal {
  * Groups transactions by accountId and calculates balances per account for each asset.
  */
 export function buildAccountAssetBalances(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   accountMetadataById: Map<number, AccountMetadata>
 ): Map<string, AccountBreakdownItem[]> {
-  const accountTransactions = new Map<number, UniversalTransactionData[]>();
+  const accountTransactions = new Map<number, Transaction[]>();
 
   for (const tx of transactions) {
     const existing = accountTransactions.get(tx.accountId);
@@ -931,7 +931,7 @@ export function buildAccountAssetBalances(
 }
 
 function deriveAccountTypeFromSourceType(
-  sourceType: UniversalTransactionData['sourceType'] | undefined
+  sourceType: Transaction['sourceType'] | undefined
 ): AccountMetadata['accountType'] {
   if (sourceType === 'blockchain') {
     return 'blockchain';
@@ -1052,10 +1052,7 @@ function applyAllocationPercentages(positions: PortfolioPositionItem[]): void {
 /**
  * Filter transactions to include only those where any of the specified assets appear.
  */
-export function filterTransactionsForAssets(
-  transactions: UniversalTransactionData[],
-  assetIds: string[]
-): UniversalTransactionData[] {
+export function filterTransactionsForAssets(transactions: Transaction[], assetIds: string[]): Transaction[] {
   const assetIdSet = new Set(assetIds);
   return transactions.filter((tx) => {
     const inInflows = (tx.movements.inflows ?? []).some((m) => assetIdSet.has(m.assetId));
@@ -1068,10 +1065,7 @@ export function filterTransactionsForAssets(
 /**
  * Filter transactions to include only those where the specified asset appears.
  */
-export function filterTransactionsForAsset(
-  transactions: UniversalTransactionData[],
-  assetId: string
-): UniversalTransactionData[] {
+export function filterTransactionsForAsset(transactions: Transaction[], assetId: string): Transaction[] {
   return filterTransactionsForAssets(transactions, [assetId]);
 }
 
@@ -1081,7 +1075,7 @@ export function filterTransactionsForAsset(
  * Used by portfolio drill-down so aggregated symbol views can include historical
  * transactions from assetIds that may no longer have non-zero balances.
  */
-export function buildAssetIdsBySymbol(transactions: UniversalTransactionData[]): Map<string, string[]> {
+export function buildAssetIdsBySymbol(transactions: Transaction[]): Map<string, string[]> {
   const assetIdsBySymbol = new Map<string, Set<string>>();
 
   const addMovement = (assetId: string, assetSymbol: string): void => {
@@ -1122,7 +1116,7 @@ interface NetFiatInComputation {
  *
  * Net fiat in = fiat inflows - fiat outflows - fiat fees.
  */
-export function computeNetFiatInUsd(transactions: UniversalTransactionData[]): NetFiatInComputation {
+export function computeNetFiatInUsd(transactions: Transaction[]): NetFiatInComputation {
   let netFiatInUsd = new Decimal(0);
   let skippedNonUsdMovementsWithoutPrice = 0;
 
@@ -1198,7 +1192,7 @@ function tryCreateCurrency(assetSymbol: string): Currency | undefined {
  * Extracts net movement of the specified asset from each transaction.
  */
 export function buildTransactionItems(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   assetIds: string | string[]
 ): PortfolioTransactionItem[] {
   const items: PortfolioTransactionItem[] = [];
@@ -1265,7 +1259,7 @@ export function buildTransactionItems(
 }
 
 function computeTransactionFiatValue(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   assetIdSet: Set<string>,
   absoluteNetAmount: Decimal
 ): string | undefined {
@@ -1309,7 +1303,7 @@ function computeTransactionFiatValue(
 }
 
 function extractTransferContext(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   assetDirection: 'in' | 'out'
 ): { transferDirection?: 'to' | 'from' | undefined; transferPeer?: string | undefined } {
   if (tx.operation.category !== 'transfer') {

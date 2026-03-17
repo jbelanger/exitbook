@@ -76,7 +76,7 @@ NEAR-Native Normalized Models (preserve NEAR semantics)
   ↓
 Accounting Projection (derive fund flows for portfolio tracking)
   ↓
-Universal Transaction (existing accounting pipeline)
+Processed Transaction (existing accounting pipeline)
 ```
 
 ### Key Design Decisions
@@ -98,7 +98,7 @@ Universal Transaction (existing accounting pipeline)
 
 4. **Accounting is Derived**
    - Build `NearFundFlow` projection from balance deltas and token transfers
-   - Map fund flows to `UniversalTransaction` in processor
+   - Map fund flows to `ProcessedTransaction` in processor
    - Keep normalized layer clean of accounting logic
 
 ---
@@ -145,7 +145,7 @@ Universal Transaction (existing accounting pipeline)
 **Key Models**:
 
 - `NearFundFlow`: A single asset movement (source → destination)
-- Maps to `UniversalTransaction` for accounting pipeline
+- Maps to `ProcessedTransaction` for accounting pipeline
 
 **Location**: `packages/ingestion/src/sources/blockchains/near/types.ts`
 
@@ -932,8 +932,8 @@ export class NearProcessorV2 implements IProcessor {
   async process(
     rawTransactions: RawTransactionData[],
     context: ProcessingContext
-  ): Promise<Result<UniversalTransactionData[], Error>> {
-    const results: UniversalTransactionData[] = [];
+  ): Promise<Result<Transaction[], Error>> {
+    const results: Transaction[] = [];
 
     for (const raw of rawTransactions) {
       // 1. Parse as NearReceiptEvent
@@ -944,8 +944,8 @@ export class NearProcessorV2 implements IProcessor {
       const analysisResult = analyzeNearEvent(eventResult.value, context.accountId);
       if (analysisResult.isErr()) continue;
 
-      // 3. Convert to UniversalTransaction
-      const universalResult = this.toUniversalTransaction(analysisResult.value, context);
+      // 3. Convert to ProcessedTransaction
+      const universalResult = this.toTransaction(analysisResult.value, context);
       if (universalResult.isErr()) continue;
 
       results.push(universalResult.value);
@@ -955,12 +955,9 @@ export class NearProcessorV2 implements IProcessor {
   }
 
   /**
-   * Convert NEAR event analysis to UniversalTransaction
+   * Convert NEAR event analysis to ProcessedTransaction
    */
-  private toUniversalTransaction(
-    analysis: NearEventAnalysis,
-    context: ProcessingContext
-  ): Result<UniversalTransactionData, Error> {
+  private toTransaction(analysis: NearEventAnalysis, context: ProcessingContext): Result<Transaction, Error> {
     // Map flows to movements
     // Map receipt data to universal fields
     // Preserve NEAR-specific data in metadata
@@ -972,7 +969,7 @@ export class NearProcessorV2 implements IProcessor {
 
 - [ ] All event types processed correctly
 - [ ] Flows correctly converted to movements
-- [ ] Universal transactions pass schema validation
+- [ ] Processed transactions pass schema validation
 - [ ] Metadata preserves NEAR-specific details
 
 ### Phase 4: Testing
@@ -1053,7 +1050,7 @@ export class NearProcessorV2 implements IProcessor {
 1. **End-to-End Simple Transfer**
    - Mock NearBlocks API responses
    - Fetch → Map → Process
-   - Verify final UniversalTransaction
+   - Verify final ProcessedTransaction
 
 2. **End-to-End Token Transfer**
    - Mock FT transfer responses
@@ -1535,14 +1532,14 @@ Accuracy > speed for a financial application.
 2. **Fee metadata is extracted separately** (from `tokens_burnt`) for informational/tracking purposes
 3. **The accounting pipeline must NOT subtract fees again** from balance change flows
 4. Fee flows are emitted as separate `flowType: 'fee'` entries for analysis
-5. When building `UniversalTransaction`, fees go in the `fee` field, not as a movement
+5. When building `ProcessedTransaction`, fees go in the `fee` field, not as a movement
 
 Example: Alice sends 1 NEAR with 0.001 fee
 
 - Balance change: `-1.001 NEAR` (already includes fee)
 - Fee metadata: `0.001 NEAR` (informational)
 - Accounting flows: `{ flowType: 'native_balance_change', amount: '-1.001' }` + `{ flowType: 'fee', amount: '0.001' }`
-- Universal transaction: `movements: [{ amount: 1, direction: out }]`, `fee: { amount: 0.001 }`
+- Processed transaction: `movements: [{ amount: 1, direction: out }]`, `fee: { amount: 0.001 }`
 
 ### Q: Who pays the fee for a receipt?
 

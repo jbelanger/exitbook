@@ -1,11 +1,4 @@
-import {
-  err,
-  type Currency,
-  parseDecimal,
-  type Result,
-  type TransactionLink,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { err, type Currency, parseDecimal, type Result, type TransactionLink, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
@@ -23,7 +16,7 @@ describe('LotMatcher - Fee Handling', () => {
   const logger = getLogger('lot-matcher.test');
 
   async function matchTransactions(
-    transactions: UniversalTransactionData[],
+    transactions: Transaction[],
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
@@ -625,7 +618,7 @@ describe('LotMatcher - Fee Handling', () => {
       // Then: Bitcoin transaction with a same-hash internal change output.
       // The builder should remove the internal inflow and reduce the sender
       // outflow to the external quantity before lot matching runs.
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,

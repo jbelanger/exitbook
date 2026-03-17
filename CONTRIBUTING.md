@@ -69,7 +69,7 @@ Copy `.env.example` to `.env` and add required provider keys before running live
    — ccxt-based client + Zod schemas; export from `packages/exchange-providers/src/index.ts`
 
 2. **Importer + Processor:** `packages/ingestion/src/sources/exchanges/<exchange>/`
-   — `importer.ts` (implements `IImporter`), `processor.ts` (outputs `UniversalTransaction`), `schemas.ts`, `types.ts`
+   — `importer.ts` (implements `IImporter`), `processor.ts` (outputs `ProcessedTransaction`), `schemas.ts`, `types.ts`
 
 3. **Register:** Create `register.ts` exporting an `ExchangeAdapter` object, then add it to `packages/ingestion/src/sources/exchanges/index.ts`.
 

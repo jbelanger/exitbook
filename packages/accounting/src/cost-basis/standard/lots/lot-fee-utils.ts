@@ -4,7 +4,7 @@ import {
   type AssetMovement,
   type FeeMovement,
   type PriceAtTxTime,
-  type UniversalTransactionData,
+  type Transaction,
 } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
@@ -13,9 +13,9 @@ import type { AccountingScopedTransaction } from '../matching/build-cost-basis-s
 
 import { getVarianceTolerance } from './lot-sorting-utils.js';
 
-type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
-function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
   return 'tx' in transaction ? transaction.tx : transaction;
 }
 

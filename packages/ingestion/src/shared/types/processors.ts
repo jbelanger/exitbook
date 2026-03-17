@@ -1,4 +1,4 @@
-import { BaseUniversalTransactionSchema } from '@exitbook/core';
+import { TransactionDraftSchema } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type z from 'zod';
 
@@ -22,9 +22,9 @@ export interface AddressContext {
   userAddresses: string[];
 }
 
-// Use BaseUniversalTransactionSchema which excludes id and accountId
+// Use TransactionDraftSchema which excludes id and accountId
 // (processors emit transactions before they're saved to the database)
-export const ProcessedTransactionSchema = BaseUniversalTransactionSchema;
+export const ProcessedTransactionSchema = TransactionDraftSchema;
 export type ProcessedTransaction = z.infer<typeof ProcessedTransactionSchema>;
 
 /**

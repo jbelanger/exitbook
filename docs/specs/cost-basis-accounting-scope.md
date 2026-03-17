@@ -42,7 +42,7 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 
 ### AccountingScopedTransaction
 
-Cost-basis-local transaction shape derived from one `UniversalTransactionData`:
+Cost-basis-local transaction shape derived from one `Transaction`:
 
 ```ts
 interface ScopedAssetMovement extends AssetMovement {
@@ -56,7 +56,7 @@ interface ScopedFeeMovement extends FeeMovement {
 }
 
 interface AccountingScopedTransaction {
-  tx: UniversalTransactionData;
+  tx: Transaction;
   movements: {
     inflows: ScopedAssetMovement[];
     outflows: ScopedAssetMovement[];

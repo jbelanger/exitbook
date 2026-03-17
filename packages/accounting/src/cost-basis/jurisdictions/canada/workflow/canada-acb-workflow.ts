@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, TransactionLink, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -30,7 +30,7 @@ export interface CanadaAcbWorkflowOptions {
 }
 
 export async function runCanadaAcbWorkflow(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   confirmedLinks: TransactionLink[],
   fxProvider: IFxRateProvider,
   options?: CanadaAcbWorkflowOptions

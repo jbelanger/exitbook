@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -46,7 +46,7 @@ export interface LinkedTransactionGroup {
   /**
    * All transactions in this group (may span multiple exchanges/blockchains)
    */
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
 
   /**
    * Set of unique source IDs in this group

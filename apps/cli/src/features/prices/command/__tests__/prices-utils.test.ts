@@ -6,7 +6,7 @@ import {
   validateAssetFilter,
   determineEnrichmentStages,
 } from '@exitbook/accounting';
-import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 describe('validateAssetFilter', () => {
@@ -117,7 +117,7 @@ describe('validateAssetFilter', () => {
 
 describe('extractAssetsNeedingPrices', () => {
   it('should extract unique assets from movements and filter out fiat currencies', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -145,7 +145,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return only assets without prices', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -184,7 +184,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should reject transaction with no movements', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -210,7 +210,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should deduplicate assets across inflows and outflows', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -237,7 +237,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should filter out all common fiat currencies', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -277,7 +277,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return empty array when only fiat currencies need prices', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -303,7 +303,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should ignore excluded assetIds when extracting price fetch symbols', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -334,7 +334,7 @@ describe('extractAssetsNeedingPrices', () => {
 
 describe('createPriceQuery', () => {
   it('should create price query for asset', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -362,7 +362,7 @@ describe('createPriceQuery', () => {
   });
 
   it('should use default USD currency', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -388,7 +388,7 @@ describe('createPriceQuery', () => {
   });
 
   it('should accept custom target currency', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '2024-01-15T12:00:00.000Z',
@@ -414,7 +414,7 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction without datetime', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: '',
@@ -440,7 +440,7 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction with invalid datetime', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       datetime: 'invalid-date',

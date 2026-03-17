@@ -1,4 +1,4 @@
-import type { Account, UniversalTransactionData } from '@exitbook/core';
+import type { Account, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -189,7 +189,7 @@ export function requireTransaction(
   context: TaxPackageBuildContext,
   transactionId: number,
   reference: string
-): Result<UniversalTransactionData, Error> {
+): Result<Transaction, Error> {
   const transaction = context.sourceContext.transactionsById.get(transactionId);
   if (!transaction) {
     return err(new Error(`Missing source transaction ${transactionId} for ${reference}`));
@@ -271,7 +271,7 @@ function severityRank(severity: string): number {
   return severity === 'blocked' ? 0 : 1;
 }
 
-function getSourceReference(transaction: UniversalTransactionData): { kind: string; value: string } | undefined {
+function getSourceReference(transaction: Transaction): { kind: string; value: string } | undefined {
   if (transaction.blockchain?.transaction_hash) {
     return {
       kind: 'blockchain_tx_hash',

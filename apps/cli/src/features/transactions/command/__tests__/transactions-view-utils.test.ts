@@ -1,11 +1,11 @@
-import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { applyTransactionFilters, type ViewTransactionsParams } from '../transactions-view-utils.js';
 
 // Test data helper
-function createTestTransaction(overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData {
+function createTestTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 1,
     accountId: 1,
@@ -43,7 +43,7 @@ function unwrapOk<T>(result: Result<T, Error>): T {
 describe('applyTransactionFilters', () => {
   describe('date filtering', () => {
     it('should filter transactions by until date', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({ id: 1, datetime: '2024-01-10T10:00:00Z' }),
         createTestTransaction({ id: 2, datetime: '2024-01-15T10:00:00Z' }),
         createTestTransaction({ id: 3, datetime: '2024-01-20T10:00:00Z' }),
@@ -60,7 +60,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should return all transactions when until date is not provided', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({ id: 1, datetime: '2024-01-10T10:00:00Z' }),
         createTestTransaction({ id: 2, datetime: '2024-01-20T10:00:00Z' }),
       ];
@@ -75,7 +75,7 @@ describe('applyTransactionFilters', () => {
 
   describe('asset filtering', () => {
     it('should filter transactions by asset in inflows', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -128,7 +128,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should filter transactions by asset in outflows', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -168,7 +168,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should match transactions with asset in either inflows or outflows', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -220,10 +220,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should return all transactions when asset filter is not provided', () => {
-      const transactions: UniversalTransactionData[] = [
-        createTestTransaction({ id: 1 }),
-        createTestTransaction({ id: 2 }),
-      ];
+      const transactions: Transaction[] = [createTestTransaction({ id: 1 }), createTestTransaction({ id: 2 })];
 
       const params: ViewTransactionsParams = {};
 
@@ -235,7 +232,7 @@ describe('applyTransactionFilters', () => {
 
   describe('operation type filtering', () => {
     it('should filter transactions by operation type', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({ id: 1, operation: { category: 'trade', type: 'buy' } }),
         createTestTransaction({ id: 2, operation: { category: 'trade', type: 'sell' } }),
         createTestTransaction({ id: 3, operation: { category: 'trade', type: 'buy' } }),
@@ -252,7 +249,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should return all transactions when operation type filter is not provided', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({ id: 1, operation: { category: 'trade', type: 'buy' } }),
         createTestTransaction({ id: 2, operation: { category: 'trade', type: 'sell' } }),
       ];
@@ -267,7 +264,7 @@ describe('applyTransactionFilters', () => {
 
   describe('no price filtering', () => {
     it('should keep transactions with missing prices when noPrice is true', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -313,7 +310,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should exclude fiat-only transactions (price not needed)', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -354,7 +351,7 @@ describe('applyTransactionFilters', () => {
     });
 
     it('should not filter when noPrice is false or undefined', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           movements: {
@@ -393,7 +390,7 @@ describe('applyTransactionFilters', () => {
 
   describe('combined filters', () => {
     it('should apply multiple filters together', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTestTransaction({
           id: 1,
           datetime: '2024-01-10T10:00:00Z',

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { type Currency, type PriceAtTxTime, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { type Currency, type PriceAtTxTime, type Transaction, parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,11 +23,11 @@ function makePrice(amount: string, currency: Currency): PriceAtTxTime {
 }
 
 function makeTx(
-  overrides: Partial<UniversalTransactionData> & {
-    fees?: UniversalTransactionData['fees'];
-    movements: UniversalTransactionData['movements'];
+  overrides: Partial<Transaction> & {
+    fees?: Transaction['fees'];
+    movements: Transaction['movements'];
   }
-): UniversalTransactionData {
+): Transaction {
   const id = nextId++;
   return {
     id,
@@ -46,12 +46,12 @@ function makeTx(
 
 // ── Mock store ──
 
-function createMockStore(transactions: UniversalTransactionData[]): IPricingPersistence {
+function createMockStore(transactions: Transaction[]): IPricingPersistence {
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
   return {
     loadPricingContext: vi.fn().mockResolvedValue(ok({ transactions: [...txMap.values()], confirmedLinks: [] })),
     loadTransactionsNeedingPrices: vi.fn().mockResolvedValue(ok([])),
-    saveTransactionPrices: vi.fn().mockImplementation((tx: UniversalTransactionData) => {
+    saveTransactionPrices: vi.fn().mockImplementation((tx: Transaction) => {
       txMap.set(tx.id, tx);
       return ok(undefined);
     }),
@@ -76,7 +76,7 @@ describe('PriceNormalizationService', () => {
     vi.restoreAllMocks();
   });
 
-  function createService(transactions: UniversalTransactionData[]): PriceNormalizationService {
+  function createService(transactions: Transaction[]): PriceNormalizationService {
     return new PriceNormalizationService(createMockStore(transactions), mockFxProvider);
   }
 

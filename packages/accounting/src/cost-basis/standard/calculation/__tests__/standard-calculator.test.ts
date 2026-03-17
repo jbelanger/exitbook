@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -14,7 +14,7 @@ describe('calculateScopedCostBasis', () => {
 
   describe('calculate', () => {
     it('should successfully calculate cost basis with FIFO method', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         // Buy 1 BTC at $30,000
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         // Sell 0.5 BTC at $40,000
@@ -46,7 +46,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject Canada in the standard calculator', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'ETH' as Currency, amount: '10', price: '2000' }]),
         createTransaction(
           2,
@@ -70,7 +70,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should work with LIFO method', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         createTransaction(2, '2023-03-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '35000' }]),
         createTransaction(
@@ -100,7 +100,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should handle multiple assets', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         createTransaction(2, '2023-01-01T00:00:00Z', [{ assetSymbol: 'ETH' as Currency, amount: '10', price: '2000' }]),
         createTransaction(
@@ -138,7 +138,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should return error for crypto transactions missing prices', async () => {
-      const transactionWithoutPrice: UniversalTransactionData = {
+      const transactionWithoutPrice: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -179,7 +179,7 @@ describe('calculateScopedCostBasis', () => {
 
     it('should allow fiat movements without prices', async () => {
       // Transaction with BTC inflow (with price) and USD outflow (without price)
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -232,7 +232,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject average-cost in the standard calculator', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
       ];
 
@@ -250,7 +250,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should include assetsProcessed in summary (Issue #2 fix)', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         createTransaction(2, '2023-01-01T00:00:00Z', [{ assetSymbol: 'ETH' as Currency, amount: '10', price: '2000' }]),
         createTransaction(
@@ -284,7 +284,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should include tax classifications in disposals (Issue #3 fix)', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         // Buy 1 BTC
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         // Sell 0.5 BTC after 180 days (short-term for US)
@@ -328,7 +328,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should disallow wash sale loss with fee allocation (US)', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         // Buy 1 BTC @ $50k (Jan 1)
         createTransactionWithFee(
           1,
@@ -390,7 +390,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject Canada scenarios before standard matching starts', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         // Buy BTC ($40k) + ETH ($20k) with $60 fee (Jan 1)
         createTransactionWithFee(
           1,
@@ -439,7 +439,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject transactions with non-USD prices (EUR)', async () => {
-      const transactionsWithEUR: UniversalTransactionData[] = [
+      const transactionsWithEUR: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         // This transaction has EUR price instead of USD
         {
@@ -491,7 +491,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject transactions with non-USD prices in fees', async () => {
-      const transactionWithEURFee: UniversalTransactionData = {
+      const transactionWithEURFee: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -550,7 +550,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should accept transactions with all USD prices', async () => {
-      const transactionsWithUSD: UniversalTransactionData[] = [
+      const transactionsWithUSD: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -625,7 +625,7 @@ describe('calculateScopedCostBasis', () => {
 
     it('should list up to 5 examples of non-USD movements', async () => {
       // Create 7 transactions with non-USD prices
-      const transactionsWithMultipleEUR: UniversalTransactionData[] = [];
+      const transactionsWithMultipleEUR: Transaction[] = [];
       for (let i = 1; i <= 7; i++) {
         transactionsWithMultipleEUR.push({
           id: i,
@@ -676,7 +676,7 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should correctly classify long-term gains with complex fee scenarios', async () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         // Buy 1 BTC @ $30k with $100 fee (Jan 1, 2023)
         createTransactionWithFee(
           1,

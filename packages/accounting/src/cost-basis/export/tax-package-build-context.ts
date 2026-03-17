@@ -1,4 +1,4 @@
-import type { Account, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Account, TransactionLink, Transaction } from '@exitbook/core';
 
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
@@ -9,7 +9,7 @@ export interface TaxPackageArtifactRef {
 }
 
 export interface TaxPackageSourceContext {
-  transactionsById: Map<number, UniversalTransactionData>;
+  transactionsById: Map<number, Transaction>;
   accountsById: Map<number, Account>;
   confirmedLinksById: Map<number, TransactionLink>;
 }

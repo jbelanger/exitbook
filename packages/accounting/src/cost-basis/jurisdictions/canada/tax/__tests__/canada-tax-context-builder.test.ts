@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable in tests */
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -18,7 +18,7 @@ import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 describe('buildCanadaTaxInputContext', () => {
   it('uses preserved quoted CAD price without fetching USD->CAD FX', async () => {
     const fxProvider = createCanadaFxProvider();
-    const transaction: UniversalTransactionData = {
+    const transaction: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'tx-1',
@@ -68,7 +68,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('rolls acquisition fees into cost basis adjustments in CAD', async () => {
     const fxProvider = createCanadaFxProvider({ usdToCad: '1.4' });
-    const transaction: UniversalTransactionData = {
+    const transaction: Transaction = {
       id: 2,
       accountId: 1,
       externalId: 'tx-2',
@@ -121,7 +121,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('converts confirmed internal links into transfer events instead of acquisitions or dispositions', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: UniversalTransactionData = {
+    const withdrawal: Transaction = {
       id: 10,
       accountId: 1,
       externalId: 'tx-10',
@@ -150,7 +150,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const deposit: UniversalTransactionData = {
+    const deposit: Transaction = {
       id: 11,
       accountId: 2,
       externalId: 'tx-11',
@@ -212,7 +212,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('resolves fee identity and emits same-asset transfer fee adjustments', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: UniversalTransactionData = {
+    const withdrawal: Transaction = {
       id: 20,
       accountId: 1,
       externalId: 'tx-20',
@@ -256,7 +256,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const deposit: UniversalTransactionData = {
+    const deposit: Transaction = {
       id: 21,
       accountId: 2,
       externalId: 'tx-21',
@@ -313,7 +313,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('allocates same-asset network fees once across internal transfer and residual disposition shares', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: UniversalTransactionData = {
+    const withdrawal: Transaction = {
       id: 25,
       accountId: 1,
       externalId: 'tx-25',
@@ -357,7 +357,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const deposit: UniversalTransactionData = {
+    const deposit: Transaction = {
       id: 26,
       accountId: 2,
       externalId: 'tx-26',
@@ -467,7 +467,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('emits link-scoped same-asset fee adjustments when one source movement fans out to multiple links', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: UniversalTransactionData = {
+    const withdrawal: Transaction = {
       id: 27,
       accountId: 1,
       externalId: 'tx-27',
@@ -511,7 +511,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'transfer', type: 'withdrawal' },
     };
 
-    const firstDeposit: UniversalTransactionData = {
+    const firstDeposit: Transaction = {
       id: 28,
       accountId: 2,
       externalId: 'tx-28',
@@ -540,7 +540,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'transfer', type: 'deposit' },
     };
 
-    const secondDeposit: UniversalTransactionData = {
+    const secondDeposit: Transaction = {
       id: 29,
       accountId: 3,
       externalId: 'tx-29',
@@ -629,7 +629,7 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
     const fxProvider = createCanadaFxProvider();
-    const exchangeAcquisition: UniversalTransactionData = {
+    const exchangeAcquisition: Transaction = {
       id: 30,
       accountId: 1,
       externalId: 'tx-30',
@@ -658,7 +658,7 @@ describe('buildCanadaTaxInputContext', () => {
       operation: { category: 'trade', type: 'deposit' },
     };
 
-    const chainAcquisition: UniversalTransactionData = {
+    const chainAcquisition: Transaction = {
       id: 31,
       accountId: 2,
       externalId: 'tx-31',

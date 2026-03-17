@@ -40,7 +40,7 @@ Defines how Exitbook excludes transactions or assets from accounting-facing work
 
 ### Baseline Transaction Exclusion
 
-Persistence-owned whole-transaction exclusion stored on `transactions.excluded_from_accounting` and materialized as `UniversalTransactionData.excludedFromAccounting`.
+Persistence-owned whole-transaction exclusion stored on `transactions.excluded_from_accounting` and materialized as `Transaction.excludedFromAccounting`.
 
 Current write rule:
 

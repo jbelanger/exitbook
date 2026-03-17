@@ -1,10 +1,4 @@
-import {
-  isFiat,
-  parseCurrency,
-  type AssetMovement,
-  type FeeMovement,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { isFiat, parseCurrency, type AssetMovement, type FeeMovement, type Transaction } from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -43,10 +37,10 @@ function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean
 }
 
 export function filterTransactionsByDateRange(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   startDate: Date,
   endDate: Date
-): UniversalTransactionData[] {
+): Transaction[] {
   return transactions.filter((tx) => {
     const txDate = new Date(tx.timestamp);
     return txDate >= startDate && txDate <= endDate;
@@ -78,7 +72,7 @@ export function scopedTransactionHasAllPrices(scopedTransaction: AccountingScope
 export function validateScopedTransactionPrices(
   scopedBuildResult: AccountingScopedBuildResult,
   requiredCurrency: string
-): Result<{ missingPricesCount: number; rebuildTransactions: UniversalTransactionData[] }, Error> {
+): Result<{ missingPricesCount: number; rebuildTransactions: Transaction[] }, Error> {
   const rebuildTransactionIds = new Set<number>();
   let missingPricesCount = 0;
 
@@ -119,10 +113,10 @@ export function validateScopedTransactionPrices(
 }
 
 export function getCostBasisRebuildTransactions(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   requiredCurrency: string,
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<{ missingPricesCount: number; rebuildTransactions: UniversalTransactionData[] }, Error> {
+): Result<{ missingPricesCount: number; rebuildTransactions: Transaction[] }, Error> {
   const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);

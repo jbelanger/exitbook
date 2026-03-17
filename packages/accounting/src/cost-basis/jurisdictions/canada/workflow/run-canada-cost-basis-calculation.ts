@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, Currency, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Currency, TransactionLink, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -18,7 +18,7 @@ const logger = getLogger('run-canada-cost-basis-calculation');
 
 export interface RunCanadaCostBasisCalculationParams {
   input: CostBasisInput;
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
   confirmedLinks: TransactionLink[];
   fxRateProvider: IFxRateProvider;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;

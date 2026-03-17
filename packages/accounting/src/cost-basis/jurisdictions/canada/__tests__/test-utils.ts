@@ -1,4 +1,4 @@
-import type { Currency, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
 import { computeMovementFingerprint, computeTxFingerprint, err, ok, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
@@ -62,7 +62,7 @@ export const noopLogger: Logger = {
 };
 
 function computeScopedMovementFingerprint(
-  transaction: UniversalTransactionData,
+  transaction: Transaction,
   movementType: 'inflow' | 'outflow',
   position: number
 ): string {
@@ -91,11 +91,11 @@ export function createConfirmedTransferLink(params: {
   sourceAmount: string;
   sourceAssetId: string;
   sourcePosition?: number;
-  sourceTransaction: UniversalTransactionData;
+  sourceTransaction: Transaction;
   targetAmount: string;
   targetAssetId: string;
   targetPosition?: number;
-  targetTransaction: UniversalTransactionData;
+  targetTransaction: Transaction;
 }): TransactionLink {
   return {
     id: params.id,
@@ -132,7 +132,7 @@ export function createConfirmedTransferLink(params: {
 }
 
 export async function buildCanadaTestInputContext(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   confirmedLinks: TransactionLink[],
   fxProvider: IFxRateProvider,
   options?: {

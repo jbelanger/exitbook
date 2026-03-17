@@ -1,4 +1,4 @@
-import { type AssetReviewSummary, type UniversalTransactionData } from '@exitbook/core';
+import { type AssetReviewSummary, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -38,7 +38,7 @@ interface CostBasisPipelineResult {
    * Raw transactions carried forward into the final scoped rebuild. This can
    * include same-hash internal dependencies consumed by scoped reductions.
    */
-  rebuildTransactions: UniversalTransactionData[];
+  rebuildTransactions: Transaction[];
 }
 
 const logger = getLogger('cost-basis.standard.calculation');
@@ -51,7 +51,7 @@ const logger = getLogger('cost-basis.standard.calculation');
  * "validate prices → get rules → run calculator" flow.
  */
 export async function runCostBasisPipeline(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   config: CostBasisConfig,
   store: ICostBasisContextReader,
   options: CostBasisPipelineOptions

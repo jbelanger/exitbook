@@ -14,7 +14,7 @@ import {
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
-import { parseCurrency, type AssetReviewSummary, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { parseCurrency, type AssetReviewSummary, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
@@ -70,7 +70,7 @@ interface PortfolioHandlerParams {
 interface PortfolioResult {
   positions: PortfolioPositionItem[];
   closedPositions: PortfolioPositionItem[];
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
   totalValue?: string | undefined;
   totalCost?: string | undefined;
   totalUnrealizedGainLoss?: string | undefined;
@@ -479,7 +479,7 @@ export class PortfolioHandler {
   }
 
   private buildMissingPriceWarning(
-    transactionsUpToAsOf: UniversalTransactionData[],
+    transactionsUpToAsOf: Transaction[],
     retainedTransactionIds: number[],
     missingPricesCount: number
   ): string | undefined {
@@ -514,7 +514,7 @@ export class PortfolioHandler {
     costBasisStore: ICostBasisContextReader;
     holdings: Record<string, Decimal>;
     spotPrices: Map<string, SpotPriceResult>;
-    transactionsUpToAsOf: UniversalTransactionData[];
+    transactionsUpToAsOf: Transaction[];
   }): Promise<
     Result<
       {
@@ -768,19 +768,19 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
   });
 }
 
-function isExcludedTransaction(transaction: UniversalTransactionData): boolean {
+function isExcludedTransaction(transaction: Transaction): boolean {
   return transaction.excludedFromAccounting === true;
 }
 
 function filterTransactionsTouchingExcludedAssets(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   accountingExclusionPolicy: AccountingExclusionPolicy
-): UniversalTransactionData[] {
+): Transaction[] {
   if (accountingExclusionPolicy.excludedAssetIds.size === 0) {
     return transactions;
   }
 
-  const retainedTransactions: UniversalTransactionData[] = [];
+  const retainedTransactions: Transaction[] = [];
   const excludedTransactionIds: number[] = [];
 
   for (const transaction of transactions) {
@@ -806,7 +806,7 @@ function filterTransactionsTouchingExcludedAssets(
 }
 
 function transactionTouchesExcludedAsset(
-  transaction: UniversalTransactionData,
+  transaction: Transaction,
   accountingExclusionPolicy: AccountingExclusionPolicy
 ): boolean {
   for (const inflow of transaction.movements.inflows ?? []) {

@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Account, Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Account, Currency, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -18,7 +18,7 @@ describe('analyzeLinkGaps', () => {
     userId: overrides.userId ?? 1,
   });
 
-  const createMockTransaction = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData => ({
+  const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
     id: 1,
     accountId: 1,
     externalId: 'tx-123',
@@ -39,7 +39,7 @@ describe('analyzeLinkGaps', () => {
     ...overrides,
   });
 
-  const createBlockchainDeposit = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
+  const createBlockchainDeposit = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 11,
       externalId: 'btc-inflow',
@@ -67,7 +67,7 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
-  const createBlockchainWithdrawal = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
+  const createBlockchainWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 21,
       externalId: 'btc-outflow',
@@ -95,7 +95,7 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
-  const createExchangeWithdrawal = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
+  const createExchangeWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 31,
       externalId: 'kraken-outflow',
@@ -118,7 +118,7 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
-  const createBlockchainSwap = (overrides: Partial<UniversalTransactionData> = {}): UniversalTransactionData =>
+  const createBlockchainSwap = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 41,
       accountId: 1,
@@ -199,7 +199,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should flag deposits without confirmed links', () => {
-    const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
+    const transactions: Transaction[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [];
 
     const analysis = analyzeLinkGaps(transactions, links);
@@ -222,7 +222,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should treat confirmed links as coverage', () => {
-    const transactions: UniversalTransactionData[] = [createBlockchainDeposit()];
+    const transactions: Transaction[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [
       createMockLink({
         id: 1,
@@ -295,7 +295,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should ignore reward transactions', () => {
-    const transactions: UniversalTransactionData[] = [
+    const transactions: Transaction[] = [
       createBlockchainDeposit({
         id: 20,
         operation: {
@@ -314,7 +314,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should ignore staking inflow transactions such as unstake returns', () => {
-    const transactions: UniversalTransactionData[] = [
+    const transactions: Transaction[] = [
       createBlockchainDeposit({
         id: 23,
         operation: {
@@ -333,7 +333,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should flag withdrawals without confirmed links', () => {
-    const transactions: UniversalTransactionData[] = [createBlockchainWithdrawal()];
+    const transactions: Transaction[] = [createBlockchainWithdrawal()];
     const links: TransactionLink[] = [];
 
     const analysis = analyzeLinkGaps(transactions, links);
@@ -672,7 +672,7 @@ describe('analyzeLinkGaps', () => {
 
   it('should treat confirmed links as coverage for withdrawals', () => {
     const withdrawal = createBlockchainWithdrawal({ id: 22, externalId: 'btc-outflow-2' });
-    const transactions: UniversalTransactionData[] = [withdrawal];
+    const transactions: Transaction[] = [withdrawal];
     const links: TransactionLink[] = [
       createMockLink({
         id: 1,
@@ -696,7 +696,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should flag exchange withdrawals without confirmed links', () => {
-    const transactions: UniversalTransactionData[] = [createExchangeWithdrawal()];
+    const transactions: Transaction[] = [createExchangeWithdrawal()];
     const links: TransactionLink[] = [];
 
     const analysis = analyzeLinkGaps(transactions, links);
@@ -721,7 +721,7 @@ describe('analyzeLinkGaps', () => {
 
   it('should treat confirmed links as coverage for exchange withdrawals', () => {
     const withdrawal = createExchangeWithdrawal({ id: 32, externalId: 'kraken-outflow-2' });
-    const transactions: UniversalTransactionData[] = [withdrawal];
+    const transactions: Transaction[] = [withdrawal];
     const links: TransactionLink[] = [
       createMockLink({
         id: 1,

@@ -1,13 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import { computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 
 /** Transaction data before persistence — `externalId` is optional (will be generated if absent). */
-export type TransactionIdentityDraft = Omit<
-  UniversalTransactionData,
-  'accountId' | 'id' | 'txFingerprint' | 'externalId'
-> & {
+export type TransactionIdentityDraft = Omit<Transaction, 'accountId' | 'id' | 'txFingerprint' | 'externalId'> & {
   externalId?: string | undefined;
 };
 
@@ -32,7 +29,7 @@ export interface TransactionIdentity {
  * - all fee amounts and assets (sorted for determinism)
  * - from/to addresses if present
  *
- * @param transaction - The universal transaction to generate a hash for
+ * @param transaction - The transaction to generate a hash for
  * @returns A deterministic hash string prefixed with 'gen-' to indicate it's generated
  *
  * @example

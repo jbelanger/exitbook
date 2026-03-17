@@ -145,6 +145,6 @@ Raw records, price caches, token metadata, and provider health data are preserve
 | `packages/data/src/migrations/001_initial_schema.ts`                    | DB schema with dedup constraints                              |
 | `packages/ingestion/src/features/process/process-service.ts`            | Processing orchestration, incomplete import guards            |
 | `packages/ingestion/src/features/process/base-transaction-processor.ts` | Base class: Zod validation, scam detection, output validation |
-| `packages/core/src/schemas/universal-transaction.ts`                    | Transaction schema with fee scope/settlement semantics        |
+| `packages/core/src/schemas/transaction.ts`                              | Transaction schema with fee scope/settlement semantics        |
 | `packages/data/src/repositories/raw-data-queries.ts`                    | `saveBatch()` with idempotent dedup                           |
 | `apps/cli/src/features/process/process-handler.ts`                      | Reprocess command: clear + reset + reprocess                  |

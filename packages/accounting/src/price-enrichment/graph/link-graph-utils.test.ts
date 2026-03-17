@@ -5,7 +5,7 @@
  * using the Union-Find algorithm according to the "Functional Core, Imperative Shell" pattern
  */
 
-import { type Currency, type UniversalTransactionData, parseDecimal } from '@exitbook/core';
+import { type Currency, type Transaction, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { TransactionLink } from '../../linking/shared/types.js';
@@ -18,8 +18,8 @@ function createTx(
   source: string,
   sourceType: 'exchange' | 'blockchain',
   options: { blockchain?: string; datetime?: string } = {}
-): UniversalTransactionData {
-  const base: UniversalTransactionData = {
+): Transaction {
+  const base: Transaction = {
     id,
     accountId: 1,
     externalId: `ext-${id}`,

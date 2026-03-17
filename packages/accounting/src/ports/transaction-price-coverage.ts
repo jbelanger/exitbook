@@ -1,4 +1,4 @@
-import type { Result, UniversalTransactionData } from '@exitbook/core';
+import type { Result, Transaction } from '@exitbook/core';
 
 /**
  * Data-access port for loading transactions needed by price coverage checks.
@@ -7,5 +7,5 @@ import type { Result, UniversalTransactionData } from '@exitbook/core';
  * This port only supplies the data.
  */
 export interface IPriceCoverageData {
-  loadTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
+  loadTransactions(): Promise<Result<Transaction[], Error>>;
 }

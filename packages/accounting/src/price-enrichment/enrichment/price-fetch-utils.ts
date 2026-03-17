@@ -1,6 +1,6 @@
 // Pure business logic for price fetch operations
 
-import { isFiat, parseCurrency, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, resultDo, type Result } from '@exitbook/core';
 import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
@@ -86,7 +86,7 @@ function addPriceFetchCandidate(
   entity: {
     assetId: string;
     assetSymbol: Currency;
-    priceAtTxTime?: UniversalTransactionData['fees'][number]['priceAtTxTime'] | undefined;
+    priceAtTxTime?: Transaction['fees'][number]['priceAtTxTime'] | undefined;
   },
   exclusionPolicy?: AccountingExclusionPolicy
 ): void {
@@ -116,7 +116,7 @@ function addPriceFetchCandidate(
  * non-tentative prices.
  */
 export function extractPriceFetchCandidates(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   exclusionPolicy?: AccountingExclusionPolicy
 ): Result<PriceFetchCandidate[], Error> {
   const inflows = tx.movements.inflows ?? [];
@@ -146,7 +146,7 @@ export function extractPriceFetchCandidates(
  * non-tentative prices.
  */
 export function extractAssetsNeedingPrices(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   exclusionPolicy?: AccountingExclusionPolicy
 ): Result<string[], Error> {
   const candidatesResult = extractPriceFetchCandidates(tx, exclusionPolicy);
@@ -162,7 +162,7 @@ export function extractAssetsNeedingPrices(
  * Always fetches prices in USD regardless of transaction currency.
  */
 export function createPriceQuery(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   assetSymbol: string,
   targetCurrency = 'USD'
 ): Result<PriceQuery, Error> {

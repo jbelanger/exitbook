@@ -44,7 +44,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       );
     }
 
-    const universalTransactions: ProcessedTransaction[] = [];
+    const processedTransactions: ProcessedTransaction[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
     const movementsForScamDetection: MovementWithContext[] = [];
 
@@ -175,11 +175,11 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
             asset: movement.asset,
             amount: parseDecimal(movement.amount),
             isAirdrop,
-            transactionIndex: universalTransactions.length,
+            transactionIndex: processedTransactions.length,
           });
         }
 
-        universalTransactions.push(processedTransaction);
+        processedTransactions.push(processedTransaction);
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;
         processingErrors.push({ error: errorMsg, txId: transaction.id });
@@ -188,7 +188,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       }
     }
 
-    await this.runScamDetection(universalTransactions, movementsForScamDetection, this.chainConfig.chainName);
+    await this.runScamDetection(processedTransactions, movementsForScamDetection, this.chainConfig.chainName);
 
     // Fail if ANY transactions could not be processed - silently dropping txs corrupts portfolio accuracy
     const totalInputTransactions = deduplicatedData.length;
@@ -209,7 +209,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       );
     }
 
-    return ok(universalTransactions);
+    return ok(processedTransactions);
   }
 
   /**

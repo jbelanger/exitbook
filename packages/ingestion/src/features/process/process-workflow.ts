@@ -438,7 +438,7 @@ export class ProcessingWorkflow {
       }
       const processorInputs = processorInputsResult.value;
 
-      // Process raw data into universal transactions
+      // Process raw data into transactions
       const transactionsResult = await processor.process(processorInputs, addressContext);
 
       if (transactionsResult.isErr()) {

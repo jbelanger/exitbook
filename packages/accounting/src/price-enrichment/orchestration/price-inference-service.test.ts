@@ -1,4 +1,4 @@
-import type { Currency, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,11 +12,11 @@ import { PriceInferenceService } from './price-inference-service.js';
 let nextId = 1;
 
 function makeTx(
-  overrides: Partial<UniversalTransactionData> & {
-    fees?: UniversalTransactionData['fees'];
-    movements: UniversalTransactionData['movements'];
+  overrides: Partial<Transaction> & {
+    fees?: Transaction['fees'];
+    movements: Transaction['movements'];
   }
-): UniversalTransactionData {
+): Transaction {
   const id = nextId++;
   return {
     id,
@@ -63,14 +63,14 @@ function makeLink(sourceId: number, targetId: number, overrides?: Partial<Transa
 // ── Mock store ──
 
 function createMockStore(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   links: TransactionLink[] = []
-): { getUpdatedTx: (id: number) => UniversalTransactionData | undefined; store: IPricingPersistence } {
+): { getUpdatedTx: (id: number) => Transaction | undefined; store: IPricingPersistence } {
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
   const store: IPricingPersistence = {
     loadPricingContext: vi.fn().mockResolvedValue(ok({ transactions: [...txMap.values()], confirmedLinks: links })),
     loadTransactionsNeedingPrices: vi.fn().mockResolvedValue(ok([])),
-    saveTransactionPrices: vi.fn().mockImplementation((tx: UniversalTransactionData) => {
+    saveTransactionPrices: vi.fn().mockImplementation((tx: Transaction) => {
       txMap.set(tx.id, tx);
       return ok(undefined);
     }),

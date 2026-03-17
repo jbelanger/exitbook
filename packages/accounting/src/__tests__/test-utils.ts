@@ -1,10 +1,4 @@
-import type {
-  AssetMovement,
-  FeeMovement,
-  OperationType,
-  PriceAtTxTime,
-  UniversalTransactionData,
-} from '@exitbook/core';
+import type { AssetMovement, FeeMovement, OperationType, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
@@ -107,7 +101,7 @@ export function createFee(
 }
 
 /**
- * Creates a blockchain UniversalTransactionData with a tx hash.
+ * Creates a blockchain Transaction with a tx hash.
  */
 export function createBlockchainTx(params: {
   accountId: number;
@@ -118,7 +112,7 @@ export function createBlockchainTx(params: {
   inflows?: AssetMovement[] | undefined;
   outflows?: AssetMovement[] | undefined;
   txHash: string;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: params.accountId,
@@ -146,7 +140,7 @@ export function createBlockchainTx(params: {
 }
 
 /**
- * Creates an exchange UniversalTransactionData.
+ * Creates an exchange Transaction.
  */
 export function createExchangeTx(params: {
   accountId: number;
@@ -156,7 +150,7 @@ export function createExchangeTx(params: {
   inflows?: AssetMovement[] | undefined;
   source: string;
   type: 'buy' | 'deposit';
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: params.accountId,
@@ -179,7 +173,7 @@ export function createExchangeTx(params: {
 }
 
 /**
- * Creates a UniversalTransactionData with common defaults.
+ * Creates a Transaction with common defaults.
  * Inflows and outflows are specified as convenience objects with price.
  */
 export function createTransaction(
@@ -194,7 +188,7 @@ export function createTransaction(
     sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
-): UniversalTransactionData {
+): Transaction {
   const fees: FeeMovement[] = options?.fees ?? [];
 
   return {
@@ -219,7 +213,7 @@ export function createTransaction(
 }
 
 /**
- * Creates a UniversalTransactionData from raw AssetMovement arrays.
+ * Creates a Transaction from raw AssetMovement arrays.
  * Use when you need to pass movements with specific priceAtTxTime already set.
  */
 export function createTransactionFromMovements(
@@ -233,7 +227,7 @@ export function createTransactionFromMovements(
     sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
-): UniversalTransactionData {
+): Transaction {
   return {
     id,
     accountId: 1,
@@ -256,7 +250,7 @@ export function createTransactionFromMovements(
 }
 
 /**
- * Creates a UniversalTransactionData with fees
+ * Creates a Transaction with fees
  */
 export function createTransactionWithFee(
   id: number,
@@ -264,7 +258,7 @@ export function createTransactionWithFee(
   inflows: { amount: string; assetSymbol: string; price: string }[],
   outflows: { amount: string; assetSymbol: string; price: string }[],
   platformFee?: { amount: string; assetSymbol: string; price: string }
-): UniversalTransactionData {
+): Transaction {
   const fees: FeeMovement[] = platformFee
     ? [
         createFee(platformFee.assetSymbol, platformFee.amount, {

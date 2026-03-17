@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +16,7 @@ import {
 describe('price-validation', () => {
   describe('collectPricedEntities', () => {
     it('should collect all inflows, outflows, and fees', () => {
-      const tx: UniversalTransactionData = {
+      const tx: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -100,7 +100,7 @@ describe('price-validation', () => {
     });
 
     it('should handle missing price data gracefully', () => {
-      const tx: UniversalTransactionData = {
+      const tx: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -138,7 +138,7 @@ describe('price-validation', () => {
     });
 
     it('should extract FX metadata when present', () => {
-      const tx: UniversalTransactionData = {
+      const tx: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -622,7 +622,7 @@ describe('price-validation', () => {
 
   describe('assertPriceDataQuality', () => {
     it('should return ok for valid transactions', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -674,7 +674,7 @@ describe('price-validation', () => {
     });
 
     it('should return error for missing prices', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -711,7 +711,7 @@ describe('price-validation', () => {
     });
 
     it('should return error for non-USD prices', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -752,7 +752,7 @@ describe('price-validation', () => {
     });
 
     it('should return error for incomplete FX metadata', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -796,7 +796,7 @@ describe('price-validation', () => {
     });
 
     it('should aggregate multiple issues', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,

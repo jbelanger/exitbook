@@ -1,5 +1,5 @@
 import { err, ok, type Result } from '@exitbook/core';
-import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { TransactionLink, Transaction } from '@exitbook/core';
 
 import type { CostBasisContext } from '../../ports/cost-basis-persistence.js';
 
@@ -44,7 +44,7 @@ export function requireTransactionWithAccount(
   sourceContext: TaxPackageIndexedSourceContext,
   transactionId: number,
   reference: string
-): Result<UniversalTransactionData, Error> {
+): Result<Transaction, Error> {
   const transaction = sourceContext.transactionsById.get(transactionId);
   if (!transaction) {
     return err(new Error(`Missing source transaction ${transactionId} for ${reference}`));

@@ -2,7 +2,7 @@
 // All functions are pure - no side effects
 
 import type { TransactionLink } from '@exitbook/accounting';
-import type { FeeMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import type { FeeMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok, resultDo } from '@exitbook/core';
 import type { z } from 'zod';
@@ -103,7 +103,7 @@ export function buildExportParamsFromFlags(options: ExportCommandOptions): Resul
 /**
  * Convert transactions to CSV format.
  */
-export function convertToCSV(transactions: UniversalTransactionData[]): string {
+export function convertToCSV(transactions: Transaction[]): string {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -163,7 +163,7 @@ export interface NormalizedCsvOutput {
 }
 
 export function convertToNormalizedCSV(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   links: TransactionLink[] = []
 ): NormalizedCsvOutput {
   if (transactions.length === 0) {
@@ -348,12 +348,12 @@ export function convertToNormalizedCSV(
   };
 }
 
-function formatMovementAssets(movements: NonNullable<UniversalTransactionData['movements']['inflows']>): string {
+function formatMovementAssets(movements: NonNullable<Transaction['movements']['inflows']>): string {
   if (movements.length === 0) return '';
   return movements.map((movement) => movement.assetSymbol).join(';');
 }
 
-function formatMovementAmounts(movements: NonNullable<UniversalTransactionData['movements']['inflows']>): string {
+function formatMovementAmounts(movements: NonNullable<Transaction['movements']['inflows']>): string {
   if (movements.length === 0) return '';
   return movements.map((movement) => movement.grossAmount.toFixed()).join(';');
 }
@@ -415,7 +415,7 @@ function formatCsvLine(values: unknown[]): string {
 /**
  * Convert transactions to JSON format.
  */
-export function convertToJSON(transactions: UniversalTransactionData[]): string {
+export function convertToJSON(transactions: Transaction[]): string {
   if (transactions.length === 0) return '[]';
   return JSON.stringify(transactions, undefined, 2);
 }

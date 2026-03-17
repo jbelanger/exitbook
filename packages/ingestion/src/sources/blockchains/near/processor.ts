@@ -5,7 +5,7 @@
  * 1. Load raw data from 4 stream types (transactions, receipts, balance-changes, token-transfers)
  * 2. Group by transaction hash
  * 3. Two-hop correlation: receipts → transactions, balance changes → receipts
- * 4. Aggregate multiple receipts into one UniversalTransaction per parent hash
+ * 4. Aggregate multiple receipts into one ProcessedTransaction per parent hash
  * 5. Fail-fast on missing deltas or incomplete data
  */
 
@@ -169,7 +169,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
         const correlated = correlationResult.value;
 
         // Aggregate receipts to single transaction
-        const aggregationResult = await this.aggregateToUniversalTransaction(
+        const aggregationResult = await this.aggregateToTransaction(
           correlated,
           context,
           tokenMovementsForScamDetection,
@@ -296,7 +296,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   /**
    * Aggregate correlated transaction data into a single ProcessedTransaction
    */
-  private async aggregateToUniversalTransaction(
+  private async aggregateToTransaction(
     correlated: NearCorrelatedTransaction,
     context: AddressContext,
     tokenMovementsForScamDetection: MovementWithContext[],

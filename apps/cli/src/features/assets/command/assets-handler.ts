@@ -5,7 +5,7 @@ import {
   type AssetReviewStatus,
   type AssetReviewSummary,
   parseDecimal,
-  type UniversalTransactionData,
+  type Transaction,
   err,
   ok,
   type CreateOverrideEventOptions,
@@ -109,7 +109,7 @@ interface AssetSnapshot {
   knownAssets: Map<string, KnownAssetRecord>;
   reviewDecisions: Map<string, AssetReviewDecision>;
   reviewSummaries: Map<string, AssetReviewSummary>;
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
 }
 
 export class AssetsHandler {

@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 
 export interface KnownAssetRecord {
   assetId: string;
@@ -36,7 +36,7 @@ function addAssetOccurrence(
   });
 }
 
-export function collectKnownAssets(transactions: UniversalTransactionData[]): Map<string, KnownAssetRecord> {
+export function collectKnownAssets(transactions: Transaction[]): Map<string, KnownAssetRecord> {
   const assetsById = new Map<string, MutableKnownAssetRecord>();
 
   for (const transaction of transactions) {

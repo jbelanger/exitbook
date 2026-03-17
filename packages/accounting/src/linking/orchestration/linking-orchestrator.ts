@@ -1,4 +1,4 @@
-import type { OverrideEvent, UniversalTransactionData } from '@exitbook/core';
+import type { OverrideEvent, Transaction } from '@exitbook/core';
 import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -172,8 +172,8 @@ export class LinkingOrchestrator {
     internalLinks: NewTransactionLink[],
     params: LinkingRunParams,
     overrides: OverrideEvent[],
-    transactions: UniversalTransactionData[],
-    txById: Map<number, UniversalTransactionData>,
+    transactions: Transaction[],
+    txById: Map<number, Transaction>,
     scopedTransactions: AccountingScopedTransaction[]
   ): Result<
     {
@@ -215,7 +215,7 @@ export class LinkingOrchestrator {
   }
 
   private async loadTransactions(): Promise<
-    Result<{ transactions: UniversalTransactionData[]; txById: Map<number, UniversalTransactionData> }, Error>
+    Result<{ transactions: Transaction[]; txById: Map<number, Transaction> }, Error>
   > {
     return resultDoAsync(async function* (self) {
       self.eventBus?.emit({ type: 'load.started' });
@@ -238,8 +238,8 @@ export class LinkingOrchestrator {
     linkableMovements: LinkableMovement[],
     links: NewTransactionLink[],
     overrides: OverrideEvent[],
-    transactions: UniversalTransactionData[],
-    txById: Map<number, UniversalTransactionData>
+    transactions: Transaction[],
+    txById: Map<number, Transaction>
   ): Result<NewTransactionLink[], Error> {
     const linkOverrides = overrides.filter((o) => o.scope === 'link' || o.scope === 'unlink');
     if (linkOverrides.length === 0) return ok(links);

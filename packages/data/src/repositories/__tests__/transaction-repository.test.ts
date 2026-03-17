@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { computeTxFingerprint, type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -15,8 +15,8 @@ describe('TransactionRepository', () => {
   let repo: TransactionRepository;
 
   function makePersistedTransaction(
-    overrides: Partial<Omit<UniversalTransactionData, 'accountId' | 'id'>> = {}
-  ): Omit<UniversalTransactionData, 'accountId' | 'id'> {
+    overrides: Partial<Omit<Transaction, 'accountId' | 'id'>> = {}
+  ): Omit<Transaction, 'accountId' | 'id'> {
     return {
       datetime: '2025-01-01T00:00:00.000Z',
       externalId: 'tx-default',
@@ -573,7 +573,7 @@ describe('TransactionRepository', () => {
         ])
         .execute();
 
-      const enriched: UniversalTransactionData = {
+      const enriched: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'tx-1',
@@ -683,7 +683,7 @@ describe('TransactionRepository', () => {
         })
         .execute();
 
-      const enriched: UniversalTransactionData = {
+      const enriched: Transaction = {
         id: 2,
         accountId: 1,
         externalId: 'tx-2',
@@ -806,7 +806,7 @@ describe('TransactionRepository', () => {
         })
         .execute();
 
-      const enriched: UniversalTransactionData = {
+      const enriched: Transaction = {
         id: 3,
         accountId: 1,
         externalId: 'tx-3',
@@ -909,7 +909,7 @@ describe('TransactionRepository', () => {
     });
 
     it('returns an error when the transaction ID does not exist', async () => {
-      const enriched: UniversalTransactionData = {
+      const enriched: Transaction = {
         id: 999,
         accountId: 1,
         externalId: 'tx-999',

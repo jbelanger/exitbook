@@ -5,7 +5,7 @@ import { DateSchema } from '../utils/primitives.js';
 /**
  * Processing status schema for external transaction data lifecycle:
  * - 'pending': awaiting processing
- * - 'processed': successfully transformed to universal transaction
+ * - 'processed': successfully transformed to final transaction
  */
 export const ProcessingStatusSchema = z.enum(['pending', 'processed']);
 

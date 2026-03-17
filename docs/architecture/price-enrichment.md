@@ -137,4 +137,4 @@ Runs `inferMultiPass()` again with the newly fetched prices, then propagates pri
 | `packages/accounting/src/price-enrichment/shared/types.ts`                         | `LinkedTransactionGroup` and enrichment result types                       |
 | `apps/cli/src/features/prices/prices-enrich.ts`                                    | CLI command registration for the 4-stage pipeline                          |
 | `apps/cli/src/features/prices/prices-enrich-handler.ts`                            | Pipeline orchestration: derive → normalize → fetch → propagate             |
-| `packages/core/src/schemas/universal-transaction.ts`                               | `PriceAtTxTimeSchema` with source and granularity metadata                 |
+| `packages/core/src/schemas/transaction.ts`                                         | `PriceAtTxTimeSchema` with source and granularity metadata                 |

@@ -453,7 +453,7 @@ any key to continue
 
 1. User presses `e` — phase transitions to format selection
 2. User presses `1`/`2`/`3` — auto-generate output path, begin export immediately
-3. Re-query DB with the view's active filters (no limit) to get raw `UniversalTransactionData[]`
+3. Re-query DB with the view's active filters (no limit) to get raw `Transaction[]`
 4. Fetch links when normalized CSV, convert to selected format, write atomically
 5. On success: show complete phase with file paths
 6. On failure: show error phase
@@ -927,7 +927,7 @@ JSON mode (`--json`):
 1. Parse and validate CLI options at the boundary
 2. Initialize database, fetch transactions via `TransactionRepository.getTransactions(filters)`
 3. Apply client-side filters (`applyTransactionFilters`) for asset, until, operation-type, no-price
-4. Transform `UniversalTransactionData[]` into `TransactionViewItem[]`
+4. Transform `Transaction[]` into `TransactionViewItem[]`
 5. Compute category counts and price status per transaction
 6. Apply limit
 7. Render Ink TUI with dataset in memory
@@ -937,12 +937,12 @@ JSON mode (`--json`):
 
 1. User presses `e` — `OPEN_EXPORT` action, phase = `export-format`
 2. User presses `1`/`2`/`3` — `SELECT_FORMAT` action, auto-generate path, phase = `exporting`
-3. Re-query DB with the view's filters (no limit) to get full `UniversalTransactionData[]`
+3. Re-query DB with the view's filters (no limit) to get full `Transaction[]`
 4. Fetch links when normalized CSV, convert output, write files atomically (temp → rename)
 5. `EXPORT_COMPLETE` or `EXPORT_FAILED` action
 6. Any key → `DISMISS_EXPORT_RESULT` action, return to normal view
 
-Re-query is needed because the view holds `TransactionViewItem[]` (display format) while export needs raw `UniversalTransactionData[]` for CSV/JSON conversion.
+Re-query is needed because the view holds `TransactionViewItem[]` (display format) while export needs raw `Transaction[]` for CSV/JSON conversion.
 
 ### Data Flow (`transactions export` CLI)
 

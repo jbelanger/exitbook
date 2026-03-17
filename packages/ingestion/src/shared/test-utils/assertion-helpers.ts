@@ -1,4 +1,4 @@
-import type { UniversalTransactionData, AssetMovement } from '@exitbook/core';
+import type { Transaction, AssetMovement } from '@exitbook/core';
 import { expect } from 'vitest';
 
 import type { ProcessedTransaction } from '../../shared/types/processors.js';
@@ -7,7 +7,7 @@ import type { ProcessedTransaction } from '../../shared/types/processors.js';
  * Fluent assertion builder for transaction movements
  */
 class MovementAssertion {
-  constructor(private transaction: UniversalTransactionData | ProcessedTransaction) {}
+  constructor(private transaction: Transaction | ProcessedTransaction) {}
 
   hasInflows(count: number): this {
     expect(this.transaction.movements.inflows).toBeDefined();

@@ -4,7 +4,7 @@ import type {
   BalanceSnapshotAsset,
   Currency,
   OverrideEvent,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 import { err, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
@@ -30,7 +30,7 @@ function createTransaction(params: {
   id: number;
   inflows?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
   outflows?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   const inflows = params.inflows ?? [];
   const outflows = params.outflows ?? [];
   const fees = params.fees ?? [];
@@ -104,7 +104,7 @@ function createSnapshot(scopeAccountId: number): BalanceSnapshot {
 }
 
 function createMockDb(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   snapshotAssets: BalanceSnapshotAsset[] = [],
   options?: {
     freshnessByScope?: Map<number, { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }>;

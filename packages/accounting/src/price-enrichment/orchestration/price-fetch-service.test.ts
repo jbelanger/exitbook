@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, type Transaction } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
@@ -14,11 +14,11 @@ import { PriceFetchService } from './price-fetch-service.js';
 let nextId = 1;
 
 function makeTx(
-  overrides: Partial<UniversalTransactionData> & {
-    fees?: UniversalTransactionData['fees'];
-    movements: UniversalTransactionData['movements'];
+  overrides: Partial<Transaction> & {
+    fees?: Transaction['fees'];
+    movements: Transaction['movements'];
   }
-): UniversalTransactionData {
+): Transaction {
   const id = nextId++;
   return {
     id,
@@ -35,15 +35,15 @@ function makeTx(
   };
 }
 
-function createMockStore(transactions: UniversalTransactionData[]): {
-  getUpdatedTx: (id: number) => UniversalTransactionData | undefined;
+function createMockStore(transactions: Transaction[]): {
+  getUpdatedTx: (id: number) => Transaction | undefined;
   store: IPricingPersistence;
 } {
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
   const store: IPricingPersistence = {
     loadPricingContext: vi.fn().mockResolvedValue(ok({ transactions: [...txMap.values()], confirmedLinks: [] })),
     loadTransactionsNeedingPrices: vi.fn().mockResolvedValue(ok([...txMap.values()])),
-    saveTransactionPrices: vi.fn().mockImplementation((tx: UniversalTransactionData) => {
+    saveTransactionPrices: vi.fn().mockImplementation((tx: Transaction) => {
       txMap.set(tx.id, tx);
       return ok(undefined);
     }),

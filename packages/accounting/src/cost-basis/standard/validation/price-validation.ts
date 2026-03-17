@@ -1,4 +1,4 @@
-import { isFiat, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -58,7 +58,7 @@ export interface PriceValidationResult {
  * Extract all entities (movements and fees) that need pricing for cost basis calculation
  * Pure function - no side effects
  */
-export function collectPricedEntities(transactions: UniversalTransactionData[]): PricedEntity[] {
+export function collectPricedEntities(transactions: Transaction[]): PricedEntity[] {
   const entities: PricedEntity[] = [];
 
   for (const tx of transactions) {
@@ -399,7 +399,7 @@ export function formatValidationError(result: PriceValidationResult): string {
  * @param transactions - Transactions to validate (should already be price-filtered)
  * @returns Result containing void on success, or Error with formatted message on failure
  */
-export function assertPriceDataQuality(transactions: UniversalTransactionData[]): Result<void, Error> {
+export function assertPriceDataQuality(transactions: Transaction[]): Result<void, Error> {
   // Phase 1: Collect all entities
   const entities = collectPricedEntities(transactions);
 

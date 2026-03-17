@@ -27,7 +27,7 @@ How Exitbook represents accounts (identity/state) and executes imports (sessions
 
 ## Non-Goals
 
-- Post-import processing into universal transactions or accounting logic.
+- Post-import processing into transactions or accounting logic.
 - Pricing/linking/balance calculation logic (only storage location noted).
 
 ## Definitions

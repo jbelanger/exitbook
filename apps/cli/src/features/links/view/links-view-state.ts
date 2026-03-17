@@ -3,7 +3,7 @@
  */
 
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 
 import type { LinkGapAnalysis } from '../command/links-gap-utils.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
@@ -13,8 +13,8 @@ import { buildTransferProposalItems } from '../transfer-proposals.js';
  */
 export interface LinkWithTransactions {
   link: TransactionLink;
-  sourceTransaction: UniversalTransactionData | undefined;
-  targetTransaction: UniversalTransactionData | undefined;
+  sourceTransaction: Transaction | undefined;
+  targetTransaction: Transaction | undefined;
 }
 
 export interface TransferProposalWithTransactions {

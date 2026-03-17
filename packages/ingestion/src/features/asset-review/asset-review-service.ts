@@ -4,7 +4,7 @@ import type {
   AssetReviewSummary,
   TokenMetadataRecord,
   TransactionNote,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 import { buildBlockchainTokenAssetId, err, ok, parseAssetId, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -53,7 +53,7 @@ export interface BuildAssetReviewSummariesOptions {
 }
 
 export async function buildAssetReviewSummaries(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   options: BuildAssetReviewSummariesOptions = {}
 ): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
   const signalsByAssetId = collectAssetSignals(transactions);
@@ -167,7 +167,7 @@ export async function buildAssetReviewSummaries(
   return ok(summaries);
 }
 
-function collectAssetSignals(transactions: UniversalTransactionData[]): Map<string, AssetSignal> {
+function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSignal> {
   const signalsByAssetId = new Map<string, AssetSignal>();
 
   for (const transaction of transactions) {
@@ -224,7 +224,7 @@ function collectAssetSignals(transactions: UniversalTransactionData[]): Map<stri
   return signalsByAssetId;
 }
 
-function collectSameSymbolAmbiguities(transactions: UniversalTransactionData[]): Map<string, SymbolAmbiguityGroup> {
+function collectSameSymbolAmbiguities(transactions: Transaction[]): Map<string, SymbolAmbiguityGroup> {
   const groups = new Map<string, Set<string>>();
 
   for (const transaction of transactions) {
@@ -285,7 +285,7 @@ function buildTokenLookupAssetId(chain: string, tokenRef: string): string | unde
   return assetIdResult.value;
 }
 
-function collectPrimaryAssetIds(transaction: UniversalTransactionData): Set<string> {
+function collectPrimaryAssetIds(transaction: Transaction): Set<string> {
   const primaryAssetIds = new Set<string>();
 
   for (const movement of [...(transaction.movements.inflows ?? []), ...(transaction.movements.outflows ?? [])]) {
@@ -296,7 +296,7 @@ function collectPrimaryAssetIds(transaction: UniversalTransactionData): Set<stri
 }
 
 function collectApplicableNotes(
-  transaction: UniversalTransactionData,
+  transaction: Transaction,
   assetId: string,
   assetSymbol: string,
   primaryAssetIds: Set<string>
@@ -361,11 +361,7 @@ function noteHasNoTarget(note: TransactionNote): boolean {
   );
 }
 
-function symbolTargetIsUnambiguous(
-  transaction: UniversalTransactionData,
-  assetId: string,
-  assetSymbol: string
-): boolean {
+function symbolTargetIsUnambiguous(transaction: Transaction, assetId: string, assetSymbol: string): boolean {
   const normalizedSymbol = assetSymbol.trim().toLowerCase();
   const matchingAssetIds = new Set<string>();
 

@@ -41,7 +41,7 @@ Link generation and the persisted `TransactionLink` contract are specified in [`
 
 Cost basis does not consume raw processed transactions plus arbitrary links anymore. It consumes:
 
-1. `UniversalTransactionData[]`
+1. `Transaction[]`
 2. `AccountingScopedBuildResult`
 3. confirmed persisted external links
 4. `ValidatedScopedTransferSet`

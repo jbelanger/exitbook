@@ -1,4 +1,4 @@
-import type { Currency, FeeMovement, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
@@ -38,7 +38,7 @@ function createBlockchainTx(
   inflows: { amount: string; assetId: string; assetSymbol: string; price: string }[],
   outflows: { amount: string; assetId: string; assetSymbol: string; price: string }[],
   fees: FeeMovement[] = []
-): UniversalTransactionData {
+): Transaction {
   return {
     id,
     accountId,
@@ -804,7 +804,7 @@ describe('buildCostBasisScopedTransactions', () => {
 
     it('should return Err for multi-movement participant', () => {
       // Sender has two outflow movements for BTC in one tx
-      const senderTx: UniversalTransactionData = {
+      const senderTx: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',

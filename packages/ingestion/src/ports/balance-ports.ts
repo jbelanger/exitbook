@@ -4,7 +4,7 @@ import type {
   BalanceSnapshotAsset,
   ImportSession,
   Result,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 
 export interface IBalanceAccountLookup {
@@ -30,7 +30,7 @@ export interface IBalanceTransactionSource {
   findByAccountIds(params: {
     accountIds: number[];
     includeExcluded?: boolean | undefined;
-  }): Promise<Result<UniversalTransactionData[], Error>>;
+  }): Promise<Result<Transaction[], Error>>;
 }
 
 /**

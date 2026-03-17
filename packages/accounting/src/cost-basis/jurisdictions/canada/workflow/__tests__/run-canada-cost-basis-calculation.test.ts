@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,7 +48,7 @@ function createAcquisitionTransaction(params: {
   quantity: string;
   timestamp: string;
   unitPriceCad: string;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -88,7 +88,7 @@ function createUnpricedAcquisitionTransaction(params: {
   id: number;
   quantity: string;
   timestamp: string;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -110,7 +110,7 @@ function createUnpricedAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  } as UniversalTransactionData;
+  } as Transaction;
 }
 
 function createBaseInput(endDate = '2025-01-10T23:59:59.999Z') {

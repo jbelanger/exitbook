@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
@@ -36,7 +36,7 @@ describe('ExportHandler', () => {
     handler = new ExportHandler(mockDb);
   });
 
-  const createMockTransaction = (id: number, source: string, assetSymbol: string): UniversalTransactionData => ({
+  const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction => ({
     id: id,
     accountId: 1,
     externalId: `ext-${id}`,
@@ -106,7 +106,7 @@ describe('ExportHandler', () => {
       expect(exportResult.outputs[0]?.path).toBe('./data/transactions.json');
       expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
 
-      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as UniversalTransactionData[];
+      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as Transaction[];
       expect(parsedContent).toHaveLength(1);
       expect(parsedContent[0]?.id).toBe(1);
       expect(parsedContent[0]?.source).toBe('kraken');
@@ -136,7 +136,7 @@ describe('ExportHandler', () => {
 
       const result = await handler.execute(params);
       const exportResult = assertOk(result);
-      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as UniversalTransactionData[];
+      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as Transaction[];
 
       expect(parsedContent[0]?.notes).toEqual([
         {

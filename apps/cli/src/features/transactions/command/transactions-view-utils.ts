@@ -1,6 +1,6 @@
 // Utilities and types for view transactions command
 
-import type { AssetMovement, FeeMovement, UniversalTransactionData } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
 import { computePrimaryMovement, isFiat, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
@@ -28,9 +28,9 @@ export interface ViewTransactionsParams extends CommonViewFilters {
  * Apply filters to transactions based on provided parameters.
  */
 export function applyTransactionFilters(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   params: ViewTransactionsParams
-): Result<UniversalTransactionData[], Error> {
+): Result<Transaction[], Error> {
   let filtered = transactions;
 
   // Filter by until date
@@ -113,7 +113,7 @@ function toFeeDisplayItem(f: FeeMovement): FeeDisplayItem {
  * - `none`: no non-fiat movement has priceAtTxTime
  * - `not-needed`: all movements are fiat
  */
-function computePriceStatus(tx: UniversalTransactionData): 'all' | 'partial' | 'none' | 'not-needed' {
+function computePriceStatus(tx: Transaction): 'all' | 'partial' | 'none' | 'not-needed' {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
   // Filter to non-fiat movements only (fiat doesn't need pricing)
@@ -131,9 +131,9 @@ function computePriceStatus(tx: UniversalTransactionData): 'all' | 'partial' | '
 }
 
 /**
- * Transform a UniversalTransactionData into a TransactionViewItem for TUI display.
+ * Transform a Transaction into a TransactionViewItem for TUI display.
  */
-export function toTransactionViewItem(tx: UniversalTransactionData): TransactionViewItem {
+export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
   const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
 
   const inflows = (tx.movements.inflows ?? []).map(toMovementDisplayItem);

@@ -1,4 +1,4 @@
-import type { TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { TransactionLink, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
 /**
@@ -6,7 +6,7 @@ import type { Result } from '@exitbook/core';
  */
 export interface PricingContext {
   /** All transactions */
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
   /** Confirmed transaction links for cross-platform price propagation */
   confirmedLinks: TransactionLink[];
 }
@@ -22,8 +22,8 @@ export interface IPricingPersistence {
   loadPricingContext(): Promise<Result<PricingContext, Error>>;
 
   /** Load transactions that still need prices, optionally filtered by asset */
-  loadTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>>;
+  loadTransactionsNeedingPrices(assetFilter?: string[]): Promise<Result<Transaction[], Error>>;
 
   /** Persist updated prices for a single transaction */
-  saveTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>>;
+  saveTransactionPrices(tx: Transaction): Promise<Result<void, Error>>;
 }

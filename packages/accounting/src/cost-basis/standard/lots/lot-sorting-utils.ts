@@ -1,4 +1,4 @@
-import { parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -28,9 +28,9 @@ export interface TransactionDependencyEdge {
  * @returns Result<sorted transactions, error with cycle details>
  */
 export function sortTransactionsByDependency(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   edges: TransactionDependencyEdge[]
-): Result<UniversalTransactionData[], Error> {
+): Result<Transaction[], Error> {
   const logger = getLogger('lot-sorting-utils:sortTransactionsByDependency');
 
   // Build dependency graph

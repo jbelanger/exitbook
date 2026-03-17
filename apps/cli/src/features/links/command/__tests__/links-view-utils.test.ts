@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
@@ -83,7 +83,7 @@ describe('links-view-utils', () => {
   });
 
   describe('mapTransactionToDetails', () => {
-    it('should map UniversalTransactionData to TransactionDetails', () => {
+    it('should map Transaction to TransactionDetails', () => {
       const tx = createMockTransaction(123);
 
       const result = mapTransactionToDetails(tx);
@@ -109,7 +109,7 @@ describe('links-view-utils', () => {
     });
 
     it('should handle transactions with empty movements', () => {
-      const tx: UniversalTransactionData = {
+      const tx: Transaction = {
         id: 456,
         accountId: 1,
         externalId: 'tx-456',
@@ -147,7 +147,7 @@ describe('links-view-utils', () => {
     });
 
     it('should handle transactions with undefined movements arrays', () => {
-      const tx: UniversalTransactionData = {
+      const tx: Transaction = {
         id: 789,
         accountId: 1,
         externalId: 'tx-789',

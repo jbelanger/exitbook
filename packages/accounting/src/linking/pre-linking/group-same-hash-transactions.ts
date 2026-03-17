@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
@@ -38,9 +38,9 @@ export interface SameHashAssetGroup {
  * Only includes groups with 2+ participants from different accounts.
  * Non-blockchain transactions and transactions without hashes are skipped.
  */
-export function groupSameHashTransactions(transactions: UniversalTransactionData[]): SameHashAssetGroup[] {
+export function groupSameHashTransactions(transactions: Transaction[]): SameHashAssetGroup[] {
   // First pass: group transactions by normalized hash
-  const txsByHash = new Map<string, { blockchain: string; txs: UniversalTransactionData[] }>();
+  const txsByHash = new Map<string, { blockchain: string; txs: Transaction[] }>();
 
   for (const tx of transactions) {
     if (tx.sourceType !== 'blockchain') continue;

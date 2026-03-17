@@ -6,7 +6,7 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, PriceAtTxTime, UniversalTransactionData } from '@exitbook/core';
+import type { AssetMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -19,7 +19,7 @@ import {
 
 describe('extractMovementsNeedingNormalization', () => {
   it('identifies EUR prices needing normalization', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -63,7 +63,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('skips USD prices (already normalized)', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -107,7 +107,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies crypto prices in price field (unexpected)', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -151,7 +151,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies multiple currencies needing normalization', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -198,7 +198,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('handles movements without prices', () => {
-    const tx: UniversalTransactionData = {
+    const tx: Transaction = {
       id: 1,
       accountId: 1,
       externalId: 'test-1',

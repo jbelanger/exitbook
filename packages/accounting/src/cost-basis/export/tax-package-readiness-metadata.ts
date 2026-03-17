@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 
 import { collectBlockingAssetReviewSummaries } from '../standard/validation/asset-review-preflight.js';
 
@@ -34,14 +34,14 @@ export function deriveTaxPackageReadinessMetadata(params: {
   };
 }
 
-function getRetainedTransactions(context: TaxPackageBuildContext): UniversalTransactionData[] {
+function getRetainedTransactions(context: TaxPackageBuildContext): Transaction[] {
   return context.workflowResult.executionMeta.retainedTransactionIds
     .map((transactionId) => context.sourceContext.transactionsById.get(transactionId))
-    .filter((transaction): transaction is UniversalTransactionData => transaction !== undefined);
+    .filter((transaction): transaction is Transaction => transaction !== undefined);
 }
 
 function collectUnknownTransactionClassificationDetails(
-  transactions: readonly UniversalTransactionData[]
+  transactions: readonly Transaction[]
 ): TaxPackageUnknownTransactionClassificationDetail[] {
   return collectTransactionIssueDetails<TaxPackageUnknownTransactionClassificationDetail>(
     transactions,
@@ -50,7 +50,7 @@ function collectUnknownTransactionClassificationDetails(
 }
 
 function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
-  transactions: readonly UniversalTransactionData[],
+  transactions: readonly Transaction[],
   noteTypes: ReadonlySet<string>
 ): TDetail[] {
   return transactions.flatMap((transaction) => {
@@ -74,12 +74,12 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
   });
 }
 
-function buildTransactionReference(transaction: UniversalTransactionData): string {
+function buildTransactionReference(transaction: Transaction): string {
   return transaction.blockchain?.transaction_hash ?? transaction.externalId ?? `tx:${transaction.id}`;
 }
 
 function countScopedAssetsRequiringReview(
-  transactions: readonly UniversalTransactionData[],
+  transactions: readonly Transaction[],
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): number {
   const assetsInScope = new Set<string>();

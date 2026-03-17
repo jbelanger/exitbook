@@ -1,4 +1,4 @@
-import type { CreateOverrideEventOptions, Currency, OverrideEvent, UniversalTransactionData } from '@exitbook/core';
+import type { CreateOverrideEventOptions, Currency, OverrideEvent, Transaction } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CommandDatabase } from '../../../shared/command-runtime.js';
 import { TransactionsEditHandler } from '../transactions-edit-handler.js';
 
-function createTransaction(id: number, externalId = `ext-${id}`): UniversalTransactionData {
+function createTransaction(id: number, externalId = `ext-${id}`): Transaction {
   return {
     id,
     accountId: 1,

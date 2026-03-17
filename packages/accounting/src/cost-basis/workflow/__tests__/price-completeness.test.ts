@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal, type Result } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -22,9 +22,9 @@ import {
   scopedTransactionHasAllPrices,
 } from '../price-completeness.js';
 
-function stubData(transactions: UniversalTransactionData[]): IPriceCoverageData {
+function stubData(transactions: Transaction[]): IPriceCoverageData {
   return {
-    loadTransactions: () => Promise.resolve(ok(transactions) as Result<UniversalTransactionData[], Error>),
+    loadTransactions: () => Promise.resolve(ok(transactions) as Result<Transaction[], Error>),
   };
 }
 
@@ -36,11 +36,11 @@ const dateRange = {
 describe('price-completeness', () => {
   describe('filterTransactionsByDateRange', () => {
     it('filters transactions within date range', () => {
-      const transactions: UniversalTransactionData[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
-        { timestamp: '2024-06-01T00:00:00Z' } as unknown as UniversalTransactionData,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransactionData,
-        { timestamp: '2025-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
+      const transactions: Transaction[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as Transaction,
+        { timestamp: '2024-06-01T00:00:00Z' } as unknown as Transaction,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as Transaction,
+        { timestamp: '2025-01-01T00:00:00Z' } as unknown as Transaction,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -55,9 +55,9 @@ describe('price-completeness', () => {
     });
 
     it('returns empty array when no transactions are in range', () => {
-      const transactions: UniversalTransactionData[] = [
-        { timestamp: '2023-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
-        { timestamp: '2023-12-31T00:00:00Z' } as unknown as UniversalTransactionData,
+      const transactions: Transaction[] = [
+        { timestamp: '2023-01-01T00:00:00Z' } as unknown as Transaction,
+        { timestamp: '2023-12-31T00:00:00Z' } as unknown as Transaction,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -70,9 +70,9 @@ describe('price-completeness', () => {
     });
 
     it('includes boundary dates', () => {
-      const transactions: UniversalTransactionData[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as UniversalTransactionData,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as UniversalTransactionData,
+      const transactions: Transaction[] = [
+        { timestamp: '2024-01-01T00:00:00Z' } as unknown as Transaction,
+        { timestamp: '2024-12-31T23:59:59Z' } as unknown as Transaction,
       ];
 
       const result = filterTransactionsByDateRange(
@@ -88,7 +88,7 @@ describe('price-completeness', () => {
   describe('scopedTransactionHasAllPrices', () => {
     it('returns true when all crypto movements and fees have prices', () => {
       const scopedTransaction = {
-        tx: { id: 1 } as UniversalTransactionData,
+        tx: { id: 1 } as Transaction,
         rebuildDependencyTransactionIds: [],
         movements: {
           inflows: [{ assetSymbol: 'BTC', priceAtTxTime: { price: { amount: parseDecimal('1'), currency: 'USD' } } }],
@@ -102,7 +102,7 @@ describe('price-completeness', () => {
 
     it('returns false when a crypto movement is missing a price', () => {
       const scopedTransaction = {
-        tx: { id: 1 } as UniversalTransactionData,
+        tx: { id: 1 } as Transaction,
         rebuildDependencyTransactionIds: [],
         movements: {
           inflows: [{ assetSymbol: 'BTC', priceAtTxTime: undefined }],
@@ -116,7 +116,7 @@ describe('price-completeness', () => {
 
     it('returns true when only fiat movements are present', () => {
       const scopedTransaction = {
-        tx: { id: 1 } as UniversalTransactionData,
+        tx: { id: 1 } as Transaction,
         rebuildDependencyTransactionIds: [],
         movements: {
           inflows: [{ assetSymbol: 'USD', priceAtTxTime: undefined }],
@@ -130,7 +130,7 @@ describe('price-completeness', () => {
 
     it('treats unknown symbols as crypto requiring prices', () => {
       const scopedTransaction = {
-        tx: { id: 1 } as UniversalTransactionData,
+        tx: { id: 1 } as Transaction,
         rebuildDependencyTransactionIds: [],
         movements: {
           inflows: [],
@@ -144,7 +144,7 @@ describe('price-completeness', () => {
 
     it('returns an error for empty currency symbols', () => {
       const scopedTransaction = {
-        tx: { id: 1 } as UniversalTransactionData,
+        tx: { id: 1 } as Transaction,
         rebuildDependencyTransactionIds: [],
         movements: {
           inflows: [],

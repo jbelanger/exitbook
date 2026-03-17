@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +14,7 @@ function createAcquisitionTransaction(params: {
   timestamp: string;
   unitPriceCad: string;
   unitPriceCurrency?: Currency | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -56,7 +56,7 @@ function createDispositionTransaction(params: {
   timestamp: string;
   unitPriceCad: string;
   unitPriceCurrency?: Currency | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -96,7 +96,7 @@ function createUnpricedAcquisitionTransaction(params: {
   id: number;
   quantity: string;
   timestamp: string;
-}): UniversalTransactionData {
+}): Transaction {
   return {
     id: params.id,
     accountId: 1,
@@ -118,7 +118,7 @@ function createUnpricedAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  } as UniversalTransactionData;
+  } as Transaction;
 }
 
 function createStore(): ICostBasisContextReader {

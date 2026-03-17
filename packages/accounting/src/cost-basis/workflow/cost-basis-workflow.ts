@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -38,7 +38,7 @@ export class CostBasisWorkflow {
 
   async execute(
     params: CostBasisInput,
-    transactions: UniversalTransactionData[],
+    transactions: Transaction[],
     options: CostBasisWorkflowExecutionOptions
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const validation = validateCostBasisInput(params);
@@ -128,10 +128,10 @@ export class CostBasisWorkflow {
    * Pre-period acquisitions are included so the lot pool is complete.
    */
   private filterTransactionsForWindow(
-    transactions: UniversalTransactionData[],
+    transactions: Transaction[],
     config: CostBasisInput['config'],
     options?: { lookaheadDays?: number | undefined }
-  ): Result<UniversalTransactionData[], Error> {
+  ): Result<Transaction[], Error> {
     if (!config.startDate || !config.endDate) {
       return err(new Error('Start date and end date must be defined'));
     }

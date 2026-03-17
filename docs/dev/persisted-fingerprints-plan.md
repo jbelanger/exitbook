@@ -40,7 +40,7 @@ In scope:
 
 - `transactions.tx_fingerprint`
 - `transaction_movements.movement_fingerprint`
-- `UniversalTransactionData.txFingerprint`
+- `Transaction.txFingerprint`
 - `AssetMovement.movementFingerprint`
 - `FeeMovement.movementFingerprint`
 - read/write path changes needed to populate and preserve those values
@@ -294,11 +294,11 @@ Stop requiring downstream code to reconstruct identity from row order wherever p
 Files:
 
 - `packages/data/src/repositories/transaction-repository.ts`
-- `packages/core/src/transaction/universal-transaction.ts`
+- `packages/core/src/transaction/transaction.ts`
 
 Plan:
 
-- add `txFingerprint` to `UniversalTransactionData`
+- add `txFingerprint` to `Transaction`
 - add `movementFingerprint` to `AssetMovement`
 - add `movementFingerprint` to `FeeMovement`
 - wire the repository read path to map persisted columns into those shapes
@@ -312,7 +312,7 @@ These fields should be treated as required persisted identity, not optional comp
 Concrete decision:
 
 - do not create a narrower linking-only type for fingerprints
-- put fingerprint fields on the universal transaction model directly
+- put fingerprint fields on the transaction model directly
 - accept the fixture churn as the simpler long-term path
 
 ## 6. Update Linking to Use Stored Fingerprints
@@ -370,7 +370,7 @@ Test cases:
 - transaction insert persists `tx_fingerprint`
 - movement insert persists `movement_fingerprint`
 - fee rows persist fingerprints with fee-local ordinal semantics
-- repository reads hydrate `txFingerprint` and `movementFingerprint` onto the universal transaction model
+- repository reads hydrate `txFingerprint` and `movementFingerprint` onto the transaction model
 - `updateMovementsWithPrices` preserves movement fingerprints for the same logical movements
 - linking still resolves overrides correctly when reading persisted fingerprints
 - transaction note flows can resolve directly from stored transaction fingerprints
@@ -414,7 +414,7 @@ After this plan lands, the next cleanup choices are:
 
 - Decision: take the practical fingerprint-persistence route first, not a full identity redesign.
 - Decision: do not carry a persisted-vs-recomputed dual path in dev; stored fingerprints become mandatory once the schema is updated.
-- Decision: add fingerprint fields directly to `UniversalTransactionData`, `AssetMovement`, and `FeeMovement` instead of introducing a parallel transitional type.
+- Decision: add fingerprint fields directly to `Transaction`, `AssetMovement`, and `FeeMovement` instead of introducing a parallel transitional type.
 - Decision: make `buildInsertValues` the explicit handoff point for `txFingerprint` into `buildMovementRows`.
 - Decision: keep `position` for now to reduce change scope and risk.
 - Smell: `position` looks like business identity in the schema, but today it is mostly a row-order implementation detail.

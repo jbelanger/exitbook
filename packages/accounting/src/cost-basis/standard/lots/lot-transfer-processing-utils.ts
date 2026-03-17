@@ -1,4 +1,4 @@
-import { parseDecimal, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type AssetMovement, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -19,9 +19,9 @@ import {
 import { applyLotQuantityUpdates, buildLotQuantityUpdateMap } from './lot-update-utils.js';
 import { createAcquisitionLot } from './lot.js';
 
-type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
-function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
   return 'tx' in transaction ? transaction.tx : transaction;
 }
 

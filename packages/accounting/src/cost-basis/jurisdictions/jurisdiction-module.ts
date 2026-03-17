@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
@@ -11,7 +11,7 @@ import type { IJurisdictionRules } from './jurisdiction-rules.js';
 
 export interface RunCostBasisJurisdictionWorkflowInput {
   params: CostBasisInput;
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
   store: ICostBasisContextReader;
   fxRateProvider?: IFxRateProvider | undefined;
   options: CostBasisWorkflowExecutionOptions;

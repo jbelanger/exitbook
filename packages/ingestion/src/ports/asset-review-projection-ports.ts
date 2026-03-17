@@ -1,9 +1,9 @@
-import type { AssetReviewSummary, Result, UniversalTransactionData } from '@exitbook/core';
+import type { AssetReviewSummary, Result, Transaction } from '@exitbook/core';
 
 import type { AssetReviewDecisionInput } from '../features/asset-review/asset-review-service.js';
 
 export interface IAssetReviewProjectionDataSource {
-  listTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
+  listTransactions(): Promise<Result<Transaction[], Error>>;
 }
 
 export interface IAssetReviewDecisionSource {

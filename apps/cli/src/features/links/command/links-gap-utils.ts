@@ -1,7 +1,7 @@
 // Types and utilities for link gap analysis
 
 import type { TransactionLink } from '@exitbook/accounting';
-import { parseDecimal, type Account, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type Account, type Transaction } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
@@ -65,7 +65,7 @@ interface OneSidedBlockchainActivity {
   selfAddress: string | undefined;
   timestampMs: number;
   totalAmount: Decimal;
-  transaction: UniversalTransactionData;
+  transaction: Transaction;
 }
 
 interface GapAnalysisAccountContext {
@@ -73,7 +73,7 @@ interface GapAnalysisAccountContext {
   userId?: number | undefined;
 }
 
-function isExcludedInflowGapTransaction(tx: UniversalTransactionData, mintingTypes: ReadonlySet<string>): boolean {
+function isExcludedInflowGapTransaction(tx: Transaction, mintingTypes: ReadonlySet<string>): boolean {
   if (mintingTypes.has(tx.operation.type)) {
     return true;
   }
@@ -155,7 +155,7 @@ function getSingleAssetEntryById(
 }
 
 function getOneSidedBlockchainActivity(
-  tx: UniversalTransactionData,
+  tx: Transaction,
   mintingTypes: ReadonlySet<string>
 ): OneSidedBlockchainActivity | undefined {
   if (!tx.blockchain) {
@@ -238,7 +238,7 @@ function hasFullConfirmedCoverage(
   return confirmedAmount.greaterThanOrEqualTo(activity.totalAmount);
 }
 
-function hasMatchingSelfAddress(tx: UniversalTransactionData, selfAddress: string): boolean {
+function hasMatchingSelfAddress(tx: Transaction, selfAddress: string): boolean {
   return normalizeAddress(tx.from) === selfAddress || normalizeAddress(tx.to) === selfAddress;
 }
 
@@ -260,7 +260,7 @@ function hasTrackedSelfAddress(
   return normalizeAddress(account.identifier) === activity.selfAddress;
 }
 
-function isNearbySwapTransaction(tx: UniversalTransactionData, activity: OneSidedBlockchainActivity): boolean {
+function isNearbySwapTransaction(tx: Transaction, activity: OneSidedBlockchainActivity): boolean {
   if (
     !tx.blockchain ||
     tx.id === activity.transaction.id ||
@@ -342,7 +342,7 @@ function isLikelyCrossChainServiceFlowPair(
 }
 
 function buildSuppressedGapTransactionIds(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   confirmedLinksByTarget: Map<number, TransactionLink[]>,
   confirmedLinksBySource: Map<number, TransactionLink[]>,
   mintingTypes: ReadonlySet<string>,
@@ -392,7 +392,7 @@ function buildSuppressedGapTransactionIds(
  * (blockchain or exchange) that lack a confirmed destination.
  */
 export function analyzeLinkGaps(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   links: TransactionLink[],
   options: LinkGapAnalysisOptions = {}
 ): LinkGapAnalysis {

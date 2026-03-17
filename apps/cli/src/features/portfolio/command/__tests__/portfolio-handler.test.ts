@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '@exitbook/accounting';
-import { err, ok, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { err, ok, type Currency, type Transaction } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { PriceProviderManager } from '@exitbook/price-providers';
@@ -73,7 +73,7 @@ vi.mock('../../../shared/cost-basis-dependency-watermark-runtime.js', () => ({
   ),
 }));
 
-function createTransaction(): UniversalTransactionData {
+function createTransaction(): Transaction {
   return {
     id: 1,
     accountId: 1,
@@ -105,10 +105,10 @@ function createTransaction(): UniversalTransactionData {
       type: 'buy',
     },
     notes: [],
-  } as unknown as UniversalTransactionData;
+  } as unknown as Transaction;
 }
 
-function createExcludedAssetTradeTransaction(): UniversalTransactionData {
+function createExcludedAssetTradeTransaction(): Transaction {
   return {
     id: 2,
     accountId: 1,
@@ -142,7 +142,7 @@ function createExcludedAssetTradeTransaction(): UniversalTransactionData {
       type: 'swap',
     },
     notes: [],
-  } as unknown as UniversalTransactionData;
+  } as unknown as Transaction;
 }
 
 describe('PortfolioHandler', () => {

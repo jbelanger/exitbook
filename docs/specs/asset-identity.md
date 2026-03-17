@@ -182,7 +182,7 @@ exchange:coinbase:usdc
 
 ## Implementation Plan (No Code Here)
 
-1. **Schema update**: Add `assetId` to movement/fee schemas in `packages/core/src/schemas/universal-transaction.ts`.
+1. **Schema update**: Add `assetId` to movement/fee schemas in `packages/core/src/schemas/transaction.ts`.
 2. **Processors**: Populate `assetId` in all blockchain and exchange processors.
 3. **Storage**: Persist new fields in movement/fee JSON.
 4. **Balance & verification**: Key by `assetId` in `balance-calculator` and live balances.

@@ -4,7 +4,7 @@ import type {
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '@exitbook/accounting';
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -62,7 +62,7 @@ function createTransaction(params: {
   outflows?: { amount: string; assetId: string; assetSymbol: string; price?: string | undefined }[];
   source: string;
   to?: string | undefined;
-}): UniversalTransactionData {
+}): Transaction {
   const toPrice = (price: string | undefined) => {
     if (price === undefined) return;
     return {
@@ -115,7 +115,7 @@ function createTransaction(params: {
       type: params.operationType,
     },
     notes: [],
-  } as unknown as UniversalTransactionData;
+  } as unknown as Transaction;
 }
 
 describe('portfolio-utils', () => {

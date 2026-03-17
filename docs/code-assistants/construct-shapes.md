@@ -5,7 +5,7 @@ Match the construct to the shape:
 | Shape                         | Use                         | Example                                              |
 | ----------------------------- | --------------------------- | ---------------------------------------------------- |
 | State + methods               | Class                       | `TransactionRepository`, `PriceService`, API clients |
-| Pure transform                | Function                    | `toUniversalTransaction()`, `buildMovementRows()`    |
+| Pure transform                | Function                    | `toTransaction()`, `buildMovementRows()`             |
 | Config → single function      | Factory/closure             | `createRetryWrapper(config)` returning one function  |
 | Bag of related pure functions | Named exports from a module | `cost-basis-utils.ts`                                |
 

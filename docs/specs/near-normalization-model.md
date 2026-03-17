@@ -105,7 +105,7 @@ Receipts are where state changes actually happen.
   - `NearBalanceChange` for NEAR native deltas.
   - `NearTokenTransfer` for NEP-141 deltas.
   - `tokens_burnt` for fee handling.
-- This projection can map to the existing universal transaction model without corrupting the NEAR-native normalized layer.
+- This projection can map to the existing transaction model without corrupting the NEAR-native normalized layer.
 
 ## Naming Corrections (examples)
 

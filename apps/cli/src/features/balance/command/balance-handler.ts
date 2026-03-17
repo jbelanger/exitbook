@@ -4,7 +4,7 @@ import type {
   BalanceSnapshot,
   BalanceSnapshotAsset,
   ExchangeCredentials,
-  UniversalTransactionData,
+  Transaction,
 } from '@exitbook/core';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
 import {
@@ -462,7 +462,7 @@ export class BalanceHandler {
     return result.value;
   }
 
-  private async loadAccountTransactions(account: Account): Promise<Result<UniversalTransactionData[], Error>> {
+  private async loadAccountTransactions(account: Account): Promise<Result<Transaction[], Error>> {
     const memberAccountsResult = await loadBalanceScopeMemberAccounts(account, {
       findChildAccounts: async (parentAccountId: number) => {
         const childAccountsResult = await this.db.accounts.findAll({ parentAccountId });
@@ -495,7 +495,7 @@ export class BalanceHandler {
   private buildDiagnosticsForAsset(
     assetId: string,
     assetSymbol: string,
-    transactions: UniversalTransactionData[],
+    transactions: Transaction[],
     balances?: { calculatedBalance: string; liveBalance: string }
   ): ReturnType<typeof buildAssetDiagnostics> {
     const diagnosticsSummary = buildBalanceAssetDiagnosticsSummary({ assetId, assetSymbol, transactions });

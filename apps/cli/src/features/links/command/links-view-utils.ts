@@ -1,7 +1,7 @@
 // Utilities and types for links view command
 
 import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
-import type { AssetMovement, UniversalTransactionData } from '@exitbook/core';
+import type { AssetMovement, Transaction } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../../shared/view-utils.js';
@@ -26,7 +26,7 @@ export interface TransactionDetails {
   movements_inflows: AssetMovement[];
   movements_outflows: AssetMovement[];
   source_name: string;
-  source_type: UniversalTransactionData['sourceType'];
+  source_type: Transaction['sourceType'];
   timestamp: string;
   to_address: string | undefined;
 }
@@ -87,9 +87,9 @@ export function filterLinksByConfidence(
 }
 
 /**
- * Map UniversalTransactionData to TransactionDetails for display.
+ * Map Transaction to TransactionDetails for display.
  */
-export function mapTransactionToDetails(tx: UniversalTransactionData): TransactionDetails {
+export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
   return {
     external_id: tx.externalId,
     from_address: tx.from,
@@ -106,11 +106,7 @@ export function mapTransactionToDetails(tx: UniversalTransactionData): Transacti
 /**
  * Format link info with optional transaction details.
  */
-export function formatLinkInfo(
-  link: TransactionLink,
-  sourceTx?: UniversalTransactionData,
-  targetTx?: UniversalTransactionData
-): LinkInfo {
+export function formatLinkInfo(link: TransactionLink, sourceTx?: Transaction, targetTx?: Transaction): LinkInfo {
   const linkInfo: LinkInfo = {
     id: link.id,
     source_transaction_id: link.sourceTransactionId,

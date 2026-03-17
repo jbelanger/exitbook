@@ -1,4 +1,4 @@
-import type { Account, UniversalTransactionData } from '@exitbook/core';
+import type { Account, Transaction } from '@exitbook/core';
 import { parseDecimal, tryParseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -90,7 +90,7 @@ interface ConvertBalancesToDecimalsResult {
  * Calculate balances for all assets from a set of transactions.
  * Returns balances keyed by assetId and metadata mapping assetId -> assetSymbol for display.
  */
-export function calculateBalances(transactions: UniversalTransactionData[]): BalanceCalculationResult {
+export function calculateBalances(transactions: Transaction[]): BalanceCalculationResult {
   const balances: Record<string, Decimal> = {};
   const assetMetadata: Record<string, string> = {};
 
@@ -108,7 +108,7 @@ export function calculateBalances(transactions: UniversalTransactionData[]): Bal
  * Also tracks assetId -> assetSymbol mapping for display purposes.
  */
 function processTransactionForBalance(
-  transaction: UniversalTransactionData,
+  transaction: Transaction,
   balances: Record<string, Decimal>,
   assetMetadata: Record<string, string>
 ): void {

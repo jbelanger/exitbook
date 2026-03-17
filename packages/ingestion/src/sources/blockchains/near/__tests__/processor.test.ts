@@ -5,7 +5,7 @@
  * Tests the NearProcessor class which:
  * - Groups normalized data by transaction hash
  * - Correlates receipts with balance changes and token transfers
- * - Aggregates multiple receipts into one UniversalTransaction
+ * - Aggregates multiple receipts into one ProcessedTransaction
  * - Extracts fees and fund flows
  * - Performs fail-fast validation
  * - Integrates with token metadata and scam detection services

@@ -87,7 +87,7 @@ interface TaxPackageBuildContext {
   };
   workflowResult: CostBasisWorkflowResult;
   sourceContext: {
-    transactionsById: Map<number, UniversalTransactionData>;
+    transactionsById: Map<number, Transaction>;
     accountsById: Map<number, Account>;
     confirmedLinksById: Map<number, TransactionLink>;
   };

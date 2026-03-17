@@ -1,6 +1,6 @@
 // Command registration for links view subcommand
 import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { Command } from 'commander';
 import React from 'react';
@@ -25,7 +25,7 @@ import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';
  */
 async function fetchTransactionsForLinks(
   links: TransactionLink[],
-  txRepo: { findById: (id: number) => Promise<Result<UniversalTransactionData | undefined, Error>> }
+  txRepo: { findById: (id: number) => Promise<Result<Transaction | undefined, Error>> }
 ): Promise<LinkWithTransactions[]> {
   const result: LinkWithTransactions[] = [];
 

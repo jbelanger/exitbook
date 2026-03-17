@@ -11,7 +11,7 @@ import {
   type FeeMovement,
   type TransactionNote,
   type TransactionStatus,
-  type UniversalTransactionData,
+  type Transaction,
   wrapError,
 } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
@@ -320,7 +320,7 @@ async function resolveExistingTransactionConflict(
 
 /** Caller must have already validated price data via `validatePriceDataForPersistence` (done in `buildInsertValues`). */
 function buildMovementRows(
-  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+  transaction: Omit<Transaction, 'id' | 'accountId'>,
   transactionId: number,
   txFingerprint: string
 ): Result<Insertable<TransactionMovementsTable>[], Error> {
@@ -380,7 +380,7 @@ function buildMovementRows(
 }
 
 function buildInsertValues(
-  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
+  transaction: Omit<Transaction, 'id' | 'accountId'>,
   accountId: number,
   createdAt?: string
 ): Result<BuildInsertValuesResult, Error> {
@@ -527,10 +527,7 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
-  async create(
-    transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
-    accountId: number
-  ): Promise<Result<number, Error>> {
+  async create(transaction: Omit<Transaction, 'id' | 'accountId'>, accountId: number): Promise<Result<number, Error>> {
     const valuesResult = buildInsertValues(transaction, accountId);
     if (valuesResult.isErr()) {
       return err(valuesResult.error);
@@ -583,7 +580,7 @@ export class TransactionRepository extends BaseRepository {
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
   async createBatch(
-    transactions: Omit<UniversalTransactionData, 'id' | 'accountId'>[],
+    transactions: Omit<Transaction, 'id' | 'accountId'>[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
     if (transactions.length === 0) {
@@ -654,10 +651,10 @@ export class TransactionRepository extends BaseRepository {
   }
 
   findAll(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
-  findAll(filters?: FullTransactionQueryParams): Promise<Result<UniversalTransactionData[], Error>>;
+  findAll(filters?: FullTransactionQueryParams): Promise<Result<Transaction[], Error>>;
   async findAll(
     filters?: FullTransactionQueryParams | SummaryTransactionQueryParams
-  ): Promise<Result<UniversalTransactionData[] | TransactionSummary[], Error>> {
+  ): Promise<Result<Transaction[] | TransactionSummary[], Error>> {
     try {
       const projection = filters?.projection ?? 'full';
 
@@ -703,10 +700,10 @@ export class TransactionRepository extends BaseRepository {
       }
       const movementsMap = movementsMapResult.value;
 
-      const transactions: UniversalTransactionData[] = [];
+      const transactions: Transaction[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = this.toUniversalTransaction(row, movementRows);
+        const result = this.toTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -719,7 +716,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<UniversalTransactionData | undefined, Error>> {
+  async findById(id: number): Promise<Result<Transaction | undefined, Error>> {
     try {
       const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
 
@@ -733,7 +730,7 @@ export class TransactionRepository extends BaseRepository {
       }
       const movementRows = movementsResult.value.get(id) ?? [];
 
-      const result = this.toUniversalTransaction(row, movementRows);
+      const result = this.toTransaction(row, movementRows);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -744,7 +741,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findNeedingPrices(assetFilter?: string[]): Promise<Result<UniversalTransactionData[], Error>> {
+  async findNeedingPrices(assetFilter?: string[]): Promise<Result<Transaction[], Error>> {
     try {
       const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
 
@@ -761,10 +758,10 @@ export class TransactionRepository extends BaseRepository {
       }
       const movementsMap = movementsMapResult.value;
 
-      const transactions: UniversalTransactionData[] = [];
+      const transactions: Transaction[] = [];
       for (const row of rows) {
         const movementRows = movementsMap.get(row.id) ?? [];
-        const result = this.toUniversalTransaction(row, movementRows);
+        const result = this.toTransaction(row, movementRows);
         if (result.isErr()) {
           return err(result.error);
         }
@@ -796,7 +793,7 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
-  async updateMovementsWithPrices(transaction: UniversalTransactionData): Promise<Result<void, Error>> {
+  async updateMovementsWithPrices(transaction: Transaction): Promise<Result<void, Error>> {
     const validationResult = validatePriceDataForPersistence(
       transaction.movements.inflows ?? [],
       transaction.movements.outflows ?? [],
@@ -824,7 +821,7 @@ export class TransactionRepository extends BaseRepository {
         ...transaction,
         id: undefined,
         accountId: undefined,
-      } as Omit<UniversalTransactionData, 'id' | 'accountId'>;
+      } as Omit<Transaction, 'id' | 'accountId'>;
 
       const movementRowsResult = buildMovementRows(
         transactionForMovementRebuild,
@@ -1026,10 +1023,7 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  private toUniversalTransaction(
-    row: Selectable<TransactionsTable>,
-    movementRows: MovementRow[]
-  ): Result<UniversalTransactionData, Error> {
+  private toTransaction(row: Selectable<TransactionsTable>, movementRows: MovementRow[]): Result<Transaction, Error> {
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
 
@@ -1069,7 +1063,7 @@ export class TransactionRepository extends BaseRepository {
 
     const status: TransactionStatus = row.transaction_status;
 
-    const transaction: UniversalTransactionData = {
+    const transaction: Transaction = {
       id: row.id,
       accountId: row.account_id,
       externalId: row.external_id,

@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
 import type { NewTransactionLink } from '../linking/shared/types.js';
@@ -21,7 +21,7 @@ export interface LinksSaveResult {
  */
 export interface ILinkingPersistence {
   /** Load all transactions needed for the linking pipeline */
-  loadTransactions(): Promise<Result<UniversalTransactionData[], Error>>;
+  loadTransactions(): Promise<Result<Transaction[], Error>>;
 
   /**
    * Clear existing links and persist new ones.

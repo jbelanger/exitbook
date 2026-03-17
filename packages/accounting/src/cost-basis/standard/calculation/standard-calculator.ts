@@ -1,4 +1,4 @@
-import { type TransactionLink, type UniversalTransactionData, wrapError } from '@exitbook/core';
+import { type TransactionLink, type Transaction, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -58,7 +58,7 @@ const logger = getLogger('calculateScopedCostBasis');
  * @param confirmedLinks - Confirmed transaction links for transfer detection
  */
 export async function calculateScopedCostBasis(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   config: CostBasisConfig,
   rules: IJurisdictionRules,
   lotMatcher: LotMatcher,

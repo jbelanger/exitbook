@@ -1,4 +1,4 @@
-import type { Account, TransactionLink, UniversalTransactionData } from '@exitbook/core';
+import type { Account, TransactionLink, Transaction } from '@exitbook/core';
 import type { ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 
@@ -7,7 +7,7 @@ import type { Result } from '@exitbook/core';
  */
 export interface CostBasisContext {
   /** All transactions (full history needed for lot pool) */
-  transactions: UniversalTransactionData[];
+  transactions: Transaction[];
   /** Confirmed transaction links for transfer detection */
   confirmedLinks: TransactionLink[];
   /** Accounts needed for source labeling and export rejoin context */

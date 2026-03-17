@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 
 import type { TransactionLink } from '../../linking/shared/types.js';
 import type { LinkedTransactionGroup } from '../shared/types.js';
@@ -104,10 +104,7 @@ class UnionFind {
  * @param links - Transaction links (only confirmed links are used)
  * @returns Array of transaction groups
  */
-export function buildLinkGraph(
-  transactions: UniversalTransactionData[],
-  links: TransactionLink[]
-): LinkedTransactionGroup[] {
+export function buildLinkGraph(transactions: Transaction[], links: TransactionLink[]): LinkedTransactionGroup[] {
   // Handle empty input
   if (transactions.length === 0) {
     return [];
@@ -165,7 +162,7 @@ export function buildLinkGraph(
   }
 
   // Group transactions by their root representative
-  const groups = new Map<number, UniversalTransactionData[]>();
+  const groups = new Map<number, Transaction[]>();
   for (const tx of transactions) {
     const root = uf.find(tx.id);
     if (!groups.has(root)) {
@@ -192,10 +189,7 @@ export function buildLinkGraph(
 /**
  * Extract all confirmed links that connect transactions within a group
  */
-function extractGroupLinks(
-  groupTransactions: UniversalTransactionData[],
-  allLinks: TransactionLink[]
-): TransactionLink[] {
+function extractGroupLinks(groupTransactions: Transaction[], allLinks: TransactionLink[]): TransactionLink[] {
   const groupTxIds = new Set(groupTransactions.map((tx) => tx.id));
 
   return allLinks.filter(

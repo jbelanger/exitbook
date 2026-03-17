@@ -1,4 +1,4 @@
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -22,7 +22,7 @@ import type { LinkableMovementBuildResult, PendingInternalLink } from './types.j
  * All linkable movements are ephemeral — nothing is persisted in this phase.
  */
 export function buildLinkableMovements(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   logger: Logger
 ): Result<LinkableMovementBuildResult, Error> {
   logger.info({ transactionCount: transactions.length }, 'Building linkable movements');
@@ -142,7 +142,7 @@ export function buildLinkableMovements(
 
 function createLinkableMovement(
   id: number,
-  tx: UniversalTransactionData,
+  tx: Transaction,
   direction: 'in' | 'out',
   assetId: string,
   assetSymbol: Currency,
@@ -227,7 +227,7 @@ function attachInternalLinkFingerprints(
  * - Pure outflows (withdrawals) or pure inflows (deposits)
  * - Same-asset inflows and outflows (e.g., NEAR storage refunds)
  */
-function isStructuralTrade(tx: UniversalTransactionData): boolean {
+function isStructuralTrade(tx: Transaction): boolean {
   const inflows = tx.movements.inflows ?? [];
   const outflows = tx.movements.outflows ?? [];
 

@@ -1,4 +1,4 @@
-import { isFiat, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { isFiat, type AssetMovement, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
@@ -7,9 +7,9 @@ import type { AccountingScopedTransaction } from '../matching/build-cost-basis-s
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import { createAcquisitionLot } from './lot.js';
 
-type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
-function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
   return 'tx' in transaction ? transaction.tx : transaction;
 }
 
@@ -18,7 +18,7 @@ function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTran
  *
  * Fiat currencies are excluded from validation since we don't track cost basis for them.
  */
-export function filterTransactionsWithoutPrices(transactions: UniversalTransactionData[]): UniversalTransactionData[] {
+export function filterTransactionsWithoutPrices(transactions: Transaction[]): Transaction[] {
   return transactions.filter((tx) => {
     const inflows = tx.movements.inflows || [];
     const outflows = tx.movements.outflows || [];

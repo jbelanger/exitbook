@@ -1,4 +1,4 @@
-import type { AssetMovement, Currency, FeeMovement, UniversalTransactionData } from '@exitbook/core';
+import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
 import { computeMovementFingerprint, computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -24,7 +24,7 @@ export interface ScopedFeeMovement extends FeeMovement {
 }
 
 export interface AccountingScopedTransaction {
-  tx: UniversalTransactionData;
+  tx: Transaction;
   /**
    * Raw transaction ids that must accompany this scoped transaction when
    * rebuilding after price filtering, because same-hash scoping consumed
@@ -55,7 +55,7 @@ export interface FeeOnlyInternalCarryover {
 }
 
 export interface AccountingScopedBuildResult {
-  inputTransactions: UniversalTransactionData[];
+  inputTransactions: Transaction[];
   transactions: AccountingScopedTransaction[];
   feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
 }
@@ -177,7 +177,7 @@ type SameHashDecision =
  * price validation or lot matching, without reopening matcher-local UTXO logic.
  */
 export function buildCostBasisScopedTransactions(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   logger: Logger
 ): Result<AccountingScopedBuildResult, Error> {
   // Step 1: Clone all transactions into scoped form
@@ -217,7 +217,7 @@ export function buildCostBasisScopedTransactions(
 // Clone a raw transaction into scoped form
 // ---------------------------------------------------------------------------
 
-function cloneScopedTransaction(tx: UniversalTransactionData): Result<AccountingScopedTransaction, Error> {
+function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
   const txFpResult = computeTxFingerprint({
     source: tx.source,
     accountId: tx.accountId,
@@ -281,14 +281,11 @@ function cloneScopedTransaction(tx: UniversalTransactionData): Result<Accounting
 // ---------------------------------------------------------------------------
 
 function groupSameHashTransactionsForCostBasis(
-  transactions: UniversalTransactionData[],
+  transactions: Transaction[],
   scopedByTxId: Map<number, AccountingScopedTransaction>
 ): Result<CostBasisSameHashAssetGroup[], Error> {
   // Group by (blockchain, normalizedHash)
-  const txsByBlockchainAndHash = new Map<
-    string,
-    { blockchain: string; normalizedHash: string; txs: UniversalTransactionData[] }
-  >();
+  const txsByBlockchainAndHash = new Map<string, { blockchain: string; normalizedHash: string; txs: Transaction[] }>();
 
   for (const tx of transactions) {
     if (tx.sourceType !== 'blockchain') continue;

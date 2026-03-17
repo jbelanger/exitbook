@@ -1,12 +1,5 @@
 import type { FeeMovement } from '@exitbook/core';
-import {
-  err,
-  type Currency,
-  parseDecimal,
-  type AssetMovement,
-  type Result,
-  type UniversalTransactionData,
-} from '@exitbook/core';
+import { err, type Currency, parseDecimal, type AssetMovement, type Result, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -32,7 +25,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     inflows: AssetMovement[] = [],
     outflows: AssetMovement[] = [],
     fees: FeeMovement[] = []
-  ): UniversalTransactionData =>
+  ): Transaction =>
     createTransactionFromMovements(id, datetime, { inflows, outflows }, fees, {
       source,
       category: 'transfer',
@@ -76,10 +69,10 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   const matcher = new LotMatcher();
   const logger = getLogger('lot-matcher-transfers.test');
 
-  let transactions: UniversalTransactionData[] = [];
+  let transactions: Transaction[] = [];
 
   async function matchTransactions(
-    rawTransactions: UniversalTransactionData[],
+    rawTransactions: Transaction[],
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {

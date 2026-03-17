@@ -1,4 +1,4 @@
-import { parseDecimal, type Currency, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -22,7 +22,7 @@ const logger = getLogger('linking-orchestrator-utils');
 export function buildLinkFromOrphanedOverride(
   entry: OrphanedLinkOverride,
   linkableMovements: LinkableMovement[],
-  txById: Map<number, UniversalTransactionData>
+  txById: Map<number, Transaction>
 ): Result<NewTransactionLink, Error> {
   const now = new Date();
 

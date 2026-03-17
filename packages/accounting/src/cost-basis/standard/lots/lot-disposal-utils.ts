@@ -1,4 +1,4 @@
-import { parseDecimal, wrapError, type AssetMovement, type UniversalTransactionData } from '@exitbook/core';
+import { parseDecimal, wrapError, type AssetMovement, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -8,9 +8,9 @@ import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 
-type CostBasisTransactionLike = AccountingScopedTransaction | UniversalTransactionData;
+type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
-function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTransactionData {
+function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
   return 'tx' in transaction ? transaction.tx : transaction;
 }
 
@@ -22,7 +22,7 @@ function getRawTransaction(transaction: CostBasisTransactionLike): UniversalTran
 export function calculateNetProceeds(
   transaction: CostBasisTransactionLike,
   outflow: AssetMovement
-): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal; }, Error> {
+): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal }, Error> {
   const rawTransaction = getRawTransaction(transaction);
 
   if (!outflow.priceAtTxTime) {

@@ -2,7 +2,7 @@ import {
   computeMovementFingerprint,
   computeTxFingerprint,
   type Currency,
-  type UniversalTransactionData,
+  type Transaction,
   parseDecimal,
 } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
@@ -82,7 +82,7 @@ export function createLink(params: {
 }
 
 /**
- * Creates a minimal UniversalTransactionData for testing.
+ * Creates a minimal Transaction for testing.
  * Only requires essential fields; the rest are set to sensible defaults.
  */
 export function createTransaction(params: {
@@ -96,7 +96,7 @@ export function createTransaction(params: {
   source: string;
   sourceType?: 'blockchain' | 'exchange';
   to?: string;
-}): UniversalTransactionData {
+}): Transaction {
   const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
   const accountId = params.accountId ?? 1;
   const externalId = `${params.source}-${params.id}`;

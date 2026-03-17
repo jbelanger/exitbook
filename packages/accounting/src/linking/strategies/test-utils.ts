@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 
 import { createLinkableMovement } from '../shared/test-utils.js';
 
@@ -79,7 +79,7 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
   return { sources, targets };
 }
 
-export function createImpossibleMultiSourceAdaHashPartialTransactions(): UniversalTransactionData[] {
+export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transaction[] {
   return [
     createTransferTransaction({
       accountId: 61,
@@ -138,7 +138,7 @@ function createTransferTransaction(params: {
   operationType?: 'withdrawal' | 'deposit' | undefined;
   source: string;
   sourceType: 'blockchain' | 'exchange';
-}): UniversalTransactionData {
+}): Transaction {
   const grossAmount = parseDecimal(params.grossAmount ?? params.amount);
   const netAmount = parseDecimal(params.amount);
   const feeAmount = params.fees ? parseDecimal(params.fees) : undefined;

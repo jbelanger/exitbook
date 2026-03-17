@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, it, expect } from 'vitest';
@@ -142,7 +142,7 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to CSV', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -170,7 +170,7 @@ describe('export-utils', () => {
     });
 
     it('should convert multiple transactions to CSV', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -221,7 +221,7 @@ describe('export-utils', () => {
     });
 
     it('should escape values with commas', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -247,7 +247,7 @@ describe('export-utils', () => {
     });
 
     it('should include both inflow and outflow movements for swaps', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1822,
         accountId: 1,
         externalId: 'ext-1822',
@@ -287,7 +287,7 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to JSON', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -326,7 +326,7 @@ describe('export-utils', () => {
     });
 
     it('should convert multiple transactions to JSON', () => {
-      const transactions: UniversalTransactionData[] = [
+      const transactions: Transaction[] = [
         {
           id: 1,
           accountId: 1,
@@ -376,7 +376,7 @@ describe('export-utils', () => {
     });
 
     it('should include blockchain information when present', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -421,7 +421,7 @@ describe('export-utils', () => {
     });
 
     it('should format JSON with proper indentation', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -452,7 +452,7 @@ describe('export-utils', () => {
 
   describe('convertToNormalizedCSV', () => {
     it('should convert transactions into normalized CSV files', () => {
-      const transaction: UniversalTransactionData = {
+      const transaction: Transaction = {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',

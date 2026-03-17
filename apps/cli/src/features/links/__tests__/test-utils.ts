@@ -1,5 +1,5 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Currency, UniversalTransactionData } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { computeMovementFingerprint, computeTxFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
@@ -61,7 +61,7 @@ export function createMockLink(
 }
 
 /**
- * Create a mock universal transaction with sensible defaults
+ * Create a mock transaction with sensible defaults
  */
 export function createMockTransaction(
   id: number,
@@ -73,7 +73,7 @@ export function createMockTransaction(
     };
     source?: string;
   } = {}
-): UniversalTransactionData {
+): Transaction {
   const inflows = overrides.movements?.inflows ?? [{ assetSymbol: overrides.assetSymbol ?? 'BTC', amount: '1.0' }];
   const outflows = overrides.movements?.outflows ?? [];
 
@@ -214,14 +214,14 @@ export function createConfirmableTransferFixture(
   } = {}
 ): {
   link: TransactionLink;
-  sourceTransaction: UniversalTransactionData;
-  targetTransaction: UniversalTransactionData;
-  transactions: UniversalTransactionData[];
+  sourceTransaction: Transaction;
+  targetTransaction: Transaction;
+  transactions: Transaction[];
 } {
   const sourceAmount = overrides.sourceAmount ?? '1';
   const targetAmount = overrides.targetAmount ?? sourceAmount;
 
-  const sourceTransaction: UniversalTransactionData = {
+  const sourceTransaction: Transaction = {
     id: 1,
     accountId: 1,
     externalId: 'WITHDRAWAL-123',
@@ -248,7 +248,7 @@ export function createConfirmableTransferFixture(
     },
   };
 
-  const targetTransaction: UniversalTransactionData = {
+  const targetTransaction: Transaction = {
     id: 2,
     accountId: 2,
     externalId: 'abc123',

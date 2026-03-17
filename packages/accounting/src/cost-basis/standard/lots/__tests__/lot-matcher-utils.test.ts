@@ -1,4 +1,4 @@
-import { type AssetMovement, type Currency, parseDecimal, type UniversalTransactionData } from '@exitbook/core';
+import { type AssetMovement, type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -136,11 +136,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should use datetime for tie-breaking even if timestamp differs', () => {
-      const tx1: UniversalTransactionData = {
+      const tx1: Transaction = {
         ...createTransactionFromMovements(1, '2024-01-01T10:00:00Z', {}),
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
       };
-      const tx2: UniversalTransactionData = {
+      const tx2: Transaction = {
         ...createTransactionFromMovements(2, '2024-01-01T11:00:00Z', {}),
         timestamp: Date.parse('2024-01-01T09:00:00Z'),
       };

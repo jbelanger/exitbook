@@ -1,4 +1,4 @@
-import type { UniversalTransactionData } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
@@ -15,7 +15,7 @@ import type { LinkedTransactionGroup } from '../shared/types.js';
 
 const logger = getLogger('PriceInferenceService');
 
-function transactionNeedsPrice(transaction: UniversalTransactionData): boolean {
+function transactionNeedsPrice(transaction: Transaction): boolean {
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
@@ -213,7 +213,7 @@ export class PriceInferenceService {
    * The transaction passed in already has derived movements with correct priorities
    * applied by the multi-pass algorithm. Just persist it directly.
    */
-  private async updateTransactionPrices(tx: UniversalTransactionData): Promise<Result<void, Error>> {
+  private async updateTransactionPrices(tx: Transaction): Promise<Result<void, Error>> {
     return this.store.saveTransactionPrices(tx);
   }
 }

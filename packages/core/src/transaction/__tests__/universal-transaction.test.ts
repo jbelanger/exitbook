@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseDecimal } from '../../money/decimal-utils.js';
-import { AssetMovementSchema, FeeMovementSchema, UniversalTransactionSchema } from '../universal-transaction.js';
+import { AssetMovementSchema, FeeMovementSchema, TransactionSchema } from '../transaction.js';
 
 describe('AssetMovementSchema', () => {
   describe('assetId validation', () => {
@@ -168,7 +168,7 @@ describe('FeeMovementSchema', () => {
   });
 });
 
-describe('UniversalTransactionSchema', () => {
+describe('TransactionSchema', () => {
   describe('empty transaction validation', () => {
     it('rejects transaction with no movements and no fees', () => {
       const transaction = {
@@ -191,7 +191,7 @@ describe('UniversalTransactionSchema', () => {
         },
       };
 
-      const result = UniversalTransactionSchema.safeParse(transaction);
+      const result = TransactionSchema.safeParse(transaction);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('at least one movement');
@@ -225,7 +225,7 @@ describe('UniversalTransactionSchema', () => {
         },
       };
 
-      const result = UniversalTransactionSchema.safeParse(transaction);
+      const result = TransactionSchema.safeParse(transaction);
       expect(result.success).toBe(true);
     });
 
@@ -256,7 +256,7 @@ describe('UniversalTransactionSchema', () => {
         },
       };
 
-      const result = UniversalTransactionSchema.safeParse(transaction);
+      const result = TransactionSchema.safeParse(transaction);
       expect(result.success).toBe(true);
     });
 
@@ -289,7 +289,7 @@ describe('UniversalTransactionSchema', () => {
         },
       };
 
-      const result = UniversalTransactionSchema.safeParse(transaction);
+      const result = TransactionSchema.safeParse(transaction);
       expect(result.success).toBe(true);
     });
   });
