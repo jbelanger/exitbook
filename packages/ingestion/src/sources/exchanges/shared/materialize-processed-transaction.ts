@@ -5,6 +5,8 @@ import type { ProcessedTransaction } from '../../../shared/types/processors.js';
 import type { ConfirmedExchangeTransactionDraft } from './exchange-interpretation.js';
 
 export function materializeProcessedTransaction(draft: ConfirmedExchangeTransactionDraft): ProcessedTransaction {
+  const componentEventIds = draft.evidence.providerEventIds.map((eventId) => eventId.trim()).sort();
+
   return {
     externalId: draft.externalId,
     datetime: new Date(draft.timestamp).toISOString(),
@@ -36,6 +38,9 @@ export function materializeProcessedTransaction(draft: ConfirmedExchangeTransact
       settlement: fee.settlement,
     })),
     operation: draft.operation,
+    identityMaterial: {
+      componentEventIds,
+    },
     ...(draft.notes && draft.notes.length > 0 ? { notes: draft.notes } : {}),
     ...(draft.blockchain
       ? {

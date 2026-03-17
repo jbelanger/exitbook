@@ -64,12 +64,12 @@ const hasAccountingImpact = (data: {
   return hasInflows || hasOutflows || hasFees;
 };
 
-// Base transaction schema (without id and accountId)
-// Used for ProcessedTransaction type in processors before saving to database
-const TransactionFieldsSchema = z.object({
-  // Core fields
-  externalId: z.string().min(1, 'Transaction ID must not be empty'),
-  txFingerprint: z.string().min(1).optional(), // Persisted transaction identity, hydrated on repository reads
+const TransactionDraftIdentityMaterialSchema = z.object({
+  componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1).optional(),
+});
+
+// Base transaction fields shared by draft and persisted transactions.
+const TransactionBaseFieldsSchema = z.object({
   datetime: z.string().min(1, 'Datetime string must not be empty'),
   timestamp: z.number().int().positive('Timestamp must be a positive integer'),
   source: z.string().min(1, 'Source must not be empty'),
@@ -113,13 +113,27 @@ const TransactionFieldsSchema = z.object({
   excludedFromAccounting: z.boolean().optional(),
 });
 
+// Pre-persistence transaction contract.
+// During the txFingerprint migration, drafts may still carry legacy externalId
+// plus transient identity material for repository-owned fingerprint derivation.
+const TransactionDraftFieldsSchema = TransactionBaseFieldsSchema.extend({
+  externalId: z.string().min(1, 'Transaction ID must not be empty'),
+  identityMaterial: TransactionDraftIdentityMaterialSchema.optional(),
+});
+
+// Persisted reads still hydrate externalId from storage until the DB column is removed.
+const TransactionFieldsSchema = TransactionBaseFieldsSchema.extend({
+  externalId: z.string().min(1, 'Transaction ID must not be empty'),
+  txFingerprint: z.string().min(1).optional(),
+});
+
 const accountingImpactValidation = {
   message:
     'Transaction must have at least one movement (inflow/outflow) or fee entry. ' +
     'Transactions with no accounting impact should not be stored.',
 };
 
-export const TransactionDraftSchema = TransactionFieldsSchema.refine(
+export const TransactionDraftSchema = TransactionDraftFieldsSchema.refine(
   (data) => hasAccountingImpact(data),
   accountingImpactValidation
 );
@@ -136,6 +150,5 @@ export type OperationCategory = z.infer<typeof OperationCategorySchema>;
 export type OperationType = z.infer<typeof OperationTypeSchema>;
 
 export type TransactionNote = z.infer<typeof TransactionNoteSchema>;
-
 export type TransactionDraft = z.infer<typeof TransactionDraftSchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;

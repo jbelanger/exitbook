@@ -1,6 +1,4 @@
-import { TransactionDraftSchema } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import type z from 'zod';
+import { TransactionDraftSchema, type Result, type TransactionDraft } from '@exitbook/core';
 
 export interface BatchProcessSummary {
   errors: string[];
@@ -23,9 +21,9 @@ export interface AddressContext {
 }
 
 // Use TransactionDraftSchema which excludes id and accountId
-// (processors emit transactions before they're saved to the database)
+// (processors emit transactions before they're saved to the database).
 export const ProcessedTransactionSchema = TransactionDraftSchema;
-export type ProcessedTransaction = z.infer<typeof ProcessedTransactionSchema>;
+export type ProcessedTransaction = TransactionDraft;
 
 /**
  * Interface for processing raw data into ProcessedTransaction format.

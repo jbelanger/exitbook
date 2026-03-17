@@ -11,3 +11,4 @@ export * from './asset-review/asset-review.js';
 export * from './token-metadata/token-metadata.js';
 export * from './result/index.js';
 export * from './projections/index.js';
+export { computeAccountFingerprint, type AccountFingerprintInput } from './identity/index.js';

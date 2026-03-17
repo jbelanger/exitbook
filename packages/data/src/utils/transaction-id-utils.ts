@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
-import type { Transaction } from '@exitbook/core';
+import type { Transaction, TransactionDraft } from '@exitbook/core';
+import { computeTxFingerprint as computeCanonicalTxFingerprint } from '@exitbook/core/identity';
 
 /** Transaction data before persistence — `externalId` is optional (will be generated if absent). */
 export type TransactionIdentityDraft = Omit<Transaction, 'accountId' | 'id' | 'txFingerprint' | 'externalId'> & {
@@ -105,5 +106,26 @@ export function materializeTransactionIdentity(
     externalId,
     source: transaction.source,
     txFingerprint: txFingerprintResult.value,
+  });
+}
+
+export async function deriveProcessedTransactionFingerprint(
+  input: TransactionDraft,
+  accountFingerprint: string
+): Promise<Result<string, Error>> {
+  if (input.sourceType === 'blockchain') {
+    return computeCanonicalTxFingerprint({
+      accountFingerprint,
+      source: input.source,
+      sourceType: 'blockchain',
+      blockchainTransactionHash: input.blockchain?.transaction_hash,
+    });
+  }
+
+  return computeCanonicalTxFingerprint({
+    accountFingerprint,
+    source: input.source,
+    sourceType: 'exchange',
+    componentEventIds: input.identityMaterial?.componentEventIds,
   });
 }
