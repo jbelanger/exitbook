@@ -6,7 +6,6 @@ import {
   TransactionNoteSchema,
   type TransactionMaterializationScope,
   computeMovementFingerprint,
-  computeTxFingerprint,
   parseDecimal,
   type AssetMovement,
   type FeeMovement,
@@ -23,7 +22,7 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
-import { generateDeterministicTransactionHash } from '../utils/transaction-id-utils.js';
+import { materializeTransactionIdentity } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -255,6 +254,71 @@ interface BuildInsertValuesResult {
   txFingerprint: string;
 }
 
+async function resolveExistingTransactionConflict(
+  db: KyselyDB,
+  params: { accountId: number; blockchainTransactionHash: string | null; txFingerprint: string }
+): Promise<Result<number, Error>> {
+  const existingByFingerprint = await db
+    .selectFrom('transactions')
+    .select(['id', 'tx_fingerprint', 'blockchain_transaction_hash'])
+    .where('tx_fingerprint', '=', params.txFingerprint)
+    .executeTakeFirst();
+
+  if (existingByFingerprint) {
+    if (
+      params.blockchainTransactionHash &&
+      existingByFingerprint.blockchain_transaction_hash &&
+      existingByFingerprint.blockchain_transaction_hash !== params.blockchainTransactionHash
+    ) {
+      return err(
+        new Error(
+          `Transaction identity conflict for fingerprint ${params.txFingerprint}: existing blockchain hash ` +
+            `${existingByFingerprint.blockchain_transaction_hash} does not match incoming ` +
+            `${params.blockchainTransactionHash}`
+        )
+      );
+    }
+
+    return ok(existingByFingerprint.id);
+  }
+
+  if (!params.blockchainTransactionHash) {
+    return err(
+      new Error(
+        `Transaction conflict: no existing row matches fingerprint ${params.txFingerprint} and no blockchain hash available for fallback lookup`
+      )
+    );
+  }
+
+  const existingByBlockchainHash = await db
+    .selectFrom('transactions')
+    .select(['id', 'tx_fingerprint', 'blockchain_transaction_hash'])
+    .where('account_id', '=', params.accountId)
+    .where('blockchain_transaction_hash', '=', params.blockchainTransactionHash)
+    .executeTakeFirst();
+
+  if (!existingByBlockchainHash) {
+    return err(
+      new Error(
+        `Transaction conflict: no existing row found for account ${params.accountId} with blockchain hash ${params.blockchainTransactionHash} or fingerprint ${params.txFingerprint}`
+      )
+    );
+  }
+
+  if (existingByBlockchainHash.tx_fingerprint !== params.txFingerprint) {
+    return err(
+      new Error(
+        `Transaction identity conflict for account ${params.accountId} blockchain hash ` +
+          `${params.blockchainTransactionHash}: existing fingerprint ` +
+          `${existingByBlockchainHash.tx_fingerprint} does not match incoming ${params.txFingerprint}`
+      )
+    );
+  }
+
+  return ok(existingByBlockchainHash.id);
+}
+
+/** Caller must have already validated price data via `validatePriceDataForPersistence` (done in `buildInsertValues`). */
 function buildMovementRows(
   transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>,
   transactionId: number,
@@ -263,11 +327,6 @@ function buildMovementRows(
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
-
-  const validationResult = validatePriceDataForPersistence(inflows, outflows, fees, `transaction ${transactionId}`);
-  if (validationResult.isErr()) {
-    return err(validationResult.error);
-  }
 
   const rows: Insertable<TransactionMovementsTable>[] = [];
   let position = 0;
@@ -352,21 +411,17 @@ function buildInsertValues(
     return err(notesJsonResult.error);
   }
 
-  const externalId = transaction.externalId || generateDeterministicTransactionHash(transaction);
-  const txFingerprintResult = computeTxFingerprint({
-    source: transaction.source,
-    accountId,
-    externalId,
-  });
-  if (txFingerprintResult.isErr()) {
-    return err(txFingerprintResult.error);
+  const identityResult = materializeTransactionIdentity(transaction, accountId);
+  if (identityResult.isErr()) {
+    return err(identityResult.error);
   }
+  const { externalId, txFingerprint } = identityResult.value;
 
   return ok({
     insertValues: {
       created_at: createdAt ?? new Date().toISOString(),
       external_id: externalId,
-      tx_fingerprint: txFingerprintResult.value,
+      tx_fingerprint: txFingerprint,
       from_address: transaction.from ?? null,
       account_id: accountId,
       notes_json: notesJsonResult.value ?? null,
@@ -386,7 +441,7 @@ function buildInsertValues(
       blockchain_transaction_hash: transaction.blockchain?.transaction_hash ?? null,
       blockchain_is_confirmed: transaction.blockchain?.is_confirmed ?? null,
     },
-    txFingerprint: txFingerprintResult.value,
+    txFingerprint,
   });
 }
 
@@ -398,7 +453,7 @@ function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSu
   const summary: TransactionSummary = {
     id: row.id,
     accountId: row.account_id,
-    externalId: row.external_id ?? `${row.source_name}-${row.id}`,
+    externalId: row.external_id,
     datetime,
     timestamp,
     source: row.source_name,
@@ -492,19 +547,16 @@ export class TransactionRepository extends BaseRepository {
         .executeTakeFirst();
 
       if (!txResult) {
-        if (values.blockchain_transaction_hash) {
-          const existing = await this.db
-            .selectFrom('transactions')
-            .select('id')
-            .where('account_id', '=', accountId)
-            .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
-            .executeTakeFirst();
-
-          if (existing) {
-            return ok(existing.id);
-          }
+        const existingResult = await resolveExistingTransactionConflict(this.db, {
+          accountId,
+          blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
+          txFingerprint,
+        });
+        if (existingResult.isErr()) {
+          return err(existingResult.error);
         }
-        return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
+
+        return ok(existingResult.value);
       }
 
       const transactionId = txResult.id;
@@ -562,24 +614,18 @@ export class TransactionRepository extends BaseRepository {
         let isDuplicate = false;
 
         if (!txResult) {
-          if (values.blockchain_transaction_hash) {
-            const existing = await this.db
-              .selectFrom('transactions')
-              .select('id')
-              .where('account_id', '=', accountId)
-              .where('blockchain_transaction_hash', '=', values.blockchain_transaction_hash)
-              .executeTakeFirst();
-
-            if (existing) {
-              transactionId = existing.id;
-              isDuplicate = true;
-              duplicates++;
-            } else {
-              return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
-            }
-          } else {
-            return err(new Error('Transaction insert skipped due to conflict, but existing transaction not found'));
+          const existingResult = await resolveExistingTransactionConflict(this.db, {
+            accountId,
+            blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
+            txFingerprint,
+          });
+          if (existingResult.isErr()) {
+            return err(existingResult.error);
           }
+
+          transactionId = existingResult.value;
+          isDuplicate = true;
+          duplicates++;
         } else {
           transactionId = txResult.id;
         }
@@ -596,7 +642,9 @@ export class TransactionRepository extends BaseRepository {
           }
         }
 
-        saved++;
+        if (!isDuplicate) {
+          saved++;
+        }
       }
 
       return ok({ saved, duplicates });
@@ -819,9 +867,7 @@ export class TransactionRepository extends BaseRepository {
       this.db,
       this.logger,
       async (trx) => {
-        let query = trx
-          .selectFrom('transactions')
-          .select(['id', 'account_id', 'source_name', 'external_id', 'notes_json']);
+        let query = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
 
         if (params.accountIds) {
           query = query.where('account_id', 'in', params.accountIds);
@@ -835,19 +881,6 @@ export class TransactionRepository extends BaseRepository {
         let updatedCount = 0;
 
         for (const row of rows) {
-          const fingerprintResult = computeTxFingerprint({
-            source: row.source_name,
-            accountId: row.account_id,
-            externalId: row.external_id ?? `${row.source_name}-${row.id}`,
-          });
-          if (fingerprintResult.isErr()) {
-            return err(
-              new Error(
-                `Failed to compute transaction fingerprint for transaction ${row.id}: ${fingerprintResult.error.message}`
-              )
-            );
-          }
-
           const existingNotesResult = parseStoredNotes(row.notes_json as string | null);
           if (existingNotesResult.isErr()) {
             return err(
@@ -857,7 +890,7 @@ export class TransactionRepository extends BaseRepository {
 
           const nextNotes = projectOverrideStoreUserNote(
             existingNotesResult.value,
-            params.notesByFingerprint.get(fingerprintResult.value)
+            params.notesByFingerprint.get(row.tx_fingerprint)
           );
 
           if (JSON.stringify(existingNotesResult.value ?? []) === JSON.stringify(nextNotes ?? [])) {
@@ -1039,7 +1072,7 @@ export class TransactionRepository extends BaseRepository {
     const transaction: UniversalTransactionData = {
       id: row.id,
       accountId: row.account_id,
-      externalId: row.external_id ?? `${row.source_name}-${row.id}`,
+      externalId: row.external_id,
       txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,

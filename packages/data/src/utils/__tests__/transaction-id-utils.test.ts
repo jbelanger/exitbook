@@ -1,8 +1,9 @@
-import type { Currency } from '@exitbook/core';
+import { computeTxFingerprint, type Currency } from '@exitbook/core';
+import { assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { generateDeterministicTransactionHash } from '../transaction-id-utils.js';
+import { generateDeterministicTransactionHash, materializeTransactionIdentity } from '../transaction-id-utils.js';
 
 const BTC = 'BTC' as Currency;
 const ETH = 'ETH' as Currency;
@@ -134,5 +135,23 @@ describe('generateDeterministicTransactionHash', () => {
     const tx = makeTransaction({ movements: {} });
     const hash = generateDeterministicTransactionHash(tx);
     expect(hash).toMatch(/^gen-[a-f0-9]{64}$/);
+  });
+
+  it('materializes identity with the provided externalId', () => {
+    const identity = assertOk(materializeTransactionIdentity(makeTransaction({ externalId: 'provider-id-1' }), 7));
+
+    expect(identity.externalId).toBe('provider-id-1');
+    expect(identity.txFingerprint).toBe(
+      assertOk(computeTxFingerprint({ source: 'kraken', accountId: 7, externalId: 'provider-id-1' }))
+    );
+  });
+
+  it('materializes identity with a deterministic generated externalId when missing', () => {
+    const identity = assertOk(materializeTransactionIdentity(makeTransaction({ externalId: undefined }), 9));
+
+    expect(identity.externalId).toMatch(/^gen-[a-f0-9]{64}$/);
+    expect(identity.txFingerprint).toBe(
+      assertOk(computeTxFingerprint({ source: 'kraken', accountId: 9, externalId: identity.externalId }))
+    );
   });
 });

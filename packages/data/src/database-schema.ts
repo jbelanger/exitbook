@@ -106,8 +106,8 @@ export interface TransactionsTable {
   account_id: number; // FK to accounts.id
   source_name: string;
   source_type: SourceType;
-  external_id: string | null; // hash, transaction ID, etc.
-  tx_fingerprint: string; // Deterministic transaction identity (e.g. tx:v2:kraken:1:WITHDRAWAL-123)
+  external_id: string; // Stable external or generated transaction identity
+  tx_fingerprint: string; // Canonical persisted transaction identity (e.g. tx:v2:kraken:1:WITHDRAWAL-123)
 
   // Transaction metadata
   // Unified status supporting both blockchain ('success', 'pending', 'failed')
@@ -166,7 +166,7 @@ export interface TransactionMovementsTable {
   transaction_id: number; // FK to transactions.id
   position: number; // Order within transaction (0-indexed)
   movement_type: 'inflow' | 'outflow' | 'fee';
-  movement_fingerprint: string; // Deterministic movement identity (e.g. movement:tx:v2:kraken:1:WITHDRAWAL-123:outflow:0)
+  movement_fingerprint: string; // Canonical persisted movement identity (e.g. movement:tx:v2:kraken:1:WITHDRAWAL-123:outflow:0)
   asset_id: string;
   asset_symbol: string;
   // Amount fields (inflow/outflow only)

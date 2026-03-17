@@ -1,6 +1,21 @@
 import { createHash } from 'node:crypto';
 
+import { computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
 import type { UniversalTransactionData } from '@exitbook/core';
+
+/** Transaction data before persistence — `externalId` is optional (will be generated if absent). */
+export type TransactionIdentityDraft = Omit<
+  UniversalTransactionData,
+  'accountId' | 'id' | 'txFingerprint' | 'externalId'
+> & {
+  externalId?: string | undefined;
+};
+
+export interface TransactionIdentity {
+  externalId: string;
+  source: string;
+  txFingerprint: string;
+}
 
 /**
  * Creates a deterministic hash for transaction identification when no external ID is available.
@@ -26,9 +41,7 @@ import type { UniversalTransactionData } from '@exitbook/core';
  * const hash2 = generateDeterministicTransactionHash(tx);
  * assert(hash1 === hash2);
  */
-export function generateDeterministicTransactionHash(
-  transaction: Omit<UniversalTransactionData, 'id' | 'accountId'>
-): string {
+export function generateDeterministicTransactionHash(transaction: TransactionIdentityDraft): string {
   // Collect all identifying characteristics in a stable order
   const parts: string[] = [
     transaction.source,
@@ -75,4 +88,25 @@ export function generateDeterministicTransactionHash(
   // Return full SHA-256 hash with a prefix to indicate it's generated
   // Format: gen-<64-char-hex> (full SHA-256 to eliminate collision risk)
   return `gen-${hash}`;
+}
+
+export function materializeTransactionIdentity(
+  transaction: TransactionIdentityDraft,
+  accountId: number
+): Result<TransactionIdentity, Error> {
+  const externalId = transaction.externalId?.trim() || generateDeterministicTransactionHash(transaction);
+  const txFingerprintResult = computeTxFingerprint({
+    source: transaction.source,
+    accountId,
+    externalId,
+  });
+  if (txFingerprintResult.isErr()) {
+    return err(txFingerprintResult.error);
+  }
+
+  return ok({
+    externalId,
+    source: transaction.source,
+    txFingerprint: txFingerprintResult.value,
+  });
 }

@@ -3,18 +3,13 @@ import {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,
   type OverrideStore,
+  type TransactionIdentity,
 } from '@exitbook/data';
 
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type TransactionEditQueryDatabase = Pick<CommandDatabase, 'transactions'>;
-
-interface TransactionIdentity {
-  externalId: string;
-  source: string;
-  txFingerprint: string;
-}
 
 export interface TransactionNoteSetParams {
   message: string;

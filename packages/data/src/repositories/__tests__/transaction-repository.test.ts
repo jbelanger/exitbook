@@ -14,6 +14,33 @@ describe('TransactionRepository', () => {
   let db: KyselyDB;
   let repo: TransactionRepository;
 
+  function makePersistedTransaction(
+    overrides: Partial<Omit<UniversalTransactionData, 'accountId' | 'id'>> = {}
+  ): Omit<UniversalTransactionData, 'accountId' | 'id'> {
+    return {
+      datetime: '2025-01-01T00:00:00.000Z',
+      externalId: 'tx-default',
+      fees: [],
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:eth',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: { category: 'transfer', type: 'deposit' },
+      source: 'ethereum',
+      sourceType: 'blockchain',
+      status: 'success',
+      timestamp: 1_735_689_600_000,
+      ...overrides,
+    };
+  }
+
   afterEach(async () => {
     await db.destroy();
   });
@@ -388,6 +415,82 @@ describe('TransactionRepository', () => {
         .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
       expect(row?.excluded_from_accounting).toBe(0);
+    });
+  });
+
+  describe('create/createBatch identity deduplication', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedUser(db);
+      await seedAccount(db, 1, 'blockchain', 'ethereum');
+      await seedImportSession(db, 1, 1);
+    });
+
+    it('returns the existing row id when the tx fingerprint already exists', async () => {
+      const transaction = makePersistedTransaction({ externalId: 'dup-tx-1' });
+
+      const firstId = assertOk(await repo.create(transaction, 1));
+      const secondId = assertOk(await repo.create(transaction, 1));
+
+      expect(secondId).toBe(firstId);
+
+      const transactions = await db.selectFrom('transactions').select(['id']).execute();
+      const movements = await db.selectFrom('transaction_movements').select(['id']).execute();
+
+      expect(transactions).toHaveLength(1);
+      expect(movements).toHaveLength(1);
+    });
+
+    it('counts tx fingerprint duplicates in createBatch without creating extra rows', async () => {
+      const transaction = makePersistedTransaction({ externalId: 'dup-batch-1' });
+
+      const result = assertOk(await repo.createBatch([transaction, transaction], 1));
+
+      expect(result.duplicates).toBe(1);
+
+      const transactions = await db.selectFrom('transactions').select(['id']).execute();
+      const movements = await db.selectFrom('transaction_movements').select(['id']).execute();
+
+      expect(transactions).toHaveLength(1);
+      expect(movements).toHaveLength(1);
+    });
+
+    it('fails when the same blockchain hash arrives with a different canonical fingerprint', async () => {
+      assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            blockchain: {
+              name: 'ethereum',
+              transaction_hash: '0xabc123',
+              is_confirmed: true,
+            },
+            externalId: 'hash-source-1',
+          }),
+          1
+        )
+      );
+
+      const result = await repo.create(
+        makePersistedTransaction({
+          blockchain: {
+            name: 'ethereum',
+            transaction_hash: '0xabc123',
+            is_confirmed: true,
+          },
+          externalId: 'hash-source-2',
+        }),
+        1
+      );
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Transaction identity conflict');
+      }
+
+      const transactions = await db.selectFrom('transactions').select(['id']).execute();
+      expect(transactions).toHaveLength(1);
     });
   });
 
