@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseDecimal } from '../../money/decimal-utils.js';
-import { AssetMovementSchema, FeeMovementSchema, TransactionSchema } from '../transaction.js';
+import { AssetMovementSchema, FeeMovementSchema } from '../movement.js';
+import { TransactionSchema } from '../transaction.js';
 
 describe('AssetMovementSchema', () => {
   describe('assetId validation', () => {

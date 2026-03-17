@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '../result/index.js';
 
 /**
  * Asset Identity Utilities

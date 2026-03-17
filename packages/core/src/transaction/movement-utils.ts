@@ -2,7 +2,7 @@ import type { Decimal } from 'decimal.js';
 
 import { parseDecimal } from '../money/decimal-utils.js';
 
-import type { AssetMovement, MovementDirection } from './transaction.js';
+import type { AssetMovement, MovementDirection } from './movement.js';
 
 /**
  * Result of computing primary movement from inflows/outflows

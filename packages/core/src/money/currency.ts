@@ -1,5 +1,4 @@
-import { err, ok } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import { err, ok, type Result } from '../result/index.js';
 
 /**
  * Branded string type for currency codes (e.g. 'USD', 'BTC', 'ETH')
