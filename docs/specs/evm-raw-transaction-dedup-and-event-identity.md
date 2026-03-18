@@ -1,5 +1,5 @@
 ---
-last_verified: 2025-12-18
+last_verified: 2026-03-17
 status: draft
 ---
 
@@ -21,7 +21,7 @@ This spec describes an improvement to make EVM ingestion robust for the common c
 | **Base tx hash**                    | On-chain transaction identifier (e.g. `0xabc…`)          | Many events can share it.                               |
 | **Event**                           | A single log-level movement (e.g. one ERC‑20 `Transfer`) | “Event-level” is the right granularity for raw storage. |
 | `blockchain_transaction_hash` (raw) | Base tx hash                                             | Should stay “clean” (no suffixes).                      |
-| `external_id` (raw)                 | Event identity                                           | Must be deterministic for resume/replay.                |
+| `event_id` (raw)                    | Event identity                                           | Must be deterministic for resume/replay.                |
 | `logIndex`                          | Canonical per-log discriminator                          | Useful for perfect event identity when available.       |
 
 ## Goals
@@ -55,11 +55,11 @@ This is not an exceptional edge case; it is normal for token activity.
 
 In `packages/data/src/migrations/001_initial_schema.ts`:
 
-- `raw_transactions.external_id` is `NOT NULL`
+- `raw_transactions.event_id` is `NOT NULL`
 - `raw_transactions.blockchain_transaction_hash` is nullable
-- historically, we had:
-  - UNIQUE `(account_id, blockchain_transaction_hash)` (partial WHERE hash IS NOT NULL)
-  - UNIQUE `(account_id, external_id)` (partial WHERE external_id IS NOT NULL — redundant because column is NOT NULL)
+- current/raw-layer identity checks are:
+  - non-unique lookup index on `(account_id, blockchain_transaction_hash)`
+  - UNIQUE `(account_id, event_id)`
 
 ## Proposed Improvement
 
@@ -69,11 +69,11 @@ In `packages/data/src/migrations/001_initial_schema.ts`:
 
 - **Remove** UNIQUE on `(account_id, blockchain_transaction_hash)`
 - **Add/keep** a _non-unique_ index on `(account_id, blockchain_transaction_hash)` for performance
-- **Keep** UNIQUE on `(account_id, external_id)` as the dedup guardrail
+- **Keep** UNIQUE on `(account_id, event_id)` as the dedup guardrail
 
 Rationale:
 
-- `external_id` is the correct dedup key at the raw/event layer.
+- `event_id` is the correct dedup key at the raw/event layer.
 - `blockchain_transaction_hash` is for correlation and lookup, not uniqueness.
 
 ### 2) Clarify Identity Semantics (Terminology)
@@ -83,14 +83,14 @@ To avoid future confusion, treat these fields consistently:
 - `blockchain_transaction_hash`:
   - stores the **base tx hash** only
   - never stores event ids, suffixes, or provider-specific composite ids
-- `external_id`:
+- `event_id`:
   - stores a deterministic **event identity**
   - may be derived from provider fields (hash + logIndex) or from normalized event content
 
 Rename suggestion (doc-only; code may keep current names):
 
 - “Base tx hash” instead of “blockchain tx id”
-- “Event id” instead of “external id” (when discussing raw uniqueness)
+- “Event id” when discussing raw uniqueness
 
 ### 3) Provider Variation: What Happens Without `logIndex`
 
@@ -99,11 +99,11 @@ Some provider endpoints return token transfers without exposing `logIndex` (e.g.
 That is still workable once base-hash uniqueness is removed, because:
 
 - the raw layer can store multiple events per base hash
-- dedup is handled by `(account_id, external_id)`
+- dedup is handled by `(account_id, event_id)`
 
 However, **perfect** uniqueness is not always possible without `logIndex`:
 
-- If a single tx emits two `Transfer` logs that are identical across all fields you hash for `external_id`, those two events will collide.
+- If a single tx emits two `Transfer` logs that are identical across all fields you hash for `event_id`, those two events will collide.
 - This is uncommon for typical wallets, but it is possible.
 
 ### 4) When `logIndex` Helps (Optional Enhancement)
@@ -128,9 +128,9 @@ Routescan’s `tokentx` endpoint may omit per-log discriminators like `logIndex`
 ## Behavioral Rules / Invariants
 
 - **Raw storage invariant:** multiple `raw_transactions` rows MAY share the same `(account_id, blockchain_transaction_hash)`.
-- **Raw dedup invariant:** within an account, `external_id` MUST uniquely identify an event.
+- **Raw dedup invariant:** within an account, `event_id` MUST uniquely identify an event.
 - **Correlation invariant:** processing may correlate multiple raw rows that share a base tx hash into a single `transactions` row (EVM correlation).
-- **No silent hiding:** if `external_id` collisions are detected (same event id but different underlying payload), prefer warning+fail over silent merge.
+- **No silent hiding:** if `event_id` collisions are detected (same event id but different underlying payload), prefer warning+fail over silent merge.
 
 ## Edge Cases & Gotchas
 
@@ -149,4 +149,4 @@ Routescan’s `tokentx` endpoint may omit per-log discriminators like `logIndex`
 
 ---
 
-_Last updated: 2025-12-18_
+_Last updated: 2026-03-17_

@@ -1113,7 +1113,7 @@ export async function compareV1andV2(
 
 #### Step 5.2: Database Migration
 
-**Strategy**: Since database is dropped during development (per CLAUDE.md), just replace V1 with V2
+**Strategy**: Since this repo resets from a clean dataset between runs, just replace V1 with V2
 
 **File**: `packages/data/src/migrations/001_initial_schema.ts`
 
@@ -1495,7 +1495,7 @@ describe('NEAR V2 Integration', () => {
 
 ### Q: What about backward compatibility?
 
-**A**: Since the database is dropped during development (per CLAUDE.md), there's no backward compatibility needed. For future production, we'd use a dual-write migration strategy.
+**A**: This repo resets from a clean dataset, so no backward-compatibility path is needed for this rewrite.
 
 ### Q: How do we handle NearBlocks API rate limits?
 

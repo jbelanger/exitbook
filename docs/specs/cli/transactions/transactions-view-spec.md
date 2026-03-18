@@ -561,7 +561,7 @@ Bypasses the TUI. Returns structured transaction data.
       "id": 2456,
       "source_name": "kraken",
       "source_type": "exchange",
-      "external_id": "tx-abc-123",
+      "tx_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "transaction_datetime": "2024-11-28T16:20:45Z",
       "operation_category": "trade",
       "operation_type": "buy",
@@ -712,7 +712,7 @@ interface TransactionViewItem {
   id: number;
   source: string;
   sourceType: 'exchange' | 'blockchain';
-  externalId: string | undefined;
+  txFingerprint: string;
   datetime: string;
 
   // Operation

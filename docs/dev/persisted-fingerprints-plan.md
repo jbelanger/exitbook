@@ -33,7 +33,7 @@ Current pain points:
 
 Persisted fingerprints improve this by making identity explicit and queryable.
 
-Because the database is dropped during development and rebuilt from `001_initial_schema.ts`, this plan does not need a mixed-state compatibility path. Once steps 2 and 3 land, every persisted transaction and movement row will have fingerprints.
+Because this repo resets from a clean dataset and rebuilds from `001_initial_schema.ts`, this plan does not need a mixed-state compatibility path. Once steps 2 and 3 land, every persisted transaction and movement row will have fingerprints.
 
 ## Decision
 
@@ -136,7 +136,7 @@ export interface TransactionMovementsTable {
 
 Migration notes:
 
-- this project currently updates `001_initial_schema.ts` directly during development
+- this project updates `001_initial_schema.ts` directly for clean-slate rebuilds
 - do not add an incremental migration for this work
 
 ## 2. Persist Transaction Fingerprints on Write

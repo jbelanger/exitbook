@@ -42,8 +42,9 @@ Verification completed for this slice:
 
 Remaining work:
 
-- update remaining historical/spec documentation that still describes pre-`txFingerprint` identity semantics
-- keep this document as the design/reference source until the broader migration is fully closed
+- no required work remains for the main simplification slice
+- optional follow-up only: canonicalize exchange `event_id` semantics if duplicate-insensitive rebuild stability becomes a requirement
+- keep this document as the v1 transaction identity reference
 
 ## Why This Plan Exists
 
@@ -96,9 +97,9 @@ Specifically:
 
 ## Override Store Impact
 
-`overrides.db` is a separate durable database that survives `transactions.db` wipes. Override payloads (link, unlink, transaction-note, price) store fingerprint values directly. Since the fingerprint formula changes completely, all existing overrides become dangling references after this refactor.
+`overrides.db` stores fingerprint values directly in override payloads (link, unlink, transaction-note, price). Since the fingerprint formula changes completely, any overrides created before this refactor point at obsolete fingerprints.
 
-Decision: wipe `overrides.db` when shipping this change. The database is dropped during development, so this has no practical impact. Document this in the safety checklist.
+Decision: in this greenfield repo, delete `overrides.db` whenever restarting from a clean dataset after this change. No compatibility layer or migration is needed.
 
 ## Non-Goals
 
@@ -622,7 +623,7 @@ Detailed steps:
 4. Update `TransactionSummary` to remove `externalId`.
 5. Keep `tx_fingerprint` indexed and unique.
 
-Because this repo rebuilds from `001_initial_schema.ts` during development:
+Because this repo restarts from a clean dataset and rebuilds from `001_initial_schema.ts`:
 
 - do not write a compatibility layer for rows with and without `external_id`
 - do not add an incremental migration
@@ -852,15 +853,15 @@ This order is deliberate. Follow it to reduce churn.
 
 The refactor is safe to merge only when all of the following are true:
 
-- no production code references `transaction.externalId`
-- no production code recomputes `txFingerprint` from `source + accountId + externalId`
+- no code references `transaction.externalId`
+- no code recomputes `txFingerprint` from `source + accountId + externalId`
 - blockchain writes fail if `blockchain.transaction_hash` is missing
 - exchange writes fail if grouped component event IDs are missing
 - exchange fingerprint derivation hashes the full grouped event ID set and does not choose a representative event ID
 - cost-basis export includes `txFingerprint`
 - transaction CLI views can locate and display transactions using `txFingerprint`
 - repository duplicate detection uses the new `txFingerprint` formula only
-- `overrides.db` has been wiped (old fingerprints are incompatible with the new formula)
+- any pre-change `overrides.db` has been deleted before rebuilding with the new fingerprint formula
 - no `node:crypto` imports in `@exitbook/core` — fingerprint hashing uses Web Crypto API
 
 ## Decisions Captured By This Plan
@@ -876,7 +877,7 @@ The refactor is safe to merge only when all of the following are true:
 - fingerprint helpers/types move out of `overrides` and into a core identity module
 - exchange v1 fingerprints use the grouped raw `event_id` set exactly as imported
 - duplicate-insensitive exchange raw-event canonicalization is deferred to a follow-up phase
-- `overrides.db` must be wiped when this change ships (old fingerprints are incompatible)
+- pre-change `overrides.db` data is incompatible and must be deleted before rebuilding from a clean dataset
 - SHA-256 hashing uses Web Crypto API (`globalThis.crypto.subtle`), not `node:crypto`, to keep `@exitbook/core` runtime-agnostic
 
 ## Naming Notes
