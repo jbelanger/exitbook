@@ -218,7 +218,7 @@ export function buildCostBasisScopedTransactions(
 // ---------------------------------------------------------------------------
 
 function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
-  const txFp = tx.txFingerprint?.trim();
+  const txFp = tx.txFingerprint.trim();
   if (!txFp) {
     return err(new Error(`Transaction ${tx.id} is missing txFingerprint`));
   }

@@ -20,7 +20,7 @@ export interface LinksViewParams extends CommonViewFilters {
  * Transaction details for verbose display.
  */
 export interface TransactionDetails {
-  external_id: string | undefined;
+  tx_fingerprint: string;
   from_address: string | undefined;
   id: number;
   movements_inflows: AssetMovement[];
@@ -91,7 +91,7 @@ export function filterLinksByConfidence(
  */
 export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
   return {
-    external_id: tx.externalId,
+    tx_fingerprint: tx.txFingerprint,
     from_address: tx.from,
     id: tx.id ?? 0,
     movements_inflows: tx.movements?.inflows ?? [],

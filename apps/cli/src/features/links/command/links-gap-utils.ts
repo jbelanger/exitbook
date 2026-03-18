@@ -13,7 +13,7 @@ export type LinkGapDirection = 'inflow' | 'outflow';
 
 export interface LinkGapIssue {
   transactionId: number;
-  externalId: string;
+  txFingerprint: string;
   source: string;
   blockchain?: string | undefined;
   timestamp: string;
@@ -497,7 +497,7 @@ export function analyzeLinkGaps(
 
         issues.push({
           transactionId: tx.id ?? 0,
-          externalId: tx.externalId,
+          txFingerprint: tx.txFingerprint,
           source: tx.source,
           blockchain: tx.blockchain?.name,
           timestamp: tx.datetime,
@@ -555,7 +555,7 @@ export function analyzeLinkGaps(
 
         issues.push({
           transactionId: tx.id ?? 0,
-          externalId: tx.externalId,
+          txFingerprint: tx.txFingerprint,
           source: tx.source,
           blockchain: tx.blockchain?.name,
           timestamp: tx.datetime,

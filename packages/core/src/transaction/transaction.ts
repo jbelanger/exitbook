@@ -113,18 +113,20 @@ const TransactionBaseFieldsSchema = z.object({
   excludedFromAccounting: z.boolean().optional(),
 });
 
-// Pre-persistence transaction contract.
-// During the txFingerprint migration, drafts may still carry legacy externalId
-// plus transient identity material for repository-owned fingerprint derivation.
+// Pre-persistence transaction contract plus transient identity material used to
+// derive the persisted txFingerprint.
+// `externalId` remains optional temporarily so test fixtures do not need to be
+// rewritten in the same slice; it is not persisted or used for canonical identity.
 const TransactionDraftFieldsSchema = TransactionBaseFieldsSchema.extend({
-  externalId: z.string().min(1, 'Transaction ID must not be empty'),
+  externalId: z.string().min(1, 'Transaction ID must not be empty').optional(),
   identityMaterial: TransactionDraftIdentityMaterialSchema.optional(),
 });
 
-// Persisted reads still hydrate externalId from storage until the DB column is removed.
+// Persisted transactions always carry their canonical txFingerprint.
+// `externalId` remains optional temporarily for test compatibility only.
 const TransactionFieldsSchema = TransactionBaseFieldsSchema.extend({
-  externalId: z.string().min(1, 'Transaction ID must not be empty'),
-  txFingerprint: z.string().min(1).optional(),
+  externalId: z.string().min(1, 'Transaction ID must not be empty').optional(),
+  txFingerprint: z.string().min(1),
 });
 
 const accountingImpactValidation = {

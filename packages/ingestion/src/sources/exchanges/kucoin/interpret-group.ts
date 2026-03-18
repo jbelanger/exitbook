@@ -75,7 +75,6 @@ function buildDraft(
   }
 
   return {
-    externalId: group.events.length === 1 ? primaryEvent.providerEventId : group.correlationKey,
     source: 'kucoin',
     timestamp: primaryEvent.occurredAt,
     status,

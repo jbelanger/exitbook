@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable in tests */
-import type { Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
   buildCanadaTestInputContext,
+  buildTransaction,
   createCanadaFxProvider,
   createConfirmedTransferLink,
   materializeTestTransaction,
@@ -19,38 +19,24 @@ import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 describe('buildCanadaTaxInputContext', () => {
   it('uses preserved quoted CAD price without fetching USD->CAD FX', async () => {
     const fxProvider = createCanadaFxProvider();
-    const transaction: Transaction = {
+    const transaction = buildTransaction({
       id: 1,
-      accountId: 1,
-      externalId: 'tx-1',
       datetime: '2024-01-15T12:00:00Z',
-      timestamp: Date.parse('2024-01-15T12:00:00Z'),
       source: 'kraken',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('48100'), currency: 'USD' as Currency },
-              quotedPrice: { amount: parseDecimal('65000'), currency: 'CAD' as Currency },
-              source: 'derived-ratio',
-              fetchedAt: new Date('2024-01-15T12:00:00Z'),
-              granularity: 'exact',
-              fxRateToUSD: parseDecimal('0.74'),
-              fxSource: 'bank-of-canada',
-              fxTimestamp: new Date('2024-01-15T12:00:00Z'),
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'trade', type: 'buy' },
-    };
+      inflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          amount: '1',
+          price: '48100',
+          priceSource: 'derived-ratio',
+          quotedPrice: { amount: '65000', currency: 'CAD' },
+          fxRateToUSD: '0.74',
+          fxSource: 'bank-of-canada',
+          fxTimestamp: new Date('2024-01-15T12:00:00Z'),
+        },
+      ],
+    });
 
     const result = await buildCanadaTestInputContext([transaction], [], fxProvider);
     const context = assertOk(result);
@@ -69,31 +55,19 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('rolls acquisition fees into cost basis adjustments in CAD', async () => {
     const fxProvider = createCanadaFxProvider({ usdToCad: '1.4' });
-    const transaction: Transaction = {
+    const transaction = buildTransaction({
       id: 2,
-      accountId: 1,
-      externalId: 'tx-2',
       datetime: '2024-01-20T12:00:00Z',
-      timestamp: Date.parse('2024-01-20T12:00:00Z'),
       source: 'coinbase',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'exchange:coinbase:eth',
-            assetSymbol: 'ETH' as Currency,
-            grossAmount: parseDecimal('2'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('3000'), currency: 'USD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-01-20T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
+      inflows: [
+        {
+          assetId: 'exchange:coinbase:eth',
+          assetSymbol: 'ETH',
+          amount: '2',
+          price: '3000',
+          priceSource: 'exchange-execution',
+        },
+      ],
       fees: [
         {
           assetId: 'fiat:usd',
@@ -103,8 +77,8 @@ describe('buildCanadaTaxInputContext', () => {
           settlement: 'balance',
         },
       ],
-      operation: { category: 'trade', type: 'buy' },
-    };
+      type: 'buy',
+    });
 
     const result = await buildCanadaTestInputContext([transaction], [], fxProvider);
     const context = assertOk(result);
@@ -122,63 +96,41 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('converts confirmed internal links into transfer events instead of acquisitions or dispositions', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: Transaction = {
+    const withdrawal = buildTransaction({
       id: 10,
-      accountId: 1,
-      externalId: 'tx-10',
       datetime: '2024-02-01T12:00:00Z',
-      timestamp: Date.parse('2024-02-01T12:00:00Z'),
       source: 'kraken',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [],
-        outflows: [
-          {
-            assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-02-01T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'withdrawal' },
-    };
+      outflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          amount: '1',
+          price: '50000',
+          priceSource: 'exchange-execution',
+        },
+      ],
+      category: 'transfer',
+      type: 'withdrawal',
+    });
 
-    const deposit: Transaction = {
+    const deposit = buildTransaction({
       id: 11,
       accountId: 2,
-      externalId: 'tx-11',
       datetime: '2024-02-01T12:05:00Z',
-      timestamp: Date.parse('2024-02-01T12:05:00Z'),
       source: 'bitcoin',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-              source: 'link-propagated',
-              fetchedAt: new Date('2024-02-01T12:05:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '1',
+          price: '50000',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
 
     const confirmedLink = createConfirmedTransferLink({
       id: 99,
@@ -213,32 +165,21 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('resolves fee identity and emits same-asset transfer fee adjustments', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: Transaction = {
+    const withdrawal = buildTransaction({
       id: 20,
-      accountId: 1,
-      externalId: 'tx-20',
       datetime: '2024-02-10T12:00:00Z',
-      timestamp: Date.parse('2024-02-10T12:00:00Z'),
       source: 'kraken',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [],
-        outflows: [
-          {
-            assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1'),
-            netAmount: parseDecimal('0.99'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: 'CAD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-02-10T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-      },
+      outflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          amount: '1',
+          netAmount: '0.99',
+          price: '50000',
+          priceCurrency: 'CAD',
+          priceSource: 'exchange-execution',
+        },
+      ],
       fees: [
         {
           assetId: 'exchange:kraken:btc',
@@ -254,37 +195,29 @@ describe('buildCanadaTaxInputContext', () => {
           },
         },
       ],
-      operation: { category: 'transfer', type: 'withdrawal' },
-    };
+      category: 'transfer',
+      type: 'withdrawal',
+    });
 
-    const deposit: Transaction = {
+    const deposit = buildTransaction({
       id: 21,
       accountId: 2,
-      externalId: 'tx-21',
       datetime: '2024-02-10T12:05:00Z',
-      timestamp: Date.parse('2024-02-10T12:05:00Z'),
       source: 'bitcoin',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('0.99'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('50000'), currency: 'CAD' as Currency },
-              source: 'link-propagated',
-              fetchedAt: new Date('2024-02-10T12:05:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '0.99',
+          price: '50000',
+          priceCurrency: 'CAD',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
 
     const confirmedLink = createConfirmedTransferLink({
       id: 199,
@@ -314,32 +247,21 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('allocates same-asset network fees once across internal transfer and residual disposition shares', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: Transaction = {
+    const withdrawal = buildTransaction({
       id: 25,
-      accountId: 1,
-      externalId: 'tx-25',
       datetime: '2024-02-12T12:00:00Z',
-      timestamp: Date.parse('2024-02-12T12:00:00Z'),
       source: 'kraken',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [],
-        outflows: [
-          {
-            assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1.2'),
-            netAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-02-12T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-      },
+      outflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          amount: '1.2',
+          netAmount: '1',
+          price: '100',
+          priceCurrency: 'CAD',
+          priceSource: 'exchange-execution',
+        },
+      ],
       fees: [
         {
           assetId: 'exchange:kraken:btc',
@@ -355,37 +277,29 @@ describe('buildCanadaTaxInputContext', () => {
           },
         },
       ],
-      operation: { category: 'transfer', type: 'withdrawal' },
-    };
+      category: 'transfer',
+      type: 'withdrawal',
+    });
 
-    const deposit: Transaction = {
+    const deposit = buildTransaction({
       id: 26,
       accountId: 2,
-      externalId: 'tx-26',
       datetime: '2024-02-12T12:05:00Z',
-      timestamp: Date.parse('2024-02-12T12:05:00Z'),
       source: 'bitcoin',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('0.4'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
-              source: 'link-propagated',
-              fetchedAt: new Date('2024-02-12T12:05:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '0.4',
+          price: '100',
+          priceCurrency: 'CAD',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
 
     const confirmedLink = createConfirmedTransferLink({
       id: 250,
@@ -471,32 +385,21 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('emits link-scoped same-asset fee adjustments when one source movement fans out to multiple links', async () => {
     const fxProvider = createCanadaFxProvider();
-    const withdrawal: Transaction = {
+    const withdrawal = buildTransaction({
       id: 27,
-      accountId: 1,
-      externalId: 'tx-27',
       datetime: '2024-02-13T12:00:00Z',
-      timestamp: Date.parse('2024-02-13T12:00:00Z'),
       source: 'kraken',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [],
-        outflows: [
-          {
-            assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('1.02'),
-            netAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-02-13T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-      },
+      outflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          amount: '1.02',
+          netAmount: '1',
+          price: '100',
+          priceCurrency: 'CAD',
+          priceSource: 'exchange-execution',
+        },
+      ],
       fees: [
         {
           assetId: 'exchange:kraken:btc',
@@ -512,66 +415,49 @@ describe('buildCanadaTaxInputContext', () => {
           },
         },
       ],
-      operation: { category: 'transfer', type: 'withdrawal' },
-    };
+      category: 'transfer',
+      type: 'withdrawal',
+    });
 
-    const firstDeposit: Transaction = {
+    const firstDeposit = buildTransaction({
       id: 28,
       accountId: 2,
-      externalId: 'tx-28',
       datetime: '2024-02-13T12:05:00Z',
-      timestamp: Date.parse('2024-02-13T12:05:00Z'),
       source: 'bitcoin',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('0.4'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
-              source: 'link-propagated',
-              fetchedAt: new Date('2024-02-13T12:05:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '0.4',
+          price: '100',
+          priceCurrency: 'CAD',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
 
-    const secondDeposit: Transaction = {
+    const secondDeposit = buildTransaction({
       id: 29,
       accountId: 3,
-      externalId: 'tx-29',
       datetime: '2024-02-13T12:06:00Z',
-      timestamp: Date.parse('2024-02-13T12:06:00Z'),
       source: 'bitcoin',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:bitcoin:native',
-            assetSymbol: 'BTC' as Currency,
-            grossAmount: parseDecimal('0.6'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('100'), currency: 'CAD' as Currency },
-              source: 'link-propagated',
-              fetchedAt: new Date('2024-02-13T12:06:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'transfer', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '0.6',
+          price: '100',
+          priceCurrency: 'CAD',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
 
     const firstLink = createConfirmedTransferLink({
       id: 270,
@@ -633,63 +519,38 @@ describe('buildCanadaTaxInputContext', () => {
 
   it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
     const fxProvider = createCanadaFxProvider();
-    const exchangeAcquisition: Transaction = {
+    const exchangeAcquisition = buildTransaction({
       id: 30,
-      accountId: 1,
-      externalId: 'tx-30',
       datetime: '2024-01-25T12:00:00Z',
-      timestamp: Date.parse('2024-01-25T12:00:00Z'),
       source: 'coinbase',
-      sourceType: 'exchange',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'exchange:coinbase:usdc',
-            assetSymbol: 'USDC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
-              source: 'exchange-execution',
-              fetchedAt: new Date('2024-01-25T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'trade', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'exchange:coinbase:usdc',
+          assetSymbol: 'USDC',
+          amount: '1',
+          price: '1',
+          priceSource: 'exchange-execution',
+        },
+      ],
+      type: 'deposit',
+    });
 
-    const chainAcquisition: Transaction = {
+    const chainAcquisition = buildTransaction({
       id: 31,
       accountId: 2,
-      externalId: 'tx-31',
       datetime: '2024-01-26T12:00:00Z',
-      timestamp: Date.parse('2024-01-26T12:00:00Z'),
       source: 'ethereum',
       sourceType: 'blockchain',
-      status: 'success',
-      movements: {
-        inflows: [
-          {
-            assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-            assetSymbol: 'USDC' as Currency,
-            grossAmount: parseDecimal('1'),
-            priceAtTxTime: {
-              price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
-              source: 'manual',
-              fetchedAt: new Date('2024-01-26T12:00:00Z'),
-              granularity: 'exact',
-            },
-          },
-        ],
-        outflows: [],
-      },
-      fees: [],
-      operation: { category: 'trade', type: 'deposit' },
-    };
+      inflows: [
+        {
+          assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          assetSymbol: 'USDC',
+          amount: '1',
+          price: '1',
+        },
+      ],
+      type: 'deposit',
+    });
 
     const relaxedResult = await buildCanadaTestInputContext([exchangeAcquisition, chainAcquisition], [], fxProvider);
     const relaxedContext = assertOk(relaxedResult);

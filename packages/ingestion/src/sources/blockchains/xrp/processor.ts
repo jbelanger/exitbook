@@ -86,7 +86,6 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
         }
 
         const processedTransaction: ProcessedTransaction = {
-          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,

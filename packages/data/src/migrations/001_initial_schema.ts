@@ -120,7 +120,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('source_name', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
-    .addColumn('external_id', 'text', (col) => col.notNull())
     .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('transaction_datetime', 'text', (col) => col.notNull())

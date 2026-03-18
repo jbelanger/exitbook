@@ -32,7 +32,6 @@ describe('buildProcessingPorts', () => {
         account_id: 1,
         source_name: 'kraken',
         source_type: 'exchange',
-        external_id: 'tx-1',
         tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-1'),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',

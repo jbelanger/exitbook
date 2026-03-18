@@ -35,7 +35,7 @@ export interface TransactionViewItem {
   id: number;
   source: string;
   sourceType: 'exchange' | 'blockchain';
-  externalId: string | undefined;
+  txFingerprint: string;
   datetime: string;
 
   // Operation

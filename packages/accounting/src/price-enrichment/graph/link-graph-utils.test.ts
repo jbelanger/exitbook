@@ -8,6 +8,7 @@
 import { type Currency, type Transaction, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import type { TransactionLink } from '../../linking/shared/types.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
@@ -19,7 +20,7 @@ function createTx(
   sourceType: 'exchange' | 'blockchain',
   options: { blockchain?: string; datetime?: string } = {}
 ): Transaction {
-  const base: Transaction = {
+  const base = materializeTestTransaction({
     id,
     accountId: 1,
     externalId: `ext-${id}`,
@@ -33,17 +34,17 @@ function createTx(
     },
     fees: [],
     operation: { category: 'transfer', type: 'deposit' },
-  };
+  });
 
   if (options.blockchain) {
-    return {
+    return materializeTestTransaction({
       ...base,
       blockchain: {
         name: options.blockchain,
         transaction_hash: `hash-${id}`,
         is_confirmed: true,
       },
-    };
+    });
   }
 
   return base;

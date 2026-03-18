@@ -29,7 +29,6 @@ describe('buildLinksFreshnessPorts', () => {
         account_id: accountId,
         source_name: 'test',
         source_type: 'exchange',
-        external_id: externalId,
         tx_fingerprint: seedTxFingerprint('test', accountId, externalId),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',

@@ -234,16 +234,6 @@ export interface CreateOverrideEventOptions {
 }
 
 /**
- * Transaction fingerprint components
- * Simplified version using account-scoped transaction fingerprinting
- */
-export interface TransactionFingerprintInput {
-  source: string;
-  accountId: number;
-  externalId: string;
-}
-
-/**
  * Exact persisted link identity for override replay.
  * This matches the stricter movement/asset identity already persisted on
  * TransactionLink rows.
@@ -253,15 +243,4 @@ export interface ResolvedLinkIdentity {
   sourceMovementFingerprint: string;
   targetAssetId: string;
   targetMovementFingerprint: string;
-}
-
-/**
- * Movement fingerprint components
- * Deterministic identity for a movement within a transaction.
- * Uses position-based identity (not DB row ids) so it survives movement rebuilds.
- */
-export interface MovementFingerprintInput {
-  txFingerprint: string; // tx:v2:source_name:account_id:external_id
-  movementType: 'inflow' | 'outflow' | 'fee';
-  position: number; // 0-based index within movements of this type
 }

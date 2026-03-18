@@ -3,7 +3,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { createTransaction, createTransactionWithFee } from '../../../../__tests__/test-utils.js';
+import { buildTransaction, createTransaction, createTransactionWithFee } from '../../../../__tests__/test-utils.js';
 import { USRules } from '../../../jurisdictions/us/rules.js';
 import type { CostBasisConfig } from '../../../model/cost-basis-config.js';
 import { LotMatcher } from '../../matching/lot-matcher.js';
@@ -138,29 +138,14 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should return error for crypto transactions missing prices', async () => {
-      const transactionWithoutPrice: Transaction = {
+      const transactionWithoutPrice = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
-        timestamp: new Date('2023-01-01').getTime(),
-        source: 'test',
-        sourceType: 'blockchain' as const,
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1'),
-              // Missing priceAtTxTime
-            },
-          ],
-          outflows: [],
-        },
-        operation: { category: 'transfer', type: 'deposit' },
-        fees: [],
-      };
+        sourceType: 'blockchain',
+        category: 'transfer',
+        type: 'deposit',
+        inflows: [{ assetSymbol: 'BTC', amount: '1' }],
+      });
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -179,41 +164,13 @@ describe('calculateScopedCostBasis', () => {
 
     it('should allow fiat movements without prices', async () => {
       // Transaction with BTC inflow (with price) and USD outflow (without price)
-      const transaction: Transaction = {
+      const transaction = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
-        timestamp: new Date('2023-01-01').getTime(),
-        source: 'test',
-        sourceType: 'blockchain' as const,
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
-                source: 'test',
-                fetchedAt: new Date('2023-01-01'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [
-            {
-              assetId: 'test:usd',
-              assetSymbol: 'USD' as Currency,
-              grossAmount: parseDecimal('30000'),
-              // Missing priceAtTxTime - but should be OK since USD is fiat
-            },
-          ],
-        },
-        operation: { category: 'trade', type: 'buy' },
-        fees: [],
-      };
+        sourceType: 'blockchain',
+        inflows: [{ assetSymbol: 'BTC', amount: '1', price: '30000' }],
+        outflows: [{ assetSymbol: 'USD', amount: '30000' }],
+      });
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -442,34 +399,13 @@ describe('calculateScopedCostBasis', () => {
       const transactionsWithEUR: Transaction[] = [
         createTransaction(1, '2023-01-01T00:00:00Z', [{ assetSymbol: 'BTC' as Currency, amount: '1', price: '30000' }]),
         // This transaction has EUR price instead of USD
-        {
+        buildTransaction({
           id: 2,
-          accountId: 1,
-          externalId: 'ext-2',
           datetime: '2023-06-01T00:00:00Z',
-          timestamp: new Date('2023-06-01').getTime(),
-          source: 'test',
-          sourceType: 'blockchain' as const,
-          status: 'success',
-          movements: {
-            inflows: [],
-            outflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('0.5'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('35000'), currency: 'EUR' as Currency },
-                  source: 'test',
-                  fetchedAt: new Date('2023-06-01'),
-                  granularity: 'exact',
-                },
-              },
-            ],
-          },
-          operation: { category: 'trade', type: 'sell' },
-          fees: [],
-        },
+          sourceType: 'blockchain',
+          type: 'sell',
+          outflows: [{ assetSymbol: 'BTC', amount: '0.5', price: '35000', priceCurrency: 'EUR' }],
+        }),
       ];
 
       const config: CostBasisConfig = {
@@ -491,32 +427,11 @@ describe('calculateScopedCostBasis', () => {
     });
 
     it('should reject transactions with non-USD prices in fees', async () => {
-      const transactionWithEURFee: Transaction = {
+      const transactionWithEURFee = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2023-01-01T00:00:00Z',
-        timestamp: new Date('2023-01-01').getTime(),
-        source: 'test',
-        sourceType: 'blockchain' as const,
-        status: 'success',
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
-                source: 'test',
-                fetchedAt: new Date('2023-01-01'),
-                granularity: 'exact',
-              },
-            },
-          ],
-          outflows: [],
-        },
-        operation: { category: 'trade', type: 'buy' },
+        sourceType: 'blockchain',
+        inflows: [{ assetSymbol: 'BTC', amount: '1', price: '30000' }],
         fees: [
           {
             scope: 'platform',
@@ -532,7 +447,7 @@ describe('calculateScopedCostBasis', () => {
             },
           },
         ],
-      };
+      });
 
       const config: CostBasisConfig = {
         method: 'fifo',
@@ -551,62 +466,19 @@ describe('calculateScopedCostBasis', () => {
 
     it('should accept transactions with all USD prices', async () => {
       const transactionsWithUSD: Transaction[] = [
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2023-01-01T00:00:00Z',
-          timestamp: new Date('2023-01-01').getTime(),
-          source: 'test',
-          sourceType: 'blockchain' as const,
-          status: 'success',
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('30000'), currency: 'USD' as Currency },
-                  source: 'test',
-                  fetchedAt: new Date('2023-01-01'),
-                  granularity: 'exact',
-                },
-              },
-            ],
-            outflows: [],
-          },
-          operation: { category: 'trade', type: 'buy' },
-          fees: [],
-        },
-        {
+          sourceType: 'blockchain',
+          inflows: [{ assetSymbol: 'BTC', amount: '1', price: '30000' }],
+        }),
+        buildTransaction({
           id: 2,
-          accountId: 1,
-          externalId: 'ext-2',
           datetime: '2023-06-01T00:00:00Z',
-          timestamp: new Date('2023-06-01').getTime(),
-          source: 'test',
-          sourceType: 'blockchain' as const,
-          status: 'success',
-          movements: {
-            inflows: [],
-            outflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('0.5'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('40000'), currency: 'USD' as Currency },
-                  source: 'test',
-                  fetchedAt: new Date('2023-06-01'),
-                  granularity: 'exact',
-                },
-              },
-            ],
-          },
-          operation: { category: 'trade', type: 'sell' },
-          fees: [],
-        },
+          sourceType: 'blockchain',
+          type: 'sell',
+          outflows: [{ assetSymbol: 'BTC', amount: '0.5', price: '40000' }],
+        }),
       ];
 
       const config: CostBasisConfig = {
@@ -627,34 +499,14 @@ describe('calculateScopedCostBasis', () => {
       // Create 7 transactions with non-USD prices
       const transactionsWithMultipleEUR: Transaction[] = [];
       for (let i = 1; i <= 7; i++) {
-        transactionsWithMultipleEUR.push({
-          id: i,
-          accountId: 1,
-          externalId: `ext-${i}`,
-          datetime: '2023-01-01T00:00:00Z',
-          timestamp: new Date('2023-01-01').getTime(),
-          source: 'test',
-          sourceType: 'blockchain' as const,
-          status: 'success',
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('30000'), currency: 'EUR' as Currency },
-                  source: 'test',
-                  fetchedAt: new Date('2023-01-01'),
-                  granularity: 'exact',
-                },
-              },
-            ],
-            outflows: [],
-          },
-          operation: { category: 'trade', type: 'buy' },
-          fees: [],
-        });
+        transactionsWithMultipleEUR.push(
+          buildTransaction({
+            id: i,
+            datetime: '2023-01-01T00:00:00Z',
+            sourceType: 'blockchain',
+            inflows: [{ assetSymbol: 'BTC', amount: '1', price: '30000', priceCurrency: 'EUR' }],
+          })
+        );
       }
 
       const config: CostBasisConfig = {

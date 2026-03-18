@@ -9,6 +9,8 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { materializeTestTransaction } from '../../__tests__/test-utils.js';
+
 import {
   classifyMovementPrice,
   createNormalizedPrice,
@@ -17,9 +19,15 @@ import {
   validateFxRate,
 } from './price-normalization-utils.js';
 
+function createPersistedTransaction(
+  transaction: Omit<Transaction, 'txFingerprint'> & { txFingerprint?: string | undefined }
+): Transaction {
+  return materializeTestTransaction(transaction);
+}
+
 describe('extractMovementsNeedingNormalization', () => {
   it('identifies EUR prices needing normalization', () => {
-    const tx: Transaction = {
+    const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -52,7 +60,7 @@ describe('extractMovementsNeedingNormalization', () => {
       },
       fees: [],
       operation: { category: 'trade', type: 'buy' },
-    };
+    });
 
     const result = extractMovementsNeedingNormalization(tx);
 
@@ -63,7 +71,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('skips USD prices (already normalized)', () => {
-    const tx: Transaction = {
+    const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -96,7 +104,7 @@ describe('extractMovementsNeedingNormalization', () => {
       },
       fees: [],
       operation: { category: 'trade', type: 'buy' },
-    };
+    });
 
     const result = extractMovementsNeedingNormalization(tx);
 
@@ -107,7 +115,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies crypto prices in price field (unexpected)', () => {
-    const tx: Transaction = {
+    const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -140,7 +148,7 @@ describe('extractMovementsNeedingNormalization', () => {
       },
       fees: [],
       operation: { category: 'trade', type: 'swap' },
-    };
+    });
 
     const result = extractMovementsNeedingNormalization(tx);
 
@@ -151,7 +159,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('identifies multiple currencies needing normalization', () => {
-    const tx: Transaction = {
+    const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -189,7 +197,7 @@ describe('extractMovementsNeedingNormalization', () => {
       },
       fees: [],
       operation: { category: 'trade', type: 'buy' },
-    };
+    });
 
     const result = extractMovementsNeedingNormalization(tx);
 
@@ -198,7 +206,7 @@ describe('extractMovementsNeedingNormalization', () => {
   });
 
   it('handles movements without prices', () => {
-    const tx: Transaction = {
+    const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
       externalId: 'test-1',
@@ -220,7 +228,7 @@ describe('extractMovementsNeedingNormalization', () => {
       },
       fees: [],
       operation: { category: 'transfer', type: 'transfer' },
-    };
+    });
 
     const result = extractMovementsNeedingNormalization(tx);
 

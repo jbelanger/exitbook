@@ -1014,8 +1014,8 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
     </Text>,
     <Text key="external">
       {'  '}
-      <Text dimColor>External: </Text>
-      {issue.externalId}
+      <Text dimColor>Reference: </Text>
+      {issue.txFingerprint}
     </Text>,
     <Text key="next">
       {'  '}

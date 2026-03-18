@@ -1,8 +1,9 @@
-import type { Transaction } from '@exitbook/core';
-import { type Currency, parseDecimal } from '@exitbook/core';
+import type { Currency } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { buildTransaction } from '../../../../__tests__/test-utils.js';
 import type { PriceValidationResult } from '../price-validation.js';
 import {
   assertPriceDataQuality,
@@ -16,47 +17,12 @@ import {
 describe('price-validation', () => {
   describe('collectPricedEntities', () => {
     it('should collect all inflows, outflows, and fees', () => {
-      const tx: Transaction = {
+      const tx = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
-        timestamp: 1705316400000,
-        source: 'test',
         sourceType: 'blockchain',
-        status: 'success',
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              netAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                source: 'test-provider',
-                fetchedAt: new Date('2024-01-15T10:00:00Z'),
-              },
-            },
-          ],
-          outflows: [
-            {
-              assetId: 'test:usd',
-              assetSymbol: 'USD' as Currency,
-              grossAmount: parseDecimal('50000'),
-              netAmount: parseDecimal('50000'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
-                source: 'test-provider',
-                fetchedAt: new Date('2024-01-15T10:00:00Z'),
-              },
-            },
-          ],
-        },
+        inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
+        outflows: [{ assetSymbol: 'USD', amount: '50000', price: '1', priceSource: 'test-provider' }],
         fees: [
           {
             assetId: 'test:usd',
@@ -71,7 +37,7 @@ describe('price-validation', () => {
             },
           },
         ],
-      };
+      });
 
       const entities = collectPricedEntities([tx]);
 
@@ -100,32 +66,12 @@ describe('price-validation', () => {
     });
 
     it('should handle missing price data gracefully', () => {
-      const tx: Transaction = {
+      const tx = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
-        timestamp: 1705316400000,
-        source: 'test',
         sourceType: 'blockchain',
-        status: 'success',
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              netAmount: parseDecimal('1.0'),
-              // No priceAtTxTime
-            },
-          ],
-        },
-        fees: [],
-      };
+        inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+      });
 
       const entities = collectPricedEntities([tx]);
 
@@ -138,39 +84,22 @@ describe('price-validation', () => {
     });
 
     it('should extract FX metadata when present', () => {
-      const tx: Transaction = {
+      const tx = buildTransaction({
         id: 1,
-        accountId: 1,
-        externalId: 'ext-1',
         datetime: '2024-01-15T10:00:00Z',
-        timestamp: 1705316400000,
-        source: 'test',
         sourceType: 'blockchain',
-        status: 'success',
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-        movements: {
-          inflows: [
-            {
-              assetId: 'test:btc',
-              assetSymbol: 'BTC' as Currency,
-              grossAmount: parseDecimal('1.0'),
-              netAmount: parseDecimal('1.0'),
-              priceAtTxTime: {
-                price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                source: 'test-provider',
-                fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                fxRateToUSD: parseDecimal('1.35'),
-                fxSource: 'ECB',
-                fxTimestamp: new Date('2024-01-15T10:00:00Z'),
-              },
-            },
-          ],
-        },
-        fees: [],
-      };
+        inflows: [
+          {
+            assetSymbol: 'BTC',
+            amount: '1.0',
+            price: '50000',
+            priceSource: 'test-provider',
+            fxRateToUSD: '1.35',
+            fxSource: 'ECB',
+            fxTimestamp: new Date('2024-01-15T10:00:00Z'),
+          },
+        ],
+      });
 
       const entities = collectPricedEntities([tx]);
 
@@ -192,32 +121,12 @@ describe('price-validation', () => {
   describe('validatePriceCompleteness', () => {
     it('should find entities with missing prices', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                // No price
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+        }),
       ]);
 
       const issues = validatePriceCompleteness(entities);
@@ -231,36 +140,12 @@ describe('price-validation', () => {
 
     it('should return empty array when all prices present', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
+        }),
       ]);
 
       const issues = validatePriceCompleteness(entities);
@@ -272,36 +157,20 @@ describe('price-validation', () => {
   describe('validatePriceCurrency', () => {
     it('should find entities with non-USD prices', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('45000'), currency: 'EUR' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '45000',
+              priceCurrency: 'EUR',
+              priceSource: 'test-provider',
+            },
+          ],
+        }),
       ]);
 
       const issues = validatePriceCurrency(entities);
@@ -315,36 +184,12 @@ describe('price-validation', () => {
 
     it('should accept USD prices', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
+        }),
       ]);
 
       const issues = validatePriceCurrency(entities);
@@ -354,36 +199,20 @@ describe('price-validation', () => {
 
     it('should handle case-insensitive USD check', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'usd' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '50000',
+              priceCurrency: 'usd',
+              priceSource: 'test-provider',
+            },
+          ],
+        }),
       ]);
 
       const issues = validatePriceCurrency(entities);
@@ -395,39 +224,22 @@ describe('price-validation', () => {
   describe('validateFxAuditTrail', () => {
     it('should find entities with incomplete FX metadata', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: parseDecimal('1.35'),
-                  fxSource: 'ECB',
-                  // Missing fxTimestamp
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '50000',
+              priceSource: 'test-provider',
+              fxRateToUSD: '1.35',
+              fxSource: 'ECB',
+              // Missing fxTimestamp
+            },
+          ],
+        }),
       ]);
 
       const issues = validateFxAuditTrail(entities);
@@ -441,39 +253,22 @@ describe('price-validation', () => {
 
     it('should accept complete FX metadata', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: parseDecimal('1.35'),
-                  fxSource: 'ECB',
-                  fxTimestamp: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '50000',
+              priceSource: 'test-provider',
+              fxRateToUSD: '1.35',
+              fxSource: 'ECB',
+              fxTimestamp: new Date('2024-01-15T10:00:00Z'),
+            },
+          ],
+        }),
       ]);
 
       const issues = validateFxAuditTrail(entities);
@@ -483,37 +278,12 @@ describe('price-validation', () => {
 
     it('should not flag entities without FX metadata', () => {
       const entities = collectPricedEntities([
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  // No fx fields at all - this is fine for native USD prices
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
+        }),
       ]);
 
       const issues = validateFxAuditTrail(entities);
@@ -622,50 +392,14 @@ describe('price-validation', () => {
 
   describe('assertPriceDataQuality', () => {
     it('should return ok for valid transactions', () => {
-      const transactions: Transaction[] = [
-        {
+      const transactions = [
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-            outflows: [
-              {
-                assetId: 'test:usd',
-                assetSymbol: 'USD' as Currency,
-                grossAmount: parseDecimal('50000'),
-                netAmount: parseDecimal('50000'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
+          outflows: [{ assetSymbol: 'USD', amount: '50000', price: '1', priceSource: 'test-provider' }],
+        }),
       ];
 
       const result = assertPriceDataQuality(transactions);
@@ -674,33 +408,13 @@ describe('price-validation', () => {
     });
 
     it('should return error for missing prices', () => {
-      const transactions: Transaction[] = [
-        {
+      const transactions = [
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                // No price
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+        }),
       ];
 
       const result = assertPriceDataQuality(transactions);
@@ -711,37 +425,21 @@ describe('price-validation', () => {
     });
 
     it('should return error for non-USD prices', () => {
-      const transactions: Transaction[] = [
-        {
+      const transactions = [
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('45000'), currency: 'EUR' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '45000',
+              priceCurrency: 'EUR',
+              priceSource: 'test-provider',
+            },
+          ],
+        }),
       ];
 
       const result = assertPriceDataQuality(transactions);
@@ -752,40 +450,23 @@ describe('price-validation', () => {
     });
 
     it('should return error for incomplete FX metadata', () => {
-      const transactions: Transaction[] = [
-        {
+      const transactions = [
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                  fxRateToUSD: parseDecimal('1.35'),
-                  fxSource: 'ECB',
-                  // Missing fxTimestamp
-                },
-              },
-            ],
-          },
-          fees: [],
-        },
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '50000',
+              priceSource: 'test-provider',
+              fxRateToUSD: '1.35',
+              fxSource: 'ECB',
+              // Missing fxTimestamp
+            },
+          ],
+        }),
       ];
 
       const result = assertPriceDataQuality(transactions);
@@ -796,44 +477,21 @@ describe('price-validation', () => {
     });
 
     it('should aggregate multiple issues', () => {
-      const transactions: Transaction[] = [
-        {
+      const transactions = [
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'ext-1',
           datetime: '2024-01-15T10:00:00Z',
-          timestamp: 1705316400000,
-          source: 'test',
           sourceType: 'blockchain',
-          status: 'success',
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1.0'),
-                netAmount: parseDecimal('1.0'),
-                // Missing price
-              },
-            ],
-            outflows: [
-              {
-                assetId: 'test:eth',
-                assetSymbol: 'ETH' as Currency,
-                grossAmount: parseDecimal('10.0'),
-                netAmount: parseDecimal('10.0'),
-                priceAtTxTime: {
-                  price: { amount: parseDecimal('3000'), currency: 'EUR' as Currency },
-                  source: 'test-provider',
-                  fetchedAt: new Date('2024-01-15T10:00:00Z'),
-                },
-              },
-            ],
-          },
+          inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
+          outflows: [
+            {
+              assetSymbol: 'ETH',
+              amount: '10.0',
+              price: '3000',
+              priceCurrency: 'EUR',
+              priceSource: 'test-provider',
+            },
+          ],
           fees: [
             {
               assetId: 'test:usd',
@@ -851,7 +509,7 @@ describe('price-validation', () => {
               },
             },
           ],
-        },
+        }),
       ];
 
       const result = assertPriceDataQuality(transactions);

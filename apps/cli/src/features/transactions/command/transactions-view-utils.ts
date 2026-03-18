@@ -144,7 +144,7 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
     id: tx.id,
     source: tx.source,
     sourceType: tx.blockchain ? 'blockchain' : 'exchange',
-    externalId: tx.externalId ?? undefined,
+    txFingerprint: tx.txFingerprint,
     datetime: tx.datetime,
 
     operationCategory: tx.operation.category,

@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
 
-import type { AssetMovement, FeeMovement, OperationType, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type {
+  AssetMovement,
+  FeeMovement,
+  OperationCategory,
+  OperationType,
+  PriceAtTxTime,
+  Transaction,
+} from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
@@ -35,30 +42,141 @@ export function seedTxFingerprint(params: {
 export function materializeTestTransaction(
   transaction: Omit<Transaction, 'txFingerprint'> & { txFingerprint?: string | undefined }
 ): Transaction {
-  const externalId = transaction.externalId.trim() || `tx-${transaction.id}`;
+  const providedExternalId = transaction.externalId?.trim();
+  const identityReference =
+    providedExternalId || transaction.blockchain?.transaction_hash?.trim() || `tx-${transaction.id}`;
+  const providedTxFingerprint = transaction.txFingerprint?.trim();
   const blockchain =
     transaction.sourceType === 'blockchain'
       ? (transaction.blockchain ?? {
           name: transaction.source,
-          transaction_hash: externalId,
+          transaction_hash: identityReference,
           is_confirmed: true,
         })
       : transaction.blockchain;
 
   return {
     ...transaction,
-    externalId,
+    ...(providedExternalId ? { externalId: providedExternalId } : {}),
     blockchain,
     txFingerprint:
-      transaction.txFingerprint?.trim() ||
+      providedTxFingerprint ||
       seedTxFingerprint({
         accountId: transaction.accountId,
         blockchainTransactionHash: blockchain?.transaction_hash,
-        externalId,
+        externalId: identityReference,
         source: transaction.source,
         sourceType: transaction.sourceType,
       }),
   };
+}
+
+/** Shorthand movement description for buildTransaction. Omit `price` to create an unpriced movement. */
+export interface TestMovementInput {
+  assetSymbol: string;
+  amount: string;
+  assetId?: string | undefined;
+  netAmount?: string | undefined;
+  price?: string | undefined;
+  priceCurrency?: string | undefined;
+  priceSource?: string | undefined;
+  granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
+  quotedPrice?: { amount: string; currency: string } | undefined;
+  fxRateToUSD?: string | undefined;
+  fxSource?: string | undefined;
+  fxTimestamp?: Date | undefined;
+}
+
+function buildTestMovement(m: TestMovementInput, datetime: string): AssetMovement {
+  const movement: AssetMovement = {
+    assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
+    assetSymbol: m.assetSymbol as Currency,
+    grossAmount: parseDecimal(m.amount),
+  };
+
+  if (m.netAmount !== undefined) {
+    movement.netAmount = parseDecimal(m.netAmount);
+  }
+
+  if (m.price !== undefined) {
+    const priceAtTxTime: PriceAtTxTime = {
+      price: { amount: parseDecimal(m.price), currency: (m.priceCurrency ?? 'USD') as Currency },
+      source: m.priceSource ?? 'manual',
+      fetchedAt: new Date(datetime),
+      granularity: m.granularity ?? 'exact',
+    };
+
+    if (m.quotedPrice) {
+      priceAtTxTime.quotedPrice = {
+        amount: parseDecimal(m.quotedPrice.amount),
+        currency: m.quotedPrice.currency as Currency,
+      };
+    }
+    if (m.fxRateToUSD !== undefined) {
+      priceAtTxTime.fxRateToUSD = parseDecimal(m.fxRateToUSD);
+    }
+    if (m.fxSource !== undefined) {
+      priceAtTxTime.fxSource = m.fxSource;
+    }
+    if (m.fxTimestamp !== undefined) {
+      priceAtTxTime.fxTimestamp = m.fxTimestamp;
+    }
+
+    movement.priceAtTxTime = priceAtTxTime;
+  }
+
+  return movement;
+}
+
+/**
+ * Flexible transaction builder with concise movement shorthand.
+ * Covers arbitrary sources, assetIds, price currencies, accountIds, and blockchain metadata.
+ * Funnels through materializeTestTransaction for txFingerprint derivation.
+ */
+export function buildTransaction(params: {
+  accountId?: number | undefined;
+  blockchain?: Transaction['blockchain'] | undefined;
+  category?: OperationCategory | undefined;
+  datetime: string;
+  fees?: FeeMovement[] | undefined;
+  id: number;
+  inflows?: TestMovementInput[] | undefined;
+  outflows?: TestMovementInput[] | undefined;
+  source?: string | undefined;
+  sourceType?: 'exchange' | 'blockchain' | undefined;
+  type?: OperationType | undefined;
+}): Transaction {
+  const source = params.source ?? 'test';
+  const sourceType = params.sourceType ?? 'exchange';
+  const externalId = `tx-${params.id}`;
+
+  const blockchain =
+    params.blockchain !== undefined
+      ? params.blockchain
+      : sourceType === 'blockchain'
+        ? { name: source, transaction_hash: externalId, is_confirmed: true }
+        : undefined;
+
+  return materializeTestTransaction({
+    id: params.id,
+    accountId: params.accountId ?? 1,
+    externalId,
+    datetime: params.datetime,
+    timestamp: new Date(params.datetime).getTime(),
+    source,
+    sourceType,
+    status: 'success',
+    movements: {
+      inflows: (params.inflows ?? []).map((m) => buildTestMovement(m, params.datetime)),
+      outflows: (params.outflows ?? []).map((m) => buildTestMovement(m, params.datetime)),
+    },
+    fees: params.fees ?? [],
+    operation: {
+      category: params.category ?? 'trade',
+      type: params.type ?? 'buy',
+    },
+    blockchain,
+  });
 }
 
 /**
@@ -121,10 +239,11 @@ export function createFeeMovement(
   assetSymbol: string,
   amount: string,
   priceAmount?: string,
-  priceCurrency = 'USD'
+  priceCurrency = 'USD',
+  assetId?: string
 ): FeeMovement {
   return {
-    assetId: `test:${assetSymbol.toLowerCase()}`,
+    assetId: assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     scope,
     settlement,
@@ -140,6 +259,7 @@ export function createFee(
   assetSymbol: string,
   amount: string,
   options?: {
+    assetId?: string;
     currency?: string;
     priceAmount?: string;
     scope?: 'platform' | 'network';
@@ -147,7 +267,7 @@ export function createFee(
   }
 ): FeeMovement {
   return {
-    assetId: `test:${assetSymbol.toLowerCase()}`,
+    assetId: options?.assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',

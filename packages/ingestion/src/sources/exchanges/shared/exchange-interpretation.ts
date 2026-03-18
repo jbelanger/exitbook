@@ -18,7 +18,6 @@ export interface ExchangeFeeDraft {
 }
 
 export interface ConfirmedExchangeTransactionDraft {
-  externalId: string;
   source: string;
   timestamp: number;
   status: TransactionStatus;

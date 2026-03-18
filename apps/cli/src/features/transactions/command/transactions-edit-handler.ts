@@ -3,13 +3,17 @@ import {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,
   type OverrideStore,
-  type TransactionIdentity,
 } from '@exitbook/data';
 
 import type { CommandDatabase } from '../../shared/command-runtime.js';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type TransactionEditQueryDatabase = Pick<CommandDatabase, 'transactions'>;
+
+interface TransactionIdentity {
+  source: string;
+  txFingerprint: string;
+}
 
 export interface TransactionNoteSetParams {
   message: string;
@@ -25,11 +29,11 @@ export interface TransactionNoteClearParams {
 export interface TransactionNoteEditResult {
   action: 'set' | 'clear';
   changed: boolean;
-  externalId: string;
   note?: string | undefined;
   reason?: string | undefined;
   source: string;
   transactionId: number;
+  txFingerprint: string;
 }
 
 export class TransactionsEditHandler {
@@ -54,11 +58,11 @@ export class TransactionsEditHandler {
       return ok({
         action: 'set',
         changed: false,
-        externalId: identityResult.value.externalId,
         note: params.message,
         reason: params.reason,
         source: identityResult.value.source,
         transactionId: params.transactionId,
+        txFingerprint: identityResult.value.txFingerprint,
       });
     }
 
@@ -84,11 +88,11 @@ export class TransactionsEditHandler {
     return ok({
       action: 'set',
       changed: true,
-      externalId: identityResult.value.externalId,
       note: params.message,
       reason: params.reason,
       source: identityResult.value.source,
       transactionId: params.transactionId,
+      txFingerprint: identityResult.value.txFingerprint,
     });
   }
 
@@ -107,10 +111,10 @@ export class TransactionsEditHandler {
       return ok({
         action: 'clear',
         changed: false,
-        externalId: identityResult.value.externalId,
         reason: params.reason,
         source: identityResult.value.source,
         transactionId: params.transactionId,
+        txFingerprint: identityResult.value.txFingerprint,
       });
     }
 
@@ -135,10 +139,10 @@ export class TransactionsEditHandler {
     return ok({
       action: 'clear',
       changed: true,
-      externalId: identityResult.value.externalId,
       reason: params.reason,
       source: identityResult.value.source,
       transactionId: params.transactionId,
+      txFingerprint: identityResult.value.txFingerprint,
     });
   }
 
@@ -186,7 +190,6 @@ export class TransactionsEditHandler {
     }
 
     return ok({
-      externalId: transaction.externalId,
       source: transaction.source,
       txFingerprint: transaction.txFingerprint,
     });

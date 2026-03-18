@@ -502,7 +502,6 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     const timestamp = correlated.transaction.timestamp;
 
     const transaction: ProcessedTransaction = {
-      externalId: correlated.transaction.transactionHash,
       datetime: new Date(timestamp).toISOString(),
       timestamp,
       source: 'near',

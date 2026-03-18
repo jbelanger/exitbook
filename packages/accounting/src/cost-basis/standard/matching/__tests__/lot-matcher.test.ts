@@ -1,9 +1,9 @@
-import { err, type Currency, parseDecimal, type Result, type TransactionLink, type Transaction } from '@exitbook/core';
+import { err, type Result, type TransactionLink, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
-import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../../../__tests__/test-utils.js';
+import { buildTransaction, createFeeMovement, createTransaction } from '../../../../__tests__/test-utils.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import type { AccountingScopedTransaction } from '../build-cost-basis-scoped-transactions.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
@@ -619,87 +619,36 @@ describe('LotMatcher - Fee Handling', () => {
       // The builder should remove the internal inflow and reduce the sender
       // outflow to the external quantity before lot matching runs.
       const transactions: Transaction[] = [
-        {
+        buildTransaction({
           id: 1,
-          accountId: 1,
-          externalId: 'tx1',
           datetime: '2024-01-01T00:00:00Z',
-          timestamp: Date.parse('2024-01-01T00:00:00Z'),
           source: 'exchange',
-          sourceType: 'exchange',
-          status: 'success',
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1'),
-                priceAtTxTime: createPriceAtTxTime('50000'),
-              },
-            ],
-            outflows: [],
-          },
-          fees: [],
-          operation: { category: 'trade', type: 'buy' },
-        },
+          inflows: [{ assetSymbol: 'BTC', amount: '1', assetId: 'test:btc', price: '50000' }],
+        }),
         // Same-hash sender with change output
-        {
+        buildTransaction({
           id: 2,
           accountId: 2, // Different address in same wallet
-          externalId: 'tx2-change',
           datetime: '2024-02-01T00:00:00Z',
-          timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'bitcoin',
           sourceType: 'blockchain',
-          status: 'success',
-          movements: {
-            inflows: [],
-            outflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('1'),
-                priceAtTxTime: createPriceAtTxTime('55000'),
-              },
-            ],
-          },
-          blockchain: {
-            name: 'bitcoin',
-            transaction_hash: 'same-hash-utxo',
-            is_confirmed: true,
-          },
-          fees: [],
-          operation: { category: 'transfer', type: 'withdrawal' },
-        },
+          category: 'transfer',
+          type: 'withdrawal',
+          outflows: [{ assetSymbol: 'BTC', amount: '1', assetId: 'test:btc', price: '55000' }],
+          blockchain: { name: 'bitcoin', transaction_hash: 'same-hash-utxo', is_confirmed: true },
+        }),
         // Same-hash internal change output
-        {
+        buildTransaction({
           id: 3,
           accountId: 3, // Different address in same wallet
-          externalId: 'tx3-change',
           datetime: '2024-02-01T00:00:00Z',
-          timestamp: Date.parse('2024-02-01T00:00:00Z'),
           source: 'bitcoin',
           sourceType: 'blockchain',
-          status: 'success',
-          movements: {
-            inflows: [
-              {
-                assetId: 'test:btc',
-                assetSymbol: 'BTC' as Currency,
-                grossAmount: parseDecimal('0.5'), // Change input
-                priceAtTxTime: createPriceAtTxTime('55000'),
-              },
-            ],
-            outflows: [],
-          },
-          blockchain: {
-            name: 'bitcoin',
-            transaction_hash: 'same-hash-utxo',
-            is_confirmed: true,
-          },
-          fees: [],
-          operation: { category: 'transfer', type: 'deposit' },
-        },
+          category: 'transfer',
+          type: 'deposit',
+          inflows: [{ assetSymbol: 'BTC', amount: '0.5', assetId: 'test:btc', price: '55000' }], // Change input
+          blockchain: { name: 'bitcoin', transaction_hash: 'same-hash-utxo', is_confirmed: true },
+        }),
       ];
 
       const result = await matchTransactions(transactions, [], {

@@ -1,2 +1,2 @@
 export * from './override.js';
-export * from './override-utils.js';
+export { computeResolvedLinkFingerprint } from './override-utils.js';

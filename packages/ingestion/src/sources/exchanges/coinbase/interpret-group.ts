@@ -164,7 +164,6 @@ function buildDraft(
   const networkName = blockchainEvent?.providerHints.networkHint?.trim();
 
   return {
-    externalId: primaryEvent.providerEventId,
     source: 'coinbase',
     timestamp: primaryEvent.occurredAt,
     status: resolveGroupStatus(group.events),

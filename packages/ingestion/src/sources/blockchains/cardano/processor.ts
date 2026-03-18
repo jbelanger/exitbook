@@ -135,7 +135,6 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
         }
 
         const processedTransaction: ProcessedTransaction = {
-          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'cardano',
@@ -210,7 +209,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
         transactions.push(processedTransaction);
 
         this.logger.debug(
-          `Successfully processed transaction ${processedTransaction.externalId} - Type: ${transactionType}, Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
+          `Successfully processed transaction ${normalizedTx.id} - Type: ${transactionType}, Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;

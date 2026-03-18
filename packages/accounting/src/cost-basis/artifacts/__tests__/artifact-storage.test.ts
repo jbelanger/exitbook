@@ -2,6 +2,7 @@ import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../../workflow/cost-basis-workflow.js';
@@ -24,7 +25,7 @@ function createAcquisitionTransaction(params: {
   timestamp: string;
   unitPrice: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -51,7 +52,7 @@ function createAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  };
+  });
 }
 
 function createDispositionTransaction(params: {
@@ -63,7 +64,7 @@ function createDispositionTransaction(params: {
   timestamp: string;
   unitPrice: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -90,7 +91,7 @@ function createDispositionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'sell' },
-  };
+  });
 }
 
 function createStore(transactions: Transaction[]): ICostBasisContextReader {

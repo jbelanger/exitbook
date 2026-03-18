@@ -4,6 +4,7 @@ import { err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import type { IFxRateProvider } from '../shared/types.js';
 
@@ -29,7 +30,7 @@ function makeTx(
   }
 ): Transaction {
   const id = nextId++;
-  return {
+  return materializeTestTransaction({
     id,
     accountId: 1,
     externalId: `test-${id}`,
@@ -41,7 +42,7 @@ function makeTx(
     operation: { category: 'trade', type: 'buy' },
     fees: [],
     ...overrides,
-  };
+  });
 }
 
 // ── Mock store ──

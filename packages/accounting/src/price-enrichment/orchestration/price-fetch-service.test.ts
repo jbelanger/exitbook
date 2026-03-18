@@ -6,6 +6,7 @@ import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import { createAccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 
@@ -20,7 +21,7 @@ function makeTx(
   }
 ): Transaction {
   const id = nextId++;
-  return {
+  return materializeTestTransaction({
     id,
     accountId: 1,
     externalId: `tx-${id}`,
@@ -32,7 +33,7 @@ function makeTx(
     operation: { category: 'trade', type: 'buy' },
     fees: [],
     ...overrides,
-  };
+  });
 }
 
 function createMockStore(transactions: Transaction[]): {

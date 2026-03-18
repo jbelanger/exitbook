@@ -279,19 +279,8 @@ function getSourceReference(transaction: Transaction): { kind: string; value: st
     };
   }
 
-  if (transaction.sourceType === 'exchange' && transaction.externalId) {
-    return {
-      kind: 'exchange_transaction_id',
-      value: transaction.externalId,
-    };
-  }
-
-  if (transaction.externalId) {
-    return {
-      kind: 'internal_reference',
-      value: transaction.externalId,
-    };
-  }
-
-  return undefined;
+  return {
+    kind: 'tx_fingerprint',
+    value: transaction.txFingerprint,
+  };
 }

@@ -4,7 +4,7 @@ import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { vi } from 'vitest';
 
-import { materializeTestTransaction } from '../../../../__tests__/test-utils.js';
+import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
@@ -62,7 +62,7 @@ export const noopLogger: Logger = {
   warn: vi.fn(),
 };
 
-export { materializeTestTransaction };
+export { buildTransaction, materializeTestTransaction };
 
 function computeScopedMovementFingerprint(
   transaction: Transaction,

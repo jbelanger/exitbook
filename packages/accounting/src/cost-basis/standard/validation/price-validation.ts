@@ -62,7 +62,7 @@ export function collectPricedEntities(transactions: Transaction[]): PricedEntity
   const entities: PricedEntity[] = [];
 
   for (const tx of transactions) {
-    const txId = String(tx.id ?? tx.externalId ?? '(unknown)');
+    const txId = String(tx.id ?? tx.txFingerprint ?? '(unknown)');
     const datetime = tx.datetime ?? '(unknown)';
 
     // Collect inflows
@@ -157,7 +157,7 @@ function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransac
   const entities: PricedEntity[] = [];
 
   for (const scopedTransaction of scopedTransactions) {
-    const txId = String(scopedTransaction.tx.id ?? scopedTransaction.tx.externalId ?? '(unknown)');
+    const txId = String(scopedTransaction.tx.id ?? scopedTransaction.tx.txFingerprint ?? '(unknown)');
     const datetime = scopedTransaction.tx.datetime ?? '(unknown)';
 
     for (const movement of scopedTransaction.movements.inflows) {

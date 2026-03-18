@@ -149,7 +149,6 @@ function buildDraft(
   }
 
   return {
-    externalId: primaryEvent.providerEventId,
     source: 'kraken',
     timestamp: primaryEvent.occurredAt,
     status: primaryEvent.status,

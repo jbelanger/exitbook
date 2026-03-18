@@ -75,7 +75,7 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
 }
 
 function buildTransactionReference(transaction: Transaction): string {
-  return transaction.blockchain?.transaction_hash ?? transaction.externalId ?? `tx:${transaction.id}`;
+  return transaction.blockchain?.transaction_hash ?? transaction.txFingerprint ?? `tx:${transaction.id}`;
 }
 
 function countScopedAssetsRequiringReview(

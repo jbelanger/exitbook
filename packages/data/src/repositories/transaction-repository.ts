@@ -24,7 +24,7 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
-import { deriveProcessedTransactionFingerprint, materializeExternalId } from '../utils/transaction-id-utils.js';
+import { deriveProcessedTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -51,7 +51,7 @@ export interface MaterializeTransactionNoteOverridesParams extends TransactionMa
 export interface TransactionSummary {
   id: number;
   accountId: number;
-  externalId: string;
+  txFingerprint: string;
   datetime: string;
   timestamp: number;
   source: string;
@@ -252,7 +252,6 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
 }
 
 interface BuildInsertValuesResult {
-  externalId: string;
   insertValues: Insertable<TransactionsTable>;
   txFingerprint: string;
 }
@@ -380,13 +379,16 @@ async function buildInsertValues(
     }
   }
 
-  const externalId = materializeExternalId(transaction);
-
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
 
-  const validationResult = validatePriceDataForPersistence(inflows, outflows, fees, `externalId ${externalId}`);
+  const validationResult = validatePriceDataForPersistence(
+    inflows,
+    outflows,
+    fees,
+    `transaction ${transaction.source} at ${transaction.datetime}`
+  );
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }
@@ -404,10 +406,8 @@ async function buildInsertValues(
   const txFingerprint = txFingerprintResult.value;
 
   return ok({
-    externalId,
     insertValues: {
       created_at: createdAt ?? new Date().toISOString(),
-      external_id: externalId,
       tx_fingerprint: txFingerprint,
       from_address: transaction.from ?? null,
       account_id: accountId,
@@ -440,7 +440,7 @@ function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSu
   const summary: TransactionSummary = {
     id: row.id,
     accountId: row.account_id,
-    externalId: row.external_id,
+    txFingerprint: row.tx_fingerprint,
     datetime,
     timestamp,
     source: row.source_name,
@@ -1060,7 +1060,6 @@ export class TransactionRepository extends BaseRepository {
     const transaction: Transaction = {
       id: row.id,
       accountId: row.account_id,
-      externalId: row.external_id,
       txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,

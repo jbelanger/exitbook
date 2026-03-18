@@ -85,7 +85,6 @@ export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransactio
         const hasOutflow = !grossOutflowAmount.isZero();
 
         const processedTransaction: ProcessedTransaction = {
-          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,

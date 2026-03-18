@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import type { Transaction } from '@exitbook/core';
+import type { Transaction, TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,9 +14,7 @@ describe('TransactionRepository', () => {
   let db: KyselyDB;
   let repo: TransactionRepository;
 
-  function makePersistedTransaction(
-    overrides: Partial<Omit<Transaction, 'accountId' | 'id'>> = {}
-  ): Omit<Transaction, 'accountId' | 'id'> {
+  function makePersistedTransaction(overrides: Partial<TransactionDraft> = {}): TransactionDraft {
     const source = overrides.source ?? 'ethereum';
     const sourceType = overrides.sourceType ?? 'blockchain';
     const externalId = overrides.externalId ?? 'tx-default';
@@ -80,7 +78,6 @@ describe('TransactionRepository', () => {
             account_id: accountId,
             source_name: sourceName,
             source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
-            external_id: externalId,
             tx_fingerprint: seedTxFingerprint(sourceName, accountId, externalId),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
@@ -138,7 +135,6 @@ describe('TransactionRepository', () => {
             account_id: 1,
             source_name: 'ethereum',
             source_type: 'blockchain',
-            external_id: externalId,
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
@@ -186,7 +182,6 @@ describe('TransactionRepository', () => {
             account_id: 1,
             source_name: 'ethereum',
             source_type: 'blockchain',
-            external_id: externalId,
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
@@ -300,7 +295,7 @@ describe('TransactionRepository', () => {
       const row = await db
         .selectFrom('transactions')
         .selectAll()
-        .where('external_id', '=', 'spam-tx-1')
+        .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-1'))
         .executeTakeFirst();
       const movementRow = await db
         .selectFrom('transaction_movements')
@@ -349,7 +344,7 @@ describe('TransactionRepository', () => {
       const row = await db
         .selectFrom('transactions')
         .selectAll()
-        .where('external_id', '=', 'legit-tx-1')
+        .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'legit-tx-1'))
         .executeTakeFirst();
       expect(row?.is_spam).toBe(0);
       expect(row?.excluded_from_accounting).toBe(0);
@@ -388,7 +383,7 @@ describe('TransactionRepository', () => {
       const row = await db
         .selectFrom('transactions')
         .selectAll()
-        .where('external_id', '=', 'normal-tx-1')
+        .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'normal-tx-1'))
         .executeTakeFirst();
       expect(row?.is_spam).toBe(0);
     });
@@ -418,7 +413,7 @@ describe('TransactionRepository', () => {
       const row = await db
         .selectFrom('transactions')
         .selectAll()
-        .where('external_id', '=', 'spam-tx-2')
+        .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-2'))
         .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
       expect(row?.excluded_from_accounting).toBe(0);
@@ -448,7 +443,7 @@ describe('TransactionRepository', () => {
       const row = await db
         .selectFrom('transactions')
         .selectAll()
-        .where('external_id', '=', 'spam-tx-3')
+        .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-3'))
         .executeTakeFirst();
       expect(row?.is_spam).toBe(1);
       expect(row?.excluded_from_accounting).toBe(0);
@@ -548,7 +543,6 @@ describe('TransactionRepository', () => {
           account_id: 1,
           source_name: 'kraken',
           source_type: 'exchange',
-          external_id: 'tx-1',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
@@ -612,6 +606,7 @@ describe('TransactionRepository', () => {
         id: 1,
         accountId: 1,
         externalId: 'tx-1',
+        txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'kraken',
@@ -681,7 +676,6 @@ describe('TransactionRepository', () => {
           account_id: 1,
           source_name: 'kraken',
           source_type: 'exchange',
-          external_id: 'tx-2',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
@@ -722,6 +716,7 @@ describe('TransactionRepository', () => {
         id: 2,
         accountId: 1,
         externalId: 'tx-2',
+        txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'kraken',
@@ -804,7 +799,6 @@ describe('TransactionRepository', () => {
           account_id: 1,
           source_name: 'kraken',
           source_type: 'exchange',
-          external_id: 'tx-3',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
@@ -845,6 +839,7 @@ describe('TransactionRepository', () => {
         id: 3,
         accountId: 1,
         externalId: 'tx-3',
+        txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'kraken',
@@ -896,7 +891,6 @@ describe('TransactionRepository', () => {
           account_id: 1,
           source_name: 'kraken',
           source_type: 'exchange',
-          external_id: 'tx-4',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
@@ -948,6 +942,7 @@ describe('TransactionRepository', () => {
         id: 999,
         accountId: 1,
         externalId: 'tx-999',
+        txFingerprint: seedTxFingerprint('kraken', 1, 'tx-999'),
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'kraken',
@@ -1003,7 +998,6 @@ describe('TransactionRepository', () => {
           account_id: 1,
           source_name: 'kraken',
           source_type: 'exchange',
-          external_id: 'tx-11',
           tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-11'),
           transaction_status: 'success',
           transaction_datetime: '2025-01-01T00:00:00.000Z',
@@ -1061,7 +1055,6 @@ describe('TransactionRepository', () => {
             account_id: 1,
             source_name: 'kraken',
             source_type: 'exchange',
-            external_id: 'tx-21',
             tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-21'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-02T00:00:00.000Z',
@@ -1085,7 +1078,6 @@ describe('TransactionRepository', () => {
             account_id: 2,
             source_name: 'coinbase',
             source_type: 'exchange',
-            external_id: 'tx-22',
             tx_fingerprint: seedTxFingerprint('coinbase', 2, 'tx-22'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-03T00:00:00.000Z',

@@ -108,7 +108,7 @@ export function convertToCSV(transactions: Transaction[]): string {
 
   const headers = [
     'id',
-    'external_id',
+    'tx_fingerprint',
     'source',
     'operation_category',
     'operation_type',
@@ -133,7 +133,7 @@ export function convertToCSV(transactions: Transaction[]): string {
 
     const values = [
       tx.id ?? '',
-      tx.externalId ?? '',
+      tx.txFingerprint,
       tx.source ?? '',
       tx.operation.category ?? '',
       tx.operation.type ?? '',
@@ -172,7 +172,7 @@ export function convertToNormalizedCSV(
 
   const transactionHeaders = [
     'id',
-    'external_id',
+    'tx_fingerprint',
     'account_id',
     'source',
     'operation_category',
@@ -251,7 +251,7 @@ export function convertToNormalizedCSV(
     transactionLines.push(
       formatCsvLine([
         tx.id,
-        tx.externalId,
+        tx.txFingerprint,
         tx.accountId,
         tx.source,
         tx.operation.category,

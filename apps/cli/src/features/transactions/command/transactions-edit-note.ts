@@ -114,7 +114,7 @@ function printTransactionsEditNoteResult(result: TransactionNoteEditResult): voi
     console.log(result.changed ? 'Transaction note cleared' : 'Transaction note already clear');
   }
 
-  console.log(`   Transaction: #${result.transactionId} (${result.source} / ${result.externalId})`);
+  console.log(`   Transaction: #${result.transactionId} (${result.source} / ${result.txFingerprint})`);
   if (result.note) {
     console.log(`   Note: ${result.note}`);
   }

@@ -135,7 +135,6 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
 
         // Convert to ProcessedTransaction with structured fields
         const processedTransaction: ProcessedTransaction = {
-          externalId: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'solana',
@@ -184,7 +183,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
         transactions.push(processedTransaction);
 
         this.logger.debug(
-          `Successfully processed transaction ${processedTransaction.externalId} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
+          `Successfully processed transaction ${normalizedTx.id} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         const errorMsg = `Error processing normalized transaction: ${String(error)}`;

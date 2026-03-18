@@ -2,6 +2,7 @@ import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
+import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../cost-basis-workflow.js';
@@ -15,7 +16,7 @@ function createAcquisitionTransaction(params: {
   unitPriceCad: string;
   unitPriceCurrency?: Currency | undefined;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -45,7 +46,7 @@ function createAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  };
+  });
 }
 
 function createDispositionTransaction(params: {
@@ -57,7 +58,7 @@ function createDispositionTransaction(params: {
   unitPriceCad: string;
   unitPriceCurrency?: Currency | undefined;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -87,7 +88,7 @@ function createDispositionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'sell' },
-  };
+  });
 }
 
 function createUnpricedAcquisitionTransaction(params: {
@@ -97,7 +98,7 @@ function createUnpricedAcquisitionTransaction(params: {
   quantity: string;
   timestamp: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -118,7 +119,7 @@ function createUnpricedAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  } as Transaction;
+  });
 }
 
 function createStore(): ICostBasisContextReader {

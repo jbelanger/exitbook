@@ -172,7 +172,6 @@ export async function processCorrelatedTransactions<
     const inflows = inflowsResult.value;
     const outflows = outflowsResult.value;
     const processedTransaction: ProcessedTransaction = {
-      externalId: primaryTx.id,
       datetime: new Date(primaryTx.timestamp).toISOString(),
       timestamp: primaryTx.timestamp,
       source: params.chainName,
@@ -231,7 +230,7 @@ export async function processCorrelatedTransactions<
 
     transactions.push(processedTransaction);
     params.logger.debug(
-      `Successfully processed correlated transaction group ${processedTransaction.externalId} (${fundFlow.transactionCount} items)`
+      `Successfully processed correlated transaction group ${primaryTx.id} (${fundFlow.transactionCount} items)`
     );
   }
 

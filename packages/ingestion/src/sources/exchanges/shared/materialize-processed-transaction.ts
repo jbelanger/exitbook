@@ -8,7 +8,6 @@ export function materializeProcessedTransaction(draft: ConfirmedExchangeTransact
   const componentEventIds = draft.evidence.providerEventIds.map((eventId) => eventId.trim()).sort();
 
   return {
-    externalId: draft.externalId,
     datetime: new Date(draft.timestamp).toISOString(),
     timestamp: draft.timestamp,
     source: draft.source,

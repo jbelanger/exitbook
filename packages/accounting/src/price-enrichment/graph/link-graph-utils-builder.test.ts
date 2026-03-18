@@ -15,12 +15,16 @@ function createTransaction(params: {
   outflows?: { amount: string; assetSymbol: string }[];
   source: string;
 }): Transaction {
+  const sourceType: Transaction['sourceType'] =
+    params.source === 'kraken' || params.source === 'coinbase' ? 'exchange' : 'blockchain';
+
   return {
     id: params.id,
     accountId: 1,
     source: params.source,
-    sourceType: 'blockchain' as const,
+    sourceType,
     externalId: `${params.source}-${params.id}`,
+    txFingerprint: `txfp:${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     status: 'success',

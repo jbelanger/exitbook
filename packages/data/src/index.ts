@@ -28,8 +28,6 @@ export type {
   TransactionSummary,
 } from './repositories/index.js';
 
-export { generateDeterministicTransactionHash, materializeTransactionIdentity } from './utils/transaction-id-utils.js';
-export type { TransactionIdentity, TransactionIdentityDraft } from './utils/transaction-id-utils.js';
 export type {
   DatabaseSchema,
   ProjectionStateTable,

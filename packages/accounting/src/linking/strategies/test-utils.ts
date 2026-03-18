@@ -1,5 +1,6 @@
 import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 
+import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 export function createImpossibleMultiSourceAdaHashPartialScenario() {
@@ -143,7 +144,7 @@ function createTransferTransaction(params: {
   const netAmount = parseDecimal(params.amount);
   const feeAmount = params.fees ? parseDecimal(params.fees) : undefined;
 
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId,
     externalId: params.externalId,
@@ -192,5 +193,5 @@ function createTransferTransaction(params: {
       category: 'transfer',
       type: params.operationType ?? 'withdrawal',
     },
-  };
+  });
 }

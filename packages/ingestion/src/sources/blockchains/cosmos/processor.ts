@@ -127,7 +127,6 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         const feeAssetId = feeAssetIdResult.value;
 
         const processedTransaction: ProcessedTransaction = {
-          externalId: transaction.id,
           datetime: new Date(transaction.timestamp).toISOString(),
           timestamp: transaction.timestamp,
           source: this.chainConfig.chainName,

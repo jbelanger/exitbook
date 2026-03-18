@@ -1,6 +1,6 @@
 import type { TransactionLink } from '@exitbook/accounting';
 import type { Currency, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, computeTxFingerprint, parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
@@ -81,6 +81,7 @@ export function createMockTransaction(
     id,
     accountId: 1,
     externalId: `tx-${id}`,
+    txFingerprint: `txfp:test:${id}`,
     source: overrides.source ?? 'test-source',
     sourceType: 'exchange',
     datetime: '2024-01-01T12:00:00Z',
@@ -196,12 +197,14 @@ export function createMockTransactionObjects() {
       accountId: 1,
       source: 'kraken',
       externalId: 'WITHDRAWAL-123',
+      txFingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
     },
     target: {
       id: 2,
       accountId: 2,
       source: 'blockchain:bitcoin',
       externalId: 'abc123',
+      txFingerprint: 'txfp:bitcoin:2:abc123',
     },
   };
 }
@@ -225,6 +228,7 @@ export function createConfirmableTransferFixture(
     id: 1,
     accountId: 1,
     externalId: 'WITHDRAWAL-123',
+    txFingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
     source: 'kraken',
     sourceType: 'exchange',
     datetime: '2024-01-01T12:00:00Z',
@@ -252,6 +256,7 @@ export function createConfirmableTransferFixture(
     id: 2,
     accountId: 2,
     externalId: 'abc123',
+    txFingerprint: 'txfp:bitcoin:2:abc123',
     source: 'bitcoin',
     sourceType: 'blockchain',
     datetime: '2024-01-01T12:30:00Z',
@@ -275,26 +280,8 @@ export function createConfirmableTransferFixture(
     },
   };
 
-  const sourceTxFingerprintResult = computeTxFingerprint({
-    source: sourceTransaction.source,
-    accountId: sourceTransaction.accountId,
-    externalId: sourceTransaction.externalId,
-  });
-  if (sourceTxFingerprintResult.isErr()) {
-    throw sourceTxFingerprintResult.error;
-  }
-
-  const targetTxFingerprintResult = computeTxFingerprint({
-    source: targetTransaction.source,
-    accountId: targetTransaction.accountId,
-    externalId: targetTransaction.externalId,
-  });
-  if (targetTxFingerprintResult.isErr()) {
-    throw targetTxFingerprintResult.error;
-  }
-
   const sourceMovementFingerprintResult = computeMovementFingerprint({
-    txFingerprint: sourceTxFingerprintResult.value,
+    txFingerprint: sourceTransaction.txFingerprint,
     movementType: 'outflow',
     position: 0,
   });
@@ -303,7 +290,7 @@ export function createConfirmableTransferFixture(
   }
 
   const targetMovementFingerprintResult = computeMovementFingerprint({
-    txFingerprint: targetTxFingerprintResult.value,
+    txFingerprint: targetTransaction.txFingerprint,
     movementType: 'inflow',
     position: 0,
   });

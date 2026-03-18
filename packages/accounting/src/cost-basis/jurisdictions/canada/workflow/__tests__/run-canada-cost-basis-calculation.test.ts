@@ -38,6 +38,7 @@ import {
   createCanadaFeeAdjustmentEvent,
   createCanadaFxProvider,
   createCanadaInputContext,
+  materializeTestTransaction,
 } from '../../__tests__/test-utils.js';
 import { runCanadaCostBasisCalculation } from '../run-canada-cost-basis-calculation.js';
 
@@ -49,7 +50,7 @@ function createAcquisitionTransaction(params: {
   timestamp: string;
   unitPriceCad: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -79,7 +80,7 @@ function createAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  };
+  });
 }
 
 function createUnpricedAcquisitionTransaction(params: {
@@ -89,7 +90,7 @@ function createUnpricedAcquisitionTransaction(params: {
   quantity: string;
   timestamp: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     externalId: `tx-${params.id}`,
@@ -110,7 +111,7 @@ function createUnpricedAcquisitionTransaction(params: {
     },
     fees: [],
     operation: { category: 'trade', type: 'buy' },
-  } as Transaction;
+  });
 }
 
 function createBaseInput(endDate = '2025-01-10T23:59:59.999Z') {

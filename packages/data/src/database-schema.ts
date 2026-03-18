@@ -106,8 +106,7 @@ export interface TransactionsTable {
   account_id: number; // FK to accounts.id
   source_name: string;
   source_type: SourceType;
-  external_id: string; // Stable external or generated transaction identity
-  tx_fingerprint: string; // Canonical persisted transaction identity (e.g. tx:v2:kraken:1:WITHDRAWAL-123)
+  tx_fingerprint: string; // Canonical persisted transaction identity
 
   // Transaction metadata
   // Unified status supporting both blockchain ('success', 'pending', 'failed')
