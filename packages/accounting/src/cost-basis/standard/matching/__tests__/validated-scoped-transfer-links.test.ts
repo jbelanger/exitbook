@@ -13,13 +13,12 @@ import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-tra
 import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
 
 function reseedTxFingerprint(transaction: Transaction, identityReference: string): void {
-  transaction.txFingerprint = seedTxFingerprint({
-    accountId: transaction.accountId,
-    blockchainTransactionHash: transaction.blockchain?.transaction_hash,
-    identityReference,
-    source: transaction.source,
-    sourceType: transaction.sourceType,
-  });
+  transaction.txFingerprint = seedTxFingerprint(
+    transaction.source,
+    transaction.sourceType,
+    transaction.accountId,
+    identityReference
+  );
 }
 
 describe('validateScopedTransferLinks', () => {

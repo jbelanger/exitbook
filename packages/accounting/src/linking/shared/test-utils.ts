@@ -111,13 +111,7 @@ export function createTransaction(params: {
           transaction_hash: identityReference,
         })
       : undefined;
-  const txFingerprint = seedTxFingerprint({
-    accountId,
-    blockchainTransactionHash: blockchain?.transaction_hash,
-    identityReference,
-    source: params.source,
-    sourceType,
-  });
+  const txFingerprint = seedTxFingerprint(params.source, sourceType, accountId, identityReference);
 
   return {
     id: params.id,

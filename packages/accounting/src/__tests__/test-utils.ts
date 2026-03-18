@@ -16,25 +16,20 @@ function sha256Hex(material: string): string {
   return createHash('sha256').update(material).digest('hex');
 }
 
-export function seedTxFingerprint(params: {
-  accountId: number;
-  blockchainTransactionHash?: string | undefined;
-  componentEventIds?: string[] | undefined;
-  identityReference: string;
-  source: string;
-  sourceType: 'blockchain' | 'exchange';
-}): string {
+export function seedTxFingerprint(
+  source: string,
+  sourceType: 'blockchain' | 'exchange',
+  accountId: number,
+  identityReference: string
+): string {
   const accountFingerprint = sha256Hex(
-    `${params.sourceType === 'blockchain' ? 'blockchain' : 'exchange-api'}|${params.source}|identifier-${params.accountId}`
+    `${sourceType === 'blockchain' ? 'blockchain' : 'exchange-api'}|${source}|identifier-${accountId}`
   );
 
   const fingerprintMaterial =
-    params.sourceType === 'blockchain'
-      ? `${accountFingerprint}|blockchain|${params.source}|${(params.blockchainTransactionHash ?? params.identityReference).trim()}`
-      : `${accountFingerprint}|exchange|${params.source}|${(params.componentEventIds ?? [params.identityReference])
-          .map((eventId) => eventId.trim())
-          .sort()
-          .join('|')}`;
+    sourceType === 'blockchain'
+      ? `${accountFingerprint}|blockchain|${source}|${identityReference.trim()}`
+      : `${accountFingerprint}|exchange|${source}|${[identityReference.trim()].sort().join('|')}`;
 
   return sha256Hex(fingerprintMaterial);
 }
@@ -64,13 +59,12 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
     blockchain,
     txFingerprint:
       providedTxFingerprint ||
-      seedTxFingerprint({
-        accountId: transactionFields.accountId,
-        blockchainTransactionHash: blockchain?.transaction_hash,
-        identityReference,
-        source: transactionFields.source,
-        sourceType: transactionFields.sourceType,
-      }),
+      seedTxFingerprint(
+        transactionFields.source,
+        transactionFields.sourceType,
+        transactionFields.accountId,
+        identityReference
+      ),
   };
 }
 

@@ -44,22 +44,13 @@ function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amo
 
 function buildMovementFingerprint(params: {
   accountId: number;
-  blockchainTransactionHash?: string | undefined;
-  componentEventIds?: string[] | undefined;
   identityReference: string;
   movementType: 'inflow' | 'outflow';
   position: number;
   source: string;
   sourceType: 'blockchain' | 'exchange';
 }): string {
-  const txFingerprint = seedTxFingerprint({
-    accountId: params.accountId,
-    blockchainTransactionHash: params.blockchainTransactionHash,
-    componentEventIds: params.componentEventIds,
-    identityReference: params.identityReference,
-    source: params.source,
-    sourceType: params.sourceType,
-  });
+  const txFingerprint = seedTxFingerprint(params.source, params.sourceType, params.accountId, params.identityReference);
 
   return assertOk(
     computeMovementFingerprint({
@@ -525,22 +516,20 @@ describe('runCostBasisPipeline', () => {
       sourceAmount: parseDecimal('0.00021'),
       targetAmount: parseDecimal('0.00021'),
       sourceMovementFingerprint: buildMovementFingerprint({
-        blockchainTransactionHash: sender.blockchain?.transaction_hash ?? hash,
         source: sender.source,
+        sourceType: sender.sourceType,
         accountId: sender.accountId,
         identityReference: hash,
         movementType: 'outflow',
         position: 0,
-        sourceType: sender.sourceType,
       }),
       targetMovementFingerprint: buildMovementFingerprint({
-        componentEventIds: [hash],
         source: exchangeDeposit.source,
+        sourceType: exchangeDeposit.sourceType,
         accountId: exchangeDeposit.accountId,
         identityReference: hash,
         movementType: 'inflow',
         position: 0,
-        sourceType: exchangeDeposit.sourceType,
       }),
       linkType: 'blockchain_to_exchange',
       confidenceScore: parseDecimal('1'),
