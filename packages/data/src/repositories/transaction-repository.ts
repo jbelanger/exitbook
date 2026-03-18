@@ -6,6 +6,8 @@ import {
   AssetMovementSchema,
   FeeMovementSchema,
   TransactionNoteSchema,
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
   computeAccountFingerprint,
   type TransactionMaterializationScope,
   computeMovementFingerprint,
@@ -100,7 +102,6 @@ function validatePriceDataForPersistence(
 function assetMovementToRow(
   movement: AssetMovementDraft,
   transactionId: number,
-  position: number,
   movementFingerprint: string,
   movementType: 'inflow' | 'outflow'
 ): Result<Insertable<TransactionMovementsTable>, Error> {
@@ -116,7 +117,6 @@ function assetMovementToRow(
 
   const row: Insertable<TransactionMovementsTable> = {
     transaction_id: transactionId,
-    position,
     movement_type: movementType,
     movement_fingerprint: movementFingerprint,
     asset_id: movement.assetId,
@@ -146,12 +146,10 @@ function assetMovementToRow(
 function feeMovementToRow(
   fee: FeeMovementDraft,
   transactionId: number,
-  position: number,
   movementFingerprint: string
 ): Result<Insertable<TransactionMovementsTable>, Error> {
   const row: Insertable<TransactionMovementsTable> = {
     transaction_id: transactionId,
-    position,
     movement_type: 'fee',
     movement_fingerprint: movementFingerprint,
     asset_id: fee.assetId,
@@ -260,6 +258,12 @@ interface BuildInsertValuesResult {
   txFingerprint: string;
 }
 
+interface CanonicalMovementEntry<TMovement> {
+  canonicalMaterial: string;
+  duplicateOccurrence: number;
+  movement: TMovement;
+}
+
 async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<Result<string, Error>> {
   const account = await db
     .selectFrom('accounts')
@@ -310,64 +314,197 @@ async function resolveExistingTransactionConflict(
 }
 
 /** Caller must have already validated price data via `validatePriceDataForPersistence` (done in `buildInsertValues`). */
-function buildMovementRows(
+function compareCanonicalMovementEntries<TMovement>(
+  left: CanonicalMovementEntry<TMovement>,
+  right: CanonicalMovementEntry<TMovement>
+): number {
+  return (
+    left.canonicalMaterial.localeCompare(right.canonicalMaterial) ||
+    left.duplicateOccurrence - right.duplicateOccurrence
+  );
+}
+
+function buildCanonicalMovementEntries<TMovement>(
+  movements: readonly TMovement[],
+  canonicalMaterialBuilder: (movement: TMovement) => string
+): CanonicalMovementEntry<TMovement>[] {
+  const duplicateCounts = new Map<string, number>();
+  const entries = movements.map((movement) => {
+    const canonicalMaterial = canonicalMaterialBuilder(movement);
+    const duplicateOccurrence = (duplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    duplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      canonicalMaterial,
+      duplicateOccurrence,
+      movement,
+    };
+  });
+
+  return entries.sort(compareCanonicalMovementEntries);
+}
+
+async function buildMovementRows(
   transaction: TransactionDraft,
   transactionId: number,
   txFingerprint: string
-): Result<Insertable<TransactionMovementsTable>[], Error> {
+): Promise<Result<Insertable<TransactionMovementsTable>[], Error>> {
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
 
   const rows: Insertable<TransactionMovementsTable>[] = [];
-  let position = 0;
 
-  for (const [inflowIndex, inflow] of inflows.entries()) {
-    const movementFingerprintResult = computeMovementFingerprint({
-      txFingerprint,
+  const inflowEntries = buildCanonicalMovementEntries(inflows, (movement) =>
+    buildAssetMovementCanonicalMaterial({
       movementType: 'inflow',
-      position: inflowIndex,
+      assetId: movement.assetId,
+      grossAmount: movement.grossAmount,
+      netAmount: movement.netAmount,
+    })
+  );
+  for (const inflowEntry of inflowEntries) {
+    const movementFingerprintResult = await computeMovementFingerprint({
+      txFingerprint,
+      canonicalMaterial: inflowEntry.canonicalMaterial,
+      duplicateOccurrence: inflowEntry.duplicateOccurrence,
     });
     if (movementFingerprintResult.isErr()) {
       return err(movementFingerprintResult.error);
     }
 
-    const result = assetMovementToRow(inflow, transactionId, position++, movementFingerprintResult.value, 'inflow');
+    const result = assetMovementToRow(inflowEntry.movement, transactionId, movementFingerprintResult.value, 'inflow');
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
 
-  for (const [outflowIndex, outflow] of outflows.entries()) {
-    const movementFingerprintResult = computeMovementFingerprint({
-      txFingerprint,
+  const outflowEntries = buildCanonicalMovementEntries(outflows, (movement) =>
+    buildAssetMovementCanonicalMaterial({
       movementType: 'outflow',
-      position: outflowIndex,
+      assetId: movement.assetId,
+      grossAmount: movement.grossAmount,
+      netAmount: movement.netAmount,
+    })
+  );
+  for (const outflowEntry of outflowEntries) {
+    const movementFingerprintResult = await computeMovementFingerprint({
+      txFingerprint,
+      canonicalMaterial: outflowEntry.canonicalMaterial,
+      duplicateOccurrence: outflowEntry.duplicateOccurrence,
     });
     if (movementFingerprintResult.isErr()) {
       return err(movementFingerprintResult.error);
     }
 
-    const result = assetMovementToRow(outflow, transactionId, position++, movementFingerprintResult.value, 'outflow');
+    const result = assetMovementToRow(outflowEntry.movement, transactionId, movementFingerprintResult.value, 'outflow');
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
 
-  for (const [feeIndex, fee] of fees.entries()) {
-    const movementFingerprintResult = computeMovementFingerprint({
+  const feeEntries = buildCanonicalMovementEntries(fees, (fee) =>
+    buildFeeMovementCanonicalMaterial({
+      assetId: fee.assetId,
+      amount: fee.amount,
+      scope: fee.scope,
+      settlement: fee.settlement,
+    })
+  );
+  for (const feeEntry of feeEntries) {
+    const movementFingerprintResult = await computeMovementFingerprint({
       txFingerprint,
-      movementType: 'fee',
-      position: feeIndex,
+      canonicalMaterial: feeEntry.canonicalMaterial,
+      duplicateOccurrence: feeEntry.duplicateOccurrence,
     });
     if (movementFingerprintResult.isErr()) {
       return err(movementFingerprintResult.error);
     }
 
-    const result = feeMovementToRow(fee, transactionId, position++, movementFingerprintResult.value);
+    const result = feeMovementToRow(feeEntry.movement, transactionId, movementFingerprintResult.value);
     if (result.isErr()) return err(result.error);
     rows.push(result.value);
   }
 
   return ok(rows);
+}
+
+function parseDuplicateOccurrenceFromMovementFingerprint(movementFingerprint: string): Result<number, Error> {
+  const lastColonIndex = movementFingerprint.lastIndexOf(':');
+  if (lastColonIndex === -1) {
+    return err(new Error(`Invalid movement fingerprint format: ${movementFingerprint}`));
+  }
+
+  const occurrenceText = movementFingerprint.slice(lastColonIndex + 1);
+  const duplicateOccurrence = Number.parseInt(occurrenceText, 10);
+  if (!Number.isInteger(duplicateOccurrence) || duplicateOccurrence <= 0) {
+    return err(new Error(`Invalid movement duplicate occurrence in fingerprint: ${movementFingerprint}`));
+  }
+
+  return ok(duplicateOccurrence);
+}
+
+function buildMovementRowCanonicalMaterial(row: MovementRow): Result<string, Error> {
+  if (row.movement_type === 'inflow' || row.movement_type === 'outflow') {
+    if (!row.gross_amount) {
+      return err(new Error(`Movement row ${row.id} missing gross_amount`));
+    }
+
+    return ok(
+      buildAssetMovementCanonicalMaterial({
+        movementType: row.movement_type,
+        assetId: row.asset_id,
+        grossAmount: parseDecimal(row.gross_amount),
+        netAmount: row.net_amount ? parseDecimal(row.net_amount) : undefined,
+      })
+    );
+  }
+
+  if (!row.fee_amount || !row.fee_scope || !row.fee_settlement) {
+    return err(new Error(`Fee row ${row.id} missing canonical identity fields`));
+  }
+
+  return ok(
+    buildFeeMovementCanonicalMaterial({
+      assetId: row.asset_id,
+      amount: parseDecimal(row.fee_amount),
+      scope: row.fee_scope,
+      settlement: row.fee_settlement,
+    })
+  );
+}
+
+function sortMovementRowsByCanonicalIdentity(rows: MovementRow[]): Result<MovementRow[], Error> {
+  const sortableRows: {
+    canonicalMaterial: string;
+    duplicateOccurrence: number;
+    row: MovementRow;
+  }[] = [];
+
+  for (const row of rows) {
+    const canonicalMaterialResult = buildMovementRowCanonicalMaterial(row);
+    if (canonicalMaterialResult.isErr()) {
+      return err(canonicalMaterialResult.error);
+    }
+
+    const duplicateOccurrenceResult = parseDuplicateOccurrenceFromMovementFingerprint(row.movement_fingerprint);
+    if (duplicateOccurrenceResult.isErr()) {
+      return err(duplicateOccurrenceResult.error);
+    }
+
+    sortableRows.push({
+      canonicalMaterial: canonicalMaterialResult.value,
+      duplicateOccurrence: duplicateOccurrenceResult.value,
+      row,
+    });
+  }
+
+  sortableRows.sort(
+    (left, right) =>
+      left.canonicalMaterial.localeCompare(right.canonicalMaterial) ||
+      left.duplicateOccurrence - right.duplicateOccurrence ||
+      left.row.id - right.row.id
+  );
+
+  return ok(sortableRows.map((entry) => entry.row));
 }
 
 async function buildInsertValues(
@@ -553,7 +690,7 @@ export class TransactionRepository extends BaseRepository {
 
       const transactionId = txResult.id;
 
-      const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
+      const movementRowsResult = await buildMovementRows(transaction, transactionId, txFingerprint);
       if (movementRowsResult.isErr()) {
         return err(movementRowsResult.error);
       }
@@ -626,7 +763,7 @@ export class TransactionRepository extends BaseRepository {
         }
 
         if (!isDuplicate) {
-          const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
+          const movementRowsResult = await buildMovementRows(transaction, transactionId, txFingerprint);
           if (movementRowsResult.isErr()) {
             return err(movementRowsResult.error);
           }
@@ -821,7 +958,7 @@ export class TransactionRepository extends BaseRepository {
         accountId: undefined,
       } as Omit<Transaction, 'id' | 'accountId'>;
 
-      const movementRowsResult = buildMovementRows(
+      const movementRowsResult = await buildMovementRows(
         transactionForMovementRebuild,
         transaction.id,
         txExists.tx_fingerprint
@@ -1002,7 +1139,6 @@ export class TransactionRepository extends BaseRepository {
         .selectAll()
         .where('transaction_id', 'in', transactionIds)
         .orderBy('transaction_id', 'asc')
-        .orderBy('position', 'asc')
         .execute();
 
       const map = new Map<number, MovementRow[]>();
@@ -1025,9 +1161,30 @@ export class TransactionRepository extends BaseRepository {
     const datetime = row.transaction_datetime;
     const timestamp = new Date(datetime).getTime();
 
-    const inflowRows = movementRows.filter((r) => r.movement_type === 'inflow');
-    const outflowRows = movementRows.filter((r) => r.movement_type === 'outflow');
-    const feeRows = movementRows.filter((r) => r.movement_type === 'fee');
+    const inflowRowsResult = sortMovementRowsByCanonicalIdentity(
+      movementRows.filter((movementRow) => movementRow.movement_type === 'inflow')
+    );
+    if (inflowRowsResult.isErr()) {
+      return err(new Error(`Transaction ${row.id} inflow ordering failed: ${inflowRowsResult.error.message}`));
+    }
+
+    const outflowRowsResult = sortMovementRowsByCanonicalIdentity(
+      movementRows.filter((movementRow) => movementRow.movement_type === 'outflow')
+    );
+    if (outflowRowsResult.isErr()) {
+      return err(new Error(`Transaction ${row.id} outflow ordering failed: ${outflowRowsResult.error.message}`));
+    }
+
+    const feeRowsResult = sortMovementRowsByCanonicalIdentity(
+      movementRows.filter((movementRow) => movementRow.movement_type === 'fee')
+    );
+    if (feeRowsResult.isErr()) {
+      return err(new Error(`Transaction ${row.id} fee ordering failed: ${feeRowsResult.error.message}`));
+    }
+
+    const inflowRows = inflowRowsResult.value;
+    const outflowRows = outflowRowsResult.value;
+    const feeRows = feeRowsResult.value;
 
     const inflows: AssetMovement[] = [];
     for (const r of inflowRows) {

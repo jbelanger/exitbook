@@ -1,5 +1,5 @@
-import type { Currency } from '@exitbook/core';
-import { computeMovementFingerprint, err, ok, parseDecimal } from '@exitbook/core';
+import type { AssetMovement, Currency } from '@exitbook/core';
+import { err, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,6 @@ import type { IFxRateProvider } from '../../../../../price-enrichment/shared/typ
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
-  ScopedAssetMovement,
   ScopedFeeMovement,
 } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type {
@@ -44,10 +43,6 @@ const identityConfig = {
   relaxedTaxIdentitySymbols: [] as string[],
 };
 
-function fingerprint(txFingerprint: string, movementType: 'inflow' | 'outflow', position: number): string {
-  return assertOk(computeMovementFingerprint({ txFingerprint, movementType, position }));
-}
-
 /**
  * Rewrites `test:xyz` assetIds to `exchange:test:xyz` so they pass through
  * `parseAssetId` which only accepts exchange/blockchain/fiat namespaces.
@@ -69,27 +64,24 @@ function buildScopedTransaction(
     fees?: ScopedFeeMovement[];
   }
 ): AccountingScopedTransaction {
-  const inflows: ScopedAssetMovement[] = (tx.movements.inflows ?? []).map((m, i) => ({
+  const inflows: AssetMovement[] = (tx.movements.inflows ?? []).map((m) => ({
     ...m,
     assetId: patchAssetId(m.assetId),
-    movementFingerprint: fingerprint(tx.txFingerprint, 'inflow', i),
-    rawPosition: i,
+    movementFingerprint: m.movementFingerprint,
   }));
 
-  const outflows: ScopedAssetMovement[] = (tx.movements.outflows ?? []).map((m, i) => ({
+  const outflows: AssetMovement[] = (tx.movements.outflows ?? []).map((m) => ({
     ...m,
     assetId: patchAssetId(m.assetId),
-    movementFingerprint: fingerprint(tx.txFingerprint, 'outflow', i),
-    rawPosition: i,
+    movementFingerprint: m.movementFingerprint,
   }));
 
   const fees: ScopedFeeMovement[] =
     options?.fees ??
-    tx.fees.map((f, i) => ({
+    tx.fees.map((f) => ({
       ...f,
       assetId: patchAssetId(f.assetId),
       originalTransactionId: tx.id,
-      rawPosition: i,
     }));
 
   return {
@@ -440,7 +432,6 @@ describe('applyCarryoverSemantics', () => {
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 100,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 100,
@@ -502,7 +493,6 @@ describe('applyCarryoverSemantics', () => {
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 199,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 199,
@@ -551,7 +541,6 @@ describe('applyCarryoverSemantics', () => {
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 999,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 999,
@@ -590,7 +579,6 @@ describe('applyCarryoverSemantics', () => {
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 300,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 300,
@@ -1250,7 +1238,6 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
         settlement: 'on-chain',
         priceAtTxTime: createPriceAtTxTime('60000'),
         originalTransactionId: 620,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 620,

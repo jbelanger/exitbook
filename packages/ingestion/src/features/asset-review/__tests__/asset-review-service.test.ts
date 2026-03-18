@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
+
 import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
+import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,14 +10,10 @@ import { buildAssetReviewSummaries } from '../asset-review-service.js';
 
 function materializeMovementFingerprint(
   txFingerprint: string,
-  movementType: 'inflow' | 'outflow' | 'fee',
-  position: number
+  canonicalMaterial: string,
+  duplicateOccurrence: number
 ): string {
-  const result = computeMovementFingerprint({ txFingerprint, movementType, position });
-  if (result.isErr()) {
-    throw result.error;
-  }
-  return result.value;
+  return `movement:${txFingerprint}:${createHash('sha256').update(canonicalMaterial).digest('hex')}:${duplicateOccurrence}`;
 }
 
 function createTransaction(params: {
@@ -34,7 +32,15 @@ function createTransaction(params: {
       assetId: params.assetId,
       assetSymbol: params.assetSymbol as Currency,
       grossAmount: parseDecimal('100'),
-      movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'inflow', 0),
+      movementFingerprint: materializeMovementFingerprint(
+        params.txFingerprint,
+        buildAssetMovementCanonicalMaterial({
+          movementType: 'inflow',
+          assetId: params.assetId,
+          grossAmount: parseDecimal('100'),
+        }),
+        1
+      ),
     },
   ];
   const fees: FeeMovement[] = [
@@ -44,7 +50,16 @@ function createTransaction(params: {
             assetId: params.assetId,
             assetSymbol: params.assetSymbol as Currency,
             amount: parseDecimal('1'),
-            movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'fee', 0),
+            movementFingerprint: materializeMovementFingerprint(
+              params.txFingerprint,
+              buildFeeMovementCanonicalMaterial({
+                assetId: params.assetId,
+                amount: parseDecimal('1'),
+                scope: 'platform',
+                settlement: 'balance',
+              }),
+              1
+            ),
             scope: 'platform' as const,
             settlement: 'balance' as const,
           },
@@ -56,8 +71,13 @@ function createTransaction(params: {
       amount: parseDecimal('1'),
       movementFingerprint: materializeMovementFingerprint(
         params.txFingerprint,
-        'fee',
-        index + (params.includeFeeWithSameAsset ? 1 : 0)
+        buildFeeMovementCanonicalMaterial({
+          assetId: fee.assetId,
+          amount: parseDecimal('1'),
+          scope: 'platform',
+          settlement: 'balance',
+        }),
+        index + (params.includeFeeWithSameAsset ? 2 : 1)
       ),
       scope: 'platform' as const,
       settlement: 'balance' as const,

@@ -705,7 +705,7 @@ describe('buildCostBasisScopedTransactions', () => {
   });
 
   describe('scoped movements preserve raw identity', () => {
-    it('should preserve movement fingerprints and raw positions after same-hash reduction', () => {
+    it('should preserve movement fingerprints after same-hash reduction', () => {
       const senderTx = createBlockchainTx(
         1,
         1,
@@ -734,9 +734,7 @@ describe('buildCostBasisScopedTransactions', () => {
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
       const outflow = senderScoped.movements.outflows[0]!;
 
-      // Position should be preserved even though amount was rewritten
-      expect(outflow.rawPosition).toBe(0);
-      expect(outflow.movementFingerprint).toContain('outflow:0');
+      expect(outflow.movementFingerprint).toBe(senderTx.movements.outflows![0]!.movementFingerprint);
       // Amount was rewritten
       expect(outflow.grossAmount.toFixed()).toBe('1.5');
     });
@@ -773,8 +771,10 @@ describe('buildCostBasisScopedTransactions', () => {
 
       expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
       const carryover = value.feeOnlyInternalCarryovers[0]!;
-      expect(carryover.sourceMovementFingerprint).toContain('outflow:0');
-      expect(carryover.targets[0]!.targetMovementFingerprint).toContain('inflow:0');
+      expect(carryover.sourceMovementFingerprint).toBe(senderTx.movements.outflows![0]!.movementFingerprint);
+      expect(carryover.targets[0]!.targetMovementFingerprint).toBe(
+        receiverTx.movements.inflows![0]!.movementFingerprint
+      );
     });
   });
 

@@ -13,13 +13,8 @@ import {
 // Types — cost-basis-local, not shared
 // ---------------------------------------------------------------------------
 
-export interface ScopedAssetMovement extends AssetMovement {
-  rawPosition: number;
-}
-
 export interface ScopedFeeMovement extends FeeMovement {
   originalTransactionId: number;
-  rawPosition: number;
 }
 
 export interface AccountingScopedTransaction {
@@ -31,8 +26,8 @@ export interface AccountingScopedTransaction {
    */
   rebuildDependencyTransactionIds: number[];
   movements: {
-    inflows: ScopedAssetMovement[];
-    outflows: ScopedAssetMovement[];
+    inflows: AssetMovement[];
+    outflows: AssetMovement[];
   };
   fees: ScopedFeeMovement[];
 }
@@ -217,9 +212,8 @@ export function buildCostBasisScopedTransactions(
 // ---------------------------------------------------------------------------
 
 function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
-  const inflows: ScopedAssetMovement[] = [];
-  for (let i = 0; i < (tx.movements.inflows?.length ?? 0); i++) {
-    const raw = tx.movements.inflows![i]!;
+  const inflows: AssetMovement[] = [];
+  for (const raw of tx.movements.inflows ?? []) {
     inflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
@@ -227,13 +221,11 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
       movementFingerprint: raw.movementFingerprint,
-      rawPosition: i,
     });
   }
 
-  const outflows: ScopedAssetMovement[] = [];
-  for (let i = 0; i < (tx.movements.outflows?.length ?? 0); i++) {
-    const raw = tx.movements.outflows![i]!;
+  const outflows: AssetMovement[] = [];
+  for (const raw of tx.movements.outflows ?? []) {
     outflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
@@ -241,13 +233,11 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
       movementFingerprint: raw.movementFingerprint,
-      rawPosition: i,
     });
   }
 
   const fees: ScopedFeeMovement[] = [];
-  for (let i = 0; i < (tx.fees?.length ?? 0); i++) {
-    const raw = tx.fees[i]!;
+  for (const raw of tx.fees ?? []) {
     fees.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
@@ -257,7 +247,6 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       scope: raw.scope,
       settlement: raw.settlement,
       priceAtTxTime: raw.priceAtTxTime,
-      rawPosition: i,
     });
   }
 
@@ -1025,7 +1014,7 @@ function getSingleScopedOutflow(
   scoped: AccountingScopedTransaction,
   assetId: string,
   txId: number
-): Result<ScopedAssetMovement, Error> {
+): Result<AssetMovement, Error> {
   const matchingOutflows = scoped.movements.outflows.filter((movement) => movement.assetId === assetId);
   if (matchingOutflows.length !== 1) {
     return err(

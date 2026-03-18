@@ -1,4 +1,4 @@
-import type { AssetMovementDraft, FeeMovementDraft, Currency, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, Currency, PriceAtTxTime, AssetMovement } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -8,7 +8,6 @@ import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fe
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
-  ScopedAssetMovement,
 } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type {
   ValidatedScopedTransferLink,
@@ -149,17 +148,17 @@ function buildEventIndex(events: CanadaTaxInputEvent[]): {
 }
 
 function buildMovementIndexes(scopedTransactions: AccountingScopedTransaction[]): {
-  inflowsByFingerprint: Map<string, { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }>;
-  outflowsByFingerprint: Map<string, { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }>;
+  inflowsByFingerprint: Map<string, { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }>;
+  outflowsByFingerprint: Map<string, { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }>;
   scopedByTxId: Map<number, AccountingScopedTransaction>;
 } {
   const inflowsByFingerprint = new Map<
     string,
-    { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }
+    { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }
   >();
   const outflowsByFingerprint = new Map<
     string,
-    { movement: ScopedAssetMovement; scopedTransaction: AccountingScopedTransaction }
+    { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }
   >();
   const scopedByTxId = new Map<number, AccountingScopedTransaction>();
 
@@ -178,7 +177,7 @@ function buildMovementIndexes(scopedTransactions: AccountingScopedTransaction[])
 
 async function buildMovementEvent(
   scopedTransaction: AccountingScopedTransaction,
-  movement: ScopedAssetMovement,
+  movement: AssetMovement,
   quantity: Decimal,
   kind: CanadaMovementEvent['kind'],
   eventId: string,
@@ -261,7 +260,7 @@ async function buildMovementEvent(
 
 async function projectTransferAwareMovementEvents(
   scopedTransaction: AccountingScopedTransaction,
-  movement: ScopedAssetMovement,
+  movement: AssetMovement,
   direction: 'inflow' | 'outflow',
   validatedLinks: ValidatedScopedTransferLink[],
   fxProvider: IFxRateProvider,
@@ -402,7 +401,7 @@ export async function projectCanadaMovementEvents(
 }
 
 function buildAddToPoolCostAdjustmentEvents(
-  poolMovement: ScopedAssetMovement,
+  poolMovement: AssetMovement,
   valuedFees: CanadaValuedFee[],
   timestamp: Date,
   transactionId: number,

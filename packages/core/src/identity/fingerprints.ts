@@ -1,3 +1,5 @@
+import { Decimal } from 'decimal.js';
+
 import { err, ok, type Result } from '../result/index.js';
 import { getErrorMessage, sha256Hex } from '../utils/index.js';
 
@@ -107,26 +109,74 @@ export async function computeTxFingerprint(input: TransactionFingerprintInput): 
 // Movement fingerprint
 // ---------------------------------------------------------------------------
 
+export interface AssetMovementCanonicalMaterialInput {
+  movementType: 'inflow' | 'outflow';
+  assetId: string;
+  grossAmount: Decimal;
+  netAmount?: Decimal | undefined;
+}
+
+export interface FeeMovementCanonicalMaterialInput {
+  assetId: string;
+  amount: Decimal;
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  settlement: 'on-chain' | 'balance' | 'external';
+}
+
+/**
+ * Canonical asset-movement identity material within a transaction.
+ *
+ * This intentionally excludes display-only or enrichable data like symbols and
+ * prices. Duplicate rows with the same canonical material are treated as
+ * interchangeable and are later disambiguated only by duplicate occurrence.
+ */
+export function buildAssetMovementCanonicalMaterial(input: AssetMovementCanonicalMaterialInput): string {
+  const effectiveNetAmount = input.netAmount ?? input.grossAmount;
+  return `${input.movementType}|${input.assetId}|${input.grossAmount.toFixed()}|${effectiveNetAmount.toFixed()}`;
+}
+
+/**
+ * Canonical fee identity material within a transaction.
+ *
+ * Fee identity is scoped to the fee asset plus fee semantics. Like asset
+ * movements, enrichment metadata is excluded on purpose.
+ */
+export function buildFeeMovementCanonicalMaterial(input: FeeMovementCanonicalMaterialInput): string {
+  return `fee|${input.assetId}|${input.amount.toFixed()}|${input.scope}|${input.settlement}`;
+}
+
 export interface MovementFingerprintInput {
   txFingerprint: string;
-  movementType: 'inflow' | 'outflow' | 'fee';
-  position: number; // 0-based index within movements of this type
+  canonicalMaterial: string;
+  duplicateOccurrence: number; // 1-based occurrence within identical canonical-material bucket
 }
 
 /**
  * Deterministic movement identity within a transaction.
- * Format: movement:${txFingerprint}:${movementType}:${position}
+ *
+ * The fingerprint is rooted in canonical semantic movement content, not array
+ * ordering. Exact duplicates are intentionally treated as interchangeable and
+ * only receive a bucket-local occurrence suffix.
  */
-export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
-  const { txFingerprint, movementType, position } = input;
+export async function computeMovementFingerprint(input: MovementFingerprintInput): Promise<Result<string, Error>> {
+  const { txFingerprint, canonicalMaterial, duplicateOccurrence } = input;
 
   if (!txFingerprint || txFingerprint.trim() === '') {
     return err(new Error('txFingerprint must not be empty'));
   }
 
-  if (position < 0 || !Number.isInteger(position)) {
-    return err(new Error(`position must be a non-negative integer, got ${position}`));
+  if (!canonicalMaterial || canonicalMaterial.trim() === '') {
+    return err(new Error('canonicalMaterial must not be empty'));
   }
 
-  return ok(`movement:${txFingerprint}:${movementType}:${position}`);
+  if (duplicateOccurrence <= 0 || !Number.isInteger(duplicateOccurrence)) {
+    return err(new Error(`duplicateOccurrence must be a positive integer, got ${duplicateOccurrence}`));
+  }
+
+  const contentHashResult = await sha256Result(canonicalMaterial);
+  if (contentHashResult.isErr()) {
+    return err(contentHashResult.error);
+  }
+
+  return ok(`movement:${txFingerprint}:${contentHashResult.value}:${duplicateOccurrence}`);
 }

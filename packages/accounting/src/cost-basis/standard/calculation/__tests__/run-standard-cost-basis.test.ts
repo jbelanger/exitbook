@@ -1,5 +1,5 @@
 import type { AssetMovementDraft, AssetReviewSummary, Currency, TransactionLink } from '@exitbook/core';
-import { computeMovementFingerprint, ok, parseDecimal } from '@exitbook/core';
+import { ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -11,7 +11,6 @@ import {
   createPriceAtTxTime,
   createTransaction,
   createTransactionFromMovements,
-  seedTxFingerprint,
 } from '../../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../../ports/cost-basis-persistence.js';
 import type { CostBasisConfig } from '../../../model/cost-basis-config.js';
@@ -40,25 +39,6 @@ function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amo
     grossAmount: parseDecimal(amount),
     priceAtTxTime: createPriceAtTxTime('1'),
   };
-}
-
-function buildMovementFingerprint(params: {
-  accountId: number;
-  identityReference: string;
-  movementType: 'inflow' | 'outflow';
-  position: number;
-  source: string;
-  sourceType: 'blockchain' | 'exchange';
-}): string {
-  const txFingerprint = seedTxFingerprint(params.source, params.sourceType, params.accountId, params.identityReference);
-
-  return assertOk(
-    computeMovementFingerprint({
-      txFingerprint,
-      movementType: params.movementType,
-      position: params.position,
-    })
-  );
 }
 
 function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
@@ -515,22 +495,8 @@ describe('runCostBasisPipeline', () => {
       targetAssetId: 'exchange:kucoin:btc',
       sourceAmount: parseDecimal('0.00021'),
       targetAmount: parseDecimal('0.00021'),
-      sourceMovementFingerprint: buildMovementFingerprint({
-        source: sender.source,
-        sourceType: sender.sourceType,
-        accountId: sender.accountId,
-        identityReference: hash,
-        movementType: 'outflow',
-        position: 0,
-      }),
-      targetMovementFingerprint: buildMovementFingerprint({
-        source: exchangeDeposit.source,
-        sourceType: exchangeDeposit.sourceType,
-        accountId: exchangeDeposit.accountId,
-        identityReference: hash,
-        movementType: 'inflow',
-        position: 0,
-      }),
+      sourceMovementFingerprint: sender.movements.outflows![0]!.movementFingerprint,
+      targetMovementFingerprint: exchangeDeposit.movements.inflows![0]!.movementFingerprint,
       linkType: 'blockchain_to_exchange',
       confidenceScore: parseDecimal('1'),
       matchCriteria: {

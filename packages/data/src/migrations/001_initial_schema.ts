@@ -188,7 +188,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('transaction_movements')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id').onDelete('cascade'))
-    .addColumn('position', 'integer', (col) => col.notNull())
     .addColumn('movement_type', 'text', (col) => col.notNull())
     .addColumn('movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('asset_id', 'text', (col) => col.notNull())
@@ -230,14 +229,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'transaction_movements_price_all_or_nothing',
       sql`(price_amount IS NULL AND price_currency IS NULL AND price_source IS NULL AND price_fetched_at IS NULL AND price_granularity IS NULL) OR (price_amount IS NOT NULL AND price_currency IS NOT NULL AND price_source IS NOT NULL AND price_fetched_at IS NOT NULL)`
     )
-    .execute();
-
-  // Create unique index on (transaction_id, position) to enforce ordering and prevent duplicates
-  await db.schema
-    .createIndex('idx_transaction_movements_tx_position')
-    .on('transaction_movements')
-    .columns(['transaction_id', 'position'])
-    .unique()
     .execute();
 
   // Create index on transaction_id for efficient joins (non-unique for batch loading)

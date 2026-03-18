@@ -1,5 +1,5 @@
 import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, err, ok, parseDecimal } from '@exitbook/core';
+import { err, ok, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { vi } from 'vitest';
@@ -69,18 +69,17 @@ function computeScopedMovementFingerprint(
   movementType: 'inflow' | 'outflow',
   position: number
 ): string {
-  const txFingerprint = materializeTestTransaction(transaction).txFingerprint;
-  if (!txFingerprint) {
-    throw new Error(`Transaction ${transaction.id} is missing txFingerprint`);
+  const materializedTransaction = materializeTestTransaction(transaction);
+  const movement =
+    movementType === 'inflow'
+      ? materializedTransaction.movements.inflows?.[position]
+      : materializedTransaction.movements.outflows?.[position];
+
+  if (!movement) {
+    throw new Error(`Transaction ${transaction.id} is missing ${movementType} movement at position ${position}`);
   }
 
-  return assertOk(
-    computeMovementFingerprint({
-      txFingerprint,
-      movementType,
-      position,
-    })
-  );
+  return movement.movementFingerprint;
 }
 
 export function createConfirmedTransferLink(params: {

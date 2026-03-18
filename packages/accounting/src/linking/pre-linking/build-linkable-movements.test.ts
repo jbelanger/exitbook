@@ -51,7 +51,7 @@ describe('buildLinkableMovements', () => {
     });
   });
 
-  it('assigns deterministic position-based movement fingerprints per direction', () => {
+  it('reuses persisted movement fingerprints without exposing linkable positions', () => {
     const transactions = [
       createTransaction({
         id: 1,
@@ -79,32 +79,27 @@ describe('buildLinkableMovements', () => {
       result.linkableMovements.map((candidate) => ({
         assetSymbol: candidate.assetSymbol,
         direction: candidate.direction,
-        position: candidate.position,
         movementFingerprint: candidate.movementFingerprint,
       }))
     ).toEqual([
       {
         assetSymbol: 'ETH',
         direction: 'in',
-        position: 0,
         movementFingerprint: firstInflow.movementFingerprint,
       },
       {
         assetSymbol: 'USDT',
         direction: 'in',
-        position: 1,
         movementFingerprint: secondInflow.movementFingerprint,
       },
       {
         assetSymbol: 'BTC',
         direction: 'out',
-        position: 0,
         movementFingerprint: firstOutflow.movementFingerprint,
       },
       {
         assetSymbol: 'SOL',
         direction: 'out',
-        position: 1,
         movementFingerprint: secondOutflow.movementFingerprint,
       },
     ]);

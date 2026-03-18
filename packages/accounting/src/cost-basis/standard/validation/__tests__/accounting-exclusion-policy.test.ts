@@ -90,7 +90,6 @@ describe('accounting-exclusion-policy', () => {
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 1,
-        rawPosition: 0,
       },
       retainedQuantity: parseDecimal('1'),
       sourceTransactionId: 1,

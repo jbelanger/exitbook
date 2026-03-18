@@ -8,7 +8,14 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { TransactionRepository } from '../transaction-repository.js';
 
-import { seedAccount, seedImportSession, seedMovementFingerprint, seedTxFingerprint, seedUser } from './helpers.js';
+import {
+  seedAccount,
+  seedAssetMovementFingerprint,
+  seedFeeMovementFingerprint,
+  seedImportSession,
+  seedTxFingerprint,
+  seedUser,
+} from './helpers.js';
 
 describe('TransactionRepository', () => {
   let db: KyselyDB;
@@ -94,27 +101,27 @@ describe('TransactionRepository', () => {
     return {
       ...transaction,
       movements: {
-        inflows: (transaction.movements.inflows ?? []).map((movement, index) => ({
+        inflows: (transaction.movements.inflows ?? []).map((movement) => ({
           ...movement,
           movementFingerprint:
             'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
               ? movement.movementFingerprint
-              : seedMovementFingerprint(transaction.txFingerprint, 'inflow', index),
+              : seedAssetMovementFingerprint(transaction.txFingerprint, 'inflow', movement),
         })),
-        outflows: (transaction.movements.outflows ?? []).map((movement, index) => ({
+        outflows: (transaction.movements.outflows ?? []).map((movement) => ({
           ...movement,
           movementFingerprint:
             'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
               ? movement.movementFingerprint
-              : seedMovementFingerprint(transaction.txFingerprint, 'outflow', index),
+              : seedAssetMovementFingerprint(transaction.txFingerprint, 'outflow', movement),
         })),
       },
-      fees: (transaction.fees ?? []).map((fee, index) => ({
+      fees: (transaction.fees ?? []).map((fee) => ({
         ...fee,
         movementFingerprint:
           'movementFingerprint' in fee && typeof fee.movementFingerprint === 'string'
             ? fee.movementFingerprint
-            : seedMovementFingerprint(transaction.txFingerprint, 'fee', index),
+            : seedFeeMovementFingerprint(transaction.txFingerprint, fee),
       })),
     };
   }
@@ -217,9 +224,12 @@ describe('TransactionRepository', () => {
           .insertInto('transaction_movements')
           .values({
             transaction_id: i,
-            position: 0,
             movement_type: 'inflow',
-            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+            movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+              assetId: 'blockchain:ethereum:native',
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            }),
             asset_id: 'blockchain:ethereum:native',
             asset_symbol: 'ETH',
             gross_amount: '1.0',
@@ -265,9 +275,12 @@ describe('TransactionRepository', () => {
           .insertInto('transaction_movements')
           .values({
             transaction_id: i,
-            position: 0,
             movement_type: 'inflow',
-            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+            movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+              assetId: 'blockchain:ethereum:0xscam',
+              grossAmount: parseDecimal('1000.0'),
+              netAmount: parseDecimal('1000.0'),
+            }),
             asset_id: 'blockchain:ethereum:0xscam',
             asset_symbol: 'SCAM',
             gross_amount: '1000.0',
@@ -295,7 +308,11 @@ describe('TransactionRepository', () => {
       expect(txs.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
       expect(txs[0]?.txFingerprint).toBe(seedTxFingerprint('ethereum', 1, 'tx-1'));
       expect(txs[0]?.movements.inflows?.[0]?.movementFingerprint).toBe(
-        seedMovementFingerprint(seedTxFingerprint('ethereum', 1, 'tx-1'), 'inflow', 0)
+        seedAssetMovementFingerprint(seedTxFingerprint('ethereum', 1, 'tx-1'), 'inflow', {
+          assetId: 'blockchain:ethereum:native',
+          grossAmount: parseDecimal('1.0'),
+          netAmount: parseDecimal('1.0'),
+        })
       );
     });
 
@@ -373,7 +390,11 @@ describe('TransactionRepository', () => {
       expect(row?.excluded_from_accounting).toBe(0);
       expect(row?.tx_fingerprint).toBe(seedTxFingerprint('ethereum', 1, 'spam-tx-1'));
       expect(movementRow?.movement_fingerprint).toBe(
-        seedMovementFingerprint(seedTxFingerprint('ethereum', 1, 'spam-tx-1'), 'inflow', 0)
+        seedAssetMovementFingerprint(seedTxFingerprint('ethereum', 1, 'spam-tx-1'), 'inflow', {
+          assetId: 'test:scam',
+          grossAmount: parseDecimal('1000'),
+          netAmount: parseDecimal('1000'),
+        })
       );
     });
 
@@ -622,9 +643,12 @@ describe('TransactionRepository', () => {
         .values([
           {
             transaction_id: 1,
-            position: 0,
             movement_type: 'inflow',
-            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+            movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+              assetId: 'blockchain:bitcoin:native',
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            }),
             asset_id: 'blockchain:bitcoin:native',
             asset_symbol: 'BTC',
             gross_amount: '1.0',
@@ -643,9 +667,13 @@ describe('TransactionRepository', () => {
           },
           {
             transaction_id: 1,
-            position: 1,
             movement_type: 'fee',
-            movement_fingerprint: seedMovementFingerprint(txFingerprint, 'fee', 0),
+            movement_fingerprint: seedFeeMovementFingerprint(txFingerprint, {
+              assetId: 'blockchain:bitcoin:native',
+              amount: parseDecimal('0.0001'),
+              scope: 'network',
+              settlement: 'on-chain',
+            }),
             asset_id: 'blockchain:bitcoin:native',
             asset_symbol: 'BTC',
             gross_amount: null,
@@ -715,7 +743,6 @@ describe('TransactionRepository', () => {
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', '=', 1)
-        .orderBy('position', 'asc')
         .execute();
 
       const inflow = movements.find((m) => m.movement_type === 'inflow');
@@ -723,13 +750,26 @@ describe('TransactionRepository', () => {
 
       expect(inflow?.price_source).toBe('coingecko');
       expect(inflow?.price_amount).toBe('50000');
-      expect(inflow?.movement_fingerprint).toBe(seedMovementFingerprint(txFingerprint, 'inflow', 0));
+      expect(inflow?.movement_fingerprint).toBe(
+        seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+          assetId: 'test:btc',
+          grossAmount: parseDecimal('1.0'),
+          netAmount: parseDecimal('1.0'),
+        })
+      );
       expect(fee?.price_source).toBe('coingecko');
       expect(fee?.price_amount).toBe('50000');
-      expect(fee?.movement_fingerprint).toBe(seedMovementFingerprint(txFingerprint, 'fee', 0));
+      expect(fee?.movement_fingerprint).toBe(
+        seedFeeMovementFingerprint(txFingerprint, {
+          assetId: 'test:btc',
+          amount: parseDecimal('0.0001'),
+          scope: 'network',
+          settlement: 'on-chain',
+        })
+      );
     });
 
-    it('replaces all existing movement rows and preserves position ordering', async () => {
+    it('replaces all existing movement rows and persists canonical movement fingerprints', async () => {
       const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-2');
       await db
         .insertInto('transactions')
@@ -753,9 +793,12 @@ describe('TransactionRepository', () => {
         .insertInto('transaction_movements')
         .values({
           transaction_id: 2,
-          position: 0,
           movement_type: 'inflow',
-          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+          movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+            assetId: 'legacy:asset',
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
+          }),
           asset_id: 'legacy:asset',
           asset_symbol: 'OLD',
           gross_amount: '1.0',
@@ -837,16 +880,27 @@ describe('TransactionRepository', () => {
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', '=', 2)
-        .orderBy('position', 'asc')
         .execute();
 
       expect(movements).toHaveLength(3);
-      expect(movements.map((m) => m.position)).toEqual([0, 1, 2]);
       expect(movements.map((m) => m.movement_type)).toEqual(['inflow', 'outflow', 'fee']);
       expect(movements.map((m) => m.movement_fingerprint)).toEqual([
-        seedMovementFingerprint(txFingerprint, 'inflow', 0),
-        seedMovementFingerprint(txFingerprint, 'outflow', 0),
-        seedMovementFingerprint(txFingerprint, 'fee', 0),
+        seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+          assetId: 'test:btc',
+          grossAmount: parseDecimal('1.0'),
+          netAmount: parseDecimal('1.0'),
+        }),
+        seedAssetMovementFingerprint(txFingerprint, 'outflow', {
+          assetId: 'test:usdt',
+          grossAmount: parseDecimal('50000'),
+          netAmount: parseDecimal('50000'),
+        }),
+        seedFeeMovementFingerprint(txFingerprint, {
+          assetId: 'test:btc',
+          amount: parseDecimal('0.0001'),
+          scope: 'network',
+          settlement: 'on-chain',
+        }),
       ]);
       expect(movements.some((m) => m.asset_id === 'legacy:asset')).toBe(false);
     });
@@ -875,9 +929,12 @@ describe('TransactionRepository', () => {
         .insertInto('transaction_movements')
         .values({
           transaction_id: 3,
-          position: 0,
           movement_type: 'inflow',
-          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+          movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+            assetId: 'test:btc',
+            grossAmount: parseDecimal('1.0'),
+            netAmount: parseDecimal('1.0'),
+          }),
           asset_id: 'test:btc',
           asset_symbol: 'BTC',
           gross_amount: '1.0',
@@ -966,9 +1023,12 @@ describe('TransactionRepository', () => {
         .insertInto('transaction_movements')
         .values({
           transaction_id: 4,
-          position: 0,
           movement_type: 'inflow',
-          movement_fingerprint: seedMovementFingerprint(txFingerprint, 'inflow', 0),
+          movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+            assetId: 'test:eth',
+            grossAmount: parseDecimal('2.0'),
+            netAmount: parseDecimal('2.0'),
+          }),
           asset_id: 'test:eth',
           asset_symbol: 'ETH',
           gross_amount: '2.0',
