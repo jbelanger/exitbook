@@ -1,9 +1,5 @@
-import { z } from 'zod';
-
 import { err, ok, type Result } from '../result/index.js';
-import { getErrorMessage } from '../utils/index.js';
-
-import { sha256Hex } from './sha256.js';
+import { getErrorMessage, sha256Hex } from '../utils/index.js';
 
 // Wrap the raw sha256Hex in Result for fingerprint use
 async function sha256Result(material: string): Promise<Result<string, Error>> {
@@ -55,12 +51,6 @@ export async function computeAccountFingerprint(input: AccountFingerprintInput):
 // ---------------------------------------------------------------------------
 // Transaction fingerprint
 // ---------------------------------------------------------------------------
-
-export const ExchangeIdentityMaterialSchema = z.object({
-  componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1),
-});
-
-export type ExchangeIdentityMaterial = z.infer<typeof ExchangeIdentityMaterialSchema>;
 
 export interface TransactionFingerprintInput {
   accountFingerprint: string;

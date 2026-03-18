@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { ExchangeIdentityMaterialSchema } from '../identity/fingerprints.js';
 import { SourceTypeSchema } from '../import-session/import-session.js';
 
 import {
@@ -132,7 +131,11 @@ const TransactionBaseFieldsSchema = createTransactionBaseFieldsSchema(
 // Pre-persistence transaction contract. Transient identity material is carried
 // through the processing pipeline for fingerprint derivation but not persisted.
 const TransactionDraftFieldsSchema = TransactionDraftBaseFieldsSchema.extend({
-  identityMaterial: ExchangeIdentityMaterialSchema.optional(),
+  identityMaterial: z
+    .object({
+      componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1),
+    })
+    .optional(),
 });
 
 // Persisted transactions always carry their canonical txFingerprint.
