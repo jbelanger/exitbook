@@ -350,17 +350,6 @@ describe('OverrideStore', () => {
         ]);
       }
     });
-
-    it('rejects legacy pre-simplification fingerprints on read', async () => {
-      const legacyPayload = createLinkPayload('tx:v2:kraken:1:trade-1', 'tx:v2:blockchain:bitcoin:2:abc123', 'BTC');
-
-      const appendResult = await store.append({ scope: 'link', payload: legacyPayload });
-      expect(appendResult.isOk()).toBe(true);
-
-      const result = await store.readByScopes(['link']);
-      expect(assertErr(result).message).toContain('legacy transaction identity');
-      expect(assertErr(result).message).toContain('Delete');
-    });
   });
 
   describe('file independence', () => {

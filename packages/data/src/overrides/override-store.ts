@@ -310,63 +310,9 @@ export class OverrideStore {
         return err(new Error(`Invalid override event stored in database: ${validationResult.error.message}`));
       }
 
-      const legacyFingerprintError = this.validateNoLegacyTransactionIdentityFingerprints(validationResult.data);
-      if (legacyFingerprintError !== undefined) {
-        return err(legacyFingerprintError);
-      }
-
       events.push(validationResult.data);
     }
 
     return ok(events);
-  }
-
-  private validateNoLegacyTransactionIdentityFingerprints(event: OverrideEvent): Error | undefined {
-    const legacyFingerprint = findLegacyFingerprint(event);
-    if (legacyFingerprint === undefined) {
-      return undefined;
-    }
-
-    return new Error(
-      `Override event ${event.id} references legacy transaction identity "${legacyFingerprint}". ` +
-        `Delete ${this.dbPath} before rebuilding with the txFingerprint-only identity model.`
-    );
-  }
-}
-
-function findLegacyFingerprint(event: OverrideEvent): string | undefined {
-  const isLegacyTxFingerprint = (value: string | undefined): value is string => value?.startsWith('tx:v2:') === true;
-  const isLegacyMovementFingerprint = (value: string | undefined): value is string =>
-    value?.startsWith('movement:tx:v2:') === true;
-  const isLegacyResolvedLinkFingerprint = (value: string | undefined): value is string =>
-    value?.includes('movement:tx:v2:') === true;
-
-  switch (event.payload.type) {
-    case 'price_override':
-    case 'fx_override':
-    case 'transaction_note_override':
-      return isLegacyTxFingerprint(event.payload.tx_fingerprint) ? event.payload.tx_fingerprint : undefined;
-    case 'link_override':
-      if (isLegacyTxFingerprint(event.payload.source_fingerprint)) {
-        return event.payload.source_fingerprint;
-      }
-      if (isLegacyTxFingerprint(event.payload.target_fingerprint)) {
-        return event.payload.target_fingerprint;
-      }
-      if (isLegacyMovementFingerprint(event.payload.source_movement_fingerprint)) {
-        return event.payload.source_movement_fingerprint;
-      }
-      if (isLegacyMovementFingerprint(event.payload.target_movement_fingerprint)) {
-        return event.payload.target_movement_fingerprint;
-      }
-      return isLegacyResolvedLinkFingerprint(event.payload.resolved_link_fingerprint)
-        ? event.payload.resolved_link_fingerprint
-        : undefined;
-    case 'unlink_override':
-      return isLegacyResolvedLinkFingerprint(event.payload.resolved_link_fingerprint)
-        ? event.payload.resolved_link_fingerprint
-        : undefined;
-    default:
-      return undefined;
   }
 }

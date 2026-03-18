@@ -29,6 +29,25 @@ interface PricedEntity {
     | undefined;
 }
 
+type PricedEntityKind = PricedEntity['kind'];
+
+interface PriceBearingEntry {
+  assetSymbol: string;
+  priceAtTxTime?:
+    | {
+        fxRateToUSD?: { toFixed(): string } | undefined;
+        fxSource?: string | undefined;
+        fxTimestamp?: Date | undefined;
+        price?:
+          | {
+              amount?: unknown;
+              currency?: string | undefined;
+            }
+          | undefined;
+      }
+    | undefined;
+}
+
 /**
  * Validation issue found during price preflight checks
  */
@@ -62,89 +81,10 @@ export function collectPricedEntities(transactions: Transaction[]): PricedEntity
   const entities: PricedEntity[] = [];
 
   for (const tx of transactions) {
-    const txId = tx.txFingerprint;
     const datetime = tx.datetime ?? '(unknown)';
-
-    // Collect inflows
-    for (const movement of tx.movements?.inflows ?? []) {
-      const priceData = movement.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'inflow',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
-
-    // Collect outflows
-    for (const movement of tx.movements?.outflows ?? []) {
-      const priceData = movement.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'outflow',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
-
-    // Collect fees
-    for (const fee of tx.fees ?? []) {
-      const priceData = fee.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: fee.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'fee',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
+    appendPricedEntities(entities, tx.txFingerprint, datetime, 'inflow', tx.movements?.inflows ?? []);
+    appendPricedEntities(entities, tx.txFingerprint, datetime, 'outflow', tx.movements?.outflows ?? []);
+    appendPricedEntities(entities, tx.txFingerprint, datetime, 'fee', tx.fees ?? []);
   }
 
   return entities;
@@ -157,89 +97,77 @@ function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransac
   const entities: PricedEntity[] = [];
 
   for (const scopedTransaction of scopedTransactions) {
-    const txId = scopedTransaction.tx.txFingerprint;
     const datetime = scopedTransaction.tx.datetime ?? '(unknown)';
-
-    for (const movement of scopedTransaction.movements.inflows) {
-      const priceData = movement.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'inflow',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
-
-    for (const movement of scopedTransaction.movements.outflows) {
-      const priceData = movement.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: movement.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'outflow',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
-
-    for (const fee of scopedTransaction.fees) {
-      const priceData = fee.priceAtTxTime;
-      const hasPrice = Boolean(priceData?.price?.amount && priceData?.price?.currency);
-      const hasFxMetadata = priceData
-        ? Boolean(priceData.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp)
-        : false;
-
-      entities.push({
-        transactionId: txId,
-        datetime,
-        assetSymbol: fee.assetSymbol,
-        currency: priceData?.price?.currency,
-        kind: 'fee',
-        hasPrice,
-        hasFxMetadata,
-        fxMetadata:
-          priceData && (priceData.fxRateToUSD || priceData.fxSource || priceData.fxTimestamp)
-            ? {
-                rate: priceData.fxRateToUSD?.toFixed() ?? '',
-                source: priceData.fxSource ?? '',
-                timestamp: priceData.fxTimestamp?.toISOString() ?? '',
-              }
-            : undefined,
-      });
-    }
+    appendPricedEntities(
+      entities,
+      scopedTransaction.tx.txFingerprint,
+      datetime,
+      'inflow',
+      scopedTransaction.movements.inflows
+    );
+    appendPricedEntities(
+      entities,
+      scopedTransaction.tx.txFingerprint,
+      datetime,
+      'outflow',
+      scopedTransaction.movements.outflows
+    );
+    appendPricedEntities(entities, scopedTransaction.tx.txFingerprint, datetime, 'fee', scopedTransaction.fees);
   }
 
   return entities;
+}
+
+function appendPricedEntities(
+  target: PricedEntity[],
+  transactionId: string,
+  datetime: string,
+  kind: PricedEntityKind,
+  entries: readonly PriceBearingEntry[]
+): void {
+  for (const entry of entries) {
+    target.push(buildPricedEntity(transactionId, datetime, kind, entry));
+  }
+}
+
+function buildPricedEntity(
+  transactionId: string,
+  datetime: string,
+  kind: PricedEntityKind,
+  entry: PriceBearingEntry
+): PricedEntity {
+  const priceData = entry.priceAtTxTime;
+
+  return {
+    transactionId,
+    datetime,
+    assetSymbol: entry.assetSymbol,
+    currency: priceData?.price?.currency,
+    kind,
+    hasPrice: hasPriceData(priceData),
+    hasFxMetadata: hasCompleteFxMetadata(priceData),
+    fxMetadata: buildFxMetadata(priceData),
+  };
+}
+
+function hasPriceData(priceData: PriceBearingEntry['priceAtTxTime']): boolean {
+  return Boolean(priceData?.price?.amount && priceData?.price?.currency);
+}
+
+function hasCompleteFxMetadata(priceData: PriceBearingEntry['priceAtTxTime']): boolean {
+  return Boolean(priceData?.fxRateToUSD && priceData.fxSource && priceData.fxTimestamp);
+}
+
+function buildFxMetadata(priceData: PriceBearingEntry['priceAtTxTime']): PricedEntity['fxMetadata'] {
+  if (!priceData || (!priceData.fxRateToUSD && !priceData.fxSource && !priceData.fxTimestamp)) {
+    return undefined;
+  }
+
+  return {
+    rate: priceData.fxRateToUSD?.toFixed() ?? '',
+    source: priceData.fxSource ?? '',
+    timestamp: priceData.fxTimestamp?.toISOString() ?? '',
+  };
 }
 
 /**
@@ -400,41 +328,18 @@ export function formatValidationError(result: PriceValidationResult): string {
  * @returns Result containing void on success, or Error with formatted message on failure
  */
 export function assertPriceDataQuality(transactions: Transaction[]): Result<void, Error> {
-  // Phase 1: Collect all entities
-  const entities = collectPricedEntities(transactions);
+  return assertEntityPriceDataQuality(collectPricedEntities(transactions));
+}
 
-  // Phase 2: Run all validations
-  const missingPriceIssues = validatePriceCompleteness(entities);
-  const nonUsdIssues = validatePriceCurrency(entities);
-  const missingFxTrailIssues = validateFxAuditTrail(entities);
+/**
+ * Assert that the scoped accounting boundary has complete, USD-denominated price data.
+ */
+export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScopedBuildResult): Result<void, Error> {
+  return assertEntityPriceDataQuality(collectScopedPricedEntities(scopedBuildResult.transactions));
+}
 
-  // Phase 3: Aggregate results
-  const allIssues = [...missingPriceIssues, ...nonUsdIssues, ...missingFxTrailIssues];
-
-  const byKind = new Map<string, number>();
-  const byCurrency = new Map<string, number>();
-
-  for (const entity of entities) {
-    byKind.set(entity.kind, (byKind.get(entity.kind) ?? 0) + 1);
-    if (entity.currency) {
-      byCurrency.set(entity.currency, (byCurrency.get(entity.currency) ?? 0) + 1);
-    }
-  }
-
-  const result: PriceValidationResult = {
-    isValid: allIssues.length === 0,
-    issues: allIssues,
-    summary: {
-      totalEntities: entities.length,
-      missingPrices: missingPriceIssues.length,
-      nonUsdPrices: nonUsdIssues.length,
-      missingFxTrails: missingFxTrailIssues.length,
-      byKind,
-      byCurrency,
-    },
-  };
-
-  // Phase 4: Return result
+function assertEntityPriceDataQuality(entities: PricedEntity[]): Result<void, Error> {
+  const result = buildPriceValidationResult(entities);
   if (!result.isValid) {
     return err(new Error(formatValidationError(result)));
   }
@@ -442,28 +347,14 @@ export function assertPriceDataQuality(transactions: Transaction[]): Result<void
   return ok(undefined);
 }
 
-/**
- * Assert that the scoped accounting boundary has complete, USD-denominated price data.
- */
-export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScopedBuildResult): Result<void, Error> {
-  const entities = collectScopedPricedEntities(scopedBuildResult.transactions);
-
+function buildPriceValidationResult(entities: PricedEntity[]): PriceValidationResult {
   const missingPriceIssues = validatePriceCompleteness(entities);
   const nonUsdIssues = validatePriceCurrency(entities);
   const missingFxTrailIssues = validateFxAuditTrail(entities);
   const allIssues = [...missingPriceIssues, ...nonUsdIssues, ...missingFxTrailIssues];
+  const { byCurrency, byKind } = buildEntitySummaries(entities);
 
-  const byKind = new Map<string, number>();
-  const byCurrency = new Map<string, number>();
-
-  for (const entity of entities) {
-    byKind.set(entity.kind, (byKind.get(entity.kind) ?? 0) + 1);
-    if (entity.currency) {
-      byCurrency.set(entity.currency, (byCurrency.get(entity.currency) ?? 0) + 1);
-    }
-  }
-
-  const result: PriceValidationResult = {
+  return {
     isValid: allIssues.length === 0,
     issues: allIssues,
     summary: {
@@ -475,10 +366,21 @@ export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScoped
       byCurrency,
     },
   };
+}
 
-  if (!result.isValid) {
-    return err(new Error(formatValidationError(result)));
+function buildEntitySummaries(entities: PricedEntity[]): {
+  byCurrency: Map<string, number>;
+  byKind: Map<string, number>;
+} {
+  const byKind = new Map<string, number>();
+  const byCurrency = new Map<string, number>();
+
+  for (const entity of entities) {
+    byKind.set(entity.kind, (byKind.get(entity.kind) ?? 0) + 1);
+    if (entity.currency) {
+      byCurrency.set(entity.currency, (byCurrency.get(entity.currency) ?? 0) + 1);
+    }
   }
 
-  return ok(undefined);
+  return { byKind, byCurrency };
 }
