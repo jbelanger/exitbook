@@ -47,7 +47,7 @@ export function countAccountsBySourceName(context: TaxPackageBuildContext): Map<
   return counts;
 }
 
-export function formatAccountLabel(account: Account, sourceNameCount: number): string {
+function formatAccountLabel(account: Account, sourceNameCount: number): string {
   if (sourceNameCount <= 1) {
     return account.sourceName;
   }
@@ -221,10 +221,6 @@ export function formatMoney(value: Decimal): string {
 
 export function formatOptionalMoney(value: Decimal): string {
   return value.isZero() ? '' : formatMoney(value);
-}
-
-export function formatSignedOptionalMoney(value: Decimal): string {
-  return value.isZero() ? '' : value.toFixed(2);
 }
 
 export function formatQuantity(value: Decimal): string {

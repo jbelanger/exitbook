@@ -1,5 +1,4 @@
 import { parseDecimal, type Currency } from '@exitbook/core';
-import type { Account } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 
 import { createLink, createTransaction } from '../../../linking/shared/test-utils.js';
@@ -7,16 +6,6 @@ import type { CostBasisContext } from '../../../ports/cost-basis-persistence.js'
 import type { CostBasisWorkflowResult } from '../../workflow/workflow-result-types.js';
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
 import { buildTaxPackageBuildContext } from '../tax-package-context-builder.js';
-
-export function createExportTestAccount(id: number, sourceName = `account-${id}`): Account {
-  return {
-    id,
-    accountType: 'exchange-api',
-    sourceName,
-    identifier: `${sourceName}-identifier`,
-    createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  };
-}
 
 export function createStandardWorkflowArtifact(
   overrides?: Partial<Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>>

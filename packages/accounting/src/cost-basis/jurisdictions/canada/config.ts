@@ -1,6 +1,6 @@
 import type { CostBasisMethodSupport, JurisdictionConfig } from '../../model/types.js';
 
-export const CANADA_COST_BASIS_METHODS: CostBasisMethodSupport[] = [
+const CANADA_COST_BASIS_METHODS: CostBasisMethodSupport[] = [
   {
     code: 'average-cost',
     label: 'Average Cost (ACB)',

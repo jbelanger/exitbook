@@ -422,8 +422,8 @@ describe('calculateScopedCostBasis', () => {
       expect(resultError.message).toContain('price(s) not in USD');
       expect(resultError.message).toContain('prices enrich');
       expect(resultError.message).toContain('EUR');
-      // Transaction ID is shown as numeric ID (2) rather than external ID (ext-2)
-      expect(resultError.message).toContain('Tx 2');
+      // Transaction fingerprint (sha256 hex) is shown in examples
+      expect(resultError.message).toMatch(/Tx [0-9a-f]{64}/);
     });
 
     it('should reject transactions with non-USD prices in fees', async () => {
@@ -523,7 +523,7 @@ describe('calculateScopedCostBasis', () => {
       expect(resultError.message).toContain('7 price(s) not in USD');
       expect(resultError.message).toContain('Examples of issues found');
       // Should show 5 examples, not all 7
-      const examples = resultError.message.match(/Tx \d+/g);
+      const examples = resultError.message.match(/Tx [0-9a-f]{64}/g);
       expect(examples).toHaveLength(5);
     });
 

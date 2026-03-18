@@ -307,9 +307,7 @@ export interface CanadaArtifactSnapshotParts {
   };
 }
 
-export function buildCanadaArtifactDebugPayload(
-  artifact: CanadaCostBasisWorkflowResult
-): CostBasisArtifactDebugPayload {
+function buildCanadaArtifactDebugPayload(artifact: CanadaCostBasisWorkflowResult): CostBasisArtifactDebugPayload {
   const linkIds = artifact.taxReport.transfers
     .map((transfer) => transfer.linkId)
     .filter((linkId): linkId is number => typeof linkId === 'number');
