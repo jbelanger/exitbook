@@ -166,7 +166,11 @@ export {
 
 // Cost basis utilities
 export type { ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';
-export { buildCostBasisInput, validateCostBasisInput } from './cost-basis/workflow/cost-basis-input.js';
+export {
+  buildCostBasisInput,
+  validateCostBasisInput,
+  validateMethodJurisdictionCombination,
+} from './cost-basis/workflow/cost-basis-input.js';
 export {
   checkTransactionPriceCoverage,
   getCostBasisRebuildTransactions,

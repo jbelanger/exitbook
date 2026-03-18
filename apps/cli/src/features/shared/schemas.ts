@@ -1,3 +1,4 @@
+import { validateMethodJurisdictionCombination } from '@exitbook/accounting';
 import { z } from 'zod';
 
 const JsonFlagSchema = z.object({
@@ -402,27 +403,25 @@ export const AssetsViewCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
 });
 
-interface CostBasisMethodJurisdictionOptions {
-  jurisdiction?: string | undefined;
-  method?: string | undefined;
-}
-
+/**
+ * Zod superRefine adapter for the canonical method-jurisdiction validation in @exitbook/accounting.
+ * Translates Result errors into Zod issues for CLI option parsing.
+ */
 function validateCostBasisMethodJurisdictionCombination(
-  data: CostBasisMethodJurisdictionOptions,
+  data: { jurisdiction?: string | undefined; method?: string | undefined },
   ctx: z.RefinementCtx
 ): void {
-  if (data.method === 'average-cost' && data.jurisdiction && data.jurisdiction !== 'CA') {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'average-cost method is only valid with CA jurisdiction',
-      path: ['method'],
-    });
-  }
+  if (!data.method || !data.jurisdiction) return;
 
-  if (data.jurisdiction === 'CA' && data.method && data.method !== 'average-cost') {
+  const result = validateMethodJurisdictionCombination(
+    data.method as Parameters<typeof validateMethodJurisdictionCombination>[0],
+    data.jurisdiction as Parameters<typeof validateMethodJurisdictionCombination>[1]
+  );
+
+  if (result.isErr()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'CA jurisdiction currently supports only average-cost (ACB)',
+      message: result.error.message,
       path: ['method'],
     });
   }

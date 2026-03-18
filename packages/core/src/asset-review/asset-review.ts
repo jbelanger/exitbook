@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-export const AssetReviewStatusSchema = z.enum(['clear', 'needs-review', 'reviewed']);
+const AssetReviewStatusSchema = z.enum(['clear', 'needs-review', 'reviewed']);
 
-export const AssetReferenceStatusSchema = z.enum(['matched', 'unmatched', 'unknown']);
+const AssetReferenceStatusSchema = z.enum(['matched', 'unmatched', 'unknown']);
 
 export const AssetReviewEvidenceSchema = z.object({
   kind: z.enum([

@@ -4,7 +4,7 @@ import { CurrencySchema, DecimalSchema } from '../money/money.js';
 import { OverrideLinkTypeSchema } from '../override/override.js';
 import { DateSchema } from '../utils/primitives.js';
 
-const UnitIntervalDecimalSchema = DecimalSchema.refine(
+export const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),
   { message: 'Value must be between 0 and 1 (inclusive)' }
 );

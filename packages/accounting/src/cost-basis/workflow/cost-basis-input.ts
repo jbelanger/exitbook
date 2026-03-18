@@ -68,7 +68,7 @@ function validateJurisdiction(jurisdiction: string): Result<CostBasisConfig['jur
   return ok(jurisdiction as CostBasisConfig['jurisdiction']);
 }
 
-function validateMethodJurisdictionCombination(
+export function validateMethodJurisdictionCombination(
   method: CostBasisConfig['method'],
   jurisdiction: CostBasisConfig['jurisdiction']
 ): Result<void, Error> {

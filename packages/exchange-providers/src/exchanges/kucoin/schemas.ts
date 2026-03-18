@@ -5,7 +5,7 @@ import { z } from 'zod';
  * KuCoin ledger entry schema (from fetchLedger API via ccxt)
  * Captures all balance changes: trades, deposits, withdrawals, fees, rebates, etc.
  */
-export const KuCoinLedgerEntrySchema = z.object({
+const _KuCoinLedgerEntrySchema = z.object({
   id: z.string(), // Ledger entry ID
   direction: z.enum(['in', 'out']).optional(), // Direction of the transaction
   account: z.string().optional(), // Account ID
@@ -27,4 +27,4 @@ export const KuCoinLedgerEntrySchema = z.object({
     .optional(),
 });
 
-export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;
+export type KuCoinLedgerEntry = z.infer<typeof _KuCoinLedgerEntrySchema>;
