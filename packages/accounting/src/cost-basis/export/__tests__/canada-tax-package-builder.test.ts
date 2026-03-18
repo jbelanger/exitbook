@@ -61,8 +61,12 @@ describe('buildCanadaTaxPackage', () => {
     expect(adjustmentsCsv).toContain('ACQ-0001');
 
     const sourceLinksCsv = result.files.find((file) => file.relativePath === 'source-links.csv')?.content ?? '';
-    expect(sourceLinksCsv).toContain('kraken-11');
-    expect(sourceLinksCsv).toContain('txhash-12');
+    const exchangeTxFingerprint = context.sourceContext.transactionsById.get(11)?.txFingerprint;
+    const blockchainTxHash = context.sourceContext.transactionsById.get(12)?.blockchain?.transaction_hash;
+    expect(exchangeTxFingerprint).toBeDefined();
+    expect(blockchainTxHash).toBeDefined();
+    expect(sourceLinksCsv).toContain(exchangeTxFingerprint!);
+    expect(sourceLinksCsv).toContain(blockchainTxHash!);
 
     const report = result.files.find((file) => file.relativePath === 'report.md')?.content ?? '';
     expect(report).toContain('Canada capital-gains inclusion rate of 0.5');

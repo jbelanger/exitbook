@@ -84,8 +84,12 @@ describe('buildUsTaxPackage', () => {
     expect(lotsCsv).toContain('open');
 
     const sourceLinksCsv = result.files.find((file) => file.relativePath === 'source-links.csv')?.content ?? '';
-    expect(sourceLinksCsv).toContain('kraken-3');
-    expect(sourceLinksCsv).toContain('txhash-5');
+    const exchangeTxFingerprint = context.sourceContext.transactionsById.get(3)?.txFingerprint;
+    const blockchainTxHash = context.sourceContext.transactionsById.get(5)?.blockchain?.transaction_hash;
+    expect(exchangeTxFingerprint).toBeDefined();
+    expect(blockchainTxHash).toBeDefined();
+    expect(sourceLinksCsv).toContain(exchangeTxFingerprint!);
+    expect(sourceLinksCsv).toContain(blockchainTxHash!);
 
     const report = result.files.find((file) => file.relativePath === 'report.md')?.content ?? '';
     expect(report).toContain('intentionally omits downstream Form 8949 box placement');

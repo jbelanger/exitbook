@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-08
+last_verified: 2026-03-17
 status: canonical
 ---
 
@@ -187,7 +187,7 @@ Important boundary rules:
 For every transaction:
 
 - normalize blockchain hash when present
-- compute `txFingerprint = ${source}:${externalId}` once
+- reuse the persisted `txFingerprint` on the transaction
 - compute a deterministic movement fingerprint for each inflow and outflow by direction-local position
 - set `amount = netAmount ?? grossAmount`
 - set `grossAmount` only when `netAmount` exists and differs from `grossAmount`

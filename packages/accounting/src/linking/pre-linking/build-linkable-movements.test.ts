@@ -68,6 +68,10 @@ describe('buildLinkableMovements', () => {
         ],
       }),
     ];
+    const firstInflow = transactions[0]!.movements.inflows[0]!;
+    const secondInflow = transactions[0]!.movements.inflows[1]!;
+    const firstOutflow = transactions[0]!.movements.outflows[0]!;
+    const secondOutflow = transactions[0]!.movements.outflows[1]!;
 
     const result = assertOk(buildLinkableMovements(transactions, logger));
 
@@ -83,25 +87,25 @@ describe('buildLinkableMovements', () => {
         assetSymbol: 'ETH',
         direction: 'in',
         position: 0,
-        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:inflow:0',
+        movementFingerprint: firstInflow.movementFingerprint,
       },
       {
         assetSymbol: 'USDT',
         direction: 'in',
         position: 1,
-        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:inflow:1',
+        movementFingerprint: secondInflow.movementFingerprint,
       },
       {
         assetSymbol: 'BTC',
         direction: 'out',
         position: 0,
-        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
+        movementFingerprint: firstOutflow.movementFingerprint,
       },
       {
         assetSymbol: 'SOL',
         direction: 'out',
         position: 1,
-        movementFingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:1',
+        movementFingerprint: secondOutflow.movementFingerprint,
       },
     ]);
   });
@@ -114,7 +118,7 @@ describe('buildLinkableMovements', () => {
       datetime: '2026-01-01T00:00:00Z',
       outflows: [{ assetSymbol: 'BTC', amount: '1' }],
     });
-    transaction.txFingerprint = 'tx:v2:kraken:1:stored-override';
+    transaction.txFingerprint = 'f'.repeat(64);
     transaction.movements.outflows![0]!.movementFingerprint = 'movement:stored:outflow:0';
 
     const result = assertOk(buildLinkableMovements([transaction], logger));
@@ -188,6 +192,8 @@ describe('buildLinkableMovements', () => {
         settlement: 'on-chain',
       },
     ];
+    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
 
     const result = assertOk(buildLinkableMovements(transactions, logger));
 
@@ -197,8 +203,8 @@ describe('buildLinkableMovements', () => {
       sourceTransactionId: 1,
       targetTransactionId: 2,
       linkType: 'blockchain_internal',
-      sourceMovementFingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0',
-      targetMovementFingerprint: 'movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0',
+      sourceMovementFingerprint,
+      targetMovementFingerprint,
     });
 
     // Outflow candidate reduced from gross amounts: 5 - 3 - 0.01 = 1.99

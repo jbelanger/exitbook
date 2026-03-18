@@ -1,9 +1,12 @@
 ---
-status: draft
-last_updated: 2026-03-15
+status: superseded
+last_updated: 2026-03-17
 ---
 
 # Persisted Fingerprints Plan
+
+> Superseded by [Transaction Identity Simplification Plan](./transaction-identity-simplification-plan.md).
+> This document is kept as historical context for the earlier persisted-fingerprint slice and still describes the pre-`txFingerprint` simplification model.
 
 ## Summary
 

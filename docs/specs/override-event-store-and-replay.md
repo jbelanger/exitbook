@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-08
+last_verified: 2026-03-17
 status: canonical
 ---
 
@@ -15,7 +15,7 @@ events are replayed during `links run`.
 | Concept                 | Key Rule                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Storage                 | Dedicated SQLite DB at `${EXITBOOK_DATA_DIR}/overrides.db`                                                     |
-| Transaction identity    | `${source}:${externalId}`                                                                                      |
+| Transaction identity    | Persisted `txFingerprint`                                                                                      |
 | Legacy link identity    | `link:${sortedTxFp1}:${sortedTxFp2}:${assetSymbol}`                                                            |
 | Resolved link identity  | `resolved-link:v1:${sourceMovementFingerprint}:${targetMovementFingerprint}:${sourceAssetId}:${targetAssetId}` |
 | Replay precedence       | Override replay runs after algorithmic link generation                                                         |
@@ -58,7 +58,7 @@ Append-only logical event stored as one row in SQLite:
 Stable transaction identity used by replay:
 
 ```ts
-`${source}:${externalId}`;
+txFingerprint;
 ```
 
 ### Legacy Link Fingerprint
@@ -262,8 +262,7 @@ graph TD
 - price/fx override replay is not the focus of this spec and is not wired through every pipeline the same way as link replay
 - override ordering follows SQLite append sequence rather than a separate sort
   by `created_at`
-- transaction fingerprints are still `${source}:${externalId}` strings rather
-  than a dedicated structured fingerprint type
+- transaction fingerprints are still stored as opaque strings rather than a dedicated nominal `TransactionFingerprint` type
 
 ## Related Specs
 
@@ -274,4 +273,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-17_

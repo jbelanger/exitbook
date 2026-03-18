@@ -1,5 +1,5 @@
 import type { Currency, OverrideEvent } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { computeResolvedLinkFingerprint, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
@@ -61,6 +61,18 @@ describe('buildLinkFromOrphanedOverride', () => {
 
     const { linkableMovements } = assertOk(buildLinkableMovements(transactions, logger));
     const txById = new Map(transactions.map((tx) => [tx.id, tx]));
+    const sourceTxFingerprint = transactions[0]!.txFingerprint;
+    const targetTxFingerprint = transactions[2]!.txFingerprint;
+    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFingerprint = transactions[2]!.movements.inflows[0]!.movementFingerprint;
+    const resolvedLinkFingerprint = assertOk(
+      computeResolvedLinkFingerprint({
+        sourceAssetId: 'test:btc',
+        targetAssetId: 'test:btc',
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
+      })
+    );
 
     const overrideEvent: OverrideEvent = {
       id: 'evt-orphan',
@@ -72,15 +84,14 @@ describe('buildLinkFromOrphanedOverride', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1',
-        target_fingerprint: 'tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3',
+        source_fingerprint: sourceTxFingerprint,
+        target_fingerprint: targetTxFingerprint,
         asset: 'BTC',
-        resolved_link_fingerprint:
-          'resolved-link:v1:movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0:movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0:test:btc:test:btc',
+        resolved_link_fingerprint: resolvedLinkFingerprint,
         source_asset_id: 'test:btc',
         target_asset_id: 'test:btc',
-        source_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0',
-        target_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0',
+        source_movement_fingerprint: sourceMovementFingerprint,
+        target_movement_fingerprint: targetMovementFingerprint,
         source_amount: '6',
         target_amount: '6',
       },
@@ -93,8 +104,8 @@ describe('buildLinkFromOrphanedOverride', () => {
       linkType: 'transfer',
       sourceAssetId: 'test:btc',
       targetAssetId: 'test:btc',
-      sourceMovementFingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0',
-      targetMovementFingerprint: 'movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0',
+      sourceMovementFingerprint,
+      targetMovementFingerprint,
       sourceAmount: '6',
       targetAmount: '6',
     };
@@ -103,7 +114,7 @@ describe('buildLinkFromOrphanedOverride', () => {
 
     expect(result.sourceAmount.toFixed()).toBe('6');
     expect(result.targetAmount.toFixed()).toBe('6');
-    expect(result.sourceMovementFingerprint).toBe('movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-1:outflow:0');
-    expect(result.targetMovementFingerprint).toBe('movement:tx:v2:blockchain:bitcoin:3:blockchain:bitcoin-3:inflow:0');
+    expect(result.sourceMovementFingerprint).toBe(sourceMovementFingerprint);
+    expect(result.targetMovementFingerprint).toBe(targetMovementFingerprint);
   });
 });

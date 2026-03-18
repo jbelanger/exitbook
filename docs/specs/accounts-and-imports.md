@@ -1,5 +1,5 @@
 ---
-last_verified: 2025-12-12
+last_verified: 2026-03-17
 status: canonical
 ---
 
@@ -11,14 +11,14 @@ How Exitbook represents accounts (identity/state) and executes imports (sessions
 
 ## Quick Reference
 
-| Concept             | Key Rule                                                                                                 |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| Account identity    | Unique on `(accountType, sourceName, identifier, COALESCE(userId,0))`                                    |
-| Import resumability | Latest `started` or `failed` session is resumed; status reset to `started`                               |
-| Cursor storage      | Stored per `operationType` in `accounts.lastCursor`; merged, not replaced                                |
-| CSV directory lock  | One exchange-csv account per user+exchange; directory must match                                         |
-| Dedupe              | `raw_transactions` unique on `(account_id, external_id)` and `(account_id, blockchain_transaction_hash)` |
-| xpub children       | Reused if present; no re-derivation on subsequent imports                                                |
+| Concept             | Key Rule                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity    | Unique on `(accountType, sourceName, identifier, COALESCE(userId,0))`                                                           |
+| Import resumability | Latest `started` or `failed` session is resumed; status reset to `started`                                                      |
+| Cursor storage      | Stored per `operationType` in `accounts.lastCursor`; merged, not replaced                                                       |
+| CSV directory lock  | One exchange-csv account per user+exchange; directory must match                                                                |
+| Dedupe              | `raw_transactions` unique on `(account_id, event_id)`; `blockchain_transaction_hash` is stored and indexed for grouping/lookups |
+| xpub children       | Reused if present; no re-derivation on subsequent imports                                                                       |
 
 ## Goals
 
@@ -174,7 +174,7 @@ updated_at TEXT NULL
 id INTEGER PK,
 account_id INTEGER NOT NULL REFERENCES accounts(id),
 provider_name TEXT NOT NULL,
-external_id TEXT NOT NULL,
+event_id TEXT NOT NULL,
 source_address TEXT NULL,
 blockchain_transaction_hash TEXT NULL,
 transaction_type_hint TEXT NULL,
@@ -183,9 +183,8 @@ normalized_data TEXT NOT NULL,
 processing_status TEXT NOT NULL DEFAULT 'pending',
 processed_at TEXT NULL,
 created_at TEXT NOT NULL DEFAULT (datetime('now'))
--- Unique: (account_id, blockchain_transaction_hash) WHERE hash IS NOT NULL
--- Unique: (account_id, external_id) WHERE external_id IS NOT NULL
--- Indexes: uq_raw_tx_hash_per_account, uq_raw_tx_external_id_per_account
+-- Unique: (account_id, event_id)
+-- Indexes: idx_raw_tx_account_blockchain_hash, idx_raw_tx_account_event_id
 ```
 
 ## Pipeline / Flow
@@ -209,7 +208,7 @@ graph TD
 - **Required**: Account uniqueness constraint must hold; enforced by DB index.
 - **Required**: Resume uses latest `started/failed` session; enforced in ImportSessionRepository.findLatestIncomplete + orchestrator.
 - **Required**: Cursor updates merge per operation; enforced in AccountRepository.updateCursor.
-- **Required**: Raw transaction uniqueness per account enforced by DB unique indexes; collisions counted as skipped, not fatal.
+- **Required**: Raw transaction uniqueness per account enforced by `(account_id, event_id)`; collisions counted as skipped, not fatal.
 - **Required**: Xpub children reuse if already present; no re-derivation.
 
 ## Edge Cases & Gotchas

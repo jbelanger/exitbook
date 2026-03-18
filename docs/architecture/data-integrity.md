@@ -41,23 +41,23 @@ This separation means a bug in transaction classification, fee calculation, or o
 
 **Alternative considered**: Delete everything and re-import. Some tools take this approach, but it wastes API quota, loses data from providers that prune old records, and makes "fix and replay" workflows impossible.
 
-### Three-layer deduplication
+### Raw deduplication plus derived identity checks
 
-**Decision**: Duplicate prevention operates at three independent layers:
+**Decision**: Duplicate prevention operates at the raw-event boundary plus the processed-transaction boundary:
 
 1. **Provider-level dedup**: Each importer's streaming adapter maintains an in-memory dedup window (~500 items) to filter duplicates from overlapping API pages before they reach the database.
 
-2. **Event ID uniqueness**: `UNIQUE INDEX idx_raw_tx_external_id_per_account ON raw_transactions(account_id, external_id)` ensures no two raw records share the same provider-assigned event ID within an account.
+2. **Event ID uniqueness**: `UNIQUE INDEX idx_raw_tx_account_event_id ON raw_transactions(account_id, event_id)` ensures no two raw records share the same provider-assigned raw event ID within an account.
 
-3. **Blockchain hash uniqueness**: `UNIQUE INDEX idx_raw_tx_hash_per_account ON raw_transactions(account_id, blockchain_transaction_hash) WHERE blockchain_transaction_hash IS NOT NULL` prevents the same on-chain transaction from being stored twice.
+3. **Derived transaction identity checks**: `transactions.tx_fingerprint` is unique, and blockchain processed rows also carry a unique `(account_id, blockchain_transaction_hash)` constraint. Raw rows keep a non-unique `(account_id, blockchain_transaction_hash)` index for grouping and lookup performance.
 
-**Why**: Each layer catches different failure modes. Provider-level dedup handles overlapping pages during a single import. Event ID uniqueness handles re-imports of the same data (CSV re-import, API re-sync). Hash uniqueness handles the case where the same on-chain transaction appears with different provider-assigned IDs.
+**Why**: Each layer catches different failure modes. Provider-level dedup handles overlapping pages during a single import. Event ID uniqueness handles raw-data re-imports of the same event set (CSV re-import, API re-sync). Derived transaction identity checks protect the canonical processed transaction contract after processors group and materialize raw records.
 
 When a duplicate is detected at the DB layer, `saveBatch()` returns `{ inserted: N, skipped: M }` — duplicates are counted, not treated as errors. This makes imports idempotent: running the same import twice produces the same result.
 
 ### Result types over exceptions
 
-**Decision**: Every fallible function returns `Result<T, Error>` (neverthrow) instead of throwing exceptions. This applies from CLI handlers down through orchestrators, processors, database queries, and API clients.
+**Decision**: Every fallible function returns `Result<T, Error>` from `@exitbook/core` instead of throwing exceptions. This applies from CLI handlers down through orchestrators, processors, database queries, and API clients.
 
 **Why**: In a financial system, a swallowed exception means lost data with no indication of what failed. The `Result` type makes every failure explicit at the type level — callers cannot ignore errors without deliberately unwrapping. The compiler enforces error handling at every call boundary.
 
@@ -97,7 +97,7 @@ When `StreamingImportRunner` receives a batch, it calls `rawDataQueries.saveBatc
 
 - `provider_data`: The original JSON from the provider (preserved verbatim)
 - `normalized_data`: A provider-agnostic normalized representation (used by processors)
-- `external_id`: Provider-assigned event ID (used for dedup)
+- `event_id`: Provider-assigned raw event ID (used for dedup)
 - `blockchain_transaction_hash`: On-chain hash if applicable (used for dedup)
 - `processing_status`: Initially `pending`
 
@@ -145,6 +145,6 @@ Raw records, price caches, token metadata, and provider health data are preserve
 | `packages/data/src/migrations/001_initial_schema.ts`                    | DB schema with dedup constraints                              |
 | `packages/ingestion/src/features/process/process-service.ts`            | Processing orchestration, incomplete import guards            |
 | `packages/ingestion/src/features/process/base-transaction-processor.ts` | Base class: Zod validation, scam detection, output validation |
-| `packages/core/src/schemas/transaction.ts`                              | Transaction schema with fee scope/settlement semantics        |
+| `packages/core/src/transaction/transaction.ts`                          | Transaction schema with fee scope/settlement semantics        |
 | `packages/data/src/repositories/raw-data-queries.ts`                    | `saveBatch()` with idempotent dedup                           |
 | `apps/cli/src/features/process/process-handler.ts`                      | Reprocess command: clear + reset + reprocess                  |

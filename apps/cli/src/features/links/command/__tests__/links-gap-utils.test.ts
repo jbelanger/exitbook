@@ -676,7 +676,7 @@ describe('analyzeLinkGaps', () => {
     const links: TransactionLink[] = [
       createMockLink({
         id: 1,
-        sourceTransactionId: withdrawal.id ?? 0,
+        sourceTransactionId: withdrawal.id,
         targetTransactionId: 42,
         assetSymbol: 'BTC',
         sourceAssetId: 'test:btc',
@@ -725,7 +725,7 @@ describe('analyzeLinkGaps', () => {
     const links: TransactionLink[] = [
       createMockLink({
         id: 1,
-        sourceTransactionId: withdrawal.id ?? 0,
+        sourceTransactionId: withdrawal.id,
         targetTransactionId: 77,
         assetSymbol: 'ETH',
         sourceAssetId: 'test:eth',

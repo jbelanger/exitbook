@@ -93,7 +93,7 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
   return {
     tx_fingerprint: tx.txFingerprint,
     from_address: tx.from,
-    id: tx.id ?? 0,
+    id: tx.id,
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
     source_name: tx.source,

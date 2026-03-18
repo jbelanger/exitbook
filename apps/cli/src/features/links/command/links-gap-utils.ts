@@ -496,7 +496,7 @@ export function analyzeLinkGaps(
           : confirmedAmount.dividedBy(totalAmount).times(100);
 
         issues.push({
-          transactionId: tx.id ?? 0,
+          transactionId: tx.id,
           txFingerprint: tx.txFingerprint,
           source: tx.source,
           blockchain: tx.blockchain?.name,
@@ -554,7 +554,7 @@ export function analyzeLinkGaps(
           : confirmedAmount.dividedBy(totalAmount).times(100);
 
         issues.push({
-          transactionId: tx.id ?? 0,
+          transactionId: tx.id,
           txFingerprint: tx.txFingerprint,
           source: tx.source,
           blockchain: tx.blockchain?.name,

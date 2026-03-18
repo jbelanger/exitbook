@@ -35,12 +35,14 @@ Status as of 2026-03-17:
 Verification completed for this slice:
 
 - `pnpm build`
+- `pnpm test`
 - targeted package type checks for `packages/ingestion`, `packages/accounting`, `packages/data`, and `apps/cli`
 - targeted Vitest coverage across 40 touched files: 552 tests passed
+- full workspace Vitest suite: 5241 tests passed, 29 skipped
 
 Remaining work:
 
-- run the full workspace test suite
+- update remaining historical/spec documentation that still describes pre-`txFingerprint` identity semantics
 - keep this document as the design/reference source until the broader migration is fully closed
 
 ## Why This Plan Exists

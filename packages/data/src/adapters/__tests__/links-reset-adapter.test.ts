@@ -24,14 +24,14 @@ describe('buildLinksResetPorts', () => {
   });
 
   async function seedTransactionPair() {
-    const tx1ExternalId = 'test-tx-1';
+    const tx1Fingerprint = 'test-tx-1';
     const tx1 = await db
       .insertInto('transactions')
       .values({
         account_id: 1,
         source_name: 'test',
         source_type: 'exchange',
-        tx_fingerprint: seedTxFingerprint('test', 1, tx1ExternalId),
+        tx_fingerprint: seedTxFingerprint('test', 1, tx1Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,
@@ -40,14 +40,14 @@ describe('buildLinksResetPorts', () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    const tx2ExternalId = 'test-tx-2';
+    const tx2Fingerprint = 'test-tx-2';
     const tx2 = await db
       .insertInto('transactions')
       .values({
         account_id: 2,
         source_name: 'test',
         source_type: 'exchange',
-        tx_fingerprint: seedTxFingerprint('test', 2, tx2ExternalId),
+        tx_fingerprint: seedTxFingerprint('test', 2, tx2Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

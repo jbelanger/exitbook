@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { computeResolvedLinkFingerprint, parseDecimal } from '@exitbook/core';
 import type { OverrideEvent } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
@@ -41,6 +41,15 @@ function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinking
   return store;
 }
 
+function buildResolvedLinkFingerprint(params: {
+  sourceAssetId: string;
+  sourceMovementFingerprint: string;
+  targetAssetId: string;
+  targetMovementFingerprint: string;
+}): string {
+  return assertOk(computeResolvedLinkFingerprint(params));
+}
+
 describe('LinkingOrchestrator', () => {
   it('applies exact unlink overrides to internal links so rejected links do not reappear', async () => {
     // Two blockchain transactions with same hash from different accounts → internal link
@@ -64,6 +73,8 @@ describe('LinkingOrchestrator', () => {
         blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
       }),
     ];
+    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
 
     const unlinkEvent: OverrideEvent = {
       id: 'evt-1',
@@ -73,8 +84,12 @@ describe('LinkingOrchestrator', () => {
       scope: 'unlink',
       payload: {
         type: 'unlink_override',
-        resolved_link_fingerprint:
-          'resolved-link:v1:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0:movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
+        resolved_link_fingerprint: buildResolvedLinkFingerprint({
+          sourceAssetId: 'test:eth',
+          targetAssetId: 'test:eth',
+          sourceMovementFingerprint,
+          targetMovementFingerprint,
+        }),
       },
     };
 
@@ -221,6 +236,10 @@ describe('LinkingOrchestrator', () => {
         inflows: [{ assetSymbol: 'ETH', amount: '10' }],
       }),
     ];
+    const sourceTxFingerprint = transactions[0]!.txFingerprint;
+    const targetTxFingerprint = transactions[1]!.txFingerprint;
+    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
 
     // Override event that references BTC — but neither tx has BTC movements
     const linkOverride: OverrideEvent = {
@@ -233,15 +252,19 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
-        target_fingerprint: 'tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2',
+        source_fingerprint: sourceTxFingerprint,
+        target_fingerprint: targetTxFingerprint,
         asset: 'BTC',
-        resolved_link_fingerprint:
-          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:0:movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2:inflow:0:test:btc:test:btc',
+        resolved_link_fingerprint: buildResolvedLinkFingerprint({
+          sourceAssetId: 'test:btc',
+          targetAssetId: 'test:btc',
+          sourceMovementFingerprint,
+          targetMovementFingerprint,
+        }),
         source_asset_id: 'test:btc',
         target_asset_id: 'test:btc',
-        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
-        target_movement_fingerprint: 'movement:tx:v2:blockchain:bitcoin:1:blockchain:bitcoin-2:inflow:0',
+        source_movement_fingerprint: sourceMovementFingerprint,
+        target_movement_fingerprint: targetMovementFingerprint,
         source_amount: '10',
         target_amount: '10',
       },
@@ -282,6 +305,10 @@ describe('LinkingOrchestrator', () => {
         inflows: [{ assetSymbol: 'USDC', amount: '101' }],
       }),
     ];
+    const sourceTxFingerprint = transactions[0]!.txFingerprint;
+    const targetTxFingerprint = transactions[1]!.txFingerprint;
+    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+    const missingSourceMovementFingerprint = `movement:${sourceTxFingerprint}:outflow:9`;
 
     const linkOverride: OverrideEvent = {
       id: 'evt-orphan-ambiguous-source',
@@ -293,15 +320,19 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
-        target_fingerprint: 'tx:v2:blockchain:ethereum:1:blockchain:ethereum-2',
+        source_fingerprint: sourceTxFingerprint,
+        target_fingerprint: targetTxFingerprint,
         asset: 'USDC',
-        resolved_link_fingerprint:
-          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:9:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:0:test:usdc:test:usdc',
+        resolved_link_fingerprint: buildResolvedLinkFingerprint({
+          sourceAssetId: 'test:usdc',
+          targetAssetId: 'test:usdc',
+          sourceMovementFingerprint: missingSourceMovementFingerprint,
+          targetMovementFingerprint,
+        }),
         source_asset_id: 'test:usdc',
         target_asset_id: 'test:usdc',
-        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:9',
-        target_movement_fingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:0',
+        source_movement_fingerprint: missingSourceMovementFingerprint,
+        target_movement_fingerprint: targetMovementFingerprint,
         source_amount: '100',
         target_amount: '101',
       },
@@ -432,6 +463,8 @@ describe('LinkingOrchestrator', () => {
           blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
         }),
       ];
+      const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+      const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
 
       const unlinkEvent: OverrideEvent = {
         id: 'evt-1',
@@ -441,8 +474,12 @@ describe('LinkingOrchestrator', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          resolved_link_fingerprint:
-            'resolved-link:v1:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-1:outflow:0:movement:tx:v2:blockchain:ethereum:2:blockchain:ethereum-2:inflow:0:test:eth:test:eth',
+          resolved_link_fingerprint: buildResolvedLinkFingerprint({
+            sourceAssetId: 'test:eth',
+            targetAssetId: 'test:eth',
+            sourceMovementFingerprint,
+            targetMovementFingerprint,
+          }),
         },
       };
 
@@ -480,6 +517,10 @@ describe('LinkingOrchestrator', () => {
         inflows: [{ assetSymbol: 'USDC', amount: '99' }],
       }),
     ];
+    const sourceTxFingerprint = transactions[0]!.txFingerprint;
+    const targetTxFingerprint = transactions[1]!.txFingerprint;
+    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const missingTargetMovementFingerprint = `movement:${targetTxFingerprint}:inflow:9`;
 
     const linkOverride: OverrideEvent = {
       id: 'evt-orphan-ambiguous-target',
@@ -491,15 +532,19 @@ describe('LinkingOrchestrator', () => {
         type: 'link_override',
         action: 'confirm',
         link_type: 'transfer',
-        source_fingerprint: 'tx:v2:kraken:1:kraken-1',
-        target_fingerprint: 'tx:v2:blockchain:ethereum:1:blockchain:ethereum-2',
+        source_fingerprint: sourceTxFingerprint,
+        target_fingerprint: targetTxFingerprint,
         asset: 'USDC',
-        resolved_link_fingerprint:
-          'resolved-link:v1:movement:tx:v2:kraken:1:kraken-1:outflow:0:movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:9:test:usdc:test:usdc',
+        resolved_link_fingerprint: buildResolvedLinkFingerprint({
+          sourceAssetId: 'test:usdc',
+          targetAssetId: 'test:usdc',
+          sourceMovementFingerprint,
+          targetMovementFingerprint: missingTargetMovementFingerprint,
+        }),
         source_asset_id: 'test:usdc',
         target_asset_id: 'test:usdc',
-        source_movement_fingerprint: 'movement:tx:v2:kraken:1:kraken-1:outflow:0',
-        target_movement_fingerprint: 'movement:tx:v2:blockchain:ethereum:1:blockchain:ethereum-2:inflow:9',
+        source_movement_fingerprint: sourceMovementFingerprint,
+        target_movement_fingerprint: missingTargetMovementFingerprint,
         source_amount: '100',
         target_amount: '99',
       },
