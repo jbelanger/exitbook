@@ -432,7 +432,7 @@ describe('runCostBasisPipeline', () => {
       id: 10,
       accountId: 50,
       datetime: '2025-01-01T00:00:00.000Z',
-      fingerprintSeed: 'acq-10',
+      identityReference: 'acq-10',
       source: 'kraken',
       type: 'buy',
       inflows: [
@@ -488,7 +488,7 @@ describe('runCostBasisPipeline', () => {
       id: 13,
       accountId: 90,
       datetime: '2025-05-08T10:16:45.000Z',
-      fingerprintSeed: hash,
+      identityReference: hash,
       source: 'kucoin',
       type: 'deposit',
       inflows: [

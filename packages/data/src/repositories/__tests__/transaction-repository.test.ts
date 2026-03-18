@@ -15,11 +15,11 @@ describe('TransactionRepository', () => {
   let repo: TransactionRepository;
 
   function makePersistedTransaction(
-    overrides: Partial<TransactionDraft> & { fingerprintSeed?: string | undefined } = {}
+    overrides: Partial<TransactionDraft> & { identityReference?: string | undefined } = {}
   ): TransactionDraft {
     const source = overrides.source ?? 'ethereum';
     const sourceType = overrides.sourceType ?? 'blockchain';
-    const fingerprintSeed = overrides.fingerprintSeed ?? overrides.blockchain?.transaction_hash ?? 'tx-default';
+    const identityReference = overrides.identityReference ?? overrides.blockchain?.transaction_hash ?? 'tx-default';
 
     return {
       datetime: '2025-01-01T00:00:00.000Z',
@@ -44,7 +44,7 @@ describe('TransactionRepository', () => {
         sourceType === 'blockchain'
           ? {
               name: source,
-              transaction_hash: fingerprintSeed,
+              transaction_hash: identityReference,
               is_confirmed: true,
             }
           : undefined,
@@ -457,7 +457,7 @@ describe('TransactionRepository', () => {
     });
 
     it('returns the existing row id when the tx fingerprint already exists', async () => {
-      const transaction = makePersistedTransaction({ fingerprintSeed: 'dup-tx-1' });
+      const transaction = makePersistedTransaction({ identityReference: 'dup-tx-1' });
 
       const firstId = assertOk(await repo.create(transaction, 1));
       const secondId = assertOk(await repo.create(transaction, 1));
@@ -472,7 +472,7 @@ describe('TransactionRepository', () => {
     });
 
     it('counts tx fingerprint duplicates in createBatch without creating extra rows', async () => {
-      const transaction = makePersistedTransaction({ fingerprintSeed: 'dup-batch-1' });
+      const transaction = makePersistedTransaction({ identityReference: 'dup-batch-1' });
 
       const result = assertOk(await repo.createBatch([transaction, transaction], 1));
 
@@ -485,7 +485,7 @@ describe('TransactionRepository', () => {
       expect(movements).toHaveLength(1);
     });
 
-    it('deduplicates when the same blockchain hash arrives with a different fingerprint seed', async () => {
+    it('deduplicates when the same blockchain hash arrives with a different identity reference', async () => {
       const firstId = assertOk(
         await repo.create(
           makePersistedTransaction({
@@ -494,7 +494,7 @@ describe('TransactionRepository', () => {
               transaction_hash: '0xabc123',
               is_confirmed: true,
             },
-            fingerprintSeed: 'hash-source-1',
+            identityReference: 'hash-source-1',
           }),
           1
         )
@@ -508,7 +508,7 @@ describe('TransactionRepository', () => {
               transaction_hash: '0xabc123',
               is_confirmed: true,
             },
-            fingerprintSeed: 'hash-source-2',
+            identityReference: 'hash-source-2',
           }),
           1
         )

@@ -28,7 +28,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      fingerprintSeed: 'test-1',
+      identityReference: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -72,7 +72,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      fingerprintSeed: 'test-1',
+      identityReference: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -116,7 +116,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      fingerprintSeed: 'test-1',
+      identityReference: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -160,7 +160,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      fingerprintSeed: 'test-1',
+      identityReference: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -207,7 +207,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      fingerprintSeed: 'test-1',
+      identityReference: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',

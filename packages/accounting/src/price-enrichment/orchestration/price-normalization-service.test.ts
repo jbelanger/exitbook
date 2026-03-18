@@ -33,7 +33,7 @@ function makeTx(
   return materializeTestTransaction({
     id,
     accountId: 1,
-    fingerprintSeed: `test-${id}`,
+    identityReference: `test-${id}`,
     datetime: '2023-01-15T10:00:00.000Z',
     timestamp: new Date('2023-01-15T10:00:00.000Z').getTime(),
     source: 'test-exchange',

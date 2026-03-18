@@ -24,7 +24,7 @@ function makeTx(
   return materializeTestTransaction({
     id,
     accountId: 1,
-    fingerprintSeed: `tx-${id}`,
+    identityReference: `tx-${id}`,
     datetime: '2024-01-01T10:00:00.000Z',
     timestamp: new Date('2024-01-01T10:00:00.000Z').getTime(),
     source: 'kraken',
