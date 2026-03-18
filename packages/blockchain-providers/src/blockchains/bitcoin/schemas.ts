@@ -37,7 +37,7 @@ export const BitcoinAddressSchema = z
 /**
  * Schema for Bitcoin transaction input
  */
-export const BitcoinTransactionInputSchema = z.object({
+const BitcoinTransactionInputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
   txid: z.string().optional(),
   value: DecimalStringSchema,
@@ -47,7 +47,7 @@ export const BitcoinTransactionInputSchema = z.object({
 /**
  * Schema for Bitcoin transaction output
  */
-export const BitcoinTransactionOutputSchema = z.object({
+const BitcoinTransactionOutputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
   index: z.number(),
   value: DecimalStringSchema,

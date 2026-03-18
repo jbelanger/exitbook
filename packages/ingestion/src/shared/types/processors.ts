@@ -20,8 +20,6 @@ export interface AddressContext {
   userAddresses: string[];
 }
 
-export type TransactionDraft = TransactionDraft;
-
 /**
  * Interface for processing raw data into TransactionDraft format.
  * Each processor is responsible for converting source-specific raw data

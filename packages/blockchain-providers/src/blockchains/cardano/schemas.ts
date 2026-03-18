@@ -46,7 +46,7 @@ export const CardanoAddressSchema = z
 /**
  * Schema for Cardano asset amount (ADA or native token)
  */
-export const CardanoAssetAmountSchema = z.object({
+const CardanoAssetAmountSchema = z.object({
   decimals: z.number().nonnegative('Decimals must be non-negative').optional(),
   quantity: DecimalStringSchema,
   symbol: z.string().optional(),
@@ -56,7 +56,7 @@ export const CardanoAssetAmountSchema = z.object({
 /**
  * Schema for Cardano transaction input
  */
-export const CardanoTransactionInputSchema = z.object({
+const CardanoTransactionInputSchema = z.object({
   address: CardanoAddressSchema,
   amounts: z.array(CardanoAssetAmountSchema).min(1, 'Input must have at least one asset'),
   outputIndex: z.number().nonnegative('Output index must be non-negative'),
@@ -66,7 +66,7 @@ export const CardanoTransactionInputSchema = z.object({
 /**
  * Schema for Cardano transaction output
  */
-export const CardanoTransactionOutputSchema = z.object({
+const CardanoTransactionOutputSchema = z.object({
   address: CardanoAddressSchema,
   amounts: z.array(CardanoAssetAmountSchema).min(1, 'Output must have at least one asset'),
   outputIndex: z.number().nonnegative('Output index must be non-negative'),
