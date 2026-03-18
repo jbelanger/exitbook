@@ -1,4 +1,4 @@
-import { TransactionDraftSchema, type Result, type TransactionDraft } from '@exitbook/core';
+import { type TransactionDraft, type Result } from '@exitbook/core';
 
 export interface BatchProcessSummary {
   errors: string[];
@@ -20,9 +20,6 @@ export interface AddressContext {
   userAddresses: string[];
 }
 
-// Use TransactionDraftSchema which excludes id and accountId
-// (processors emit transactions before they're saved to the database).
-export const ProcessedTransactionSchema = TransactionDraftSchema;
 export type ProcessedTransaction = TransactionDraft;
 
 /**

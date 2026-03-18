@@ -1,9 +1,10 @@
-import type { Result } from '@exitbook/core';
-import type { TransactionDraft } from '@exitbook/core';
+import type { Result, TransactionDraft } from '@exitbook/core';
 import { computeTxFingerprint as computeCanonicalTxFingerprint } from '@exitbook/core/identity';
 
+type FingerprintTransactionInput = Pick<TransactionDraft, 'blockchain' | 'identityMaterial' | 'source' | 'sourceType'>;
+
 export async function deriveProcessedTransactionFingerprint(
-  input: TransactionDraft,
+  input: FingerprintTransactionInput,
   accountFingerprint: string
 ): Promise<Result<string, Error>> {
   if (input.sourceType === 'blockchain') {

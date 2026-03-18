@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ExchangeIdentityMaterialSchema } from '../identity/fingerprints.js';
 import { SourceTypeSchema } from '../import-session/import-session.js';
 
 import {
@@ -69,10 +70,6 @@ const hasAccountingImpact = (data: {
   return hasInflows || hasOutflows || hasFees;
 };
 
-const TransactionDraftIdentityMaterialSchema = z.object({
-  componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1).optional(),
-});
-
 function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny, TFeeSchema extends z.ZodTypeAny>(
   movementSchema: TMovementSchema,
   feeSchema: TFeeSchema
@@ -132,10 +129,10 @@ const TransactionBaseFieldsSchema = createTransactionBaseFieldsSchema(
   PersistedFeeMovementSchema
 );
 
-// Pre-persistence transaction contract plus transient identity material used to
-// derive the persisted txFingerprint.
+// Pre-persistence transaction contract. Transient identity material is carried
+// through the processing pipeline for fingerprint derivation but not persisted.
 const TransactionDraftFieldsSchema = TransactionDraftBaseFieldsSchema.extend({
-  identityMaterial: TransactionDraftIdentityMaterialSchema.optional(),
+  identityMaterial: ExchangeIdentityMaterialSchema.optional(),
 });
 
 // Persisted transactions always carry their canonical txFingerprint.
@@ -152,7 +149,23 @@ const accountingImpactValidation = {
 export const TransactionDraftSchema = TransactionDraftFieldsSchema.refine(
   (data) => hasAccountingImpact(data),
   accountingImpactValidation
-);
+).superRefine((transaction, ctx) => {
+  if (transaction.sourceType === 'exchange' && transaction.identityMaterial === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Exchange transactions require identityMaterial.componentEventIds',
+      path: ['identityMaterial'],
+    });
+  }
+
+  if (transaction.sourceType === 'blockchain' && transaction.identityMaterial !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Blockchain transactions must not include identityMaterial',
+      path: ['identityMaterial'],
+    });
+  }
+});
 
 // Transaction schema (full version with id and accountId)
 // Used for database storage and retrieval

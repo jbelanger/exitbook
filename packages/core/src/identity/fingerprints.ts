@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { err, ok, type Result } from '../result/index.js';
 import { getErrorMessage } from '../utils/index.js';
 
@@ -53,6 +55,12 @@ export async function computeAccountFingerprint(input: AccountFingerprintInput):
 // ---------------------------------------------------------------------------
 // Transaction fingerprint
 // ---------------------------------------------------------------------------
+
+export const ExchangeIdentityMaterialSchema = z.object({
+  componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1),
+});
+
+export type ExchangeIdentityMaterial = z.infer<typeof ExchangeIdentityMaterialSchema>;
 
 export interface TransactionFingerprintInput {
   accountFingerprint: string;

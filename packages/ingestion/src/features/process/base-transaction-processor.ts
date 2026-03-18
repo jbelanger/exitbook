@@ -1,12 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { TokenMetadataRecord } from '@exitbook/core';
-import { type Result, err, ok } from '@exitbook/core';
+import { TransactionDraftSchema, type Result, err, ok } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';
 
 import type { ITransactionProcessor, AddressContext, ProcessedTransaction } from '../../shared/types/processors.js';
-import { ProcessedTransactionSchema } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 
 /**
@@ -242,7 +241,7 @@ function validateProcessedTransactions(transactions: ProcessedTransaction[]): Re
   const invalid: { errors: unknown; transaction: ProcessedTransaction }[] = [];
 
   for (const tx of transactions) {
-    const result = ProcessedTransactionSchema.safeParse(tx);
+    const result = TransactionDraftSchema.safeParse(tx);
     if (result.success) {
       valid.push(tx);
     } else {

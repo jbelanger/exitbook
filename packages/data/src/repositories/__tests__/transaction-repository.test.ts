@@ -17,9 +17,45 @@ describe('TransactionRepository', () => {
   function makePersistedTransaction(
     overrides: Partial<TransactionDraft> & { identityReference?: string | undefined } = {}
   ): TransactionDraft {
-    const source = overrides.source ?? 'ethereum';
-    const sourceType = overrides.sourceType ?? 'blockchain';
-    const identityReference = overrides.identityReference ?? overrides.blockchain?.transaction_hash ?? 'tx-default';
+    const {
+      identityReference: overrideIdentityReference,
+      sourceType: overrideSourceType,
+      identityMaterial: overrideIdentityMaterial,
+      blockchain: overrideBlockchain,
+      ...rest
+    } = overrides;
+
+    const source = rest.source ?? 'ethereum';
+    const sourceType = overrideSourceType ?? 'blockchain';
+    const identityReference = overrideIdentityReference ?? overrideBlockchain?.transaction_hash ?? 'tx-default';
+
+    if (sourceType === 'exchange') {
+      return {
+        datetime: '2025-01-01T00:00:00.000Z',
+        fees: [],
+        movements: {
+          inflows: [
+            {
+              assetId: 'test:eth',
+              assetSymbol: 'ETH' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('1'),
+            },
+          ],
+          outflows: [],
+        },
+        operation: { category: 'transfer', type: 'deposit' },
+        source,
+        sourceType: 'exchange',
+        status: 'success',
+        timestamp: 1_735_689_600_000,
+        identityMaterial: overrideIdentityMaterial ?? {
+          componentEventIds: [identityReference],
+        },
+        ...rest,
+        blockchain: undefined,
+      };
+    }
 
     return {
       datetime: '2025-01-01T00:00:00.000Z',
@@ -37,18 +73,15 @@ describe('TransactionRepository', () => {
       },
       operation: { category: 'transfer', type: 'deposit' },
       source,
-      sourceType,
+      sourceType: 'blockchain',
       status: 'success',
       timestamp: 1_735_689_600_000,
-      blockchain:
-        sourceType === 'blockchain'
-          ? {
-              name: source,
-              transaction_hash: identityReference,
-              is_confirmed: true,
-            }
-          : undefined,
-      ...overrides,
+      ...rest,
+      blockchain: overrideBlockchain ?? {
+        name: source,
+        transaction_hash: identityReference,
+        is_confirmed: true,
+      },
     };
   }
 
