@@ -1,7 +1,65 @@
+import { createHash } from 'node:crypto';
+
 import type { AssetMovement, FeeMovement, OperationType, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
+
+function sha256Hex(material: string): string {
+  return createHash('sha256').update(material).digest('hex');
+}
+
+export function seedTxFingerprint(params: {
+  accountId: number;
+  blockchainTransactionHash?: string | undefined;
+  componentEventIds?: string[] | undefined;
+  externalId: string;
+  source: string;
+  sourceType: 'blockchain' | 'exchange';
+}): string {
+  const accountFingerprint = sha256Hex(
+    `${params.sourceType === 'blockchain' ? 'blockchain' : 'exchange-api'}|${params.source}|identifier-${params.accountId}`
+  );
+
+  const fingerprintMaterial =
+    params.sourceType === 'blockchain'
+      ? `${accountFingerprint}|blockchain|${params.source}|${(params.blockchainTransactionHash ?? params.externalId).trim()}`
+      : `${accountFingerprint}|exchange|${params.source}|${(params.componentEventIds ?? [params.externalId])
+          .map((eventId) => eventId.trim())
+          .sort()
+          .join('|')}`;
+
+  return sha256Hex(fingerprintMaterial);
+}
+
+export function materializeTestTransaction(
+  transaction: Omit<Transaction, 'txFingerprint'> & { txFingerprint?: string | undefined }
+): Transaction {
+  const externalId = transaction.externalId.trim() || `tx-${transaction.id}`;
+  const blockchain =
+    transaction.sourceType === 'blockchain'
+      ? (transaction.blockchain ?? {
+          name: transaction.source,
+          transaction_hash: externalId,
+          is_confirmed: true,
+        })
+      : transaction.blockchain;
+
+  return {
+    ...transaction,
+    externalId,
+    blockchain,
+    txFingerprint:
+      transaction.txFingerprint?.trim() ||
+      seedTxFingerprint({
+        accountId: transaction.accountId,
+        blockchainTransactionHash: blockchain?.transaction_hash,
+        externalId,
+        source: transaction.source,
+        sourceType: transaction.sourceType,
+      }),
+  };
+}
 
 /**
  * Creates a PriceAtTxTime object with common defaults
@@ -113,7 +171,7 @@ export function createBlockchainTx(params: {
   outflows?: AssetMovement[] | undefined;
   txHash: string;
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId,
     externalId: params.externalId,
@@ -136,7 +194,7 @@ export function createBlockchainTx(params: {
       transaction_hash: params.txHash,
       is_confirmed: true,
     },
-  };
+  });
 }
 
 /**
@@ -151,7 +209,7 @@ export function createExchangeTx(params: {
   source: string;
   type: 'buy' | 'deposit';
 }): Transaction {
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId,
     externalId: params.externalId,
@@ -169,7 +227,7 @@ export function createExchangeTx(params: {
       category: 'transfer',
       type: params.type,
     },
-  };
+  });
 }
 
 /**
@@ -190,15 +248,26 @@ export function createTransaction(
   }
 ): Transaction {
   const fees: FeeMovement[] = options?.fees ?? [];
-
-  return {
+  const accountId = 1;
+  const externalId = `ext-${id}`;
+  const source = options?.source ?? 'test';
+  const sourceType = options?.sourceType ?? 'exchange';
+  const blockchain =
+    sourceType === 'blockchain'
+      ? {
+          name: source,
+          transaction_hash: externalId,
+          is_confirmed: true,
+        }
+      : undefined;
+  return materializeTestTransaction({
     id,
-    accountId: 1,
-    externalId: `ext-${id}`,
+    accountId,
+    externalId,
     datetime,
     timestamp: new Date(datetime).getTime(),
-    source: options?.source ?? 'test',
-    sourceType: options?.sourceType ?? 'exchange',
+    source,
+    sourceType,
     status: 'success',
     movements: {
       inflows: inflows.map((i) => createMovement(i.assetSymbol, i.amount, i.price)),
@@ -209,7 +278,8 @@ export function createTransaction(
       type: options?.type ?? (inflows.length > 0 ? 'buy' : 'sell'),
     },
     fees,
-  };
+    blockchain,
+  });
 }
 
 /**
@@ -228,12 +298,24 @@ export function createTransactionFromMovements(
     type?: OperationType;
   }
 ): Transaction {
-  return {
+  const accountId = 1;
+  const externalId = `ext-${id}`;
+  const source = options?.source ?? 'test';
+  const sourceType = options?.sourceType ?? 'exchange';
+  const blockchain =
+    sourceType === 'blockchain'
+      ? {
+          name: source,
+          transaction_hash: externalId,
+          is_confirmed: true,
+        }
+      : undefined;
+  return materializeTestTransaction({
     id,
-    accountId: 1,
-    externalId: `ext-${id}`,
-    source: options?.source ?? 'test',
-    sourceType: options?.sourceType ?? 'exchange',
+    accountId,
+    externalId,
+    source,
+    sourceType,
     datetime,
     timestamp: new Date(datetime).getTime(),
     status: 'success',
@@ -246,7 +328,8 @@ export function createTransactionFromMovements(
       category: options?.category ?? 'trade',
       type: options?.type ?? 'buy',
     },
-  };
+    blockchain,
+  });
 }
 
 /**

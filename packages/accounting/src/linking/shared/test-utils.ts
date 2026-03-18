@@ -1,12 +1,7 @@
-import {
-  computeMovementFingerprint,
-  computeTxFingerprint,
-  type Currency,
-  type Transaction,
-  parseDecimal,
-} from '@exitbook/core';
+import { computeMovementFingerprint, type Currency, type Transaction, parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
+import { seedTxFingerprint } from '../../__tests__/test-utils.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 
 import type { TransactionLink } from './types.js';
@@ -100,20 +95,27 @@ export function createTransaction(params: {
   const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
   const accountId = params.accountId ?? 1;
   const externalId = `${params.source}-${params.id}`;
-  const txFingerprintResult = computeTxFingerprint({
-    source: params.source,
+  const blockchain =
+    sourceType === 'blockchain'
+      ? (params.blockchain ?? {
+          is_confirmed: true,
+          name: params.source,
+          transaction_hash: externalId,
+        })
+      : undefined;
+  const txFingerprint = seedTxFingerprint({
     accountId,
+    blockchainTransactionHash: blockchain?.transaction_hash,
     externalId,
+    source: params.source,
+    sourceType,
   });
-  if (txFingerprintResult.isErr()) {
-    throw txFingerprintResult.error;
-  }
 
   return {
     id: params.id,
     accountId,
     externalId,
-    txFingerprint: txFingerprintResult.value,
+    txFingerprint,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
@@ -125,7 +127,7 @@ export function createTransaction(params: {
       inflows: params.inflows
         ? params.inflows.map((m, index) => {
             const movementFingerprintResult = computeMovementFingerprint({
-              txFingerprint: txFingerprintResult.value,
+              txFingerprint,
               movementType: 'inflow',
               position: index,
             });
@@ -145,7 +147,7 @@ export function createTransaction(params: {
       outflows: params.outflows
         ? params.outflows.map((m, index) => {
             const movementFingerprintResult = computeMovementFingerprint({
-              txFingerprint: txFingerprintResult.value,
+              txFingerprint,
               movementType: 'outflow',
               position: index,
             });
@@ -168,6 +170,6 @@ export function createTransaction(params: {
       category: 'transfer',
       type: 'transfer',
     },
-    blockchain: params.blockchain,
+    blockchain,
   };
 }

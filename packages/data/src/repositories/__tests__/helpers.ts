@@ -1,5 +1,7 @@
 /* eslint-disable unicorn/no-null -- acceptable for db */
-import { computeMovementFingerprint, computeTxFingerprint } from '@exitbook/core';
+import { createHash } from 'node:crypto';
+
+import { computeMovementFingerprint } from '@exitbook/core';
 
 import type { KyselyDB } from '../../database.js';
 
@@ -49,13 +51,26 @@ export async function seedImportSession(db: KyselyDB, sessionId: number, account
     .execute();
 }
 
-export function seedTxFingerprint(source: string, accountId: number, externalId: string): string {
-  const result = computeTxFingerprint({ source, accountId, externalId });
-  if (result.isErr()) {
-    throw result.error;
-  }
+function sha256Hex(material: string): string {
+  return createHash('sha256').update(material).digest('hex');
+}
 
-  return result.value;
+function inferAccountType(source: string): 'blockchain' | 'exchange-api' {
+  return ['bitcoin', 'cardano', 'cosmos', 'ethereum', 'near', 'solana', 'substrate', 'theta', 'xrp'].includes(source)
+    ? 'blockchain'
+    : 'exchange-api';
+}
+
+export function seedTxFingerprint(source: string, accountId: number, externalId: string): string {
+  const accountType = inferAccountType(source);
+  const accountFingerprint = sha256Hex(`${accountType}|${source}|identifier-${accountId}`);
+
+  const canonicalMaterial =
+    accountType === 'blockchain'
+      ? `${accountFingerprint}|blockchain|${source}|${externalId}`
+      : `${accountFingerprint}|exchange|${source}|${[externalId].sort().join('|')}`;
+
+  return sha256Hex(canonicalMaterial);
 }
 
 export function seedMovementFingerprint(

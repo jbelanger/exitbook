@@ -1,10 +1,10 @@
-import { computeTxFingerprint, ok } from '@exitbook/core';
+import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DataContext } from '../../data-context.js';
 import type { KyselyDB } from '../../database.js';
-import { seedAccount, seedImportSession, seedUser } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { buildProcessingPorts } from '../processing-ports-adapter.js';
 
@@ -33,7 +33,7 @@ describe('buildProcessingPorts', () => {
         source_name: 'kraken',
         source_type: 'exchange',
         external_id: 'tx-1',
-        tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-1' })),
+        tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-1'),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,
@@ -43,13 +43,7 @@ describe('buildProcessingPorts', () => {
       })
       .execute();
 
-    const txFingerprint = assertOk(
-      computeTxFingerprint({
-        source: 'kraken',
-        accountId: 1,
-        externalId: 'tx-1',
-      })
-    );
+    const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-1');
 
     const overrideStore = {
       exists: vi.fn().mockReturnValue(true),

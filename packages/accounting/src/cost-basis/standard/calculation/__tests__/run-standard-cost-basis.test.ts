@@ -1,5 +1,5 @@
 import type { AssetMovement, AssetReviewSummary, Currency, TransactionLink } from '@exitbook/core';
-import { computeMovementFingerprint, computeTxFingerprint, ok, parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +11,7 @@ import {
   createPriceAtTxTime,
   createTransaction,
   createTransactionFromMovements,
+  seedTxFingerprint,
 } from '../../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../../ports/cost-basis-persistence.js';
 import type { CostBasisConfig } from '../../../model/cost-basis-config.js';
@@ -43,18 +44,22 @@ function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amo
 
 function buildMovementFingerprint(params: {
   accountId: number;
+  blockchainTransactionHash?: string | undefined;
+  componentEventIds?: string[] | undefined;
   externalId: string;
   movementType: 'inflow' | 'outflow';
   position: number;
   source: string;
+  sourceType: 'blockchain' | 'exchange';
 }): string {
-  const txFingerprint = assertOk(
-    computeTxFingerprint({
-      source: params.source,
-      accountId: params.accountId,
-      externalId: params.externalId,
-    })
-  );
+  const txFingerprint = seedTxFingerprint({
+    accountId: params.accountId,
+    blockchainTransactionHash: params.blockchainTransactionHash,
+    componentEventIds: params.componentEventIds,
+    externalId: params.externalId,
+    source: params.source,
+    sourceType: params.sourceType,
+  });
 
   return assertOk(
     computeMovementFingerprint({
@@ -522,18 +527,22 @@ describe('runCostBasisPipeline', () => {
       sourceAmount: parseDecimal('0.00021'),
       targetAmount: parseDecimal('0.00021'),
       sourceMovementFingerprint: buildMovementFingerprint({
+        blockchainTransactionHash: sender.blockchain?.transaction_hash,
         source: sender.source,
         accountId: sender.accountId,
         externalId: sender.externalId,
         movementType: 'outflow',
         position: 0,
+        sourceType: sender.sourceType,
       }),
       targetMovementFingerprint: buildMovementFingerprint({
+        componentEventIds: [exchangeDeposit.externalId],
         source: exchangeDeposit.source,
         accountId: exchangeDeposit.accountId,
         externalId: exchangeDeposit.externalId,
         movementType: 'inflow',
         position: 0,
+        sourceType: exchangeDeposit.sourceType,
       }),
       linkType: 'blockchain_to_exchange',
       confidenceScore: parseDecimal('1'),

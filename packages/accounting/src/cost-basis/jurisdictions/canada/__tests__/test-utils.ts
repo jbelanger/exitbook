@@ -1,9 +1,10 @@
 import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, computeTxFingerprint, err, ok, parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, err, ok, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { vi } from 'vitest';
 
+import { materializeTestTransaction } from '../../../../__tests__/test-utils.js';
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
@@ -61,18 +62,17 @@ export const noopLogger: Logger = {
   warn: vi.fn(),
 };
 
+export { materializeTestTransaction };
+
 function computeScopedMovementFingerprint(
   transaction: Transaction,
   movementType: 'inflow' | 'outflow',
   position: number
 ): string {
-  const txFingerprint = assertOk(
-    computeTxFingerprint({
-      source: transaction.source,
-      accountId: transaction.accountId,
-      externalId: transaction.externalId,
-    })
-  );
+  const txFingerprint = materializeTestTransaction(transaction).txFingerprint;
+  if (!txFingerprint) {
+    throw new Error(`Transaction ${transaction.id} is missing txFingerprint`);
+  }
 
   return assertOk(
     computeMovementFingerprint({
@@ -145,7 +145,7 @@ export async function buildCanadaTestInputContext(
     throw new Error('Canada jurisdiction config is not registered');
   }
 
-  const scopedResult = buildCostBasisScopedTransactions(transactions, noopLogger);
+  const scopedResult = buildCostBasisScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
   const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, confirmedLinks);
   const validatedLinks = assertOk(validatedLinksResult);

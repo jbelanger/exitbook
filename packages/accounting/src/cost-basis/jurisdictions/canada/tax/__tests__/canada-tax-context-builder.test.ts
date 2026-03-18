@@ -8,6 +8,7 @@ import {
   buildCanadaTestInputContext,
   createCanadaFxProvider,
   createConfirmedTransferLink,
+  materializeTestTransaction,
   noopLogger,
 } from '../../__tests__/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
@@ -403,7 +404,10 @@ describe('buildCanadaTaxInputContext', () => {
       },
     });
 
-    const scopedResult = buildCostBasisScopedTransactions([withdrawal, deposit], noopLogger);
+    const scopedResult = buildCostBasisScopedTransactions(
+      [withdrawal, deposit].map(materializeTestTransaction),
+      noopLogger
+    );
     const scoped = assertOk(scopedResult);
     const canadaConfig = getJurisdictionConfig('CA');
     if (!canadaConfig) {

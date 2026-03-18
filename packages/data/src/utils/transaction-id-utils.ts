@@ -15,6 +15,10 @@ export interface TransactionIdentity {
   txFingerprint: string;
 }
 
+export function materializeExternalId(transaction: TransactionIdentityDraft): string {
+  return transaction.externalId?.trim() || generateDeterministicTransactionHash(transaction);
+}
+
 /**
  * Creates a deterministic hash for transaction identification when no external ID is available.
  *
@@ -92,7 +96,7 @@ export function materializeTransactionIdentity(
   transaction: TransactionIdentityDraft,
   accountId: number
 ): Result<TransactionIdentity, Error> {
-  const externalId = transaction.externalId?.trim() || generateDeterministicTransactionHash(transaction);
+  const externalId = materializeExternalId(transaction);
   const txFingerprintResult = computeTxFingerprint({
     source: transaction.source,
     accountId,

@@ -1,5 +1,5 @@
 import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, computeTxFingerprint, err, ok, type Result } from '@exitbook/core';
+import { computeMovementFingerprint, err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
@@ -218,13 +218,10 @@ export function buildCostBasisScopedTransactions(
 // ---------------------------------------------------------------------------
 
 function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
-  const txFpResult = computeTxFingerprint({
-    source: tx.source,
-    accountId: tx.accountId,
-    externalId: tx.externalId,
-  });
-  if (txFpResult.isErr()) return err(txFpResult.error);
-  const txFp = txFpResult.value;
+  const txFp = tx.txFingerprint?.trim();
+  if (!txFp) {
+    return err(new Error(`Transaction ${tx.id} is missing txFingerprint`));
+  }
 
   const inflows: ScopedAssetMovement[] = [];
   for (let i = 0; i < (tx.movements.inflows?.length ?? 0); i++) {

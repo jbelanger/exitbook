@@ -4,7 +4,12 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
-import { createFeeMovement, createPriceAtTxTime, createTransaction } from '../../../../__tests__/test-utils.js';
+import {
+  createFeeMovement,
+  createPriceAtTxTime,
+  createTransaction,
+  materializeTestTransaction,
+} from '../../../../__tests__/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 
 // ---------------------------------------------------------------------------
@@ -39,7 +44,7 @@ function createBlockchainTx(
   outflows: { amount: string; assetId: string; assetSymbol: string; price: string }[],
   fees: FeeMovement[] = []
 ): Transaction {
-  return {
+  return materializeTestTransaction({
     id,
     accountId,
     externalId: `ext-${id}`,
@@ -69,7 +74,7 @@ function createBlockchainTx(
       transaction_hash: txHash,
       is_confirmed: true,
     },
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -804,7 +809,7 @@ describe('buildCostBasisScopedTransactions', () => {
 
     it('should return Err for multi-movement participant', () => {
       // Sender has two outflow movements for BTC in one tx
-      const senderTx: Transaction = {
+      const senderTx = materializeTestTransaction({
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
@@ -833,7 +838,7 @@ describe('buildCostBasisScopedTransactions', () => {
         fees: [],
         operation: { category: 'transfer', type: 'transfer' },
         blockchain: { name: 'bitcoin', transaction_hash: '0xhashmultimove', is_confirmed: true },
-      };
+      });
 
       const receiverTx = createBlockchainTx(
         2,

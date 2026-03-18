@@ -4,6 +4,7 @@ import {
   CurrencySchema,
   FeeMovementSchema,
   TransactionNoteSchema,
+  computeAccountFingerprint,
   type TransactionMaterializationScope,
   computeMovementFingerprint,
   parseDecimal,
@@ -12,6 +13,7 @@ import {
   type TransactionNote,
   type TransactionStatus,
   type Transaction,
+  type TransactionDraft,
   wrapError,
 } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
@@ -22,7 +24,7 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
-import { materializeTransactionIdentity } from '../utils/transaction-id-utils.js';
+import { deriveProcessedTransactionFingerprint, materializeExternalId } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -250,13 +252,32 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
 }
 
 interface BuildInsertValuesResult {
+  externalId: string;
   insertValues: Insertable<TransactionsTable>;
   txFingerprint: string;
 }
 
+async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<Result<string, Error>> {
+  const account = await db
+    .selectFrom('accounts')
+    .select(['account_type', 'source_name', 'identifier'])
+    .where('id', '=', accountId)
+    .executeTakeFirst();
+
+  if (!account) {
+    return err(new Error(`Account ${accountId} not found`));
+  }
+
+  return computeAccountFingerprint({
+    accountType: account.account_type,
+    sourceName: account.source_name,
+    identifier: account.identifier,
+  });
+}
+
 async function resolveExistingTransactionConflict(
   db: KyselyDB,
-  params: { accountId: number; blockchainTransactionHash: string | null; txFingerprint: string }
+  params: { blockchainTransactionHash: string | null; txFingerprint: string }
 ): Promise<Result<number, Error>> {
   const existingByFingerprint = await db
     .selectFrom('transactions')
@@ -282,45 +303,12 @@ async function resolveExistingTransactionConflict(
     return ok(existingByFingerprint.id);
   }
 
-  if (!params.blockchainTransactionHash) {
-    return err(
-      new Error(
-        `Transaction conflict: no existing row matches fingerprint ${params.txFingerprint} and no blockchain hash available for fallback lookup`
-      )
-    );
-  }
-
-  const existingByBlockchainHash = await db
-    .selectFrom('transactions')
-    .select(['id', 'tx_fingerprint', 'blockchain_transaction_hash'])
-    .where('account_id', '=', params.accountId)
-    .where('blockchain_transaction_hash', '=', params.blockchainTransactionHash)
-    .executeTakeFirst();
-
-  if (!existingByBlockchainHash) {
-    return err(
-      new Error(
-        `Transaction conflict: no existing row found for account ${params.accountId} with blockchain hash ${params.blockchainTransactionHash} or fingerprint ${params.txFingerprint}`
-      )
-    );
-  }
-
-  if (existingByBlockchainHash.tx_fingerprint !== params.txFingerprint) {
-    return err(
-      new Error(
-        `Transaction identity conflict for account ${params.accountId} blockchain hash ` +
-          `${params.blockchainTransactionHash}: existing fingerprint ` +
-          `${existingByBlockchainHash.tx_fingerprint} does not match incoming ${params.txFingerprint}`
-      )
-    );
-  }
-
-  return ok(existingByBlockchainHash.id);
+  return err(new Error(`Transaction conflict: no existing row matches fingerprint ${params.txFingerprint}`));
 }
 
 /** Caller must have already validated price data via `validatePriceDataForPersistence` (done in `buildInsertValues`). */
 function buildMovementRows(
-  transaction: Omit<Transaction, 'id' | 'accountId'>,
+  transaction: TransactionDraft,
   transactionId: number,
   txFingerprint: string
 ): Result<Insertable<TransactionMovementsTable>[], Error> {
@@ -379,11 +367,12 @@ function buildMovementRows(
   return ok(rows);
 }
 
-function buildInsertValues(
-  transaction: Omit<Transaction, 'id' | 'accountId'>,
+async function buildInsertValues(
+  transaction: TransactionDraft,
+  accountFingerprint: string,
   accountId: number,
   createdAt?: string
-): Result<BuildInsertValuesResult, Error> {
+): Promise<Result<BuildInsertValuesResult, Error>> {
   if (transaction.notes !== undefined) {
     const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
     if (!notesValidation.success) {
@@ -391,16 +380,13 @@ function buildInsertValues(
     }
   }
 
+  const externalId = materializeExternalId(transaction);
+
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
 
-  const validationResult = validatePriceDataForPersistence(
-    inflows,
-    outflows,
-    fees,
-    `externalId ${transaction.externalId || '[generated]'}`
-  );
+  const validationResult = validatePriceDataForPersistence(inflows, outflows, fees, `externalId ${externalId}`);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }
@@ -411,13 +397,14 @@ function buildInsertValues(
     return err(notesJsonResult.error);
   }
 
-  const identityResult = materializeTransactionIdentity(transaction, accountId);
-  if (identityResult.isErr()) {
-    return err(identityResult.error);
+  const txFingerprintResult = await deriveProcessedTransactionFingerprint(transaction, accountFingerprint);
+  if (txFingerprintResult.isErr()) {
+    return err(txFingerprintResult.error);
   }
-  const { externalId, txFingerprint } = identityResult.value;
+  const txFingerprint = txFingerprintResult.value;
 
   return ok({
+    externalId,
     insertValues: {
       created_at: createdAt ?? new Date().toISOString(),
       external_id: externalId,
@@ -527,8 +514,13 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
-  async create(transaction: Omit<Transaction, 'id' | 'accountId'>, accountId: number): Promise<Result<number, Error>> {
-    const valuesResult = buildInsertValues(transaction, accountId);
+  async create(transaction: TransactionDraft, accountId: number): Promise<Result<number, Error>> {
+    const accountFingerprintResult = await loadAccountFingerprint(this.db, accountId);
+    if (accountFingerprintResult.isErr()) {
+      return err(accountFingerprintResult.error);
+    }
+
+    const valuesResult = await buildInsertValues(transaction, accountFingerprintResult.value, accountId);
     if (valuesResult.isErr()) {
       return err(valuesResult.error);
     }
@@ -545,7 +537,6 @@ export class TransactionRepository extends BaseRepository {
 
       if (!txResult) {
         const existingResult = await resolveExistingTransactionConflict(this.db, {
-          accountId,
           blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
           txFingerprint,
         });
@@ -580,7 +571,7 @@ export class TransactionRepository extends BaseRepository {
    * Callers that need atomicity should use DataContext.executeInTransaction().
    */
   async createBatch(
-    transactions: Omit<Transaction, 'id' | 'accountId'>[],
+    transactions: TransactionDraft[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
     if (transactions.length === 0) {
@@ -588,13 +579,17 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const createdAt = new Date().toISOString();
+    const accountFingerprintResult = await loadAccountFingerprint(this.db, accountId);
+    if (accountFingerprintResult.isErr()) {
+      return err(accountFingerprintResult.error);
+    }
 
     try {
       let saved = 0;
       let duplicates = 0;
 
       for (const [index, transaction] of transactions.entries()) {
-        const valuesResult = buildInsertValues(transaction, accountId, createdAt);
+        const valuesResult = await buildInsertValues(transaction, accountFingerprintResult.value, accountId, createdAt);
         if (valuesResult.isErr()) {
           return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
         }
@@ -612,7 +607,6 @@ export class TransactionRepository extends BaseRepository {
 
         if (!txResult) {
           const existingResult = await resolveExistingTransactionConflict(this.db, {
-            accountId,
             blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
             txFingerprint,
           });

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import type { Transaction } from '@exitbook/core';
-import { computeTxFingerprint, type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -17,9 +17,13 @@ describe('TransactionRepository', () => {
   function makePersistedTransaction(
     overrides: Partial<Omit<Transaction, 'accountId' | 'id'>> = {}
   ): Omit<Transaction, 'accountId' | 'id'> {
+    const source = overrides.source ?? 'ethereum';
+    const sourceType = overrides.sourceType ?? 'blockchain';
+    const externalId = overrides.externalId ?? 'tx-default';
+
     return {
       datetime: '2025-01-01T00:00:00.000Z',
-      externalId: 'tx-default',
+      externalId,
       fees: [],
       movements: {
         inflows: [
@@ -33,10 +37,18 @@ describe('TransactionRepository', () => {
         outflows: [],
       },
       operation: { category: 'transfer', type: 'deposit' },
-      source: 'ethereum',
-      sourceType: 'blockchain',
+      source,
+      sourceType,
       status: 'success',
       timestamp: 1_735_689_600_000,
+      blockchain:
+        sourceType === 'blockchain'
+          ? {
+              name: source,
+              transaction_hash: externalId,
+              is_confirmed: true,
+            }
+          : undefined,
       ...overrides,
     };
   }
@@ -250,6 +262,11 @@ describe('TransactionRepository', () => {
 
     it('persists isSpam=true without auto-excluding from accounting', async () => {
       const tx = {
+        blockchain: {
+          is_confirmed: true,
+          name: 'ethereum',
+          transaction_hash: 'spam-tx-1',
+        },
         datetime: new Date().toISOString(),
         externalId: 'spam-tx-1',
         fees: [],
@@ -300,6 +317,11 @@ describe('TransactionRepository', () => {
 
     it('persists isSpam=false and does not exclude from accounting', async () => {
       const tx = {
+        blockchain: {
+          is_confirmed: true,
+          name: 'ethereum',
+          transaction_hash: 'legit-tx-1',
+        },
         datetime: new Date().toISOString(),
         externalId: 'legit-tx-1',
         fees: [],
@@ -335,6 +357,11 @@ describe('TransactionRepository', () => {
 
     it('defaults isSpam to false when not specified', async () => {
       const tx = {
+        blockchain: {
+          is_confirmed: true,
+          name: 'ethereum',
+          transaction_hash: 'normal-tx-1',
+        },
         datetime: new Date().toISOString(),
         externalId: 'normal-tx-1',
         fees: [],
@@ -368,6 +395,11 @@ describe('TransactionRepository', () => {
 
     it('respects explicit excludedFromAccounting=false even when isSpam=true', async () => {
       const tx = {
+        blockchain: {
+          is_confirmed: true,
+          name: 'ethereum',
+          transaction_hash: 'spam-tx-2',
+        },
         datetime: new Date().toISOString(),
         excludedFromAccounting: false,
         externalId: 'spam-tx-2',
@@ -394,6 +426,11 @@ describe('TransactionRepository', () => {
 
     it('does not auto-exclude when isSpam=true and excludedFromAccounting is not set', async () => {
       const tx = {
+        blockchain: {
+          is_confirmed: true,
+          name: 'ethereum',
+          transaction_hash: 'spam-tx-3',
+        },
         datetime: new Date().toISOString(),
         externalId: 'spam-tx-3',
         fees: [],
@@ -457,8 +494,8 @@ describe('TransactionRepository', () => {
       expect(movements).toHaveLength(1);
     });
 
-    it('fails when the same blockchain hash arrives with a different canonical fingerprint', async () => {
-      assertOk(
+    it('deduplicates when the same blockchain hash arrives with a different externalId', async () => {
+      const firstId = assertOk(
         await repo.create(
           makePersistedTransaction({
             blockchain: {
@@ -472,23 +509,21 @@ describe('TransactionRepository', () => {
         )
       );
 
-      const result = await repo.create(
-        makePersistedTransaction({
-          blockchain: {
-            name: 'ethereum',
-            transaction_hash: '0xabc123',
-            is_confirmed: true,
-          },
-          externalId: 'hash-source-2',
-        }),
-        1
+      const secondId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            blockchain: {
+              name: 'ethereum',
+              transaction_hash: '0xabc123',
+              is_confirmed: true,
+            },
+            externalId: 'hash-source-2',
+          }),
+          1
+        )
       );
 
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Transaction identity conflict');
-      }
-
+      expect(secondId).toBe(firstId);
       const transactions = await db.selectFrom('transactions').select(['id']).execute();
       expect(transactions).toHaveLength(1);
     });
@@ -969,7 +1004,7 @@ describe('TransactionRepository', () => {
           source_name: 'kraken',
           source_type: 'exchange',
           external_id: 'tx-11',
-          tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-11' })),
+          tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-11'),
           transaction_status: 'success',
           transaction_datetime: '2025-01-01T00:00:00.000Z',
           notes_json: JSON.stringify([
@@ -985,13 +1020,7 @@ describe('TransactionRepository', () => {
         })
         .execute();
 
-      const fingerprint = assertOk(
-        computeTxFingerprint({
-          source: 'kraken',
-          accountId: 1,
-          externalId: 'tx-11',
-        })
-      );
+      const fingerprint = seedTxFingerprint('kraken', 1, 'tx-11');
 
       const updated = assertOk(
         await repo.materializeTransactionNoteOverrides({
@@ -1033,7 +1062,7 @@ describe('TransactionRepository', () => {
             source_name: 'kraken',
             source_type: 'exchange',
             external_id: 'tx-21',
-            tx_fingerprint: assertOk(computeTxFingerprint({ source: 'kraken', accountId: 1, externalId: 'tx-21' })),
+            tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-21'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-02T00:00:00.000Z',
             notes_json: JSON.stringify([
@@ -1057,7 +1086,7 @@ describe('TransactionRepository', () => {
             source_name: 'coinbase',
             source_type: 'exchange',
             external_id: 'tx-22',
-            tx_fingerprint: assertOk(computeTxFingerprint({ source: 'coinbase', accountId: 2, externalId: 'tx-22' })),
+            tx_fingerprint: seedTxFingerprint('coinbase', 2, 'tx-22'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-03T00:00:00.000Z',
             notes_json: JSON.stringify([
@@ -1078,13 +1107,7 @@ describe('TransactionRepository', () => {
         ])
         .execute();
 
-      const fingerprint = assertOk(
-        computeTxFingerprint({
-          source: 'kraken',
-          accountId: 1,
-          externalId: 'tx-21',
-        })
-      );
+      const fingerprint = seedTxFingerprint('kraken', 1, 'tx-21');
 
       const updated = assertOk(
         await repo.materializeTransactionNoteOverrides({
