@@ -47,12 +47,6 @@ export function applyTransactionNoteOverrides(
   const projectedTransactions: Transaction[] = [];
 
   for (const transaction of transactions) {
-    if (!transaction.txFingerprint) {
-      return err(
-        new Error(`Transaction ${transaction.id} is missing persisted txFingerprint required for note overrides`)
-      );
-    }
-
     const projectedNotes = stripProjectedUserNotes(transaction.notes);
     const overrideNote = notesByFingerprint.get(transaction.txFingerprint);
     if (!overrideNote) {

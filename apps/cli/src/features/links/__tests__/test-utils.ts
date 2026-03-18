@@ -76,11 +76,12 @@ export function createMockTransaction(
 ): Transaction {
   const inflows = overrides.movements?.inflows ?? [{ assetSymbol: overrides.assetSymbol ?? 'BTC', amount: '1.0' }];
   const outflows = overrides.movements?.outflows ?? [];
+  const txFingerprint = `tx-${id}`;
 
   return {
     id,
     accountId: 1,
-    txFingerprint: `tx-${id}`,
+    txFingerprint,
     source: overrides.source ?? 'test-source',
     sourceType: 'exchange',
     datetime: '2024-01-01T12:00:00Z',
@@ -89,20 +90,22 @@ export function createMockTransaction(
     from: '0x1234567890abcdef1234567890abcdef12345678',
     to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
     movements: {
-      inflows: inflows.map((inflow) => {
+      inflows: inflows.map((inflow, index) => {
         const grossAmt = parseDecimal(inflow.amount);
         return {
           assetId: 'test:btc',
           assetSymbol: (inflow.assetSymbol as Currency) ?? ('BTC' as Currency),
+          movementFingerprint: materializeMovementFingerprint(txFingerprint, 'inflow', index),
           grossAmount: grossAmt,
           netAmount: grossAmt.times(0.999),
         };
       }),
-      outflows: outflows.map((outflow) => {
+      outflows: outflows.map((outflow, index) => {
         const grossAmt = parseDecimal(outflow.amount);
         return {
           assetId: 'test:btc',
           assetSymbol: (outflow.assetSymbol as Currency) ?? ('BTC' as Currency),
+          movementFingerprint: materializeMovementFingerprint(txFingerprint, 'outflow', index),
           grossAmount: grossAmt,
           netAmount: grossAmt.times(0.999),
         };
@@ -236,6 +239,7 @@ export function createConfirmableTransferFixture(
         {
           assetId: 'exchange:source:btc',
           assetSymbol: 'BTC' as Currency,
+          movementFingerprint: materializeMovementFingerprint('txfp:kraken:1:WITHDRAWAL-123', 'outflow', 0),
           grossAmount: parseDecimal(sourceAmount),
           netAmount: parseDecimal(sourceAmount),
         },
@@ -262,6 +266,7 @@ export function createConfirmableTransferFixture(
         {
           assetId: 'blockchain:target:btc',
           assetSymbol: 'BTC' as Currency,
+          movementFingerprint: materializeMovementFingerprint('txfp:bitcoin:2:abc123', 'inflow', 0),
           grossAmount: parseDecimal(targetAmount),
           netAmount: parseDecimal(targetAmount),
         },
@@ -275,32 +280,14 @@ export function createConfirmableTransferFixture(
     },
   };
 
-  const sourceMovementFingerprintResult = computeMovementFingerprint({
-    txFingerprint: sourceTransaction.txFingerprint,
-    movementType: 'outflow',
-    position: 0,
-  });
-  if (sourceMovementFingerprintResult.isErr()) {
-    throw sourceMovementFingerprintResult.error;
-  }
-
-  const targetMovementFingerprintResult = computeMovementFingerprint({
-    txFingerprint: targetTransaction.txFingerprint,
-    movementType: 'inflow',
-    position: 0,
-  });
-  if (targetMovementFingerprintResult.isErr()) {
-    throw targetMovementFingerprintResult.error;
-  }
-
   const link: TransactionLink = {
     ...createMockLink(123, { status: overrides.status ?? 'suggested' }),
     sourceAssetId: 'exchange:source:btc',
     targetAssetId: 'blockchain:target:btc',
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
-    sourceMovementFingerprint: sourceMovementFingerprintResult.value,
-    targetMovementFingerprint: targetMovementFingerprintResult.value,
+    sourceMovementFingerprint: materializeMovementFingerprint(sourceTransaction.txFingerprint, 'outflow', 0),
+    targetMovementFingerprint: materializeMovementFingerprint(targetTransaction.txFingerprint, 'inflow', 0),
   };
 
   return {
@@ -309,6 +296,23 @@ export function createConfirmableTransferFixture(
     sourceTransaction,
     targetTransaction,
   };
+}
+
+function materializeMovementFingerprint(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow',
+  position: number
+): string {
+  const movementFingerprintResult = computeMovementFingerprint({
+    txFingerprint,
+    movementType,
+    position,
+  });
+  if (movementFingerprintResult.isErr()) {
+    throw movementFingerprintResult.error;
+  }
+
+  return movementFingerprintResult.value;
 }
 
 /**

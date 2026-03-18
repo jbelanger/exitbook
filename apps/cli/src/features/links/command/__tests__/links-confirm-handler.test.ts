@@ -233,6 +233,15 @@ describe('LinksConfirmHandler', () => {
         ...fixture.sourceTransaction,
         id: 3,
         txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
+        movements: {
+          inflows: fixture.sourceTransaction.movements.inflows,
+          outflows: [
+            {
+              ...fixture.sourceTransaction.movements.outflows?.[0],
+              movementFingerprint: 'movement:txfp:kraken:1:WITHDRAWAL-456:outflow:0',
+            },
+          ],
+        },
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
@@ -420,6 +429,15 @@ describe('LinksConfirmHandler', () => {
         ...fixture.sourceTransaction,
         id: 3,
         txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
+        movements: {
+          inflows: fixture.sourceTransaction.movements.inflows,
+          outflows: [
+            {
+              ...fixture.sourceTransaction.movements.outflows?.[0],
+              movementFingerprint: 'movement:txfp:kraken:1:WITHDRAWAL-456:outflow:0',
+            },
+          ],
+        },
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(firstLink));

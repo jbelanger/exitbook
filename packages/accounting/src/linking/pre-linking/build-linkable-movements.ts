@@ -49,9 +49,6 @@ export function buildLinkableMovements(
     const normalizedHash = tx.blockchain?.transaction_hash
       ? normalizeTransactionHash(tx.blockchain.transaction_hash)
       : undefined;
-    if (!tx.txFingerprint) {
-      return err(new Error(`Transaction ${tx.id} is missing persisted txFingerprint`));
-    }
 
     const inflows = tx.movements.inflows ?? [];
     for (let inflowIdx = 0; inflowIdx < inflows.length; inflowIdx++) {

@@ -1,4 +1,4 @@
-import { err, ok, type CreateOverrideEventOptions, type Result, type Transaction } from '@exitbook/core';
+import { err, ok, type CreateOverrideEventOptions, type Result } from '@exitbook/core';
 import {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,
@@ -179,14 +179,6 @@ export class TransactionsEditHandler {
     const transaction = transactionResult.value;
     if (!transaction) {
       return err(new Error(`Transaction not found: ${transactionId}`));
-    }
-
-    return this.computeIdentity(transaction);
-  }
-
-  private computeIdentity(transaction: Transaction): Result<TransactionIdentity, Error> {
-    if (!transaction.txFingerprint) {
-      return err(new Error(`Transaction ${transaction.id} is missing persisted txFingerprint`));
     }
 
     return ok({

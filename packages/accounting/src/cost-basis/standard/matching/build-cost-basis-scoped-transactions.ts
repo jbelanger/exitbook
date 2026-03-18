@@ -1,5 +1,5 @@
 import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
-import { computeMovementFingerprint, err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
@@ -218,23 +218,19 @@ export function buildCostBasisScopedTransactions(
 // ---------------------------------------------------------------------------
 
 function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
-  const txFp = tx.txFingerprint.trim();
-  if (!txFp) {
-    return err(new Error(`Transaction ${tx.id} is missing txFingerprint`));
-  }
-
   const inflows: ScopedAssetMovement[] = [];
   for (let i = 0; i < (tx.movements.inflows?.length ?? 0); i++) {
     const raw = tx.movements.inflows![i]!;
-    const fpResult = computeMovementFingerprint({ txFingerprint: txFp, movementType: 'inflow', position: i });
-    if (fpResult.isErr()) return err(fpResult.error);
+    const movementFingerprintResult = requirePersistedMovementFingerprint(tx.id, raw, 'inflow', i);
+    if (movementFingerprintResult.isErr()) return err(movementFingerprintResult.error);
+
     inflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
-      movementFingerprint: fpResult.value,
+      movementFingerprint: movementFingerprintResult.value,
       rawPosition: i,
     });
   }
@@ -242,15 +238,16 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
   const outflows: ScopedAssetMovement[] = [];
   for (let i = 0; i < (tx.movements.outflows?.length ?? 0); i++) {
     const raw = tx.movements.outflows![i]!;
-    const fpResult = computeMovementFingerprint({ txFingerprint: txFp, movementType: 'outflow', position: i });
-    if (fpResult.isErr()) return err(fpResult.error);
+    const movementFingerprintResult = requirePersistedMovementFingerprint(tx.id, raw, 'outflow', i);
+    if (movementFingerprintResult.isErr()) return err(movementFingerprintResult.error);
+
     outflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
-      movementFingerprint: fpResult.value,
+      movementFingerprint: movementFingerprintResult.value,
       rawPosition: i,
     });
   }
@@ -271,6 +268,24 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
   }
 
   return ok({ tx, rebuildDependencyTransactionIds: [], movements: { inflows, outflows }, fees });
+}
+
+function requirePersistedMovementFingerprint(
+  transactionId: number,
+  movement: AssetMovement,
+  movementType: 'inflow' | 'outflow',
+  position: number
+): Result<string, Error> {
+  const movementFingerprint = movement.movementFingerprint?.trim();
+  if (!movementFingerprint) {
+    return err(
+      new Error(
+        `Transaction ${transactionId} ${movementType} ${position} (${movement.assetId}) is missing persisted movementFingerprint`
+      )
+    );
+  }
+
+  return ok(movementFingerprint);
 }
 
 // ---------------------------------------------------------------------------

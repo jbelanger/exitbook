@@ -99,11 +99,6 @@ async function resolveFingerprints(
       return undefined;
     }
 
-    if (!sourceTx.txFingerprint || !targetTx.txFingerprint) {
-      logger.warn('Failed to read persisted transaction fingerprints for override event');
-      return undefined;
-    }
-
     const resolvedLinkFpResult = computeResolvedLinkFingerprint({
       sourceAssetId: link.sourceAssetId,
       targetAssetId: link.targetAssetId,

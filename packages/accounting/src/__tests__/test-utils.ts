@@ -8,7 +8,7 @@ import type {
   PriceAtTxTime,
   Transaction,
 } from '@exitbook/core';
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, type Currency, parseDecimal } from '@exitbook/core';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
 
@@ -54,19 +54,82 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
           is_confirmed: true,
         })
       : transactionFields.blockchain;
+  const persistedTxFingerprint =
+    providedTxFingerprint ||
+    seedTxFingerprint(
+      transactionFields.source,
+      transactionFields.sourceType,
+      transactionFields.accountId,
+      identityReference
+    );
+  const inflows = materializePersistedAssetMovements(
+    persistedTxFingerprint,
+    'inflow',
+    transactionFields.movements.inflows ?? []
+  );
+  const outflows = materializePersistedAssetMovements(
+    persistedTxFingerprint,
+    'outflow',
+    transactionFields.movements.outflows ?? []
+  );
+  const fees = materializePersistedFeeMovements(persistedTxFingerprint, transactionFields.fees ?? []);
 
   return {
     ...transactionFields,
     blockchain,
-    txFingerprint:
-      providedTxFingerprint ||
-      seedTxFingerprint(
-        transactionFields.source,
-        transactionFields.sourceType,
-        transactionFields.accountId,
-        identityReference
-      ),
+    txFingerprint: persistedTxFingerprint,
+    movements: {
+      inflows,
+      outflows,
+    },
+    fees,
   };
+}
+
+function materializePersistedAssetMovements(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow',
+  movements: AssetMovement[]
+): AssetMovement[] {
+  return movements.map((movement, index) => ({
+    ...movement,
+    movementFingerprint: materializeMovementFingerprint(
+      txFingerprint,
+      movementType,
+      index,
+      movement.movementFingerprint
+    ),
+  }));
+}
+
+function materializePersistedFeeMovements(txFingerprint: string, fees: FeeMovement[]): FeeMovement[] {
+  return fees.map((fee, index) => ({
+    ...fee,
+    movementFingerprint: materializeMovementFingerprint(txFingerprint, 'fee', index, fee.movementFingerprint),
+  }));
+}
+
+function materializeMovementFingerprint(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow' | 'fee',
+  position: number,
+  existingFingerprint?: string  
+): string {
+  const trimmedExistingFingerprint = existingFingerprint?.trim();
+  if (trimmedExistingFingerprint) {
+    return trimmedExistingFingerprint;
+  }
+
+  const movementFingerprintResult = computeMovementFingerprint({
+    txFingerprint,
+    movementType,
+    position,
+  });
+  if (movementFingerprintResult.isErr()) {
+    throw movementFingerprintResult.error;
+  }
+
+  return movementFingerprintResult.value;
 }
 
 /** Shorthand movement description for buildTransaction. Omit `price` to create an unpriced movement. */
