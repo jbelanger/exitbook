@@ -114,7 +114,7 @@ Duplicate insertions (violating either unique index) are silently counted as ski
    - Unpacks raw records (blockchain: `normalized_data`, exchange: `provider_data`)
    - Validates against the processor's Zod input schema
    - Transforms into `TransactionDraft[]` via the processor's `transformNormalizedData()`
-   - Validates output against `ProcessedTransactionSchema`
+   - Validates output against `TransactionDraftSchema`
    - Saves to `transactions` and `transaction_movements`
    - Marks raw records as `processed`
 

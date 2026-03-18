@@ -28,7 +28,7 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
-import { deriveProcessedTransactionFingerprint } from '../utils/transaction-id-utils.js';
+import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -403,7 +403,7 @@ async function buildInsertValues(
     return err(notesJsonResult.error);
   }
 
-  const txFingerprintResult = await deriveProcessedTransactionFingerprint(transaction, accountFingerprint);
+  const txFingerprintResult = await deriveTransactionFingerprint(transaction, accountFingerprint);
   if (txFingerprintResult.isErr()) {
     return err(txFingerprintResult.error);
   }

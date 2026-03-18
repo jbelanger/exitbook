@@ -387,7 +387,7 @@ Required changes:
    - make persisted `txFingerprint` required
    - introduce a base transaction-data schema with no transaction ID fields
 2. In ingestion:
-   - stop aliasing `ProcessedTransactionSchema = TransactionDraftSchema`
+   - stop aliasing `TransactionDraftSchema = TransactionDraftSchema`
    - create an ingestion-specific processed transaction shape that contains:
      - business transaction data
      - transient identity material used only before persistence
@@ -577,12 +577,12 @@ Detailed steps:
 
 Suggested helper name:
 
-- `deriveProcessedTransactionFingerprint`
+- `deriveTransactionFingerprint`
 
 Pseudo-code:
 
 ```ts
-export function deriveProcessedTransactionFingerprint(
+export function deriveTransactionFingerprint(
   input: PersistableProcessedTransaction,
   accountFingerprint: string
 ): Result<string, Error> {

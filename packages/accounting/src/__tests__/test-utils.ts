@@ -77,17 +77,17 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
       transactionFields.accountId,
       identityReference
     );
-  const inflows = materializePersistedAssetMovements(
+  const inflows = materializeAssetMovements(
     persistedTxFingerprint,
     'inflow',
     transactionFields.movements.inflows ?? []
   );
-  const outflows = materializePersistedAssetMovements(
+  const outflows = materializeAssetMovements(
     persistedTxFingerprint,
     'outflow',
     transactionFields.movements.outflows ?? []
   );
-  const fees = materializePersistedFeeMovements(persistedTxFingerprint, transactionFields.fees ?? []);
+  const fees = materializeFeeMovements(persistedTxFingerprint, transactionFields.fees ?? []);
 
   return {
     ...transactionFields,
@@ -101,7 +101,7 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
   };
 }
 
-function materializePersistedAssetMovements(
+function materializeAssetMovements(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow',
   movements: AssetMovementDraft[]
@@ -112,7 +112,7 @@ function materializePersistedAssetMovements(
   }));
 }
 
-function materializePersistedFeeMovements(txFingerprint: string, fees: FeeMovementDraft[]): FeeMovement[] {
+function materializeFeeMovements(txFingerprint: string, fees: FeeMovementDraft[]): FeeMovement[] {
   return fees.map((fee, index) => ({
     ...fee,
     movementFingerprint: materializeMovementFingerprint(txFingerprint, 'fee', index),
