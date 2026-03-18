@@ -38,6 +38,7 @@ describe('validateTaxPackageSourceCoverage', () => {
       confirmedLinkRefs: [{ linkId: 10, reference: 'transfer-1' }],
     });
 
+    expect(result.isOk()).toBe(true);
     assertOk(result);
   });
 
@@ -48,6 +49,30 @@ describe('validateTaxPackageSourceCoverage', () => {
       confirmedLinkRefs: [],
     });
 
+    expect(result.isOk()).toBe(true);
+    assertOk(result);
+  });
+
+  it('should validate multiple transaction refs and confirmed link refs', () => {
+    const indexed = createIndexedContext({
+      transactions: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      accounts: [{ id: 1 }],
+      confirmedLinks: [{ id: 10 }, { id: 20 }],
+    });
+
+    const result = validateTaxPackageSourceCoverage(indexed, {
+      transactionRefs: [
+        { transactionId: 1, reference: 'lot-1' },
+        { transactionId: 2, reference: 'lot-2' },
+        { transactionId: 3, reference: 'lot-3' },
+      ],
+      confirmedLinkRefs: [
+        { linkId: 10, reference: 'transfer-1' },
+        { linkId: 20, reference: 'transfer-2' },
+      ],
+    });
+
+    expect(result.isOk()).toBe(true);
     assertOk(result);
   });
 
@@ -64,6 +89,8 @@ describe('validateTaxPackageSourceCoverage', () => {
     );
 
     expect(result.message).toContain('Missing source transaction');
+    expect(result.message).toContain('999');
+    expect(result.message).toContain('lot-1');
   });
 
   it('should return error when confirmed link is missing', () => {
@@ -77,5 +104,23 @@ describe('validateTaxPackageSourceCoverage', () => {
     );
 
     expect(result.message).toContain('Missing confirmed link');
+    expect(result.message).toContain('999');
+    expect(result.message).toContain('transfer-1');
+  });
+
+  it('should return error when account is missing for transaction', () => {
+    const indexed = createIndexedContext({
+      transactions: [{ id: 1, accountId: 42 }],
+    });
+
+    const result = assertErr(
+      validateTaxPackageSourceCoverage(indexed, {
+        transactionRefs: [{ transactionId: 1, reference: 'lot-1' }],
+        confirmedLinkRefs: [],
+      })
+    );
+
+    expect(result.message).toContain('Missing account');
+    expect(result.message).toContain('42');
   });
 });
