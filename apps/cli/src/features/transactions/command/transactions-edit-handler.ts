@@ -4,11 +4,10 @@ import {
   readTransactionNoteOverrides,
   type OverrideStore,
 } from '@exitbook/data';
-
-import type { CommandDatabase } from '../../shared/command-runtime.js';
+import type { DataContext } from '@exitbook/data';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type TransactionEditQueryDatabase = Pick<CommandDatabase, 'transactions'>;
+type TransactionEditQueryDatabase = Pick<DataContext, 'transactions'>;
 
 interface TransactionIdentity {
   source: string;

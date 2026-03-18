@@ -1,11 +1,10 @@
 import { err, ok } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data';
-
-import type { CommandDatabase } from '../../shared/command-runtime.js';
+import type { DataContext } from '@exitbook/data';
 
 import type { AccountQueryPorts } from './account-query-ports.js';
 
-export function buildAccountQueryPorts(db: CommandDatabase): AccountQueryPorts {
+export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
   const balancesFreshness = buildBalancesFreshnessPorts(db);
 
   return {

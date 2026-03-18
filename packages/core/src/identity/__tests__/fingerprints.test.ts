@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertErr, assertOk } from '../../__tests__/test-utils.js';
 import { computeAccountFingerprint, computeMovementFingerprint, computeTxFingerprint } from '../fingerprints.js';
 
-vi.mock('../sha256.js', async (importOriginal) => {
+vi.mock('../../utils/crypto-utils.js', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../utils/crypto-utils.js')>();
   return { ...original, sha256Hex: vi.fn().mockImplementation(original.sha256Hex) };
 });

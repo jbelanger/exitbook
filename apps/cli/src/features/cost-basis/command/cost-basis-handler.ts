@@ -20,7 +20,7 @@ import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
-import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
+import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
@@ -167,7 +167,7 @@ export class CostBasisHandler {
  */
 export async function createCostBasisHandler(
   ctx: CommandContext,
-  database: CommandDatabase,
+  database: DataContext,
   options: { isJsonMode: boolean; params: CostBasisInput; registry: AdapterRegistry }
 ): Promise<Result<CostBasisHandler, Error>> {
   let prereqAbort: (() => void) | undefined;

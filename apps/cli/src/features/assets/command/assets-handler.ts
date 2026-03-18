@@ -13,6 +13,7 @@ import {
 } from '@exitbook/core';
 import {
   buildBalancesFreshnessPorts,
+  DataContext,
   readAssetReviewDecisions,
   readExcludedAssetIds,
   type AssetReviewDecision,
@@ -25,13 +26,12 @@ import {
   readAssetReviewProjectionSummaries,
 } from '../../shared/asset-review-projection-runtime.js';
 import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
-import type { CommandDatabase } from '../../shared/command-runtime.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
 import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from './assets-utils.js';
 
 type AssetOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type AssetQueryDatabase = CommandDatabase;
+type AssetQueryDatabase = DataContext;
 
 interface AssetSelectionParams {
   assetId?: string | undefined;

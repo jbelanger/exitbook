@@ -29,7 +29,7 @@ import {
   ensureAssetReviewProjectionFresh,
   readAssetReviewProjectionSummaries,
 } from '../../shared/asset-review-projection-runtime.js';
-import type { CommandContext, CommandDatabase } from '../../shared/command-runtime.js';
+import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -636,7 +636,7 @@ export class PortfolioHandler {
  */
 export async function createPortfolioHandler(
   ctx: CommandContext,
-  database: CommandDatabase,
+  database: DataContext,
   options: { asOf: Date; isJsonMode: boolean; registry: AdapterRegistry }
 ): Promise<Result<PortfolioHandler, Error>> {
   const dataDir = ctx.dataDir;

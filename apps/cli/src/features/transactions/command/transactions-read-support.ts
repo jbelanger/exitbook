@@ -1,6 +1,5 @@
 import { err, ok, type Result, type TransactionNote, type Transaction } from '@exitbook/core';
-
-import type { CommandDatabase } from '../../shared/command-runtime.js';
+import type { DataContext } from '@exitbook/data';
 
 const PROJECTED_USER_NOTE_TYPE = 'user_note';
 const PROJECTED_USER_NOTE_SOURCE = 'override-store';
@@ -9,7 +8,7 @@ import { applyTransactionFilters, type ViewTransactionsParams } from './transact
 
 interface ReadTransactionsForCommandParams {
   assetSymbol?: string | undefined;
-  db: CommandDatabase;
+  db: DataContext;
   noPrice?: boolean | undefined;
   operationType?: string | undefined;
   since?: number | undefined;
