@@ -9,7 +9,6 @@ const USD = 'USD' as Currency;
 describe('materializeProcessedTransaction', () => {
   it('preserves exchange identity material as sorted componentEventIds', () => {
     const transaction = materializeProcessedTransaction({
-      externalId: 'legacy-provider-id',
       source: 'kraken',
       timestamp: 1_700_000_000_000,
       status: 'success',
@@ -28,7 +27,6 @@ describe('materializeProcessedTransaction', () => {
       },
     });
 
-    expect(transaction.externalId).toBe('legacy-provider-id');
     expect(transaction.identityMaterial?.componentEventIds).toEqual(['evt-a', 'evt-b', 'evt-b']);
   });
 });

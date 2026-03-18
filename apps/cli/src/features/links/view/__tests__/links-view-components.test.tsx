@@ -587,6 +587,7 @@ function createMockTransaction(id: number, source: string, datetime: string): Tr
     sourceType: source === 'kraken' || source === 'coinbase' ? 'exchange' : 'blockchain',
     datetime,
     externalId: `ext-${id}`,
+    txFingerprint: `ext-${id}`,
     from: source === 'kraken' || source === 'coinbase' ? undefined : '0xABCD1234ABCD1234ABCD1234ABCD1234ABCD1234',
     to: source === 'ethereum' || source === 'bitcoin' ? '0x1234ABCD1234ABCD1234ABCD1234ABCD1234ABCD' : undefined,
     movements: {
@@ -606,7 +607,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
     issues: [
       {
         transactionId: 2041,
-        externalId: 'eth-inflow-1',
+        txFingerprint: 'eth-inflow-1',
         source: 'ethereum',
         blockchain: 'ethereum',
         timestamp: '2024-03-18T09:12:34Z',
@@ -622,7 +623,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
       },
       {
         transactionId: 2198,
-        externalId: 'eth-inflow-2',
+        txFingerprint: 'eth-inflow-2',
         source: 'ethereum',
         blockchain: 'ethereum',
         timestamp: '2024-04-02T14:45:00Z',
@@ -637,7 +638,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
       },
       {
         transactionId: 2456,
-        externalId: 'kraken-outflow-1',
+        txFingerprint: 'kraken-outflow-1',
         source: 'kraken',
         timestamp: '2024-05-01T16:20:00Z',
         assetSymbol: 'ETH',

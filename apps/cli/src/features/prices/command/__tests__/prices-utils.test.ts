@@ -126,6 +126,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
@@ -154,6 +155,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [
@@ -193,6 +195,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],
@@ -219,6 +222,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
@@ -246,6 +250,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [
@@ -286,6 +291,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('1000') }],
@@ -312,6 +318,7 @@ describe('extractAssetsNeedingPrices', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [
@@ -343,6 +350,7 @@ describe('createPriceQuery', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],
@@ -371,6 +379,7 @@ describe('createPriceQuery', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],
@@ -397,6 +406,7 @@ describe('createPriceQuery', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],
@@ -423,6 +433,7 @@ describe('createPriceQuery', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],
@@ -449,6 +460,7 @@ describe('createPriceQuery', () => {
       sourceType: 'exchange',
       status: 'success',
       externalId: 'test-1',
+      txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
         inflows: [],

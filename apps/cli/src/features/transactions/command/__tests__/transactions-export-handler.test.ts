@@ -40,6 +40,7 @@ describe('ExportHandler', () => {
     id: id,
     accountId: 1,
     externalId: `ext-${id}`,
+    txFingerprint: `ext-${id}`,
     source: source,
     sourceType: 'exchange',
     operation: { category: 'trade', type: 'buy' },
@@ -78,7 +79,7 @@ describe('ExportHandler', () => {
       expect(exportResult.csvFormat).toBe('normalized');
       expect(exportResult.outputs).toHaveLength(4);
       expect(exportResult.outputs[0]?.path).toBe('./data/transactions.csv');
-      expect(exportResult.outputs[0]?.content).toContain('id,external_id,account_id');
+      expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,account_id');
       expect(exportResult.outputs[0]?.content).toContain('1,ext-1,1,kraken,trade');
       expect(exportResult.outputs[0]?.content).toContain('2,ext-2,1,kraken,trade');
       expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
@@ -167,7 +168,7 @@ describe('ExportHandler', () => {
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('simple');
       expect(exportResult.outputs).toHaveLength(1);
-      expect(exportResult.outputs[0]?.content).toContain('id,external_id,source,operation_category');
+      expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,source,operation_category');
       expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
     });
 

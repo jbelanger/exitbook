@@ -81,7 +81,7 @@ export function createMockTransaction(
     id,
     accountId: 1,
     externalId: `tx-${id}`,
-    txFingerprint: `txfp:test:${id}`,
+    txFingerprint: `tx-${id}`,
     source: overrides.source ?? 'test-source',
     sourceType: 'exchange',
     datetime: '2024-01-01T12:00:00Z',
@@ -393,7 +393,7 @@ export function createMockGapAnalysis(): LinkGapAnalysis {
     issues: [
       {
         transactionId: 2041,
-        externalId: 'eth-inflow-1',
+        txFingerprint: 'eth-inflow-1',
         source: 'ethereum',
         blockchain: 'ethereum',
         timestamp: '2024-03-18T09:12:34Z',
@@ -409,7 +409,7 @@ export function createMockGapAnalysis(): LinkGapAnalysis {
       },
       {
         transactionId: 2198,
-        externalId: 'eth-inflow-2',
+        txFingerprint: 'eth-inflow-2',
         source: 'ethereum',
         blockchain: 'ethereum',
         timestamp: '2024-04-02T14:45:00Z',
@@ -424,7 +424,7 @@ export function createMockGapAnalysis(): LinkGapAnalysis {
       },
       {
         transactionId: 2456,
-        externalId: 'kraken-outflow-1',
+        txFingerprint: 'kraken-outflow-1',
         source: 'kraken',
         timestamp: '2024-05-01T16:20:00Z',
         assetSymbol: 'ETH',

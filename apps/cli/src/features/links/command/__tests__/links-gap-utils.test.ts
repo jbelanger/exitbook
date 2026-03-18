@@ -22,6 +22,7 @@ describe('analyzeLinkGaps', () => {
     id: 1,
     accountId: 1,
     externalId: 'tx-123',
+    txFingerprint: String(overrides.txFingerprint ?? overrides.externalId ?? 'tx-123'),
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
     source: 'kraken',

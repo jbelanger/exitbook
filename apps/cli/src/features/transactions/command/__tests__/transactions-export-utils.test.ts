@@ -146,6 +146,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -164,7 +165,7 @@ describe('export-utils', () => {
 
       const result = convertToCSV([transaction]);
 
-      expect(result).toContain('id,external_id,source,operation_category');
+      expect(result).toContain('id,tx_fingerprint,source,operation_category');
       expect(result).toContain('1,ext-1,kraken,trade,buy');
       expect(result).toContain('BTC,1.5');
     });
@@ -175,6 +176,7 @@ describe('export-utils', () => {
           id: 1,
           accountId: 1,
           externalId: 'ext-1',
+          txFingerprint: 'ext-1',
           source: 'kraken',
           sourceType: 'exchange',
           datetime: '2024-01-01T12:00:00Z',
@@ -194,6 +196,7 @@ describe('export-utils', () => {
           id: 2,
           accountId: 1,
           externalId: 'ext-2',
+          txFingerprint: 'ext-2',
           source: 'kraken',
           sourceType: 'exchange',
           datetime: '2024-01-02T12:00:00Z',
@@ -215,7 +218,7 @@ describe('export-utils', () => {
       const lines = result.split('\n');
 
       expect(lines).toHaveLength(3); // header + 2 rows
-      expect(lines[0]).toContain('id,external_id,source,operation_category');
+      expect(lines[0]).toContain('id,tx_fingerprint,source,operation_category');
       expect(lines[1]).toContain('1,ext-1,kraken,trade,buy');
       expect(lines[2]).toContain('2,ext-2,kraken,trade,sell');
     });
@@ -225,6 +228,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'test,source',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -251,6 +255,7 @@ describe('export-utils', () => {
         id: 1822,
         accountId: 1,
         externalId: 'ext-1822',
+        txFingerprint: 'ext-1822',
         source: 'kraken',
         sourceType: 'exchange',
         datetime: '2024-01-03T12:00:00Z',
@@ -291,6 +296,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -331,6 +337,7 @@ describe('export-utils', () => {
           id: 1,
           accountId: 1,
           externalId: 'ext-1',
+          txFingerprint: 'ext-1',
           source: 'kraken',
           sourceType: 'exchange',
           datetime: '2024-01-01T12:00:00Z',
@@ -350,6 +357,7 @@ describe('export-utils', () => {
           id: 2,
           accountId: 1,
           externalId: 'ext-2',
+          txFingerprint: 'ext-2',
           source: 'kraken',
           sourceType: 'exchange',
           datetime: '2024-01-02T12:00:00Z',
@@ -380,6 +388,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'bitcoin',
         sourceType: 'blockchain',
         datetime: '2024-01-01T12:00:00Z',
@@ -425,6 +434,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -456,6 +466,7 @@ describe('export-utils', () => {
         id: 1,
         accountId: 1,
         externalId: 'ext-1',
+        txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -508,7 +519,7 @@ describe('export-utils', () => {
 
       const result = convertToNormalizedCSV([transaction], [link]);
 
-      expect(result.transactionsCsv).toContain('id,external_id,account_id');
+      expect(result.transactionsCsv).toContain('id,tx_fingerprint,account_id');
       expect(result.transactionsCsv).toContain('1,ext-1,1,kraken,trade,buy');
       expect(result.movementsCsv).toContain('tx_id,direction,asset_id,asset_symbol');
       expect(result.movementsCsv).toContain('1,in,test:btc,BTC,1.5');

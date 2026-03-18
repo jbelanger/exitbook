@@ -1,23 +1,12 @@
 import { err, ok, type Result } from '../result/index.js';
 import { getErrorMessage } from '../utils/index.js';
 
-// ---------------------------------------------------------------------------
-// Shared hashing utility (Web Crypto — runtime-agnostic)
-// ---------------------------------------------------------------------------
+import { sha256Hex } from './sha256.js';
 
-async function sha256Hex(material: string): Promise<Result<string, Error>> {
+// Wrap the raw sha256Hex in Result for fingerprint use
+async function sha256Result(material: string): Promise<Result<string, Error>> {
   try {
-    if (!globalThis.crypto?.subtle) {
-      return err(new Error('Web Crypto API is not available'));
-    }
-
-    const encoded = new TextEncoder().encode(material);
-    const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', encoded);
-    return ok(
-      Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
-    );
+    return ok(await sha256Hex(material));
   } catch (error) {
     return err(new Error(`Failed to compute SHA-256 fingerprint: ${getErrorMessage(error)}`));
   }
@@ -58,7 +47,7 @@ export async function computeAccountFingerprint(input: AccountFingerprintInput):
   }
 
   const material = `${trimmedAccountType}|${trimmedSourceName}|${trimmedIdentifier}`;
-  return sha256Hex(material);
+  return sha256Result(material);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +87,7 @@ export async function computeTxFingerprint(input: TransactionFingerprintInput): 
       return err(new Error('blockchainTransactionHash is required for blockchain transactions'));
     }
     const material = `${trimmedAccountFingerprint}|blockchain|${trimmedSource}|${hash.trim()}`;
-    return sha256Hex(material);
+    return sha256Result(material);
   }
 
   const eventIds = input.componentEventIds;
@@ -113,7 +102,7 @@ export async function computeTxFingerprint(input: TransactionFingerprintInput): 
 
   const sorted = [...normalizedEventIds].sort();
   const material = `${trimmedAccountFingerprint}|exchange|${trimmedSource}|${sorted.join('|')}`;
-  return sha256Hex(material);
+  return sha256Result(material);
 }
 
 // ---------------------------------------------------------------------------

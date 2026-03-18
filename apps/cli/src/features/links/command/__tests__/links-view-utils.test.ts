@@ -90,7 +90,7 @@ describe('links-view-utils', () => {
 
       expect(result).toEqual({
         id: 123,
-        external_id: 'tx-123',
+        tx_fingerprint: 'tx-123',
         source_name: 'test-source',
         source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
@@ -113,6 +113,7 @@ describe('links-view-utils', () => {
         id: 456,
         accountId: 1,
         externalId: 'tx-456',
+        txFingerprint: 'tx-456',
         source: 'test-source',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -135,7 +136,7 @@ describe('links-view-utils', () => {
 
       expect(result).toEqual({
         id: 456,
-        external_id: 'tx-456',
+        tx_fingerprint: 'tx-456',
         source_name: 'test-source',
         source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
@@ -151,6 +152,7 @@ describe('links-view-utils', () => {
         id: 789,
         accountId: 1,
         externalId: 'tx-789',
+        txFingerprint: 'tx-789',
         source: 'test-source',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
@@ -214,7 +216,7 @@ describe('links-view-utils', () => {
 
       expect(result.source_transaction).toBeDefined();
       expect(result.source_transaction?.id).toBe(1);
-      expect(result.source_transaction?.external_id).toBe('tx-1');
+      expect(result.source_transaction?.tx_fingerprint).toBe('tx-1');
       expect(result.target_transaction).toBeUndefined();
     });
 
@@ -227,7 +229,7 @@ describe('links-view-utils', () => {
       expect(result.source_transaction).toBeUndefined();
       expect(result.target_transaction).toBeDefined();
       expect(result.target_transaction?.id).toBe(2);
-      expect(result.target_transaction?.external_id).toBe('tx-2');
+      expect(result.target_transaction?.tx_fingerprint).toBe('tx-2');
     });
 
     it('should format link with both transaction details', () => {

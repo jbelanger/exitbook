@@ -49,6 +49,7 @@ function createTransaction(overrides: Partial<Transaction>): Transaction {
     source: 'bitcoin',
     sourceType: 'blockchain',
     externalId: 'tx-1',
+    txFingerprint: String(overrides.txFingerprint ?? overrides.externalId ?? 'tx-1'),
     status: 'success',
     datetime: '2026-02-20T00:00:00.000Z',
     timestamp: Date.parse('2026-02-20T00:00:00.000Z'),

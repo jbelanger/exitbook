@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertErr, assertOk } from '../../__tests__/test-utils.js';
 import { computeAccountFingerprint, computeMovementFingerprint, computeTxFingerprint } from '../fingerprints.js';
 
+vi.mock('../sha256.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../sha256.js')>();
+  return { ...original, sha256Hex: vi.fn().mockImplementation(original.sha256Hex) };
+});
+
 // ---------------------------------------------------------------------------
 // computeAccountFingerprint
 // ---------------------------------------------------------------------------
@@ -64,7 +69,8 @@ describe('computeAccountFingerprint', () => {
   });
 
   it('returns Err when SHA-256 digest fails', async () => {
-    vi.spyOn(globalThis.crypto.subtle, 'digest').mockRejectedValueOnce(new Error('digest failed'));
+    const { sha256Hex } = await import('../sha256.js');
+    vi.mocked(sha256Hex).mockRejectedValueOnce(new Error('digest failed'));
 
     const e = assertErr(
       await computeAccountFingerprint({
@@ -145,7 +151,8 @@ describe('computeTxFingerprint (blockchain)', () => {
   });
 
   it('returns Err when SHA-256 digest fails', async () => {
-    vi.spyOn(globalThis.crypto.subtle, 'digest').mockRejectedValueOnce(new Error('digest failed'));
+    const { sha256Hex } = await import('../sha256.js');
+    vi.mocked(sha256Hex).mockRejectedValueOnce(new Error('digest failed'));
 
     const e = assertErr(
       await computeTxFingerprint({
