@@ -1,4 +1,4 @@
-import type { FeeMovementDraft } from '@exitbook/core';
+import type { FeeMovementDraft, TransactionLink } from '@exitbook/core';
 import {
   err,
   type Currency,
@@ -17,7 +17,6 @@ import {
   createPriceAtTxTime,
   createTransactionFromMovements,
 } from '../../../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../../../linking/shared/types.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import type { AccountingScopedTransaction } from '../build-cost-basis-scoped-transactions.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';

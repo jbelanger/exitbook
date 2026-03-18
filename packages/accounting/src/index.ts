@@ -157,14 +157,13 @@ export type { LinkingRunParams, LinkingRunResult } from './linking/orchestration
 export type { LinkingEvent } from './linking/orchestration/linking-events.js';
 
 // Transaction linking
-export type { LinkStatus, MatchCriteria, TransactionLink } from './linking/shared/types.js';
+export type { LinkStatus, MatchCriteria } from './linking/shared/types.js';
 export {
   deriveTransferProposalStatus,
   getExplicitTransferProposalKey,
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
 } from './linking/shared/transfer-proposals.js';
-export { hasImpliedFeeAmount, isPartialMatchLinkMetadata, isSameHashExternalLinkMetadata } from '@exitbook/core';
 
 // Cost basis utilities
 export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';

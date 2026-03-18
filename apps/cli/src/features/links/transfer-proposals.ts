@@ -4,8 +4,8 @@ import {
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
   type LinkStatus,
-  type TransactionLink,
 } from '@exitbook/accounting';
+import type { TransactionLink } from '@exitbook/core';
 
 interface TransferProposal {
   links: TransactionLink[];

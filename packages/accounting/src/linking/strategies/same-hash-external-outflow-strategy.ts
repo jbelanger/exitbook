@@ -1,4 +1,4 @@
-import { err, ok, parseDecimal, type Result } from '@exitbook/core';
+import { err, ok, parseDecimal, type NewTransactionLink, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import {
@@ -12,7 +12,6 @@ import { shouldAutoConfirm } from '../matching/match-allocation.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
 import type {
   MatchingConfig,
-  NewTransactionLink,
   PotentialMatch,
   SameHashExternalSourceAllocation,
   TransactionLinkMetadata,

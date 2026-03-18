@@ -1,10 +1,7 @@
 import { err, ok, type Result } from '@exitbook/core';
 
-import {
-  requireConfirmedLink,
-  requireTransactionWithAccount,
-  type TaxPackageIndexedSourceContext,
-} from './tax-package-source-context.js';
+import type { TaxPackageSourceContext } from './tax-package-build-context.js';
+import { requireConfirmedLink, requireTransactionWithAccount } from './tax-package-source-context.js';
 
 export interface TaxPackageTransactionCoverageRef {
   reference: string;
@@ -22,7 +19,7 @@ export interface TaxPackageSourceCoverageRequest {
 }
 
 export function validateTaxPackageSourceCoverage(
-  sourceContext: TaxPackageIndexedSourceContext,
+  sourceContext: TaxPackageSourceContext,
   request: TaxPackageSourceCoverageRequest
 ): Result<void, Error> {
   for (const transactionRef of request.transactionRefs) {

@@ -1,7 +1,7 @@
-import type { Result } from '@exitbook/core';
+import type { NewTransactionLink, Result } from '@exitbook/core';
 
 import type { LinkableMovement } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
+import type { MatchingConfig } from '../shared/types.js';
 
 /**
  * Result of running a single linking strategy.

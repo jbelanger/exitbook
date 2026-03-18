@@ -2,14 +2,13 @@
  * Links view TUI components
  */
 
+import { type LinkStatus, type MatchCriteria } from '@exitbook/accounting';
 import {
-  hasImpliedFeeAmount,
-  isPartialMatchLinkMetadata,
   isSameHashExternalLinkMetadata,
-  type LinkStatus,
-  type MatchCriteria,
+  isPartialMatchLinkMetadata,
+  hasImpliedFeeAmount,
   type TransactionLink,
-} from '@exitbook/accounting';
+} from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';

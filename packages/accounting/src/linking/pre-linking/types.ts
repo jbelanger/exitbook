@@ -1,33 +1,13 @@
-import type { Currency, TransactionLinkMetadata } from '@exitbook/core';
-import type { Decimal } from 'decimal.js';
+import type { NewTransactionLink } from '@exitbook/core';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import type { NewTransactionLink } from '../shared/types.js';
 
-export interface PendingInternalLink {
-  sourceTransactionId: number;
-  targetTransactionId: number;
-  assetSymbol: Currency;
-  sourceAssetId: string;
-  targetAssetId: string;
-  sourceAmount: Decimal;
-  targetAmount: Decimal;
-  linkType: 'blockchain_internal';
-  confidenceScore: Decimal;
-  matchCriteria: {
-    addressMatch?: boolean | undefined;
-    amountSimilarity: Decimal;
-    assetMatch: boolean;
-    timingHours: number;
-    timingValid: boolean;
-  };
-  status: 'confirmed';
-  reviewedBy: 'auto';
-  reviewedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  metadata?: TransactionLinkMetadata | undefined;
-}
+/**
+ * A NewTransactionLink before movement fingerprints have been resolved.
+ * Used in the pre-linking stage where links are built from same-hash groups
+ * before linkable movements (and their fingerprints) exist.
+ */
+export type PendingInternalLink = Omit<NewTransactionLink, 'sourceMovementFingerprint' | 'targetMovementFingerprint'>;
 
 /**
  * Result of building linkable movements.

@@ -8,7 +8,7 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { FeeMovement } from '@exitbook/core';
+import type { FeeMovement, TransactionLink } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,7 +18,6 @@ import {
   createTransactionFromMovements,
   createFee,
 } from '../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../linking/shared/types.js';
 import type { LinkedTransactionGroup } from '../shared/types.js';
 
 import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from './price-enrichment-utils.js';

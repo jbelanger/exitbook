@@ -1,6 +1,5 @@
-import { randomUUID, type Transaction } from '@exitbook/core';
+import { randomUUID, type Transaction, type TransactionLink } from '@exitbook/core';
 
-import type { TransactionLink } from '../../linking/shared/types.js';
 import type { LinkedTransactionGroup } from '../shared/types.js';
 
 /**

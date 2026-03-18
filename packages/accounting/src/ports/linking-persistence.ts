@@ -1,7 +1,5 @@
-import type { Transaction } from '@exitbook/core';
+import type { NewTransactionLink, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
-
-import type { NewTransactionLink } from '../linking/shared/types.js';
 
 /**
  * Result of replacing links in persistence.

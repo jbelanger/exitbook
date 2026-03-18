@@ -1,6 +1,6 @@
 // Command registration for links view subcommand
-import type { LinkStatus, TransactionLink } from '@exitbook/accounting';
-import type { Transaction } from '@exitbook/core';
+import type { LinkStatus } from '@exitbook/accounting';
+import type { Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { Command } from 'commander';
 import React from 'react';

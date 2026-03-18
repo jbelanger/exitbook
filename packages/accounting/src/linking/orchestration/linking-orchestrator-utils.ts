@@ -1,9 +1,8 @@
-import { parseDecimal, type Currency, type Transaction } from '@exitbook/core';
+import { parseDecimal, type Currency, type NewTransactionLink, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import type { NewTransactionLink } from '../shared/types.js';
 import { determineLinkType } from '../strategies/amount-timing-utils.js';
 
 import type { OrphanedLinkOverride } from './override-replay.js';

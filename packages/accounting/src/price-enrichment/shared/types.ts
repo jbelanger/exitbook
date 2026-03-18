@@ -1,8 +1,6 @@
-import type { Currency, Transaction } from '@exitbook/core';
+import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-
-import type { TransactionLink } from '../../linking/shared/types.js';
 
 /**
  * FX rate data with metadata

@@ -1,6 +1,5 @@
+import type { TransactionLink } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
-
-import type { TransactionLink } from '../shared/types.js';
 
 /**
  * In-memory index for efficient transaction link lookups with support for

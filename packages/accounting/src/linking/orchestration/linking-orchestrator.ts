@@ -1,4 +1,4 @@
-import type { OverrideEvent, Transaction } from '@exitbook/core';
+import type { NewTransactionLink, OverrideEvent, Transaction } from '@exitbook/core';
 import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -13,7 +13,6 @@ import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildMatchingConfig } from '../matching/matching-config.js';
 import { StrategyRunner, type StrategyRunnerResult } from '../matching/strategy-runner.js';
 import { buildLinkableMovements } from '../pre-linking/build-linkable-movements.js';
-import type { NewTransactionLink } from '../shared/types.js';
 import { defaultStrategies } from '../strategies/index.js';
 
 import type { LinkingEvent } from './linking-events.js';

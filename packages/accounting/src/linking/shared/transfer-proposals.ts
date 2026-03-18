@@ -1,6 +1,4 @@
-import type { LinkStatus } from '@exitbook/core';
-
-import type { NewTransactionLink, TransactionLink } from './types.js';
+import type { LinkStatus, NewTransactionLink, TransactionLink } from '@exitbook/core';
 
 export type TransferProposalLink = NewTransactionLink | TransactionLink;
 

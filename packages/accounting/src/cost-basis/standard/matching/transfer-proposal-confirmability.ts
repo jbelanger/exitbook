@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result, type TransactionLink } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
 import {
@@ -7,7 +7,6 @@ import {
   type TransferProposalGroup,
   type TransferProposalLink,
 } from '../../../linking/shared/transfer-proposals.js';
-import type { TransactionLink } from '../../../linking/shared/types.js';
 
 import type { AccountingScopedTransaction } from './build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';

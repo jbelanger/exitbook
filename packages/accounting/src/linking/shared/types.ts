@@ -6,10 +6,8 @@ import type {
   LinkTypeSchema,
   MatchCriteriaSchema,
   MatchingConfigSchema,
-  NewTransactionLinkSchema,
   PotentialMatchSchema,
   ScoreComponentSchema,
-  TransactionLinkSchema,
   TransactionLinkMetadataSchema,
   TransactionLinkScoreBreakdownEntrySchema,
 } from './schemas.js';
@@ -46,13 +44,6 @@ export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
 export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;
 export type TransactionLinkScoreBreakdownEntry = z.infer<typeof TransactionLinkScoreBreakdownEntrySchema>;
 export type SameHashExternalSourceAllocation = z.infer<typeof SameHashExternalSourceAllocationSchema>;
-
-/**
- * Transaction link - represents a connection between two transactions
- * where one is the source (withdrawal/send) and the other is the target (deposit/receive)
- */
-export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
-export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;
 
 /**
  * A single component of a confidence score breakdown

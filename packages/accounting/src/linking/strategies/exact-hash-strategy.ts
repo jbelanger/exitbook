@@ -1,9 +1,9 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type NewTransactionLink } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../matching/link-construction.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink } from '../shared/types.js';
+import type { MatchingConfig } from '../shared/types.js';
 
 import { calculateTimeDifferenceHours, determineLinkType, isTimingValid } from './amount-timing-utils.js';
 import { areLinkingAssetsEquivalent } from './asset-equivalence-utils.js';

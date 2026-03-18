@@ -1,7 +1,7 @@
 // Utilities and types for links view command
 
-import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
-import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import type { LinkStatus, MatchCriteria } from '@exitbook/accounting';
+import type { AssetMovementDraft, Transaction, TransactionLink } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../../shared/view-utils.js';

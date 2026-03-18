@@ -1,13 +1,8 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type NewTransactionLink } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type {
-  NewTransactionLink,
-  PotentialMatch,
-  TransactionLinkMetadata,
-  TransactionLinkScoreBreakdownEntry,
-} from '../shared/types.js';
+import type { PotentialMatch, TransactionLinkMetadata, TransactionLinkScoreBreakdownEntry } from '../shared/types.js';
 
 const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
 

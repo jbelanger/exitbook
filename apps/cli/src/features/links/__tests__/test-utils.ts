@@ -1,5 +1,4 @@
-import type { TransactionLink } from '@exitbook/accounting';
-import type { Currency, Transaction } from '@exitbook/core';
+import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
 import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';

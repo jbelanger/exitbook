@@ -1,10 +1,9 @@
-import type { Currency, Transaction } from '@exitbook/core';
+import type { Currency, NewTransactionLink, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import type { NewTransactionLink } from '../shared/types.js';
 import { normalizeTransactionHash } from '../strategies/exact-hash-utils.js';
 
 import { groupSameHashTransactions } from './group-same-hash-transactions.js';

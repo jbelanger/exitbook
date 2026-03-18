@@ -1,10 +1,14 @@
-import { computeMovementFingerprint, type Currency, type Transaction, parseDecimal } from '@exitbook/core';
+import {
+  computeMovementFingerprint,
+  type Currency,
+  type Transaction,
+  parseDecimal,
+  type TransactionLink,
+} from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import { seedTxFingerprint } from '../../__tests__/test-utils.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-
-import type { TransactionLink } from './types.js';
 
 /**
  * Creates a LinkableMovement with sensible defaults for testing.

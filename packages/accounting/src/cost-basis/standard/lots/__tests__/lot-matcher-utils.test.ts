@@ -1,4 +1,10 @@
-import { type AssetMovementDraft, type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import {
+  type AssetMovementDraft,
+  type Currency,
+  parseDecimal,
+  type Transaction,
+  type TransactionLink,
+} from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -9,7 +15,6 @@ import {
   createPriceAtTxTime,
   createTransactionFromMovements,
 } from '../../../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../../../linking/shared/types.js';
 import type { LotTransfer } from '../../../model/schemas.js';
 import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from '../lot-creation-utils.js';
 import { calculateNetProceeds } from '../lot-disposal-utils.js';

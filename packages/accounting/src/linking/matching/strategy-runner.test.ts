@@ -1,11 +1,10 @@
-import { type Currency, err, ok, parseDecimal } from '@exitbook/core';
+import { type Currency, err, type NewTransactionLink, ok, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
-import type { NewTransactionLink } from '../shared/types.js';
 import type { ILinkingStrategy, StrategyResult } from '../strategies/types.js';
 
 import { DEFAULT_MATCHING_CONFIG } from './matching-config.js';

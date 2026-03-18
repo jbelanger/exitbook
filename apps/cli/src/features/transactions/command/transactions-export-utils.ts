@@ -1,8 +1,7 @@
 // Pure utility functions for export command
 // All functions are pure - no side effects
 
-import type { TransactionLink } from '@exitbook/accounting';
-import type { FeeMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { FeeMovementDraft, PriceAtTxTime, Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok, resultDo } from '@exitbook/core';
 import type { z } from 'zod';

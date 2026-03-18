@@ -1,8 +1,7 @@
-import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction, type TransactionLink } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { materializeTestTransaction } from '../../__tests__/test-utils.js';
-import type { TransactionLink } from '../../linking/shared/types.js';
 
 import { buildLinkGraph } from './link-graph-utils.js';
 

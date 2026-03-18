@@ -1,5 +1,4 @@
-import type { TransactionLink } from '@exitbook/accounting';
-import type { Transaction } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 

@@ -1,10 +1,10 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type NewTransactionLink } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/core';
 
 import { createTransactionLink } from '../matching/link-construction.js';
 import { allocateMatches } from '../matching/match-allocation.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
-import type { MatchingConfig, NewTransactionLink, PotentialMatch } from '../shared/types.js';
+import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';

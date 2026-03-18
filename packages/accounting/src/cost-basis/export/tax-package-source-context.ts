@@ -5,11 +5,9 @@ import type { CostBasisContext } from '../../ports/cost-basis-persistence.js';
 
 import type { TaxPackageSourceContext } from './tax-package-build-context.js';
 
-export type TaxPackageIndexedSourceContext = TaxPackageSourceContext;
-
 export function buildIndexedTaxPackageSourceContext(
   sourceContext: CostBasisContext
-): Result<TaxPackageIndexedSourceContext, Error> {
+): Result<TaxPackageSourceContext, Error> {
   const transactionsByIdResult = buildIndexedMap(
     sourceContext.transactions,
     (transaction) => transaction.id,
@@ -41,7 +39,7 @@ export function buildIndexedTaxPackageSourceContext(
 }
 
 export function requireTransactionWithAccount(
-  sourceContext: TaxPackageIndexedSourceContext,
+  sourceContext: TaxPackageSourceContext,
   transactionId: number,
   reference: string
 ): Result<Transaction, Error> {
@@ -62,7 +60,7 @@ export function requireTransactionWithAccount(
 }
 
 export function requireConfirmedLink(
-  sourceContext: TaxPackageIndexedSourceContext,
+  sourceContext: TaxPackageSourceContext,
   linkId: number,
   reference: string
 ): Result<TransactionLink, Error> {
