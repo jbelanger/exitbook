@@ -100,6 +100,7 @@ describe('links-view-utils', () => {
           {
             assetId: 'test:btc',
             assetSymbol: 'BTC',
+            movementFingerprint: 'movement:tx-123:inflow:0',
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('0.999'),
           },
