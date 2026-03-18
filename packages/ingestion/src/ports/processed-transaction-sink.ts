@@ -1,6 +1,4 @@
-import type { Result } from '@exitbook/core';
-
-import type { TransactionDraft } from '../shared/types/processors.js';
+import type { Result, TransactionDraft } from '@exitbook/core';
 
 /**
  * Port for persisting processed transactions.

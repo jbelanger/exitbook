@@ -1,6 +1,5 @@
+import type { TransactionDraft } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
-
-import type { TransactionDraft } from '../../../shared/types/processors.js';
 
 import type { ExchangeCorrelationGroup } from './exchange-correlation-group.js';
 import type { ExchangeGroupInterpretation } from './exchange-interpretation.js';

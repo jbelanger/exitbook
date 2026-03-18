@@ -1,11 +1,11 @@
 import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import type { TokenMetadataRecord } from '@exitbook/core';
+import type { TokenMetadataRecord, TransactionDraft } from '@exitbook/core';
 import { TransactionDraftSchema, type Result, err, ok } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';
 
-import type { ITransactionProcessor, AddressContext, TransactionDraft } from '../../shared/types/processors.js';
+import type { ITransactionProcessor, AddressContext } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 
 /**

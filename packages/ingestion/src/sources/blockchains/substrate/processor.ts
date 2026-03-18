@@ -3,12 +3,17 @@ import {
   type SubstrateChainConfig,
   SubstrateTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { type AssetMovementDraft, buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
+import {
+  type AssetMovementDraft,
+  buildBlockchainNativeAssetId,
+  parseDecimal,
+  type TransactionDraft,
+} from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSubstrateFundFlow, determineOperationFromFundFlow, shouldRecordFeeEntry } from './processor-utils.js';
 import type { SubstrateMovement } from './types.js';

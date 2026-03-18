@@ -9,13 +9,14 @@ import {
   parseDecimal,
   type Currency,
   type OperationClassification,
+  type TransactionDraft,
 } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
 import type { MovementWithContext } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
-import type { AddressContext, TransactionDraft } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 interface CorrelatedMovement {
   amount: string;

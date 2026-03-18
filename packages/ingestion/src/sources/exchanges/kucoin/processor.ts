@@ -1,8 +1,7 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result, type TransactionDraft } from '@exitbook/core';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { TransactionDraft } from '../../../shared/types/processors.js';
 import {
   RawExchangeProcessorInputSchema,
   buildExchangeProcessingFailureError,

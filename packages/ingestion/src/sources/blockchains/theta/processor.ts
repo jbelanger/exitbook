@@ -3,13 +3,13 @@ import {
   EvmTransactionSchema,
   type ThetaChainConfig,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TransactionDraft } from '@exitbook/core';
 import { err, type Result } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
-import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 import { processCorrelatedTransactions } from '../shared/correlated-transaction-processor.js';
 
 import {

@@ -1,5 +1,11 @@
 import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDecimal } from '@exitbook/core';
+import {
+  buildBlockchainNativeAssetId,
+  buildBlockchainTokenAssetId,
+  ok,
+  parseDecimal,
+  type TransactionDraft,
+} from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -7,7 +13,7 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 

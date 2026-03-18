@@ -1,10 +1,10 @@
 import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, parseDecimal, type Currency, type TransactionDraft } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-utils.js';
 

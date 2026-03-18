@@ -1,7 +1,7 @@
 import { type BlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result, TransactionDraft } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
@@ -9,12 +9,7 @@ import { getLogger } from '@exitbook/logger';
 import type { IngestionEvent } from '../../events.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
-import type {
-  BatchProcessSummary,
-  AddressContext,
-  TransactionDraft,
-  ITransactionProcessor,
-} from '../../shared/types/processors.js';
+import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
 import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 

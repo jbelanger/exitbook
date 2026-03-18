@@ -1,7 +1,5 @@
-import type { Transaction, AssetMovementDraft } from '@exitbook/core';
+import type { Transaction, AssetMovementDraft, TransactionDraft } from '@exitbook/core';
 import { expect } from 'vitest';
-
-import type { TransactionDraft } from '../../shared/types/processors.js';
 
 /**
  * Fluent assertion builder for transaction movements

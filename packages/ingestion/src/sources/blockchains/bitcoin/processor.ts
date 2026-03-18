@@ -3,12 +3,12 @@ import {
   type BitcoinTransaction,
   BitcoinTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency, type TransactionDraft } from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
+import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
