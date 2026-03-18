@@ -1,10 +1,10 @@
 import { parseDecimal } from '@exitbook/core';
 
-import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { TransactionDraft } from '../../../shared/types/processors.js';
 
 import type { ConfirmedExchangeTransactionDraft } from './exchange-interpretation.js';
 
-export function materializeProcessedTransaction(draft: ConfirmedExchangeTransactionDraft): ProcessedTransaction {
+export function materializeProcessedTransaction(draft: ConfirmedExchangeTransactionDraft): TransactionDraft {
   const componentEventIds = draft.evidence.providerEventIds.map((eventId) => eventId.trim()).sort();
 
   return {

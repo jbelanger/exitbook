@@ -7,13 +7,13 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
 
 /**
  * Cardano transaction processor that converts normalized blockchain transaction data
- * into ProcessedTransaction format.
+ * into TransactionDraft format.
  *
  * Cardano is a UTXO-based blockchain with native multi-asset support:
  * - Each transaction has inputs (UTXOs being spent) and outputs (new UTXOs created)
@@ -41,8 +41,8 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
   protected async transformNormalizedData(
     normalizedData: CardanoTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
-    const transactions: ProcessedTransaction[] = [];
+  ): Promise<Result<TransactionDraft[], Error>> {
+    const transactions: TransactionDraft[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
     const movementsForScamDetection: MovementWithContext[] = [];
 
@@ -134,7 +134,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
           continue;
         }
 
-        const processedTransaction: ProcessedTransaction = {
+        const processedTransaction: TransactionDraft = {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'cardano',

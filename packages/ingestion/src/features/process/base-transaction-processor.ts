@@ -5,7 +5,7 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';
 
-import type { ITransactionProcessor, AddressContext, ProcessedTransaction } from '../../shared/types/processors.js';
+import type { ITransactionProcessor, AddressContext, TransactionDraft } from '../../shared/types/processors.js';
 import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
 
 /**
@@ -32,14 +32,14 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   /**
    * Subclasses must implement this method to handle normalized data.
    * This is the primary processing method that converts normalized blockchain/exchange data
-   * into ProcessedTransaction objects.
+   * into TransactionDraft objects.
    */
   protected abstract transformNormalizedData(
     normalizedData: T[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>>;
+  ): Promise<Result<TransactionDraft[], Error>>;
 
-  async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<ProcessedTransaction[], Error>> {
+  async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<TransactionDraft[], Error>> {
     this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
 
     const validated: T[] = [];
@@ -75,7 +75,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * detection service. Falls back to symbol-only detection if the metadata fetch fails.
    */
   protected async runScamDetection(
-    transactions: ProcessedTransaction[],
+    transactions: TransactionDraft[],
     movements: MovementWithContext[],
     chainName: string
   ): Promise<void> {
@@ -115,7 +115,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * @param metadataMap - Pre-fetched metadata (from single getTokenMetadata call, may contain undefined for unfound contracts)
    */
   protected markScamTransactions(
-    transactions: ProcessedTransaction[],
+    transactions: TransactionDraft[],
     movements: MovementWithContext[],
     metadataMap: Map<string, TokenMetadataRecord | undefined>
   ): void {
@@ -158,7 +158,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    * implementing scam detection during processing with the appropriate context
    * (contract addresses for blockchains, symbol-only for exchanges, etc.)
    */
-  private validateAndFilterTransactions(transactions: ProcessedTransaction[]): Result<ProcessedTransaction[], Error> {
+  private validateAndFilterTransactions(transactions: TransactionDraft[]): Result<TransactionDraft[], Error> {
     const filteredTransactions = this.dropZeroValueContractInteractions(transactions);
     const { invalid, valid } = validateProcessedTransactions(filteredTransactions).unwrapOr({
       invalid: [],
@@ -186,7 +186,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     return ok(valid);
   }
 
-  private dropZeroValueContractInteractions(transactions: ProcessedTransaction[]): ProcessedTransaction[] {
+  private dropZeroValueContractInteractions(transactions: TransactionDraft[]): TransactionDraft[] {
     if (transactions.length === 0) {
       return transactions;
     }
@@ -208,7 +208,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     return kept;
   }
 
-  private shouldDropZeroValueContractInteraction(transaction: ProcessedTransaction): boolean {
+  private shouldDropZeroValueContractInteraction(transaction: TransactionDraft): boolean {
     const notes = transaction.notes;
     if (!notes || !notes.some((note) => note.type === 'contract_interaction')) {
       return false;
@@ -230,15 +230,15 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   }
 }
 
-function validateProcessedTransactions(transactions: ProcessedTransaction[]): Result<
+function validateProcessedTransactions(transactions: TransactionDraft[]): Result<
   {
-    invalid: { errors: unknown; transaction: ProcessedTransaction }[];
-    valid: ProcessedTransaction[];
+    invalid: { errors: unknown; transaction: TransactionDraft }[];
+    valid: TransactionDraft[];
   },
   string
 > {
-  const valid: ProcessedTransaction[] = [];
-  const invalid: { errors: unknown; transaction: ProcessedTransaction }[] = [];
+  const valid: TransactionDraft[] = [];
+  const invalid: { errors: unknown; transaction: TransactionDraft }[] = [];
 
   for (const tx of transactions) {
     const result = TransactionDraftSchema.safeParse(tx);

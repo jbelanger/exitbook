@@ -8,14 +8,14 @@ import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSubstrateFundFlow, determineOperationFromFundFlow, shouldRecordFeeEntry } from './processor-utils.js';
 import type { SubstrateMovement } from './types.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data
- * into ProcessedTransaction format. Supports Polkadot, Kusama, Bittensor, and other
+ * into TransactionDraft format. Supports Polkadot, Kusama, Bittensor, and other
  * Substrate-based chains. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
@@ -37,8 +37,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
   protected async transformNormalizedData(
     normalizedData: SubstrateTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
-    const transactions: ProcessedTransaction[] = [];
+  ): Promise<Result<TransactionDraft[], Error>> {
+    const transactions: TransactionDraft[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const normalizedTx of normalizedData) {
@@ -92,7 +92,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         }
         const feeAssetId = feeAssetIdResult.value;
 
-        const processedTransaction: ProcessedTransaction = {
+        const processedTransaction: TransactionDraft = {
           movements: {
             inflows: inflowsResult.value,
             outflows: outflowsResult.value,

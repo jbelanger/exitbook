@@ -8,7 +8,7 @@ import { type Result, err } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
 
@@ -27,8 +27,8 @@ export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransactio
   protected async transformNormalizedData(
     normalizedData: BitcoinTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
-    const transactions: ProcessedTransaction[] = [];
+  ): Promise<Result<TransactionDraft[], Error>> {
+    const transactions: TransactionDraft[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
 
     for (const normalizedTx of normalizedData) {
@@ -84,7 +84,7 @@ export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransactio
         const includeWalletOutputAsInflow = !walletOutputAmount.isZero();
         const hasOutflow = !grossOutflowAmount.isZero();
 
-        const processedTransaction: ProcessedTransaction = {
+        const processedTransaction: TransactionDraft = {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: this.chainConfig.chainName,

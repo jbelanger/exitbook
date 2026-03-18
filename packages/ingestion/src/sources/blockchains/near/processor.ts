@@ -5,7 +5,7 @@
  * 1. Load raw data from 4 stream types (transactions, receipts, balance-changes, token-transfers)
  * 2. Group by transaction hash
  * 3. Two-hop correlation: receipts → transactions, balance changes → receipts
- * 4. Aggregate multiple receipts into one ProcessedTransaction per parent hash
+ * 4. Aggregate multiple receipts into one TransactionDraft per parent hash
  * 5. Fail-fast on missing deltas or incomplete data
  */
 
@@ -32,7 +32,7 @@ import type {
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import {
   classifyOperation,
@@ -53,7 +53,7 @@ import type { NearCorrelatedTransaction } from './types.js';
 
 /**
  * NEAR transaction processor that converts raw multi-stream data
- * into ProcessedTransaction format
+ * into TransactionDraft format
  */
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
@@ -75,7 +75,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   protected async transformNormalizedData(
     normalizedData: NearStreamEvent[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     // Derive missing balance deltas from absolute amounts
     // Single source of truth for delta computation
     const balanceChanges = normalizedData.filter(
@@ -142,7 +142,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
       `Grouped ${normalizedWithDerivedDeltas.length} raw events into ${transactionGroups.size} transaction groups`
     );
 
-    const transactions: ProcessedTransaction[] = [];
+    const transactions: TransactionDraft[] = [];
     const processingErrors: { error: string; txHash: string }[] = [];
     const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
@@ -294,14 +294,14 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   }
 
   /**
-   * Aggregate correlated transaction data into a single ProcessedTransaction
+   * Aggregate correlated transaction data into a single TransactionDraft
    */
   private async aggregateToTransaction(
     correlated: NearCorrelatedTransaction,
     context: AddressContext,
     tokenMovementsForScamDetection: MovementWithContext[],
     transactionIndex: number
-  ): Promise<Result<ProcessedTransaction, Error>> {
+  ): Promise<Result<TransactionDraft, Error>> {
     const tokenTransferFlows = extractTokenTransferFlows(correlated.tokenTransfers, context.primaryAddress);
     const hasTokenTransfers = correlated.tokenTransfers.length > 0 || tokenTransferFlows.length > 0;
     const hasActionDeposits = correlated.receipts.some((receipt) => {
@@ -501,7 +501,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     // Build transaction timestamp
     const timestamp = correlated.transaction.timestamp;
 
-    const transaction: ProcessedTransaction = {
+    const transaction: TransactionDraft = {
       datetime: new Date(timestamp).toISOString(),
       timestamp,
       source: 'near',

@@ -2,7 +2,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { TransactionDraft } from '../../../shared/types/processors.js';
 import {
   RawExchangeProcessorInputSchema,
   buildExchangeProcessingFailureError,
@@ -31,7 +31,7 @@ export class KucoinCsvProcessor extends BaseTransactionProcessor<RawExchangeProc
 
   protected async transformNormalizedData(
     rawInputs: RawExchangeProcessorInput<KucoinCsvRow>[]
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     const providerEvents = [];
 
     for (const input of rawInputs) {

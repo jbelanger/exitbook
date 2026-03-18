@@ -15,7 +15,7 @@ import type { Logger } from '@exitbook/logger';
 
 import type { MovementWithContext } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
-import type { AddressContext, ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { AddressContext, TransactionDraft } from '../../../shared/types/processors.js';
 
 interface CorrelatedMovement {
   amount: string;
@@ -70,7 +70,7 @@ interface ProcessCorrelatedTransactionsParams<
   normalizedData: TTransaction[];
   providerManager: BlockchainProviderManager;
   runScamDetection: (
-    transactions: ProcessedTransaction[],
+    transactions: TransactionDraft[],
     movements: MovementWithContext[],
     chainName: string
   ) => Promise<void>;
@@ -80,9 +80,7 @@ interface ProcessCorrelatedTransactionsParams<
 export async function processCorrelatedTransactions<
   TTransaction extends EvmTransaction,
   TFundFlow extends CorrelatedFundFlow,
->(
-  params: ProcessCorrelatedTransactionsParams<TTransaction, TFundFlow>
-): Promise<Result<ProcessedTransaction[], Error>> {
+>(params: ProcessCorrelatedTransactionsParams<TTransaction, TFundFlow>): Promise<Result<TransactionDraft[], Error>> {
   const enrichResult = await enrichContractTokenMetadata(
     params.normalizedData,
     params.chainName,
@@ -106,7 +104,7 @@ export async function processCorrelatedTransactions<
 
   params.logger.debug(`Created ${transactionGroups.size} transaction groups for correlation on ${params.chainName}`);
 
-  const transactions: ProcessedTransaction[] = [];
+  const transactions: TransactionDraft[] = [];
   const processingErrors: { error: string; hash: string; txCount: number }[] = [];
   const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
@@ -171,7 +169,7 @@ export async function processCorrelatedTransactions<
 
     const inflows = inflowsResult.value;
     const outflows = outflowsResult.value;
-    const processedTransaction: ProcessedTransaction = {
+    const processedTransaction: TransactionDraft = {
       datetime: new Date(primaryTx.timestamp).toISOString(),
       timestamp: primaryTx.timestamp,
       source: params.chainName,

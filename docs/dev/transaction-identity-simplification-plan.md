@@ -399,7 +399,7 @@ interface ProcessedTransactionIdentityMaterial {
   componentEventIds?: string[] | undefined; // exchange only
 }
 
-interface ProcessedTransaction {
+interface TransactionDraft {
   transaction: TransactionData;
   identityMaterial?: ProcessedTransactionIdentityMaterial | undefined;
 }

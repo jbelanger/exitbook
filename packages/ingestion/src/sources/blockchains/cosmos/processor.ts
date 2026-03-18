@@ -11,13 +11,13 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
- * into ProcessedTransaction format. Works with any Cosmos SDK-based chain (Injective, Osmosis, etc.)
+ * into TransactionDraft format. Works with any Cosmos SDK-based chain (Injective, Osmosis, etc.)
  */
 export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction> {
   private chainConfig: CosmosChainConfig;
@@ -34,7 +34,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
   protected async transformNormalizedData(
     normalizedData: CosmosTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     // Deduplicate by eventId (handles cases like Peggy deposits where multiple validators
     // submit the same deposit claim as different tx hashes but represent the same logical event)
     const deduplicatedData = deduplicateByEventId(normalizedData);
@@ -44,7 +44,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
       );
     }
 
-    const processedTransactions: ProcessedTransaction[] = [];
+    const processedTransactions: TransactionDraft[] = [];
     const processingErrors: { error: string; txId: string }[] = [];
     const movementsForScamDetection: MovementWithContext[] = [];
 
@@ -126,7 +126,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         }
         const feeAssetId = feeAssetIdResult.value;
 
-        const processedTransaction: ProcessedTransaction = {
+        const processedTransaction: TransactionDraft = {
           datetime: new Date(transaction.timestamp).toISOString(),
           timestamp: transaction.timestamp,
           source: this.chainConfig.chainName,

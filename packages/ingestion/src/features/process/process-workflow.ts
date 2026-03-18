@@ -12,7 +12,7 @@ import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type {
   BatchProcessSummary,
   AddressContext,
-  ProcessedTransaction,
+  TransactionDraft,
   ITransactionProcessor,
 } from '../../shared/types/processors.js';
 import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
@@ -608,7 +608,7 @@ export class ProcessingWorkflow {
 
   private async saveTransactionsWithPorts(
     ports: ProcessingPorts,
-    transactions: ProcessedTransaction[],
+    transactions: TransactionDraft[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
     let savedCount = 0;

@@ -16,7 +16,7 @@ Each exchange processor follows the same four-stage flow:
 1. `normalize`: convert raw provider rows into `ExchangeProviderEvent`s
 2. `group`: build provider-owned correlation groups from explicit evidence
 3. `interpret`: classify each group as `confirmed`, `ambiguous`, or `unsupported`
-4. `materialize`: turn confirmed drafts into `ProcessedTransaction`s
+4. `materialize`: turn confirmed drafts into `TransactionDraft`s
 
 Shared code provides contracts and pure helpers for this flow. Provider
 semantics stay inside each exchange slice.
@@ -51,7 +51,7 @@ Each exchange slice is responsible for:
 
 ## Outcomes
 
-- `confirmed`: safe to materialize into a `ProcessedTransaction`
+- `confirmed`: safe to materialize into a `TransactionDraft`
 - `ambiguous`: evidence conflicts or is insufficient; processing fails closed
 - `unsupported`: the pattern is recognized as out of scope for the current
   interpreter and must not be materialized

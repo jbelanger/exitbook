@@ -1,6 +1,6 @@
 import type { Result } from '@exitbook/core';
 
-import type { ProcessedTransaction } from '../shared/types/processors.js';
+import type { TransactionDraft } from '../shared/types/processors.js';
 
 /**
  * Port for persisting processed transactions.
@@ -12,7 +12,7 @@ export interface IProcessedTransactionSink {
    * Returns count of saved and duplicate-skipped transactions.
    */
   saveProcessedBatch(
-    transactions: ProcessedTransaction[],
+    transactions: TransactionDraft[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>>;
 }

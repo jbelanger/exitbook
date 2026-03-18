@@ -98,7 +98,7 @@ Processed Transaction (existing accounting pipeline)
 
 4. **Accounting is Derived**
    - Build `NearFundFlow` projection from balance deltas and token transfers
-   - Map fund flows to `ProcessedTransaction` in processor
+   - Map fund flows to `TransactionDraft` in processor
    - Keep normalized layer clean of accounting logic
 
 ---
@@ -145,7 +145,7 @@ Processed Transaction (existing accounting pipeline)
 **Key Models**:
 
 - `NearFundFlow`: A single asset movement (source → destination)
-- Maps to `ProcessedTransaction` for accounting pipeline
+- Maps to `TransactionDraft` for accounting pipeline
 
 **Location**: `packages/ingestion/src/sources/blockchains/near/types.ts`
 
@@ -944,7 +944,7 @@ export class NearProcessorV2 implements IProcessor {
       const analysisResult = analyzeNearEvent(eventResult.value, context.accountId);
       if (analysisResult.isErr()) continue;
 
-      // 3. Convert to ProcessedTransaction
+      // 3. Convert to TransactionDraft
       const universalResult = this.toTransaction(analysisResult.value, context);
       if (universalResult.isErr()) continue;
 
@@ -955,7 +955,7 @@ export class NearProcessorV2 implements IProcessor {
   }
 
   /**
-   * Convert NEAR event analysis to ProcessedTransaction
+   * Convert NEAR event analysis to TransactionDraft
    */
   private toTransaction(analysis: NearEventAnalysis, context: ProcessingContext): Result<Transaction, Error> {
     // Map flows to movements
@@ -1050,7 +1050,7 @@ export class NearProcessorV2 implements IProcessor {
 1. **End-to-End Simple Transfer**
    - Mock NearBlocks API responses
    - Fetch → Map → Process
-   - Verify final ProcessedTransaction
+   - Verify final TransactionDraft
 
 2. **End-to-End Token Transfer**
    - Mock FT transfer responses
@@ -1532,7 +1532,7 @@ Accuracy > speed for a financial application.
 2. **Fee metadata is extracted separately** (from `tokens_burnt`) for informational/tracking purposes
 3. **The accounting pipeline must NOT subtract fees again** from balance change flows
 4. Fee flows are emitted as separate `flowType: 'fee'` entries for analysis
-5. When building `ProcessedTransaction`, fees go in the `fee` field, not as a movement
+5. When building `TransactionDraft`, fees go in the `fee` field, not as a movement
 
 Example: Alice sends 1 NEAR with 0.001 fee
 

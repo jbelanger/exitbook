@@ -20,16 +20,16 @@ export interface AddressContext {
   userAddresses: string[];
 }
 
-export type ProcessedTransaction = TransactionDraft;
+export type TransactionDraft = TransactionDraft;
 
 /**
- * Interface for processing raw data into ProcessedTransaction format.
+ * Interface for processing raw data into TransactionDraft format.
  * Each processor is responsible for converting source-specific raw data
- * into the standardized ProcessedTransaction format.
+ * into the standardized TransactionDraft format.
  */
 export interface ITransactionProcessor {
   /**
-   * Process normalized data with explicit typed context into ProcessedTransaction objects.
+   * Process normalized data with explicit typed context into TransactionDraft objects.
    */
-  process(normalizedData: unknown[], context: AddressContext): Promise<Result<ProcessedTransaction[], Error>>;
+  process(normalizedData: unknown[], context: AddressContext): Promise<Result<TransactionDraft[], Error>>;
 }

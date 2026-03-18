@@ -1,13 +1,13 @@
 import type { Transaction, AssetMovementDraft } from '@exitbook/core';
 import { expect } from 'vitest';
 
-import type { ProcessedTransaction } from '../../shared/types/processors.js';
+import type { TransactionDraft } from '../../shared/types/processors.js';
 
 /**
  * Fluent assertion builder for transaction movements
  */
 class MovementAssertion {
-  constructor(private transaction: Transaction | ProcessedTransaction) {}
+  constructor(private transaction: Transaction | TransactionDraft) {}
 
   hasInflows(count: number): this {
     expect(this.transaction.movements.inflows).toBeDefined();

@@ -12,13 +12,13 @@ import type {
   IScamDetectionService,
   MovementWithContext,
 } from '../../../features/scam-detection/scam-detection-service.interface.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
- * into ProcessedTransaction format. Features sophisticated fund flow analysis
+ * into TransactionDraft format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
 export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction> {
@@ -37,14 +37,14 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
   protected async transformNormalizedData(
     normalizedData: SolanaTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     // Enrich all transactions with token metadata (required)
     const enrichResult = await this.enrichTokenMetadata(normalizedData);
     if (enrichResult.isErr()) {
       return err(`Token metadata enrichment failed: ${enrichResult.error.message}`);
     }
 
-    const transactions: ProcessedTransaction[] = [];
+    const transactions: TransactionDraft[] = [];
     const processingErrors: { error: string; signature: string }[] = [];
     const tokenMovementsForScamDetection: MovementWithContext[] = [];
 
@@ -133,8 +133,8 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
           continue;
         }
 
-        // Convert to ProcessedTransaction with structured fields
-        const processedTransaction: ProcessedTransaction = {
+        // Convert to TransactionDraft with structured fields
+        const processedTransaction: TransactionDraft = {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           source: 'solana',

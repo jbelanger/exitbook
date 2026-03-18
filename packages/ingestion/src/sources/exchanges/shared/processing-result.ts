@@ -1,6 +1,6 @@
 import type { Logger } from '@exitbook/logger';
 
-import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { TransactionDraft } from '../../../shared/types/processors.js';
 
 import type { ExchangeCorrelationGroup } from './exchange-correlation-group.js';
 import type { ExchangeGroupInterpretation } from './exchange-interpretation.js';
@@ -8,7 +8,7 @@ import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnos
 import { materializeProcessedTransaction } from './materialize-processed-transaction.js';
 
 interface ExchangeProcessingBatchResult {
-  transactions: ProcessedTransaction[];
+  transactions: TransactionDraft[];
   diagnostics: ExchangeProcessingDiagnostic[];
 }
 

@@ -3,7 +3,7 @@ import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { TransactionDraft } from '../../../shared/types/processors.js';
 import {
   RawExchangeProcessorInputSchema,
   buildExchangeProcessingFailureError,
@@ -32,7 +32,7 @@ export class KrakenProcessor extends BaseTransactionProcessor<RawExchangeProcess
 
   protected async transformNormalizedData(
     rawInputs: RawExchangeProcessorInput<KrakenLedgerEntry>[]
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     const providerEvents = [];
 
     for (const input of rawInputs) {

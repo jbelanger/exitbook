@@ -9,7 +9,7 @@ import { err, type Result } from '@exitbook/core';
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
-import type { ProcessedTransaction, AddressContext } from '../../../shared/types/processors.js';
+import type { TransactionDraft, AddressContext } from '../../../shared/types/processors.js';
 import { processCorrelatedTransactions } from '../shared/correlated-transaction-processor.js';
 
 import {
@@ -40,7 +40,7 @@ export class ThetaProcessor extends BaseTransactionProcessor<ThetaTransaction> {
   protected async transformNormalizedData(
     normalizedData: ThetaTransaction[],
     context: AddressContext
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     return processCorrelatedTransactions({
       chainName: this.chainConfig.chainName,
       normalizedData,

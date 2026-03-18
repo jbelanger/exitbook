@@ -3,7 +3,7 @@ import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { ProcessedTransaction } from '../../../shared/types/processors.js';
+import type { TransactionDraft } from '../../../shared/types/processors.js';
 import {
   RawExchangeProcessorInputSchema,
   buildExchangeProcessingFailureError,
@@ -31,7 +31,7 @@ export class CoinbaseProcessor extends BaseTransactionProcessor<RawExchangeProce
 
   protected async transformNormalizedData(
     rawInputs: RawExchangeProcessorInput<RawCoinbaseLedgerEntry>[]
-  ): Promise<Result<ProcessedTransaction[], Error>> {
+  ): Promise<Result<TransactionDraft[], Error>> {
     const providerEvents = [];
 
     for (const input of rawInputs) {
