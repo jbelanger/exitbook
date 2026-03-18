@@ -24,7 +24,7 @@ async function runCanadaJurisdictionWorkflow(
   }
 
   return runCanadaCostBasisCalculation({
-    input: input.params,
+    input: input.config,
     transactions: input.transactions,
     confirmedLinks: contextResult.value.confirmedLinks,
     fxRateProvider: input.fxRateProvider,

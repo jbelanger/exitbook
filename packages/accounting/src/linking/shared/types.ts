@@ -1,49 +1,11 @@
 import type { z } from 'zod';
 
-import type {
-  LinkStatusSchema,
-  SameHashExternalSourceAllocationSchema,
-  LinkTypeSchema,
-  MatchCriteriaSchema,
-  MatchingConfigSchema,
-  PotentialMatchSchema,
-  ScoreComponentSchema,
-  TransactionLinkMetadataSchema,
-  TransactionLinkScoreBreakdownEntrySchema,
-} from './schemas.js';
+import type { MatchingConfigSchema, PotentialMatchSchema, ScoreComponentSchema } from './schemas.js';
 
 /**
  * Types inferred from Zod schemas - schemas are the source of truth
  * This ensures runtime validation and compile-time types stay in sync
  */
-
-/**
- * Type of transaction link
- * - exchange_to_blockchain: Exchange withdrawal → Blockchain deposit
- * - blockchain_to_exchange: Blockchain send → Exchange deposit
- * - blockchain_to_blockchain: Blockchain send → Blockchain receive
- * - exchange_to_exchange: Exchange withdrawal → Exchange deposit
- * - blockchain_internal: Same tx_hash, different tracked addresses (UTXO and account-model chains)
- */
-export type LinkType = z.infer<typeof LinkTypeSchema>;
-
-/**
- * Status of a transaction link
- */
-export type LinkStatus = z.infer<typeof LinkStatusSchema>;
-
-/**
- * Criteria used for matching transactions
- * - assetMatch: Whether assets match
- * - amountSimilarity: 0-1, closer to 1 is better
- * - timingValid: Source before target, within window
- * - timingHours: Hours between transactions
- * - addressMatch: If we can match blockchain addresses (optional)
- */
-export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
-export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;
-export type TransactionLinkScoreBreakdownEntry = z.infer<typeof TransactionLinkScoreBreakdownEntrySchema>;
-export type SameHashExternalSourceAllocation = z.infer<typeof SameHashExternalSourceAllocationSchema>;
 
 /**
  * A single component of a confidence score breakdown

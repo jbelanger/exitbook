@@ -368,12 +368,12 @@ describe('PortfolioHandler', () => {
     expect(mockCostBasisWorkflowExecute).toHaveBeenCalledTimes(1);
     expect(mockCostBasisWorkflowExecute).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: expect.objectContaining({
-          method: 'fifo',
-          jurisdiction: 'US',
-          currency: 'USD',
-          taxYear: 2025,
-        }),
+        method: 'fifo',
+        jurisdiction: 'US',
+        currency: 'USD',
+        taxYear: 2025,
+        startDate: new Date(0),
+        endDate: new Date('2025-01-01T00:00:00.000Z'),
       }),
       [tx],
       {

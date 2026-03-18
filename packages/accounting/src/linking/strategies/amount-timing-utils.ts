@@ -1,9 +1,9 @@
-import type { SourceType } from '@exitbook/core';
+import type { LinkType, MatchCriteria, SourceType } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import type { LinkType, MatchCriteria, MatchingConfig, PotentialMatch, ScoreComponent } from '../shared/types.js';
+import type { MatchingConfig, PotentialMatch, ScoreComponent } from '../shared/types.js';
 
 import { areLinkingAssetsEquivalent } from './asset-equivalence-utils.js';
 import { checkTransactionHashMatch } from './exact-hash-utils.js';

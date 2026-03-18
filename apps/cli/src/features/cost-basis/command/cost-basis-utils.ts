@@ -1,4 +1,4 @@
-import { buildCostBasisInput, type CostBasisInput } from '@exitbook/accounting';
+import { buildCostBasisInput, type ValidatedCostBasisConfig } from '@exitbook/accounting';
 import { err, type Result } from '@exitbook/core';
 
 /**
@@ -19,7 +19,9 @@ export interface CostBasisCommandOptions {
 /**
  * Build cost basis input from CLI flags
  */
-export function buildCostBasisInputFromFlags(options: CostBasisCommandOptions): Result<CostBasisInput, Error> {
+export function buildCostBasisInputFromFlags(
+  options: CostBasisCommandOptions
+): Result<ValidatedCostBasisConfig, Error> {
   if (!options.jurisdiction) {
     return err(new Error('--jurisdiction is required (CA, US, UK, EU)'));
   }

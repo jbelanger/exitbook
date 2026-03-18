@@ -10,7 +10,7 @@ import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } f
 import { runCostBasisPipeline } from '../standard/calculation/run-standard-cost-basis.js';
 import { CostBasisReportGenerator } from '../standard/reporting/display-report-generator.js';
 
-import { validateCostBasisInput, type CostBasisInput } from './cost-basis-input.js';
+import { validateCostBasisInput, type ValidatedCostBasisConfig } from './cost-basis-input.js';
 import type { CostBasisWorkflowExecutionOptions, CostBasisWorkflowResult } from './workflow-result-types.js';
 
 export type {
@@ -37,16 +37,15 @@ export class CostBasisWorkflow {
   ) {}
 
   async execute(
-    params: CostBasisInput,
+    config: ValidatedCostBasisConfig,
     transactions: Transaction[],
     options: CostBasisWorkflowExecutionOptions
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
-    const validation = validateCostBasisInput(params);
+    const validation = validateCostBasisInput(config);
     if (validation.isErr()) {
       return err(validation.error);
     }
 
-    const { config } = params;
     logger.debug({ config }, 'Starting cost basis calculation');
 
     const jurisdictionModuleResult = getCostBasisJurisdictionModule(config.jurisdiction);
@@ -62,7 +61,7 @@ export class CostBasisWorkflow {
 
     if (jurisdictionModule.workflow.kind === 'specialized') {
       const workflowResult = await jurisdictionModule.workflow.run({
-        params,
+        config,
         transactions: filteredResult.value,
         store: this.store,
         fxRateProvider: this.fxRateProvider,
@@ -129,7 +128,7 @@ export class CostBasisWorkflow {
    */
   private filterTransactionsForWindow(
     transactions: Transaction[],
-    config: CostBasisInput['config'],
+    config: ValidatedCostBasisConfig,
     options?: { lookaheadDays?: number | undefined }
   ): Result<Transaction[], Error> {
     if (!config.startDate || !config.endDate) {

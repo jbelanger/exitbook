@@ -116,14 +116,12 @@ function createUnpricedAcquisitionTransaction(params: {
 
 function createBaseInput(endDate = '2025-01-10T23:59:59.999Z') {
   return {
-    config: {
-      method: 'average-cost' as const,
-      jurisdiction: 'CA' as const,
-      taxYear: 2025,
-      currency: 'CAD' as const,
-      startDate: new Date('2025-01-01T00:00:00.000Z'),
-      endDate: new Date(endDate),
-    },
+    method: 'average-cost' as const,
+    jurisdiction: 'CA' as const,
+    taxYear: 2025,
+    currency: 'CAD' as const,
+    startDate: new Date('2025-01-01T00:00:00.000Z'),
+    endDate: new Date(endDate),
   };
 }
 

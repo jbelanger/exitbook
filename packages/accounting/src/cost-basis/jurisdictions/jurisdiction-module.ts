@@ -4,13 +4,13 @@ import type { Result } from '@exitbook/core';
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import type { JurisdictionConfig } from '../model/types.js';
-import type { CostBasisInput } from '../workflow/cost-basis-input.js';
+import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflowExecutionOptions, CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
 import type { IJurisdictionRules } from './jurisdiction-rules.js';
 
 export interface RunCostBasisJurisdictionWorkflowInput {
-  params: CostBasisInput;
+  config: ValidatedCostBasisConfig;
   transactions: Transaction[];
   store: ICostBasisContextReader;
   fxRateProvider?: IFxRateProvider | undefined;
@@ -29,7 +29,7 @@ export type CostBasisJurisdictionWorkflow =
     };
 
 export interface ICostBasisJurisdictionModule {
-  code: CostBasisInput['config']['jurisdiction'];
+  code: ValidatedCostBasisConfig['jurisdiction'];
   config: JurisdictionConfig;
   createRules(): Result<IJurisdictionRules, Error>;
   workflow: CostBasisJurisdictionWorkflow;

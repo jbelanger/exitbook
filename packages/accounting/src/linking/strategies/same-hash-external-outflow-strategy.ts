@@ -1,4 +1,12 @@
-import { err, ok, parseDecimal, type NewTransactionLink, type Result } from '@exitbook/core';
+import {
+  err,
+  ok,
+  parseDecimal,
+  type NewTransactionLink,
+  type Result,
+  type SameHashExternalSourceAllocation,
+  type TransactionLinkMetadata,
+} from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import {
@@ -10,12 +18,7 @@ import {
 import { createTransactionLink } from '../matching/link-construction.js';
 import { shouldAutoConfirm } from '../matching/match-allocation.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
-import type {
-  MatchingConfig,
-  PotentialMatch,
-  SameHashExternalSourceAllocation,
-  TransactionLinkMetadata,
-} from '../shared/types.js';
+import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';

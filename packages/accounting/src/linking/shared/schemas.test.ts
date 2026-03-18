@@ -1,16 +1,16 @@
-import { parseDecimal } from '@exitbook/core';
-import { Decimal } from 'decimal.js';
-import { describe, expect, it } from 'vitest';
-
 import {
-  LinkableMovementSchema,
   LinkStatusSchema,
   LinkTypeSchema,
   MatchCriteriaSchema,
-  MatchingConfigSchema,
-  PotentialMatchSchema,
+  parseDecimal,
   TransactionLinkSchema,
-} from './schemas.js';
+} from '@exitbook/core';
+import { Decimal } from 'decimal.js';
+import { describe, expect, it } from 'vitest';
+
+import { LinkableMovementSchema } from '../matching/linkable-movement.js';
+
+import { PotentialMatchSchema, MatchingConfigSchema } from './schemas.js';
 
 describe('schemas', () => {
   describe('LinkTypeSchema', () => {

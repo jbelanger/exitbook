@@ -3,9 +3,8 @@ import {
   getExplicitTransferProposalKey,
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
-  type LinkStatus,
 } from '@exitbook/accounting';
-import type { TransactionLink } from '@exitbook/core';
+import type { LinkStatus, TransactionLink } from '@exitbook/core';
 
 interface TransferProposal {
   links: TransactionLink[];

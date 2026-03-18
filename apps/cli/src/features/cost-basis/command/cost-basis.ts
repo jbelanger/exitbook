@@ -31,7 +31,7 @@ import {
 } from '../view/cost-basis-view-utils.js';
 
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
-import type { CostBasisWorkflowResult, CostBasisInput } from './cost-basis-handler.js';
+import type { CostBasisWorkflowResult, ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
@@ -255,7 +255,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
       const database = await ctx.database();
 
       // Step 1: Resolve params via interactive prompts or CLI flags
-      let params: CostBasisInput;
+      let params: ValidatedCostBasisConfig;
       const defaultMethodForJurisdiction = options.jurisdiction
         ? getDefaultCostBasisMethodForJurisdiction(options.jurisdiction as CostBasisJurisdiction)
         : undefined;

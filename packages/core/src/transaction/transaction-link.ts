@@ -14,7 +14,12 @@ const NonNegativeDecimalSchema = DecimalSchema.refine((value) => value.greaterTh
 });
 
 /**
- * Link type schema
+ * Type of transaction link
+ * - exchange_to_blockchain: Exchange withdrawal → Blockchain deposit
+ * - blockchain_to_exchange: Blockchain send → Exchange deposit
+ * - blockchain_to_blockchain: Blockchain send → Blockchain receive
+ * - exchange_to_exchange: Exchange withdrawal → Exchange deposit
+ * - blockchain_internal: Same tx_hash, different tracked addresses (UTXO and account-model chains)
  */
 export const LinkTypeSchema = z.enum([
   'exchange_to_blockchain',
@@ -25,12 +30,17 @@ export const LinkTypeSchema = z.enum([
 ]);
 
 /**
- * Link status schema
+ * Status of a transaction link
  */
 export const LinkStatusSchema = z.enum(['suggested', 'confirmed', 'rejected']);
 
 /**
- * Match criteria schema
+ * Criteria used for matching transactions
+ * - assetMatch: Whether assets match
+ * - amountSimilarity: 0-1, closer to 1 is better
+ * - timingValid: Source before target, within window
+ * - timingHours: Hours between transactions
+ * - addressMatch: If we can match blockchain addresses (optional)
  */
 export const MatchCriteriaSchema = z.object({
   assetMatch: z.boolean(),
@@ -128,6 +138,7 @@ export const NewTransactionLinkSchema = TransactionLinkSchema.omit({ id: true })
 export type LinkType = z.infer<typeof LinkTypeSchema>;
 export type LinkStatus = z.infer<typeof LinkStatusSchema>;
 export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
+
 export type TransactionLinkScoreBreakdownEntry = z.infer<typeof TransactionLinkScoreBreakdownEntrySchema>;
 export type SameHashExternalSourceAllocation = z.infer<typeof SameHashExternalSourceAllocationSchema>;
 export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;

@@ -13,7 +13,7 @@ describe('buildCostBasisInputFromFlags', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.config.method).toBe('average-cost');
+      expect(result.value.method).toBe('average-cost');
     }
   });
 
@@ -71,12 +71,12 @@ describe('buildCostBasisInputFromFlags', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.config.method).toBe('fifo');
-      expect(result.value.config.jurisdiction).toBe('US');
-      expect(result.value.config.taxYear).toBe(2024);
-      expect(result.value.config.currency).toBe('USD');
-      expect(result.value.config.startDate).toBeInstanceOf(Date);
-      expect(result.value.config.endDate).toBeInstanceOf(Date);
+      expect(result.value.method).toBe('fifo');
+      expect(result.value.jurisdiction).toBe('US');
+      expect(result.value.taxYear).toBe(2024);
+      expect(result.value.currency).toBe('USD');
+      expect(result.value.startDate).toBeInstanceOf(Date);
+      expect(result.value.endDate).toBeInstanceOf(Date);
     }
   });
 
@@ -94,9 +94,9 @@ describe('buildCostBasisInputFromFlags', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.config.currency).toBe('EUR');
-      expect(result.value.config.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
-      expect(result.value.config.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
+      expect(result.value.currency).toBe('EUR');
+      expect(result.value.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
+      expect(result.value.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
     }
   });
 

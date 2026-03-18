@@ -158,14 +158,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore());
     const result = await workflow.execute(
       {
-        config: {
-          method: 'fifo',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       transactions,
       { missingPricePolicy: 'exclude' }
@@ -211,14 +209,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore());
     const result = await workflow.execute(
       {
-        config: {
-          method: 'fifo',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       transactions,
       { missingPricePolicy: 'error' }
@@ -253,14 +249,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
-        config: {
-          method: 'average-cost',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'CAD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'average-cost',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       transactions,
       { missingPricePolicy: 'error' }
@@ -315,14 +309,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
-        config: {
-          method: 'average-cost',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'average-cost',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       transactions,
       { missingPricePolicy: 'error' }
@@ -350,14 +342,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore());
     const result = await workflow.execute(
       {
-        config: {
-          method: 'fifo',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'CAD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'fifo',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       [],
       { missingPricePolicy: 'error' }
@@ -400,14 +390,12 @@ describe('CostBasisWorkflow', () => {
     const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
-        config: {
-          method: 'average-cost',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'CAD',
-          startDate: new Date('2024-01-01T00:00:00Z'),
-          endDate: new Date('2024-12-31T23:59:59Z'),
-        },
+        method: 'average-cost',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
       },
       transactions,
       { missingPricePolicy: 'error' }

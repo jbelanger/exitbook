@@ -157,7 +157,6 @@ export type { LinkingRunParams, LinkingRunResult } from './linking/orchestration
 export type { LinkingEvent } from './linking/orchestration/linking-events.js';
 
 // Transaction linking
-export type { LinkStatus, MatchCriteria } from './linking/shared/types.js';
 export {
   deriveTransferProposalStatus,
   getExplicitTransferProposalKey,
@@ -166,7 +165,7 @@ export {
 } from './linking/shared/transfer-proposals.js';
 
 // Cost basis utilities
-export type { CostBasisInput, ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';
+export type { ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';
 export { buildCostBasisInput, validateCostBasisInput } from './cost-basis/workflow/cost-basis-input.js';
 export {
   checkTransactionPriceCoverage,

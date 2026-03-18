@@ -1,4 +1,4 @@
-import type { LinkStatus } from '@exitbook/accounting';
+import type { LinkStatus } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 

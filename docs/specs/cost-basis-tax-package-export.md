@@ -103,7 +103,7 @@ This is the validated adapter context used by jurisdiction builders. It includes
 The CLI host is intentionally thin:
 
 1. parse and validate CLI flags
-2. build `CostBasisInput`
+2. build `ValidatedCostBasisConfig`
 3. validate tax-package scope
 4. execute `CostBasisHandler.executeArtifactWithContext(...)`
 5. build `TaxPackageBuildContext`

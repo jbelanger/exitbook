@@ -5,7 +5,7 @@ import {
   StandardFxRateProvider,
   type CostBasisContext,
   type AccountingExclusionPolicy,
-  type CostBasisInput,
+  type ValidatedCostBasisConfig,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
 import { err, ok, type AssetReviewSummary, type Result } from '@exitbook/core';
@@ -24,7 +24,7 @@ import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
-export type { CostBasisInput, CostBasisWorkflowResult };
+export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };
 
 export interface CostBasisArtifactExecutionResult {
   artifact: CostBasisWorkflowResult;
@@ -52,7 +52,7 @@ export class CostBasisHandler {
   ) {}
 
   async execute(
-    params: CostBasisInput,
+    params: ValidatedCostBasisConfig,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<CostBasisWorkflowResult, Error>> {
     const artifactResult = await this.executePreparedArtifact(params, options);
@@ -64,7 +64,7 @@ export class CostBasisHandler {
   }
 
   async executeArtifactWithContext(
-    params: CostBasisInput,
+    params: ValidatedCostBasisConfig,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<CostBasisArtifactExecutionResult, Error>> {
     const artifactResult = await this.executePreparedArtifact(params, options);
@@ -87,7 +87,7 @@ export class CostBasisHandler {
   }
 
   private async executePreparedArtifact(
-    params: CostBasisInput,
+    params: ValidatedCostBasisConfig,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<PreparedCostBasisArtifactResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db);
@@ -121,7 +121,7 @@ export class CostBasisHandler {
       }
 
       const result = await artifactService.execute({
-        params,
+        config: params,
         dependencyWatermark: watermarkResult.value,
         refresh: options?.refresh,
         accountingExclusionPolicy: this.accountingExclusionPolicy,
@@ -168,7 +168,7 @@ export class CostBasisHandler {
 export async function createCostBasisHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { isJsonMode: boolean; params: CostBasisInput; registry: AdapterRegistry }
+  options: { isJsonMode: boolean; params: ValidatedCostBasisConfig; registry: AdapterRegistry }
 ): Promise<Result<CostBasisHandler, Error>> {
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {
@@ -182,9 +182,9 @@ export async function createCostBasisHandler(
     return err(accountingExclusionPolicyResult.error);
   }
 
-  const { config } = options.params;
+  const { params } = options;
   const priceConfig =
-    config.startDate && config.endDate ? { startDate: config.startDate, endDate: config.endDate } : undefined;
+    params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
 
   const readyResult = await ensureConsumerInputsReady(
     'cost-basis',

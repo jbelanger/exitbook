@@ -2,7 +2,7 @@
  * Links view TUI components
  */
 
-import { type LinkStatus, type MatchCriteria } from '@exitbook/accounting';
+import { type LinkStatus, type MatchCriteria } from '@exitbook/core';
 import {
   isSameHashExternalLinkMetadata,
   isPartialMatchLinkMetadata,

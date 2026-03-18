@@ -10,7 +10,7 @@ import {
   StandardFxRateProvider,
   type CostBasisDependencyWatermark,
   validateCostBasisInput,
-  type CostBasisInput,
+  type ValidatedCostBasisConfig,
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
@@ -221,15 +221,13 @@ export class PortfolioHandler {
       const startDate = new Date(0);
       const endDate = asOf;
 
-      const costBasisParams: CostBasisInput = {
-        config: {
-          method,
-          jurisdiction,
-          currency: effectiveDisplayCurrency as AccountingFiatCurrency,
-          taxYear: asOf.getUTCFullYear(),
-          startDate,
-          endDate,
-        },
+      const costBasisParams: ValidatedCostBasisConfig = {
+        method,
+        jurisdiction,
+        currency: effectiveDisplayCurrency as AccountingFiatCurrency,
+        taxYear: asOf.getUTCFullYear(),
+        startDate,
+        endDate,
       };
 
       const costBasisValidation = validateCostBasisInput(costBasisParams);
@@ -510,7 +508,7 @@ export class PortfolioHandler {
     asOf: Date;
     assetMetadata: Record<string, string>;
     assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
-    costBasisParams: CostBasisInput;
+    costBasisParams: ValidatedCostBasisConfig;
     costBasisStore: ICostBasisContextReader;
     holdings: Record<string, Decimal>;
     spotPrices: Map<string, SpotPriceResult>;
@@ -589,7 +587,7 @@ export class PortfolioHandler {
     logger.info(
       {
         assetsProcessed: canadaCostBasisResult.value.calculation.assetsProcessed.length,
-        effectiveDisplayCurrency: params.costBasisParams.config.currency,
+        effectiveDisplayCurrency: params.costBasisParams.currency,
         positions: positions.length,
       },
       'Canada portfolio cost basis calculation completed'
@@ -605,7 +603,7 @@ export class PortfolioHandler {
 
   private async persistCostBasisFailure(
     failureSnapshotStore: ReturnType<typeof buildCostBasisFailureSnapshotStore>,
-    input: CostBasisInput,
+    input: ValidatedCostBasisConfig,
     dependencyWatermark: CostBasisDependencyWatermark,
     error: Error,
     stage: string

@@ -7,7 +7,7 @@ import type {
   CostBasisFailureSnapshotRecord,
   ICostBasisFailureSnapshotStore,
 } from '../../ports/cost-basis-persistence.js';
-import type { CostBasisInput } from '../workflow/cost-basis-input.js';
+import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 
 import { buildCostBasisScopeKey } from './artifact-storage.js';
 
@@ -15,7 +15,7 @@ const logger = getLogger('cost-basis.artifacts.failure-snapshot');
 
 interface PersistCostBasisFailureSnapshotParams {
   consumer: CostBasisFailureConsumer;
-  input: CostBasisInput;
+  input: ValidatedCostBasisConfig;
   dependencyWatermark: CostBasisDependencyWatermark;
   error: Error;
   stage: string;
@@ -26,7 +26,7 @@ export async function persistCostBasisFailureSnapshot(
   store: ICostBasisFailureSnapshotStore,
   params: PersistCostBasisFailureSnapshotParams
 ): Promise<Result<{ scopeKey: string; snapshotId: string }, Error>> {
-  const config = params.input.config;
+  const config = params.input;
 
   const debugPayload = {
     stage: params.stage,

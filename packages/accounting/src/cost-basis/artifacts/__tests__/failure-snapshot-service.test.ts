@@ -14,14 +14,12 @@ describe('persistCostBasisFailureSnapshot', () => {
     const result = await persistCostBasisFailureSnapshot(store, {
       consumer: 'portfolio',
       input: {
-        config: {
-          method: 'fifo',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01T00:00:00.000Z'),
-          endDate: new Date('2024-12-31T23:59:59.999Z'),
-        },
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
       },
       dependencyWatermark: {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
@@ -54,14 +52,12 @@ describe('persistCostBasisFailureSnapshot', () => {
     const result = await persistCostBasisFailureSnapshot(store, {
       consumer: 'cost-basis',
       input: {
-        config: {
-          method: 'fifo',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01T00:00:00.000Z'),
-          endDate: new Date('2024-12-31T23:59:59.999Z'),
-        },
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
       },
       dependencyWatermark: {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },

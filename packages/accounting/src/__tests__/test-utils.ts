@@ -42,16 +42,13 @@ export function seedTxFingerprint(
   return sha256Hex(fingerprintMaterial);
 }
 
-type MaterializableAssetMovement = AssetMovementDraft | AssetMovement;
-type MaterializableFeeMovement = FeeMovementDraft | FeeMovement;
-
 interface MaterializeDraftMovements {
-  inflows?: MaterializableAssetMovement[] | undefined;
-  outflows?: MaterializableAssetMovement[] | undefined;
+  inflows?: AssetMovementDraft[] | undefined;
+  outflows?: AssetMovementDraft[] | undefined;
 }
 
 type MaterializeTestTransactionInput = Omit<Transaction, 'txFingerprint' | 'movements' | 'fees'> & {
-  fees?: MaterializableFeeMovement[] | undefined;
+  fees?: FeeMovementDraft[] | undefined;
   identityReference?: string | undefined;
   movements: MaterializeDraftMovements;
   txFingerprint?: string | undefined;
@@ -107,42 +104,26 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
 function materializePersistedAssetMovements(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow',
-  movements: MaterializableAssetMovement[]
+  movements: AssetMovementDraft[]
 ): AssetMovement[] {
   return movements.map((movement, index) => ({
     ...movement,
-    movementFingerprint: materializeMovementFingerprint(
-      txFingerprint,
-      movementType,
-      index,
-      'movementFingerprint' in movement ? movement.movementFingerprint : undefined
-    ),
+    movementFingerprint: materializeMovementFingerprint(txFingerprint, movementType, index),
   }));
 }
 
-function materializePersistedFeeMovements(txFingerprint: string, fees: MaterializableFeeMovement[]): FeeMovement[] {
+function materializePersistedFeeMovements(txFingerprint: string, fees: FeeMovementDraft[]): FeeMovement[] {
   return fees.map((fee, index) => ({
     ...fee,
-    movementFingerprint: materializeMovementFingerprint(
-      txFingerprint,
-      'fee',
-      index,
-      'movementFingerprint' in fee ? fee.movementFingerprint : undefined
-    ),
+    movementFingerprint: materializeMovementFingerprint(txFingerprint, 'fee', index),
   }));
 }
 
 function materializeMovementFingerprint(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow' | 'fee',
-  position: number,
-  existingFingerprint?: string
+  position: number
 ): string {
-  const trimmedExistingFingerprint = existingFingerprint?.trim();
-  if (trimmedExistingFingerprint) {
-    return trimmedExistingFingerprint;
-  }
-
   const movementFingerprintResult = computeMovementFingerprint({
     txFingerprint,
     movementType,
@@ -388,10 +369,10 @@ export function createFee(
 export function createBlockchainTx(params: {
   accountId: number;
   datetime: string;
-  fees?: MaterializableFeeMovement[] | undefined;
+  fees?: FeeMovementDraft[] | undefined;
   id: number;
-  inflows?: MaterializableAssetMovement[] | undefined;
-  outflows?: MaterializableAssetMovement[] | undefined;
+  inflows?: AssetMovementDraft[] | undefined;
+  outflows?: AssetMovementDraft[] | undefined;
   txHash: string;
 }): Transaction {
   return materializeTestTransaction({
@@ -427,7 +408,7 @@ export function createExchangeTx(params: {
   datetime: string;
   id: number;
   identityReference: string;
-  inflows?: MaterializableAssetMovement[] | undefined;
+  inflows?: AssetMovementDraft[] | undefined;
   source: string;
   type: 'buy' | 'deposit';
 }): Transaction {
@@ -511,8 +492,8 @@ export function createTransaction(
 export function createTransactionFromMovements(
   id: number,
   datetime: string,
-  movements: { inflows?: MaterializableAssetMovement[]; outflows?: MaterializableAssetMovement[] } = {},
-  fees: MaterializableFeeMovement[] = [],
+  movements: { inflows?: AssetMovementDraft[]; outflows?: AssetMovementDraft[] } = {},
+  fees: FeeMovementDraft[] = [],
   options?: {
     category?: 'trade' | 'transfer';
     source?: string;

@@ -1,8 +1,8 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal, type MatchCriteria } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { createLinkableMovement } from '../shared/test-utils.js';
-import type { MatchCriteria, MatchingConfig, PotentialMatch } from '../shared/types.js';
+import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
 import { calculateConfidenceScore } from '../strategies/amount-timing-utils.js';
 
 import type { LinkableMovement } from './linkable-movement.js';

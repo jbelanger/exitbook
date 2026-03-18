@@ -22,15 +22,13 @@ const dependencyWatermark: CostBasisDependencyWatermark = {
   exclusionFingerprint: 'excluded-assets:none',
 };
 
-const params = {
-  config: {
-    method: 'fifo' as const,
-    jurisdiction: 'US' as const,
-    taxYear: 2024,
-    currency: 'USD' as const,
-    startDate: new Date('2024-01-01T00:00:00.000Z'),
-    endDate: new Date('2024-12-31T23:59:59.999Z'),
-  },
+const config = {
+  method: 'fifo' as const,
+  jurisdiction: 'US' as const,
+  taxYear: 2024,
+  currency: 'USD' as const,
+  startDate: new Date('2024-01-01T00:00:00.000Z'),
+  endDate: new Date('2024-12-31T23:59:59.999Z'),
 };
 
 function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }> {
@@ -40,9 +38,9 @@ function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind
       calculation: {
         id: '5fe73d65-4b4d-4a57-9289-90913db37373',
         calculationDate: new Date('2026-03-14T12:00:00.000Z'),
-        config: params.config,
-        startDate: params.config.startDate,
-        endDate: params.config.endDate,
+        config: config,
+        startDate: config.startDate,
+        endDate: config.endDate,
         totalProceeds: parseDecimal('12000'),
         totalCostBasis: parseDecimal('10000'),
         totalGainLoss: parseDecimal('2000'),
@@ -110,7 +108,7 @@ function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind
 }
 
 function createStoredSnapshot(artifactJson = '{"bad"'): CostBasisSnapshotRecord {
-  const scopeKey = buildCostBasisScopeKey(params.config);
+  const scopeKey = buildCostBasisScopeKey(config);
   return {
     scopeKey,
     snapshotId: '8e596a8b-a0dc-4f08-ae45-a8517bf0b3a7',
@@ -197,7 +195,7 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ params, dependencyWatermark });
+    const result = await service.execute({ config, dependencyWatermark });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -228,7 +226,7 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ params, dependencyWatermark, refresh: true });
+    const result = await service.execute({ config, dependencyWatermark, refresh: true });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -239,7 +237,7 @@ describe('CostBasisArtifactService', () => {
     expect(findLatest).not.toHaveBeenCalled();
     expect(loadCostBasisContext).toHaveBeenCalledTimes(1);
     expect(workflowExecute).toHaveBeenCalledTimes(1);
-    expect(workflowExecute).toHaveBeenCalledWith(params, [], {
+    expect(workflowExecute).toHaveBeenCalledWith(config, [], {
       accountingExclusionPolicy: undefined,
       assetReviewSummaries: undefined,
       missingPricePolicy: 'error',
@@ -265,7 +263,7 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ params, dependencyWatermark });
+    const result = await service.execute({ config, dependencyWatermark });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {

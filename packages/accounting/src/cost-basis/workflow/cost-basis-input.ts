@@ -14,10 +14,6 @@ export type ValidatedCostBasisConfig = CostBasisConfig & {
   startDate: Date;
 };
 
-export interface CostBasisInput {
-  config: ValidatedCostBasisConfig;
-}
-
 function validateMethod(method: string): Result<CostBasisConfig['method'], Error> {
   const validMethods = Array.from(
     new Set(
@@ -127,7 +123,7 @@ export function buildCostBasisInput(fields: {
   method?: string | undefined;
   startDate?: string | undefined;
   taxYear: number | string;
-}): Result<CostBasisInput, Error> {
+}): Result<ValidatedCostBasisConfig, Error> {
   const jurisdictionResult = validateJurisdiction(fields.jurisdiction);
   if (jurisdictionResult.isErr()) return err(jurisdictionResult.error);
   const jurisdiction = jurisdictionResult.value;
@@ -179,20 +175,16 @@ export function buildCostBasisInput(fields: {
   }
 
   return ok({
-    config: {
-      method,
-      jurisdiction,
-      taxYear,
-      currency: currency.value,
-      startDate,
-      endDate,
-    },
+    method,
+    jurisdiction,
+    taxYear,
+    currency: currency.value,
+    startDate,
+    endDate,
   });
 }
 
-export function validateCostBasisInput(params: CostBasisInput): Result<void, Error> {
-  const { config } = params;
-
+export function validateCostBasisInput(config: ValidatedCostBasisConfig): Result<void, Error> {
   const combinationResult = validateMethodJurisdictionCombination(config.method, config.jurisdiction);
   if (combinationResult.isErr()) return err(combinationResult.error);
 

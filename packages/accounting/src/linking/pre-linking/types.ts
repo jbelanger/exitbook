@@ -7,8 +7,14 @@ import type { LinkableMovement } from '../matching/linkable-movement.js';
  * Used in the pre-linking stage where links are built from same-hash groups
  * before linkable movements (and their fingerprints) exist.
  */
-export type PendingInternalLink = Omit<NewTransactionLink, 'sourceMovementFingerprint' | 'targetMovementFingerprint'>;
-
+export type PendingInternalLink = Omit<
+  NewTransactionLink,
+  'sourceMovementFingerprint' | 'targetMovementFingerprint' | 'linkType' | 'status' | 'reviewedBy'
+> & {
+  linkType: 'blockchain_internal';
+  reviewedBy: 'auto';
+  status: 'confirmed';
+};
 /**
  * Result of building linkable movements.
  */

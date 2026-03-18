@@ -3,7 +3,7 @@ import {
   getDefaultCostBasisMethodForJurisdiction,
   listCostBasisJurisdictionCapabilities,
   listCostBasisMethodCapabilitiesForJurisdiction,
-  type CostBasisInput,
+  type ValidatedCostBasisConfig,
   type CostBasisJurisdiction,
   type CostBasisMethod,
 } from '@exitbook/accounting';
@@ -97,7 +97,7 @@ function getPromptStep(answers: PromptAnswers): PromptStep {
 
 interface CostBasisPromptAppProps {
   initialValues: PromptSeedValues;
-  onComplete: (params: CostBasisInput) => void;
+  onComplete: (params: ValidatedCostBasisConfig) => void;
   onCancel: () => void;
   onError: (error: Error) => void;
 }
@@ -195,12 +195,14 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
  * Prompt user for cost basis parameters in interactive mode using Ink.
  * Returns null if the user cancels.
  */
-export async function promptForCostBasisParams(initialValues: PromptSeedValues = {}): Promise<CostBasisInput | null> {
-  return new Promise<CostBasisInput | null>((resolve, reject) => {
+export async function promptForCostBasisParams(
+  initialValues: PromptSeedValues = {}
+): Promise<ValidatedCostBasisConfig | null> {
+  return new Promise<ValidatedCostBasisConfig | null>((resolve, reject) => {
     const { unmount } = render(
       React.createElement(CostBasisPromptApp, {
         initialValues,
-        onComplete: (params: CostBasisInput) => {
+        onComplete: (params: ValidatedCostBasisConfig) => {
           unmount();
           resolve(params);
         },

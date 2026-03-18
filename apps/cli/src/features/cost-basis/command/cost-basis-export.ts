@@ -26,7 +26,7 @@ import { unwrapResult } from '../../shared/result-utils.js';
 import { CostBasisExportCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import type { CostBasisInput } from './cost-basis-handler.js';
+import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { createCostBasisHandler } from './cost-basis-handler.js';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
 
@@ -97,7 +97,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
   try {
     const params = unwrapResult(buildCostBasisInputFromFlags(options));
     const scopeValidation = validateTaxPackageScope({
-      config: params.config,
+      config: params,
       asset: options.asset,
       hasCustomDateWindow: options.startDate !== undefined || options.endDate !== undefined,
     });
@@ -242,8 +242,8 @@ export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
   }
 }
 
-function buildDefaultOutputDir(params: CostBasisInput): string {
-  return path.join('reports', `${params.config.taxYear}-${params.config.jurisdiction.toLowerCase()}-tax-package`);
+function buildDefaultOutputDir(params: ValidatedCostBasisConfig): string {
+  return path.join('reports', `${params.taxYear}-${params.jurisdiction.toLowerCase()}-tax-package`);
 }
 
 export function resolveCostBasisExportOutputDir(

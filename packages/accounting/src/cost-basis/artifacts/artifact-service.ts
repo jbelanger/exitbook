@@ -7,7 +7,7 @@ import type {
   ICostBasisContextReader,
 } from '../../ports/cost-basis-persistence.js';
 import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
-import type { CostBasisInput } from '../workflow/cost-basis-input.js';
+import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflow, CostBasisWorkflowResult } from '../workflow/cost-basis-workflow.js';
 
 import {
@@ -21,7 +21,7 @@ import {
 const logger = getLogger('cost-basis.artifacts.service');
 
 interface CostBasisArtifactServiceExecuteParams {
-  params: CostBasisInput;
+  config: ValidatedCostBasisConfig;
   dependencyWatermark: CostBasisDependencyWatermark;
   refresh?: boolean | undefined;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
@@ -45,7 +45,7 @@ export class CostBasisArtifactService {
   ) {}
 
   async execute(params: CostBasisArtifactServiceExecuteParams): Promise<Result<CostBasisArtifactServiceResult, Error>> {
-    const scopeKey = buildCostBasisScopeKey(params.params.config);
+    const scopeKey = buildCostBasisScopeKey(params.config);
 
     if (!params.refresh) {
       const latestResult = await this.artifactStore.findLatest(scopeKey);
@@ -87,7 +87,7 @@ export class CostBasisArtifactService {
       return err(contextResult.error);
     }
 
-    const workflowResult = await this.workflow.execute(params.params, contextResult.value.transactions, {
+    const workflowResult = await this.workflow.execute(params.config, contextResult.value.transactions, {
       accountingExclusionPolicy: params.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
       // Tax reporting must fail closed. Excluding a disposal or transfer

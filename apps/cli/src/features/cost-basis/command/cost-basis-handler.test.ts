@@ -49,14 +49,12 @@ describe('CostBasisHandler', () => {
   let mockAccountsFindAll: Mock;
 
   const validParams = {
-    config: {
-      method: 'fifo' as const,
-      jurisdiction: 'US' as const,
-      taxYear: 2024,
-      currency: 'USD' as const,
-      startDate: new Date('2024-01-01'),
-      endDate: new Date('2024-12-31'),
-    },
+    method: 'fifo' as const,
+    jurisdiction: 'US' as const,
+    taxYear: 2024,
+    currency: 'USD' as const,
+    startDate: new Date('2024-01-01'),
+    endDate: new Date('2024-12-31'),
   };
 
   beforeEach(() => {
@@ -160,7 +158,7 @@ describe('CostBasisHandler', () => {
       expect(result.isOk()).toBe(true);
       expect(mockArtifactServiceExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: validParams,
+          config: validParams,
           refresh: true,
           accountingExclusionPolicy: { excludedAssetIds: new Set<string>() },
           assetReviewSummaries: new Map(),

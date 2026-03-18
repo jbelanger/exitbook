@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
-import type { CostBasisInput } from '../../../workflow/cost-basis-input.js';
+import type { ValidatedCostBasisConfig } from '../../../workflow/cost-basis-input.js';
 import { getCostBasisRebuildTransactions } from '../../../workflow/price-completeness.js';
 import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../../../workflow/workflow-result-types.js';
 import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../tax/canada-tax-report-builder.js';
@@ -17,7 +17,7 @@ import { runCanadaSuperficialLossEngine } from './canada-superficial-loss-engine
 const logger = getLogger('run-canada-cost-basis-calculation');
 
 export interface RunCanadaCostBasisCalculationParams {
-  input: CostBasisInput;
+  input: ValidatedCostBasisConfig;
   transactions: Transaction[];
   confirmedLinks: TransactionLink[];
   fxRateProvider: IFxRateProvider;
@@ -71,7 +71,7 @@ export async function runCanadaCostBasisCalculation(
     {
       accountingExclusionPolicy: params.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
-      taxAssetIdentityPolicy: params.input.config.taxAssetIdentityPolicy,
+      taxAssetIdentityPolicy: params.input.taxAssetIdentityPolicy,
     }
   );
   if (acbWorkflowResult.isErr()) {
@@ -98,7 +98,7 @@ export async function runCanadaCostBasisCalculation(
 
   const poolSnapshotInputContext =
     params.poolSnapshotStrategy === 'report-end'
-      ? filterCanadaInputContextToReportEnd(augmentedInputContext, params.input.config.endDate)
+      ? filterCanadaInputContextToReportEnd(augmentedInputContext, params.input.endDate)
       : augmentedInputContext;
   const poolSnapshotResult = runCanadaAcbEngine(poolSnapshotInputContext);
   if (poolSnapshotResult.isErr()) {
@@ -118,7 +118,7 @@ export async function runCanadaCostBasisCalculation(
 
   const displayReportResult = await buildCanadaDisplayCostBasisReport({
     taxReport: taxReportResult.value,
-    displayCurrency: params.input.config.currency as Currency,
+    displayCurrency: params.input.currency as Currency,
     fxProvider: params.fxRateProvider,
   });
   if (displayReportResult.isErr()) {
@@ -136,7 +136,7 @@ export async function runCanadaCostBasisCalculation(
 }
 
 function buildCanadaCalculation(
-  input: CostBasisInput,
+  input: ValidatedCostBasisConfig,
   inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
 ): CanadaCostBasisCalculation {
   const calculationDate = new Date();
@@ -147,11 +147,11 @@ function buildCanadaCalculation(
     calculationDate,
     method: 'average-cost',
     jurisdiction: 'CA',
-    taxYear: input.config.taxYear,
-    displayCurrency: input.config.currency as Currency,
+    taxYear: input.taxYear,
+    displayCurrency: input.currency as Currency,
     taxCurrency: 'CAD',
-    startDate: input.config.startDate,
-    endDate: input.config.endDate,
+    startDate: input.startDate,
+    endDate: input.endDate,
     transactionsProcessed: inputContext.scopedTransactionIds.length,
     assetsProcessed,
   };

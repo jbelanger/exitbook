@@ -14,7 +14,7 @@ describe('cost-basis-input', () => {
           fiatCurrency: 'USD',
         });
 
-        expect(assertOk(result).config.currency).toBe('USD');
+        expect(assertOk(result).currency).toBe('USD');
       });
 
       it('accepts CAD as valid currency', () => {
@@ -25,7 +25,7 @@ describe('cost-basis-input', () => {
           fiatCurrency: 'CAD',
         });
 
-        expect(assertOk(result).config.currency).toBe('CAD');
+        expect(assertOk(result).currency).toBe('CAD');
       });
 
       it('accepts EUR as valid currency', () => {
@@ -36,7 +36,7 @@ describe('cost-basis-input', () => {
           fiatCurrency: 'EUR',
         });
 
-        expect(assertOk(result).config.currency).toBe('EUR');
+        expect(assertOk(result).currency).toBe('EUR');
       });
 
       it('accepts GBP as valid currency', () => {
@@ -47,7 +47,7 @@ describe('cost-basis-input', () => {
           fiatCurrency: 'GBP',
         });
 
-        expect(assertOk(result).config.currency).toBe('GBP');
+        expect(assertOk(result).currency).toBe('GBP');
       });
 
       it('rejects invalid fiat currency', () => {
@@ -82,7 +82,7 @@ describe('cost-basis-input', () => {
           taxYear: 2024,
         });
 
-        expect(assertOk(result).config.currency).toBe('USD');
+        expect(assertOk(result).currency).toBe('USD');
       });
 
       it('uses default currency when not provided for Canada', () => {
@@ -92,7 +92,7 @@ describe('cost-basis-input', () => {
           taxYear: 2024,
         });
 
-        expect(assertOk(result).config.currency).toBe('CAD');
+        expect(assertOk(result).currency).toBe('CAD');
       });
     });
 
@@ -107,8 +107,8 @@ describe('cost-basis-input', () => {
         });
 
         const value = assertOk(result);
-        expect(value.config.startDate.toISOString()).toBe('2024-03-01T00:00:00.000Z');
-        expect(value.config.endDate.toISOString()).toBe('2024-09-30T00:00:00.000Z');
+        expect(value.startDate.toISOString()).toBe('2024-03-01T00:00:00.000Z');
+        expect(value.endDate.toISOString()).toBe('2024-09-30T00:00:00.000Z');
       });
 
       it('rejects startDate without endDate', () => {
@@ -177,8 +177,8 @@ describe('cost-basis-input', () => {
         });
 
         const value = assertOk(result);
-        expect(value.config.startDate.getUTCFullYear()).toBe(2024);
-        expect(value.config.endDate.getUTCFullYear()).toBe(2024);
+        expect(value.startDate.getUTCFullYear()).toBe(2024);
+        expect(value.endDate.getUTCFullYear()).toBe(2024);
       });
     });
 
@@ -230,7 +230,7 @@ describe('cost-basis-input', () => {
           taxYear: '2024',
         });
 
-        expect(assertOk(result).config.taxYear).toBe(2024);
+        expect(assertOk(result).taxYear).toBe(2024);
       });
 
       it('requires average-cost for Canada', () => {
@@ -259,7 +259,7 @@ describe('cost-basis-input', () => {
           taxYear: 2024,
         });
 
-        expect(assertOk(result).config.method).toBe('average-cost');
+        expect(assertOk(result).method).toBe('average-cost');
       });
 
       it('errors when method is omitted for US', () => {
@@ -278,14 +278,12 @@ describe('cost-basis-input', () => {
   describe('validateCostBasisInput', () => {
     it('accepts valid US parameters', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'fifo',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       assertOk(result);
@@ -293,14 +291,12 @@ describe('cost-basis-input', () => {
 
     it('accepts average-cost for Canada', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'average-cost',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'CAD',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'average-cost',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       assertOk(result);
@@ -308,14 +304,12 @@ describe('cost-basis-input', () => {
 
     it('errors when average-cost is used with non-Canada jurisdiction', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'average-cost',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'average-cost',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       expect(assertErr(result).message).toContain('Average Cost (ACB) is only supported for Canada');
@@ -323,14 +317,12 @@ describe('cost-basis-input', () => {
 
     it('errors when Canada uses fifo', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'fifo',
-          jurisdiction: 'CA',
-          taxYear: 2024,
-          currency: 'CAD',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'fifo',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       expect(assertErr(result).message).toContain('supports only average-cost');
@@ -338,14 +330,12 @@ describe('cost-basis-input', () => {
 
     it('errors when specific-id is used', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'specific-id',
-          jurisdiction: 'US',
-          taxYear: 2024,
-          currency: 'USD',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'specific-id',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       expect(assertErr(result).message).toContain('not yet implemented');
@@ -353,14 +343,12 @@ describe('cost-basis-input', () => {
 
     it('errors for UK jurisdiction', () => {
       const result = validateCostBasisInput({
-        config: {
-          method: 'fifo',
-          jurisdiction: 'UK',
-          taxYear: 2024,
-          currency: 'GBP',
-          startDate: new Date('2024-01-01'),
-          endDate: new Date('2024-12-31'),
-        },
+        method: 'fifo',
+        jurisdiction: 'UK',
+        taxYear: 2024,
+        currency: 'GBP',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       });
 
       expect(assertErr(result).message).toContain('tax rules not yet implemented');
