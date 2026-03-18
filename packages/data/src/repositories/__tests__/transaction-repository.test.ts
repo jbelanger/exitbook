@@ -52,6 +52,40 @@ describe('TransactionRepository', () => {
     };
   }
 
+  function materializeRepositoryTransaction(
+    transaction: Omit<Transaction, 'movements' | 'fees'> & {
+      fees: TransactionDraft['fees'];
+      movements: TransactionDraft['movements'];
+    }
+  ): Transaction {
+    return {
+      ...transaction,
+      movements: {
+        inflows: (transaction.movements.inflows ?? []).map((movement, index) => ({
+          ...movement,
+          movementFingerprint:
+            'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+              ? movement.movementFingerprint
+              : seedMovementFingerprint(transaction.txFingerprint, 'inflow', index),
+        })),
+        outflows: (transaction.movements.outflows ?? []).map((movement, index) => ({
+          ...movement,
+          movementFingerprint:
+            'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+              ? movement.movementFingerprint
+              : seedMovementFingerprint(transaction.txFingerprint, 'outflow', index),
+        })),
+      },
+      fees: (transaction.fees ?? []).map((fee, index) => ({
+        ...fee,
+        movementFingerprint:
+          'movementFingerprint' in fee && typeof fee.movementFingerprint === 'string'
+            ? fee.movementFingerprint
+            : seedMovementFingerprint(transaction.txFingerprint, 'fee', index),
+      })),
+    };
+  }
+
   afterEach(async () => {
     await db.destroy();
   });
@@ -598,7 +632,7 @@ describe('TransactionRepository', () => {
         ])
         .execute();
 
-      const enriched: Transaction = {
+      const enriched = materializeRepositoryTransaction({
         id: 1,
         accountId: 1,
         txFingerprint,
@@ -640,7 +674,7 @@ describe('TransactionRepository', () => {
             },
           },
         ],
-      };
+      });
 
       assertOk(await repo.updateMovementsWithPrices(enriched));
 
@@ -707,7 +741,7 @@ describe('TransactionRepository', () => {
         })
         .execute();
 
-      const enriched: Transaction = {
+      const enriched = materializeRepositoryTransaction({
         id: 2,
         accountId: 1,
         txFingerprint,
@@ -762,7 +796,7 @@ describe('TransactionRepository', () => {
             },
           },
         ],
-      };
+      });
 
       assertOk(await repo.updateMovementsWithPrices(enriched));
 
@@ -829,7 +863,7 @@ describe('TransactionRepository', () => {
         })
         .execute();
 
-      const enriched: Transaction = {
+      const enriched = materializeRepositoryTransaction({
         id: 3,
         accountId: 1,
         txFingerprint,
@@ -857,7 +891,7 @@ describe('TransactionRepository', () => {
           outflows: [],
         },
         fees: [],
-      };
+      });
 
       const result = await repo.updateMovementsWithPrices(enriched);
 
@@ -931,7 +965,7 @@ describe('TransactionRepository', () => {
     });
 
     it('returns an error when the transaction ID does not exist', async () => {
-      const enriched: Transaction = {
+      const enriched = materializeRepositoryTransaction({
         id: 999,
         accountId: 1,
         txFingerprint: seedTxFingerprint('kraken', 1, 'tx-999'),
@@ -959,7 +993,7 @@ describe('TransactionRepository', () => {
           outflows: [],
         },
         fees: [],
-      };
+      });
 
       const result = await repo.updateMovementsWithPrices(enriched);
 

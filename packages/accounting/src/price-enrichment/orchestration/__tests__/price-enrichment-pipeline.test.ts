@@ -1,5 +1,6 @@
 import { err, ok } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { EventBus } from '@exitbook/events';
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceEvent } from '../../shared/price-events.js';
@@ -44,12 +45,12 @@ const mockFxProvider = {
 
 const mockPriceManager = {} as Parameters<PriceEnrichmentPipeline['execute']>[1];
 
-function createEventBus(): { emit: Mock; events: PriceEvent[] } {
+function createEventBus(): EventBus<PriceEvent> & { emit: Mock; events: PriceEvent[] } {
   const events: PriceEvent[] = [];
   const emit = vi.fn((event: PriceEvent) => {
     events.push(event);
   });
-  return { emit, events };
+  return { emit, events } as unknown as EventBus<PriceEvent> & { emit: Mock; events: PriceEvent[] };
 }
 
 function defaultDeriveResult() {

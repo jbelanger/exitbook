@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseDecimal } from '../../money/decimal-utils.js';
-import { AssetMovementSchema, FeeMovementSchema } from '../movement.js';
+import {
+  AssetMovementSchema,
+  FeeMovementSchema,
+  PersistedAssetMovementSchema,
+  PersistedFeeMovementSchema,
+} from '../movement.js';
 import { TransactionSchema } from '../transaction.js';
 
 describe('AssetMovementSchema', () => {
@@ -169,6 +174,36 @@ describe('FeeMovementSchema', () => {
   });
 });
 
+describe('Persisted movement schemas', () => {
+  it('requires movementFingerprint for persisted asset movements', () => {
+    const result = PersistedAssetMovementSchema.safeParse({
+      assetId: 'blockchain:solana:native',
+      assetSymbol: 'SOL',
+      grossAmount: parseDecimal('1.0'),
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain('Movement fingerprint');
+    }
+  });
+
+  it('requires movementFingerprint for persisted fee movements', () => {
+    const result = PersistedFeeMovementSchema.safeParse({
+      assetId: 'blockchain:solana:native',
+      assetSymbol: 'SOL',
+      amount: parseDecimal('0.000005'),
+      scope: 'network' as const,
+      settlement: 'balance' as const,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain('Movement fingerprint');
+    }
+  });
+});
+
 describe('TransactionSchema', () => {
   describe('empty transaction validation', () => {
     it('rejects transaction with no movements and no fees', () => {
@@ -214,6 +249,7 @@ describe('TransactionSchema', () => {
             {
               assetId: 'blockchain:solana:native',
               assetSymbol: 'SOL',
+              movementFingerprint: 'movement:txfp-2:inflow:0',
               grossAmount: parseDecimal('1.0'),
             },
           ],
@@ -246,6 +282,7 @@ describe('TransactionSchema', () => {
             {
               assetId: 'blockchain:solana:native',
               assetSymbol: 'SOL',
+              movementFingerprint: 'movement:txfp-3:outflow:0',
               grossAmount: parseDecimal('0.5'),
             },
           ],
@@ -279,6 +316,7 @@ describe('TransactionSchema', () => {
           {
             assetId: 'blockchain:solana:native',
             assetSymbol: 'SOL',
+            movementFingerprint: 'movement:txfp-4:fee:0',
             amount: parseDecimal('0.000005'),
             scope: 'network' as const,
             settlement: 'balance' as const,

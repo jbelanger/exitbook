@@ -86,6 +86,7 @@ describe('accounting-exclusion-policy', () => {
         assetId: 'test:scam',
         assetSymbol: 'SCAM' as Currency,
         amount: parseDecimal('1'),
+        movementFingerprint: 'movement:test:scam:fee:carryover',
         scope: 'network',
         settlement: 'on-chain',
         originalTransactionId: 1,

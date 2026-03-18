@@ -1,4 +1,4 @@
-import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
+import type { Currency, PersistedAssetMovement, PersistedFeeMovement, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -13,12 +13,11 @@ import {
 // Types — cost-basis-local, not shared
 // ---------------------------------------------------------------------------
 
-export interface ScopedAssetMovement extends AssetMovement {
-  movementFingerprint: string;
+export interface ScopedAssetMovement extends PersistedAssetMovement {
   rawPosition: number;
 }
 
-export interface ScopedFeeMovement extends FeeMovement {
+export interface ScopedFeeMovement extends PersistedFeeMovement {
   originalTransactionId: number;
   rawPosition: number;
 }
@@ -221,16 +220,13 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
   const inflows: ScopedAssetMovement[] = [];
   for (let i = 0; i < (tx.movements.inflows?.length ?? 0); i++) {
     const raw = tx.movements.inflows![i]!;
-    const movementFingerprintResult = requirePersistedMovementFingerprint(tx.id, raw, 'inflow', i);
-    if (movementFingerprintResult.isErr()) return err(movementFingerprintResult.error);
-
     inflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
-      movementFingerprint: movementFingerprintResult.value,
+      movementFingerprint: raw.movementFingerprint,
       rawPosition: i,
     });
   }
@@ -238,16 +234,13 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
   const outflows: ScopedAssetMovement[] = [];
   for (let i = 0; i < (tx.movements.outflows?.length ?? 0); i++) {
     const raw = tx.movements.outflows![i]!;
-    const movementFingerprintResult = requirePersistedMovementFingerprint(tx.id, raw, 'outflow', i);
-    if (movementFingerprintResult.isErr()) return err(movementFingerprintResult.error);
-
     outflows.push({
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
-      movementFingerprint: movementFingerprintResult.value,
+      movementFingerprint: raw.movementFingerprint,
       rawPosition: i,
     });
   }
@@ -259,6 +252,7 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       amount: new Decimal(raw.amount.toString()),
+      movementFingerprint: raw.movementFingerprint,
       originalTransactionId: tx.id,
       scope: raw.scope,
       settlement: raw.settlement,
@@ -268,24 +262,6 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
   }
 
   return ok({ tx, rebuildDependencyTransactionIds: [], movements: { inflows, outflows }, fees });
-}
-
-function requirePersistedMovementFingerprint(
-  transactionId: number,
-  movement: AssetMovement,
-  movementType: 'inflow' | 'outflow',
-  position: number
-): Result<string, Error> {
-  const movementFingerprint = movement.movementFingerprint?.trim();
-  if (!movementFingerprint) {
-    return err(
-      new Error(
-        `Transaction ${transactionId} ${movementType} ${position} (${movement.assetId}) is missing persisted movementFingerprint`
-      )
-    );
-  }
-
-  return ok(movementFingerprint);
 }
 
 // ---------------------------------------------------------------------------

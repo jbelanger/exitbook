@@ -4,11 +4,12 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import type { CommandDatabase } from '../../../shared/command-runtime.js';
 import { TransactionsEditHandler } from '../transactions-edit-handler.js';
 
 function createTransaction(id: number, txFingerprintSeed = `ext-${id}`): Transaction {
-  return {
+  return createPersistedTransaction({
     id,
     accountId: 1,
     txFingerprint: `tx:v2:kraken:1:${txFingerprintSeed}`,
@@ -32,7 +33,7 @@ function createTransaction(id: number, txFingerprintSeed = `ext-${id}`): Transac
       category: 'transfer',
       type: 'deposit',
     },
-  };
+  });
 }
 
 function createTransactionNoteEvent(txFingerprint: string, message: string): OverrideEvent {

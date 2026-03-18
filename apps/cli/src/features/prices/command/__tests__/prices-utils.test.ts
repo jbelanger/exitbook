@@ -6,8 +6,50 @@ import {
   validateAssetFilter,
   determineEnrichmentStages,
 } from '@exitbook/accounting';
-import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
+
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
+
+const createTransaction = (
+  overrides: Partial<Omit<Transaction, 'movements' | 'fees'>> & {
+    fees?: TransactionDraft['fees'] | undefined;
+    movements?: TransactionDraft['movements'] | undefined;
+  } = {}
+): Transaction => {
+  const {
+    id,
+    accountId,
+    datetime,
+    timestamp,
+    source,
+    sourceType,
+    status,
+    txFingerprint,
+    operation,
+    movements,
+    fees,
+    ...rest
+  } = overrides;
+
+  return createPersistedTransaction({
+    ...rest,
+    id: id ?? 1,
+    accountId: accountId ?? 1,
+    datetime: datetime ?? '2024-01-15T12:00:00.000Z',
+    timestamp: timestamp ?? Date.parse('2024-01-15T12:00:00.000Z'),
+    source: source ?? 'test',
+    sourceType: sourceType ?? 'exchange',
+    status: status ?? 'success',
+    txFingerprint: txFingerprint ?? 'test-1',
+    operation: operation ?? { category: 'trade', type: 'buy' },
+    movements: movements ?? {
+      inflows: [],
+      outflows: [],
+    },
+    fees: fees ?? [],
+  });
+};
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {
@@ -117,22 +159,12 @@ describe('validateAssetFilter', () => {
 
 describe('extractAssetsNeedingPrices', () => {
   it('should extract unique assets from movements and filter out fiat currencies', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
         outflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('50000') }],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -145,16 +177,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return only assets without prices', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [
           {
@@ -170,8 +193,7 @@ describe('extractAssetsNeedingPrices', () => {
         ],
         outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10') }],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -184,22 +206,12 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should reject transaction with no movements', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [],
         outflows: [],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -210,22 +222,12 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should deduplicate assets across inflows and outflows', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') }],
         outflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('0.5') }],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -237,16 +239,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should filter out all common fiat currencies', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [
           { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1') },
@@ -259,8 +252,7 @@ describe('extractAssetsNeedingPrices', () => {
           { assetId: 'fiat:gbp', assetSymbol: 'GBP' as Currency, grossAmount: parseDecimal('40000') },
         ],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -277,22 +269,12 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should return empty array when only fiat currencies need prices', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [{ assetId: 'fiat:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('1000') }],
         outflows: [{ assetId: 'fiat:eur', assetSymbol: 'EUR' as Currency, grossAmount: parseDecimal('900') }],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx);
 
@@ -303,16 +285,7 @@ describe('extractAssetsNeedingPrices', () => {
   });
 
   it('should ignore excluded assetIds when extracting price fetch symbols', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [
           { assetId: 'blockchain:ethereum:0xgood', assetSymbol: 'USDC' as Currency, grossAmount: parseDecimal('10') },
@@ -320,8 +293,7 @@ describe('extractAssetsNeedingPrices', () => {
         ],
         outflows: [],
       },
-      fees: [],
-    };
+    });
 
     const result = extractAssetsNeedingPrices(tx, createAccountingExclusionPolicy(['blockchain:ethereum:0xspam']));
 
@@ -334,22 +306,12 @@ describe('extractAssetsNeedingPrices', () => {
 
 describe('createPriceQuery', () => {
   it('should create price query for asset', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [],
         outflows: [],
       },
-      fees: [],
-    };
+    });
 
     const result = createPriceQuery(tx, 'BTC');
 
@@ -362,22 +324,12 @@ describe('createPriceQuery', () => {
   });
 
   it('should use default USD currency', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [],
         outflows: [],
       },
-      fees: [],
-    };
+    });
 
     const result = createPriceQuery(tx, 'ETH');
 
@@ -388,22 +340,12 @@ describe('createPriceQuery', () => {
   });
 
   it('should accept custom target currency', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
-      datetime: '2024-01-15T12:00:00.000Z',
-      timestamp: Date.parse('2024-01-15T12:00:00.000Z'),
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
+    const tx = createTransaction({
       movements: {
         inflows: [],
         outflows: [],
       },
-      fees: [],
-    };
+    });
 
     const result = createPriceQuery(tx, 'BTC', 'EUR');
 
@@ -414,22 +356,10 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction without datetime', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
+    const tx = createTransaction({
       datetime: '',
       timestamp: 0,
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
-      movements: {
-        inflows: [],
-        outflows: [],
-      },
-      fees: [],
-    };
+    });
 
     const result = createPriceQuery(tx, 'BTC');
 
@@ -440,22 +370,10 @@ describe('createPriceQuery', () => {
   });
 
   it('should reject transaction with invalid datetime', () => {
-    const tx: Transaction = {
-      id: 1,
-      accountId: 1,
+    const tx = createTransaction({
       datetime: 'invalid-date',
       timestamp: 0,
-      source: 'test',
-      sourceType: 'exchange',
-      status: 'success',
-      txFingerprint: 'test-1',
-      operation: { category: 'trade', type: 'buy' },
-      movements: {
-        inflows: [],
-        outflows: [],
-      },
-      fees: [],
-    };
+    });
 
     const result = createPriceQuery(tx, 'BTC');
 

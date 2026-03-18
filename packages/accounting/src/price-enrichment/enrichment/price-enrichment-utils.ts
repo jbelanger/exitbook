@@ -17,6 +17,9 @@ import type { LinkedTransactionGroup } from '../shared/types.js';
 import { enrichMovementsWithPrices } from './movement-enrichment-utils.js';
 import { calculatePriceFromTrade, extractTradeMovements, stampFiatIdentityPrices } from './price-calculation-utils.js';
 
+type TransactionMovement = NonNullable<Transaction['movements']['inflows']>[number];
+type TransactionFee = Transaction['fees'][number];
+
 /**
  * Result of multi-pass price inference
  */
@@ -30,9 +33,9 @@ interface InferMultiPassResult {
 /**
  * Internal result structure for individual passes
  */
-interface PassResult {
+interface PassResult<TMovement extends AssetMovement = AssetMovement> {
   /** Map of transaction ID to enriched movements */
-  enrichedMovements: Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>;
+  enrichedMovements: Map<number, { inflows: TMovement[]; outflows: TMovement[] }>;
   /** IDs of transactions modified by this pass */
   modifiedIds: Set<number>;
 }
@@ -45,6 +48,26 @@ interface PropagatePricesResult {
   enrichedTransactions: Transaction[];
   /** IDs of transactions modified by link rederive */
   modifiedIds: Set<number>;
+}
+
+function replaceTransactionMovements(
+  tx: Transaction,
+  movements: {
+    inflows: TransactionMovement[];
+    outflows: TransactionMovement[];
+  }
+): Transaction {
+  return {
+    ...tx,
+    movements,
+  };
+}
+
+function replaceTransactionFees(tx: Transaction, fees: TransactionFee[]): Transaction {
+  return {
+    ...tx,
+    fees,
+  };
 }
 
 /**
@@ -61,8 +84,8 @@ interface PropagatePricesResult {
  * @param transactions - Transactions to process
  * @returns PassResult with enriched movements (no modifiedIds tracking for Pass 0)
  */
-function applyExchangeExecutionPrices(transactions: Transaction[]): PassResult {
-  const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+function applyExchangeExecutionPrices(transactions: Transaction[]): PassResult<TransactionMovement> {
+  const enrichedMovements = new Map<number, { inflows: TransactionMovement[]; outflows: TransactionMovement[] }>();
 
   for (const tx of transactions) {
     const timestamp = new Date(tx.datetime).getTime();
@@ -121,8 +144,8 @@ function applyExchangeExecutionPrices(transactions: Transaction[]): PassResult {
  */
 function deriveInflowPricesFromOutflows(
   transactions: Transaction[],
-  previousMovements: Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>
-): PassResult {
+  previousMovements: Map<number, { inflows: TransactionMovement[]; outflows: TransactionMovement[] }>
+): PassResult<TransactionMovement> {
   const enrichedMovements = new Map(previousMovements);
   const modifiedIds = new Set<number>();
 
@@ -183,8 +206,8 @@ function deriveInflowPricesFromOutflows(
  */
 function recalculateCryptoSwapRatios(
   transactions: Transaction[],
-  previousMovements: Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>
-): PassResult {
+  previousMovements: Map<number, { inflows: TransactionMovement[]; outflows: TransactionMovement[] }>
+): PassResult<TransactionMovement> {
   const enrichedMovements = new Map(previousMovements);
   const modifiedIds = new Set<number>();
 
@@ -266,13 +289,10 @@ export function inferMultiPass(transactions: Transaction[]): InferMultiPassResul
   const enrichedTransactions = transactions.map((tx) => {
     const enriched = pass2.enrichedMovements.get(tx.id);
     if (enriched) {
-      return {
-        ...tx,
-        movements: {
-          inflows: enriched.inflows,
-          outflows: enriched.outflows,
-        },
-      };
+      return replaceTransactionMovements(tx, {
+        inflows: enriched.inflows,
+        outflows: enriched.outflows,
+      });
     }
     return tx;
   });
@@ -314,7 +334,7 @@ export function propagatePricesAcrossLinks(
   const txMap = new Map(transactions.map((tx) => [tx.id, tx]));
 
   // Track enriched movements for each transaction
-  const enrichedMovements = new Map<number, { inflows: AssetMovement[]; outflows: AssetMovement[] }>();
+  const enrichedMovements = new Map<number, { inflows: TransactionMovement[]; outflows: TransactionMovement[] }>();
 
   for (const link of linkChain) {
     const sourceTx = txMap.get(link.sourceTransactionId);
@@ -384,13 +404,10 @@ export function propagatePricesAcrossLinks(
   const enrichedTransactions = transactions.map((tx) => {
     const enriched = enrichedMovements.get(tx.id);
     if (enriched) {
-      return {
-        ...tx,
-        movements: {
-          inflows: enriched.inflows,
-          outflows: enriched.outflows,
-        },
-      };
+      return replaceTransactionMovements(tx, {
+        inflows: enriched.inflows,
+        outflows: enriched.outflows,
+      });
     }
     return tx;
   });
@@ -484,7 +501,7 @@ export function enrichFeePricesFromMovements(transactions: Transaction[]): Trans
 
     // Return transaction with enriched fees if any changed
     if (feesModified) {
-      return { ...tx, fees: finalFees };
+      return replaceTransactionFees(tx, finalFees);
     }
 
     return tx;

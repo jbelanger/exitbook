@@ -1,12 +1,18 @@
-import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction, type TransactionDraft } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import { applyTransactionFilters, type ViewTransactionsParams } from '../transactions-view-utils.js';
 
 // Test data helper
-function createTestTransaction(overrides: Partial<Transaction> = {}): Transaction {
-  return {
+function createTestTransaction(
+  overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+    fees?: TransactionDraft['fees'];
+    movements?: TransactionDraft['movements'];
+  } = {}
+): Transaction {
+  return createPersistedTransaction({
     id: 1,
     accountId: 1,
     txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
@@ -30,7 +36,7 @@ function createTestTransaction(overrides: Partial<Transaction> = {}): Transactio
     notes: undefined,
     excludedFromAccounting: false,
     ...overrides,
-  };
+  });
 }
 
 function unwrapOk<T>(result: Result<T, Error>): T {

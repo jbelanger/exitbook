@@ -1,4 +1,4 @@
-import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
+import type { Currency, TransactionDraft, TransactionLink, Transaction } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,9 +13,9 @@ import { PriceInferenceService } from './price-inference-service.js';
 let nextId = 1;
 
 function makeTx(
-  overrides: Partial<Transaction> & {
-    fees?: Transaction['fees'];
-    movements: Transaction['movements'];
+  overrides: Omit<Partial<Transaction>, 'fees' | 'movements'> & {
+    fees?: TransactionDraft['fees'];
+    movements: TransactionDraft['movements'];
   }
 ): Transaction {
   const id = nextId++;

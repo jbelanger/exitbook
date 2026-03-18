@@ -8,7 +8,7 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { FeeMovement } from '@exitbook/core';
+import type { PersistedFeeMovement } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -631,10 +631,11 @@ describe('enrichFeePricesFromMovements', () => {
     );
 
     // Add fee with existing price
-    const fee: FeeMovement = {
+    const fee: PersistedFeeMovement = {
       assetId: 'test:btc',
       assetSymbol: 'BTC' as Currency,
       amount: parseDecimal('0.001'),
+      movementFingerprint: 'movement:test:btc:fee:existing',
       scope: 'platform',
       settlement: 'balance',
       priceAtTxTime: createPriceAtTxTime('49000', 'USD', { source: 'coingecko' }),

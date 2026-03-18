@@ -1,10 +1,22 @@
-import type { Currency, Transaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import type { Currency, PersistedFeeMovement, Transaction } from '@exitbook/core';
+import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildAssetReviewSummaries } from '../asset-review-service.js';
+
+function materializeMovementFingerprint(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow' | 'fee',
+  position: number
+): string {
+  const result = computeMovementFingerprint({ txFingerprint, movementType, position });
+  if (result.isErr()) {
+    throw result.error;
+  }
+  return result.value;
+}
 
 function createTransaction(params: {
   assetId: string;
@@ -17,6 +29,41 @@ function createTransaction(params: {
   source?: string | undefined;
   txFingerprint: string;
 }): Transaction {
+  const inflows = [
+    {
+      assetId: params.assetId,
+      assetSymbol: params.assetSymbol as Currency,
+      grossAmount: parseDecimal('100'),
+      movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'inflow', 0),
+    },
+  ];
+  const fees: PersistedFeeMovement[] = [
+    ...(params.includeFeeWithSameAsset
+      ? [
+          {
+            assetId: params.assetId,
+            assetSymbol: params.assetSymbol as Currency,
+            amount: parseDecimal('1'),
+            movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'fee', 0),
+            scope: 'platform' as const,
+            settlement: 'balance' as const,
+          },
+        ]
+      : []),
+    ...((params.fees ?? []).map((fee, index) => ({
+      assetId: fee.assetId,
+      assetSymbol: fee.assetSymbol as Currency,
+      amount: parseDecimal('1'),
+      movementFingerprint: materializeMovementFingerprint(
+        params.txFingerprint,
+        'fee',
+        index + (params.includeFeeWithSameAsset ? 1 : 0)
+      ),
+      scope: 'platform' as const,
+      settlement: 'balance' as const,
+    })) as PersistedFeeMovement[]),
+  ];
+
   return {
     id: params.id,
     accountId: 1,
@@ -28,35 +75,10 @@ function createTransaction(params: {
     status: 'success',
     isSpam: params.isSpam,
     movements: {
-      inflows: [
-        {
-          assetId: params.assetId,
-          assetSymbol: params.assetSymbol as Currency,
-          grossAmount: parseDecimal('100'),
-        },
-      ],
+      inflows,
       outflows: [],
     },
-    fees: [
-      ...(params.includeFeeWithSameAsset
-        ? [
-            {
-              assetId: params.assetId,
-              assetSymbol: params.assetSymbol as Currency,
-              amount: parseDecimal('1'),
-              scope: 'platform' as const,
-              settlement: 'balance' as const,
-            },
-          ]
-        : []),
-      ...((params.fees ?? []).map((fee) => ({
-        assetId: fee.assetId,
-        assetSymbol: fee.assetSymbol as Currency,
-        amount: parseDecimal('1'),
-        scope: 'platform' as const,
-        settlement: 'balance' as const,
-      })) as Transaction['fees']),
-    ],
+    fees,
     operation: {
       category: 'transfer',
       type: 'deposit',
@@ -74,6 +96,21 @@ function createMultiAssetTransaction(params: {
   source?: string | undefined;
   txFingerprint: string;
 }): Transaction {
+  const inflows = params.primaryAssets.map((asset, index) => ({
+    assetId: asset.assetId,
+    assetSymbol: asset.assetSymbol as Currency,
+    grossAmount: parseDecimal('100'),
+    movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'inflow', index),
+  }));
+  const fees: PersistedFeeMovement[] = (params.fees ?? []).map((fee, index) => ({
+    assetId: fee.assetId,
+    assetSymbol: fee.assetSymbol as Currency,
+    amount: parseDecimal('1'),
+    movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'fee', index),
+    scope: 'platform' as const,
+    settlement: 'balance' as const,
+  }));
+
   return {
     id: params.id,
     accountId: 1,
@@ -85,20 +122,10 @@ function createMultiAssetTransaction(params: {
     status: 'success',
     isSpam: params.isSpam,
     movements: {
-      inflows: params.primaryAssets.map((asset) => ({
-        assetId: asset.assetId,
-        assetSymbol: asset.assetSymbol as Currency,
-        grossAmount: parseDecimal('100'),
-      })),
+      inflows,
       outflows: [],
     },
-    fees: (params.fees ?? []).map((fee) => ({
-      assetId: fee.assetId,
-      assetSymbol: fee.assetSymbol as Currency,
-      amount: parseDecimal('1'),
-      scope: 'platform' as const,
-      settlement: 'balance' as const,
-    })) as Transaction['fees'],
+    fees,
     operation: {
       category: 'transfer',
       type: 'deposit',

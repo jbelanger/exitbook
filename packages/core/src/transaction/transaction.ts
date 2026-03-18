@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 import { SourceTypeSchema } from '../import-session/import-session.js';
 
-import { AssetMovementSchema, FeeMovementSchema } from './movement.js';
+import {
+  AssetMovementDraftSchema,
+  FeeMovementDraftSchema,
+  PersistedAssetMovementSchema,
+  PersistedFeeMovementSchema,
+} from './movement.js';
 
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'success']);
@@ -68,54 +73,68 @@ const TransactionDraftIdentityMaterialSchema = z.object({
   componentEventIds: z.array(z.string().min(1, 'Component event ID must not be empty')).min(1).optional(),
 });
 
+function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny, TFeeSchema extends z.ZodTypeAny>(
+  movementSchema: TMovementSchema,
+  feeSchema: TFeeSchema
+) {
+  return z.object({
+    datetime: z.string().min(1, 'Datetime string must not be empty'),
+    timestamp: z.number().int().positive('Timestamp must be a positive integer'),
+    source: z.string().min(1, 'Source must not be empty'),
+    sourceType: SourceTypeSchema,
+    status: TransactionStatusSchema,
+    from: z.string().optional(),
+    to: z.string().optional(),
+
+    // Structured movements
+    movements: z.object({
+      inflows: z.array(movementSchema).default([]).optional(),
+      outflows: z.array(movementSchema).default([]).optional(),
+    }),
+
+    // Structured fees
+    fees: z.array(feeSchema).default([]),
+
+    // Enhanced operation classification
+    operation: z.object({
+      category: OperationCategorySchema,
+      type: OperationTypeSchema,
+    }),
+
+    // Blockchain metadata (optional - only for blockchain transactions)
+    blockchain: z
+      .object({
+        name: z.string().min(1, 'Blockchain name must not be empty'),
+        block_height: z.number().int().positive().optional(),
+        transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+        is_confirmed: z.boolean(),
+      })
+      .optional(),
+
+    // Optional fields
+    notes: z.array(TransactionNoteSchema).optional(),
+
+    // Spam detection
+    isSpam: z.boolean().optional(),
+
+    // Accounting exclusion
+    excludedFromAccounting: z.boolean().optional(),
+  });
+}
+
 // Base transaction fields shared by draft and persisted transactions.
-const TransactionBaseFieldsSchema = z.object({
-  datetime: z.string().min(1, 'Datetime string must not be empty'),
-  timestamp: z.number().int().positive('Timestamp must be a positive integer'),
-  source: z.string().min(1, 'Source must not be empty'),
-  sourceType: SourceTypeSchema,
-  status: TransactionStatusSchema,
-  from: z.string().optional(),
-  to: z.string().optional(),
-
-  // Structured movements
-  movements: z.object({
-    inflows: z.array(AssetMovementSchema).default([]).optional(),
-    outflows: z.array(AssetMovementSchema).default([]).optional(),
-  }),
-
-  // Structured fees
-  fees: z.array(FeeMovementSchema).default([]),
-
-  // Enhanced operation classification
-  operation: z.object({
-    category: OperationCategorySchema,
-    type: OperationTypeSchema,
-  }),
-
-  // Blockchain metadata (optional - only for blockchain transactions)
-  blockchain: z
-    .object({
-      name: z.string().min(1, 'Blockchain name must not be empty'),
-      block_height: z.number().int().positive().optional(),
-      transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-      is_confirmed: z.boolean(),
-    })
-    .optional(),
-
-  // Optional fields
-  notes: z.array(TransactionNoteSchema).optional(),
-
-  // Spam detection
-  isSpam: z.boolean().optional(),
-
-  // Accounting exclusion
-  excludedFromAccounting: z.boolean().optional(),
-});
+const TransactionDraftBaseFieldsSchema = createTransactionBaseFieldsSchema(
+  AssetMovementDraftSchema,
+  FeeMovementDraftSchema
+);
+const TransactionBaseFieldsSchema = createTransactionBaseFieldsSchema(
+  PersistedAssetMovementSchema,
+  PersistedFeeMovementSchema
+);
 
 // Pre-persistence transaction contract plus transient identity material used to
 // derive the persisted txFingerprint.
-const TransactionDraftFieldsSchema = TransactionBaseFieldsSchema.extend({
+const TransactionDraftFieldsSchema = TransactionDraftBaseFieldsSchema.extend({
   identityMaterial: TransactionDraftIdentityMaterialSchema.optional(),
 });
 

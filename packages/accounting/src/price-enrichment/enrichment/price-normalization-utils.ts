@@ -9,7 +9,7 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovement, Currency, FeeMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { AssetMovement, Currency, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
@@ -18,13 +18,16 @@ import type { Decimal } from 'decimal.js';
 /**
  * Result of movement classification
  */
-interface MovementsNeedingNormalization {
+type TransactionMovement = NonNullable<Transaction['movements']['inflows']>[number];
+type TransactionFee = Transaction['fees'][number];
+
+interface MovementsNeedingNormalization<TMovement extends AssetMovement = AssetMovement> {
   /** Movements that need FX conversion (non-USD fiat prices) */
-  needsNormalization: AssetMovement[];
+  needsNormalization: TMovement[];
   /** Movements to skip (already USD or crypto) */
-  skipped: AssetMovement[];
+  skipped: TMovement[];
   /** Crypto prices found in price field (unexpected) */
-  cryptoPrices: AssetMovement[];
+  cryptoPrices: TMovement[];
 }
 
 /**
@@ -38,12 +41,14 @@ interface MovementsNeedingNormalization {
  * @param tx - Transaction to analyze
  * @returns Classified movements
  */
-export function extractMovementsNeedingNormalization(tx: Transaction): MovementsNeedingNormalization {
+export function extractMovementsNeedingNormalization(
+  tx: Transaction
+): MovementsNeedingNormalization<TransactionMovement> {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
-  const needsNormalization: AssetMovement[] = [];
-  const skipped: AssetMovement[] = [];
-  const cryptoPrices: AssetMovement[] = [];
+  const needsNormalization: TransactionMovement[] = [];
+  const skipped: TransactionMovement[] = [];
+  const cryptoPrices: TransactionMovement[] = [];
 
   for (const movement of allMovements) {
     // No price - skip
@@ -153,7 +158,7 @@ export function createNormalizedPrice(
  * @param movement - Movement to check
  * @returns True if movement has non-USD fiat price
  */
-export function movementNeedsNormalization(movement: AssetMovement): boolean {
+export function movementNeedsNormalization<TMovement extends AssetMovement>(movement: TMovement): boolean {
   if (!movement.priceAtTxTime) {
     return false;
   }
@@ -282,11 +287,11 @@ export async function normalizePriceToUSD(
  * @returns Array of normalization results for each movement
  */
 async function normalizeMovementArray(
-  movements: AssetMovement[],
+  movements: TransactionMovement[],
   txDatetime: string,
   normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
-): Promise<ItemNormalizationResult<AssetMovement>[]> {
-  const results: ItemNormalizationResult<AssetMovement>[] = [];
+): Promise<ItemNormalizationResult<TransactionMovement>[]> {
+  const results: ItemNormalizationResult<TransactionMovement>[] = [];
 
   for (const movement of movements) {
     // Check if normalization needed
@@ -330,7 +335,7 @@ async function normalizeMovementArray(
  * @param fee - Fee to check
  * @returns True if fee has non-USD fiat price
  */
-function feeNeedsNormalization(fee: FeeMovement): boolean {
+function feeNeedsNormalization(fee: TransactionFee): boolean {
   if (!fee.priceAtTxTime) {
     return false;
   }
@@ -358,11 +363,11 @@ function feeNeedsNormalization(fee: FeeMovement): boolean {
  * @returns Array of normalization results for each fee
  */
 async function normalizeFeeArray(
-  fees: FeeMovement[],
+  fees: TransactionFee[],
   txDatetime: string,
   normalizePriceFn: (price: PriceAtTxTime, date: Date) => Promise<Result<PriceAtTxTime, Error>>
-): Promise<ItemNormalizationResult<FeeMovement>[]> {
-  const results: ItemNormalizationResult<FeeMovement>[] = [];
+): Promise<ItemNormalizationResult<TransactionFee>[]> {
+  const results: ItemNormalizationResult<TransactionFee>[] = [];
 
   for (const fee of fees) {
     // Check if normalization needed

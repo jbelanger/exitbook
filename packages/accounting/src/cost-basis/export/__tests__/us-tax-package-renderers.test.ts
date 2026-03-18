@@ -1,5 +1,5 @@
 import { parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -175,9 +175,8 @@ describe('buildUsRowRefMaps', () => {
     // Sabotage: remove the transaction referenced by lot-1
     context.sourceContext.transactionsById.delete(1);
 
-    const result = buildUsRowRefMaps({ context, filingFacts, accountLabeler, assetLabeler });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing source transaction');
+    const error = assertErr(buildUsRowRefMaps({ context, filingFacts, accountLabeler, assetLabeler }));
+    expect(error.message).toContain('Missing source transaction');
   });
 });
 
@@ -270,9 +269,8 @@ describe('buildUsLotRows', () => {
     // Remove one lot ref to trigger the error path
     rowRefMaps.lotRefById.delete('lot-1');
 
-    const result = buildUsLotRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing lot_ref');
+    const error = assertErr(buildUsLotRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing lot_ref');
   });
 
   it('returns an error when a transaction is missing', () => {
@@ -281,9 +279,8 @@ describe('buildUsLotRows', () => {
     // Remove a transaction that lot-1 references
     context.sourceContext.transactionsById.delete(1);
 
-    const result = buildUsLotRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing source transaction');
+    const error = assertErr(buildUsLotRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing source transaction');
   });
 });
 
@@ -389,9 +386,8 @@ describe('buildUsDispositionRows', () => {
 
     rowRefMaps.dispositionRefById.clear();
 
-    const result = buildUsDispositionRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing disposition refs');
+    const error = assertErr(buildUsDispositionRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing disposition refs');
   });
 
   it('returns an error for unsupported tax treatment category', () => {
@@ -400,9 +396,8 @@ describe('buildUsDispositionRows', () => {
     // Set a non-canonical treatment
     (filingFacts.dispositions[0] as { taxTreatmentCategory: string | undefined }).taxTreatmentCategory = undefined;
 
-    const result = buildUsDispositionRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing canonical US tax treatment');
+    const error = assertErr(buildUsDispositionRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing canonical US tax treatment');
   });
 });
 
@@ -519,9 +514,8 @@ describe('buildUsTransferRows', () => {
 
     rowRefMaps.transferRefById.clear();
 
-    const result = buildUsTransferRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing package-local refs');
+    const error = assertErr(buildUsTransferRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing package-local refs');
   });
 
   it('returns an error when source transaction is missing', () => {
@@ -530,9 +524,8 @@ describe('buildUsTransferRows', () => {
     // Transfer source transaction ID is 4
     context.sourceContext.transactionsById.delete(4);
 
-    const result = buildUsTransferRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps });
-    expect(result.isErr()).toBe(true);
-    expect((result.error as Error).message).toContain('Missing source transaction');
+    const error = assertErr(buildUsTransferRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
+    expect(error.message).toContain('Missing source transaction');
   });
 
   it('handles transfer with no sameAssetFeeAmount gracefully', () => {

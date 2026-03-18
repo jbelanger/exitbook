@@ -10,13 +10,26 @@ import type {
   Currency,
   ImportSession,
   Transaction,
+  TransactionDraft,
 } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BalancePorts } from '../../../ports/balance-ports.js';
 import { BalanceWorkflow } from '../balance-workflow.js';
+
+function materializeMovementFingerprint(
+  txFingerprint: string,
+  movementType: 'inflow' | 'outflow' | 'fee',
+  position: number
+): string {
+  const result = computeMovementFingerprint({ txFingerprint, movementType, position });
+  if (result.isErr()) {
+    throw result.error;
+  }
+  return result.value;
+}
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   return {
@@ -42,23 +55,52 @@ function createCompletedImportSession(accountId = 1): ImportSession {
   };
 }
 
-function createTransaction(overrides: Partial<Transaction>): Transaction {
+function createTransaction(
+  overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+    fees?: TransactionDraft['fees'];
+    movements?: TransactionDraft['movements'];
+  }
+): Transaction {
+  const { fees: overrideFees, movements: overrideMovements, txFingerprint: overrideTxFingerprint, ...rest } = overrides;
+  const txFingerprint = String(overrideTxFingerprint ?? 'tx-1');
+  const inflows = (overrideMovements?.inflows ?? []).map((movement, index) => ({
+    ...movement,
+    movementFingerprint:
+      'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+        ? movement.movementFingerprint
+        : materializeMovementFingerprint(txFingerprint, 'inflow', index),
+  }));
+  const outflows = (overrideMovements?.outflows ?? []).map((movement, index) => ({
+    ...movement,
+    movementFingerprint:
+      'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+        ? movement.movementFingerprint
+        : materializeMovementFingerprint(txFingerprint, 'outflow', index),
+  }));
+  const fees = (overrideFees ?? []).map((fee, index) => ({
+    ...fee,
+    movementFingerprint:
+      'movementFingerprint' in fee && typeof fee.movementFingerprint === 'string'
+        ? fee.movementFingerprint
+        : materializeMovementFingerprint(txFingerprint, 'fee', index),
+  }));
+
   return {
     id: 100,
     accountId: 1,
     source: 'bitcoin',
     sourceType: 'blockchain',
-    txFingerprint: String(overrides.txFingerprint ?? 'tx-1'),
+    txFingerprint,
     status: 'success',
     datetime: '2026-02-20T00:00:00.000Z',
     timestamp: Date.parse('2026-02-20T00:00:00.000Z'),
     operation: { category: 'transfer', type: 'transfer' },
     movements: {
-      inflows: [],
-      outflows: [],
+      inflows,
+      outflows,
     },
-    fees: [],
-    ...overrides,
+    fees,
+    ...rest,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -218,7 +218,7 @@ describe('buildViewMeta', () => {
 
 describe('getAllMovements', () => {
   it('should return empty array when no movements', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [],
       outflows: [],
     };
@@ -229,7 +229,7 @@ describe('getAllMovements', () => {
   });
 
   it('should return only inflows when no outflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [
         {
           assetSymbol: 'BTC' as Currency,
@@ -248,7 +248,7 @@ describe('getAllMovements', () => {
   });
 
   it('should return only outflows when no inflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [],
       outflows: [
         {
@@ -267,7 +267,7 @@ describe('getAllMovements', () => {
   });
 
   it('should combine inflows and outflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [
         {
           assetSymbol: 'BTC' as Currency,
@@ -294,7 +294,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle multiple inflows and outflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [
         {
           assetSymbol: 'BTC' as Currency,
@@ -331,7 +331,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle undefined inflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: undefined,
       outflows: [
         {
@@ -349,7 +349,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle undefined outflows', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [
         {
           assetSymbol: 'BTC' as Currency,
@@ -367,7 +367,7 @@ describe('getAllMovements', () => {
   });
 
   it('should handle both inflows and outflows undefined', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: undefined,
       outflows: undefined,
     };
@@ -378,7 +378,7 @@ describe('getAllMovements', () => {
   });
 
   it('should preserve movement properties', () => {
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows: [
         {
           assetSymbol: 'BTC' as Currency,
@@ -414,7 +414,7 @@ describe('getAllMovements', () => {
         assetId: '',
       },
     ];
-    const movements: Transaction['movements'] = {
+    const movements: TransactionDraft['movements'] = {
       inflows,
       outflows: [],
     };

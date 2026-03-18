@@ -5,6 +5,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { type DataContext } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import { ExportHandler } from '../transactions-export-handler.js';
 import type { ExportHandlerParams } from '../transactions-export-utils.js';
 
@@ -36,28 +37,29 @@ describe('ExportHandler', () => {
     handler = new ExportHandler(mockDb);
   });
 
-  const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction => ({
-    id: id,
-    accountId: 1,
-    txFingerprint: `ext-${id}`,
-    source: source,
-    sourceType: 'exchange',
-    operation: { category: 'trade', type: 'buy' },
-    datetime: '2024-01-01T12:00:00Z',
-    timestamp: Date.parse('2024-01-01T12:00:00Z'),
-    status: 'success',
-    movements: {
-      inflows: [
-        {
-          assetId: `test:${assetSymbol.toLowerCase()}`,
-          assetSymbol: assetSymbol as Currency,
-          grossAmount: parseDecimal('1.0'),
-        },
-      ],
-      outflows: [],
-    },
-    fees: [],
-  });
+  const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction =>
+    createPersistedTransaction({
+      id: id,
+      accountId: 1,
+      txFingerprint: `ext-${id}`,
+      source: source,
+      sourceType: 'exchange',
+      operation: { category: 'trade', type: 'buy' },
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: Date.parse('2024-01-01T12:00:00Z'),
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: `test:${assetSymbol.toLowerCase()}`,
+            assetSymbol: assetSymbol as Currency,
+            grossAmount: parseDecimal('1.0'),
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+    });
 
   describe('execute', () => {
     it('should successfully export transactions to CSV', async () => {

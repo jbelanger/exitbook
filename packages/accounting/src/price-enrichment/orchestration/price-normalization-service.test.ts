@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { type Currency, type PriceAtTxTime, type Transaction, parseDecimal } from '@exitbook/core';
+import {
+  type Currency,
+  type PriceAtTxTime,
+  type Transaction,
+  type TransactionDraft,
+  parseDecimal,
+} from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,9 +30,9 @@ function makePrice(amount: string, currency: Currency): PriceAtTxTime {
 }
 
 function makeTx(
-  overrides: Partial<Transaction> & {
-    fees?: Transaction['fees'];
-    movements: Transaction['movements'];
+  overrides: Omit<Partial<Transaction>, 'fees' | 'movements'> & {
+    fees?: TransactionDraft['fees'];
+    movements: TransactionDraft['movements'];
   }
 ): Transaction {
   const id = nextId++;

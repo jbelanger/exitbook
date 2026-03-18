@@ -54,6 +54,7 @@ describe('buildLinkFromOrphanedOverride', () => {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0'),
+        movementFingerprint: 'movement:test:btc:fee:0',
         scope: 'network',
         settlement: 'on-chain',
       },

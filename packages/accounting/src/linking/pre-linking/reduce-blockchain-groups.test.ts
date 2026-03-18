@@ -111,6 +111,7 @@ describe('reduceBlockchainGroups', () => {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.001'),
+        movementFingerprint: 'movement:test:btc:fee:0',
         scope: 'network',
         settlement: 'on-chain',
       },

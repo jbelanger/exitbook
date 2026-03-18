@@ -188,6 +188,7 @@ describe('buildLinkableMovements', () => {
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
         amount: parseDecimal('0.01'),
+        movementFingerprint: 'movement:test:eth:fee:0',
         scope: 'network',
         settlement: 'on-chain',
       },

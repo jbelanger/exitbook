@@ -59,7 +59,10 @@ function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }
 /**
  * Enrich a single movement with new price data according to priority rules.
  */
-export function enrichMovementWithPrice(movement: AssetMovement, newPrice: PriceAtTxTime): AssetMovement {
+export function enrichMovementWithPrice<TMovement extends AssetMovement>(
+  movement: TMovement,
+  newPrice: PriceAtTxTime
+): TMovement {
   return enrichWithPrice(movement, newPrice);
 }
 
@@ -70,10 +73,10 @@ export function enrichMovementWithPrice(movement: AssetMovement, newPrice: Price
  * @param pricesMap - Map of asset symbol to price data
  * @returns Enriched movements array
  */
-export function enrichMovementsWithPrices(
-  movements: AssetMovement[],
+export function enrichMovementsWithPrices<TMovement extends AssetMovement>(
+  movements: TMovement[],
   pricesMap: Map<string, PriceAtTxTime>
-): AssetMovement[] {
+): TMovement[] {
   return movements.map((movement) => {
     const newPrice = pricesMap.get(movement.assetSymbol);
     if (!newPrice) {
@@ -86,10 +89,10 @@ export function enrichMovementsWithPrices(
 /**
  * Enrich an array of movements with prices keyed by assetId.
  */
-export function enrichMovementsWithPricesByAssetId(
-  movements: AssetMovement[],
+export function enrichMovementsWithPricesByAssetId<TMovement extends AssetMovement>(
+  movements: TMovement[],
   pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
-): AssetMovement[] {
+): TMovement[] {
   return movements.map((movement) => {
     const newPrice = pricesByAssetId.get(movement.assetId);
     if (!newPrice) {
@@ -102,10 +105,10 @@ export function enrichMovementsWithPricesByAssetId(
 /**
  * Enrich fee movements with prices keyed by assetId.
  */
-export function enrichFeesWithPricesByAssetId(
-  fees: FeeMovement[],
+export function enrichFeesWithPricesByAssetId<TFee extends FeeMovement>(
+  fees: TFee[],
   pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
-): FeeMovement[] {
+): TFee[] {
   return fees.map((fee) => {
     const newPrice = pricesByAssetId.get(fee.assetId);
     if (!newPrice) {

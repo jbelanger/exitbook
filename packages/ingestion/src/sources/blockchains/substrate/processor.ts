@@ -3,7 +3,7 @@ import {
   type SubstrateChainConfig,
   SubstrateTransactionSchema,
 } from '@exitbook/blockchain-providers';
-import { type AssetMovement, buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
+import { type AssetMovementDraft, buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
@@ -169,8 +169,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
    * Build typed movement objects for a list of fund flow movements.
    * Fails fast if any movement uses an unsupported non-native asset.
    */
-  private buildMovements(movements: SubstrateMovement[], transactionId: string): Result<AssetMovement[], Error> {
-    const result: AssetMovement[] = [];
+  private buildMovements(movements: SubstrateMovement[], transactionId: string): Result<AssetMovementDraft[], Error> {
+    const result: AssetMovementDraft[] = [];
     for (const movement of movements) {
       const assetIdResult = this.buildSubstrateAssetId(movement.asset, transactionId);
       if (assetIdResult.isErr()) {

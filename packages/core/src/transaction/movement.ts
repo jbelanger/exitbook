@@ -36,30 +36,45 @@ export const AssetIdSchema = z
       'Token reference (contract/mint/denom) must not be empty.',
   });
 
-// Asset movement schema
-export const AssetMovementSchema = z
-  .object({
-    // Asset identity (required)
-    assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
-    assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
-    movementFingerprint: z.string().min(1).optional(), // Persisted movement identity, hydrated on repository reads
+const AssetMovementDraftFieldsSchema = z.object({
+  // Asset identity (required)
+  assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
+  assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
 
-    // Amount fields
-    grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
-    netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
+  // Amount fields
+  grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
+  netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
 
-    // Price metadata
-    priceAtTxTime: PriceAtTxTimeSchema.optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.netAmount && data.grossAmount) {
-        return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
-      }
-      return true;
-    },
-    { message: 'netAmount cannot exceed grossAmount' }
-  );
+  // Price metadata
+  priceAtTxTime: PriceAtTxTimeSchema.optional(),
+});
+
+// Draft/common asset movement shape used before persistence.
+export const AssetMovementSchema = AssetMovementDraftFieldsSchema.refine(
+  (data) => {
+    if (data.netAmount && data.grossAmount) {
+      return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
+    }
+    return true;
+  },
+  { message: 'netAmount cannot exceed grossAmount' }
+);
+
+// Explicit alias for pre-persistence usage sites.
+export const AssetMovementDraftSchema = AssetMovementSchema;
+
+// Persisted asset movements must carry their canonical movementFingerprint.
+export const PersistedAssetMovementSchema = AssetMovementDraftFieldsSchema.extend({
+  movementFingerprint: z.string().min(1, 'Movement fingerprint must not be empty'),
+}).refine(
+  (data) => {
+    if (data.netAmount && data.grossAmount) {
+      return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
+    }
+    return true;
+  },
+  { message: 'netAmount cannot exceed grossAmount' }
+);
 
 /**
  * Fee Movement Schema
@@ -121,7 +136,6 @@ export const FeeMovementSchema = z.object({
   // Asset identity (required)
   assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
-  movementFingerprint: z.string().min(1).optional(), // Persisted movement identity, hydrated on repository reads
   amount: DecimalSchema,
 
   // Fee semantics (required)
@@ -132,7 +146,17 @@ export const FeeMovementSchema = z.object({
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
+export const FeeMovementDraftSchema = FeeMovementSchema;
+
+export const PersistedFeeMovementSchema = FeeMovementSchema.extend({
+  movementFingerprint: z.string().min(1, 'Movement fingerprint must not be empty'),
+});
+
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;
+export type AssetMovementDraft = z.infer<typeof AssetMovementDraftSchema>;
+export type PersistedAssetMovement = z.infer<typeof PersistedAssetMovementSchema>;
 export type FeeMovement = z.infer<typeof FeeMovementSchema>;
+export type FeeMovementDraft = z.infer<typeof FeeMovementDraftSchema>;
+export type PersistedFeeMovement = z.infer<typeof PersistedFeeMovementSchema>;

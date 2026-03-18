@@ -5,6 +5,8 @@ import type {
   FeeMovement,
   OperationCategory,
   OperationType,
+  PersistedAssetMovement,
+  PersistedFeeMovement,
   PriceAtTxTime,
   Transaction,
 } from '@exitbook/core';
@@ -14,6 +16,12 @@ import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
 
 function sha256Hex(material: string): string {
   return createHash('sha256').update(material).digest('hex');
+}
+
+let syntheticMovementCounter = 1;
+
+function createSyntheticMovementFingerprint(parts: string[]): string {
+  return `movement:test:${parts.join(':')}:${syntheticMovementCounter++}`;
 }
 
 export function seedTxFingerprint(
@@ -34,8 +42,18 @@ export function seedTxFingerprint(
   return sha256Hex(fingerprintMaterial);
 }
 
-type MaterializeTestTransactionInput = Omit<Transaction, 'txFingerprint'> & {
+type MaterializableAssetMovement = AssetMovement | PersistedAssetMovement;
+type MaterializableFeeMovement = FeeMovement | PersistedFeeMovement;
+
+interface MaterializeDraftMovements {
+  inflows?: MaterializableAssetMovement[] | undefined;
+  outflows?: MaterializableAssetMovement[] | undefined;
+}
+
+type MaterializeTestTransactionInput = Omit<Transaction, 'txFingerprint' | 'movements' | 'fees'> & {
+  fees?: MaterializableFeeMovement[] | undefined;
   identityReference?: string | undefined;
+  movements: MaterializeDraftMovements;
   txFingerprint?: string | undefined;
 };
 
@@ -89,23 +107,31 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
 function materializePersistedAssetMovements(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow',
-  movements: AssetMovement[]
-): AssetMovement[] {
+  movements: MaterializableAssetMovement[]
+): PersistedAssetMovement[] {
   return movements.map((movement, index) => ({
     ...movement,
     movementFingerprint: materializeMovementFingerprint(
       txFingerprint,
       movementType,
       index,
-      movement.movementFingerprint
+      'movementFingerprint' in movement ? movement.movementFingerprint : undefined
     ),
   }));
 }
 
-function materializePersistedFeeMovements(txFingerprint: string, fees: FeeMovement[]): FeeMovement[] {
+function materializePersistedFeeMovements(
+  txFingerprint: string,
+  fees: MaterializableFeeMovement[]
+): PersistedFeeMovement[] {
   return fees.map((fee, index) => ({
     ...fee,
-    movementFingerprint: materializeMovementFingerprint(txFingerprint, 'fee', index, fee.movementFingerprint),
+    movementFingerprint: materializeMovementFingerprint(
+      txFingerprint,
+      'fee',
+      index,
+      'movementFingerprint' in fee ? fee.movementFingerprint : undefined
+    ),
   }));
 }
 
@@ -113,7 +139,7 @@ function materializeMovementFingerprint(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow' | 'fee',
   position: number,
-  existingFingerprint?: string  
+  existingFingerprint?: string
 ): string {
   const trimmedExistingFingerprint = existingFingerprint?.trim();
   if (trimmedExistingFingerprint) {
@@ -280,13 +306,19 @@ export function createMovement(
   amount: string,
   priceAmount?: string,
   currency = 'USD'
-): AssetMovement {
-  return {
+): PersistedAssetMovement {
+  const movement: PersistedAssetMovement = {
     assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     grossAmount: parseDecimal(amount),
-    ...(priceAmount !== undefined ? { priceAtTxTime: createPriceAtTxTime(priceAmount, currency) } : {}),
+    movementFingerprint: createSyntheticMovementFingerprint(['asset', assetSymbol.toLowerCase(), amount]),
   };
+
+  if (priceAmount !== undefined) {
+    movement.priceAtTxTime = createPriceAtTxTime(priceAmount, currency);
+  }
+
+  return movement;
 }
 
 /**
@@ -302,13 +334,20 @@ export function createFeeMovement(
   priceAmount?: string,
   priceCurrency = 'USD',
   assetId?: string
-): FeeMovement {
+): PersistedFeeMovement {
   return {
     assetId: assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     scope,
     settlement,
     amount: parseDecimal(amount),
+    movementFingerprint: createSyntheticMovementFingerprint([
+      'fee',
+      scope,
+      settlement,
+      assetSymbol.toLowerCase(),
+      amount,
+    ]),
     priceAtTxTime: priceAmount !== undefined ? createPriceAtTxTime(priceAmount, priceCurrency) : undefined,
   };
 }
@@ -326,13 +365,20 @@ export function createFee(
     scope?: 'platform' | 'network';
     settlement?: 'balance' | 'on-chain';
   }
-): FeeMovement {
+): PersistedFeeMovement {
   return {
     assetId: options?.assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     amount: parseDecimal(amount),
     scope: options?.scope ?? 'platform',
     settlement: options?.settlement ?? 'balance',
+    movementFingerprint: createSyntheticMovementFingerprint([
+      'fee',
+      options?.scope ?? 'platform',
+      options?.settlement ?? 'balance',
+      assetSymbol.toLowerCase(),
+      amount,
+    ]),
     priceAtTxTime: options?.priceAmount
       ? createPriceAtTxTime(options.priceAmount, options?.currency ?? 'USD')
       : undefined,
@@ -345,10 +391,10 @@ export function createFee(
 export function createBlockchainTx(params: {
   accountId: number;
   datetime: string;
-  fees?: FeeMovement[] | undefined;
+  fees?: MaterializableFeeMovement[] | undefined;
   id: number;
-  inflows?: AssetMovement[] | undefined;
-  outflows?: AssetMovement[] | undefined;
+  inflows?: MaterializableAssetMovement[] | undefined;
+  outflows?: MaterializableAssetMovement[] | undefined;
   txHash: string;
 }): Transaction {
   return materializeTestTransaction({
@@ -384,7 +430,7 @@ export function createExchangeTx(params: {
   datetime: string;
   id: number;
   identityReference: string;
-  inflows?: AssetMovement[] | undefined;
+  inflows?: MaterializableAssetMovement[] | undefined;
   source: string;
   type: 'buy' | 'deposit';
 }): Transaction {
@@ -468,8 +514,8 @@ export function createTransaction(
 export function createTransactionFromMovements(
   id: number,
   datetime: string,
-  movements: { inflows?: AssetMovement[]; outflows?: AssetMovement[] } = {},
-  fees: FeeMovement[] = [],
+  movements: { inflows?: MaterializableAssetMovement[]; outflows?: MaterializableAssetMovement[] } = {},
+  fees: MaterializableFeeMovement[] = [],
   options?: {
     category?: 'trade' | 'transfer';
     source?: string;

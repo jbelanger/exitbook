@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { type Currency, type Transaction } from '@exitbook/core';
+import { type Currency, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { PriceProviderManager } from '@exitbook/price-providers';
@@ -15,9 +15,9 @@ import { PriceFetchService } from './price-fetch-service.js';
 let nextId = 1;
 
 function makeTx(
-  overrides: Partial<Transaction> & {
-    fees?: Transaction['fees'];
-    movements: Transaction['movements'];
+  overrides: Omit<Partial<Transaction>, 'fees' | 'movements'> & {
+    fees?: TransactionDraft['fees'];
+    movements: TransactionDraft['movements'];
   }
 ): Transaction {
   const id = nextId++;

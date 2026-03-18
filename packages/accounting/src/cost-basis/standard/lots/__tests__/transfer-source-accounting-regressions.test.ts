@@ -382,6 +382,7 @@ describe('transfer source accounting regressions', () => {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         amount: parseDecimal('0.5'),
+        movementFingerprint: 'movement:test:btc:fee:carryover',
         originalTransactionId: 11,
         rawPosition: 0,
         scope: 'network',

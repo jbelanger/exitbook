@@ -1,8 +1,9 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Account, Currency, Transaction } from '@exitbook/core';
+import type { Account, Currency, Transaction, TransactionDraft } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import { analyzeLinkGaps } from '../links-gap-utils.js';
 
 describe('analyzeLinkGaps', () => {
@@ -18,28 +19,39 @@ describe('analyzeLinkGaps', () => {
     userId: overrides.userId ?? 1,
   });
 
-  const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
-    id: 1,
-    accountId: 1,
-    txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
-    datetime: '2024-01-01T12:00:00Z',
-    timestamp: 1704110400000,
-    source: 'kraken',
-    sourceType: 'exchange',
-    status: 'success',
-    movements: {
-      inflows: [],
-      outflows: [],
-    },
-    fees: [],
-    operation: {
-      category: 'transfer',
-      type: 'withdrawal',
-    },
-    ...overrides,
-  });
+  const createMockTransaction = (
+    overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+      fees?: TransactionDraft['fees'];
+      movements?: TransactionDraft['movements'];
+    } = {}
+  ): Transaction =>
+    createPersistedTransaction({
+      id: 1,
+      accountId: 1,
+      txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
+      datetime: '2024-01-01T12:00:00Z',
+      timestamp: 1704110400000,
+      source: 'kraken',
+      sourceType: 'exchange',
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
+      ...overrides,
+    });
 
-  const createBlockchainDeposit = (overrides: Partial<Transaction> = {}): Transaction =>
+  const createBlockchainDeposit = (
+    overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+      fees?: TransactionDraft['fees'];
+      movements?: TransactionDraft['movements'];
+    } = {}
+  ): Transaction =>
     createMockTransaction({
       id: 11,
       txFingerprint: 'btc-inflow',
@@ -67,7 +79,12 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
-  const createBlockchainWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
+  const createBlockchainWithdrawal = (
+    overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+      fees?: TransactionDraft['fees'];
+      movements?: TransactionDraft['movements'];
+    } = {}
+  ): Transaction =>
     createMockTransaction({
       id: 21,
       txFingerprint: 'btc-outflow',
@@ -95,7 +112,12 @@ describe('analyzeLinkGaps', () => {
       ...overrides,
     });
 
-  const createExchangeWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
+  const createExchangeWithdrawal = (
+    overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+      fees?: TransactionDraft['fees'];
+      movements?: TransactionDraft['movements'];
+    } = {}
+  ): Transaction =>
     createMockTransaction({
       id: 31,
       txFingerprint: 'kraken-outflow',

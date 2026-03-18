@@ -11,6 +11,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import {
   ensureAssetReviewProjectionFresh,
   invalidateAssetReviewProjection,
@@ -34,7 +35,7 @@ function createTransaction(params: {
   const outflows = params.outflows ?? [];
   const fees = params.fees ?? [];
 
-  return {
+  return createPersistedTransaction({
     id: params.id,
     accountId: 1,
     txFingerprint: `tx-${params.id}`,
@@ -66,7 +67,7 @@ function createTransaction(params: {
       category: 'trade',
       type: 'swap',
     },
-  };
+  });
 }
 
 function createMockOverrideStore() {

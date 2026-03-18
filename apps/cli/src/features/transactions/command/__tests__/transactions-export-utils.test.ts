@@ -1,9 +1,10 @@
 import type { TransactionLink } from '@exitbook/accounting';
-import type { Currency, Transaction } from '@exitbook/core';
+import type { Currency, Transaction, TransactionDraft } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, it, expect } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import {
   buildExportParamsFromFlags,
   convertToCSV,
@@ -12,6 +13,49 @@ import {
   parseSinceDate,
   type ExportCommandOptions,
 } from '../transactions-export-utils.js';
+
+const createTransaction = (
+  overrides: Partial<Omit<Transaction, 'movements' | 'fees'>> & {
+    fees?: TransactionDraft['fees'] | undefined;
+    movements?: TransactionDraft['movements'] | undefined;
+  } = {}
+): Transaction => {
+  const {
+    id,
+    accountId,
+    txFingerprint,
+    source,
+    sourceType,
+    datetime,
+    timestamp,
+    status,
+    movements,
+    fees,
+    operation,
+    ...rest
+  } = overrides;
+
+  return createPersistedTransaction({
+    ...rest,
+    id: id ?? 1,
+    accountId: accountId ?? 1,
+    txFingerprint: txFingerprint ?? 'ext-1',
+    source: source ?? 'kraken',
+    sourceType: sourceType ?? 'exchange',
+    datetime: datetime ?? '2024-01-01T12:00:00Z',
+    timestamp: timestamp ?? Date.parse('2024-01-01T12:00:00Z'),
+    status: status ?? 'success',
+    movements: movements ?? {
+      inflows: [],
+      outflows: [],
+    },
+    fees: fees ?? [],
+    operation: operation ?? {
+      category: 'trade',
+      type: 'buy',
+    },
+  });
+};
 
 describe('export-utils', () => {
   describe('parseSinceDate', () => {
@@ -142,25 +186,12 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to CSV', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
-        source: 'kraken',
-        sourceType: 'exchange',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
+      const transaction = createTransaction({
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
-        fees: [],
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-      };
+      });
 
       const result = convertToCSV([transaction]);
 
@@ -171,44 +202,26 @@ describe('export-utils', () => {
 
     it('should convert multiple transactions to CSV', () => {
       const transactions: Transaction[] = [
-        {
-          id: 1,
-          accountId: 1,
-          txFingerprint: 'ext-1',
-          source: 'kraken',
-          sourceType: 'exchange',
-          datetime: '2024-01-01T12:00:00Z',
-          timestamp: Date.parse('2024-01-01T12:00:00Z'),
-          status: 'success',
+        createTransaction({
           movements: {
             inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
-          fees: [],
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-        },
-        {
+        }),
+        createTransaction({
           id: 2,
-          accountId: 1,
           txFingerprint: 'ext-2',
-          source: 'kraken',
-          sourceType: 'exchange',
           datetime: '2024-01-02T12:00:00Z',
           timestamp: Date.parse('2024-01-02T12:00:00Z'),
-          status: 'success',
           movements: {
             inflows: [],
             outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') }],
           },
-          fees: [],
           operation: {
             category: 'trade',
             type: 'sell',
           },
-        },
+        }),
       ];
 
       const result = convertToCSV(transactions);
@@ -221,25 +234,13 @@ describe('export-utils', () => {
     });
 
     it('should escape values with commas', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
+      const transaction = createTransaction({
         source: 'test,source',
-        sourceType: 'exchange',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
-        fees: [],
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-      };
+      });
 
       const result = convertToCSV([transaction]);
 
@@ -247,25 +248,20 @@ describe('export-utils', () => {
     });
 
     it('should include both inflow and outflow movements for swaps', () => {
-      const transaction: Transaction = {
+      const transaction = createTransaction({
         id: 1822,
-        accountId: 1,
         txFingerprint: 'ext-1822',
-        source: 'kraken',
-        sourceType: 'exchange',
         datetime: '2024-01-03T12:00:00Z',
         timestamp: Date.parse('2024-01-03T12:00:00Z'),
-        status: 'success',
         movements: {
           inflows: [{ assetId: 'test:stx', assetSymbol: 'STX' as Currency, grossAmount: parseDecimal('59.289') }],
           outflows: [{ assetId: 'test:cad', assetSymbol: 'CAD' as Currency, grossAmount: parseDecimal('98.52') }],
         },
-        fees: [],
         operation: {
           category: 'trade',
           type: 'swap',
         },
-      };
+      });
 
       const result = convertToCSV([transaction]);
       const [headerLine, dataLine] = result.split('\n');
@@ -287,25 +283,12 @@ describe('export-utils', () => {
     });
 
     it('should convert single transaction to JSON', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
-        source: 'kraken',
-        sourceType: 'exchange',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
+      const transaction = createTransaction({
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
-        fees: [],
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-      };
+      });
 
       const result = convertToJSON([transaction]);
       const parsed = JSON.parse(result) as unknown[];
@@ -327,44 +310,26 @@ describe('export-utils', () => {
 
     it('should convert multiple transactions to JSON', () => {
       const transactions: Transaction[] = [
-        {
-          id: 1,
-          accountId: 1,
-          txFingerprint: 'ext-1',
-          source: 'kraken',
-          sourceType: 'exchange',
-          datetime: '2024-01-01T12:00:00Z',
-          timestamp: Date.parse('2024-01-01T12:00:00Z'),
-          status: 'success',
+        createTransaction({
           movements: {
             inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
             outflows: [],
           },
-          fees: [],
-          operation: {
-            category: 'trade',
-            type: 'buy',
-          },
-        },
-        {
+        }),
+        createTransaction({
           id: 2,
-          accountId: 1,
           txFingerprint: 'ext-2',
-          source: 'kraken',
-          sourceType: 'exchange',
           datetime: '2024-01-02T12:00:00Z',
           timestamp: Date.parse('2024-01-02T12:00:00Z'),
-          status: 'success',
           movements: {
             inflows: [],
             outflows: [{ assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') }],
           },
-          fees: [],
           operation: {
             category: 'trade',
             type: 'sell',
           },
-        },
+        }),
       ];
 
       const result = convertToJSON(transactions);
@@ -376,20 +341,13 @@ describe('export-utils', () => {
     });
 
     it('should include blockchain information when present', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
+      const transaction = createTransaction({
         source: 'bitcoin',
         sourceType: 'blockchain',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
-        fees: [],
         operation: {
           category: 'transfer',
           type: 'transfer',
@@ -400,7 +358,7 @@ describe('export-utils', () => {
           transaction_hash: '0xabc123',
           is_confirmed: true,
         },
-      };
+      });
 
       const result = convertToJSON([transaction]);
       const parsed = JSON.parse(result) as {
@@ -421,25 +379,12 @@ describe('export-utils', () => {
     });
 
     it('should format JSON with proper indentation', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
-        source: 'kraken',
-        sourceType: 'exchange',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
+      const transaction = createTransaction({
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
-        fees: [],
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-      };
+      });
 
       const result = convertToJSON([transaction]);
 
@@ -452,15 +397,7 @@ describe('export-utils', () => {
 
   describe('convertToNormalizedCSV', () => {
     it('should convert transactions into normalized CSV files', () => {
-      const transaction: Transaction = {
-        id: 1,
-        accountId: 1,
-        txFingerprint: 'ext-1',
-        source: 'kraken',
-        sourceType: 'exchange',
-        datetime: '2024-01-01T12:00:00Z',
-        timestamp: Date.parse('2024-01-01T12:00:00Z'),
-        status: 'success',
+      const transaction = createTransaction({
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [{ assetId: 'test:usd', assetSymbol: 'USD' as Currency, grossAmount: parseDecimal('30000') }],
@@ -474,11 +411,7 @@ describe('export-utils', () => {
             settlement: 'balance',
           },
         ],
-        operation: {
-          category: 'trade',
-          type: 'buy',
-        },
-      };
+      });
 
       const link: TransactionLink = {
         id: 1,

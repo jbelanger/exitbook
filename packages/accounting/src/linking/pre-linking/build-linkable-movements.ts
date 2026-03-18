@@ -55,13 +55,6 @@ export function buildLinkableMovements(
       const inflow = inflows[inflowIdx]!;
       const amount = inflow.netAmount ?? inflow.grossAmount;
       const grossAmount = inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
-      if (!inflow.movementFingerprint) {
-        return err(
-          new Error(
-            `Transaction ${tx.id} inflow ${inflowIdx} (${inflow.assetId}) is missing persisted movementFingerprint`
-          )
-        );
-      }
 
       linkableMovements.push(
         createLinkableMovement(
@@ -91,13 +84,6 @@ export function buildLinkableMovements(
       const amount = reduction ?? outflow.netAmount ?? outflow.grossAmount;
       const grossAmount =
         outflow.netAmount && !outflow.netAmount.eq(outflow.grossAmount) ? outflow.grossAmount : undefined;
-      if (!outflow.movementFingerprint) {
-        return err(
-          new Error(
-            `Transaction ${tx.id} outflow ${outflowIdx} (${outflow.assetId}) is missing persisted movementFingerprint`
-          )
-        );
-      }
 
       linkableMovements.push(
         createLinkableMovement(

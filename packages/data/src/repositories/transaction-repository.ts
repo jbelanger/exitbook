@@ -1,15 +1,19 @@
 /* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
 import {
-  AssetMovementSchema,
+  AssetMovementDraftSchema,
   CurrencySchema,
-  FeeMovementSchema,
+  FeeMovementDraftSchema,
+  PersistedAssetMovementSchema,
+  PersistedFeeMovementSchema,
   TransactionNoteSchema,
   computeAccountFingerprint,
   type TransactionMaterializationScope,
   computeMovementFingerprint,
   parseDecimal,
-  type AssetMovement,
-  type FeeMovement,
+  type AssetMovementDraft,
+  type FeeMovementDraft,
+  type PersistedAssetMovement,
+  type PersistedFeeMovement,
   type TransactionNote,
   type TransactionStatus,
   type Transaction,
@@ -70,22 +74,22 @@ const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
 
 function validatePriceDataForPersistence(
-  inflows: AssetMovement[],
-  outflows: AssetMovement[],
-  fees: FeeMovement[],
+  inflows: AssetMovementDraft[],
+  outflows: AssetMovementDraft[],
+  fees: FeeMovementDraft[],
   context: string
 ): Result<void, Error> {
-  const inflowsValidation = z.array(AssetMovementSchema).safeParse(inflows);
+  const inflowsValidation = z.array(AssetMovementDraftSchema).safeParse(inflows);
   if (!inflowsValidation.success) {
     return err(new Error(`Invalid inflow movement data for ${context}: ${inflowsValidation.error.message}`));
   }
 
-  const outflowsValidation = z.array(AssetMovementSchema).safeParse(outflows);
+  const outflowsValidation = z.array(AssetMovementDraftSchema).safeParse(outflows);
   if (!outflowsValidation.success) {
     return err(new Error(`Invalid outflow movement data for ${context}: ${outflowsValidation.error.message}`));
   }
 
-  const feesValidation = z.array(FeeMovementSchema).safeParse(fees);
+  const feesValidation = z.array(FeeMovementDraftSchema).safeParse(fees);
   if (!feesValidation.success) {
     return err(new Error(`Invalid fee data for ${context}: ${feesValidation.error.message}`));
   }
@@ -94,7 +98,7 @@ function validatePriceDataForPersistence(
 }
 
 function assetMovementToRow(
-  movement: AssetMovement,
+  movement: AssetMovementDraft,
   transactionId: number,
   position: number,
   movementFingerprint: string,
@@ -140,7 +144,7 @@ function assetMovementToRow(
 }
 
 function feeMovementToRow(
-  fee: FeeMovement,
+  fee: FeeMovementDraft,
   transactionId: number,
   position: number,
   movementFingerprint: string
@@ -170,7 +174,7 @@ function feeMovementToRow(
   return ok(row);
 }
 
-function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
+function rowToAssetMovement(row: MovementRow): Result<PersistedAssetMovement, Error> {
   if (row.movement_type !== 'inflow' && row.movement_type !== 'outflow') {
     return err(new Error(`Expected inflow/outflow row, got ${row.movement_type}`));
   }
@@ -179,7 +183,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
     return err(new Error(`Movement row missing gross_amount (id: ${row.id})`));
   }
 
-  const movement: AssetMovement = {
+  const movement: PersistedAssetMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
     movementFingerprint: row.movement_fingerprint,
@@ -202,7 +206,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
     };
   }
 
-  const validation = AssetMovementSchema.safeParse(movement);
+  const validation = PersistedAssetMovementSchema.safeParse(movement);
   if (!validation.success) {
     return err(new Error(`Movement row failed schema validation (id: ${row.id}): ${validation.error.message}`));
   }
@@ -210,7 +214,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
   return ok(validation.data);
 }
 
-function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
+function rowToFeeMovement(row: MovementRow): Result<PersistedFeeMovement, Error> {
   if (row.movement_type !== 'fee') {
     return err(new Error(`Expected fee row, got ${row.movement_type}`));
   }
@@ -219,7 +223,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
     return err(new Error(`Fee row missing required fields (id: ${row.id})`));
   }
 
-  const fee: FeeMovement = {
+  const fee: PersistedFeeMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
     movementFingerprint: row.movement_fingerprint,
@@ -243,7 +247,7 @@ function rowToFeeMovement(row: MovementRow): Result<FeeMovement, Error> {
     };
   }
 
-  const validation = FeeMovementSchema.safeParse(fee);
+  const validation = PersistedFeeMovementSchema.safeParse(fee);
   if (!validation.success) {
     return err(new Error(`Fee row failed schema validation (id: ${row.id}): ${validation.error.message}`));
   }
@@ -1025,7 +1029,7 @@ export class TransactionRepository extends BaseRepository {
     const outflowRows = movementRows.filter((r) => r.movement_type === 'outflow');
     const feeRows = movementRows.filter((r) => r.movement_type === 'fee');
 
-    const inflows: AssetMovement[] = [];
+    const inflows: PersistedAssetMovement[] = [];
     for (const r of inflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
@@ -1035,7 +1039,7 @@ export class TransactionRepository extends BaseRepository {
       inflows.push(result.value);
     }
 
-    const outflows: AssetMovement[] = [];
+    const outflows: PersistedAssetMovement[] = [];
     for (const r of outflowRows) {
       const result = rowToAssetMovement(r);
       if (result.isErr()) {
@@ -1045,7 +1049,7 @@ export class TransactionRepository extends BaseRepository {
       outflows.push(result.value);
     }
 
-    const fees: FeeMovement[] = [];
+    const fees: PersistedFeeMovement[] = [];
     for (const r of feeRows) {
       const result = rowToFeeMovement(r);
       if (result.isErr()) {
