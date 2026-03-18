@@ -1,4 +1,4 @@
-import type { Transaction, AssetMovement } from '@exitbook/core';
+import type { Transaction, AssetMovementDraft } from '@exitbook/core';
 import { expect } from 'vitest';
 
 import type { ProcessedTransaction } from '../../shared/types/processors.js';
@@ -38,7 +38,7 @@ class MovementAssertion {
 
 class InflowAssertion {
   constructor(
-    private movement: AssetMovement,
+    private movement: AssetMovementDraft,
     private parent: MovementAssertion
   ) {}
 
@@ -64,7 +64,7 @@ class InflowAssertion {
 
 class OutflowAssertion {
   constructor(
-    private movement: AssetMovement,
+    private movement: AssetMovementDraft,
     private parent: MovementAssertion
   ) {}
 

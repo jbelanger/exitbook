@@ -1,4 +1,4 @@
-import { type AssetMovement, type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import { type AssetMovementDraft, type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
@@ -768,7 +768,7 @@ describe('lot-matcher-utils', () => {
 
   describe('validateOutflowFees', () => {
     it('should pass when netAmount matches grossAmount minus on-chain fees', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -784,7 +784,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should pass when no netAmount is provided (legacy data)', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -797,7 +797,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should ignore balance-settled fees when validating netAmount', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -813,7 +813,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should error when hidden fees exceed error threshold', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -832,7 +832,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should pass when hidden fees are within error threshold', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -846,7 +846,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should sum multiple on-chain fees when validating', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -863,7 +863,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should use custom tolerance when provided', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
@@ -886,7 +886,7 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return net amount for disposal policy', () => {
-      const outflow: AssetMovement = {
+      const outflow: AssetMovementDraft = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),

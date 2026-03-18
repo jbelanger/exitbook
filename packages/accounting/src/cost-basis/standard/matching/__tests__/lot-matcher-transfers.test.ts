@@ -1,5 +1,12 @@
-import type { FeeMovement } from '@exitbook/core';
-import { err, type Currency, parseDecimal, type AssetMovement, type Result, type Transaction } from '@exitbook/core';
+import type { FeeMovementDraft } from '@exitbook/core';
+import {
+  err,
+  type Currency,
+  parseDecimal,
+  type AssetMovementDraft,
+  type Result,
+  type Transaction,
+} from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -22,9 +29,9 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     id: number,
     datetime: string,
     source: string,
-    inflows: AssetMovement[] = [],
-    outflows: AssetMovement[] = [],
-    fees: FeeMovement[] = []
+    inflows: AssetMovementDraft[] = [],
+    outflows: AssetMovementDraft[] = [],
+    fees: FeeMovementDraft[] = []
   ): Transaction =>
     createTransactionFromMovements(id, datetime, { inflows, outflows }, fees, {
       source,

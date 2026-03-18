@@ -9,7 +9,7 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovement, Currency, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, Currency, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
@@ -21,7 +21,7 @@ import type { Decimal } from 'decimal.js';
 type TransactionMovement = NonNullable<Transaction['movements']['inflows']>[number];
 type TransactionFee = Transaction['fees'][number];
 
-interface MovementsNeedingNormalization<TMovement extends AssetMovement = AssetMovement> {
+interface MovementsNeedingNormalization<TMovement extends AssetMovementDraft = AssetMovementDraft> {
   /** Movements that need FX conversion (non-USD fiat prices) */
   needsNormalization: TMovement[];
   /** Movements to skip (already USD or crypto) */
@@ -158,7 +158,7 @@ export function createNormalizedPrice(
  * @param movement - Movement to check
  * @returns True if movement has non-USD fiat price
  */
-export function movementNeedsNormalization<TMovement extends AssetMovement>(movement: TMovement): boolean {
+export function movementNeedsNormalization<TMovement extends AssetMovementDraft>(movement: TMovement): boolean {
   if (!movement.priceAtTxTime) {
     return false;
   }
@@ -181,7 +181,7 @@ export function movementNeedsNormalization<TMovement extends AssetMovement>(move
  * @returns Classification: 'needs-normalization' | 'already-usd' | 'crypto' | 'no-price'
  */
 export function classifyMovementPrice(
-  movement: AssetMovement
+  movement: AssetMovementDraft
 ): 'needs-normalization' | 'already-usd' | 'crypto' | 'no-price' {
   if (!movement.priceAtTxTime) {
     return 'no-price';
@@ -223,7 +223,7 @@ export interface TransactionNormalizationResult {
   /** Number of movements skipped */
   movementsSkipped: number;
   /** Movements with crypto prices (unexpected) */
-  cryptoPriceMovements: AssetMovement[];
+  cryptoPriceMovements: AssetMovementDraft[];
   /** Errors that occurred during normalization */
   errors: { item: string; message: string }[];
 }

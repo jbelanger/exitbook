@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Currency } from '../../money/currency.js';
 import { parseDecimal } from '../../money/decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
-import type { AssetMovement } from '../movement.js';
+import type { AssetMovementDraft } from '../movement.js';
 
 describe('computePrimaryMovement', () => {
   it('returns undefined when no movements exist', () => {
@@ -12,7 +12,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns single inflow as primary with direction "in"', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -30,7 +30,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns single outflow as primary with direction "out"', () => {
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
@@ -48,7 +48,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns largest inflow when multiple inflows and no outflows', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -76,7 +76,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns largest outflow when multiple outflows and no inflows', () => {
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -104,14 +104,14 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns largest movement when both inflows and outflows exist (inflow larger)', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('1000'),
       },
     ];
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -129,14 +129,14 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns largest movement when both inflows and outflows exist (outflow larger)', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
         grossAmount: parseDecimal('100'),
       },
     ];
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -154,14 +154,14 @@ describe('computePrimaryMovement', () => {
   });
 
   it('returns inflow when amounts are equal (inflow has priority)', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
@@ -180,14 +180,14 @@ describe('computePrimaryMovement', () => {
 
   it('handles trade scenario (swap) with multiple assets', () => {
     // Buying 1 BTC for 50,000 USDT
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
       },
     ];
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
@@ -207,7 +207,7 @@ describe('computePrimaryMovement', () => {
 
   it('handles complex multi-asset trade', () => {
     // Multiple inflows and outflows
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:eth',
         assetSymbol: 'ETH' as Currency,
@@ -219,7 +219,7 @@ describe('computePrimaryMovement', () => {
         grossAmount: parseDecimal('100'),
       },
     ];
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -243,7 +243,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('handles decimal amounts correctly', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -261,7 +261,7 @@ describe('computePrimaryMovement', () => {
   });
 
   it('handles very large amounts', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:shib',
         assetSymbol: 'SHIB' as Currency,

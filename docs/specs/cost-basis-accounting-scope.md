@@ -45,12 +45,12 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 Cost-basis-local transaction shape derived from one `Transaction`:
 
 ```ts
-interface ScopedAssetMovement extends AssetMovement {
+interface ScopedAssetMovement extends AssetMovementDraft {
   movementFingerprint: string;
   rawPosition: number;
 }
 
-interface ScopedFeeMovement extends FeeMovement {
+interface ScopedFeeMovement extends FeeMovementDraft {
   originalTransactionId: number;
   rawPosition: number;
 }

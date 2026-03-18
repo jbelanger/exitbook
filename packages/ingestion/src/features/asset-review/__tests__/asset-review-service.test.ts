@@ -1,4 +1,4 @@
-import type { Currency, PersistedFeeMovement, Transaction } from '@exitbook/core';
+import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
 import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
@@ -37,7 +37,7 @@ function createTransaction(params: {
       movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'inflow', 0),
     },
   ];
-  const fees: PersistedFeeMovement[] = [
+  const fees: FeeMovement[] = [
     ...(params.includeFeeWithSameAsset
       ? [
           {
@@ -61,7 +61,7 @@ function createTransaction(params: {
       ),
       scope: 'platform' as const,
       settlement: 'balance' as const,
-    })) as PersistedFeeMovement[]),
+    })) as FeeMovement[]),
   ];
 
   return {
@@ -102,7 +102,7 @@ function createMultiAssetTransaction(params: {
     grossAmount: parseDecimal('100'),
     movementFingerprint: materializeMovementFingerprint(params.txFingerprint, 'inflow', index),
   }));
-  const fees: PersistedFeeMovement[] = (params.fees ?? []).map((fee, index) => ({
+  const fees: FeeMovement[] = (params.fees ?? []).map((fee, index) => ({
     assetId: fee.assetId,
     assetSymbol: fee.assetSymbol as Currency,
     amount: parseDecimal('1'),

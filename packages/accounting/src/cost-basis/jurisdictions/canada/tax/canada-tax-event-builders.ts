@@ -1,4 +1,4 @@
-import type { AssetMovement, FeeMovement, Currency, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, Currency, PriceAtTxTime } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -63,7 +63,7 @@ interface SameAssetFeeSourceRef {
 }
 
 function resolvePoolIdentity(
-  item: AssetMovement | FeeMovement,
+  item: AssetMovementDraft | FeeMovementDraft,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Result<CanadaPoolIdentity, Error> {
   if (isFiat(item.assetSymbol)) {
@@ -100,7 +100,7 @@ function resolvePoolIdentity(
   });
 }
 
-function getTransferComparableQuantity(movement: AssetMovement): Decimal {
+function getTransferComparableQuantity(movement: AssetMovementDraft): Decimal {
   return movement.netAmount ?? movement.grossAmount;
 }
 

@@ -1,13 +1,13 @@
-import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovementDraft, PriceAtTxTime } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/core';
 
 /**
  * Detected trade pattern with both sides of the trade
  */
 interface TradeMovements {
-  inflow: AssetMovement;
-  outflow: AssetMovement;
-  fee?: AssetMovement | undefined;
+  inflow: AssetMovementDraft;
+  outflow: AssetMovementDraft;
+  fee?: AssetMovementDraft | undefined;
   timestamp: number;
 }
 
@@ -16,8 +16,8 @@ interface TradeMovements {
  * Returns undefined if pattern doesn't match
  */
 export function extractTradeMovements(
-  inflows: AssetMovement[],
-  outflows: AssetMovement[],
+  inflows: AssetMovementDraft[],
+  outflows: AssetMovementDraft[],
   timestamp: number
 ): TradeMovements | undefined {
   // Simple trade: exactly 1 inflow and 1 outflow
@@ -217,7 +217,7 @@ export function calculatePriceFromTrade(
  * - EUR fee: 1 EUR = 1 EUR (tentative, will be normalized to USD)
  */
 export function stampFiatIdentityPrices(
-  movements: AssetMovement[],
+  movements: AssetMovementDraft[],
   timestamp: number
 ): { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] {
   const results: { assetSymbol: string; priceAtTxTime: PriceAtTxTime }[] = [];

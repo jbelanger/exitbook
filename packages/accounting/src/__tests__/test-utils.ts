@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 
 import type {
-  AssetMovement,
-  FeeMovement,
+  AssetMovementDraft,
+  FeeMovementDraft,
   OperationCategory,
   OperationType,
-  PersistedAssetMovement,
-  PersistedFeeMovement,
+  AssetMovement,
+  FeeMovement,
   PriceAtTxTime,
   Transaction,
 } from '@exitbook/core';
@@ -42,8 +42,8 @@ export function seedTxFingerprint(
   return sha256Hex(fingerprintMaterial);
 }
 
-type MaterializableAssetMovement = AssetMovement | PersistedAssetMovement;
-type MaterializableFeeMovement = FeeMovement | PersistedFeeMovement;
+type MaterializableAssetMovement = AssetMovementDraft | AssetMovement;
+type MaterializableFeeMovement = FeeMovementDraft | FeeMovement;
 
 interface MaterializeDraftMovements {
   inflows?: MaterializableAssetMovement[] | undefined;
@@ -108,7 +108,7 @@ function materializePersistedAssetMovements(
   txFingerprint: string,
   movementType: 'inflow' | 'outflow',
   movements: MaterializableAssetMovement[]
-): PersistedAssetMovement[] {
+): AssetMovement[] {
   return movements.map((movement, index) => ({
     ...movement,
     movementFingerprint: materializeMovementFingerprint(
@@ -120,10 +120,7 @@ function materializePersistedAssetMovements(
   }));
 }
 
-function materializePersistedFeeMovements(
-  txFingerprint: string,
-  fees: MaterializableFeeMovement[]
-): PersistedFeeMovement[] {
+function materializePersistedFeeMovements(txFingerprint: string, fees: MaterializableFeeMovement[]): FeeMovement[] {
   return fees.map((fee, index) => ({
     ...fee,
     movementFingerprint: materializeMovementFingerprint(
@@ -174,8 +171,8 @@ export interface TestMovementInput {
   fxTimestamp?: Date | undefined;
 }
 
-function buildTestMovement(m: TestMovementInput, datetime: string): AssetMovement {
-  const movement: AssetMovement = {
+function buildTestMovement(m: TestMovementInput, datetime: string): AssetMovementDraft {
+  const movement: AssetMovementDraft = {
     assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
     assetSymbol: m.assetSymbol as Currency,
     grossAmount: parseDecimal(m.amount),
@@ -225,7 +222,7 @@ export function buildTransaction(params: {
   blockchain?: Transaction['blockchain'] | undefined;
   category?: OperationCategory | undefined;
   datetime: string;
-  fees?: FeeMovement[] | undefined;
+  fees?: FeeMovementDraft[] | undefined;
   id: number;
   inflows?: TestMovementInput[] | undefined;
   outflows?: TestMovementInput[] | undefined;
@@ -299,15 +296,15 @@ export function createPriceAtTxTime(
 }
 
 /**
- * Creates an AssetMovement object. If priceAmount is omitted, no priceAtTxTime is set.
+ * Creates an AssetMovementDraft object. If priceAmount is omitted, no priceAtTxTime is set.
  */
 export function createMovement(
   assetSymbol: string,
   amount: string,
   priceAmount?: string,
   currency = 'USD'
-): PersistedAssetMovement {
-  const movement: PersistedAssetMovement = {
+): AssetMovement {
+  const movement: AssetMovement = {
     assetId: `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
     grossAmount: parseDecimal(amount),
@@ -322,7 +319,7 @@ export function createMovement(
 }
 
 /**
- * Creates a FeeMovement with explicit scope and settlement positional args.
+ * Creates a FeeMovementDraft with explicit scope and settlement positional args.
  * Use this when you need to specify scope/settlement directly.
  * For simple platform fees, use createFee() instead.
  */
@@ -334,7 +331,7 @@ export function createFeeMovement(
   priceAmount?: string,
   priceCurrency = 'USD',
   assetId?: string
-): PersistedFeeMovement {
+): FeeMovement {
   return {
     assetId: assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
@@ -353,7 +350,7 @@ export function createFeeMovement(
 }
 
 /**
- * Creates a FeeMovement object with common defaults
+ * Creates a FeeMovementDraft object with common defaults
  */
 export function createFee(
   assetSymbol: string,
@@ -365,7 +362,7 @@ export function createFee(
     scope?: 'platform' | 'network';
     settlement?: 'balance' | 'on-chain';
   }
-): PersistedFeeMovement {
+): FeeMovement {
   return {
     assetId: options?.assetId ?? `test:${assetSymbol.toLowerCase()}`,
     assetSymbol: assetSymbol as Currency,
@@ -466,13 +463,13 @@ export function createTransaction(
   outflows: { amount: string; assetSymbol: string; price: string }[] = [],
   options?: {
     category?: 'trade' | 'transfer';
-    fees?: FeeMovement[];
+    fees?: FeeMovementDraft[];
     source?: string;
     sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
 ): Transaction {
-  const fees: FeeMovement[] = options?.fees ?? [];
+  const fees: FeeMovementDraft[] = options?.fees ?? [];
   const accountId = 1;
   const identityReference = `ext-${id}`;
   const source = options?.source ?? 'test';
@@ -508,7 +505,7 @@ export function createTransaction(
 }
 
 /**
- * Creates a Transaction from raw AssetMovement arrays.
+ * Creates a Transaction from raw AssetMovementDraft arrays.
  * Use when you need to pass movements with specific priceAtTxTime already set.
  */
 export function createTransactionFromMovements(
@@ -567,7 +564,7 @@ export function createTransactionWithFee(
   outflows: { amount: string; assetSymbol: string; price: string }[],
   platformFee?: { amount: string; assetSymbol: string; price: string }
 ): Transaction {
-  const fees: FeeMovement[] = platformFee
+  const fees: FeeMovementDraft[] = platformFee
     ? [
         createFee(platformFee.assetSymbol, platformFee.amount, {
           priceAmount: platformFee.price,

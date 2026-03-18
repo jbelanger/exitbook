@@ -1,7 +1,7 @@
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import { hasNoUnknownTokenRef, hasValidBlockchainAssetIdFormat } from '../money/asset-id-utils.js';
-import { parseDecimal } from '../money/decimal-utils.js';
 import { CurrencySchema, DecimalSchema, MoneySchema } from '../money/money.js';
 import { DateSchema } from '../utils/primitives.js';
 
@@ -36,45 +36,25 @@ export const AssetIdSchema = z
       'Token reference (contract/mint/denom) must not be empty.',
   });
 
-const AssetMovementDraftFieldsSchema = z.object({
-  // Asset identity (required)
+const AssetMovementFieldsSchema = z.object({
   assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
-
-  // Amount fields
   grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
   netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
-
-  // Price metadata
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
-// Draft/common asset movement shape used before persistence.
-export const AssetMovementSchema = AssetMovementDraftFieldsSchema.refine(
-  (data) => {
-    if (data.netAmount && data.grossAmount) {
-      return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
-    }
-    return true;
-  },
-  { message: 'netAmount cannot exceed grossAmount' }
-);
+const amountRefinement = (data: { grossAmount: Decimal; netAmount?: Decimal | undefined }) =>
+  !data.netAmount || data.netAmount.lte(data.grossAmount);
+const amountRefinementMessage = { message: 'netAmount cannot exceed grossAmount' };
 
-// Explicit alias for pre-persistence usage sites.
-export const AssetMovementDraftSchema = AssetMovementSchema;
+/** Pre-persistence asset movement — no fingerprint yet. */
+export const AssetMovementDraftSchema = AssetMovementFieldsSchema.refine(amountRefinement, amountRefinementMessage);
 
-// Persisted asset movements must carry their canonical movementFingerprint.
-export const PersistedAssetMovementSchema = AssetMovementDraftFieldsSchema.extend({
+/** Persisted asset movement with canonical movementFingerprint. */
+export const AssetMovementSchema = AssetMovementFieldsSchema.extend({
   movementFingerprint: z.string().min(1, 'Movement fingerprint must not be empty'),
-}).refine(
-  (data) => {
-    if (data.netAmount && data.grossAmount) {
-      return parseDecimal(data.netAmount).lte(parseDecimal(data.grossAmount));
-    }
-    return true;
-  },
-  { message: 'netAmount cannot exceed grossAmount' }
-);
+}).refine(amountRefinement, amountRefinementMessage);
 
 /**
  * Fee Movement Schema
@@ -132,7 +112,7 @@ export const PersistedAssetMovementSchema = AssetMovementDraftFieldsSchema.exten
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
  * - This ensures accurate balance tracking across different blockchain architectures
  */
-export const FeeMovementSchema = z.object({
+export const FeeMovementDraftSchema = z.object({
   // Asset identity (required)
   assetId: AssetIdSchema, // Unique key for math & storage (e.g., blockchain:ethereum:0xa0b8...)
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
@@ -146,17 +126,13 @@ export const FeeMovementSchema = z.object({
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
-export const FeeMovementDraftSchema = FeeMovementSchema;
-
-export const PersistedFeeMovementSchema = FeeMovementSchema.extend({
+export const FeeMovementSchema = FeeMovementDraftSchema.extend({
   movementFingerprint: z.string().min(1, 'Movement fingerprint must not be empty'),
 });
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
-export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 export type AssetMovementDraft = z.infer<typeof AssetMovementDraftSchema>;
-export type PersistedAssetMovement = z.infer<typeof PersistedAssetMovementSchema>;
-export type FeeMovement = z.infer<typeof FeeMovementSchema>;
+export type AssetMovement = z.infer<typeof AssetMovementSchema>;
 export type FeeMovementDraft = z.infer<typeof FeeMovementDraftSchema>;
-export type PersistedFeeMovement = z.infer<typeof PersistedFeeMovementSchema>;
+export type FeeMovement = z.infer<typeof FeeMovementSchema>;

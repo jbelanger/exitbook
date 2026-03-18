@@ -176,7 +176,7 @@ exchange:coinbase:usdc
 
 ## Data Model Changes (High-Level)
 
-- `AssetMovement` and `FeeMovement` include `assetId` + `assetSymbol` (no duplicated token metadata).
+- `AssetMovementDraft` and `FeeMovementDraft` include `assetId` + `assetSymbol` (no duplicated token metadata).
 - Persist `assetId` in `movements_*` and `fees` JSON blobs.
 - Update initial schema migration (`001_initial_schema.ts`) accordingly.
 

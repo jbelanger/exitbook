@@ -44,8 +44,8 @@ In scope:
 - `transactions.tx_fingerprint`
 - `transaction_movements.movement_fingerprint`
 - `Transaction.txFingerprint`
-- `AssetMovement.movementFingerprint`
-- `FeeMovement.movementFingerprint`
+- `AssetMovementDraft.movementFingerprint`
+- `FeeMovementDraft.movementFingerprint`
 - read/write path changes needed to populate and preserve those values
 - targeted linking and override-flow refactors that use persisted fingerprints
 
@@ -302,8 +302,8 @@ Files:
 Plan:
 
 - add `txFingerprint` to `Transaction`
-- add `movementFingerprint` to `AssetMovement`
-- add `movementFingerprint` to `FeeMovement`
+- add `movementFingerprint` to `AssetMovementDraft`
+- add `movementFingerprint` to `FeeMovementDraft`
 - wire the repository read path to map persisted columns into those shapes
 - update affected fixtures and builders mechanically across tests instead of introducing a parallel transitional type
 - use the universal model as the single read model for persisted fingerprints in steps 6 and 7
@@ -417,7 +417,7 @@ After this plan lands, the next cleanup choices are:
 
 - Decision: take the practical fingerprint-persistence route first, not a full identity redesign.
 - Decision: do not carry a persisted-vs-recomputed dual path in dev; stored fingerprints become mandatory once the schema is updated.
-- Decision: add fingerprint fields directly to `Transaction`, `AssetMovement`, and `FeeMovement` instead of introducing a parallel transitional type.
+- Decision: add fingerprint fields directly to `Transaction`, `AssetMovementDraft`, and `FeeMovementDraft` instead of introducing a parallel transitional type.
 - Decision: make `buildInsertValues` the explicit handoff point for `txFingerprint` into `buildMovementRows`.
 - Decision: keep `position` for now to reduce change scope and risk.
 - Smell: `position` looks like business identity in the schema, but today it is mostly a row-order implementation detail.

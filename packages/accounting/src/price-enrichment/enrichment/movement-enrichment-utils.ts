@@ -8,7 +8,7 @@
  * 0. fiat-execution-tentative - Pending normalization to USD
  */
 
-import type { AssetMovement, FeeMovement, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, PriceAtTxTime } from '@exitbook/core';
 
 /** Price source priority levels */
 const PRICE_SOURCE_PRIORITY = {
@@ -26,7 +26,7 @@ const isDerivedSource = (source: string) => source === 'derived-ratio' || source
 
 /**
  * Apply price priority rules to any entity with an optional priceAtTxTime field.
- * Works with both AssetMovement and FeeMovement.
+ * Works with both AssetMovementDraft and FeeMovementDraft.
  */
 function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }>(
   entity: T,
@@ -59,7 +59,7 @@ function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }
 /**
  * Enrich a single movement with new price data according to priority rules.
  */
-export function enrichMovementWithPrice<TMovement extends AssetMovement>(
+export function enrichMovementWithPrice<TMovement extends AssetMovementDraft>(
   movement: TMovement,
   newPrice: PriceAtTxTime
 ): TMovement {
@@ -73,7 +73,7 @@ export function enrichMovementWithPrice<TMovement extends AssetMovement>(
  * @param pricesMap - Map of asset symbol to price data
  * @returns Enriched movements array
  */
-export function enrichMovementsWithPrices<TMovement extends AssetMovement>(
+export function enrichMovementsWithPrices<TMovement extends AssetMovementDraft>(
   movements: TMovement[],
   pricesMap: Map<string, PriceAtTxTime>
 ): TMovement[] {
@@ -89,7 +89,7 @@ export function enrichMovementsWithPrices<TMovement extends AssetMovement>(
 /**
  * Enrich an array of movements with prices keyed by assetId.
  */
-export function enrichMovementsWithPricesByAssetId<TMovement extends AssetMovement>(
+export function enrichMovementsWithPricesByAssetId<TMovement extends AssetMovementDraft>(
   movements: TMovement[],
   pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
 ): TMovement[] {
@@ -105,7 +105,7 @@ export function enrichMovementsWithPricesByAssetId<TMovement extends AssetMoveme
 /**
  * Enrich fee movements with prices keyed by assetId.
  */
-export function enrichFeesWithPricesByAssetId<TFee extends FeeMovement>(
+export function enrichFeesWithPricesByAssetId<TFee extends FeeMovementDraft>(
   fees: TFee[],
   pricesByAssetId: ReadonlyMap<string, PriceAtTxTime>
 ): TFee[] {

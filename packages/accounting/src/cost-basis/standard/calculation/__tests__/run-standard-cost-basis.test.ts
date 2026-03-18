@@ -1,4 +1,4 @@
-import type { AssetMovement, AssetReviewSummary, Currency, TransactionLink } from '@exitbook/core';
+import type { AssetMovementDraft, AssetReviewSummary, Currency, TransactionLink } from '@exitbook/core';
 import { computeMovementFingerprint, ok, parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -33,7 +33,7 @@ function stubStore(): ICostBasisContextReader {
   };
 }
 
-function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amount: string): AssetMovement {
+function createBlockchainTokenMovement(assetId: string, assetSymbol: string, amount: string): AssetMovementDraft {
   return {
     assetId,
     assetSymbol: assetSymbol as Currency,

@@ -1,4 +1,4 @@
-import type { Currency, PersistedAssetMovement, PersistedFeeMovement, Transaction } from '@exitbook/core';
+import type { Currency, AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -13,11 +13,11 @@ import {
 // Types — cost-basis-local, not shared
 // ---------------------------------------------------------------------------
 
-export interface ScopedAssetMovement extends PersistedAssetMovement {
+export interface ScopedAssetMovement extends AssetMovement {
   rawPosition: number;
 }
 
-export interface ScopedFeeMovement extends PersistedFeeMovement {
+export interface ScopedFeeMovement extends FeeMovement {
   originalTransactionId: number;
   rawPosition: number;
 }

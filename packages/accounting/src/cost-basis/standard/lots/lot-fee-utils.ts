@@ -1,8 +1,8 @@
 import {
   isFiat,
   parseDecimal,
-  type AssetMovement,
-  type FeeMovement,
+  type AssetMovementDraft,
+  type FeeMovementDraft,
   type PriceAtTxTime,
   type Transaction,
 } from '@exitbook/core';
@@ -20,8 +20,8 @@ function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
 }
 
 function getTransactionMovements(transaction: CostBasisTransactionLike): {
-  inflows: AssetMovement[];
-  outflows: AssetMovement[];
+  inflows: AssetMovementDraft[];
+  outflows: AssetMovementDraft[];
 } {
   return {
     inflows: transaction.movements.inflows ?? [],
@@ -31,7 +31,7 @@ function getTransactionMovements(transaction: CostBasisTransactionLike): {
 
 function getTransactionFees(
   transaction: CostBasisTransactionLike
-): Pick<FeeMovement, 'amount' | 'assetId' | 'assetSymbol' | 'priceAtTxTime' | 'scope' | 'settlement'>[] {
+): Pick<FeeMovementDraft, 'amount' | 'assetId' | 'assetSymbol' | 'priceAtTxTime' | 'scope' | 'settlement'>[] {
   return transaction.fees;
 }
 
@@ -81,7 +81,7 @@ export function extractCryptoFee(
 
 export function extractAllocatedCryptoFee(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovement
+  outflow: AssetMovementDraft
 ): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
   const totalFeeResult = extractCryptoFee(transaction, outflow.assetId);
   if (totalFeeResult.isErr()) {
@@ -172,7 +172,7 @@ export function extractOnChainFees(transaction: CostBasisTransactionLike, assetI
  * Detects hidden/undeclared fees when the difference exceeds tolerance.
  */
 export function validateOutflowFees(
-  outflow: AssetMovement,
+  outflow: AssetMovementDraft,
   transaction: CostBasisTransactionLike,
   source: string,
   txId: number,
@@ -262,8 +262,8 @@ export function collectFiatFees(
  * Convert all fees to their total fiat value.
  */
 function calculateTotalFeeValueInFiat(
-  fees: Pick<FeeMovement, 'amount' | 'assetSymbol' | 'priceAtTxTime'>[],
-  targetMovement: AssetMovement,
+  fees: Pick<FeeMovementDraft, 'amount' | 'assetSymbol' | 'priceAtTxTime'>[],
+  targetMovement: AssetMovementDraft,
   transactionId: number
 ): Result<Decimal, Error> {
   let totalFeeValue = parseDecimal('0');
@@ -304,10 +304,10 @@ function calculateTotalFeeValueInFiat(
  */
 function calculateMovementValues(
   transaction: CostBasisTransactionLike,
-  targetMovement: AssetMovement,
+  targetMovement: AssetMovementDraft,
   isInflow: boolean
 ): {
-  nonFiatMovements: AssetMovement[];
+  nonFiatMovements: AssetMovementDraft[];
   targetAmount: Decimal;
   targetMovementValue: Decimal;
   totalMovementValue: Decimal;
@@ -352,13 +352,13 @@ function calculateMovementValues(
 function allocateFeesProportionally(
   totalFeeValue: Decimal,
   values: {
-    nonFiatMovements: AssetMovement[];
+    nonFiatMovements: AssetMovementDraft[];
     targetAmount: Decimal;
     targetMovementValue: Decimal;
     totalMovementValue: Decimal;
   },
-  targetMovement: AssetMovement,
-  inflows: AssetMovement[]
+  targetMovement: AssetMovementDraft,
+  inflows: AssetMovementDraft[]
 ): Decimal {
   if (!values.totalMovementValue.isZero()) {
     return totalFeeValue.times(values.targetMovementValue).dividedBy(values.totalMovementValue);
@@ -388,7 +388,7 @@ function allocateFeesProportionally(
  */
 export function calculateFeesInFiat(
   transaction: CostBasisTransactionLike,
-  targetMovement: AssetMovement,
+  targetMovement: AssetMovementDraft,
   isInflow: boolean
 ): Result<Decimal, Error> {
   const relevantFees = isInflow

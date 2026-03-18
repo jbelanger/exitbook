@@ -9,7 +9,7 @@
  * All functions are pure (no side effects, no DB access, no logging).
  */
 
-import type { AssetMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
 import { isFiat, isFiatOrStablecoin, parseDecimal } from '@exitbook/core';
 
 import type { LinkedTransactionGroup } from '../shared/types.js';
@@ -33,7 +33,7 @@ interface InferMultiPassResult {
 /**
  * Internal result structure for individual passes
  */
-interface PassResult<TMovement extends AssetMovement = AssetMovement> {
+interface PassResult<TMovement extends AssetMovementDraft = AssetMovementDraft> {
   /** Map of transaction ID to enriched movements */
   enrichedMovements: Map<number, { inflows: TMovement[]; outflows: TMovement[] }>;
   /** IDs of transactions modified by this pass */

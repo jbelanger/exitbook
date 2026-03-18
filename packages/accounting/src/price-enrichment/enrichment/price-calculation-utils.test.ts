@@ -1,11 +1,11 @@
-import { type AssetMovement, type Currency, parseDecimal } from '@exitbook/core';
+import { type AssetMovementDraft, type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { calculatePriceFromTrade, extractTradeMovements } from './price-calculation-utils.js';
 
 describe('extractTradeMovements', () => {
   it('should extract simple trade pattern (1 inflow + 1 outflow)', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -13,7 +13,7 @@ describe('extractTradeMovements', () => {
       },
     ];
 
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,
@@ -32,7 +32,7 @@ describe('extractTradeMovements', () => {
   });
 
   it('should return undefined for complex patterns', () => {
-    const inflows: AssetMovement[] = [
+    const inflows: AssetMovementDraft[] = [
       {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -45,7 +45,7 @@ describe('extractTradeMovements', () => {
       },
     ];
 
-    const outflows: AssetMovement[] = [
+    const outflows: AssetMovementDraft[] = [
       {
         assetId: 'test:usdt',
         assetSymbol: 'USDT' as Currency,

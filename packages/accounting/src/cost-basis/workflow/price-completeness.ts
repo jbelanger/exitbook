@@ -1,4 +1,10 @@
-import { isFiat, parseCurrency, type AssetMovement, type FeeMovement, type Transaction } from '@exitbook/core';
+import {
+  isFiat,
+  parseCurrency,
+  type AssetMovementDraft,
+  type FeeMovementDraft,
+  type Transaction,
+} from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -13,7 +19,7 @@ import { applyAccountingExclusionPolicy } from '../standard/validation/accountin
 
 const logger = getLogger('cost-basis.workflow.price-completeness');
 
-function movementHasPrice(movement: AssetMovement | FeeMovement): Result<boolean, Error> {
+function movementHasPrice(movement: AssetMovementDraft | FeeMovementDraft): Result<boolean, Error> {
   const rawSymbol = movement.assetSymbol;
   const trimmedSymbol = rawSymbol?.trim();
   if (!trimmedSymbol) {

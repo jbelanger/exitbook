@@ -1,4 +1,4 @@
-import { parseDecimal, type AssetMovement, type Transaction } from '@exitbook/core';
+import { parseDecimal, type AssetMovementDraft, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -80,7 +80,7 @@ interface TargetWarning {
  */
 export function processTransferSource(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovement,
+  outflow: AssetMovementDraft,
   links: ValidatedScopedTransferLink[],
   lots: AcquisitionLot[],
   strategy: ICostBasisStrategy,
@@ -353,7 +353,7 @@ export function processTransferSource(
  */
 export function processTransferTarget(
   transaction: CostBasisTransactionLike,
-  inflow: AssetMovement,
+  inflow: AssetMovementDraft,
   validatedLink: ValidatedScopedTransferLink,
   sourceTx: CostBasisTransactionLike,
   transfersForLink: LotTransfer[],

@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { parseDecimal } from '../../money/decimal-utils.js';
 import {
+  AssetMovementDraftSchema,
+  FeeMovementDraftSchema,
   AssetMovementSchema,
   FeeMovementSchema,
-  PersistedAssetMovementSchema,
-  PersistedFeeMovementSchema,
 } from '../movement.js';
 import { TransactionSchema } from '../transaction.js';
 
-describe('AssetMovementSchema', () => {
+describe('AssetMovementDraftSchema', () => {
   describe('assetId validation', () => {
     it('accepts valid blockchain native assetId', () => {
       const movement = {
@@ -17,7 +17,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('1.5'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(true);
     });
 
@@ -27,7 +27,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'USDC',
         grossAmount: parseDecimal('100'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(true);
     });
 
@@ -37,7 +37,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'BTC',
         grossAmount: parseDecimal('0.5'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(true);
     });
 
@@ -47,7 +47,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'USD',
         grossAmount: parseDecimal('1000'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(true);
     });
 
@@ -57,7 +57,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'USDC',
         grossAmount: parseDecimal('100'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('unknown token reference');
@@ -70,7 +70,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('1'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('Token reference');
@@ -83,7 +83,7 @@ describe('AssetMovementSchema', () => {
         assetSymbol: 'ETH',
         grossAmount: parseDecimal('1'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(false);
     });
   });
@@ -96,7 +96,7 @@ describe('AssetMovementSchema', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('0.999'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(true);
     });
 
@@ -107,7 +107,7 @@ describe('AssetMovementSchema', () => {
         grossAmount: parseDecimal('1.0'),
         netAmount: parseDecimal('1.1'),
       };
-      const result = AssetMovementSchema.safeParse(movement);
+      const result = AssetMovementDraftSchema.safeParse(movement);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('netAmount cannot exceed grossAmount');
@@ -116,7 +116,7 @@ describe('AssetMovementSchema', () => {
   });
 });
 
-describe('FeeMovementSchema', () => {
+describe('FeeMovementDraftSchema', () => {
   describe('assetId validation', () => {
     it('accepts valid blockchain native assetId', () => {
       const fee = {
@@ -126,7 +126,7 @@ describe('FeeMovementSchema', () => {
         scope: 'network' as const,
         settlement: 'balance' as const,
       };
-      const result = FeeMovementSchema.safeParse(fee);
+      const result = FeeMovementDraftSchema.safeParse(fee);
       expect(result.success).toBe(true);
     });
 
@@ -138,7 +138,7 @@ describe('FeeMovementSchema', () => {
         scope: 'platform' as const,
         settlement: 'balance' as const,
       };
-      const result = FeeMovementSchema.safeParse(fee);
+      const result = FeeMovementDraftSchema.safeParse(fee);
       expect(result.success).toBe(true);
     });
 
@@ -150,7 +150,7 @@ describe('FeeMovementSchema', () => {
         scope: 'platform' as const,
         settlement: 'balance' as const,
       };
-      const result = FeeMovementSchema.safeParse(fee);
+      const result = FeeMovementDraftSchema.safeParse(fee);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('unknown token reference');
@@ -165,7 +165,7 @@ describe('FeeMovementSchema', () => {
         scope: 'network' as const,
         settlement: 'balance' as const,
       };
-      const result = FeeMovementSchema.safeParse(fee);
+      const result = FeeMovementDraftSchema.safeParse(fee);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toContain('Token reference');
@@ -176,7 +176,7 @@ describe('FeeMovementSchema', () => {
 
 describe('Persisted movement schemas', () => {
   it('requires movementFingerprint for persisted asset movements', () => {
-    const result = PersistedAssetMovementSchema.safeParse({
+    const result = AssetMovementSchema.safeParse({
       assetId: 'blockchain:solana:native',
       assetSymbol: 'SOL',
       grossAmount: parseDecimal('1.0'),
@@ -184,12 +184,13 @@ describe('Persisted movement schemas', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain('Movement fingerprint');
+      const fingerprintIssue = result.error.issues.find((i) => i.path.includes('movementFingerprint'));
+      expect(fingerprintIssue).toBeDefined();
     }
   });
 
   it('requires movementFingerprint for persisted fee movements', () => {
-    const result = PersistedFeeMovementSchema.safeParse({
+    const result = FeeMovementSchema.safeParse({
       assetId: 'blockchain:solana:native',
       assetSymbol: 'SOL',
       amount: parseDecimal('0.000005'),
@@ -199,7 +200,8 @@ describe('Persisted movement schemas', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain('Movement fingerprint');
+      const fingerprintIssue = result.error.issues.find((i) => i.path.includes('movementFingerprint'));
+      expect(fingerprintIssue).toBeDefined();
     }
   });
 });

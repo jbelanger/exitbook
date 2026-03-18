@@ -5,8 +5,8 @@ import { SourceTypeSchema } from '../import-session/import-session.js';
 import {
   AssetMovementDraftSchema,
   FeeMovementDraftSchema,
-  PersistedAssetMovementSchema,
-  PersistedFeeMovementSchema,
+  AssetMovementSchema,
+  FeeMovementSchema,
 } from './movement.js';
 
 // Transaction status schema
@@ -123,10 +123,7 @@ const TransactionDraftBaseFieldsSchema = createTransactionBaseFieldsSchema(
   AssetMovementDraftSchema,
   FeeMovementDraftSchema
 );
-const TransactionBaseFieldsSchema = createTransactionBaseFieldsSchema(
-  PersistedAssetMovementSchema,
-  PersistedFeeMovementSchema
-);
+const TransactionBaseFieldsSchema = createTransactionBaseFieldsSchema(AssetMovementSchema, FeeMovementSchema);
 
 // Pre-persistence transaction contract. Transient identity material is carried
 // through the processing pipeline for fingerprint derivation but not persisted.

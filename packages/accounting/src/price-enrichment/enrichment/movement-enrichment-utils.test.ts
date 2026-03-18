@@ -8,13 +8,13 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovement, PriceAtTxTime } from '@exitbook/core';
+import type { AssetMovementDraft, PriceAtTxTime } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { enrichMovementWithPrice, enrichMovementsWithPrices } from './movement-enrichment-utils.js';
 
 describe('enrichMovementWithPrice', () => {
-  const createMovement = (price?: PriceAtTxTime): AssetMovement => ({
+  const createMovement = (price?: PriceAtTxTime): AssetMovementDraft => ({
     assetId: 'test:btc',
     assetSymbol: 'BTC' as Currency,
     grossAmount: parseDecimal('1.0'),
@@ -152,7 +152,7 @@ describe('enrichMovementWithPrice', () => {
 
 describe('enrichMovementsWithPrices', () => {
   it('should enrich multiple movements using price map', () => {
-    const movements: AssetMovement[] = [
+    const movements: AssetMovementDraft[] = [
       { assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.0') },
       { assetId: 'test:eth', assetSymbol: 'ETH' as Currency, grossAmount: parseDecimal('10.0') },
       { assetId: 'test:sol', assetSymbol: 'SOL' as Currency, grossAmount: parseDecimal('100.0') },
@@ -190,7 +190,7 @@ describe('enrichMovementsWithPrices', () => {
   });
 
   it('should respect priority rules when enriching multiple movements', () => {
-    const movements: AssetMovement[] = [
+    const movements: AssetMovementDraft[] = [
       {
         assetSymbol: 'BTC' as Currency,
         assetId: 'test:btc',

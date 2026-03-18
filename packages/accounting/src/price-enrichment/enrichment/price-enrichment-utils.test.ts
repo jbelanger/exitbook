@@ -8,7 +8,7 @@
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { PersistedFeeMovement } from '@exitbook/core';
+import type { FeeMovement } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -631,7 +631,7 @@ describe('enrichFeePricesFromMovements', () => {
     );
 
     // Add fee with existing price
-    const fee: PersistedFeeMovement = {
+    const fee: FeeMovement = {
       assetId: 'test:btc',
       assetSymbol: 'BTC' as Currency,
       amount: parseDecimal('0.001'),

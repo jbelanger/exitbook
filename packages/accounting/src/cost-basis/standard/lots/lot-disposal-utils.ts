@@ -1,4 +1,4 @@
-import { parseDecimal, wrapError, type AssetMovement, type Transaction } from '@exitbook/core';
+import { parseDecimal, wrapError, type AssetMovementDraft, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -21,7 +21,7 @@ function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
  */
 export function calculateNetProceeds(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovement
+  outflow: AssetMovementDraft
 ): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal }, Error> {
   const rawTransaction = getRawTransaction(transaction);
 
@@ -84,7 +84,7 @@ function applyDisposalProceedsBreakdown(
  */
 export function matchOutflowDisposal(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovement,
+  outflow: AssetMovementDraft,
   allLots: AcquisitionLot[],
   strategy: ICostBasisStrategy
 ): Result<{ disposals: LotDisposal[]; updatedLots: AcquisitionLot[] }, Error> {

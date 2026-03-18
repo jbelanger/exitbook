@@ -1,6 +1,6 @@
 // Utilities and types for view transactions command
 
-import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, Transaction } from '@exitbook/core';
 import { computePrimaryMovement, isFiat, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
@@ -78,9 +78,9 @@ function isFiatAsset(assetSymbol: string): boolean {
 }
 
 /**
- * Convert an AssetMovement to a MovementDisplayItem.
+ * Convert an AssetMovementDraft to a MovementDisplayItem.
  */
-function toMovementDisplayItem(m: AssetMovement): MovementDisplayItem {
+function toMovementDisplayItem(m: AssetMovementDraft): MovementDisplayItem {
   return {
     assetSymbol: m.assetSymbol,
     amount: m.grossAmount.toFixed(),
@@ -91,9 +91,9 @@ function toMovementDisplayItem(m: AssetMovement): MovementDisplayItem {
 }
 
 /**
- * Convert a FeeMovement to a FeeDisplayItem.
+ * Convert a FeeMovementDraft to a FeeDisplayItem.
  */
-function toFeeDisplayItem(f: FeeMovement): FeeDisplayItem {
+function toFeeDisplayItem(f: FeeMovementDraft): FeeDisplayItem {
   return {
     assetSymbol: f.assetSymbol,
     amount: f.amount.toFixed(),

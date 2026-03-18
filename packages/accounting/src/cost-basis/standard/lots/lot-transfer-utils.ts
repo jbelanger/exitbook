@@ -1,4 +1,4 @@
-import { parseDecimal, type AssetMovement, type PriceAtTxTime } from '@exitbook/core';
+import { parseDecimal, type AssetMovementDraft, type PriceAtTxTime } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
@@ -44,7 +44,7 @@ export function validateTransferVariance(
  * @returns Amount to match from source lots before any separate fee disposal step
  */
 export function calculateTransferDisposalAmount(
-  outflow: AssetMovement,
+  outflow: AssetMovementDraft,
   transferredQuantity: Decimal,
   feePolicy: 'disposal' | 'add-to-basis'
 ): { transferDisposalQuantity: Decimal } {

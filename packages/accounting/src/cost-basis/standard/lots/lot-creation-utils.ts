@@ -1,4 +1,4 @@
-import { isFiat, type AssetMovement, type Transaction } from '@exitbook/core';
+import { isFiat, type AssetMovementDraft, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
@@ -53,7 +53,7 @@ export function filterTransactionsWithoutPrices(transactions: Transaction[]): Tr
  */
 export function buildAcquisitionLotFromInflow(
   transaction: CostBasisTransactionLike,
-  inflow: AssetMovement,
+  inflow: AssetMovementDraft,
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id'
 ): Result<AcquisitionLot, Error> {

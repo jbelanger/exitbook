@@ -1,6 +1,6 @@
 // Shared types and utilities for view commands
 
-import type { AssetMovement, Transaction, TransactionDraft } from '@exitbook/core';
+import type { AssetMovementDraft, Transaction, TransactionDraft } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
 /**
@@ -62,6 +62,8 @@ export function buildViewMeta(
  * Get all movements (inflows and outflows) from a transaction's movements.
  * Handles optional arrays with null coalescing.
  */
-export function getAllMovements(movements: Transaction['movements'] | TransactionDraft['movements']): AssetMovement[] {
+export function getAllMovements(
+  movements: Transaction['movements'] | TransactionDraft['movements']
+): AssetMovementDraft[] {
   return [...(movements.inflows ?? []), ...(movements.outflows ?? [])];
 }

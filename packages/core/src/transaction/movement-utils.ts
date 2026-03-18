@@ -2,7 +2,7 @@ import type { Decimal } from 'decimal.js';
 
 import { parseDecimal } from '../money/decimal-utils.js';
 
-import type { AssetMovement, MovementDirection } from './movement.js';
+import type { AssetMovementDraft, MovementDirection } from './movement.js';
 
 /**
  * Result of computing primary movement from inflows/outflows
@@ -27,8 +27,8 @@ export interface PrimaryMovement {
  * @returns Primary movement or undefined if no movements exist
  */
 export function computePrimaryMovement(
-  inflows: AssetMovement[] = [],
-  outflows: AssetMovement[] = []
+  inflows: AssetMovementDraft[] = [],
+  outflows: AssetMovementDraft[] = []
 ): PrimaryMovement | undefined {
   const hasInflows = inflows.length > 0;
   const hasOutflows = outflows.length > 0;
@@ -77,7 +77,7 @@ export function computePrimaryMovement(
  * @param movements - Array of asset movements (must not be empty)
  * @returns The largest movement
  */
-function findLargestMovement(movements: AssetMovement[]): AssetMovement {
+function findLargestMovement(movements: AssetMovementDraft[]): AssetMovementDraft {
   if (movements.length === 0) {
     throw new Error('Cannot find largest movement in empty array');
   }

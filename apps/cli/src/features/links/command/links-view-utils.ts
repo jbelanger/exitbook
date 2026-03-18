@@ -1,7 +1,7 @@
 // Utilities and types for links view command
 
 import type { LinkStatus, MatchCriteria, TransactionLink } from '@exitbook/accounting';
-import type { AssetMovement, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, Transaction } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../../shared/view-utils.js';
@@ -23,8 +23,8 @@ export interface TransactionDetails {
   tx_fingerprint: string;
   from_address: string | undefined;
   id: number;
-  movements_inflows: AssetMovement[];
-  movements_outflows: AssetMovement[];
+  movements_inflows: AssetMovementDraft[];
+  movements_outflows: AssetMovementDraft[];
   source_name: string;
   source_type: Transaction['sourceType'];
   timestamp: string;
@@ -192,7 +192,7 @@ function formatMatchCriteria(criteria: MatchCriteria): string {
 /**
  * Format transaction movements for display.
  */
-function formatMovements(inflows: AssetMovement[], outflows: AssetMovement[]): string {
+function formatMovements(inflows: AssetMovementDraft[], outflows: AssetMovementDraft[]): string {
   const parts: string[] = [];
 
   if (outflows.length > 0) {

@@ -1,4 +1,4 @@
-import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
+import type { Currency, FeeMovementDraft, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
@@ -42,7 +42,7 @@ function createBlockchainTx(
   txHash: string,
   inflows: { amount: string; assetId: string; assetSymbol: string; price: string }[],
   outflows: { amount: string; assetId: string; assetSymbol: string; price: string }[],
-  fees: FeeMovement[] = []
+  fees: FeeMovementDraft[] = []
 ): Transaction {
   return materializeTestTransaction({
     id,

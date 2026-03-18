@@ -2,7 +2,7 @@
 // All functions are pure - no side effects
 
 import type { TransactionLink } from '@exitbook/accounting';
-import type { FeeMovement, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { FeeMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok, resultDo } from '@exitbook/core';
 import type { z } from 'zod';
@@ -358,16 +358,16 @@ function formatMovementAmounts(movements: NonNullable<Transaction['movements']['
   return movements.map((movement) => movement.grossAmount.toFixed()).join(';');
 }
 
-function filterFeesByScope(fees: FeeMovement[], scope: FeeMovement['scope']): FeeMovement[] {
+function filterFeesByScope(fees: FeeMovementDraft[], scope: FeeMovementDraft['scope']): FeeMovementDraft[] {
   return fees.filter((fee) => fee.scope === scope);
 }
 
-function formatFeeAssets(fees: FeeMovement[]): string {
+function formatFeeAssets(fees: FeeMovementDraft[]): string {
   if (fees.length === 0) return '';
   return fees.map((fee) => fee.assetSymbol).join(';');
 }
 
-function formatFeeAmounts(fees: FeeMovement[]): string {
+function formatFeeAmounts(fees: FeeMovementDraft[]): string {
   if (fees.length === 0) return '';
   return fees.map((fee) => fee.amount.toFixed()).join(';');
 }
