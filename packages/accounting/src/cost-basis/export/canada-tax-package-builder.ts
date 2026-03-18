@@ -14,6 +14,7 @@ import {
   buildArtifactIndex,
   buildCsvFile,
   buildIssueRows,
+  buildSourceLinksCsvFile,
   countAccountsBySourceName,
   countCsvRows,
   formatDate,
@@ -458,33 +459,7 @@ function buildCanadaSupportingFiles(params: {
   }
 
   if (sourceLinkRowsResult.value.length > 0) {
-    files.push(
-      buildCsvFile(
-        'source_links',
-        'source-links.csv',
-        'Audit traceability appendix linking package-local refs to source-system references.',
-        [
-          'package_ref',
-          'package_artifact',
-          'source_type',
-          'source_venue_label',
-          'source_account_label',
-          'source_reference',
-          'source_reference_kind',
-          'source_url',
-        ],
-        sourceLinkRowsResult.value.map((row) => [
-          row.package_ref,
-          row.package_artifact,
-          row.source_type,
-          row.source_venue_label,
-          row.source_account_label,
-          row.source_reference,
-          row.source_reference_kind,
-          row.source_url,
-        ])
-      )
-    );
+    files.push(buildSourceLinksCsvFile(sourceLinkRowsResult.value));
   }
 
   return ok(files);
@@ -857,7 +832,7 @@ function buildSourceLinkRows(params: {
     if (artifactDiff !== 0) return artifactDiff;
     const packageRefDiff = left.package_ref.localeCompare(right.package_ref);
     if (packageRefDiff !== 0) return packageRefDiff;
-    return left.source_reference.localeCompare(right.source_reference);
+    return left.tx_fingerprint.localeCompare(right.tx_fingerprint);
   });
 
   return ok(rows);

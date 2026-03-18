@@ -21,11 +21,10 @@ export interface TaxPackageSourceLinkRow {
   package_artifact: string;
   package_ref: string;
   source_account_label: string;
-  source_reference: string;
-  source_reference_kind: string;
   source_type: string;
   source_url: string;
   source_venue_label: string;
+  tx_fingerprint: string;
 }
 
 export function buildAccountLabeler(context: TaxPackageBuildContext): (accountId: number) => Result<string, Error> {
@@ -142,11 +141,6 @@ export function appendSourceLinkRows(
       return err(transactionResult.error);
     }
 
-    const sourceReference = getSourceReference(transactionResult.value);
-    if (!sourceReference) {
-      continue;
-    }
-
     const account = params.context.sourceContext.accountsById.get(transactionResult.value.accountId);
     if (!account) {
       return err(
@@ -160,8 +154,7 @@ export function appendSourceLinkRows(
       source_type: transactionResult.value.sourceType,
       source_venue_label: transactionResult.value.source,
       source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.sourceName) ?? 0),
-      source_reference: sourceReference.value,
-      source_reference_kind: sourceReference.kind,
+      tx_fingerprint: transactionResult.value.txFingerprint,
       source_url: '',
     };
 
@@ -171,8 +164,7 @@ export function appendSourceLinkRows(
       row.source_type,
       row.source_venue_label,
       row.source_account_label,
-      row.source_reference,
-      row.source_reference_kind,
+      row.tx_fingerprint,
     ].join('|');
     if (seen.has(dedupeKey)) {
       continue;
@@ -271,16 +263,28 @@ function severityRank(severity: string): number {
   return severity === 'blocked' ? 0 : 1;
 }
 
-function getSourceReference(transaction: Transaction): { kind: string; value: string } | undefined {
-  if (transaction.blockchain?.transaction_hash) {
-    return {
-      kind: 'blockchain_tx_hash',
-      value: transaction.blockchain.transaction_hash,
-    };
-  }
-
-  return {
-    kind: 'tx_fingerprint',
-    value: transaction.txFingerprint,
-  };
+export function buildSourceLinksCsvFile(rows: readonly TaxPackageSourceLinkRow[]): TaxPackageFile {
+  return buildCsvFile(
+    'source_links',
+    'source-links.csv',
+    'Audit traceability appendix linking package-local refs to source transaction fingerprints.',
+    [
+      'package_ref',
+      'package_artifact',
+      'source_type',
+      'source_venue_label',
+      'source_account_label',
+      'tx_fingerprint',
+      'source_url',
+    ],
+    rows.map((row) => [
+      row.package_ref,
+      row.package_artifact,
+      row.source_type,
+      row.source_venue_label,
+      row.source_account_label,
+      row.tx_fingerprint,
+      row.source_url,
+    ])
+  );
 }

@@ -5,7 +5,7 @@ import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildLinkableMovements } from '../pre-linking/build-linkable-movements.js';
-import { createTransaction } from '../shared/test-utils.js';
+import { createTransaction, requirePresent } from '../shared/test-utils.js';
 
 import { buildLinkFromOrphanedOverride } from './linking-orchestrator-utils.js';
 import type { OrphanedLinkOverride } from './override-replay.js';
@@ -63,8 +63,14 @@ describe('buildLinkFromOrphanedOverride', () => {
     const txById = new Map(transactions.map((tx) => [tx.id, tx]));
     const sourceTxFingerprint = transactions[0]!.txFingerprint;
     const targetTxFingerprint = transactions[2]!.txFingerprint;
-    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
-    const targetMovementFingerprint = transactions[2]!.movements.inflows[0]!.movementFingerprint;
+    const sourceMovementFingerprint = requirePresent(
+      transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+      'Expected source outflow movement fingerprint'
+    );
+    const targetMovementFingerprint = requirePresent(
+      transactions[2]!.movements.inflows?.[0]?.movementFingerprint,
+      'Expected target inflow movement fingerprint'
+    );
     const resolvedLinkFingerprint = assertOk(
       computeResolvedLinkFingerprint({
         sourceAssetId: 'test:btc',

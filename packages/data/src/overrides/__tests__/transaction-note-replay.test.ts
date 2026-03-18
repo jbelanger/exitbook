@@ -27,45 +27,48 @@ function createTransactionNoteEvent(txFingerprint: string, overrides?: Partial<O
 
 describe('transaction note replay', () => {
   it('keeps the latest note per transaction fingerprint', () => {
+    const firstFingerprint = 'a'.repeat(64);
+    const secondFingerprint = 'b'.repeat(64);
     const result = replayTransactionNoteOverrides([
-      createTransactionNoteEvent('tx:v2:kraken:1:trade-1'),
-      createTransactionNoteEvent('tx:v2:kraken:1:trade-2', {
+      createTransactionNoteEvent(firstFingerprint),
+      createTransactionNoteEvent(secondFingerprint, {
         payload: {
           type: 'transaction_note_override',
           action: 'set',
-          tx_fingerprint: 'tx:v2:kraken:1:trade-2',
+          tx_fingerprint: secondFingerprint,
           message: 'Salary payment',
         },
       }),
-      createTransactionNoteEvent('tx:v2:kraken:1:trade-1', {
+      createTransactionNoteEvent(firstFingerprint, {
         payload: {
           type: 'transaction_note_override',
           action: 'set',
-          tx_fingerprint: 'tx:v2:kraken:1:trade-1',
+          tx_fingerprint: firstFingerprint,
           message: 'Updated reminder',
         },
       }),
     ]);
 
     const notesByFingerprint = assertOk(result);
-    expect(notesByFingerprint.get('tx:v2:kraken:1:trade-1')).toBe('Updated reminder');
-    expect(notesByFingerprint.get('tx:v2:kraken:1:trade-2')).toBe('Salary payment');
+    expect(notesByFingerprint.get(firstFingerprint)).toBe('Updated reminder');
+    expect(notesByFingerprint.get(secondFingerprint)).toBe('Salary payment');
   });
 
   it('clears a previously-set note when a clear event is replayed', () => {
+    const txFingerprint = 'c'.repeat(64);
     const result = replayTransactionNoteOverrides([
-      createTransactionNoteEvent('tx:v2:kraken:1:trade-1'),
-      createTransactionNoteEvent('tx:v2:kraken:1:trade-1', {
+      createTransactionNoteEvent(txFingerprint),
+      createTransactionNoteEvent(txFingerprint, {
         payload: {
           type: 'transaction_note_override',
           action: 'clear',
-          tx_fingerprint: 'tx:v2:kraken:1:trade-1',
+          tx_fingerprint: txFingerprint,
         },
       }),
     ]);
 
     const notesByFingerprint = assertOk(result);
-    expect(notesByFingerprint.has('tx:v2:kraken:1:trade-1')).toBe(false);
+    expect(notesByFingerprint.has(txFingerprint)).toBe(false);
   });
 
   it('fails replay when a non-transaction-note scope is provided', () => {
@@ -87,15 +90,16 @@ describe('transaction note replay', () => {
   });
 
   it('reads transaction note overrides from the store when the database exists', async () => {
+    const txFingerprint = 'd'.repeat(64);
     const overrideStore = {
       exists: vi.fn().mockReturnValue(true),
       readByScopes: vi.fn().mockResolvedValue(
         ok([
-          createTransactionNoteEvent('tx:v2:kraken:1:trade-1', {
+          createTransactionNoteEvent(txFingerprint, {
             payload: {
               type: 'transaction_note_override',
               action: 'set',
-              tx_fingerprint: 'tx:v2:kraken:1:trade-1',
+              tx_fingerprint: txFingerprint,
               message: 'Memoized note',
             },
           }),
@@ -107,7 +111,7 @@ describe('transaction note replay', () => {
 
     const notesByFingerprint = assertOk(result);
     expect(overrideStore.readByScopes).toHaveBeenCalledWith(['transaction-note']);
-    expect(notesByFingerprint.get('tx:v2:kraken:1:trade-1')).toBe('Memoized note');
+    expect(notesByFingerprint.get(txFingerprint)).toBe('Memoized note');
   });
 
   it('returns an empty map when the override store is missing', async () => {

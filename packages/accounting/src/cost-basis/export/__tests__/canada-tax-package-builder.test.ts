@@ -62,11 +62,13 @@ describe('buildCanadaTaxPackage', () => {
 
     const sourceLinksCsv = result.files.find((file) => file.relativePath === 'source-links.csv')?.content ?? '';
     const exchangeTxFingerprint = context.sourceContext.transactionsById.get(11)?.txFingerprint;
-    const blockchainTxHash = context.sourceContext.transactionsById.get(12)?.blockchain?.transaction_hash;
+    const blockchainTxFingerprint = context.sourceContext.transactionsById.get(12)?.txFingerprint;
     expect(exchangeTxFingerprint).toBeDefined();
-    expect(blockchainTxHash).toBeDefined();
+    expect(blockchainTxFingerprint).toBeDefined();
+    expect(sourceLinksCsv).toContain('tx_fingerprint');
+    expect(sourceLinksCsv).not.toContain('source_reference_kind');
     expect(sourceLinksCsv).toContain(exchangeTxFingerprint!);
-    expect(sourceLinksCsv).toContain(blockchainTxHash!);
+    expect(sourceLinksCsv).toContain(blockchainTxFingerprint!);
 
     const report = result.files.find((file) => file.relativePath === 'report.md')?.content ?? '';
     expect(report).toContain('Canada capital-gains inclusion rate of 0.5');

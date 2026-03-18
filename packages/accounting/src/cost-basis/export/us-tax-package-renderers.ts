@@ -319,7 +319,7 @@ export function buildUsSourceLinkRows(params: {
     if (artifactDiff !== 0) return artifactDiff;
     const packageRefDiff = left.package_ref.localeCompare(right.package_ref);
     if (packageRefDiff !== 0) return packageRefDiff;
-    return left.source_reference.localeCompare(right.source_reference);
+    return left.tx_fingerprint.localeCompare(right.tx_fingerprint);
   });
 
   return ok(rows);

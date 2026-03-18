@@ -8,11 +8,11 @@ import {
   buildArtifactIndex,
   buildCsvFile,
   buildIssueRows,
+  buildSourceLinksCsvFile,
   countAccountsBySourceName,
   countCsvRows,
   formatMoney,
   type TaxPackageIssueCsvRow,
-  type TaxPackageSourceLinkRow,
 } from './tax-package-builder-shared.js';
 import { buildTaxPackageReportTemplate } from './tax-package-report-template.js';
 import type {
@@ -203,7 +203,7 @@ function buildUsSupportingFiles(params: {
   }
 
   if (sourceLinkRowsResult.value.length > 0) {
-    files.push(buildUsSourceLinksCsvFile(sourceLinkRowsResult.value));
+    files.push(buildSourceLinksCsvFile(sourceLinkRowsResult.value));
   }
 
   return ok(files);
@@ -415,34 +415,6 @@ function buildUsIssuesCsvFile(rows: readonly TaxPackageIssueCsvRow[]): TaxPackag
       row.affected_artifact,
       row.affected_row_ref,
       row.recommended_action,
-    ])
-  );
-}
-
-function buildUsSourceLinksCsvFile(rows: readonly TaxPackageSourceLinkRow[]): TaxPackageFile {
-  return buildCsvFile(
-    'source_links',
-    'source-links.csv',
-    'Audit traceability appendix linking package-local refs to source-system references.',
-    [
-      'package_ref',
-      'package_artifact',
-      'source_type',
-      'source_venue_label',
-      'source_account_label',
-      'source_reference',
-      'source_reference_kind',
-      'source_url',
-    ],
-    rows.map((row) => [
-      row.package_ref,
-      row.package_artifact,
-      row.source_type,
-      row.source_venue_label,
-      row.source_account_label,
-      row.source_reference,
-      row.source_reference_kind,
-      row.source_url,
     ])
   );
 }

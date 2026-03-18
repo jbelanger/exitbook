@@ -40,24 +40,25 @@ describe('price-validation', () => {
       });
 
       const entities = collectPricedEntities([tx]);
+      const txFingerprint = tx.txFingerprint;
 
       expect(entities).toHaveLength(3);
       expect(entities[0]).toMatchObject({
-        transactionId: '1',
+        transactionId: txFingerprint,
         assetSymbol: 'BTC' as Currency,
         kind: 'inflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[1]).toMatchObject({
-        transactionId: '1',
+        transactionId: txFingerprint,
         assetSymbol: 'USD' as Currency,
         kind: 'outflow',
         hasPrice: true,
         currency: 'USD',
       });
       expect(entities[2]).toMatchObject({
-        transactionId: '1',
+        transactionId: txFingerprint,
         assetSymbol: 'USD' as Currency,
         kind: 'fee',
         hasPrice: true,
@@ -299,7 +300,7 @@ describe('price-validation', () => {
         issues: [
           {
             entity: {
-              transactionId: '1',
+              transactionId: 'txfp-1',
               datetime: '2024-01-15T10:00:00Z',
               assetSymbol: 'BTC' as Currency,
               currency: undefined,
@@ -312,7 +313,7 @@ describe('price-validation', () => {
           },
           {
             entity: {
-              transactionId: '2',
+              transactionId: 'txfp-2',
               datetime: '2024-01-16T10:00:00Z',
               assetSymbol: 'ETH' as Currency,
               currency: 'EUR',
@@ -347,8 +348,8 @@ describe('price-validation', () => {
       expect(errorMessage).toContain('1 price(s) missing');
       expect(errorMessage).toContain('1 price(s) not in USD');
       expect(errorMessage).toContain("Run 'prices enrich'");
-      expect(errorMessage).toContain('Tx 1');
-      expect(errorMessage).toContain('Tx 2');
+      expect(errorMessage).toContain('Tx txfp-1');
+      expect(errorMessage).toContain('Tx txfp-2');
     });
 
     it('should handle FX trail issues', () => {
@@ -357,7 +358,7 @@ describe('price-validation', () => {
         issues: [
           {
             entity: {
-              transactionId: '1',
+              transactionId: 'txfp-1',
               datetime: '2024-01-15T10:00:00Z',
               assetSymbol: 'BTC' as Currency,
               currency: 'USD',

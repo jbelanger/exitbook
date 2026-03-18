@@ -8,6 +8,10 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
 
+function createTxFingerprint(seed: string): string {
+  return seed.repeat(32).slice(0, 64);
+}
+
 function createLinkPayload(sourceFingerprint: string, targetFingerprint: string, asset: string): LinkOverridePayload {
   const normalizedAsset = asset.toLowerCase();
   return {
@@ -44,7 +48,7 @@ describe('OverrideStore', () => {
 
   describe('append', () => {
     it('should append a link override event', async () => {
-      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
+      const payload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       const result = await store.append({
         scope: 'link',
@@ -135,7 +139,7 @@ describe('OverrideStore', () => {
     it('should create overrides.db file if it does not exist', async () => {
       expect(store.exists()).toBe(false);
 
-      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
+      const payload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       const result = await store.append({
         scope: 'link',
@@ -147,7 +151,7 @@ describe('OverrideStore', () => {
     });
 
     it('should return an error result and recover queue after unexpected append failure', async () => {
-      const payload = createLinkPayload('kraken:TRADE-123', 'blockchain:bitcoin:abc', 'BTC');
+      const payload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       const appendImplSpy = vi
         .spyOn(store as unknown as { appendImpl: (options: unknown) => Promise<unknown> }, 'appendImpl')
@@ -186,7 +190,7 @@ describe('OverrideStore', () => {
     });
 
     it('should read all events in order', async () => {
-      const payload1 = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const payload1 = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       const payload2: PriceOverridePayload = {
         type: 'price_override',
@@ -197,7 +201,7 @@ describe('OverrideStore', () => {
         timestamp: '2024-01-15T14:30:00Z',
       };
 
-      const payload3 = createLinkPayload('kraken:TRADE-3', 'blockchain:bitcoin:def', 'ETH');
+      const payload3 = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'ETH');
 
       await store.append({ scope: 'link', payload: payload1 });
       await store.append({ scope: 'price', payload: payload2 });
@@ -217,9 +221,9 @@ describe('OverrideStore', () => {
     });
 
     it('should preserve append order via database sequence', async () => {
-      const payload1 = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const payload1 = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
-      const payload2 = createLinkPayload('kraken:TRADE-2', 'blockchain:bitcoin:def', 'ETH');
+      const payload2 = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'ETH');
 
       const first = await store.append({ scope: 'link', payload: payload1 });
       const second = await store.append({ scope: 'link', payload: payload2 });
@@ -240,7 +244,7 @@ describe('OverrideStore', () => {
 
   describe('readByScope', () => {
     it('should filter events by scope', async () => {
-      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       const pricePayload: PriceOverridePayload = {
         type: 'price_override',
@@ -267,7 +271,7 @@ describe('OverrideStore', () => {
     });
 
     it('should query scope directly without delegating to readAll', async () => {
-      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
       await store.append({ scope: 'link', payload: linkPayload });
 
       const readAllSpy = vi.spyOn(store, 'readAll');
@@ -280,8 +284,10 @@ describe('OverrideStore', () => {
 
   describe('readByScopes', () => {
     it('should read multiple scopes in append order', async () => {
-      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
-      const otherLinkPayload = createLinkPayload('kraken:TRADE-2', 'blockchain:bitcoin:def', 'BTC');
+      const sourceFingerprint = createTxFingerprint('a1');
+      const targetFingerprint = createTxFingerprint('b2');
+      const linkPayload = createLinkPayload(sourceFingerprint, targetFingerprint, 'BTC');
+      const otherLinkPayload = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'BTC');
       const pricePayload: PriceOverridePayload = {
         type: 'price_override',
         asset: 'BTC',
@@ -297,8 +303,7 @@ describe('OverrideStore', () => {
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
-          resolved_link_fingerprint:
-            'resolved-link:v1:movement:kraken:TRADE-1:outflow:0:movement:blockchain:bitcoin:abc:inflow:0:test:btc:test:btc',
+          resolved_link_fingerprint: `resolved-link:v1:movement:${sourceFingerprint}:outflow:0:movement:${targetFingerprint}:inflow:0:test:btc:test:btc`,
         },
       });
       await store.append({ scope: 'link', payload: otherLinkPayload });
@@ -314,7 +319,7 @@ describe('OverrideStore', () => {
     });
 
     it('should read asset review scopes alongside other overrides in append order', async () => {
-      const linkPayload = createLinkPayload('kraken:TRADE-1', 'blockchain:bitcoin:abc', 'BTC');
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
       await store.append({ scope: 'link', payload: linkPayload });
       await store.append({
@@ -344,6 +349,17 @@ describe('OverrideStore', () => {
           'asset-review-clear',
         ]);
       }
+    });
+
+    it('rejects legacy pre-simplification fingerprints on read', async () => {
+      const legacyPayload = createLinkPayload('tx:v2:kraken:1:trade-1', 'tx:v2:blockchain:bitcoin:2:abc123', 'BTC');
+
+      const appendResult = await store.append({ scope: 'link', payload: legacyPayload });
+      expect(appendResult.isOk()).toBe(true);
+
+      const result = await store.readByScopes(['link']);
+      expect(assertErr(result).message).toContain('legacy transaction identity');
+      expect(assertErr(result).message).toContain('Delete');
     });
   });
 

@@ -319,7 +319,7 @@ Rows sort by:
 
 ### Source Links CSV
 
-`source-links.csv` is emitted only when source references are available.
+`source-links.csv` is emitted only when source transaction fingerprints are available.
 
 Columns:
 
@@ -328,8 +328,7 @@ Columns:
 - `source_type`
 - `source_venue_label`
 - `source_account_label`
-- `source_reference`
-- `source_reference_kind`
+- `tx_fingerprint`
 - `source_url`
 
 Purpose:

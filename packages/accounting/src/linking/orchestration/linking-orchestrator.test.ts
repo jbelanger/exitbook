@@ -6,7 +6,7 @@ import type { EventBus } from '@exitbook/events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ILinkingPersistence, LinksSaveResult } from '../../ports/index.js';
-import { createTransaction } from '../shared/test-utils.js';
+import { createTransaction, requirePresent } from '../shared/test-utils.js';
 
 import type { LinkingEvent } from './linking-events.js';
 import { LinkingOrchestrator } from './linking-orchestrator.js';
@@ -73,8 +73,14 @@ describe('LinkingOrchestrator', () => {
         blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
       }),
     ];
-    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
-    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+    const sourceMovementFingerprint = requirePresent(
+      transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+      'Expected source outflow movement fingerprint'
+    );
+    const targetMovementFingerprint = requirePresent(
+      transactions[1]!.movements.inflows?.[0]?.movementFingerprint,
+      'Expected target inflow movement fingerprint'
+    );
 
     const unlinkEvent: OverrideEvent = {
       id: 'evt-1',
@@ -238,8 +244,14 @@ describe('LinkingOrchestrator', () => {
     ];
     const sourceTxFingerprint = transactions[0]!.txFingerprint;
     const targetTxFingerprint = transactions[1]!.txFingerprint;
-    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
-    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+    const sourceMovementFingerprint = requirePresent(
+      transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+      'Expected source outflow movement fingerprint'
+    );
+    const targetMovementFingerprint = requirePresent(
+      transactions[1]!.movements.inflows?.[0]?.movementFingerprint,
+      'Expected target inflow movement fingerprint'
+    );
 
     // Override event that references BTC — but neither tx has BTC movements
     const linkOverride: OverrideEvent = {
@@ -307,7 +319,10 @@ describe('LinkingOrchestrator', () => {
     ];
     const sourceTxFingerprint = transactions[0]!.txFingerprint;
     const targetTxFingerprint = transactions[1]!.txFingerprint;
-    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+    const targetMovementFingerprint = requirePresent(
+      transactions[1]!.movements.inflows?.[0]?.movementFingerprint,
+      'Expected target inflow movement fingerprint'
+    );
     const missingSourceMovementFingerprint = `movement:${sourceTxFingerprint}:outflow:9`;
 
     const linkOverride: OverrideEvent = {
@@ -463,8 +478,14 @@ describe('LinkingOrchestrator', () => {
           blockchain: { name: 'ethereum', transaction_hash: '0xaaa111', is_confirmed: true },
         }),
       ];
-      const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
-      const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+      const sourceMovementFingerprint = requirePresent(
+        transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+        'Expected source outflow movement fingerprint'
+      );
+      const targetMovementFingerprint = requirePresent(
+        transactions[1]!.movements.inflows?.[0]?.movementFingerprint,
+        'Expected target inflow movement fingerprint'
+      );
 
       const unlinkEvent: OverrideEvent = {
         id: 'evt-1',
@@ -519,7 +540,10 @@ describe('LinkingOrchestrator', () => {
     ];
     const sourceTxFingerprint = transactions[0]!.txFingerprint;
     const targetTxFingerprint = transactions[1]!.txFingerprint;
-    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
+    const sourceMovementFingerprint = requirePresent(
+      transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+      'Expected source outflow movement fingerprint'
+    );
     const missingTargetMovementFingerprint = `movement:${targetTxFingerprint}:inflow:9`;
 
     const linkOverride: OverrideEvent = {

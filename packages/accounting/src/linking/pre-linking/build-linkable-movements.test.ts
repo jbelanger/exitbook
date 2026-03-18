@@ -4,7 +4,7 @@ import { assertOk } from '@exitbook/core/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTransaction } from '../shared/test-utils.js';
+import { createTransaction, requirePresent } from '../shared/test-utils.js';
 
 import { buildLinkableMovements } from './build-linkable-movements.js';
 
@@ -68,10 +68,10 @@ describe('buildLinkableMovements', () => {
         ],
       }),
     ];
-    const firstInflow = transactions[0]!.movements.inflows[0]!;
-    const secondInflow = transactions[0]!.movements.inflows[1]!;
-    const firstOutflow = transactions[0]!.movements.outflows[0]!;
-    const secondOutflow = transactions[0]!.movements.outflows[1]!;
+    const firstInflow = requirePresent(transactions[0]!.movements.inflows?.[0], 'Expected first inflow');
+    const secondInflow = requirePresent(transactions[0]!.movements.inflows?.[1], 'Expected second inflow');
+    const firstOutflow = requirePresent(transactions[0]!.movements.outflows?.[0], 'Expected first outflow');
+    const secondOutflow = requirePresent(transactions[0]!.movements.outflows?.[1], 'Expected second outflow');
 
     const result = assertOk(buildLinkableMovements(transactions, logger));
 
@@ -192,8 +192,14 @@ describe('buildLinkableMovements', () => {
         settlement: 'on-chain',
       },
     ];
-    const sourceMovementFingerprint = transactions[0]!.movements.outflows[0]!.movementFingerprint;
-    const targetMovementFingerprint = transactions[1]!.movements.inflows[0]!.movementFingerprint;
+    const sourceMovementFingerprint = requirePresent(
+      transactions[0]!.movements.outflows?.[0]?.movementFingerprint,
+      'Expected source outflow movement fingerprint'
+    );
+    const targetMovementFingerprint = requirePresent(
+      transactions[1]!.movements.inflows?.[0]?.movementFingerprint,
+      'Expected target inflow movement fingerprint'
+    );
 
     const result = assertOk(buildLinkableMovements(transactions, logger));
 

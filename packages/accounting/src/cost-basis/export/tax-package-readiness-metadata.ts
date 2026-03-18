@@ -65,17 +65,13 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
         noteType: matchingNote.type,
         operationCategory: transaction.operation.category,
         operationType: transaction.operation.type,
-        reference: buildTransactionReference(transaction),
+        reference: transaction.txFingerprint,
         sourceName: transaction.source,
         transactionDatetime: transaction.datetime,
         transactionId: transaction.id,
       } as TDetail,
     ];
   });
-}
-
-function buildTransactionReference(transaction: Transaction): string {
-  return transaction.blockchain?.transaction_hash ?? transaction.txFingerprint ?? `tx:${transaction.id}`;
 }
 
 function countScopedAssetsRequiringReview(

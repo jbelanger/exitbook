@@ -76,6 +76,14 @@ export function createLink(params: {
   };
 }
 
+export function requirePresent<T>(value: T | null | undefined, message: string): T {
+  if (value == undefined) {
+    throw new Error(message);
+  }
+
+  return value;
+}
+
 /**
  * Creates a minimal Transaction for testing.
  * Only requires essential fields; the rest are set to sensible defaults.
