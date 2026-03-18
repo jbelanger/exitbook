@@ -28,7 +28,7 @@ function createAcquisitionTransaction(params: {
   return materializeTestTransaction({
     id: params.id,
     accountId: 1,
-    externalId: `tx-${params.id}`,
+    fingerprintSeed: `tx-${params.id}`,
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
     source: 'kraken',
@@ -67,7 +67,7 @@ function createDispositionTransaction(params: {
   return materializeTestTransaction({
     id: params.id,
     accountId: 1,
-    externalId: `tx-${params.id}`,
+    fingerprintSeed: `tx-${params.id}`,
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
     source: 'kraken',

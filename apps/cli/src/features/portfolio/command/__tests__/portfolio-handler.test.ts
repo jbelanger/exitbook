@@ -77,7 +77,7 @@ function createTransaction(): Transaction {
   return {
     id: 1,
     accountId: 1,
-    externalId: 'ext-1',
+    txFingerprint: 'ext-1',
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: new Date('2024-01-01T00:00:00.000Z').getTime(),
     source: 'kraken',
@@ -112,7 +112,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
   return {
     id: 2,
     accountId: 1,
-    externalId: 'ext-2',
+    txFingerprint: 'ext-2',
     datetime: '2024-01-02T00:00:00.000Z',
     timestamp: new Date('2024-01-02T00:00:00.000Z').getTime(),
     source: 'base',

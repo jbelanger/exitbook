@@ -116,7 +116,7 @@ describe('EvmProcessor - Transaction Correlation', () => {
     expect(result.value).toHaveLength(1);
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.externalId).toBe('0xhash1');
+    expect(transaction.blockchain?.transaction_hash).toBe('0xhash1');
 
     // Should track ALL assets (ETH and USDC), consolidated
     expect(transaction.movements.inflows).toHaveLength(2);
@@ -162,10 +162,10 @@ describe('EvmProcessor - Transaction Correlation', () => {
 
     expect(result.value).toHaveLength(2);
     expect(result.value[0]).toBeDefined();
-    expect(result.value[0]?.externalId).toBe('0xhash1');
+    expect(result.value[0]?.blockchain?.transaction_hash).toBe('0xhash1');
     expect(result.value[0]?.operation.type).toBe('deposit');
     expect(result.value[1]).toBeDefined();
-    expect(result.value[1]?.externalId).toBe('0xhash2');
+    expect(result.value[1]?.blockchain?.transaction_hash).toBe('0xhash2');
     expect(result.value[1]?.operation.type).toBe('withdrawal');
   });
 

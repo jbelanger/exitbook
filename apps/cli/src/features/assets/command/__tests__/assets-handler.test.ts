@@ -25,7 +25,6 @@ vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
 }));
 
 function createTransaction(params: {
-  externalId?: string | undefined;
   fees?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   inflows?: { amount: string; assetId: string; assetSymbol: string }[] | undefined;
@@ -38,8 +37,7 @@ function createTransaction(params: {
   return {
     id: params.id,
     accountId: 1,
-    externalId: params.externalId ?? `tx-${params.id}`,
-    txFingerprint: params.externalId ?? `tx-${params.id}`,
+    txFingerprint: `tx-${params.id}`,
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: Date.parse('2024-01-01T00:00:00.000Z'),
     source: 'kraken',

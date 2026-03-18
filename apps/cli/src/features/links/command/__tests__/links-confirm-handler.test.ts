@@ -102,8 +102,8 @@ describe('LinksConfirmHandler', () => {
           type: 'link_override',
           action: 'confirm',
           link_type: 'transfer',
-          source_fingerprint: 'tx:v2:kraken:1:WITHDRAWAL-123',
-          target_fingerprint: 'tx:v2:blockchain:bitcoin:2:abc123',
+          source_fingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
+          target_fingerprint: 'txfp:bitcoin:2:abc123',
           asset: 'BTC',
           resolved_link_fingerprint: expectedResolvedLinkFingerprint,
           source_asset_id: 'exchange:source:btc',
@@ -218,7 +218,7 @@ describe('LinksConfirmHandler', () => {
         ...fixture.link,
         id: 124,
         sourceTransactionId: 3,
-        sourceMovementFingerprint: 'movement:tx:v2:kraken:1:WITHDRAWAL-456:outflow:0',
+        sourceMovementFingerprint: 'movement:txfp:kraken:1:WITHDRAWAL-456:outflow:0',
         sourceAmount: fixture.link.sourceAmount,
         targetAmount: fixture.link.sourceAmount,
         metadata: {
@@ -232,7 +232,7 @@ describe('LinksConfirmHandler', () => {
       const additionalSourceTx = {
         ...fixture.sourceTransaction,
         id: 3,
-        externalId: 'WITHDRAWAL-456',
+        txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(confirmedLink));
@@ -249,7 +249,7 @@ describe('LinksConfirmHandler', () => {
             ok({
               ...mockSourceTx,
               id: 3,
-              externalId: 'WITHDRAWAL-456',
+              txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
             })
           );
         }
@@ -405,7 +405,7 @@ describe('LinksConfirmHandler', () => {
         ...fixture.link,
         id: 124,
         sourceTransactionId: 3,
-        sourceMovementFingerprint: 'movement:tx:v2:kraken:1:WITHDRAWAL-456:outflow:0',
+        sourceMovementFingerprint: 'movement:txfp:kraken:1:WITHDRAWAL-456:outflow:0',
         sourceAmount: fixture.link.sourceAmount,
         targetAmount: fixture.link.sourceAmount,
         metadata: {
@@ -419,7 +419,7 @@ describe('LinksConfirmHandler', () => {
       const additionalSourceTx = {
         ...fixture.sourceTransaction,
         id: 3,
-        externalId: 'WITHDRAWAL-456',
+        txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
       };
 
       mockLinkRepository.findById.mockResolvedValue(ok(firstLink));
@@ -436,7 +436,7 @@ describe('LinksConfirmHandler', () => {
             ok({
               ...mockSourceTx,
               id: 3,
-              externalId: 'WITHDRAWAL-456',
+              txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
             })
           );
         }

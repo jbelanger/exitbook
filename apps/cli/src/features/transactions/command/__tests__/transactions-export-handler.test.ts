@@ -39,7 +39,6 @@ describe('ExportHandler', () => {
   const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction => ({
     id: id,
     accountId: 1,
-    externalId: `ext-${id}`,
     txFingerprint: `ext-${id}`,
     source: source,
     sourceType: 'exchange',

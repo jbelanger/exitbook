@@ -190,7 +190,7 @@ describe('LinksRejectHandler', () => {
             ok({
               ...mockSourceTx,
               id: 3,
-              externalId: 'WITHDRAWAL-456',
+              txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
             })
           );
         }
@@ -351,7 +351,7 @@ describe('LinksRejectHandler', () => {
             ok({
               ...mockSourceTx,
               id: 3,
-              externalId: 'WITHDRAWAL-456',
+              txFingerprint: 'txfp:kraken:1:WITHDRAWAL-456',
             })
           );
         }

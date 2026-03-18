@@ -23,7 +23,7 @@ function createTx(
   const base = materializeTestTransaction({
     id,
     accountId: 1,
-    externalId: `ext-${id}`,
+    fingerprintSeed: `ext-${id}`,
     source,
     sourceType,
     datetime: options.datetime ?? '2023-01-01T00:00:00Z',

@@ -936,10 +936,10 @@ describe('SolanaProcessor - Edge Cases', () => {
 
     expect(result.value).toHaveLength(2);
     expect(result.value[0]).toBeDefined();
-    expect(result.value[0]?.externalId).toBe('sig1');
+    expect(result.value[0]?.blockchain?.transaction_hash).toBe('sig1');
     expect(result.value[0]?.operation.type).toBe('deposit');
     expect(result.value[1]).toBeDefined();
-    expect(result.value[1]?.externalId).toBe('sig2');
+    expect(result.value[1]?.blockchain?.transaction_hash).toBe('sig2');
     expect(result.value[1]?.operation.type).toBe('withdrawal');
   });
 });

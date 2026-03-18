@@ -78,7 +78,7 @@ function createTransaction(params: {
   return {
     id: params.id,
     accountId: params.accountId,
-    externalId: `ext-${params.id}`,
+    txFingerprint: `ext-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,

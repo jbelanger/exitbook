@@ -22,14 +22,14 @@ describe('buildLinksFreshnessPorts', () => {
   });
 
   async function seedTransaction(accountId: number, createdAt: string) {
-    const externalId = `test-tx-${accountId}-${createdAt}`;
+    const identityReference = `test-tx-${accountId}-${createdAt}`;
     await db
       .insertInto('transactions')
       .values({
         account_id: accountId,
         source_name: 'test',
         source_type: 'exchange',
-        tx_fingerprint: seedTxFingerprint('test', accountId, externalId),
+        tx_fingerprint: seedTxFingerprint('test', accountId, identityReference),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

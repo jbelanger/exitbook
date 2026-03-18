@@ -21,8 +21,7 @@ describe('analyzeLinkGaps', () => {
   const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
     id: 1,
     accountId: 1,
-    externalId: 'tx-123',
-    txFingerprint: String(overrides.txFingerprint ?? overrides.externalId ?? 'tx-123'),
+    txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
     datetime: '2024-01-01T12:00:00Z',
     timestamp: 1704110400000,
     source: 'kraken',
@@ -43,7 +42,7 @@ describe('analyzeLinkGaps', () => {
   const createBlockchainDeposit = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 11,
-      externalId: 'btc-inflow',
+      txFingerprint: 'btc-inflow',
       source: 'bitcoin',
       blockchain: {
         name: 'bitcoin',
@@ -71,7 +70,7 @@ describe('analyzeLinkGaps', () => {
   const createBlockchainWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 21,
-      externalId: 'btc-outflow',
+      txFingerprint: 'btc-outflow',
       source: 'bitcoin',
       blockchain: {
         name: 'bitcoin',
@@ -99,7 +98,7 @@ describe('analyzeLinkGaps', () => {
   const createExchangeWithdrawal = (overrides: Partial<Transaction> = {}): Transaction =>
     createMockTransaction({
       id: 31,
-      externalId: 'kraken-outflow',
+      txFingerprint: 'kraken-outflow',
       source: 'kraken',
       movements: {
         inflows: [],
@@ -123,7 +122,7 @@ describe('analyzeLinkGaps', () => {
     createMockTransaction({
       id: 41,
       accountId: 1,
-      externalId: 'eth-swap',
+      txFingerprint: 'eth-swap',
       source: 'ethereum',
       sourceType: 'blockchain',
       datetime: '2026-02-05T04:08:59.000Z',
@@ -250,7 +249,7 @@ describe('analyzeLinkGaps', () => {
   it('should treat confirmed migration links as coverage based on asset ids even when symbols differ', () => {
     const renderDeposit = createBlockchainDeposit({
       id: 8813,
-      externalId: 'render-deposit',
+      txFingerprint: 'render-deposit',
       source: 'ethereum',
       blockchain: {
         name: 'ethereum',
@@ -361,7 +360,7 @@ describe('analyzeLinkGaps', () => {
     const syrupDeposit = createBlockchainDeposit({
       id: 101,
       accountId: 7,
-      externalId: 'syrup-deposit',
+      txFingerprint: 'syrup-deposit',
       source: 'ethereum',
       sourceType: 'blockchain',
       datetime: '2026-02-05T03:51:35.000Z',
@@ -388,7 +387,7 @@ describe('analyzeLinkGaps', () => {
     const swap = createBlockchainSwap({
       id: 102,
       accountId: 7,
-      externalId: 'service-swap',
+      txFingerprint: 'service-swap',
       datetime: '2026-02-05T04:08:59.000Z',
       timestamp: Date.parse('2026-02-05T04:08:59.000Z'),
       blockchain: {
@@ -400,7 +399,7 @@ describe('analyzeLinkGaps', () => {
     const rsrWithdrawal = createBlockchainWithdrawal({
       id: 103,
       accountId: 7,
-      externalId: 'rsr-withdrawal',
+      txFingerprint: 'rsr-withdrawal',
       source: 'ethereum',
       sourceType: 'blockchain',
       datetime: '2026-02-05T04:38:47.000Z',
@@ -437,7 +436,7 @@ describe('analyzeLinkGaps', () => {
     const syrupDeposit = createBlockchainDeposit({
       id: 111,
       accountId: 7,
-      externalId: 'syrup-deposit-no-swap',
+      txFingerprint: 'syrup-deposit-no-swap',
       source: 'ethereum',
       sourceType: 'blockchain',
       datetime: '2026-02-05T03:51:35.000Z',
@@ -464,7 +463,7 @@ describe('analyzeLinkGaps', () => {
     const rsrWithdrawal = createBlockchainWithdrawal({
       id: 112,
       accountId: 7,
-      externalId: 'rsr-withdrawal-no-swap',
+      txFingerprint: 'rsr-withdrawal-no-swap',
       source: 'ethereum',
       sourceType: 'blockchain',
       datetime: '2026-02-05T04:38:47.000Z',
@@ -516,7 +515,7 @@ describe('analyzeLinkGaps', () => {
     const nearWithdrawal = createBlockchainWithdrawal({
       id: 8941,
       accountId: 86,
-      externalId: 'near-withdrawal',
+      txFingerprint: 'near-withdrawal',
       source: 'near',
       datetime: '2026-02-18T23:09:37.281Z',
       timestamp: Date.parse('2026-02-18T23:09:37.281Z'),
@@ -543,7 +542,7 @@ describe('analyzeLinkGaps', () => {
     const ethereumDeposit = createBlockchainDeposit({
       id: 8865,
       accountId: 50,
-      externalId: 'ethereum-deposit',
+      txFingerprint: 'ethereum-deposit',
       source: 'ethereum',
       datetime: '2026-02-18T23:09:59.000Z',
       timestamp: Date.parse('2026-02-18T23:09:59.000Z'),
@@ -596,7 +595,7 @@ describe('analyzeLinkGaps', () => {
     const nearWithdrawal = createBlockchainWithdrawal({
       id: 8941,
       accountId: 86,
-      externalId: 'near-withdrawal-different-user',
+      txFingerprint: 'near-withdrawal-different-user',
       source: 'near',
       datetime: '2026-02-18T23:09:37.281Z',
       timestamp: Date.parse('2026-02-18T23:09:37.281Z'),
@@ -623,7 +622,7 @@ describe('analyzeLinkGaps', () => {
     const ethereumDeposit = createBlockchainDeposit({
       id: 8865,
       accountId: 50,
-      externalId: 'ethereum-deposit-different-user',
+      txFingerprint: 'ethereum-deposit-different-user',
       source: 'ethereum',
       datetime: '2026-02-18T23:09:59.000Z',
       timestamp: Date.parse('2026-02-18T23:09:59.000Z'),
@@ -672,7 +671,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should treat confirmed links as coverage for withdrawals', () => {
-    const withdrawal = createBlockchainWithdrawal({ id: 22, externalId: 'btc-outflow-2' });
+    const withdrawal = createBlockchainWithdrawal({ id: 22, txFingerprint: 'btc-outflow-2' });
     const transactions: Transaction[] = [withdrawal];
     const links: TransactionLink[] = [
       createMockLink({
@@ -721,7 +720,7 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('should treat confirmed links as coverage for exchange withdrawals', () => {
-    const withdrawal = createExchangeWithdrawal({ id: 32, externalId: 'kraken-outflow-2' });
+    const withdrawal = createExchangeWithdrawal({ id: 32, txFingerprint: 'kraken-outflow-2' });
     const transactions: Transaction[] = [withdrawal];
     const links: TransactionLink[] = [
       createMockLink({

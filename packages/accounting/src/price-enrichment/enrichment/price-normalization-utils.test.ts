@@ -19,9 +19,7 @@ import {
   validateFxRate,
 } from './price-normalization-utils.js';
 
-function createPersistedTransaction(
-  transaction: Omit<Transaction, 'txFingerprint'> & { txFingerprint?: string | undefined }
-): Transaction {
+function createPersistedTransaction(transaction: Parameters<typeof materializeTestTransaction>[0]): Transaction {
   return materializeTestTransaction(transaction);
 }
 
@@ -30,7 +28,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      externalId: 'test-1',
+      fingerprintSeed: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -74,7 +72,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      externalId: 'test-1',
+      fingerprintSeed: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -118,7 +116,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      externalId: 'test-1',
+      fingerprintSeed: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -162,7 +160,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      externalId: 'test-1',
+      fingerprintSeed: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',
@@ -209,7 +207,7 @@ describe('extractMovementsNeedingNormalization', () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
-      externalId: 'test-1',
+      fingerprintSeed: 'test-1',
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       source: 'test-exchange',

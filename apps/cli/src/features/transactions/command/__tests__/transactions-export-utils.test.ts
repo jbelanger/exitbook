@@ -145,7 +145,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
@@ -175,7 +174,6 @@ describe('export-utils', () => {
         {
           id: 1,
           accountId: 1,
-          externalId: 'ext-1',
           txFingerprint: 'ext-1',
           source: 'kraken',
           sourceType: 'exchange',
@@ -195,7 +193,6 @@ describe('export-utils', () => {
         {
           id: 2,
           accountId: 1,
-          externalId: 'ext-2',
           txFingerprint: 'ext-2',
           source: 'kraken',
           sourceType: 'exchange',
@@ -227,7 +224,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'test,source',
         sourceType: 'exchange',
@@ -254,7 +250,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1822,
         accountId: 1,
-        externalId: 'ext-1822',
         txFingerprint: 'ext-1822',
         source: 'kraken',
         sourceType: 'exchange',
@@ -295,7 +290,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
@@ -336,7 +330,6 @@ describe('export-utils', () => {
         {
           id: 1,
           accountId: 1,
-          externalId: 'ext-1',
           txFingerprint: 'ext-1',
           source: 'kraken',
           sourceType: 'exchange',
@@ -356,7 +349,6 @@ describe('export-utils', () => {
         {
           id: 2,
           accountId: 1,
-          externalId: 'ext-2',
           txFingerprint: 'ext-2',
           source: 'kraken',
           sourceType: 'exchange',
@@ -387,7 +379,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'bitcoin',
         sourceType: 'blockchain',
@@ -433,7 +424,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',
@@ -465,7 +455,6 @@ describe('export-utils', () => {
       const transaction: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
         txFingerprint: 'ext-1',
         source: 'kraken',
         sourceType: 'exchange',

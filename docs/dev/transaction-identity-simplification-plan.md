@@ -24,6 +24,25 @@ Canonical identity inputs become:
 
 This refactor is allowed to be strict. If authoritative identity material is missing, processing should fail rather than silently invent an ID.
 
+## Migration Status
+
+Status as of 2026-03-17:
+
+- the temporary core `externalId` compatibility field has been removed
+- `packages/` and `apps/` are now clean of `externalId` / `external_id` references
+- downstream tests that still assumed exchange- or processor-owned IDs have been updated to assert `txFingerprint` / `movementFingerprint` behavior directly
+
+Verification completed for this slice:
+
+- `pnpm build`
+- targeted package type checks for `packages/ingestion`, `packages/accounting`, `packages/data`, and `apps/cli`
+- targeted Vitest coverage across 40 touched files: 552 tests passed
+
+Remaining work:
+
+- run the full workspace test suite
+- keep this document as the design/reference source until the broader migration is fully closed
+
 ## Why This Plan Exists
 
 Today transaction identity is split across three concepts:

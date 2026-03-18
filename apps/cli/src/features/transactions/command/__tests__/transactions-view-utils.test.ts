@@ -9,8 +9,7 @@ function createTestTransaction(overrides: Partial<Transaction> = {}): Transactio
   return {
     id: 1,
     accountId: 1,
-    externalId: 'tx-123',
-    txFingerprint: String(overrides.txFingerprint ?? overrides.externalId ?? 'tx-123'),
+    txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
     datetime: '2024-01-15T10:30:00Z',
     timestamp: 1705318200,
     source: 'kraken',

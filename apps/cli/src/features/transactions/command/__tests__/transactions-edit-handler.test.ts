@@ -7,12 +7,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CommandDatabase } from '../../../shared/command-runtime.js';
 import { TransactionsEditHandler } from '../transactions-edit-handler.js';
 
-function createTransaction(id: number, externalId = `ext-${id}`): Transaction {
+function createTransaction(id: number, txFingerprintSeed = `ext-${id}`): Transaction {
   return {
     id,
     accountId: 1,
-    externalId,
-    txFingerprint: `tx:v2:kraken:1:${externalId}`,
+    txFingerprint: `tx:v2:kraken:1:${txFingerprintSeed}`,
     source: 'kraken',
     sourceType: 'exchange',
     datetime: '2024-01-01T00:00:00.000Z',
@@ -101,7 +100,7 @@ describe('TransactionsEditHandler', () => {
       action: 'set',
       changed: true,
       transactionId: 42,
-      externalId: 'trade-42',
+      txFingerprint: 'tx:v2:kraken:1:trade-42',
       note: 'Moved to hardware wallet',
       reason: 'manual reminder',
       source: 'kraken',

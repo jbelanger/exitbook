@@ -169,7 +169,7 @@ describe('price-completeness', () => {
         id: 10,
         accountId: 50,
         datetime: '2025-01-01T00:00:00.000Z',
-        externalId: 'acq-10',
+        fingerprintSeed: 'acq-10',
         source: 'kraken',
         type: 'buy',
         inflows: [
@@ -187,7 +187,6 @@ describe('price-completeness', () => {
         id: 11,
         accountId: 3,
         datetime: '2025-05-08T10:14:40.000Z',
-        externalId: hash,
         txHash: hash,
         outflows: [
           {
@@ -205,7 +204,6 @@ describe('price-completeness', () => {
         id: 12,
         accountId: 10,
         datetime: '2025-05-08T10:14:40.000Z',
-        externalId: hash,
         txHash: hash,
         inflows: [
           {
@@ -222,7 +220,7 @@ describe('price-completeness', () => {
         id: 13,
         accountId: 90,
         datetime: '2025-05-08T10:16:45.000Z',
-        externalId: hash,
+        fingerprintSeed: hash,
         source: 'kucoin',
         type: 'deposit',
         inflows: [
@@ -240,7 +238,7 @@ describe('price-completeness', () => {
         id: 99,
         accountId: 60,
         datetime: '2025-05-09T00:00:00.000Z',
-        externalId: 'missing-99',
+        fingerprintSeed: 'missing-99',
         source: 'kraken',
         type: 'buy',
         inflows: [createMovement('ETH', '2')],

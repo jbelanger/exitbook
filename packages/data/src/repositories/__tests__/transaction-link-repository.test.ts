@@ -44,7 +44,7 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
   await seedImportSession(db, 1, 1);
 
   for (let i = 1; i <= 10; i++) {
-    const externalId = `test-tx-${i}`;
+    const identityReference = `test-tx-${i}`;
     await db
       .insertInto('transactions')
       .values({
@@ -52,7 +52,7 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
         account_id: 1,
         source_name: 'test',
         source_type: 'exchange',
-        tx_fingerprint: seedTxFingerprint('test', 1, externalId),
+        tx_fingerprint: seedTxFingerprint('test', 1, identityReference),
         transaction_status: 'success',
         transaction_datetime: new Date().toISOString(),
         is_spam: false,
@@ -296,7 +296,7 @@ describe('TransactionLinkRepository', () => {
         .execute();
 
       for (const id of [11, 12]) {
-        const externalId = `test-2-tx-${id}`;
+        const identityReference = `test-2-tx-${id}`;
         await db
           .insertInto('transactions')
           .values({
@@ -304,7 +304,7 @@ describe('TransactionLinkRepository', () => {
             account_id: 2,
             source_name: 'test-2',
             source_type: 'exchange',
-            tx_fingerprint: seedTxFingerprint('test-2', 2, externalId),
+            tx_fingerprint: seedTxFingerprint('test-2', 2, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,

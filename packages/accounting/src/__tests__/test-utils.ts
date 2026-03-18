@@ -20,7 +20,7 @@ export function seedTxFingerprint(params: {
   accountId: number;
   blockchainTransactionHash?: string | undefined;
   componentEventIds?: string[] | undefined;
-  externalId: string;
+  identityReference: string;
   source: string;
   sourceType: 'blockchain' | 'exchange';
 }): string {
@@ -30,8 +30,8 @@ export function seedTxFingerprint(params: {
 
   const fingerprintMaterial =
     params.sourceType === 'blockchain'
-      ? `${accountFingerprint}|blockchain|${params.source}|${(params.blockchainTransactionHash ?? params.externalId).trim()}`
-      : `${accountFingerprint}|exchange|${params.source}|${(params.componentEventIds ?? [params.externalId])
+      ? `${accountFingerprint}|blockchain|${params.source}|${(params.blockchainTransactionHash ?? params.identityReference).trim()}`
+      : `${accountFingerprint}|exchange|${params.source}|${(params.componentEventIds ?? [params.identityReference])
           .map((eventId) => eventId.trim())
           .sort()
           .join('|')}`;
@@ -39,34 +39,37 @@ export function seedTxFingerprint(params: {
   return sha256Hex(fingerprintMaterial);
 }
 
-export function materializeTestTransaction(
-  transaction: Omit<Transaction, 'txFingerprint'> & { txFingerprint?: string | undefined }
-): Transaction {
-  const providedExternalId = transaction.externalId?.trim();
+type MaterializeTestTransactionInput = Omit<Transaction, 'txFingerprint'> & {
+  fingerprintSeed?: string | undefined;
+  txFingerprint?: string | undefined;
+};
+
+export function materializeTestTransaction(transaction: MaterializeTestTransactionInput): Transaction {
+  const { fingerprintSeed, txFingerprint, ...transactionFields } = transaction;
+  const providedFingerprintSeed = fingerprintSeed?.trim();
   const identityReference =
-    providedExternalId || transaction.blockchain?.transaction_hash?.trim() || `tx-${transaction.id}`;
-  const providedTxFingerprint = transaction.txFingerprint?.trim();
+    providedFingerprintSeed || transactionFields.blockchain?.transaction_hash?.trim() || `tx-${transactionFields.id}`;
+  const providedTxFingerprint = txFingerprint?.trim();
   const blockchain =
-    transaction.sourceType === 'blockchain'
-      ? (transaction.blockchain ?? {
-          name: transaction.source,
+    transactionFields.sourceType === 'blockchain'
+      ? (transactionFields.blockchain ?? {
+          name: transactionFields.source,
           transaction_hash: identityReference,
           is_confirmed: true,
         })
-      : transaction.blockchain;
+      : transactionFields.blockchain;
 
   return {
-    ...transaction,
-    ...(providedExternalId ? { externalId: providedExternalId } : {}),
+    ...transactionFields,
     blockchain,
     txFingerprint:
       providedTxFingerprint ||
       seedTxFingerprint({
-        accountId: transaction.accountId,
+        accountId: transactionFields.accountId,
         blockchainTransactionHash: blockchain?.transaction_hash,
-        externalId: identityReference,
-        source: transaction.source,
-        sourceType: transaction.sourceType,
+        identityReference,
+        source: transactionFields.source,
+        sourceType: transactionFields.sourceType,
       }),
   };
 }
@@ -148,19 +151,19 @@ export function buildTransaction(params: {
 }): Transaction {
   const source = params.source ?? 'test';
   const sourceType = params.sourceType ?? 'exchange';
-  const externalId = `tx-${params.id}`;
+  const fingerprintSeed = `tx-${params.id}`;
 
   const blockchain =
     params.blockchain !== undefined
       ? params.blockchain
       : sourceType === 'blockchain'
-        ? { name: source, transaction_hash: externalId, is_confirmed: true }
+        ? { name: source, transaction_hash: fingerprintSeed, is_confirmed: true }
         : undefined;
 
   return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId ?? 1,
-    externalId,
+    fingerprintSeed,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source,
@@ -284,7 +287,6 @@ export function createFee(
 export function createBlockchainTx(params: {
   accountId: number;
   datetime: string;
-  externalId: string;
   fees?: FeeMovement[] | undefined;
   id: number;
   inflows?: AssetMovement[] | undefined;
@@ -294,7 +296,6 @@ export function createBlockchainTx(params: {
   return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId,
-    externalId: params.externalId,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: 'bitcoin',
@@ -323,7 +324,7 @@ export function createBlockchainTx(params: {
 export function createExchangeTx(params: {
   accountId: number;
   datetime: string;
-  externalId: string;
+  fingerprintSeed: string;
   id: number;
   inflows?: AssetMovement[] | undefined;
   source: string;
@@ -332,7 +333,7 @@ export function createExchangeTx(params: {
   return materializeTestTransaction({
     id: params.id,
     accountId: params.accountId,
-    externalId: params.externalId,
+    fingerprintSeed: params.fingerprintSeed,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
@@ -369,21 +370,21 @@ export function createTransaction(
 ): Transaction {
   const fees: FeeMovement[] = options?.fees ?? [];
   const accountId = 1;
-  const externalId = `ext-${id}`;
+  const fingerprintSeed = `ext-${id}`;
   const source = options?.source ?? 'test';
   const sourceType = options?.sourceType ?? 'exchange';
   const blockchain =
     sourceType === 'blockchain'
       ? {
           name: source,
-          transaction_hash: externalId,
+          transaction_hash: fingerprintSeed,
           is_confirmed: true,
         }
       : undefined;
   return materializeTestTransaction({
     id,
     accountId,
-    externalId,
+    fingerprintSeed,
     datetime,
     timestamp: new Date(datetime).getTime(),
     source,
@@ -419,21 +420,21 @@ export function createTransactionFromMovements(
   }
 ): Transaction {
   const accountId = 1;
-  const externalId = `ext-${id}`;
+  const fingerprintSeed = `ext-${id}`;
   const source = options?.source ?? 'test';
   const sourceType = options?.sourceType ?? 'exchange';
   const blockchain =
     sourceType === 'blockchain'
       ? {
           name: source,
-          transaction_hash: externalId,
+          transaction_hash: fingerprintSeed,
           is_confirmed: true,
         }
       : undefined;
   return materializeTestTransaction({
     id,
     accountId,
-    externalId,
+    fingerprintSeed,
     source,
     sourceType,
     datetime,

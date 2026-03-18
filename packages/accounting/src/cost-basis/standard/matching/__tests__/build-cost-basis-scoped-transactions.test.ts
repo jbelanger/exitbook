@@ -47,7 +47,7 @@ function createBlockchainTx(
   return materializeTestTransaction({
     id,
     accountId,
-    externalId: `ext-${id}`,
+    fingerprintSeed: `ext-${id}`,
     datetime,
     timestamp: new Date(datetime).getTime(),
     source: blockchain,
@@ -812,7 +812,7 @@ describe('buildCostBasisScopedTransactions', () => {
       const senderTx = materializeTestTransaction({
         id: 1,
         accountId: 1,
-        externalId: 'ext-1',
+        fingerprintSeed: 'ext-1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
         source: 'bitcoin',

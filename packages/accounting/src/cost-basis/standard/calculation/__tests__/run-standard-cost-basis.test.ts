@@ -46,7 +46,7 @@ function buildMovementFingerprint(params: {
   accountId: number;
   blockchainTransactionHash?: string | undefined;
   componentEventIds?: string[] | undefined;
-  externalId: string;
+  identityReference: string;
   movementType: 'inflow' | 'outflow';
   position: number;
   source: string;
@@ -56,7 +56,7 @@ function buildMovementFingerprint(params: {
     accountId: params.accountId,
     blockchainTransactionHash: params.blockchainTransactionHash,
     componentEventIds: params.componentEventIds,
-    externalId: params.externalId,
+    identityReference: params.identityReference,
     source: params.source,
     sourceType: params.sourceType,
   });
@@ -441,7 +441,7 @@ describe('runCostBasisPipeline', () => {
       id: 10,
       accountId: 50,
       datetime: '2025-01-01T00:00:00.000Z',
-      externalId: 'acq-10',
+      fingerprintSeed: 'acq-10',
       source: 'kraken',
       type: 'buy',
       inflows: [
@@ -464,7 +464,6 @@ describe('runCostBasisPipeline', () => {
       id: 11,
       accountId: 3,
       datetime: '2025-05-08T10:14:40.000Z',
-      externalId: hash,
       txHash: hash,
       outflows: [
         {
@@ -482,7 +481,6 @@ describe('runCostBasisPipeline', () => {
       id: 12,
       accountId: 10,
       datetime: '2025-05-08T10:14:40.000Z',
-      externalId: hash,
       txHash: hash,
       inflows: [
         {
@@ -499,7 +497,7 @@ describe('runCostBasisPipeline', () => {
       id: 13,
       accountId: 90,
       datetime: '2025-05-08T10:16:45.000Z',
-      externalId: hash,
+      fingerprintSeed: hash,
       source: 'kucoin',
       type: 'deposit',
       inflows: [
@@ -530,7 +528,7 @@ describe('runCostBasisPipeline', () => {
         blockchainTransactionHash: sender.blockchain?.transaction_hash ?? hash,
         source: sender.source,
         accountId: sender.accountId,
-        externalId: hash,
+        identityReference: hash,
         movementType: 'outflow',
         position: 0,
         sourceType: sender.sourceType,
@@ -539,7 +537,7 @@ describe('runCostBasisPipeline', () => {
         componentEventIds: [hash],
         source: exchangeDeposit.source,
         accountId: exchangeDeposit.accountId,
-        externalId: hash,
+        identityReference: hash,
         movementType: 'inflow',
         position: 0,
         sourceType: exchangeDeposit.sourceType,

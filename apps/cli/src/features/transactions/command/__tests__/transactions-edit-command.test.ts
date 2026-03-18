@@ -90,7 +90,7 @@ describe('transactions edit command', () => {
       ok({
         action: 'set',
         changed: true,
-        externalId: 'trade-123',
+        txFingerprint: 'trade-123',
         note: 'Moved to Ledger',
         reason: 'wallet transfer',
         source: 'kraken',
@@ -122,7 +122,7 @@ describe('transactions edit command', () => {
     const result = {
       action: 'clear',
       changed: true,
-      externalId: 'trade-123',
+      txFingerprint: 'trade-123',
       reason: 'duplicate reminder',
       source: 'kraken',
       transactionId: 123,

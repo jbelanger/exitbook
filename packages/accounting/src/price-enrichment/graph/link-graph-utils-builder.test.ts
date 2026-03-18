@@ -23,7 +23,6 @@ function createTransaction(params: {
     accountId: 1,
     source: params.source,
     sourceType,
-    externalId: `${params.source}-${params.id}`,
     txFingerprint: `txfp:${params.source}-${params.id}`,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),

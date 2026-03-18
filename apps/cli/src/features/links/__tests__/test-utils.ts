@@ -80,7 +80,6 @@ export function createMockTransaction(
   return {
     id,
     accountId: 1,
-    externalId: `tx-${id}`,
     txFingerprint: `tx-${id}`,
     source: overrides.source ?? 'test-source',
     sourceType: 'exchange',
@@ -196,14 +195,12 @@ export function createMockTransactionObjects() {
       id: 1,
       accountId: 1,
       source: 'kraken',
-      externalId: 'WITHDRAWAL-123',
       txFingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
     },
     target: {
       id: 2,
       accountId: 2,
       source: 'blockchain:bitcoin',
-      externalId: 'abc123',
       txFingerprint: 'txfp:bitcoin:2:abc123',
     },
   };
@@ -227,7 +224,6 @@ export function createConfirmableTransferFixture(
   const sourceTransaction: Transaction = {
     id: 1,
     accountId: 1,
-    externalId: 'WITHDRAWAL-123',
     txFingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
     source: 'kraken',
     sourceType: 'exchange',
@@ -255,7 +251,6 @@ export function createConfirmableTransferFixture(
   const targetTransaction: Transaction = {
     id: 2,
     accountId: 2,
-    externalId: 'abc123',
     txFingerprint: 'txfp:bitcoin:2:abc123',
     source: 'bitcoin',
     sourceType: 'blockchain',

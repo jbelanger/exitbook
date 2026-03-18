@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
@@ -7,9 +7,20 @@ import {
   createFeeMovement,
   createPriceAtTxTime,
   createTransactionFromMovements,
+  seedTxFingerprint,
 } from '../../../../__tests__/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
+
+function reseedTxFingerprint(transaction: Transaction, identityReference: string): void {
+  transaction.txFingerprint = seedTxFingerprint({
+    accountId: transaction.accountId,
+    blockchainTransactionHash: transaction.blockchain?.transaction_hash,
+    identityReference,
+    source: transaction.source,
+    sourceType: transaction.sourceType,
+  });
+}
 
 describe('validateScopedTransferLinks', () => {
   const logger = getLogger('validated-scoped-transfer-links.test');
@@ -117,7 +128,12 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     firstSourceTx.accountId = 8;
-    firstSourceTx.externalId = '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96';
+    firstSourceTx.blockchain = {
+      name: 'bitcoin',
+      transaction_hash: '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96',
+      is_confirmed: true,
+    };
+    reseedTxFingerprint(firstSourceTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
 
     const secondSourceTx = createTransactionFromMovements(
       11,
@@ -136,7 +152,12 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     secondSourceTx.accountId = 10;
-    secondSourceTx.externalId = firstSourceTx.externalId;
+    secondSourceTx.blockchain = {
+      name: 'bitcoin',
+      transaction_hash: '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96',
+      is_confirmed: true,
+    };
+    reseedTxFingerprint(secondSourceTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
 
     const targetTx = createTransactionFromMovements(
       12,
@@ -154,7 +175,7 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'kucoin', sourceType: 'exchange', type: 'deposit' }
     );
     targetTx.accountId = 20;
-    targetTx.externalId = firstSourceTx.externalId;
+    reseedTxFingerprint(targetTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
 
     const scopedResult = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, targetTx], logger);
     const scopedTransactions = assertOk(scopedResult).transactions;
@@ -182,7 +203,7 @@ describe('validateScopedTransferLinks', () => {
         assetSymbol: 'BTC' as Currency,
         sourceAssetId: sourceMovement!.assetId,
         targetAssetId: targetMovement!.assetId,
-        sourceAmount: parseDecimal('0.00387035'),
+        sourceAmount: parseDecimal('0.00404382'),
         targetAmount: parseDecimal('0.00387035'),
         sourceMovementFingerprint: sourceMovement!.movementFingerprint,
         targetMovementFingerprint: targetMovement!.movementFingerprint,
@@ -225,12 +246,12 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     firstSourceTx.accountId = 101;
-    firstSourceTx.externalId = hash;
     firstSourceTx.blockchain = {
       name: 'bitcoin',
       transaction_hash: hash,
       is_confirmed: true,
     };
+    reseedTxFingerprint(firstSourceTx, hash);
     firstSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
     const secondSourceTx = createTransactionFromMovements(
@@ -250,12 +271,12 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     secondSourceTx.accountId = 102;
-    secondSourceTx.externalId = hash;
     secondSourceTx.blockchain = {
       name: 'bitcoin',
       transaction_hash: hash,
       is_confirmed: true,
     };
+    reseedTxFingerprint(secondSourceTx, hash);
     secondSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
     const targetTx = createTransactionFromMovements(
@@ -275,7 +296,7 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', source: 'kraken', sourceType: 'exchange', type: 'deposit' }
     );
     targetTx.accountId = 103;
-    targetTx.externalId = `deposit-${hash}`;
+    reseedTxFingerprint(targetTx, `deposit-${hash}`);
 
     const scopedResult = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, targetTx], logger);
     const scopedTransactions = assertOk(scopedResult).transactions;
@@ -419,7 +440,7 @@ describe('validateScopedTransferLinks', () => {
       [],
       { category: 'transfer', source: 'kucoin', type: 'withdrawal' }
     );
-    sourceTx.externalId = '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b';
+    reseedTxFingerprint(sourceTx, '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b');
 
     const targetTx = createTransactionFromMovements(
       51,
@@ -437,12 +458,12 @@ describe('validateScopedTransferLinks', () => {
       [],
       { category: 'transfer', source: 'ethereum', sourceType: 'blockchain', type: 'deposit' }
     );
-    targetTx.externalId = sourceTx.externalId;
     targetTx.blockchain = {
       name: 'ethereum',
-      transaction_hash: sourceTx.externalId,
+      transaction_hash: '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b',
       is_confirmed: true,
     };
+    reseedTxFingerprint(targetTx, '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b');
 
     const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
     const scopedTransactions = assertOk(scopedResult).transactions;

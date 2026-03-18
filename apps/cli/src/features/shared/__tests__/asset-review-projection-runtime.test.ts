@@ -59,12 +59,16 @@ describe('asset-review-projection-runtime', () => {
       await db.transactions.createBatch(
         [
           {
-            externalId: 'tx-1',
             datetime: '2026-03-10T00:00:00.000Z',
             timestamp: Date.parse('2026-03-10T00:00:00.000Z'),
             source: 'ethereum',
             sourceType: 'blockchain',
             status: 'success',
+            blockchain: {
+              name: 'ethereum',
+              transaction_hash: 'tx-1',
+              is_confirmed: true,
+            },
             movements: {
               inflows: [
                 {

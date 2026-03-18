@@ -48,8 +48,7 @@ function createTransaction(overrides: Partial<Transaction>): Transaction {
     accountId: 1,
     source: 'bitcoin',
     sourceType: 'blockchain',
-    externalId: 'tx-1',
-    txFingerprint: String(overrides.txFingerprint ?? overrides.externalId ?? 'tx-1'),
+    txFingerprint: String(overrides.txFingerprint ?? 'tx-1'),
     status: 'success',
     datetime: '2026-02-20T00:00:00.000Z',
     timestamp: Date.parse('2026-02-20T00:00:00.000Z'),
@@ -169,7 +168,7 @@ describe('BalanceWorkflow', () => {
 
     const normalTransactions = [
       createTransaction({
-        externalId: 'tx-normal',
+        txFingerprint: 'tx-normal',
         movements: {
           inflows: [
             {
@@ -186,7 +185,7 @@ describe('BalanceWorkflow', () => {
 
     const excludedTransactions = [
       createTransaction({
-        externalId: 'tx-excluded',
+        txFingerprint: 'tx-excluded',
         excludedFromAccounting: true,
         movements: {
           inflows: [
@@ -537,7 +536,7 @@ describe('BalanceWorkflow', () => {
 
     const excludedTransactions = [
       createTransaction({
-        externalId: 'tx-excluded-inflow',
+        txFingerprint: 'tx-excluded-inflow',
         excludedFromAccounting: true,
         movements: {
           inflows: [
@@ -552,7 +551,7 @@ describe('BalanceWorkflow', () => {
         },
       }),
       createTransaction({
-        externalId: 'tx-excluded-outflow',
+        txFingerprint: 'tx-excluded-outflow',
         excludedFromAccounting: true,
         movements: {
           inflows: [],
@@ -620,7 +619,7 @@ describe('BalanceWorkflow', () => {
 
     const excludedTransactions = [
       createTransaction({
-        externalId: 'tx-excluded-outflow',
+        txFingerprint: 'tx-excluded-outflow',
         excludedFromAccounting: true,
         movements: {
           inflows: [],

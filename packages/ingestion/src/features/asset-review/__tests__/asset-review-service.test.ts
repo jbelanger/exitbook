@@ -9,19 +9,18 @@ import { buildAssetReviewSummaries } from '../asset-review-service.js';
 function createTransaction(params: {
   assetId: string;
   assetSymbol: string;
-  externalId: string;
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   includeFeeWithSameAsset?: boolean | undefined;
   isSpam?: boolean | undefined;
   notes?: Transaction['notes'];
   source?: string | undefined;
+  txFingerprint: string;
 }): Transaction {
   return {
     id: params.id,
     accountId: 1,
-    externalId: params.externalId,
-    txFingerprint: params.externalId,
+    txFingerprint: params.txFingerprint,
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
     source: params.source ?? 'ethereum',
@@ -67,19 +66,18 @@ function createTransaction(params: {
 }
 
 function createMultiAssetTransaction(params: {
-  externalId: string;
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   isSpam?: boolean | undefined;
   notes?: Transaction['notes'];
   primaryAssets: { assetId: string; assetSymbol: string }[];
   source?: string | undefined;
+  txFingerprint: string;
 }): Transaction {
   return {
     id: params.id,
     accountId: 1,
-    externalId: params.externalId,
-    txFingerprint: params.externalId,
+    txFingerprint: params.txFingerprint,
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
     source: params.source ?? 'ethereum',
@@ -115,7 +113,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'SCAM',
         includeFeeWithSameAsset: true,
@@ -148,7 +146,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId: scamAssetId,
         assetSymbol: 'SCAM',
         isSpam: true,
@@ -188,7 +186,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createMultiAssetTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         primaryAssets: [
           { assetId: scamAssetId, assetSymbol: 'SCAM' },
           { assetId: otherAssetId, assetSymbol: 'OTHER' },
@@ -227,7 +225,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createMultiAssetTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         source: 'kraken',
         primaryAssets: [
           { assetId: firstAssetId, assetSymbol: 'SCAM' },
@@ -267,13 +265,13 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId: firstAssetId,
         assetSymbol: 'USDC',
       }),
       createTransaction({
         id: 2,
-        externalId: 'tx-2',
+        txFingerprint: 'tx-2',
         assetId: secondAssetId,
         assetSymbol: 'USDC',
       }),
@@ -316,7 +314,7 @@ describe('buildAssetReviewSummaries', () => {
       [
         createTransaction({
           id: 1,
-          externalId: 'tx-1',
+          txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'USDC',
           source: 'solana',
@@ -358,7 +356,7 @@ describe('buildAssetReviewSummaries', () => {
       [
         createTransaction({
           id: 1,
-          externalId: 'tx-1',
+          txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'UNDG',
         }),
@@ -415,13 +413,13 @@ describe('buildAssetReviewSummaries', () => {
       [
         createTransaction({
           id: 1,
-          externalId: 'tx-1',
+          txFingerprint: 'tx-1',
           assetId: firstAssetId,
           assetSymbol: 'USDC',
         }),
         createTransaction({
           id: 2,
-          externalId: 'tx-2',
+          txFingerprint: 'tx-2',
           assetId: secondAssetId,
           assetSymbol: 'USDC',
         }),
@@ -445,7 +443,7 @@ describe('buildAssetReviewSummaries', () => {
     const initialResult = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'SCAM',
         isSpam: true,
@@ -457,7 +455,7 @@ describe('buildAssetReviewSummaries', () => {
       [
         createTransaction({
           id: 1,
-          externalId: 'tx-1',
+          txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'SCAM',
           isSpam: true,
@@ -491,7 +489,7 @@ describe('buildAssetReviewSummaries', () => {
     const initialResult = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'SCAM',
         isSpam: true,
@@ -503,7 +501,7 @@ describe('buildAssetReviewSummaries', () => {
       [
         createTransaction({
           id: 1,
-          externalId: 'tx-1',
+          txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'SCAM',
           isSpam: true,
@@ -546,7 +544,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'WARN',
         notes: [
@@ -578,7 +576,7 @@ describe('buildAssetReviewSummaries', () => {
     const result = await buildAssetReviewSummaries([
       createTransaction({
         id: 1,
-        externalId: 'tx-1',
+        txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'WARN',
         notes: [

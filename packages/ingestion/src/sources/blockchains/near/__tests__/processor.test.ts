@@ -147,7 +147,7 @@ describe('NearProcessor', () => {
       expect(transactions).toHaveLength(1);
 
       const tx = transactions[0]!;
-      expect(tx.externalId).toBe('tx1');
+      expect(tx.blockchain?.transaction_hash).toBe('tx1');
       expect(tx.source).toBe('near');
       expect(tx.status).toBe('success');
       expect(tx.from).toBe('alice.near');
@@ -969,8 +969,8 @@ describe('NearProcessor', () => {
 
       expect(result.value).toHaveLength(2);
 
-      const tx1 = result.value.find((tx) => tx.externalId === 'txmulti1');
-      const tx2 = result.value.find((tx) => tx.externalId === 'txmulti2');
+      const tx1 = result.value.find((tx) => tx.blockchain?.transaction_hash === 'txmulti1');
+      const tx2 = result.value.find((tx) => tx.blockchain?.transaction_hash === 'txmulti2');
 
       expect(tx1).toBeDefined();
       expect(tx1!.from).toBe('alice.near');

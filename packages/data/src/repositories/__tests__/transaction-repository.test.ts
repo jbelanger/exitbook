@@ -14,14 +14,15 @@ describe('TransactionRepository', () => {
   let db: KyselyDB;
   let repo: TransactionRepository;
 
-  function makePersistedTransaction(overrides: Partial<TransactionDraft> = {}): TransactionDraft {
+  function makePersistedTransaction(
+    overrides: Partial<TransactionDraft> & { fingerprintSeed?: string | undefined } = {}
+  ): TransactionDraft {
     const source = overrides.source ?? 'ethereum';
     const sourceType = overrides.sourceType ?? 'blockchain';
-    const externalId = overrides.externalId ?? 'tx-default';
+    const fingerprintSeed = overrides.fingerprintSeed ?? overrides.blockchain?.transaction_hash ?? 'tx-default';
 
     return {
       datetime: '2025-01-01T00:00:00.000Z',
-      externalId,
       fees: [],
       movements: {
         inflows: [
@@ -43,7 +44,7 @@ describe('TransactionRepository', () => {
         sourceType === 'blockchain'
           ? {
               name: source,
-              transaction_hash: externalId,
+              transaction_hash: fingerprintSeed,
               is_confirmed: true,
             }
           : undefined,
@@ -70,7 +71,7 @@ describe('TransactionRepository', () => {
       for (let i = 1; i <= 5; i++) {
         const accountId = i <= 3 ? 1 : 2;
         const sourceName = i <= 3 ? 'kraken' : 'ethereum';
-        const externalId = `tx-${i}`;
+        const identityReference = `tx-${i}`;
         await db
           .insertInto('transactions')
           .values({
@@ -78,7 +79,7 @@ describe('TransactionRepository', () => {
             account_id: accountId,
             source_name: sourceName,
             source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
-            tx_fingerprint: seedTxFingerprint(sourceName, accountId, externalId),
+            tx_fingerprint: seedTxFingerprint(sourceName, accountId, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,
@@ -126,8 +127,8 @@ describe('TransactionRepository', () => {
 
       // 3 normal transactions
       for (let i = 1; i <= 3; i++) {
-        const externalId = `tx-${i}`;
-        const txFingerprint = seedTxFingerprint('ethereum', 1, externalId);
+        const identityReference = `tx-${i}`;
+        const txFingerprint = seedTxFingerprint('ethereum', 1, identityReference);
         await db
           .insertInto('transactions')
           .values({
@@ -173,8 +174,8 @@ describe('TransactionRepository', () => {
 
       // 2 scam token transactions (is_spam persisted, excluded_from_accounting true for filter coverage)
       for (let i = 4; i <= 5; i++) {
-        const externalId = `scam-tx-${i}`;
-        const txFingerprint = seedTxFingerprint('ethereum', 1, externalId);
+        const identityReference = `scam-tx-${i}`;
+        const txFingerprint = seedTxFingerprint('ethereum', 1, identityReference);
         await db
           .insertInto('transactions')
           .values({
@@ -263,7 +264,6 @@ describe('TransactionRepository', () => {
           transaction_hash: 'spam-tx-1',
         },
         datetime: new Date().toISOString(),
-        externalId: 'spam-tx-1',
         fees: [],
         isSpam: true,
         movements: {
@@ -318,7 +318,6 @@ describe('TransactionRepository', () => {
           transaction_hash: 'legit-tx-1',
         },
         datetime: new Date().toISOString(),
-        externalId: 'legit-tx-1',
         fees: [],
         isSpam: false,
         movements: {
@@ -358,7 +357,6 @@ describe('TransactionRepository', () => {
           transaction_hash: 'normal-tx-1',
         },
         datetime: new Date().toISOString(),
-        externalId: 'normal-tx-1',
         fees: [],
         movements: {
           inflows: [
@@ -397,7 +395,6 @@ describe('TransactionRepository', () => {
         },
         datetime: new Date().toISOString(),
         excludedFromAccounting: false,
-        externalId: 'spam-tx-2',
         fees: [],
         isSpam: true,
         movements: { inflows: [], outflows: [] },
@@ -427,7 +424,6 @@ describe('TransactionRepository', () => {
           transaction_hash: 'spam-tx-3',
         },
         datetime: new Date().toISOString(),
-        externalId: 'spam-tx-3',
         fees: [],
         isSpam: true,
         movements: { inflows: [], outflows: [] },
@@ -461,7 +457,7 @@ describe('TransactionRepository', () => {
     });
 
     it('returns the existing row id when the tx fingerprint already exists', async () => {
-      const transaction = makePersistedTransaction({ externalId: 'dup-tx-1' });
+      const transaction = makePersistedTransaction({ fingerprintSeed: 'dup-tx-1' });
 
       const firstId = assertOk(await repo.create(transaction, 1));
       const secondId = assertOk(await repo.create(transaction, 1));
@@ -476,7 +472,7 @@ describe('TransactionRepository', () => {
     });
 
     it('counts tx fingerprint duplicates in createBatch without creating extra rows', async () => {
-      const transaction = makePersistedTransaction({ externalId: 'dup-batch-1' });
+      const transaction = makePersistedTransaction({ fingerprintSeed: 'dup-batch-1' });
 
       const result = assertOk(await repo.createBatch([transaction, transaction], 1));
 
@@ -489,7 +485,7 @@ describe('TransactionRepository', () => {
       expect(movements).toHaveLength(1);
     });
 
-    it('deduplicates when the same blockchain hash arrives with a different externalId', async () => {
+    it('deduplicates when the same blockchain hash arrives with a different fingerprint seed', async () => {
       const firstId = assertOk(
         await repo.create(
           makePersistedTransaction({
@@ -498,7 +494,7 @@ describe('TransactionRepository', () => {
               transaction_hash: '0xabc123',
               is_confirmed: true,
             },
-            externalId: 'hash-source-1',
+            fingerprintSeed: 'hash-source-1',
           }),
           1
         )
@@ -512,7 +508,7 @@ describe('TransactionRepository', () => {
               transaction_hash: '0xabc123',
               is_confirmed: true,
             },
-            externalId: 'hash-source-2',
+            fingerprintSeed: 'hash-source-2',
           }),
           1
         )
@@ -605,7 +601,6 @@ describe('TransactionRepository', () => {
       const enriched: Transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'tx-1',
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -715,7 +710,6 @@ describe('TransactionRepository', () => {
       const enriched: Transaction = {
         id: 2,
         accountId: 1,
-        externalId: 'tx-2',
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -838,7 +832,6 @@ describe('TransactionRepository', () => {
       const enriched: Transaction = {
         id: 3,
         accountId: 1,
-        externalId: 'tx-3',
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -941,7 +934,6 @@ describe('TransactionRepository', () => {
       const enriched: Transaction = {
         id: 999,
         accountId: 1,
-        externalId: 'tx-999',
         txFingerprint: seedTxFingerprint('kraken', 1, 'tx-999'),
         datetime: new Date().toISOString(),
         timestamp: Date.now(),

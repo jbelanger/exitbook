@@ -175,7 +175,6 @@ describe('TransactionSchema', () => {
       const transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'test-tx-1',
         txFingerprint: 'txfp-1',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -204,7 +203,6 @@ describe('TransactionSchema', () => {
       const transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'test-tx-2',
         txFingerprint: 'txfp-2',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -236,7 +234,6 @@ describe('TransactionSchema', () => {
       const transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'test-tx-3',
         txFingerprint: 'txfp-3',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
@@ -268,7 +265,6 @@ describe('TransactionSchema', () => {
       const transaction = {
         id: 1,
         accountId: 1,
-        externalId: 'test-tx-4',
         txFingerprint: 'txfp-4',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),

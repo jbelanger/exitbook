@@ -40,14 +40,14 @@ describe('buildProcessedTransactionsResetPorts', () => {
   }
 
   async function seedTransaction(accountId: number) {
-    const externalId = `test-tx-${accountId}-${globalThis.crypto.randomUUID()}`;
+    const identityReference = `test-tx-${accountId}-${globalThis.crypto.randomUUID()}`;
     const result = await db
       .insertInto('transactions')
       .values({
         account_id: accountId,
         source_name: 'test',
         source_type: 'blockchain',
-        tx_fingerprint: seedTxFingerprint('test', accountId, externalId),
+        tx_fingerprint: seedTxFingerprint('test', accountId, identityReference),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
         is_spam: false,

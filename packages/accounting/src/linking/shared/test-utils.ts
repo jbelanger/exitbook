@@ -94,19 +94,19 @@ export function createTransaction(params: {
 }): Transaction {
   const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
   const accountId = params.accountId ?? 1;
-  const externalId = `${params.source}-${params.id}`;
+  const identityReference = `${params.source}-${params.id}`;
   const blockchain =
     sourceType === 'blockchain'
       ? (params.blockchain ?? {
           is_confirmed: true,
           name: params.source,
-          transaction_hash: externalId,
+          transaction_hash: identityReference,
         })
       : undefined;
   const txFingerprint = seedTxFingerprint({
     accountId,
     blockchainTransactionHash: blockchain?.transaction_hash,
-    externalId,
+    identityReference,
     source: params.source,
     sourceType,
   });
@@ -114,7 +114,6 @@ export function createTransaction(params: {
   return {
     id: params.id,
     accountId,
-    externalId,
     txFingerprint,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),

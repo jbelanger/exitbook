@@ -586,7 +586,6 @@ function createMockTransaction(id: number, source: string, datetime: string): Tr
     source,
     sourceType: source === 'kraken' || source === 'coinbase' ? 'exchange' : 'blockchain',
     datetime,
-    externalId: `ext-${id}`,
     txFingerprint: `ext-${id}`,
     from: source === 'kraken' || source === 'coinbase' ? undefined : '0xABCD1234ABCD1234ABCD1234ABCD1234ABCD1234',
     to: source === 'ethereum' || source === 'bitcoin' ? '0x1234ABCD1234ABCD1234ABCD1234ABCD1234ABCD' : undefined,

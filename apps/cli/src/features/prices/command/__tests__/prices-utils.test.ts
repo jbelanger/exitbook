@@ -125,7 +125,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -154,7 +153,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -194,7 +192,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -221,7 +218,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -249,7 +245,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -290,7 +285,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -317,7 +311,6 @@ describe('extractAssetsNeedingPrices', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -349,7 +342,6 @@ describe('createPriceQuery', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -378,7 +370,6 @@ describe('createPriceQuery', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -405,7 +396,6 @@ describe('createPriceQuery', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -432,7 +422,6 @@ describe('createPriceQuery', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {
@@ -459,7 +448,6 @@ describe('createPriceQuery', () => {
       source: 'test',
       sourceType: 'exchange',
       status: 'success',
-      externalId: 'test-1',
       txFingerprint: 'test-1',
       operation: { category: 'trade', type: 'buy' },
       movements: {

@@ -61,14 +61,14 @@ function inferAccountType(source: string): 'blockchain' | 'exchange-api' {
     : 'exchange-api';
 }
 
-export function seedTxFingerprint(source: string, accountId: number, externalId: string): string {
+export function seedTxFingerprint(source: string, accountId: number, identityReference: string): string {
   const accountType = inferAccountType(source);
   const accountFingerprint = sha256Hex(`${accountType}|${source}|identifier-${accountId}`);
 
   const canonicalMaterial =
     accountType === 'blockchain'
-      ? `${accountFingerprint}|blockchain|${source}|${externalId}`
-      : `${accountFingerprint}|exchange|${source}|${[externalId].sort().join('|')}`;
+      ? `${accountFingerprint}|blockchain|${source}|${identityReference}`
+      : `${accountFingerprint}|exchange|${source}|${[identityReference].sort().join('|')}`;
 
   return sha256Hex(canonicalMaterial);
 }

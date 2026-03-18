@@ -112,7 +112,6 @@ describe('links-view-utils', () => {
       const tx: Transaction = {
         id: 456,
         accountId: 1,
-        externalId: 'tx-456',
         txFingerprint: 'tx-456',
         source: 'test-source',
         sourceType: 'exchange',
@@ -151,7 +150,6 @@ describe('links-view-utils', () => {
       const tx: Transaction = {
         id: 789,
         accountId: 1,
-        externalId: 'tx-789',
         txFingerprint: 'tx-789',
         source: 'test-source',
         sourceType: 'exchange',
