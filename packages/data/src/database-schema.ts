@@ -163,9 +163,8 @@ export interface TransactionsTable {
 export interface TransactionMovementsTable {
   id: Generated<number>;
   transaction_id: number; // FK to transactions.id
-  position: number; // Order within transaction (0-indexed)
   movement_type: 'inflow' | 'outflow' | 'fee';
-  movement_fingerprint: string; // Canonical persisted movement identity (e.g. movement:<txFingerprint>:outflow:0)
+  movement_fingerprint: string; // Canonical persisted movement identity (e.g. movement:<txFingerprint>:<contentHash>:1)
   asset_id: string;
   asset_symbol: string;
   // Amount fields (inflow/outflow only)
@@ -200,8 +199,8 @@ export interface TransactionLinksTable {
   source_amount: DecimalString; // Linked source amount before any implied same-asset transfer fee
   target_amount: DecimalString; // Net received amount after any implied same-asset transfer fee
   implied_fee_amount: DecimalString | null; // Inferred same-asset transfer fee not modeled as a fee movement
-  source_movement_fingerprint: string; // Deterministic movement identity (e.g. movement:<txFingerprint>:outflow:0)
-  target_movement_fingerprint: string; // Deterministic movement identity (e.g. movement:<txFingerprint>:inflow:0)
+  source_movement_fingerprint: string; // Deterministic movement identity (e.g. movement:<txFingerprint>:<contentHash>:1)
+  target_movement_fingerprint: string; // Deterministic movement identity (e.g. movement:<txFingerprint>:<contentHash>:1)
   link_type:
     | 'exchange_to_blockchain'
     | 'blockchain_to_exchange'

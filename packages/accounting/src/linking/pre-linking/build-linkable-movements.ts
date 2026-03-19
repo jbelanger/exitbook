@@ -50,8 +50,7 @@ export function buildLinkableMovements(
       : undefined;
 
     const inflows = tx.movements.inflows ?? [];
-    for (let inflowIdx = 0; inflowIdx < inflows.length; inflowIdx++) {
-      const inflow = inflows[inflowIdx]!;
+    for (const inflow of inflows) {
       const amount = inflow.netAmount ?? inflow.grossAmount;
       const grossAmount = inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
 
@@ -68,7 +67,6 @@ export function buildLinkableMovements(
           {
             excluded,
             isInternal,
-            position: inflowIdx,
             movementFingerprint: inflow.movementFingerprint,
           }
         )
@@ -76,8 +74,7 @@ export function buildLinkableMovements(
     }
 
     const outflows = tx.movements.outflows ?? [];
-    for (let outflowIdx = 0; outflowIdx < outflows.length; outflowIdx++) {
-      const outflow = outflows[outflowIdx]!;
+    for (const outflow of outflows) {
       // Apply outflow reduction if one exists for this tx+asset
       const reduction = outflowReductions.get(tx.id)?.get(outflow.assetId);
       const amount = reduction ?? outflow.netAmount ?? outflow.grossAmount;
@@ -97,7 +94,6 @@ export function buildLinkableMovements(
           {
             excluded,
             isInternal,
-            position: outflowIdx,
             movementFingerprint: outflow.movementFingerprint,
           }
         )
@@ -131,7 +127,7 @@ function createLinkableMovement(
   amount: Decimal,
   grossAmount: Decimal | undefined,
   normalizedHash: string | undefined,
-  flags: { excluded: boolean; isInternal: boolean; movementFingerprint: string; position: number }
+  flags: { excluded: boolean; isInternal: boolean; movementFingerprint: string }
 ): LinkableMovement {
   return {
     id,
@@ -150,7 +146,6 @@ function createLinkableMovement(
     toAddress: tx.to,
     isInternal: flags.isInternal,
     excluded: flags.excluded,
-    position: flags.position,
     movementFingerprint: flags.movementFingerprint,
   };
 }

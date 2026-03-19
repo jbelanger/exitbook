@@ -1,7 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
-import { createHash } from 'node:crypto';
-
-import { err, ok } from '@exitbook/core';
+import { err, ok, sha256Hex } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StreamingOperation } from '../../../../../core/index.js';
@@ -44,7 +42,7 @@ vi.mock('@exitbook/logger', () => ({
  */
 function generateDeterministicHash(data: unknown): string {
   const rawJson = JSON.stringify(sortKeys(data));
-  return createHash('sha256').update(rawJson).digest('hex');
+  return sha256Hex(rawJson);
 }
 
 describe('NearBlocksApiClient', () => {

@@ -12,7 +12,12 @@ import type {
   Transaction,
   TransactionDraft,
 } from '@exitbook/core';
-import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
+import {
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  parseDecimal,
+  sha256Hex,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -21,14 +26,10 @@ import { BalanceWorkflow } from '../balance-workflow.js';
 
 function materializeMovementFingerprint(
   txFingerprint: string,
-  movementType: 'inflow' | 'outflow' | 'fee',
-  position: number
+  canonicalMaterial: string,
+  duplicateOccurrence: number
 ): string {
-  const result = computeMovementFingerprint({ txFingerprint, movementType, position });
-  if (result.isErr()) {
-    throw result.error;
-  }
-  return result.value;
+  return `movement:${txFingerprint}:${sha256Hex(canonicalMaterial)}:${duplicateOccurrence}`;
 }
 
 function createAccount(overrides: Partial<Account> = {}): Account {
@@ -63,27 +64,63 @@ function createTransaction(
 ): Transaction {
   const { fees: overrideFees, movements: overrideMovements, txFingerprint: overrideTxFingerprint, ...rest } = overrides;
   const txFingerprint = String(overrideTxFingerprint ?? 'tx-1');
-  const inflows = (overrideMovements?.inflows ?? []).map((movement, index) => ({
-    ...movement,
-    movementFingerprint:
-      'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
-        ? movement.movementFingerprint
-        : materializeMovementFingerprint(txFingerprint, 'inflow', index),
-  }));
-  const outflows = (overrideMovements?.outflows ?? []).map((movement, index) => ({
-    ...movement,
-    movementFingerprint:
-      'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
-        ? movement.movementFingerprint
-        : materializeMovementFingerprint(txFingerprint, 'outflow', index),
-  }));
-  const fees = (overrideFees ?? []).map((fee, index) => ({
-    ...fee,
-    movementFingerprint:
-      'movementFingerprint' in fee && typeof fee.movementFingerprint === 'string'
-        ? fee.movementFingerprint
-        : materializeMovementFingerprint(txFingerprint, 'fee', index),
-  }));
+  const inflowDuplicateCounts = new Map<string, number>();
+  const outflowDuplicateCounts = new Map<string, number>();
+  const feeDuplicateCounts = new Map<string, number>();
+  const inflows = (overrideMovements?.inflows ?? []).map((movement) => {
+    const canonicalMaterial = buildAssetMovementCanonicalMaterial({
+      movementType: 'inflow',
+      assetId: movement.assetId,
+      grossAmount: movement.grossAmount,
+      netAmount: movement.netAmount,
+    });
+    const duplicateOccurrence = (inflowDuplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    inflowDuplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      ...movement,
+      movementFingerprint:
+        'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+          ? movement.movementFingerprint
+          : materializeMovementFingerprint(txFingerprint, canonicalMaterial, duplicateOccurrence),
+    };
+  });
+  const outflows = (overrideMovements?.outflows ?? []).map((movement) => {
+    const canonicalMaterial = buildAssetMovementCanonicalMaterial({
+      movementType: 'outflow',
+      assetId: movement.assetId,
+      grossAmount: movement.grossAmount,
+      netAmount: movement.netAmount,
+    });
+    const duplicateOccurrence = (outflowDuplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    outflowDuplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      ...movement,
+      movementFingerprint:
+        'movementFingerprint' in movement && typeof movement.movementFingerprint === 'string'
+          ? movement.movementFingerprint
+          : materializeMovementFingerprint(txFingerprint, canonicalMaterial, duplicateOccurrence),
+    };
+  });
+  const fees = (overrideFees ?? []).map((fee) => {
+    const canonicalMaterial = buildFeeMovementCanonicalMaterial({
+      assetId: fee.assetId,
+      amount: fee.amount,
+      scope: fee.scope,
+      settlement: fee.settlement,
+    });
+    const duplicateOccurrence = (feeDuplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    feeDuplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      ...fee,
+      movementFingerprint:
+        'movementFingerprint' in fee && typeof fee.movementFingerprint === 'string'
+          ? fee.movementFingerprint
+          : materializeMovementFingerprint(txFingerprint, canonicalMaterial, duplicateOccurrence),
+    };
+  });
 
   return {
     id: 100,

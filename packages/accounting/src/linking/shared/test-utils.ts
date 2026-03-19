@@ -1,13 +1,7 @@
-import {
-  computeMovementFingerprint,
-  type Currency,
-  type Transaction,
-  parseDecimal,
-  type TransactionLink,
-} from '@exitbook/core';
+import { type Currency, type Transaction, parseDecimal, type TransactionLink } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { seedTxFingerprint } from '../../__tests__/test-utils.js';
+import { materializeTestTransaction, seedTxFingerprint } from '../../__tests__/test-utils.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 
 /**
@@ -29,7 +23,6 @@ export function createLinkableMovement(overrides: Partial<LinkableMovement> = {}
     timestamp: new Date('2024-01-01T12:00:00Z'),
     isInternal: false,
     excluded: false,
-    position: 0,
     movementFingerprint: 'movement:test:tx:outflow:0',
     ...overrides,
   };
@@ -117,10 +110,9 @@ export function createTransaction(params: {
       : undefined;
   const txFingerprint = seedTxFingerprint(params.source, sourceType, accountId, identityReference);
 
-  return {
+  return materializeTestTransaction({
     id: params.id,
     accountId,
-    txFingerprint,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
@@ -129,46 +121,20 @@ export function createTransaction(params: {
     from: params.from,
     to: params.to,
     movements: {
-      inflows: params.inflows
-        ? params.inflows.map((m, index) => {
-            const movementFingerprintResult = computeMovementFingerprint({
-              txFingerprint,
-              movementType: 'inflow',
-              position: index,
-            });
-            if (movementFingerprintResult.isErr()) {
-              throw movementFingerprintResult.error;
-            }
-
-            return {
-              assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
-              assetSymbol: m.assetSymbol as Currency,
-              movementFingerprint: movementFingerprintResult.value,
-              grossAmount: parseDecimal(m.amount),
-              netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
-            };
-          })
-        : [],
-      outflows: params.outflows
-        ? params.outflows.map((m, index) => {
-            const movementFingerprintResult = computeMovementFingerprint({
-              txFingerprint,
-              movementType: 'outflow',
-              position: index,
-            });
-            if (movementFingerprintResult.isErr()) {
-              throw movementFingerprintResult.error;
-            }
-
-            return {
-              assetId: m.assetId ?? `test:${m.assetSymbol.toLowerCase()}`,
-              assetSymbol: m.assetSymbol as Currency,
-              movementFingerprint: movementFingerprintResult.value,
-              grossAmount: parseDecimal(m.amount),
-              netAmount: m.netAmount ? parseDecimal(m.netAmount) : parseDecimal(m.amount),
-            };
-          })
-        : [],
+      inflows:
+        params.inflows?.map((movement) => ({
+          assetId: movement.assetId ?? `test:${movement.assetSymbol.toLowerCase()}`,
+          assetSymbol: movement.assetSymbol as Currency,
+          grossAmount: parseDecimal(movement.amount),
+          netAmount: movement.netAmount ? parseDecimal(movement.netAmount) : parseDecimal(movement.amount),
+        })) ?? [],
+      outflows:
+        params.outflows?.map((movement) => ({
+          assetId: movement.assetId ?? `test:${movement.assetSymbol.toLowerCase()}`,
+          assetSymbol: movement.assetSymbol as Currency,
+          grossAmount: parseDecimal(movement.amount),
+          netAmount: movement.netAmount ? parseDecimal(movement.netAmount) : parseDecimal(movement.amount),
+        })) ?? [],
     },
     fees: [],
     operation: {
@@ -176,5 +142,6 @@ export function createTransaction(params: {
       type: 'transfer',
     },
     blockchain,
-  };
+    txFingerprint,
+  });
 }

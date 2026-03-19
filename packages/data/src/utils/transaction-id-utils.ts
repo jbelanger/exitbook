@@ -3,10 +3,10 @@ import { computeTxFingerprint as computeCanonicalTxFingerprint } from '@exitbook
 
 type FingerprintTransactionInput = Pick<TransactionDraft, 'blockchain' | 'identityMaterial' | 'source' | 'sourceType'>;
 
-export async function deriveTransactionFingerprint(
+export function deriveTransactionFingerprint(
   input: FingerprintTransactionInput,
   accountFingerprint: string
-): Promise<Result<string, Error>> {
+): Result<string, Error> {
   if (input.sourceType === 'blockchain') {
     return computeCanonicalTxFingerprint({
       accountFingerprint,

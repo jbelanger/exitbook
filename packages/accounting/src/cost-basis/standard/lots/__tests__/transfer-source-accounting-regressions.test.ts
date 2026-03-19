@@ -384,7 +384,6 @@ describe('transfer source accounting regressions', () => {
         amount: parseDecimal('0.5'),
         movementFingerprint: 'movement:test:btc:fee:carryover',
         originalTransactionId: 11,
-        rawPosition: 0,
         scope: 'network',
         settlement: 'on-chain',
         priceAtTxTime: createPriceAtTxTime('60000'),

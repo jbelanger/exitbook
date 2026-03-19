@@ -1,10 +1,12 @@
+import { Decimal } from 'decimal.js';
+
 import { err, ok, type Result } from '../result/index.js';
 import { getErrorMessage, sha256Hex } from '../utils/index.js';
 
 // Wrap the raw sha256Hex in Result for fingerprint use
-async function sha256Result(material: string): Promise<Result<string, Error>> {
+function sha256Result(material: string): Result<string, Error> {
   try {
-    return ok(await sha256Hex(material));
+    return ok(sha256Hex(material));
   } catch (error) {
     return err(new Error(`Failed to compute SHA-256 fingerprint: ${getErrorMessage(error)}`));
   }
@@ -26,7 +28,7 @@ export interface AccountFingerprintInput {
  * Derived from semantic account identity material — not database IDs.
  * Deterministic across rebuilds for the same account type/source/identifier.
  */
-export async function computeAccountFingerprint(input: AccountFingerprintInput): Promise<Result<string, Error>> {
+export function computeAccountFingerprint(input: AccountFingerprintInput): Result<string, Error> {
   const { accountType, sourceName, identifier } = input;
   const trimmedAccountType = accountType.trim();
   const trimmedSourceName = sourceName.trim();
@@ -66,7 +68,7 @@ export interface TransactionFingerprintInput {
  * Blockchain: sha256(accountFingerprint|blockchain|source|transactionHash)
  * Exchange:   sha256(accountFingerprint|exchange|source|sortedEventId1|sortedEventId2|...)
  */
-export async function computeTxFingerprint(input: TransactionFingerprintInput): Promise<Result<string, Error>> {
+export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
   const { accountFingerprint, source, sourceType } = input;
   const trimmedAccountFingerprint = accountFingerprint.trim();
   const trimmedSource = source.trim();
@@ -107,26 +109,74 @@ export async function computeTxFingerprint(input: TransactionFingerprintInput): 
 // Movement fingerprint
 // ---------------------------------------------------------------------------
 
+export interface AssetMovementCanonicalMaterialInput {
+  movementType: 'inflow' | 'outflow';
+  assetId: string;
+  grossAmount: Decimal;
+  netAmount?: Decimal | undefined;
+}
+
+export interface FeeMovementCanonicalMaterialInput {
+  assetId: string;
+  amount: Decimal;
+  scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  settlement: 'on-chain' | 'balance' | 'external';
+}
+
+/**
+ * Canonical asset-movement identity material within a transaction.
+ *
+ * This intentionally excludes display-only or enrichable data like symbols and
+ * prices. Duplicate rows with the same canonical material are treated as
+ * interchangeable and are later disambiguated only by duplicate occurrence.
+ */
+export function buildAssetMovementCanonicalMaterial(input: AssetMovementCanonicalMaterialInput): string {
+  const effectiveNetAmount = input.netAmount ?? input.grossAmount;
+  return `${input.movementType}|${input.assetId}|${input.grossAmount.toFixed()}|${effectiveNetAmount.toFixed()}`;
+}
+
+/**
+ * Canonical fee identity material within a transaction.
+ *
+ * Fee identity is scoped to the fee asset plus fee semantics. Like asset
+ * movements, enrichment metadata is excluded on purpose.
+ */
+export function buildFeeMovementCanonicalMaterial(input: FeeMovementCanonicalMaterialInput): string {
+  return `fee|${input.assetId}|${input.amount.toFixed()}|${input.scope}|${input.settlement}`;
+}
+
 export interface MovementFingerprintInput {
   txFingerprint: string;
-  movementType: 'inflow' | 'outflow' | 'fee';
-  position: number; // 0-based index within movements of this type
+  canonicalMaterial: string;
+  duplicateOccurrence: number; // 1-based occurrence within identical canonical-material bucket
 }
 
 /**
  * Deterministic movement identity within a transaction.
- * Format: movement:${txFingerprint}:${movementType}:${position}
+ *
+ * The fingerprint is rooted in canonical semantic movement content, not array
+ * ordering. Exact duplicates are intentionally treated as interchangeable and
+ * only receive a bucket-local occurrence suffix.
  */
 export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
-  const { txFingerprint, movementType, position } = input;
+  const { txFingerprint, canonicalMaterial, duplicateOccurrence } = input;
 
   if (!txFingerprint || txFingerprint.trim() === '') {
     return err(new Error('txFingerprint must not be empty'));
   }
 
-  if (position < 0 || !Number.isInteger(position)) {
-    return err(new Error(`position must be a non-negative integer, got ${position}`));
+  if (!canonicalMaterial || canonicalMaterial.trim() === '') {
+    return err(new Error('canonicalMaterial must not be empty'));
   }
 
-  return ok(`movement:${txFingerprint}:${movementType}:${position}`);
+  if (duplicateOccurrence <= 0 || !Number.isInteger(duplicateOccurrence)) {
+    return err(new Error(`duplicateOccurrence must be a positive integer, got ${duplicateOccurrence}`));
+  }
+
+  const contentHashResult = sha256Result(canonicalMaterial);
+  if (contentHashResult.isErr()) {
+    return err(contentHashResult.error);
+  }
+
+  return ok(`movement:${txFingerprint}:${contentHashResult.value}:${duplicateOccurrence}`);
 }

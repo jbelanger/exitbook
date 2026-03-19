@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@exitbook/core';
 
 /**
  * Normalize EVM address to lowercase for consistent storage and comparison.
@@ -75,12 +75,7 @@ export function generateBeaconWithdrawalEventId(fields: BeaconWithdrawalFields):
     fields.nativeCurrency,
   ];
 
-  const dataString = parts.join('|');
-
-  // Generate SHA-256 hash
-  const hash = createHash('sha256').update(dataString).digest('hex');
-
-  return hash;
+  return sha256Hex(parts.join('|'));
 }
 
 /**

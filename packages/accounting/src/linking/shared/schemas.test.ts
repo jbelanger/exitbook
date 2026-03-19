@@ -276,7 +276,6 @@ describe('schemas', () => {
       timestamp: new Date(),
       isInternal: false,
       excluded: false,
-      position: 0,
       movementFingerprint: 'movement:test:tx:outflow:0',
       ...overrides,
     });
@@ -480,7 +479,6 @@ describe('schemas', () => {
         timestamp: new Date(),
         isInternal: false,
         excluded: false,
-        position: 0,
         movementFingerprint: 'movement:test:tx:inflow:0',
       };
 
@@ -504,7 +502,6 @@ describe('schemas', () => {
         timestamp: new Date('2024-01-01T12:00:00Z'),
         isInternal: false,
         excluded: false,
-        position: 0,
         movementFingerprint: 'movement:test:tx:outflow:0',
       };
 
@@ -527,7 +524,6 @@ describe('schemas', () => {
         timestamp: new Date('2024-01-01T12:00:00Z'),
         isInternal: false,
         excluded: false,
-        position: 0,
         movementFingerprint: 'movement:test:tx:outflow:0',
       };
 

@@ -1,7 +1,14 @@
+import { Decimal } from 'decimal.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { assertErr, assertOk } from '../../__tests__/test-utils.js';
-import { computeAccountFingerprint, computeMovementFingerprint, computeTxFingerprint } from '../fingerprints.js';
+import {
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  computeAccountFingerprint,
+  computeMovementFingerprint,
+  computeTxFingerprint,
+} from '../fingerprints.js';
 
 vi.mock('../../utils/crypto-utils.js', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../utils/crypto-utils.js')>();
@@ -19,7 +26,7 @@ describe('computeAccountFingerprint', () => {
 
   it('produces a 64-char lowercase hex string', async () => {
     const fp = assertOk(
-      await computeAccountFingerprint({
+      computeAccountFingerprint({
         accountType: 'exchange-api',
         sourceName: 'kraken',
         identifier: 'my-api-key',
@@ -30,50 +37,50 @@ describe('computeAccountFingerprint', () => {
 
   it('is deterministic', async () => {
     const input = { accountType: 'blockchain', sourceName: 'bitcoin', identifier: 'bc1qaddr' };
-    const fp1 = assertOk(await computeAccountFingerprint(input));
-    const fp2 = assertOk(await computeAccountFingerprint(input));
+    const fp1 = assertOk(computeAccountFingerprint(input));
+    const fp2 = assertOk(computeAccountFingerprint(input));
     expect(fp1).toBe(fp2);
   });
 
   it('trims identifier whitespace', async () => {
     const base = { accountType: 'blockchain', sourceName: 'bitcoin' };
-    const fp1 = assertOk(await computeAccountFingerprint({ ...base, identifier: '  addr  ' }));
-    const fp2 = assertOk(await computeAccountFingerprint({ ...base, identifier: 'addr' }));
+    const fp1 = assertOk(computeAccountFingerprint({ ...base, identifier: '  addr  ' }));
+    const fp2 = assertOk(computeAccountFingerprint({ ...base, identifier: 'addr' }));
     expect(fp1).toBe(fp2);
   });
 
   it('differs by accountType', async () => {
     const base = { sourceName: 'kraken', identifier: 'key' };
-    const fp1 = assertOk(await computeAccountFingerprint({ ...base, accountType: 'exchange-api' }));
-    const fp2 = assertOk(await computeAccountFingerprint({ ...base, accountType: 'exchange-csv' }));
+    const fp1 = assertOk(computeAccountFingerprint({ ...base, accountType: 'exchange-api' }));
+    const fp2 = assertOk(computeAccountFingerprint({ ...base, accountType: 'exchange-csv' }));
     expect(fp1).not.toBe(fp2);
   });
 
   it('rejects empty accountType', async () => {
-    const e = assertErr(await computeAccountFingerprint({ accountType: '', sourceName: 'x', identifier: 'y' }));
+    const e = assertErr(computeAccountFingerprint({ accountType: '', sourceName: 'x', identifier: 'y' }));
     expect(e.message).toContain('accountType');
   });
 
   it('rejects empty sourceName', async () => {
-    const e = assertErr(
-      await computeAccountFingerprint({ accountType: 'blockchain', sourceName: '', identifier: 'y' })
-    );
+    const e = assertErr(computeAccountFingerprint({ accountType: 'blockchain', sourceName: '', identifier: 'y' }));
     expect(e.message).toContain('sourceName');
   });
 
   it('rejects empty identifier', async () => {
     const e = assertErr(
-      await computeAccountFingerprint({ accountType: 'blockchain', sourceName: 'bitcoin', identifier: '  ' })
+      computeAccountFingerprint({ accountType: 'blockchain', sourceName: 'bitcoin', identifier: '  ' })
     );
     expect(e.message).toContain('identifier');
   });
 
   it('returns Err when SHA-256 digest fails', async () => {
     const { sha256Hex } = await import('../../utils/crypto-utils.js');
-    vi.mocked(sha256Hex).mockRejectedValueOnce(new Error('digest failed'));
+    vi.mocked(sha256Hex).mockImplementationOnce(() => {
+      throw new Error('digest failed');
+    });
 
     const e = assertErr(
-      await computeAccountFingerprint({
+      computeAccountFingerprint({
         accountType: 'blockchain',
         sourceName: 'bitcoin',
         identifier: 'bc1qaddr',
@@ -93,7 +100,7 @@ describe('computeTxFingerprint (blockchain)', () => {
 
   it('produces a 64-char lowercase hex string', async () => {
     const fp = assertOk(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'bitcoin',
         sourceType: 'blockchain',
@@ -110,14 +117,14 @@ describe('computeTxFingerprint (blockchain)', () => {
       sourceType: 'blockchain' as const,
       blockchainTransactionHash: '0xdef',
     };
-    const fp1 = assertOk(await computeTxFingerprint(input));
-    const fp2 = assertOk(await computeTxFingerprint(input));
+    const fp1 = assertOk(computeTxFingerprint(input));
+    const fp2 = assertOk(computeTxFingerprint(input));
     expect(fp1).toBe(fp2);
   });
 
   it('rejects missing blockchainTransactionHash', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'bitcoin',
         sourceType: 'blockchain',
@@ -128,7 +135,7 @@ describe('computeTxFingerprint (blockchain)', () => {
 
   it('rejects empty accountFingerprint', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: '',
         source: 'bitcoin',
         sourceType: 'blockchain',
@@ -140,7 +147,7 @@ describe('computeTxFingerprint (blockchain)', () => {
 
   it('rejects empty source', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: '',
         sourceType: 'blockchain',
@@ -152,10 +159,12 @@ describe('computeTxFingerprint (blockchain)', () => {
 
   it('returns Err when SHA-256 digest fails', async () => {
     const { sha256Hex } = await import('../../utils/crypto-utils.js');
-    vi.mocked(sha256Hex).mockRejectedValueOnce(new Error('digest failed'));
+    vi.mocked(sha256Hex).mockImplementationOnce(() => {
+      throw new Error('digest failed');
+    });
 
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'bitcoin',
         sourceType: 'blockchain',
@@ -176,7 +185,7 @@ describe('computeTxFingerprint (exchange)', () => {
 
   it('produces a 64-char lowercase hex string', async () => {
     const fp = assertOk(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'kraken',
         sourceType: 'exchange',
@@ -188,21 +197,21 @@ describe('computeTxFingerprint (exchange)', () => {
 
   it('is order-independent', async () => {
     const base = { accountFingerprint: acctFp, source: 'kraken', sourceType: 'exchange' as const };
-    const fp1 = assertOk(await computeTxFingerprint({ ...base, componentEventIds: ['b', 'a', 'c'] }));
-    const fp2 = assertOk(await computeTxFingerprint({ ...base, componentEventIds: ['c', 'a', 'b'] }));
+    const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['b', 'a', 'c'] }));
+    const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['c', 'a', 'b'] }));
     expect(fp1).toBe(fp2);
   });
 
   it('does not deduplicate event IDs', async () => {
     const base = { accountFingerprint: acctFp, source: 'kucoin', sourceType: 'exchange' as const };
-    const fp1 = assertOk(await computeTxFingerprint({ ...base, componentEventIds: ['a', 'b', 'a'] }));
-    const fp2 = assertOk(await computeTxFingerprint({ ...base, componentEventIds: ['a', 'b'] }));
+    const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b', 'a'] }));
+    const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b'] }));
     expect(fp1).not.toBe(fp2);
   });
 
   it('rejects empty componentEventIds', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'kraken',
         sourceType: 'exchange',
@@ -214,7 +223,7 @@ describe('computeTxFingerprint (exchange)', () => {
 
   it('rejects missing componentEventIds', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'kraken',
         sourceType: 'exchange',
@@ -225,7 +234,7 @@ describe('computeTxFingerprint (exchange)', () => {
 
   it('rejects blank componentEventIds', async () => {
     const e = assertErr(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint: acctFp,
         source: 'kraken',
         sourceType: 'exchange',
@@ -237,33 +246,112 @@ describe('computeTxFingerprint (exchange)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Canonical movement material
+// ---------------------------------------------------------------------------
+
+describe('canonical movement material', () => {
+  it('builds asset movement material from semantic movement fields', () => {
+    expect(
+      buildAssetMovementCanonicalMaterial({
+        movementType: 'outflow',
+        assetId: 'blockchain:ethereum:0xa0b8',
+        grossAmount: new Decimal('10'),
+        netAmount: new Decimal('9.99'),
+      })
+    ).toBe('outflow|blockchain:ethereum:0xa0b8|10|9.99');
+  });
+
+  it('defaults asset net amount to gross amount when absent', () => {
+    expect(
+      buildAssetMovementCanonicalMaterial({
+        movementType: 'inflow',
+        assetId: 'blockchain:bitcoin:native',
+        grossAmount: new Decimal('0.5'),
+      })
+    ).toBe('inflow|blockchain:bitcoin:native|0.5|0.5');
+  });
+
+  it('builds fee movement material from fee semantics', () => {
+    expect(
+      buildFeeMovementCanonicalMaterial({
+        assetId: 'blockchain:ethereum:native',
+        amount: new Decimal('0.01'),
+        scope: 'network',
+        settlement: 'balance',
+      })
+    ).toBe('fee|blockchain:ethereum:native|0.01|network|balance');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // computeMovementFingerprint
 // ---------------------------------------------------------------------------
 
 describe('computeMovementFingerprint', () => {
-  it('produces expected format', () => {
+  it('produces a hashed movement fingerprint', async () => {
     const fp = assertOk(
       computeMovementFingerprint({
         txFingerprint: 'abc123',
-        movementType: 'inflow',
-        position: 0,
+        canonicalMaterial: 'inflow|blockchain:bitcoin:native|1|1',
+        duplicateOccurrence: 1,
       })
     );
-    expect(fp).toBe('movement:abc123:inflow:0');
+    expect(fp).toMatch(/^movement:abc123:[0-9a-f]{64}:1$/);
   });
 
-  it('rejects empty txFingerprint', () => {
-    const e = assertErr(computeMovementFingerprint({ txFingerprint: '', movementType: 'outflow', position: 0 }));
+  it('is deterministic for identical canonical material and occurrence', async () => {
+    const input = {
+      txFingerprint: 'abc123',
+      canonicalMaterial: 'outflow|blockchain:ethereum:native|1|0.99',
+      duplicateOccurrence: 2,
+    };
+
+    const fp1 = assertOk(computeMovementFingerprint(input));
+    const fp2 = assertOk(computeMovementFingerprint(input));
+    expect(fp1).toBe(fp2);
+  });
+
+  it('rejects empty txFingerprint', async () => {
+    const e = assertErr(
+      computeMovementFingerprint({
+        txFingerprint: '',
+        canonicalMaterial: 'outflow|test:btc|1|1',
+        duplicateOccurrence: 1,
+      })
+    );
     expect(e.message).toContain('txFingerprint');
   });
 
-  it('rejects negative position', () => {
-    const e = assertErr(computeMovementFingerprint({ txFingerprint: 'abc', movementType: 'fee', position: -1 }));
-    expect(e.message).toContain('position');
+  it('rejects empty canonical material', async () => {
+    const e = assertErr(
+      computeMovementFingerprint({
+        txFingerprint: 'abc',
+        canonicalMaterial: '   ',
+        duplicateOccurrence: 1,
+      })
+    );
+    expect(e.message).toContain('canonicalMaterial');
   });
 
-  it('rejects non-integer position', () => {
-    const e = assertErr(computeMovementFingerprint({ txFingerprint: 'abc', movementType: 'fee', position: 1.5 }));
-    expect(e.message).toContain('position');
+  it('rejects non-positive duplicate occurrence', async () => {
+    const e = assertErr(
+      computeMovementFingerprint({
+        txFingerprint: 'abc',
+        canonicalMaterial: 'fee|test:eth|0.1|network|on-chain',
+        duplicateOccurrence: 0,
+      })
+    );
+    expect(e.message).toContain('duplicateOccurrence');
+  });
+
+  it('rejects non-integer duplicate occurrence', async () => {
+    const e = assertErr(
+      computeMovementFingerprint({
+        txFingerprint: 'abc',
+        canonicalMaterial: 'fee|test:eth|0.1|network|on-chain',
+        duplicateOccurrence: 1.5,
+      })
+    );
+    expect(e.message).toContain('duplicateOccurrence');
   });
 });

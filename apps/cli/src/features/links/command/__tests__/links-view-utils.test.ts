@@ -84,6 +84,11 @@ describe('links-view-utils', () => {
   describe('mapTransactionToDetails', () => {
     it('should map Transaction to TransactionDetails', () => {
       const tx = createMockTransaction(123);
+      const expectedMovementFingerprint = tx.movements.inflows?.[0]?.movementFingerprint;
+
+      if (expectedMovementFingerprint === undefined) {
+        throw new Error('Expected test transaction to include an inflow movement fingerprint');
+      }
 
       const result = mapTransactionToDetails(tx);
 
@@ -99,7 +104,7 @@ describe('links-view-utils', () => {
           {
             assetId: 'test:btc',
             assetSymbol: 'BTC',
-            movementFingerprint: 'movement:tx-123:inflow:0',
+            movementFingerprint: expectedMovementFingerprint,
             grossAmount: parseDecimal('1.0'),
             netAmount: parseDecimal('0.999'),
           },

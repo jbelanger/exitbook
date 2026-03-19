@@ -1,5 +1,4 @@
-import { isFiat, type AssetMovementDraft, type Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, isFiat, ok, randomUUID, type AssetMovementDraft, type Result, type Transaction } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
 import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
@@ -83,7 +82,7 @@ export function buildAcquisitionLotFromInflow(
 
   return ok(
     createAcquisitionLot({
-      id: globalThis.crypto.randomUUID(),
+      id: randomUUID(),
       calculationId,
       acquisitionTransactionId: rawTransaction.id,
       assetId: inflow.assetId,

@@ -1,10 +1,12 @@
 import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
-import { computeMovementFingerprint, parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/core';
 import { ok } from '@exitbook/core';
+import { seedAssetMovementFingerprint } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { vi, type Mock } from 'vitest';
 
+import { createPersistedTransaction } from '../../shared/__tests__/transaction-test-utils.js';
 import type { LinkGapAnalysis } from '../command/links-gap-utils.ts';
 import type { LinkWithTransactions } from '../view/links-view-state.js';
 
@@ -77,7 +79,7 @@ export function createMockTransaction(
   const outflows = overrides.movements?.outflows ?? [];
   const txFingerprint = `tx-${id}`;
 
-  return {
+  return createPersistedTransaction({
     id,
     accountId: 1,
     txFingerprint,
@@ -89,24 +91,24 @@ export function createMockTransaction(
     from: '0x1234567890abcdef1234567890abcdef12345678',
     to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
     movements: {
-      inflows: inflows.map((inflow, index) => {
+      inflows: inflows.map((inflow) => {
         const grossAmt = parseDecimal(inflow.amount);
+        const netAmount = grossAmt.times(0.999);
         return {
           assetId: 'test:btc',
           assetSymbol: (inflow.assetSymbol as Currency) ?? ('BTC' as Currency),
-          movementFingerprint: materializeMovementFingerprint(txFingerprint, 'inflow', index),
           grossAmount: grossAmt,
-          netAmount: grossAmt.times(0.999),
+          netAmount,
         };
       }),
-      outflows: outflows.map((outflow, index) => {
+      outflows: outflows.map((outflow) => {
         const grossAmt = parseDecimal(outflow.amount);
+        const netAmount = grossAmt.times(0.999);
         return {
           assetId: 'test:btc',
           assetSymbol: (outflow.assetSymbol as Currency) ?? ('BTC' as Currency),
-          movementFingerprint: materializeMovementFingerprint(txFingerprint, 'outflow', index),
           grossAmount: grossAmt,
-          netAmount: grossAmt.times(0.999),
+          netAmount,
         };
       }),
     },
@@ -115,7 +117,7 @@ export function createMockTransaction(
       category: 'transfer',
       type: 'deposit',
     },
-  };
+  });
 }
 
 /**
@@ -238,7 +240,16 @@ export function createConfirmableTransferFixture(
         {
           assetId: 'exchange:source:btc',
           assetSymbol: 'BTC' as Currency,
-          movementFingerprint: materializeMovementFingerprint('txfp:kraken:1:WITHDRAWAL-123', 'outflow', 0),
+          movementFingerprint: seedAssetMovementFingerprint(
+            'txfp:kraken:1:WITHDRAWAL-123',
+            'outflow',
+            {
+              assetId: 'exchange:source:btc',
+              grossAmount: parseDecimal(sourceAmount),
+              netAmount: parseDecimal(sourceAmount),
+            },
+            1
+          ),
           grossAmount: parseDecimal(sourceAmount),
           netAmount: parseDecimal(sourceAmount),
         },
@@ -265,7 +276,16 @@ export function createConfirmableTransferFixture(
         {
           assetId: 'blockchain:target:btc',
           assetSymbol: 'BTC' as Currency,
-          movementFingerprint: materializeMovementFingerprint('txfp:bitcoin:2:abc123', 'inflow', 0),
+          movementFingerprint: seedAssetMovementFingerprint(
+            'txfp:bitcoin:2:abc123',
+            'inflow',
+            {
+              assetId: 'blockchain:target:btc',
+              grossAmount: parseDecimal(targetAmount),
+              netAmount: parseDecimal(targetAmount),
+            },
+            1
+          ),
           grossAmount: parseDecimal(targetAmount),
           netAmount: parseDecimal(targetAmount),
         },
@@ -285,8 +305,8 @@ export function createConfirmableTransferFixture(
     targetAssetId: 'blockchain:target:btc',
     sourceAmount: parseDecimal(sourceAmount),
     targetAmount: parseDecimal(targetAmount),
-    sourceMovementFingerprint: materializeMovementFingerprint(sourceTransaction.txFingerprint, 'outflow', 0),
-    targetMovementFingerprint: materializeMovementFingerprint(targetTransaction.txFingerprint, 'inflow', 0),
+    sourceMovementFingerprint: sourceTransaction.movements.outflows![0]!.movementFingerprint,
+    targetMovementFingerprint: targetTransaction.movements.inflows![0]!.movementFingerprint,
   };
 
   return {
@@ -295,23 +315,6 @@ export function createConfirmableTransferFixture(
     sourceTransaction,
     targetTransaction,
   };
-}
-
-function materializeMovementFingerprint(
-  txFingerprint: string,
-  movementType: 'inflow' | 'outflow',
-  position: number
-): string {
-  const movementFingerprintResult = computeMovementFingerprint({
-    txFingerprint,
-    movementType,
-    position,
-  });
-  if (movementFingerprintResult.isErr()) {
-    throw movementFingerprintResult.error;
-  }
-
-  return movementFingerprintResult.value;
 }
 
 /**

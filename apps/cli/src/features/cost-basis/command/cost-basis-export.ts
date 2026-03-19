@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -13,7 +12,7 @@ import {
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, sha256Hex, type Result } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
@@ -231,7 +230,7 @@ export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
           return {
             ...file,
             absolutePath,
-            sha256: createHash('sha256').update(file.content, 'utf8').digest('hex'),
+            sha256: sha256Hex(file.content),
             bytesWritten: Buffer.byteLength(file.content, 'utf8'),
           };
         })

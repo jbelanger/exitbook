@@ -1,6 +1,4 @@
-import crypto from 'node:crypto';
-
-import { err, ok } from '@exitbook/core';
+import { base64ToBytes, bytesToBase64, err, hmacSha512, ok, sha256Bytes } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/http';
 import { RateLimitError } from '@exitbook/http';
@@ -19,13 +17,16 @@ interface KrakenAuth {
  * See: https://docs.kraken.com/api/docs/guides/spot-rest-auth
  */
 function signRequest(urlPath: string, body: string, nonce: string, secret: string): string {
-  const sha256Hash = crypto
-    .createHash('sha256')
-    .update(nonce + body)
-    .digest();
-  const hmacInput = Buffer.concat([Buffer.from(urlPath), sha256Hash]);
-  const secretBuffer = Buffer.from(secret, 'base64');
-  return crypto.createHmac('sha512', secretBuffer).update(hmacInput).digest('base64');
+  const sha256Hash = sha256Bytes(nonce + body);
+
+  const pathBytes = new TextEncoder().encode(urlPath);
+  const hmacInput = new Uint8Array(pathBytes.length + sha256Hash.length);
+  hmacInput.set(pathBytes);
+  hmacInput.set(sha256Hash, pathBytes.length);
+
+  const secretBytes = base64ToBytes(secret);
+  const signature = hmacSha512(secretBytes, hmacInput);
+  return bytesToBase64(signature);
 }
 
 /**

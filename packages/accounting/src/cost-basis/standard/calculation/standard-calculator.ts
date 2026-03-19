@@ -1,5 +1,4 @@
-import { type TransactionLink, type Transaction, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, randomUUID, type Result, type Transaction, type TransactionLink, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -97,7 +96,7 @@ export async function calculateCostBasisFromScopedTransactions(
     return err(validatedLinksResult.error);
   }
 
-  const calculationId = globalThis.crypto.randomUUID();
+  const calculationId = randomUUID();
   const calculationDate = new Date();
 
   try {

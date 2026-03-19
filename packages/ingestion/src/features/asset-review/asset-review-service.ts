@@ -6,7 +6,7 @@ import type {
   TransactionNote,
   Transaction,
 } from '@exitbook/core';
-import { buildBlockchainTokenAssetId, err, ok, parseAssetId, type Result } from '@exitbook/core';
+import { buildBlockchainTokenAssetId, err, ok, parseAssetId, sha256Hex, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('asset-review-service');
@@ -122,7 +122,7 @@ export async function buildAssetReviewSummaries(
     };
     const ambiguity = ambiguitiesByAssetId.get(assetId);
     const evidence = buildAssetEvidence(signal, metadata, reference, ambiguity);
-    const evidenceFingerprint = await computeEvidenceFingerprint({
+    const evidenceFingerprint = computeEvidenceFingerprint({
       assetId,
       evidence: evidence.map((item) => ({
         kind: item.kind,
@@ -476,12 +476,9 @@ function deriveAccountingBlocked(
   return evidence.some((item) => item.severity === 'error');
 }
 
-async function computeEvidenceFingerprint(value: unknown): Promise<string> {
+function computeEvidenceFingerprint(value: unknown): string {
   const canonicalJson = JSON.stringify(sortJsonValue(value));
-  const bytes = new TextEncoder().encode(canonicalJson);
-  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-  const hashHex = [...new Uint8Array(hashBuffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `asset-review:v1:${hashHex}`;
+  return `asset-review:v1:${sha256Hex(canonicalJson)}`;
 }
 
 function sortJsonValue(value: unknown): unknown {

@@ -1,5 +1,13 @@
-import type { AssetReviewSummary, Currency, TransactionLink, Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import {
+  err,
+  ok,
+  randomUUID,
+  type AssetReviewSummary,
+  type Currency,
+  type Result,
+  type Transaction,
+  type TransactionLink,
+} from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
@@ -143,7 +151,7 @@ function buildCanadaCalculation(
   const assetsProcessed = [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))];
 
   return {
-    id: globalThis.crypto.randomUUID(),
+    id: randomUUID(),
     calculationDate,
     method: 'average-cost',
     jurisdiction: 'CA',

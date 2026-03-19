@@ -21,7 +21,6 @@ export const LinkableMovementSchema = z.object({
   toAddress: z.string().optional(),
   isInternal: z.boolean(),
   excluded: z.boolean(),
-  position: z.number().int().nonnegative(),
   movementFingerprint: z.string(),
 });
 

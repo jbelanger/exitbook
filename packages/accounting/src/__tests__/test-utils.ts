@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type {
   AssetMovementDraft,
   FeeMovementDraft,
@@ -10,36 +8,21 @@ import type {
   PriceAtTxTime,
   Transaction,
 } from '@exitbook/core';
-import { computeMovementFingerprint, type Currency, parseDecimal } from '@exitbook/core';
+import {
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  type Currency,
+  parseDecimal,
+} from '@exitbook/core';
+import { seedAssetMovementFingerprint, seedFeeMovementFingerprint, seedTxFingerprint } from '@exitbook/core/test-utils';
+export { seedTxFingerprint } from '@exitbook/core/test-utils';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';
-
-function sha256Hex(material: string): string {
-  return createHash('sha256').update(material).digest('hex');
-}
 
 let syntheticMovementCounter = 1;
 
 function createSyntheticMovementFingerprint(parts: string[]): string {
   return `movement:test:${parts.join(':')}:${syntheticMovementCounter++}`;
-}
-
-export function seedTxFingerprint(
-  source: string,
-  sourceType: 'blockchain' | 'exchange',
-  accountId: number,
-  identityReference: string
-): string {
-  const accountFingerprint = sha256Hex(
-    `${sourceType === 'blockchain' ? 'blockchain' : 'exchange-api'}|${source}|identifier-${accountId}`
-  );
-
-  const fingerprintMaterial =
-    sourceType === 'blockchain'
-      ? `${accountFingerprint}|blockchain|${source}|${identityReference.trim()}`
-      : `${accountFingerprint}|exchange|${source}|${[identityReference.trim()].sort().join('|')}`;
-
-  return sha256Hex(fingerprintMaterial);
 }
 
 interface MaterializeDraftMovements {
@@ -106,34 +89,43 @@ function materializeAssetMovements(
   movementType: 'inflow' | 'outflow',
   movements: AssetMovementDraft[]
 ): AssetMovement[] {
-  return movements.map((movement, index) => ({
-    ...movement,
-    movementFingerprint: materializeMovementFingerprint(txFingerprint, movementType, index),
-  }));
+  const duplicateCounts = new Map<string, number>();
+
+  return movements.map((movement) => {
+    const canonicalMaterial = buildAssetMovementCanonicalMaterial({
+      movementType,
+      assetId: movement.assetId,
+      grossAmount: movement.grossAmount,
+      netAmount: movement.netAmount,
+    });
+    const duplicateOccurrence = (duplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    duplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      ...movement,
+      movementFingerprint: seedAssetMovementFingerprint(txFingerprint, movementType, movement, duplicateOccurrence),
+    };
+  });
 }
 
 function materializeFeeMovements(txFingerprint: string, fees: FeeMovementDraft[]): FeeMovement[] {
-  return fees.map((fee, index) => ({
-    ...fee,
-    movementFingerprint: materializeMovementFingerprint(txFingerprint, 'fee', index),
-  }));
-}
+  const duplicateCounts = new Map<string, number>();
 
-function materializeMovementFingerprint(
-  txFingerprint: string,
-  movementType: 'inflow' | 'outflow' | 'fee',
-  position: number
-): string {
-  const movementFingerprintResult = computeMovementFingerprint({
-    txFingerprint,
-    movementType,
-    position,
+  return fees.map((fee) => {
+    const canonicalMaterial = buildFeeMovementCanonicalMaterial({
+      assetId: fee.assetId,
+      amount: fee.amount,
+      scope: fee.scope,
+      settlement: fee.settlement,
+    });
+    const duplicateOccurrence = (duplicateCounts.get(canonicalMaterial) ?? 0) + 1;
+    duplicateCounts.set(canonicalMaterial, duplicateOccurrence);
+
+    return {
+      ...fee,
+      movementFingerprint: seedFeeMovementFingerprint(txFingerprint, fee, duplicateOccurrence),
+    };
   });
-  if (movementFingerprintResult.isErr()) {
-    throw movementFingerprintResult.error;
-  }
-
-  return movementFingerprintResult.value;
 }
 
 /** Shorthand movement description for buildTransaction. Omit `price` to create an unpriced movement. */
