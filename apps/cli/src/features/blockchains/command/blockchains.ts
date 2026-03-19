@@ -1,6 +1,3 @@
-// Unified blockchains command for browsing blockchain and provider configuration
-// Provides a single namespace for viewing blockchain data
-
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 

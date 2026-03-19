@@ -1,6 +1,3 @@
-// Unified prices command for managing cryptocurrency prices
-// Provides a single namespace for price operations (view, enrich, set, set-fx)
-
 import type { Command } from 'commander';
 
 import { registerPricesEnrichCommand } from './prices-enrich.js';

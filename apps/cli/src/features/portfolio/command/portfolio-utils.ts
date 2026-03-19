@@ -90,20 +90,31 @@ export async function fetchSpotPrices(
  * Build portfolio positions from holdings, spot prices, and open lots.
  * Handles partial price failures, negative balances, and missing open lots.
  */
-export function buildPortfolioPositions(
-  holdings: Record<string, Decimal>, // assetId -> balance
-  assetMetadata: Record<string, string>, // assetId -> assetSymbol
-  spotPrices: Map<string, SpotPriceResult>,
-  openLotsByAssetId: Map<string, AcquisitionLot[]>,
-  accountBreakdown: Map<string, AccountBreakdownItem[]>,
-  fxRate: Decimal | undefined, // USD -> display currency (undefined if USD)
-  asOf: Date,
-  realizedGainLossByAssetId?: Map<string, Decimal>,
-  realizedGainLossDisplayContext: RealizedGainLossDisplayContext = {
+export function buildPortfolioPositions(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  asOf: Date;
+  assetMetadata: Record<string, string>; // assetId -> assetSymbol
+  fxRate: Decimal | undefined; // USD -> display currency (undefined if USD)
+  holdings: Record<string, Decimal>; // assetId -> balance
+  openLotsByAssetId: Map<string, AcquisitionLot[]>;
+  realizedGainLossByAssetId?: Map<string, Decimal>;
+  realizedGainLossDisplayContext?: RealizedGainLossDisplayContext;
+  spotPrices: Map<string, SpotPriceResult>;
+}): { positions: PortfolioPositionItem[]; warnings: string[] } {
+  const {
+    accountBreakdown,
+    asOf,
+    assetMetadata,
+    fxRate,
+    holdings,
+    openLotsByAssetId,
+    realizedGainLossByAssetId,
+    spotPrices,
+  } = params;
+  const realizedGainLossDisplayContext: RealizedGainLossDisplayContext = params.realizedGainLossDisplayContext ?? {
     sourceCurrency: 'USD',
     ...(fxRate ? { usdToDisplayFxRate: fxRate } : {}),
-  }
-): { positions: PortfolioPositionItem[]; warnings: string[] } {
+  };
   const positions: PortfolioPositionItem[] = [];
   const warnings: string[] = [];
 
@@ -515,17 +526,17 @@ export function buildCanadaPortfolioPositions(params: {
     realizedGainLossByPortfolioKey.set(group.portfolioKey, existing.plus(realizedGainLoss));
   }
 
-  const builtCanada = buildPortfolioPositions(
-    holdingsByPortfolioKey,
-    assetLabelsByPortfolioKey,
-    pooledSpotPrices,
-    openLotsByPortfolioKey,
-    pooledAccountBreakdown,
-    undefined,
-    params.asOf,
-    realizedGainLossByPortfolioKey,
-    { sourceCurrency: 'display' }
-  );
+  const builtCanada = buildPortfolioPositions({
+    holdings: holdingsByPortfolioKey,
+    assetMetadata: assetLabelsByPortfolioKey,
+    spotPrices: pooledSpotPrices,
+    openLotsByAssetId: openLotsByPortfolioKey,
+    accountBreakdown: pooledAccountBreakdown,
+    fxRate: undefined,
+    asOf: params.asOf,
+    realizedGainLossByAssetId: realizedGainLossByPortfolioKey,
+    realizedGainLossDisplayContext: { sourceCurrency: 'display' },
+  });
 
   const unmatchedHoldings: Record<string, Decimal> = {};
   const unmatchedAssetMetadata: Record<string, string> = {};
@@ -551,15 +562,15 @@ export function buildCanadaPortfolioPositions(params: {
     }
   }
 
-  const builtUnmatched = buildPortfolioPositions(
-    unmatchedHoldings,
-    unmatchedAssetMetadata,
-    unmatchedSpotPrices,
-    new Map(),
-    unmatchedAccountBreakdown,
-    undefined,
-    params.asOf
-  );
+  const builtUnmatched = buildPortfolioPositions({
+    holdings: unmatchedHoldings,
+    assetMetadata: unmatchedAssetMetadata,
+    spotPrices: unmatchedSpotPrices,
+    openLotsByAssetId: new Map(),
+    accountBreakdown: unmatchedAccountBreakdown,
+    fxRate: undefined,
+    asOf: params.asOf,
+  });
 
   const positions = attachSourceAssetIds(builtCanada.positions, groupsByPortfolioKey).concat(builtUnmatched.positions);
   const closedPositions = attachSourceAssetIds(

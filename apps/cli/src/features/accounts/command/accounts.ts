@@ -1,6 +1,3 @@
-// Unified accounts command for managing accounts
-// Provides a single namespace for viewing account data
-
 import type { Command } from 'commander';
 
 import { registerAccountsViewCommand } from './accounts-view.js';

@@ -9,7 +9,7 @@ import { parseDecimal } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
-import type { PriceData } from '../../index.js';
+import type { PriceData } from '../../core/types.js';
 import { formatUtcDateYyyyMmDd } from '../shared/date-format-utils.js';
 
 import type { FrankfurterSingleDateResponse } from './schemas.js';

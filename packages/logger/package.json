@@ -8,10 +8,6 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
-    },
-    "./file": {
-      "types": "./src/sinks/file.ts",
-      "import": "./src/sinks/file.ts"
     }
   },
   "main": "src/index.ts",

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion';
 import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
-import { FileSink } from '@exitbook/logger/file';
+import { FileSink } from '@exitbook/logger';
 import { Command } from 'commander';
 
 // Read version from package.json

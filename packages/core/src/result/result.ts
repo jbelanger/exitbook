@@ -29,10 +29,6 @@ export class Ok<T, E> {
   isErr(): this is Err<T, E> {
     return false;
   }
-  // TODO: neverthrow compat — convert call sites to use isOk() narrowing, then remove
-  unwrapOr(_defaultValue: T): T {
-    return this.value;
-  }
   // Yielded type is the short-circuit carrier: yield* on Ok extracts the value,
   // yield* on Err propagates the error and terminates the generator.
   // eslint-disable-next-line require-yield -- Ok never yields; it returns the value directly
@@ -49,10 +45,6 @@ export class Err<T, E> {
   }
   isErr(): this is Err<T, E> {
     return true;
-  }
-  // TODO: neverthrow compat — convert call sites to use isOk() narrowing, then remove
-  unwrapOr(defaultValue: T): T {
-    return defaultValue;
   }
   *[Symbol.iterator](): Generator<Err<never, E>, never> {
     yield this as unknown as Err<never, E>;

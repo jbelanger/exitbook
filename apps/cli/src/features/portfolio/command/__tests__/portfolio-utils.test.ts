@@ -553,20 +553,20 @@ describe('portfolio-utils', () => {
   });
 
   it('builds positions and emits warning for unpriced assets', () => {
-    const built = buildPortfolioPositions(
-      {
+    const built = buildPortfolioPositions({
+      holdings: {
         'asset:btc': new Decimal('1.5'),
         'asset:obscure': new Decimal('2'),
       },
-      {
+      assetMetadata: {
         'asset:btc': 'BTC',
         'asset:obscure': 'OBSC',
       },
-      new Map([
+      spotPrices: new Map([
         ['asset:btc', { price: new Decimal('100') }],
         ['asset:obscure', { error: 'missing id' }],
       ]),
-      new Map([
+      openLotsByAssetId: new Map([
         [
           'asset:btc',
           [
@@ -581,12 +581,12 @@ describe('portfolio-utils', () => {
           ],
         ],
       ]),
-      new Map([
+      accountBreakdown: new Map([
         ['asset:btc', [{ accountId: 1, sourceName: 'kraken', accountType: 'exchange-api', quantity: '1.50000000' }]],
       ]),
-      undefined,
-      new Date('2026-01-01T00:00:00.000Z')
-    );
+      fxRate: undefined,
+      asOf: new Date('2026-01-01T00:00:00.000Z'),
+    });
 
     const btc = built.positions.find((position) => position.assetId === 'asset:btc');
     const obscure = built.positions.find((position) => position.assetId === 'asset:obscure');

@@ -361,17 +361,17 @@ export class PortfolioHandler {
           realizedGainLossByAssetId.set(assetId, existing.plus(disposal.gainLoss));
         }
 
-        const built = buildPortfolioPositions(
+        const built = buildPortfolioPositions({
           holdings,
           assetMetadata,
           spotPrices,
           openLotsByAssetId,
           accountBreakdown,
-          effectiveDisplayCurrency === 'USD' ? undefined : fxRate,
+          fxRate: effectiveDisplayCurrency === 'USD' ? undefined : fxRate,
           asOf,
           realizedGainLossByAssetId,
-          realizedGainLossDisplayContext
-        );
+          realizedGainLossDisplayContext,
+        });
         warnings.push(...built.warnings);
 
         const closedPositionsByAssetId = buildClosedPositionsByAssetId(

@@ -160,10 +160,11 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
    */
   private validateAndFilterTransactions(transactions: TransactionDraft[]): Result<TransactionDraft[], Error> {
     const filteredTransactions = this.dropZeroValueContractInteractions(transactions);
-    const { invalid, valid } = validateProcessedTransactions(filteredTransactions).unwrapOr({
-      invalid: [],
-      valid: [],
-    });
+    const validationResult = validateProcessedTransactions(filteredTransactions);
+    if (validationResult.isErr()) {
+      return err(new Error(`Transaction validation failed: ${validationResult.error}`));
+    }
+    const { invalid, valid } = validationResult.value;
 
     // STRICT MODE: Fail if any transactions are invalid
     if (invalid.length > 0) {

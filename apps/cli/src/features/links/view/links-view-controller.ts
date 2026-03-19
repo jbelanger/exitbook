@@ -233,7 +233,7 @@ function normalizeScrollOffset(scrollOffset: number, itemCount: number): number 
 /**
  * Handle keyboard input
  */
-export function handleKeyboardInput(
+export function linksViewHandleKeyboardInput(
   input: string,
   key: {
     ctrl: boolean;

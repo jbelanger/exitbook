@@ -9,4 +9,5 @@ export {
   type LoggerConfig,
 } from './logger.js';
 export { ConsoleSink } from './sinks/console.js';
+export { FileSink, type FileSinkOptions } from './sinks/file.js';
 export { BufferedSink, type BufferedSinkOptions } from './buffered-sink.js';

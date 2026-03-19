@@ -3,6 +3,7 @@ import { THETA_CHAINS } from '@exitbook/blockchain-providers';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, type Currency } from '@exitbook/core';
 import { describe, expect, test, vi } from 'vitest';
 
+import { assertOk } from '../../../../../../core/src/__tests__/test-utils.js';
 import { ThetaProcessor } from '../processor.js';
 
 const THETA_CONFIG = (() => {
@@ -77,7 +78,7 @@ describe('ThetaProcessor', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.inflows?.[0]?.assetId).toBe(buildBlockchainNativeAssetId('theta').unwrapOr('error'));
+    expect(transaction.movements.inflows?.[0]?.assetId).toBe(assertOk(buildBlockchainNativeAssetId('theta')));
     expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('TFUEL');
   });
 
@@ -114,10 +115,8 @@ describe('ThetaProcessor', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.movements.outflows?.[0]?.assetId).toBe(
-      buildBlockchainTokenAssetId('theta', 'theta').unwrapOr('error')
-    );
-    expect(transaction.fees[0]?.assetId).toBe(buildBlockchainNativeAssetId('theta').unwrapOr('error'));
+    expect(transaction.movements.outflows?.[0]?.assetId).toBe(assertOk(buildBlockchainTokenAssetId('theta', 'theta')));
+    expect(transaction.fees[0]?.assetId).toBe(assertOk(buildBlockchainNativeAssetId('theta')));
     expect(transaction.fees[0]?.assetSymbol).toBe('TFUEL');
     expect(providerManager.getTokenMetadata).not.toHaveBeenCalled();
   });
@@ -175,8 +174,8 @@ describe('ThetaProcessor', () => {
 
     expect(providerManager.getTokenMetadata).toHaveBeenCalledWith('theta', [TOKEN_ADDRESS]);
     expect(transaction.movements.outflows?.[0]?.assetId).toBe(
-      buildBlockchainTokenAssetId('theta', TOKEN_ADDRESS).unwrapOr('error')
+      assertOk(buildBlockchainTokenAssetId('theta', TOKEN_ADDRESS))
     );
-    expect(transaction.fees[0]?.assetId).toBe(buildBlockchainNativeAssetId('theta').unwrapOr('error'));
+    expect(transaction.fees[0]?.assetId).toBe(assertOk(buildBlockchainNativeAssetId('theta')));
   });
 });
