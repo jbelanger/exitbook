@@ -1,4 +1,4 @@
-import { isFiat, type Currency, type Transaction } from '@exitbook/core';
+import { isFiat, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
@@ -51,7 +51,7 @@ interface PriceBearingEntry {
 /**
  * Validation issue found during price preflight checks
  */
-export interface PriceValidationIssue {
+interface PriceValidationIssue {
   entity: PricedEntity;
   issueType: 'missing_price' | 'non_usd_currency' | 'missing_fx_trail';
   message: string;
@@ -60,7 +60,7 @@ export interface PriceValidationIssue {
 /**
  * Aggregated validation results
  */
-export interface PriceValidationResult {
+interface PriceValidationResult {
   isValid: boolean;
   issues: PriceValidationIssue[];
   summary: {
@@ -71,23 +71,6 @@ export interface PriceValidationResult {
     nonUsdPrices: number;
     totalEntities: number;
   };
-}
-
-/**
- * Extract all entities (movements and fees) that need pricing for cost basis calculation
- * Pure function - no side effects
- */
-export function collectPricedEntities(transactions: Transaction[]): PricedEntity[] {
-  const entities: PricedEntity[] = [];
-
-  for (const tx of transactions) {
-    const datetime = tx.datetime ?? '(unknown)';
-    appendPricedEntities(entities, tx.txFingerprint, datetime, 'inflow', tx.movements?.inflows ?? []);
-    appendPricedEntities(entities, tx.txFingerprint, datetime, 'outflow', tx.movements?.outflows ?? []);
-    appendPricedEntities(entities, tx.txFingerprint, datetime, 'fee', tx.fees ?? []);
-  }
-
-  return entities;
 }
 
 /**
@@ -177,7 +160,7 @@ function buildFxMetadata(priceData: PriceBearingEntry['priceAtTxTime']): PricedE
  * Note: Fiat currencies are excluded from validation as they don't need prices
  * (they represent the base monetary value)
  */
-export function validatePriceCompleteness(entities: PricedEntity[]): PriceValidationIssue[] {
+function validatePriceCompleteness(entities: PricedEntity[]): PriceValidationIssue[] {
   return entities
     .filter((e) => {
       // Skip entities that already have prices
@@ -212,7 +195,7 @@ export function validatePriceCompleteness(entities: PricedEntity[]): PriceValida
  * Find entities with non-USD prices
  * Pure function - no side effects
  */
-export function validatePriceCurrency(entities: PricedEntity[]): PriceValidationIssue[] {
+function validatePriceCurrency(entities: PricedEntity[]): PriceValidationIssue[] {
   return entities
     .filter((e) => e.hasPrice && e.currency?.trim().toUpperCase() !== 'USD')
     .map((entity) => ({
@@ -226,7 +209,7 @@ export function validatePriceCurrency(entities: PricedEntity[]): PriceValidation
  * Find entities where price was converted from non-USD fiat but missing FX audit trail
  * Pure function - no side effects
  */
-export function validateFxAuditTrail(entities: PricedEntity[]): PriceValidationIssue[] {
+function validateFxAuditTrail(entities: PricedEntity[]): PriceValidationIssue[] {
   return entities
     .filter((e) => {
       // Only validate entities that have FX metadata present but incomplete
@@ -247,7 +230,7 @@ export function validateFxAuditTrail(entities: PricedEntity[]): PriceValidationI
  * Format validation results into human-readable error message
  * Pure function - no side effects
  */
-export function formatValidationError(result: PriceValidationResult): string {
+function formatValidationError(result: PriceValidationResult): string {
   const problems: string[] = [];
 
   // Missing prices
@@ -316,19 +299,6 @@ export function formatValidationError(result: PriceValidationResult): string {
     `  3. Add FX audit trail metadata for converted prices\n\n` +
     `Examples of issues found:\n${examples}`
   );
-}
-
-/**
- * Assert that all transactions have complete, USD-denominated price data.
- * Hard-fail: any missing, non-USD, or incomplete FX-trail price returns an error.
- * Used as a pre-condition inside CostBasisCalculator (defense-in-depth after the
- * soft-filtering done by validateTransactionPrices in cost-basis/cost-basis-utils.ts).
- *
- * @param transactions - Transactions to validate (should already be price-filtered)
- * @returns Result containing void on success, or Error with formatted message on failure
- */
-export function assertPriceDataQuality(transactions: Transaction[]): Result<void, Error> {
-  return assertEntityPriceDataQuality(collectPricedEntities(transactions));
 }
 
 /**

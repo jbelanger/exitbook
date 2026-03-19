@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTransactionLink } from '../../../../linking/matching/link-construction.js';
 import { allocateMatches } from '../../../../linking/matching/match-allocation.js';
-import { DEFAULT_MATCHING_CONFIG } from '../../../../linking/matching/matching-config.js';
+import { buildMatchingConfig } from '../../../../linking/matching/matching-config.js';
 import { scoreAndFilterMatches } from '../../../../linking/strategies/amount-timing-utils.js';
 import {
   createImpossibleMultiSourceAdaHashPartialScenario,
@@ -24,13 +24,13 @@ const noopLogger = {
 describe('filterConfirmableTransferProposals', () => {
   it('drops proposals that would fail scoped transfer confirmation', () => {
     const { sources, targets } = createImpossibleMultiSourceAdaHashPartialScenario();
-    const allMatches = sources.flatMap((source) => scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG));
-    const { suggested, confirmed } = allocateMatches(allMatches, DEFAULT_MATCHING_CONFIG);
+    const allMatches = sources.flatMap((source) => scoreAndFilterMatches(source, targets, buildMatchingConfig()));
+    const { suggested, confirmed } = allocateMatches(allMatches, buildMatchingConfig());
     const candidateLinks = [...confirmed, ...suggested].map((match) =>
       assertOk(
         createTransactionLink(
           match,
-          match.confidenceScore.greaterThanOrEqualTo(DEFAULT_MATCHING_CONFIG.autoConfirmThreshold)
+          match.confidenceScore.greaterThanOrEqualTo(buildMatchingConfig().autoConfirmThreshold)
             ? 'confirmed'
             : 'suggested',
           new Date()

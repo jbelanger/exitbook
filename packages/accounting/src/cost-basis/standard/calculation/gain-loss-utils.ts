@@ -181,7 +181,7 @@ export function calculateGainLoss(
  * @param rules - Jurisdiction rules
  * @returns true if loss is disallowed, false otherwise
  */
-export function checkLossDisallowance(
+function checkLossDisallowance(
   disposal: LotDisposal,
   _lot: AcquisitionLot,
   _allAssetDisposals: LotDisposal[],
@@ -219,7 +219,7 @@ export function checkLossDisallowance(
 /**
  * Aggregate gain/loss for a single asset
  */
-export function aggregateAssetGainLoss(
+function aggregateAssetGainLoss(
   assetSymbol: string,
   disposals: DisposalGainLoss[]
 ): Result<AssetGainLossSummary, Error> {
@@ -283,7 +283,7 @@ export function aggregateAssetGainLoss(
 /**
  * Aggregate gain/loss across all assets
  */
-export function aggregateOverallGainLoss(
+function aggregateOverallGainLoss(
   assetSummaries: Map<string, AssetGainLossSummary>,
   disallowedLossCount: number
 ): Result<GainLossResult, Error> {

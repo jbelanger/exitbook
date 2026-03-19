@@ -1,49 +1,66 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  CostBasisMethodSchema,
-  FiatCurrencySchema,
-  JurisdictionConfigSchema,
-  JurisdictionSchema,
-  LotStatusSchema,
-} from '../schemas.js';
+import { CostBasisMethodSupportSchema, JurisdictionConfigSchema, LotStatusSchema } from '../schemas.js';
 
-describe('CostBasisMethodSchema', () => {
+describe('CostBasisMethodSchema (via CostBasisMethodSupportSchema)', () => {
+  const validSupport = { code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true };
+
   it('should accept valid methods', () => {
-    expect(CostBasisMethodSchema.parse('fifo')).toBe('fifo');
-    expect(CostBasisMethodSchema.parse('lifo')).toBe('lifo');
-    expect(CostBasisMethodSchema.parse('specific-id')).toBe('specific-id');
-    expect(CostBasisMethodSchema.parse('average-cost')).toBe('average-cost');
+    for (const method of ['fifo', 'lifo', 'specific-id', 'average-cost']) {
+      expect(CostBasisMethodSupportSchema.parse({ ...validSupport, code: method }).code).toBe(method);
+    }
   });
 
   it('should reject invalid methods', () => {
-    expect(() => CostBasisMethodSchema.parse('hifo')).toThrow();
+    expect(() => CostBasisMethodSupportSchema.parse({ ...validSupport, code: 'hifo' })).toThrow();
   });
 });
 
-describe('FiatCurrencySchema', () => {
+describe('FiatCurrencySchema (via JurisdictionConfigSchema)', () => {
+  const validConfig = {
+    code: 'US',
+    label: 'United States',
+    defaultCurrency: 'USD',
+    costBasisImplemented: true,
+    supportedMethods: [{ code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true }],
+    sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict-onchain-tokens',
+    relaxedTaxIdentitySymbols: [],
+  };
+
   it('should accept supported currencies', () => {
-    expect(FiatCurrencySchema.parse('USD')).toBe('USD');
-    expect(FiatCurrencySchema.parse('CAD')).toBe('CAD');
-    expect(FiatCurrencySchema.parse('EUR')).toBe('EUR');
-    expect(FiatCurrencySchema.parse('GBP')).toBe('GBP');
+    for (const currency of ['USD', 'CAD', 'EUR', 'GBP']) {
+      expect(JurisdictionConfigSchema.parse({ ...validConfig, defaultCurrency: currency }).defaultCurrency).toBe(
+        currency
+      );
+    }
   });
 
   it('should reject unsupported currencies', () => {
-    expect(() => FiatCurrencySchema.parse('JPY')).toThrow();
+    expect(() => JurisdictionConfigSchema.parse({ ...validConfig, defaultCurrency: 'JPY' })).toThrow();
   });
 });
 
-describe('JurisdictionSchema', () => {
+describe('JurisdictionSchema (via JurisdictionConfigSchema)', () => {
+  const validConfig = {
+    code: 'US',
+    label: 'United States',
+    defaultCurrency: 'USD',
+    costBasisImplemented: true,
+    supportedMethods: [{ code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true }],
+    sameAssetTransferFeePolicy: 'disposal',
+    taxAssetIdentityPolicy: 'strict-onchain-tokens',
+    relaxedTaxIdentitySymbols: [],
+  };
+
   it('should accept supported jurisdictions', () => {
-    expect(JurisdictionSchema.parse('CA')).toBe('CA');
-    expect(JurisdictionSchema.parse('US')).toBe('US');
-    expect(JurisdictionSchema.parse('UK')).toBe('UK');
-    expect(JurisdictionSchema.parse('EU')).toBe('EU');
+    for (const jurisdiction of ['CA', 'US', 'UK', 'EU']) {
+      expect(JurisdictionConfigSchema.parse({ ...validConfig, code: jurisdiction }).code).toBe(jurisdiction);
+    }
   });
 
   it('should reject unsupported jurisdictions', () => {
-    expect(() => JurisdictionSchema.parse('AU')).toThrow();
+    expect(() => JurisdictionConfigSchema.parse({ ...validConfig, code: 'AU' })).toThrow();
   });
 });
 

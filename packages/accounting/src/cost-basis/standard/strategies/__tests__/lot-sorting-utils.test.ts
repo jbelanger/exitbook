@@ -5,62 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createLot } from '../../../../__tests__/test-utils.js';
 import type { DisposalRequest } from '../base-strategy.js';
-import {
-  calculateHoldingPeriodDays,
-  matchDisposalToSortedLots,
-  sortLotsFifo,
-  sortLotsLifo,
-} from '../lot-sorting-utils.js';
-
-describe('calculateHoldingPeriodDays', () => {
-  it('should calculate days between same date as 0', () => {
-    const date = new Date('2024-01-01');
-    expect(calculateHoldingPeriodDays(date, date)).toBe(0);
-  });
-
-  it('should calculate days for 1 day difference', () => {
-    const acquisition = new Date('2024-01-01');
-    const disposal = new Date('2024-01-02');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(1);
-  });
-
-  it('should calculate days for 31 days (one month)', () => {
-    const acquisition = new Date('2024-01-01');
-    const disposal = new Date('2024-02-01');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(31);
-  });
-
-  it('should calculate days for 366 days (leap year)', () => {
-    const acquisition = new Date('2024-01-01');
-    const disposal = new Date('2025-01-01');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(366); // 2024 is a leap year
-  });
-
-  it('should calculate days for 365 days (non-leap year)', () => {
-    const acquisition = new Date('2023-01-01');
-    const disposal = new Date('2024-01-01');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(365);
-  });
-
-  it('should calculate days across different time zones', () => {
-    const acquisition = new Date('2024-01-01T23:59:59Z');
-    const disposal = new Date('2024-01-02T00:00:01Z');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(0);
-  });
-
-  it('should calculate days with hours/minutes/seconds', () => {
-    const acquisition = new Date('2024-01-01T10:30:45');
-    const disposal = new Date('2024-01-05T15:45:30');
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(4);
-  });
-
-  it('should handle large time periods', () => {
-    const acquisition = new Date('2020-01-01');
-    const disposal = new Date('2024-01-01');
-    // 4 years including 1 leap year (2020) = 1461 days
-    expect(calculateHoldingPeriodDays(acquisition, disposal)).toBe(1461);
-  });
-});
+import { matchDisposalToSortedLots, sortLotsFifo, sortLotsLifo } from '../lot-sorting-utils.js';
 
 describe('sortLotsFifo', () => {
   const mkLot = (id: string, date: string) => createLot(id, 'BTC', '1', '30000', new Date(date));

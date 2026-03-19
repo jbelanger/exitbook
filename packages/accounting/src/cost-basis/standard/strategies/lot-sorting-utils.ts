@@ -8,7 +8,7 @@ import type { DisposalRequest } from './base-strategy.js';
 /**
  * Calculate holding period in days between acquisition and disposal
  */
-export function calculateHoldingPeriodDays(acquisitionDate: Date, disposalDate: Date): number {
+function calculateHoldingPeriodDays(acquisitionDate: Date, disposalDate: Date): number {
   const diffMs = disposalDate.getTime() - acquisitionDate.getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }

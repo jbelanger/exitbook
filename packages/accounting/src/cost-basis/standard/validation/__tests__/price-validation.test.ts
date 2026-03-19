@@ -1,398 +1,39 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency, Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction } from '../../../../__tests__/test-utils.js';
-import type { PriceValidationResult } from '../price-validation.js';
-import {
-  assertPriceDataQuality,
-  collectPricedEntities,
-  formatValidationError,
-  validateFxAuditTrail,
-  validatePriceCompleteness,
-  validatePriceCurrency,
-} from '../price-validation.js';
+import type { AccountingScopedBuildResult } from '../../matching/build-cost-basis-scoped-transactions.js';
+import { assertScopedPriceDataQuality } from '../price-validation.js';
+
+/**
+ * Wrap transactions into a minimal AccountingScopedBuildResult so we can
+ * exercise assertScopedPriceDataQuality (the only public API).
+ */
+function wrapAsScopedBuildResult(transactions: Transaction[]): AccountingScopedBuildResult {
+  return {
+    inputTransactions: transactions,
+    transactions: transactions.map((tx) => ({
+      tx,
+      rebuildDependencyTransactionIds: [],
+      movements: {
+        inflows: tx.movements?.inflows ?? [],
+        outflows: tx.movements?.outflows ?? [],
+      },
+      fees: (tx.fees ?? []).map((fee) => ({
+        ...fee,
+        originalTransactionId: tx.id,
+        movementFingerprint: `fee-${tx.id}-${fee.assetSymbol}`,
+      })),
+    })),
+    feeOnlyInternalCarryovers: [],
+  };
+}
 
 describe('price-validation', () => {
-  describe('collectPricedEntities', () => {
-    it('should collect all inflows, outflows, and fees', () => {
-      const tx = buildTransaction({
-        id: 1,
-        datetime: '2024-01-15T10:00:00Z',
-        sourceType: 'blockchain',
-        inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
-        outflows: [{ assetSymbol: 'USD', amount: '50000', price: '1', priceSource: 'test-provider' }],
-        fees: [
-          {
-            assetId: 'test:usd',
-            assetSymbol: 'USD' as Currency,
-            amount: parseDecimal('10'),
-            scope: 'platform',
-            settlement: 'balance',
-            priceAtTxTime: {
-              price: { amount: parseDecimal('1'), currency: 'USD' as Currency },
-              source: 'test-provider',
-              fetchedAt: new Date('2024-01-15T10:00:00Z'),
-            },
-          },
-        ],
-      });
-
-      const entities = collectPricedEntities([tx]);
-      const txFingerprint = tx.txFingerprint;
-
-      expect(entities).toHaveLength(3);
-      expect(entities[0]).toMatchObject({
-        transactionId: txFingerprint,
-        assetSymbol: 'BTC' as Currency,
-        kind: 'inflow',
-        hasPrice: true,
-        currency: 'USD',
-      });
-      expect(entities[1]).toMatchObject({
-        transactionId: txFingerprint,
-        assetSymbol: 'USD' as Currency,
-        kind: 'outflow',
-        hasPrice: true,
-        currency: 'USD',
-      });
-      expect(entities[2]).toMatchObject({
-        transactionId: txFingerprint,
-        assetSymbol: 'USD' as Currency,
-        kind: 'fee',
-        hasPrice: true,
-        currency: 'USD',
-      });
-    });
-
-    it('should handle missing price data gracefully', () => {
-      const tx = buildTransaction({
-        id: 1,
-        datetime: '2024-01-15T10:00:00Z',
-        sourceType: 'blockchain',
-        inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
-      });
-
-      const entities = collectPricedEntities([tx]);
-
-      expect(entities).toHaveLength(1);
-      expect(entities[0]).toMatchObject({
-        hasPrice: false,
-        currency: undefined,
-        hasFxMetadata: false,
-      });
-    });
-
-    it('should extract FX metadata when present', () => {
-      const tx = buildTransaction({
-        id: 1,
-        datetime: '2024-01-15T10:00:00Z',
-        sourceType: 'blockchain',
-        inflows: [
-          {
-            assetSymbol: 'BTC',
-            amount: '1.0',
-            price: '50000',
-            priceSource: 'test-provider',
-            fxRateToUSD: '1.35',
-            fxSource: 'ECB',
-            fxTimestamp: new Date('2024-01-15T10:00:00Z'),
-          },
-        ],
-      });
-
-      const entities = collectPricedEntities([tx]);
-
-      expect(entities).toHaveLength(1);
-      const entity = entities[0]!;
-      expect(entity).toMatchObject({
-        hasPrice: true,
-        hasFxMetadata: true,
-      });
-      expect(entity.fxMetadata).toBeDefined();
-      expect(entity.fxMetadata).toMatchObject({
-        rate: '1.35',
-        source: 'ECB',
-        timestamp: '2024-01-15T10:00:00.000Z',
-      });
-    });
-  });
-
-  describe('validatePriceCompleteness', () => {
-    it('should find entities with missing prices', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
-        }),
-      ]);
-
-      const issues = validatePriceCompleteness(entities);
-
-      expect(issues).toHaveLength(1);
-      expect(issues[0]).toMatchObject({
-        issueType: 'missing_price',
-        entity: { assetSymbol: 'BTC' as Currency, kind: 'inflow' },
-      });
-    });
-
-    it('should return empty array when all prices present', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
-        }),
-      ]);
-
-      const issues = validatePriceCompleteness(entities);
-
-      expect(issues).toHaveLength(0);
-    });
-  });
-
-  describe('validatePriceCurrency', () => {
-    it('should find entities with non-USD prices', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [
-            {
-              assetSymbol: 'BTC',
-              amount: '1.0',
-              price: '45000',
-              priceCurrency: 'EUR',
-              priceSource: 'test-provider',
-            },
-          ],
-        }),
-      ]);
-
-      const issues = validatePriceCurrency(entities);
-
-      expect(issues).toHaveLength(1);
-      expect(issues[0]).toMatchObject({
-        issueType: 'non_usd_currency',
-        entity: { assetSymbol: 'BTC' as Currency, currency: 'EUR', kind: 'inflow' },
-      });
-    });
-
-    it('should accept USD prices', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
-        }),
-      ]);
-
-      const issues = validatePriceCurrency(entities);
-
-      expect(issues).toHaveLength(0);
-    });
-
-    it('should handle case-insensitive USD check', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [
-            {
-              assetSymbol: 'BTC',
-              amount: '1.0',
-              price: '50000',
-              priceCurrency: 'usd',
-              priceSource: 'test-provider',
-            },
-          ],
-        }),
-      ]);
-
-      const issues = validatePriceCurrency(entities);
-
-      expect(issues).toHaveLength(0);
-    });
-  });
-
-  describe('validateFxAuditTrail', () => {
-    it('should find entities with incomplete FX metadata', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [
-            {
-              assetSymbol: 'BTC',
-              amount: '1.0',
-              price: '50000',
-              priceSource: 'test-provider',
-              fxRateToUSD: '1.35',
-              fxSource: 'ECB',
-              // Missing fxTimestamp
-            },
-          ],
-        }),
-      ]);
-
-      const issues = validateFxAuditTrail(entities);
-
-      expect(issues).toHaveLength(1);
-      expect(issues[0]).toMatchObject({
-        issueType: 'missing_fx_trail',
-        entity: { assetSymbol: 'BTC' as Currency, kind: 'inflow' },
-      });
-    });
-
-    it('should accept complete FX metadata', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [
-            {
-              assetSymbol: 'BTC',
-              amount: '1.0',
-              price: '50000',
-              priceSource: 'test-provider',
-              fxRateToUSD: '1.35',
-              fxSource: 'ECB',
-              fxTimestamp: new Date('2024-01-15T10:00:00Z'),
-            },
-          ],
-        }),
-      ]);
-
-      const issues = validateFxAuditTrail(entities);
-
-      expect(issues).toHaveLength(0);
-    });
-
-    it('should not flag entities without FX metadata', () => {
-      const entities = collectPricedEntities([
-        buildTransaction({
-          id: 1,
-          datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
-          inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
-        }),
-      ]);
-
-      const issues = validateFxAuditTrail(entities);
-
-      expect(issues).toHaveLength(0);
-    });
-  });
-
-  describe('formatValidationError', () => {
-    it('should format multiple issue types', () => {
-      const result: PriceValidationResult = {
-        isValid: false,
-        issues: [
-          {
-            entity: {
-              transactionId: 'txfp-1',
-              datetime: '2024-01-15T10:00:00Z',
-              assetSymbol: 'BTC' as Currency,
-              currency: undefined,
-              kind: 'inflow',
-              hasPrice: false,
-              hasFxMetadata: false,
-            },
-            issueType: 'missing_price',
-            message: 'Missing price',
-          },
-          {
-            entity: {
-              transactionId: 'txfp-2',
-              datetime: '2024-01-16T10:00:00Z',
-              assetSymbol: 'ETH' as Currency,
-              currency: 'EUR',
-              kind: 'outflow',
-              hasPrice: true,
-              hasFxMetadata: false,
-            },
-            issueType: 'non_usd_currency',
-            message: 'Non-USD currency',
-          },
-        ],
-        summary: {
-          totalEntities: 5,
-          missingPrices: 1,
-          nonUsdPrices: 1,
-          missingFxTrails: 0,
-          byKind: new Map([
-            ['inflow', 2],
-            ['outflow', 2],
-            ['fee', 1],
-          ]),
-          byCurrency: new Map([
-            ['USD', 3],
-            ['EUR', 1],
-          ]),
-        },
-      };
-
-      const errorMessage = formatValidationError(result);
-
-      expect(errorMessage).toContain('Price preflight validation failed');
-      expect(errorMessage).toContain('1 price(s) missing');
-      expect(errorMessage).toContain('1 price(s) not in USD');
-      expect(errorMessage).toContain("Run 'prices enrich'");
-      expect(errorMessage).toContain('Tx txfp-1');
-      expect(errorMessage).toContain('Tx txfp-2');
-    });
-
-    it('should handle FX trail issues', () => {
-      const result: PriceValidationResult = {
-        isValid: false,
-        issues: [
-          {
-            entity: {
-              transactionId: 'txfp-1',
-              datetime: '2024-01-15T10:00:00Z',
-              assetSymbol: 'BTC' as Currency,
-              currency: 'USD',
-              kind: 'inflow',
-              hasPrice: true,
-              hasFxMetadata: false,
-              fxMetadata: {
-                rate: '1.35',
-                source: 'ECB',
-                timestamp: '',
-              },
-            },
-            issueType: 'missing_fx_trail',
-            message: 'Missing FX trail',
-          },
-        ],
-        summary: {
-          totalEntities: 1,
-          missingPrices: 0,
-          nonUsdPrices: 0,
-          missingFxTrails: 1,
-          byKind: new Map([['inflow', 1]]),
-          byCurrency: new Map([['USD', 1]]),
-        },
-      };
-
-      const errorMessage = formatValidationError(result);
-
-      expect(errorMessage).toContain('1 normalized price(s) missing complete FX audit trail');
-    });
-  });
-
-  describe('assertPriceDataQuality', () => {
-    it('should return ok for valid transactions', () => {
+  describe('assertScopedPriceDataQuality', () => {
+    it('should return ok for valid transactions with USD prices', () => {
       const transactions = [
         buildTransaction({
           id: 1,
@@ -403,7 +44,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertPriceDataQuality(transactions);
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
 
       assertOk(result);
     });
@@ -418,7 +59,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertPriceDataQuality(transactions);
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -443,7 +84,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertPriceDataQuality(transactions);
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -470,7 +111,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertPriceDataQuality(transactions);
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -513,12 +154,37 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertPriceDataQuality(transactions);
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('1 price(s) missing');
       expect(resultError.message).toContain('1 price(s) not in USD');
       expect(resultError.message).toContain('missing complete FX audit trail');
+    });
+
+    it('should accept complete FX metadata', () => {
+      const transactions = [
+        buildTransaction({
+          id: 1,
+          datetime: '2024-01-15T10:00:00Z',
+          sourceType: 'blockchain',
+          inflows: [
+            {
+              assetSymbol: 'BTC',
+              amount: '1.0',
+              price: '50000',
+              priceSource: 'test-provider',
+              fxRateToUSD: '1.35',
+              fxSource: 'ECB',
+              fxTimestamp: new Date('2024-01-15T10:00:00Z'),
+            },
+          ],
+        }),
+      ];
+
+      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+
+      assertOk(result);
     });
   });
 });

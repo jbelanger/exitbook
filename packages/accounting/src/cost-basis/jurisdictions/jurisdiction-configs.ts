@@ -18,7 +18,7 @@ export const SUPPORTED_COST_BASIS_FIAT_CURRENCIES: FiatCurrency[] = ['USD', 'CAD
  * - UK (HMRC): Fees may constitute disposals, similar to US treatment
  * - EU: Most member states treat fees as disposals, though individual countries may vary
  */
-export const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
+const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
   US: US_JURISDICTION_CONFIG,
   CA: CANADA_JURISDICTION_CONFIG,
   UK: {

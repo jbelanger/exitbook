@@ -31,7 +31,7 @@ interface LinkAmountValidationInfo {
  * @param targetAmount - Net received amount at target transaction
  * @returns Result indicating validation success or error
  */
-export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal): Result<void, Error> {
+function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal): Result<void, Error> {
   // Reject zero or negative source amounts (invalid/legacy data)
   if (sourceAmount.lte(0)) {
     return err(
@@ -88,7 +88,7 @@ export function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal
  * @param targetAmount - Net received amount
  * @returns Variance metadata object
  */
-export function calculateVarianceMetadata(
+function calculateVarianceMetadata(
   sourceAmount: Decimal,
   targetAmount: Decimal
 ): {
@@ -104,7 +104,7 @@ export function calculateVarianceMetadata(
   };
 }
 
-export function calculateImpliedFeeAmount(sourceAmount: Decimal, targetAmount: Decimal): Decimal | undefined {
+function calculateImpliedFeeAmount(sourceAmount: Decimal, targetAmount: Decimal): Decimal | undefined {
   if (!sourceAmount.gt(targetAmount)) {
     return undefined;
   }

@@ -19,7 +19,7 @@ function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
  *
  * @returns Gross, expense, and net proceeds facts for the outflow
  */
-export function calculateNetProceeds(
+function calculateNetProceeds(
   transaction: CostBasisTransactionLike,
   outflow: AssetMovementDraft
 ): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal }, Error> {

@@ -1,4 +1,4 @@
-import { err, isFiat, ok, randomUUID, type AssetMovementDraft, type Result, type Transaction } from '@exitbook/core';
+import { err, ok, randomUUID, type AssetMovementDraft, type Result, type Transaction } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
 import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
@@ -10,41 +10,6 @@ type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
 function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
   return 'tx' in transaction ? transaction.tx : transaction;
-}
-
-/**
- * Filter transactions that are missing price data on any non-fiat movements
- *
- * Fiat currencies are excluded from validation since we don't track cost basis for them.
- */
-export function filterTransactionsWithoutPrices(transactions: Transaction[]): Transaction[] {
-  return transactions.filter((tx) => {
-    const inflows = tx.movements.inflows || [];
-    const outflows = tx.movements.outflows || [];
-
-    // Filter out fiat currencies - we only care about crypto asset prices
-    const nonFiatInflows = inflows.filter((m) => {
-      try {
-        return !isFiat(m.assetSymbol);
-      } catch {
-        // If we can't create a Currency, assume it's crypto
-        return true;
-      }
-    });
-
-    const nonFiatOutflows = outflows.filter((m) => {
-      try {
-        return !isFiat(m.assetSymbol);
-      } catch {
-        // If we can't create a Currency, assume it's crypto
-        return true;
-      }
-    });
-
-    const inflowsWithoutPrice = nonFiatInflows.some((m) => !m.priceAtTxTime);
-    const outflowsWithoutPrice = nonFiatOutflows.some((m) => !m.priceAtTxTime);
-    return inflowsWithoutPrice || outflowsWithoutPrice;
-  });
 }
 
 /**

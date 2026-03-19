@@ -41,9 +41,7 @@ interface MovementsNeedingNormalization<TMovement extends AssetMovementDraft = A
  * @param tx - Transaction to analyze
  * @returns Classified movements
  */
-export function extractMovementsNeedingNormalization(
-  tx: Transaction
-): MovementsNeedingNormalization<TransactionMovement> {
+function extractMovementsNeedingNormalization(tx: Transaction): MovementsNeedingNormalization<TransactionMovement> {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
 
   const needsNormalization: TransactionMovement[] = [];
@@ -87,7 +85,7 @@ export function extractMovementsNeedingNormalization(
  * @param rate - FX rate to validate
  * @returns Result indicating validity
  */
-export function validateFxRate(rate: Decimal): Result<void, Error> {
+function validateFxRate(rate: Decimal): Result<void, Error> {
   // Must be positive
   if (rate.lessThanOrEqualTo(0)) {
     return err(new Error(`Invalid FX rate: ${rate.toString()} (must be positive)`));
@@ -125,7 +123,7 @@ export function validateFxRate(rate: Decimal): Result<void, Error> {
  * @param fxTimestamp - Timestamp of FX rate
  * @returns Normalized price in USD with FX metadata
  */
-export function createNormalizedPrice(
+function createNormalizedPrice(
   original: PriceAtTxTime,
   fxRate: Decimal,
   fxSource: string,
@@ -158,7 +156,7 @@ export function createNormalizedPrice(
  * @param movement - Movement to check
  * @returns True if movement has non-USD fiat price
  */
-export function movementNeedsNormalization<TMovement extends AssetMovementDraft>(movement: TMovement): boolean {
+function movementNeedsNormalization<TMovement extends AssetMovementDraft>(movement: TMovement): boolean {
   if (!movement.priceAtTxTime) {
     return false;
   }
@@ -172,32 +170,6 @@ export function movementNeedsNormalization<TMovement extends AssetMovementDraft>
 
   // Only normalize fiat currencies (EUR, CAD, GBP, etc.)
   return isFiat(priceCurrency);
-}
-
-/**
- * Classify a price currency for normalization
- *
- * @param movement - Movement with price data
- * @returns Classification: 'needs-normalization' | 'already-usd' | 'crypto' | 'no-price'
- */
-export function classifyMovementPrice(
-  movement: AssetMovementDraft
-): 'needs-normalization' | 'already-usd' | 'crypto' | 'no-price' {
-  if (!movement.priceAtTxTime) {
-    return 'no-price';
-  }
-
-  const priceCurrency = movement.priceAtTxTime.price.currency;
-
-  if (priceCurrency === 'USD') {
-    return 'already-usd';
-  }
-
-  if (isFiat(priceCurrency)) {
-    return 'needs-normalization';
-  }
-
-  return 'crypto';
 }
 
 /**

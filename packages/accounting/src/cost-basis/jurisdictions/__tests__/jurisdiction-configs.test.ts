@@ -4,23 +4,22 @@ import {
   getDefaultCostBasisCurrencyForJurisdiction,
   getDefaultCostBasisMethodForJurisdiction,
   getJurisdictionConfig,
-  JURISDICTION_CONFIGS,
   listCostBasisJurisdictionCapabilities,
   listCostBasisMethodCapabilitiesForJurisdiction,
   SUPPORTED_COST_BASIS_FIAT_CURRENCIES,
 } from '../jurisdiction-configs.js';
 
 describe('jurisdiction-configs', () => {
-  describe('JURISDICTION_CONFIGS', () => {
+  describe('getJurisdictionConfig coverage', () => {
     it('should have configs for all supported jurisdictions', () => {
-      expect(JURISDICTION_CONFIGS['US']).toBeDefined();
-      expect(JURISDICTION_CONFIGS['CA']).toBeDefined();
-      expect(JURISDICTION_CONFIGS['UK']).toBeDefined();
-      expect(JURISDICTION_CONFIGS['EU']).toBeDefined();
+      expect(getJurisdictionConfig('US')).toBeDefined();
+      expect(getJurisdictionConfig('CA')).toBeDefined();
+      expect(getJurisdictionConfig('UK')).toBeDefined();
+      expect(getJurisdictionConfig('EU')).toBeDefined();
     });
 
     it('should have correct fee policies for US', () => {
-      const config = JURISDICTION_CONFIGS['US'];
+      const config = getJurisdictionConfig('US');
       expect(config).toBeDefined();
       if (!config) return;
       expect(config.code).toBe('US');
@@ -34,7 +33,7 @@ describe('jurisdiction-configs', () => {
     });
 
     it('should have correct fee policies for CA', () => {
-      const config = JURISDICTION_CONFIGS['CA'];
+      const config = getJurisdictionConfig('CA');
       expect(config).toBeDefined();
       if (!config) return;
       expect(config.code).toBe('CA');
@@ -49,7 +48,7 @@ describe('jurisdiction-configs', () => {
     });
 
     it('should have correct fee policies for UK', () => {
-      const config = JURISDICTION_CONFIGS['UK'];
+      const config = getJurisdictionConfig('UK');
       expect(config).toBeDefined();
       if (!config) return;
       expect(config.code).toBe('UK');
@@ -63,7 +62,7 @@ describe('jurisdiction-configs', () => {
     });
 
     it('should have correct fee policies for EU', () => {
-      const config = JURISDICTION_CONFIGS['EU'];
+      const config = getJurisdictionConfig('EU');
       expect(config).toBeDefined();
       if (!config) return;
       expect(config.code).toBe('EU');
@@ -127,10 +126,10 @@ describe('jurisdiction-configs', () => {
   describe('cost basis metadata helpers', () => {
     it('lists jurisdictions from the shared registry', () => {
       expect(listCostBasisJurisdictionCapabilities()).toEqual([
-        JURISDICTION_CONFIGS['US'],
-        JURISDICTION_CONFIGS['CA'],
-        JURISDICTION_CONFIGS['UK'],
-        JURISDICTION_CONFIGS['EU'],
+        getJurisdictionConfig('US'),
+        getJurisdictionConfig('CA'),
+        getJurisdictionConfig('UK'),
+        getJurisdictionConfig('EU'),
       ]);
     });
 

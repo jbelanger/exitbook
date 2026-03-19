@@ -20,7 +20,7 @@ import {
 describe('@exitbook/core/test-utils', () => {
   it('matches production tx fingerprints for explicit exchange source types', async () => {
     const accountFingerprint = assertOk(
-      await computeAccountFingerprint({
+      computeAccountFingerprint({
         accountType: 'exchange-api',
         sourceName: 'kraken',
         identifier: 'identifier-12',
@@ -28,7 +28,7 @@ describe('@exitbook/core/test-utils', () => {
     );
 
     const expected = assertOk(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint,
         source: 'kraken',
         sourceType: 'exchange',
@@ -41,7 +41,7 @@ describe('@exitbook/core/test-utils', () => {
 
   it('matches production tx fingerprints for inferred blockchain sources', async () => {
     const accountFingerprint = assertOk(
-      await computeAccountFingerprint({
+      computeAccountFingerprint({
         accountType: 'blockchain',
         sourceName: 'ethereum',
         identifier: 'identifier-7',
@@ -49,7 +49,7 @@ describe('@exitbook/core/test-utils', () => {
     );
 
     const expected = assertOk(
-      await computeTxFingerprint({
+      computeTxFingerprint({
         accountFingerprint,
         source: 'ethereum',
         sourceType: 'blockchain',
@@ -69,7 +69,7 @@ describe('@exitbook/core/test-utils', () => {
     });
 
     const expected = assertOk(
-      await computeMovementFingerprint({
+      computeMovementFingerprint({
         txFingerprint: 'tx-1',
         canonicalMaterial,
         duplicateOccurrence: 2,
@@ -93,7 +93,7 @@ describe('@exitbook/core/test-utils', () => {
     };
 
     const expectedAssetFingerprint = assertOk(
-      await computeMovementFingerprint({
+      computeMovementFingerprint({
         txFingerprint: 'tx-2',
         canonicalMaterial: buildAssetMovementCanonicalMaterial({
           movementType: 'outflow',
@@ -105,7 +105,7 @@ describe('@exitbook/core/test-utils', () => {
       })
     );
     const expectedFeeFingerprint = assertOk(
-      await computeMovementFingerprint({
+      computeMovementFingerprint({
         txFingerprint: 'tx-2',
         canonicalMaterial: buildFeeMovementCanonicalMaterial({
           assetId: feeMovement.assetId,

@@ -7,7 +7,7 @@ import type { AccountingScopedTransaction } from '../../cost-basis/standard/matc
 import { createLinkableMovement } from '../shared/test-utils.js';
 import type { ILinkingStrategy, StrategyResult } from '../strategies/types.js';
 
-import { DEFAULT_MATCHING_CONFIG } from './matching-config.js';
+import { buildMatchingConfig } from './matching-config.js';
 import { StrategyRunner } from './strategy-runner.js';
 
 const logger = {
@@ -61,7 +61,7 @@ function createMockStrategy(name: string, result: StrategyResult | Error): ILink
 describe('StrategyRunner', () => {
   it('returns empty result when no movements are provided', () => {
     const strategy = createMockStrategy('test-strategy', { links: [], consumedCandidateIds: new Set() });
-    const runner = new StrategyRunner([strategy], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([strategy], logger, buildMatchingConfig(), []);
 
     const result = assertOk(runner.run([]));
 
@@ -75,7 +75,7 @@ describe('StrategyRunner', () => {
 
   it('skips excluded movements when separating sources and targets', () => {
     const strategy = createMockStrategy('test-strategy', { links: [], consumedCandidateIds: new Set() });
-    const runner = new StrategyRunner([strategy], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([strategy], logger, buildMatchingConfig(), []);
 
     const movements = [
       createLinkableMovement({ id: 1, direction: 'out', excluded: true }),
@@ -92,7 +92,7 @@ describe('StrategyRunner', () => {
 
   it('separates movements by direction into sources and targets', () => {
     const strategy = createMockStrategy('test-strategy', { links: [], consumedCandidateIds: new Set() });
-    const runner = new StrategyRunner([strategy], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([strategy], logger, buildMatchingConfig(), []);
 
     const movements = [
       createLinkableMovement({ id: 1, direction: 'out', movementFingerprint: 'fp:out:1' }),
@@ -112,7 +112,7 @@ describe('StrategyRunner', () => {
       links: [],
       consumedCandidateIds: new Set(),
     });
-    const runner = new StrategyRunner([failingStrategy, passingStrategy], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([failingStrategy, passingStrategy], logger, buildMatchingConfig(), []);
 
     const movements = [
       createLinkableMovement({ id: 1, direction: 'out', movementFingerprint: 'fp:out:1' }),
@@ -148,7 +148,7 @@ describe('StrategyRunner', () => {
     const runner = new StrategyRunner(
       [firstStrategy, secondStrategy],
       logger,
-      DEFAULT_MATCHING_CONFIG,
+      buildMatchingConfig(),
       scopedTransactions
     );
 
@@ -179,7 +179,7 @@ describe('StrategyRunner', () => {
 
   it('tracks unmatched candidates correctly', () => {
     const strategy = createMockStrategy('noop', { links: [], consumedCandidateIds: new Set() });
-    const runner = new StrategyRunner([strategy], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([strategy], logger, buildMatchingConfig(), []);
 
     const movements = [
       createLinkableMovement({ id: 1, direction: 'out', movementFingerprint: 'fp:out:1' }),
@@ -211,7 +211,7 @@ describe('StrategyRunner', () => {
       }),
     };
 
-    const runner = new StrategyRunner([strategy1, strategy2], logger, DEFAULT_MATCHING_CONFIG, []);
+    const runner = new StrategyRunner([strategy1, strategy2], logger, buildMatchingConfig(), []);
     const movements = [
       createLinkableMovement({ id: 1, direction: 'out', movementFingerprint: 'fp:out:1' }),
       createLinkableMovement({ id: 2, direction: 'in', movementFingerprint: 'fp:in:2' }),

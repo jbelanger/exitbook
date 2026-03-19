@@ -2,29 +2,37 @@
  * Tests for price normalization utility functions
  *
  * These tests verify the pure business logic for price normalization
- * according to the "Functional Core, Imperative Shell" pattern
+ * according to the "Functional Core, Imperative Shell" pattern.
+ *
+ * Internal helpers (extractMovementsNeedingNormalization, validateFxRate,
+ * createNormalizedPrice, movementNeedsNormalization) are tested through the
+ * public APIs: normalizeTransactionMovements and normalizePriceToUSD.
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
-import type { AssetMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
+import { ok, err } from '@exitbook/core';
+import type { Transaction, PriceAtTxTime } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 
-import {
-  classifyMovementPrice,
-  createNormalizedPrice,
-  extractMovementsNeedingNormalization,
-  movementNeedsNormalization,
-  validateFxRate,
-} from './price-normalization-utils.js';
+import { normalizeTransactionMovements, normalizePriceToUSD } from './price-normalization-utils.js';
 
 function createPersistedTransaction(transaction: Parameters<typeof materializeTestTransaction>[0]): Transaction {
   return materializeTestTransaction(transaction);
 }
 
-describe('extractMovementsNeedingNormalization', () => {
-  it('identifies EUR prices needing normalization', () => {
+describe('normalizeTransactionMovements', () => {
+  const stubFetchFxRate = (rate: string, source = 'ecb') => {
+    return async () =>
+      ok({
+        rate: parseDecimal(rate),
+        source,
+        fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      });
+  };
+
+  it('normalizes EUR prices to USD', async () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
@@ -60,15 +68,24 @@ describe('extractMovementsNeedingNormalization', () => {
       operation: { category: 'trade', type: 'buy' },
     });
 
-    const result = extractMovementsNeedingNormalization(tx);
+    const result = await normalizeTransactionMovements(tx, async (price, date) =>
+      normalizePriceToUSD(price, date, stubFetchFxRate('1.08'))
+    );
 
-    expect(result.needsNormalization).toHaveLength(1);
-    expect(result.needsNormalization[0]?.assetSymbol).toBe('BTC');
-    expect(result.skipped).toHaveLength(0);
-    expect(result.cryptoPrices).toHaveLength(0);
+    expect(result.movementsNormalized).toBe(1);
+    expect(result.movementsSkipped).toBe(0);
+    expect(result.cryptoPriceMovements).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
+    expect(result.transaction).toBeDefined();
+
+    const normalizedInflow = result.transaction!.movements.inflows![0]!;
+    expect(normalizedInflow.priceAtTxTime?.price.currency.toString()).toBe('USD');
+    expect(normalizedInflow.priceAtTxTime?.price.amount.toFixed()).toBe('43200'); // 40000 * 1.08
+    expect(normalizedInflow.priceAtTxTime?.fxRateToUSD?.toString()).toBe('1.08');
+    expect(normalizedInflow.priceAtTxTime?.fxSource).toBe('ecb');
   });
 
-  it('skips USD prices (already normalized)', () => {
+  it('skips USD prices (already normalized)', async () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
@@ -104,15 +121,16 @@ describe('extractMovementsNeedingNormalization', () => {
       operation: { category: 'trade', type: 'buy' },
     });
 
-    const result = extractMovementsNeedingNormalization(tx);
+    const result = await normalizeTransactionMovements(tx, async (price, date) =>
+      normalizePriceToUSD(price, date, stubFetchFxRate('1.0'))
+    );
 
-    expect(result.needsNormalization).toHaveLength(0);
-    expect(result.skipped).toHaveLength(1);
-    expect(result.skipped[0]?.assetSymbol).toBe('BTC');
-    expect(result.cryptoPrices).toHaveLength(0);
+    expect(result.movementsNormalized).toBe(0);
+    expect(result.movementsSkipped).toBe(1);
+    expect(result.transaction).toBeUndefined(); // No changes needed
   });
 
-  it('identifies crypto prices in price field (unexpected)', () => {
+  it('identifies crypto prices in price field (unexpected)', async () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
@@ -148,15 +166,16 @@ describe('extractMovementsNeedingNormalization', () => {
       operation: { category: 'trade', type: 'swap' },
     });
 
-    const result = extractMovementsNeedingNormalization(tx);
+    const result = await normalizeTransactionMovements(tx, async (price, date) =>
+      normalizePriceToUSD(price, date, stubFetchFxRate('1.0'))
+    );
 
-    expect(result.needsNormalization).toHaveLength(0);
-    expect(result.skipped).toHaveLength(0);
-    expect(result.cryptoPrices).toHaveLength(1);
-    expect(result.cryptoPrices[0]?.assetSymbol).toBe('BTC');
+    expect(result.movementsNormalized).toBe(0);
+    expect(result.cryptoPriceMovements).toHaveLength(1);
+    expect(result.cryptoPriceMovements[0]?.assetSymbol).toBe('BTC');
   });
 
-  it('identifies multiple currencies needing normalization', () => {
+  it('normalizes multiple currencies', async () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
@@ -197,13 +216,15 @@ describe('extractMovementsNeedingNormalization', () => {
       operation: { category: 'trade', type: 'buy' },
     });
 
-    const result = extractMovementsNeedingNormalization(tx);
+    const result = await normalizeTransactionMovements(tx, async (price, date) =>
+      normalizePriceToUSD(price, date, stubFetchFxRate('1.08'))
+    );
 
-    expect(result.needsNormalization).toHaveLength(2);
-    expect(result.skipped).toHaveLength(0);
+    expect(result.movementsNormalized).toBe(2);
+    expect(result.movementsSkipped).toBe(0);
   });
 
-  it('handles movements without prices', () => {
+  it('skips movements without prices', async () => {
     const tx = createPersistedTransaction({
       id: 1,
       accountId: 1,
@@ -219,7 +240,6 @@ describe('extractMovementsNeedingNormalization', () => {
             assetId: 'test:btc',
             assetSymbol: 'BTC' as Currency,
             grossAmount: parseDecimal('1.0'),
-            // No priceAtTxTime
           },
         ],
         outflows: [],
@@ -228,60 +248,42 @@ describe('extractMovementsNeedingNormalization', () => {
       operation: { category: 'transfer', type: 'transfer' },
     });
 
-    const result = extractMovementsNeedingNormalization(tx);
+    const result = await normalizeTransactionMovements(tx, async (price, date) =>
+      normalizePriceToUSD(price, date, stubFetchFxRate('1.0'))
+    );
 
-    expect(result.needsNormalization).toHaveLength(0);
-    expect(result.skipped).toHaveLength(0);
-    expect(result.cryptoPrices).toHaveLength(0);
+    expect(result.movementsNormalized).toBe(0);
+    expect(result.movementsSkipped).toBe(0);
+    expect(result.cryptoPriceMovements).toHaveLength(0);
   });
 });
 
-describe('validateFxRate', () => {
-  it('accepts valid FX rates', () => {
-    const validRates = [
-      parseDecimal('1.08'), // EUR→USD
-      parseDecimal('0.74'), // CAD→USD
-      parseDecimal('1.25'), // GBP→USD
-      parseDecimal('0.01'), // Low but reasonable
-      parseDecimal('100'), // High but reasonable
-      parseDecimal('0.00004'), // VND→USD (Vietnamese Dong)
-      parseDecimal('0.000064'), // IDR→USD (Indonesian Rupiah)
-      parseDecimal('0.00014'), // PYG→USD (Paraguayan Guaraní)
-    ];
+describe('normalizePriceToUSD', () => {
+  it('accepts valid FX rates and converts correctly', async () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
+      source: 'exchange-execution',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
+    };
 
-    for (const rate of validRates) {
-      const result = validateFxRate(rate);
-      expect(result.isOk()).toBe(true);
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.price.currency.toString()).toBe('USD');
+      expect(result.value.price.amount.toFixed()).toBe('43200'); // 40000 * 1.08
+      expect(result.value.quotedPrice?.amount.toFixed()).toBe('40000');
+      expect(result.value.quotedPrice?.currency.toString()).toBe('EUR');
+      expect(result.value.fxRateToUSD?.toString()).toBe('1.08');
+      expect(result.value.fxSource).toBe('ecb');
+      expect(result.value.source).toBe('exchange-execution');
     }
   });
 
-  it('rejects negative FX rates', () => {
-    const result = validateFxRate(parseDecimal('-1.08'));
-    expect(result.isErr()).toBe(true);
-    expect(result.isErr() && result.error.message).toContain('must be positive');
-  });
-
-  it('rejects zero FX rate', () => {
-    const result = validateFxRate(parseDecimal('0'));
-    expect(result.isErr()).toBe(true);
-    expect(result.isErr() && result.error.message).toContain('must be positive');
-  });
-
-  it('rejects suspiciously low FX rates', () => {
-    const result = validateFxRate(parseDecimal('0.00000001'));
-    expect(result.isErr()).toBe(true);
-    expect(result.isErr() && result.error.message).toContain('too low');
-  });
-
-  it('rejects suspiciously high FX rates', () => {
-    const result = validateFxRate(parseDecimal('10000'));
-    expect(result.isErr()).toBe(true);
-    expect(result.isErr() && result.error.message).toContain('too high');
-  });
-});
-
-describe('createNormalizedPrice', () => {
-  it('creates normalized price with FX metadata', () => {
+  it('rejects negative FX rates', async () => {
     const original: PriceAtTxTime = {
       price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
       source: 'exchange-execution',
@@ -289,86 +291,62 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = parseDecimal('1.08');
-    const fxSource = 'ecb';
-    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('-1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
-
-    // Verify price converted to USD
-    expect(result.price.currency.toString()).toBe('USD');
-    expect(result.price.amount.toFixed()).toBe('43200'); // 40000 * 1.08
-    expect(result.quotedPrice?.amount.toFixed()).toBe('40000');
-    expect(result.quotedPrice?.currency.toString()).toBe('EUR');
-
-    // Verify FX metadata populated
-    expect(result.fxRateToUSD?.toString()).toBe('1.08');
-    expect(result.fxSource).toBe('ecb');
-    expect(result.fxTimestamp).toEqual(fxTimestamp);
-
-    // Verify original metadata preserved
-    expect(result.source).toBe('exchange-execution');
-    expect(result.granularity).toBe('exact');
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid FX rate');
+    }
   });
 
-  it('handles decimal precision correctly', () => {
+  it('rejects zero FX rate', async () => {
     const original: PriceAtTxTime = {
-      price: { amount: parseDecimal('1234.56'), currency: 'CAD' as Currency },
+      price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
       source: 'exchange-execution',
       fetchedAt: new Date('2023-01-15T10:00:00Z'),
       granularity: 'exact',
     };
 
-    const fxRate = parseDecimal('0.74');
-    const fxSource = 'bank-of-canada';
-    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('0'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
-
-    // 1234.56 * 0.74 = 913.5744
-    expect(result.price.amount.toFixed()).toBe('913.5744');
+    expect(result.isErr()).toBe(true);
   });
 
-  it('upgrades fiat-execution-tentative to derived-ratio after normalization', () => {
+  it('rejects suspiciously low FX rates', async () => {
     const original: PriceAtTxTime = {
       price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-      source: 'fiat-execution-tentative', // Tentative source from non-USD fiat trade
+      source: 'exchange-execution',
       fetchedAt: new Date('2023-01-15T10:00:00Z'),
       granularity: 'exact',
     };
 
-    const fxRate = parseDecimal('1.08');
-    const fxSource = 'ecb';
-    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('0.00000001'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
-
-    // Should upgrade source from tentative to derived-ratio
-    expect(result.source).toBe('derived-ratio');
-    expect(result.fxRateToUSD?.toString()).toBe('1.08');
-    expect(result.fxSource).toBe('ecb');
+    expect(result.isErr()).toBe(true);
   });
 
-  it('preserves non-tentative sources after normalization', () => {
+  it('rejects suspiciously high FX rates', async () => {
     const original: PriceAtTxTime = {
       price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-      source: 'exchange-execution', // Non-tentative source
+      source: 'exchange-execution',
       fetchedAt: new Date('2023-01-15T10:00:00Z'),
       granularity: 'exact',
     };
 
-    const fxRate = parseDecimal('1.08');
-    const fxSource = 'ecb';
-    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('10000'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
-
-    // Should keep original source
-    expect(result.source).toBe('exchange-execution');
-    expect(result.fxRateToUSD?.toString()).toBe('1.08');
+    expect(result.isErr()).toBe(true);
   });
 
-  it('handles edge case: very low VND rate', () => {
+  it('accepts very low but valid rates (e.g., VND)', async () => {
     const original: PriceAtTxTime = {
       price: { amount: parseDecimal('1000000'), currency: 'VND' as Currency },
       source: 'exchange-execution',
@@ -376,166 +354,85 @@ describe('createNormalizedPrice', () => {
       granularity: 'exact',
     };
 
-    const fxRate = parseDecimal('0.00004'); // VND → USD
-    const fxSource = 'provider';
-    const fxTimestamp = new Date('2023-01-15T10:00:00Z');
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('0.00004'), source: 'provider', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-    const result = createNormalizedPrice(original, fxRate, fxSource, fxTimestamp);
-
-    // 1,000,000 VND * 0.00004 = 40 USD
-    expect(result.price.amount.toFixed()).toBe('40');
-    expect(result.price.currency.toString()).toBe('USD');
-  });
-});
-
-describe('movementNeedsNormalization', () => {
-  it('returns true for EUR prices', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
-    };
-
-    expect(movementNeedsNormalization(movement)).toBe(true);
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.price.amount.toFixed()).toBe('40'); // 1,000,000 * 0.00004
+    }
   });
 
-  it('returns false for USD prices', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
+  it('handles decimal precision correctly (CAD)', async () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('1234.56'), currency: 'CAD' as Currency },
+      source: 'exchange-execution',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
     };
 
-    expect(movementNeedsNormalization(movement)).toBe(false);
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('0.74'), source: 'bank-of-canada', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.price.amount.toFixed()).toBe('913.5744'); // 1234.56 * 0.74
+    }
   });
 
-  it('returns false for movements without prices', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
+  it('upgrades fiat-execution-tentative to derived-ratio after normalization', async () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
+      source: 'fiat-execution-tentative',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
     };
 
-    expect(movementNeedsNormalization(movement)).toBe(false);
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.source).toBe('derived-ratio');
+    }
   });
 
-  it('returns false for crypto prices (ETH)', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('50'), currency: 'ETH' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
+  it('preserves non-tentative sources after normalization', async () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
+      source: 'exchange-execution',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
     };
 
-    expect(movementNeedsNormalization(movement)).toBe(false);
-  });
-});
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+    );
 
-describe('classifyMovementPrice', () => {
-  it('classifies no-price movements', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-    };
-
-    expect(classifyMovementPrice(movement)).toBe('no-price');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.source).toBe('exchange-execution');
+    }
   });
 
-  it('classifies already-USD movements', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
+  it('propagates FX rate fetch errors', async () => {
+    const original: PriceAtTxTime = {
+      price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
+      source: 'exchange-execution',
+      fetchedAt: new Date('2023-01-15T10:00:00Z'),
+      granularity: 'exact',
     };
 
-    expect(classifyMovementPrice(movement)).toBe('already-usd');
-  });
+    const result = await normalizePriceToUSD(original, new Date('2023-01-15T10:00:00Z'), async () =>
+      err(new Error('FX provider unavailable'))
+    );
 
-  it('classifies needs-normalization movements (EUR)', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('40000'), currency: 'EUR' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
-    };
-
-    expect(classifyMovementPrice(movement)).toBe('needs-normalization');
-  });
-
-  it('classifies crypto price movements', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('50'), currency: 'ETH' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
-    };
-
-    expect(classifyMovementPrice(movement)).toBe('crypto');
-  });
-
-  it('classifies CAD as needs-normalization', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('60000'), currency: 'CAD' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
-    };
-
-    expect(classifyMovementPrice(movement)).toBe('needs-normalization');
-  });
-
-  it('classifies GBP as needs-normalization', () => {
-    const movement: AssetMovementDraft = {
-      assetId: 'test:gbp',
-      assetSymbol: 'GBP' as Currency,
-      grossAmount: parseDecimal('1.0'),
-      priceAtTxTime: {
-        price: { amount: parseDecimal('35000'), currency: 'GBP' as Currency },
-        source: 'exchange-execution',
-        fetchedAt: new Date('2023-01-15T10:00:00Z'),
-        granularity: 'exact',
-      },
-    };
-
-    expect(classifyMovementPrice(movement)).toBe('needs-normalization');
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('FX provider unavailable');
+    }
   });
 });

@@ -3,14 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createLinkableMovement } from '../shared/test-utils.js';
 import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
-import { calculateConfidenceScore } from '../strategies/amount-timing-utils.js';
 
 import type { LinkableMovement } from './linkable-movement.js';
 import { allocateMatches, shouldAutoConfirm } from './match-allocation.js';
-import { DEFAULT_MATCHING_CONFIG } from './matching-config.js';
+import { buildMatchingConfig } from './matching-config.js';
 
 const config: MatchingConfig = {
-  ...DEFAULT_MATCHING_CONFIG,
+  ...buildMatchingConfig(),
   autoConfirmThreshold: parseDecimal('0.95'),
 };
 
@@ -170,47 +169,6 @@ describe('allocateMatches invariants', () => {
     // Decision trail should show validation rejection
     expect(result.decisions.some((d) => d.targetId === 2 && d.action === 'rejected_validation')).toBe(true);
   });
-
-  it('calculateConfidenceScore always returns [0, 1] for valid criteria', () => {
-    const testCases: MatchCriteria[] = [
-      {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 0,
-        addressMatch: true,
-      },
-      { assetMatch: true, amountSimilarity: parseDecimal('0.5'), timingValid: false, timingHours: 100 },
-      { assetMatch: true, amountSimilarity: parseDecimal('0'), timingValid: true, timingHours: 24 },
-      {
-        assetMatch: false,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 0,
-        addressMatch: true,
-      },
-      {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('0.95'),
-        timingValid: true,
-        timingHours: 0.5,
-        addressMatch: false,
-      },
-      {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('0.95'),
-        timingValid: true,
-        timingHours: 0.5,
-        addressMatch: undefined,
-      },
-    ];
-
-    for (const criteria of testCases) {
-      const { score } = calculateConfidenceScore(criteria);
-      expect(score.gte(0)).toBe(true);
-      expect(score.lte(1)).toBe(true);
-    }
-  });
 });
 
 describe('shouldAutoConfirm', () => {
@@ -228,7 +186,7 @@ describe('shouldAutoConfirm', () => {
       linkType: 'exchange_to_blockchain',
     };
 
-    const shouldConfirm = shouldAutoConfirm(match, DEFAULT_MATCHING_CONFIG);
+    const shouldConfirm = shouldAutoConfirm(match, buildMatchingConfig());
     expect(shouldConfirm).toBe(true);
   });
 
@@ -246,7 +204,7 @@ describe('shouldAutoConfirm', () => {
       linkType: 'exchange_to_blockchain',
     };
 
-    const shouldConfirm = shouldAutoConfirm(match, DEFAULT_MATCHING_CONFIG);
+    const shouldConfirm = shouldAutoConfirm(match, buildMatchingConfig());
     expect(shouldConfirm).toBe(false);
   });
 });
@@ -296,7 +254,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { suggested, confirmed } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { suggested, confirmed } = allocateMatches(matches, buildMatchingConfig());
 
     // Should only keep the higher confidence match (0.98)
     expect([...suggested, ...confirmed]).toHaveLength(1);
@@ -328,7 +286,7 @@ describe('allocateMatches scenarios', () => {
     ];
 
     const { suggested, confirmed } = allocateMatches(matches, {
-      ...DEFAULT_MATCHING_CONFIG,
+      ...buildMatchingConfig(),
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
@@ -360,7 +318,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { suggested, confirmed } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { suggested, confirmed } = allocateMatches(matches, buildMatchingConfig());
 
     expect(suggested).toHaveLength(1);
     expect(confirmed).toHaveLength(0);
@@ -411,7 +369,7 @@ describe('allocateMatches scenarios', () => {
     ];
 
     const { suggested, confirmed } = allocateMatches(matches, {
-      ...DEFAULT_MATCHING_CONFIG,
+      ...buildMatchingConfig(),
       autoConfirmThreshold: parseDecimal('0.95'),
     });
 
@@ -453,7 +411,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed, suggested } = allocateMatches(matches, buildMatchingConfig());
     const all = [...confirmed, ...suggested];
 
     expect(all).toHaveLength(2);
@@ -489,7 +447,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed, suggested } = allocateMatches(matches, buildMatchingConfig());
     const all = [...confirmed, ...suggested];
 
     expect(all).toHaveLength(2);
@@ -522,7 +480,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const config = { ...DEFAULT_MATCHING_CONFIG, minPartialMatchFraction: parseDecimal('0.1') };
+    const config = { ...buildMatchingConfig(), minPartialMatchFraction: parseDecimal('0.1') };
     const { confirmed, suggested } = allocateMatches(matches, config);
 
     expect([...confirmed, ...suggested]).toHaveLength(0);
@@ -553,7 +511,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed } = allocateMatches(matches, buildMatchingConfig());
 
     expect(confirmed).toHaveLength(1);
     expect(confirmed[0]!.consumedAmount).toBeUndefined();
@@ -593,7 +551,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed, suggested } = allocateMatches(matches, buildMatchingConfig());
     const all = [...confirmed, ...suggested];
 
     expect(all).toHaveLength(2);
@@ -629,7 +587,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed, suggested } = allocateMatches(matches, buildMatchingConfig());
 
     expect(confirmed).toHaveLength(0);
     expect(suggested).toHaveLength(2);
@@ -664,7 +622,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed, suggested } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed, suggested } = allocateMatches(matches, buildMatchingConfig());
 
     expect(confirmed).toHaveLength(2);
     expect(suggested).toHaveLength(0);
@@ -691,7 +649,7 @@ describe('allocateMatches scenarios', () => {
       },
     ];
 
-    const { confirmed } = allocateMatches(matches, DEFAULT_MATCHING_CONFIG);
+    const { confirmed } = allocateMatches(matches, buildMatchingConfig());
 
     expect(confirmed).toHaveLength(1);
     expect(confirmed[0]!.consumedAmount).toBeUndefined();

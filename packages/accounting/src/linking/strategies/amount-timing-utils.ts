@@ -21,7 +21,7 @@ const MIGRATION_MIN_AMOUNT_SIMILARITY = parseDecimal('0.999');
  * @param targetAmount - The deposit/receive amount
  * @returns Similarity score from 0 to 1, where 1 is exact match
  */
-export function calculateAmountSimilarity(sourceAmount: Decimal, targetAmount: Decimal): Decimal {
+function calculateAmountSimilarity(sourceAmount: Decimal, targetAmount: Decimal): Decimal {
   if (sourceAmount.isZero() || targetAmount.isZero()) {
     return parseDecimal('0');
   }
@@ -111,7 +111,7 @@ export function determineLinkType(sourceType: SourceType, targetType: SourceType
  * @param target - Target movement with endpoint addresses
  * @returns True if addresses match, false if they conflict, undefined if unavailable
  */
-export function checkAddressMatch(source: LinkableMovement, target: LinkableMovement): boolean | undefined {
+function checkAddressMatch(source: LinkableMovement, target: LinkableMovement): boolean | undefined {
   const targetDestinationAddress = target.toAddress;
   const targetSourceAddress = target.fromAddress;
 
@@ -159,7 +159,7 @@ export function checkAddressMatch(source: LinkableMovement, target: LinkableMove
  * @param criteria - Match criteria
  * @returns Object with score (0-1) and breakdown of weighted components
  */
-export function calculateConfidenceScore(criteria: MatchCriteria): {
+function calculateConfidenceScore(criteria: MatchCriteria): {
   breakdown: ScoreComponent[];
   score: Decimal;
 } {
@@ -258,7 +258,7 @@ export function calculateConfidenceScore(criteria: MatchCriteria): {
  *  2. source.grossAmount vs target.amount       (gross vs net — UTXO send vs exchange deposit)
  *  3. source.amount vs target.grossAmount       (net vs gross — reversed)
  */
-export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, target: LinkableMovement): Decimal {
+function calculateFeeAwareAmountSimilarity(source: LinkableMovement, target: LinkableMovement): Decimal {
   // Always try the primary amounts first
   let best = calculateAmountSimilarity(source.amount, target.amount);
 
@@ -285,7 +285,7 @@ export function calculateFeeAwareAmountSimilarity(source: LinkableMovement, targ
  * @param config - Matching configuration
  * @returns Match criteria
  */
-export function buildMatchCriteria(
+function buildMatchCriteria(
   source: LinkableMovement,
   target: LinkableMovement,
   config: MatchingConfig,

@@ -33,21 +33,6 @@ interface LinkWithStatus {
 }
 
 /**
- * Build a fingerprint lookup map for transactions using persisted tx fingerprints.
- */
-export function buildFingerprintMap(transactions: TransactionWithFingerprint[]): Map<string, number> {
-  const map = new Map<string, number>();
-
-  for (const tx of transactions) {
-    if (tx.txFingerprint) {
-      map.set(tx.txFingerprint, tx.id);
-    }
-  }
-
-  return map;
-}
-
-/**
  * Build a fingerprint lookup map for transactions in a single pass.
  */
 function buildTransactionMaps(transactions: TransactionWithFingerprint[]): { fingerprintMap: Map<string, number> } {
@@ -66,7 +51,7 @@ function buildTransactionMaps(transactions: TransactionWithFingerprint[]): { fin
  * Resolve transaction ID from fingerprint
  * Returns null if fingerprint not found
  */
-export function resolveTxId(fingerprint: string, fingerprintMap: Map<string, number>): number | null {
+function resolveTxId(fingerprint: string, fingerprintMap: Map<string, number>): number | null {
   // eslint-disable-next-line unicorn/no-null -- null used to indicate "not found"
   return fingerprintMap.get(fingerprint) ?? null;
 }

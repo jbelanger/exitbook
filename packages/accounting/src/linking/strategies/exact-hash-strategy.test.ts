@@ -2,7 +2,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCHING_CONFIG } from '../matching/matching-config.js';
+import { buildMatchingConfig } from '../matching/matching-config.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 import { ExactHashStrategy } from './exact-hash-strategy.js';
@@ -41,7 +41,7 @@ describe('ExactHashStrategy', () => {
       }),
     ];
 
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute(sources, targets, buildMatchingConfig()));
 
     expect(result.links).toHaveLength(0);
   });

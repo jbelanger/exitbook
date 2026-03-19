@@ -55,7 +55,7 @@ function makeExchangeTransactionDraft(overrides: Partial<ExchangeFingerprintInpu
 describe('deriveTransactionFingerprint', () => {
   it('derives a blockchain fingerprint from blockchain.transaction_hash', async () => {
     const txFingerprint = assertOk(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeBlockchainTransactionDraft({
           source: 'bitcoin',
           sourceType: 'blockchain',
@@ -74,7 +74,7 @@ describe('deriveTransactionFingerprint', () => {
 
   it('derives an order-independent exchange fingerprint from componentEventIds', async () => {
     const first = assertOk(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: { componentEventIds: ['evt-b', 'evt-a'] },
         }),
@@ -83,7 +83,7 @@ describe('deriveTransactionFingerprint', () => {
     );
 
     const second = assertOk(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: { componentEventIds: ['evt-a', 'evt-b'] },
         }),
@@ -96,7 +96,7 @@ describe('deriveTransactionFingerprint', () => {
 
   it('does not deduplicate duplicate exchange event IDs', async () => {
     const withDuplicate = assertOk(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: { componentEventIds: ['evt-a', 'evt-b', 'evt-a'] },
         }),
@@ -105,7 +105,7 @@ describe('deriveTransactionFingerprint', () => {
     );
 
     const withoutDuplicate = assertOk(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: { componentEventIds: ['evt-a', 'evt-b'] },
         }),
@@ -118,7 +118,7 @@ describe('deriveTransactionFingerprint', () => {
 
   it('rejects exchange transactions without componentEventIds', async () => {
     const e = assertErr(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: undefined,
         }),
@@ -131,7 +131,7 @@ describe('deriveTransactionFingerprint', () => {
 
   it('rejects exchange transactions with blank componentEventIds', async () => {
     const e = assertErr(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         makeExchangeTransactionDraft({
           identityMaterial: { componentEventIds: ['   '] },
         }),
@@ -144,7 +144,7 @@ describe('deriveTransactionFingerprint', () => {
 
   it('rejects blockchain transactions without blockchain.transaction_hash', async () => {
     const e = assertErr(
-      await deriveTransactionFingerprint(
+      deriveTransactionFingerprint(
         {
           ...makeBlockchainTransactionDraft({
             source: 'bitcoin',

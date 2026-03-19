@@ -6,11 +6,7 @@ import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../../workflow/cost-basis-workflow.js';
-import {
-  buildCostBasisSnapshotRecord,
-  containsOnlyPlainJson,
-  readCostBasisSnapshotArtifact,
-} from '../artifact-storage.js';
+import { buildCostBasisSnapshotRecord, readCostBasisSnapshotArtifact } from '../artifact-storage.js';
 
 const BTC = 'BTC' as Currency;
 const CAD = 'CAD' as Currency;
@@ -167,9 +163,6 @@ describe('cost-basis-artifact-storage', () => {
       throw snapshotResult.error;
     }
 
-    expect(containsOnlyPlainJson(JSON.parse(snapshotResult.value.snapshot.artifactJson))).toBe(true);
-    expect(containsOnlyPlainJson(JSON.parse(snapshotResult.value.snapshot.debugJson))).toBe(true);
-
     const reloadResult = readCostBasisSnapshotArtifact(snapshotResult.value.snapshot);
     expect(reloadResult.isOk()).toBe(true);
     if (reloadResult.isErr()) {
@@ -245,8 +238,6 @@ describe('cost-basis-artifact-storage', () => {
     if (snapshotResult.isErr()) {
       throw snapshotResult.error;
     }
-
-    expect(containsOnlyPlainJson(JSON.parse(snapshotResult.value.snapshot.artifactJson))).toBe(true);
 
     const reloadResult = readCostBasisSnapshotArtifact(snapshotResult.value.snapshot);
     expect(reloadResult.isOk()).toBe(true);

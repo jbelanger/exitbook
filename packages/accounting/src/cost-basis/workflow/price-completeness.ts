@@ -42,18 +42,14 @@ function movementHasPrice(movement: AssetMovementDraft | FeeMovementDraft): Resu
   return ok(!!movement.priceAtTxTime);
 }
 
-export function filterTransactionsByDateRange(
-  transactions: Transaction[],
-  startDate: Date,
-  endDate: Date
-): Transaction[] {
+function filterTransactionsByDateRange(transactions: Transaction[], startDate: Date, endDate: Date): Transaction[] {
   return transactions.filter((tx) => {
     const txDate = new Date(tx.timestamp);
     return txDate >= startDate && txDate <= endDate;
   });
 }
 
-export function scopedTransactionHasAllPrices(scopedTransaction: AccountingScopedTransaction): Result<boolean, Error> {
+function scopedTransactionHasAllPrices(scopedTransaction: AccountingScopedTransaction): Result<boolean, Error> {
   for (const inflow of scopedTransaction.movements.inflows) {
     const hasPriceResult = movementHasPrice(inflow);
     if (hasPriceResult.isErr()) return err(hasPriceResult.error);

@@ -15,7 +15,6 @@ import type {
   CanadaAcquisitionEvent,
   CanadaDispositionEvent,
   CanadaFeeAdjustmentEvent,
-  CanadaTaxEventProvenanceKind,
   CanadaTaxInputContext,
   CanadaTaxInputEvent,
   CanadaTaxValuation,
@@ -183,7 +182,7 @@ function buildEventBase(params: {
   linkId?: number | undefined;
   movementFingerprint?: string | undefined;
   priceAtTxTime?: CanadaTaxInputEvent['priceAtTxTime'] | undefined;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   sourceMovementFingerprint?: string | undefined;
   sourceTransactionId?: number | undefined;
   targetMovementFingerprint?: string | undefined;
@@ -218,7 +217,7 @@ export function createCanadaAcquisitionEvent(params: {
   assetSymbol: string;
   costBasisAdjustmentCad?: string | undefined;
   eventId: string;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantity: string;
   timestamp: Date | string;
   transactionId: number;
@@ -250,7 +249,7 @@ export function createCanadaDispositionEvent(params: {
   assetSymbol: string;
   eventId: string;
   proceedsReductionCad?: string | undefined;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantity: string;
   timestamp: Date | string;
   transactionId: number;
@@ -282,7 +281,7 @@ export function createCanadaTransferOutEvent(params: {
   assetSymbol: string;
   eventId: string;
   linkId?: number | undefined;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantity: string;
   sourceMovementFingerprint?: string | undefined;
   targetMovementFingerprint?: string | undefined;
@@ -317,7 +316,7 @@ export function createCanadaTransferInEvent(params: {
   assetSymbol: string;
   eventId: string;
   linkId?: number | undefined;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantity: string;
   sourceMovementFingerprint?: string | undefined;
   sourceTransactionId?: number | undefined;
@@ -358,7 +357,7 @@ export function createCanadaFeeAdjustmentEvent(params: {
   feeAssetIdentityKey?: string | undefined;
   feeAssetSymbol: string;
   feeQuantity: string;
-  provenanceKind?: CanadaTaxEventProvenanceKind | undefined;
+  provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantityReduced?: string | undefined;
   relatedEventId?: string | undefined;
   timestamp: Date | string;

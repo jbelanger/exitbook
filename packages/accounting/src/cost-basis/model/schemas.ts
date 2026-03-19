@@ -5,11 +5,11 @@ import { z } from 'zod';
  * Zod schemas for validation and parsing
  */
 
-export const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
+const CostBasisMethodSchema = z.enum(['fifo', 'lifo', 'specific-id', 'average-cost']);
 
-export const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
+const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 
-export const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
+const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
 const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
 export const TaxAssetIdentityPolicySchema = z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']);

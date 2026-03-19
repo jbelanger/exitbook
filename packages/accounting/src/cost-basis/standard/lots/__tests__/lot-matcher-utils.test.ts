@@ -16,14 +16,12 @@ import {
   createTransactionFromMovements,
 } from '../../../../__tests__/test-utils.js';
 import type { LotTransfer } from '../../../model/schemas.js';
-import { buildAcquisitionLotFromInflow, filterTransactionsWithoutPrices } from '../lot-creation-utils.js';
-import { calculateNetProceeds } from '../lot-disposal-utils.js';
+import { buildAcquisitionLotFromInflow } from '../lot-creation-utils.js';
 import {
   calculateFeesInFiat,
   collectFiatFees,
   extractAllocatedCryptoFee,
   extractCryptoFee,
-  extractOnChainFees,
   validateOutflowFees,
 } from '../lot-fee-utils.js';
 import { getVarianceTolerance, sortTransactionsByDependency } from '../lot-sorting-utils.js';
@@ -237,41 +235,6 @@ describe('lot-matcher-utils', () => {
     });
   });
 
-  describe('extractOnChainFees', () => {
-    it('should extract only on-chain fees for specified asset', () => {
-      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
-        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
-        createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
-        createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3000'),
-      ]);
-
-      const btcOnChainFees = extractOnChainFees(tx, 'test:btc');
-
-      expect(btcOnChainFees.toFixed()).toBe('0.001');
-    });
-
-    it('should return zero when no on-chain fees exist', () => {
-      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
-        createFeeMovement('platform', 'balance', 'BTC', '0.0004', '50000'),
-      ]);
-
-      const onChainFees = extractOnChainFees(tx, 'test:btc');
-
-      expect(onChainFees.toFixed()).toBe('0');
-    });
-
-    it('should sum multiple on-chain fees for same asset', () => {
-      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
-        createFeeMovement('network', 'on-chain', 'BTC', '0.001', '50000'),
-        createFeeMovement('platform', 'on-chain', 'BTC', '0.0002', '50000'),
-      ]);
-
-      const onChainFees = extractOnChainFees(tx, 'test:btc');
-
-      expect(onChainFees.toFixed()).toBe('0.0012');
-    });
-  });
-
   describe('extractCryptoFee', () => {
     it('should extract network fee', () => {
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
@@ -413,53 +376,6 @@ describe('lot-matcher-utils', () => {
 
       const resultValue = assertOk(result);
       expect(resultValue.length).toBe(0);
-    });
-  });
-
-  describe('filterTransactionsWithoutPrices', () => {
-    it('should filter transactions with missing prices on crypto movements', () => {
-      const transactions = [
-        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
-          inflows: [createMovement('BTC', '1', '50000')],
-        }),
-        createTransactionFromMovements(2, '2024-01-01T00:00:00Z', {
-          inflows: [createMovement('BTC', '1')], // Missing price
-        }),
-        createTransactionFromMovements(3, '2024-01-01T00:00:00Z', {
-          outflows: [createMovement('ETH', '10')], // Missing price
-        }),
-      ];
-
-      const missing = filterTransactionsWithoutPrices(transactions);
-
-      expect(missing.length).toBe(2);
-      expect(missing.map((t) => t.id)).toEqual([2, 3]);
-    });
-
-    it('should ignore fiat movements without prices', () => {
-      const transactions = [
-        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
-          inflows: [createMovement('USD', '1000')], // Fiat without price - OK
-          outflows: [createMovement('BTC', '1', '50000')],
-        }),
-      ];
-
-      const missing = filterTransactionsWithoutPrices(transactions);
-
-      expect(missing.length).toBe(0);
-    });
-
-    it('should return empty for all priced transactions', () => {
-      const transactions = [
-        createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
-          inflows: [createMovement('BTC', '1', '50000')],
-          outflows: [createMovement('USD', '50000', '1')],
-        }),
-      ];
-
-      const missing = filterTransactionsWithoutPrices(transactions);
-
-      expect(missing.length).toBe(0);
     });
   });
 
@@ -655,81 +571,6 @@ describe('lot-matcher-utils', () => {
 
       const resultValue = assertOk(result);
       expect(resultValue.costBasisPerUnit.toFixed()).toBe('50000');
-    });
-  });
-
-  describe('calculateNetProceeds', () => {
-    it('should NOT subtract platform fees from disposal proceeds (ADR-005)', () => {
-      const tx = createTransactionFromMovements(
-        1,
-        '2024-01-01T00:00:00Z',
-        {
-          outflows: [createMovement('BTC', '1', '52000')],
-        },
-        [createFeeMovement('platform', 'balance', 'USD', '200', '1')] // Platform fee with balance settlement
-      );
-
-      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
-
-      const resultValue = assertOk(result);
-      // Per ADR-005: Only on-chain fees reduce disposal proceeds
-      // Platform fees (settlement='balance') are charged separately and don't affect proceeds
-      // Gross: 1 * 52000 = 52000
-      // Fee subtracted: $0 (platform fee not included)
-      // Proceeds per unit: 52000
-      expect(resultValue.grossProceeds.toFixed()).toBe('52000');
-      expect(resultValue.sellingExpenses.toFixed()).toBe('0');
-      expect(resultValue.netProceeds.toFixed()).toBe('52000');
-      expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
-    });
-
-    it('should subtract on-chain fees from disposal proceeds (ADR-005)', () => {
-      const tx = createTransactionFromMovements(
-        1,
-        '2024-01-01T00:00:00Z',
-        {
-          outflows: [createMovement('ETH', '1', '3500')],
-        },
-        [createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3500')] // Network fee with on-chain settlement
-      );
-
-      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
-
-      const resultValue = assertOk(result);
-      // Per ADR-005: On-chain fees DO reduce disposal proceeds
-      // Gross proceeds: 1 * 3500 = 3500
-      // Fee: 0.002 * 3500 = 7
-      // Net proceeds: 3500 - 7 = 3493
-      // Per unit: 3493 / 1 = 3493
-      expect(resultValue.grossProceeds.toFixed()).toBe('3500');
-      expect(resultValue.sellingExpenses.toFixed()).toBe('7');
-      expect(resultValue.netProceeds.toFixed()).toBe('3493');
-      expect(resultValue.proceedsPerUnit.toFixed()).toBe('3493');
-    });
-
-    it('should error on missing price', () => {
-      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
-        outflows: [createMovement('BTC', '1')], // No price
-      });
-
-      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
-
-      const resultError = assertErr(result);
-      expect(resultError.message).toContain('missing priceAtTxTime');
-    });
-
-    it('should handle zero fees', () => {
-      const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {
-        outflows: [createMovement('BTC', '2', '52000')],
-      });
-
-      const result = calculateNetProceeds(tx, tx.movements.outflows![0]!);
-
-      const resultValue = assertOk(result);
-      expect(resultValue.grossProceeds.toFixed()).toBe('104000');
-      expect(resultValue.sellingExpenses.toFixed()).toBe('0');
-      expect(resultValue.netProceeds.toFixed()).toBe('104000');
-      expect(resultValue.proceedsPerUnit.toFixed()).toBe('52000');
     });
   });
 

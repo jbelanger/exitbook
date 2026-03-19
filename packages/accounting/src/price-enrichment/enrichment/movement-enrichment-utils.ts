@@ -59,7 +59,7 @@ function enrichWithPrice<T extends { priceAtTxTime?: PriceAtTxTime | undefined }
 /**
  * Enrich a single movement with new price data according to priority rules.
  */
-export function enrichMovementWithPrice<TMovement extends AssetMovementDraft>(
+function enrichMovementWithPrice<TMovement extends AssetMovementDraft>(
   movement: TMovement,
   newPrice: PriceAtTxTime
 ): TMovement {

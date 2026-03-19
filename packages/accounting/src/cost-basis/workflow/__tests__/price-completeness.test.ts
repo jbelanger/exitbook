@@ -1,6 +1,6 @@
 import type { Currency, Transaction } from '@exitbook/core';
 import { ok, parseDecimal, type Result } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -13,14 +13,8 @@ import {
   createTransactionFromMovements,
 } from '../../../__tests__/test-utils.js';
 import type { IPriceCoverageData } from '../../../ports/transaction-price-coverage.js';
-import type { AccountingScopedTransaction } from '../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { createAccountingExclusionPolicy } from '../../standard/validation/accounting-exclusion-policy.js';
-import {
-  checkTransactionPriceCoverage,
-  filterTransactionsByDateRange,
-  getCostBasisRebuildTransactions,
-  scopedTransactionHasAllPrices,
-} from '../price-completeness.js';
+import { checkTransactionPriceCoverage, getCostBasisRebuildTransactions } from '../price-completeness.js';
 
 function stubData(transactions: Transaction[]): IPriceCoverageData {
   return {
@@ -34,129 +28,6 @@ const dateRange = {
 };
 
 describe('price-completeness', () => {
-  describe('filterTransactionsByDateRange', () => {
-    it('filters transactions within date range', () => {
-      const transactions: Transaction[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as Transaction,
-        { timestamp: '2024-06-01T00:00:00Z' } as unknown as Transaction,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as Transaction,
-        { timestamp: '2025-01-01T00:00:00Z' } as unknown as Transaction,
-      ];
-
-      const result = filterTransactionsByDateRange(
-        transactions,
-        new Date('2024-06-01T00:00:00Z'),
-        new Date('2024-12-31T23:59:59Z')
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[0]?.timestamp).toBe('2024-06-01T00:00:00Z');
-      expect(result[1]?.timestamp).toBe('2024-12-31T23:59:59Z');
-    });
-
-    it('returns empty array when no transactions are in range', () => {
-      const transactions: Transaction[] = [
-        { timestamp: '2023-01-01T00:00:00Z' } as unknown as Transaction,
-        { timestamp: '2023-12-31T00:00:00Z' } as unknown as Transaction,
-      ];
-
-      const result = filterTransactionsByDateRange(
-        transactions,
-        new Date('2024-01-01T00:00:00Z'),
-        new Date('2024-12-31T23:59:59Z')
-      );
-
-      expect(result).toHaveLength(0);
-    });
-
-    it('includes boundary dates', () => {
-      const transactions: Transaction[] = [
-        { timestamp: '2024-01-01T00:00:00Z' } as unknown as Transaction,
-        { timestamp: '2024-12-31T23:59:59Z' } as unknown as Transaction,
-      ];
-
-      const result = filterTransactionsByDateRange(
-        transactions,
-        new Date('2024-01-01T00:00:00Z'),
-        new Date('2024-12-31T23:59:59Z')
-      );
-
-      expect(result).toHaveLength(2);
-    });
-  });
-
-  describe('scopedTransactionHasAllPrices', () => {
-    it('returns true when all crypto movements and fees have prices', () => {
-      const scopedTransaction = {
-        tx: { id: 1 } as Transaction,
-        rebuildDependencyTransactionIds: [],
-        movements: {
-          inflows: [{ assetSymbol: 'BTC', priceAtTxTime: { price: { amount: parseDecimal('1'), currency: 'USD' } } }],
-          outflows: [{ assetSymbol: 'ETH', priceAtTxTime: { price: { amount: parseDecimal('1'), currency: 'USD' } } }],
-        },
-        fees: [{ assetSymbol: 'SOL', priceAtTxTime: { price: { amount: parseDecimal('1'), currency: 'USD' } } }],
-      } as unknown as AccountingScopedTransaction;
-
-      expect(assertOk(scopedTransactionHasAllPrices(scopedTransaction))).toBe(true);
-    });
-
-    it('returns false when a crypto movement is missing a price', () => {
-      const scopedTransaction = {
-        tx: { id: 1 } as Transaction,
-        rebuildDependencyTransactionIds: [],
-        movements: {
-          inflows: [{ assetSymbol: 'BTC', priceAtTxTime: undefined }],
-          outflows: [],
-        },
-        fees: [],
-      } as unknown as AccountingScopedTransaction;
-
-      expect(assertOk(scopedTransactionHasAllPrices(scopedTransaction))).toBe(false);
-    });
-
-    it('returns true when only fiat movements are present', () => {
-      const scopedTransaction = {
-        tx: { id: 1 } as Transaction,
-        rebuildDependencyTransactionIds: [],
-        movements: {
-          inflows: [{ assetSymbol: 'USD', priceAtTxTime: undefined }],
-          outflows: [{ assetSymbol: 'CAD', priceAtTxTime: undefined }],
-        },
-        fees: [],
-      } as unknown as AccountingScopedTransaction;
-
-      expect(assertOk(scopedTransactionHasAllPrices(scopedTransaction))).toBe(true);
-    });
-
-    it('treats unknown symbols as crypto requiring prices', () => {
-      const scopedTransaction = {
-        tx: { id: 1 } as Transaction,
-        rebuildDependencyTransactionIds: [],
-        movements: {
-          inflows: [],
-          outflows: [{ assetSymbol: 'INVALID-SYM', priceAtTxTime: undefined }],
-        },
-        fees: [],
-      } as unknown as AccountingScopedTransaction;
-
-      expect(assertOk(scopedTransactionHasAllPrices(scopedTransaction))).toBe(false);
-    });
-
-    it('returns an error for empty currency symbols', () => {
-      const scopedTransaction = {
-        tx: { id: 1 } as Transaction,
-        rebuildDependencyTransactionIds: [],
-        movements: {
-          inflows: [],
-          outflows: [{ assetSymbol: '', priceAtTxTime: undefined }],
-        },
-        fees: [],
-      } as unknown as AccountingScopedTransaction;
-
-      expect(assertErr(scopedTransactionHasAllPrices(scopedTransaction)).message).toContain('Unknown currency symbol');
-    });
-  });
-
   describe('getCostBasisRebuildTransactions', () => {
     it('keeps same-hash internal dependencies needed to rebuild the scoped subset', () => {
       const hash = '45ec1d9a069424a0c969507f82300f9ef4102ebb0f1921d89b2d50390862c131';

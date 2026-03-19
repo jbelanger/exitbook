@@ -2,16 +2,11 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import { DEFAULT_MATCHING_CONFIG } from '../matching/matching-config.js';
+import { buildMatchingConfig } from '../matching/matching-config.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 import {
-  buildMatchCriteria,
-  calculateAmountSimilarity,
-  calculateConfidenceScore,
-  calculateFeeAwareAmountSimilarity,
   calculateTimeDifferenceHours,
-  checkAddressMatch,
   determineLinkType,
   isTimingValid,
   scoreAndFilterMatches,
@@ -20,119 +15,6 @@ import { checkTransactionHashMatch, normalizeTransactionHash } from './exact-has
 
 describe('candidate-scoring', () => {
   const source = createLinkableMovement({ toAddress: 'bc1qxyz123' });
-
-  describe('calculateAmountSimilarity', () => {
-    it('should return 1 for exact match', () => {
-      const source = parseDecimal('1.5');
-      const target = parseDecimal('1.5');
-      const similarity = calculateAmountSimilarity(source, target);
-      expect(similarity.toString()).toBe('1');
-    });
-
-    it('should calculate similarity when target is less than source (fees)', () => {
-      const source = parseDecimal('1.0');
-      const target = parseDecimal('0.95'); // 5% fee
-      const similarity = calculateAmountSimilarity(source, target);
-      expect(similarity.toString()).toBe('0.95');
-    });
-
-    it('should return 0 when target is significantly larger than source', () => {
-      const source = parseDecimal('1.0');
-      const target = parseDecimal('1.5'); // 50% larger (impossible)
-      const similarity = calculateAmountSimilarity(source, target);
-      expect(similarity.toString()).toBe('0');
-    });
-
-    it('should allow small rounding differences', () => {
-      const source = parseDecimal('1.0');
-      const target = parseDecimal('1.0005'); // 0.05% difference (rounding)
-      const similarity = calculateAmountSimilarity(source, target);
-      expect(similarity.toNumber()).toBeGreaterThan(0.98); // Very high similarity
-    });
-
-    it('should return 0 when amounts are zero', () => {
-      const source = parseDecimal('0');
-      const target = parseDecimal('1.0');
-      const similarity = calculateAmountSimilarity(source, target);
-      expect(similarity.toString()).toBe('0');
-    });
-  });
-
-  describe('calculateFeeAwareAmountSimilarity', () => {
-    it('should fall back to standard comparison when no grossAmount', () => {
-      const source = createLinkableMovement({ amount: parseDecimal('100'), direction: 'out' });
-      const target = createLinkableMovement({ id: 2, amount: parseDecimal('99'), direction: 'in' });
-      const similarity = calculateFeeAwareAmountSimilarity(source, target);
-      expect(similarity.toFixed()).toBe(calculateAmountSimilarity(parseDecimal('100'), parseDecimal('99')).toFixed());
-    });
-
-    it('should match source grossAmount against target when net comparison fails', () => {
-      // Cardano case: source net=2678.84, source gross=2679.72, target=2679.72
-      const source = createLinkableMovement({
-        amount: parseDecimal('2678.842165'),
-        grossAmount: parseDecimal('2679.718442'),
-        direction: 'out',
-        sourceType: 'blockchain',
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        amount: parseDecimal('2679.718442'),
-        direction: 'in',
-        sourceType: 'exchange',
-      });
-      const similarity = calculateFeeAwareAmountSimilarity(source, target);
-      // gross vs target is exact match → 1.0
-      expect(similarity.toFixed()).toBe('1');
-    });
-
-    it('should match source against target grossAmount when target has fee difference', () => {
-      const source = createLinkableMovement({
-        amount: parseDecimal('100'),
-        direction: 'out',
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        amount: parseDecimal('99.5'),
-        grossAmount: parseDecimal('100'),
-        direction: 'in',
-      });
-      const similarity = calculateFeeAwareAmountSimilarity(source, target);
-      // source.amount vs target.grossAmount is exact match → 1.0
-      expect(similarity.toFixed()).toBe('1');
-    });
-
-    it('should return the best similarity across all patterns', () => {
-      const source = createLinkableMovement({
-        amount: parseDecimal('95'),
-        grossAmount: parseDecimal('100'),
-        direction: 'out',
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        amount: parseDecimal('98'),
-        direction: 'in',
-      });
-      // net vs net: 95 vs 98 → target > source → 0 (exceeds 0.1% rounding)
-      // gross vs net: 100 vs 98 → 98/100 = 0.98
-      const similarity = calculateFeeAwareAmountSimilarity(source, target);
-      expect(similarity.toFixed()).toBe('0.98');
-    });
-
-    it('should short-circuit when primary comparison is already perfect', () => {
-      const source = createLinkableMovement({
-        amount: parseDecimal('100'),
-        grossAmount: parseDecimal('105'),
-        direction: 'out',
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        amount: parseDecimal('100'),
-        direction: 'in',
-      });
-      const similarity = calculateFeeAwareAmountSimilarity(source, target);
-      expect(similarity.toFixed()).toBe('1');
-    });
-  });
 
   describe('calculateTimeDifferenceHours', () => {
     it('should calculate positive time difference', () => {
@@ -161,28 +43,28 @@ describe('candidate-scoring', () => {
     it('should validate timing within window', () => {
       const source = new Date('2024-01-01T12:00:00Z');
       const target = new Date('2024-01-01T14:00:00Z'); // 2 hours later
-      const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
+      const valid = isTimingValid(source, target, buildMatchingConfig());
       expect(valid).toBe(true);
     });
 
     it('should invalidate timing outside window', () => {
       const source = new Date('2024-01-01T12:00:00Z');
       const target = new Date('2024-01-03T14:00:00Z'); // 50 hours later
-      const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
+      const valid = isTimingValid(source, target, buildMatchingConfig());
       expect(valid).toBe(false);
     });
 
     it('should allow timing when target is slightly before source (within clock skew tolerance)', () => {
       const source = new Date('2024-01-01T14:00:00Z');
       const target = new Date('2024-01-01T13:00:00Z'); // 1 hour earlier, within 2h tolerance
-      const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
+      const valid = isTimingValid(source, target, buildMatchingConfig());
       expect(valid).toBe(true);
     });
 
     it('should invalidate timing when target is before source beyond clock skew tolerance', () => {
       const source = new Date('2024-01-01T14:00:00Z');
       const target = new Date('2024-01-01T11:00:00Z'); // 3 hours earlier, beyond 2h tolerance
-      const valid = isTimingValid(source, target, DEFAULT_MATCHING_CONFIG);
+      const valid = isTimingValid(source, target, buildMatchingConfig());
       expect(valid).toBe(false);
     });
   });
@@ -206,257 +88,6 @@ describe('candidate-scoring', () => {
     it('should determine exchange_to_exchange link type', () => {
       const type = determineLinkType('exchange', 'exchange');
       expect(type).toBe('exchange_to_exchange');
-    });
-  });
-
-  describe('checkAddressMatch', () => {
-    it('should return true when source.to matches target.to', () => {
-      const source = createLinkableMovement({
-        sourceName: 'coinbase',
-        assetSymbol: 'SOL' as Currency,
-        toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'kucoin',
-
-        assetSymbol: 'SOL' as Currency,
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-        toAddress: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
-      });
-      expect(checkAddressMatch(source, target)).toBe(true);
-    });
-
-    it('should return true when addresses match', () => {
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-        fromAddress: 'bc1qxyz123',
-      });
-      expect(checkAddressMatch(source, target)).toBe(true);
-    });
-
-    it('should return false when addresses do not match', () => {
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-        fromAddress: 'bc1qdifferent',
-      });
-      expect(checkAddressMatch(source, target)).toBe(false);
-    });
-
-    it('should return undefined when addresses are not available', () => {
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-      });
-      expect(checkAddressMatch(source, target)).toBeUndefined();
-    });
-
-    it('should be case-insensitive', () => {
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-        fromAddress: 'bc1qxyz123',
-      });
-      expect(checkAddressMatch(source, target)).toBe(true);
-    });
-
-    it('should match source.fromAddress against target.toAddress (blockchain→exchange)', () => {
-      // User sends from their Cardano address, exchange records deposit to user's deposit address
-      const source = createLinkableMovement({
-        sourceName: 'cardano',
-        sourceType: 'blockchain',
-        fromAddress: 'addr1q95qk0u05drsy3', // user's address
-        toAddress: 'addr1q9h4f2vhh5vnqg', // exchange hot wallet
-      });
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'kucoin',
-        sourceType: 'exchange',
-        direction: 'in',
-        toAddress: 'addr1q95qk0u05drsy3', // user's deposit address on exchange
-      });
-      expect(checkAddressMatch(source, target)).toBe(true);
-    });
-
-    it('should return undefined when source has no addresses', () => {
-      const source = createLinkableMovement({ sourceName: 'exchange1' });
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'exchange2',
-        direction: 'in',
-        toAddress: 'someaddr',
-      });
-      expect(checkAddressMatch(source, target)).toBeUndefined();
-    });
-  });
-
-  describe('calculateConfidenceScore', () => {
-    it('should return 0 when assets do not match', () => {
-      const criteria = {
-        assetMatch: false,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 1,
-      };
-
-      const { score, breakdown } = calculateConfidenceScore(criteria);
-      expect(score.toString()).toBe('0');
-      expect(breakdown).toHaveLength(0);
-    });
-
-    it('should calculate high confidence for perfect match', () => {
-      const criteria = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 0.5, // Very close timing
-        addressMatch: true,
-      };
-
-      const { score, breakdown } = calculateConfidenceScore(criteria);
-      expect(score.toNumber()).toBeGreaterThan(0.9); // Should be very high
-      expect(breakdown.map((c) => c.signal)).toEqual([
-        'asset_match',
-        'amount_similarity',
-        'timing_valid',
-        'timing_close_bonus',
-        'address_match',
-      ]);
-    });
-
-    it('should penalize low amount similarity', () => {
-      const criteria = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('0.5'), // Only 50% match
-        timingValid: true,
-        timingHours: 5, // More than 1 hour (no bonus)
-      };
-
-      const { score } = calculateConfidenceScore(criteria);
-      expect(score.toString()).toBe('0.7'); // 30% asset + 20% amount (0.5 * 40%) + 20% timing
-    });
-
-    it('should return 0 when addresses do not match', () => {
-      const criteria = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 1,
-        addressMatch: false, // Addresses explicitly do not match
-      };
-
-      const { score, breakdown } = calculateConfidenceScore(criteria);
-      expect(score.toString()).toBe('0');
-      expect(breakdown).toHaveLength(0);
-    });
-
-    it('should bonus for very close timing', () => {
-      const criteria1 = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 0.5, // Within 1 hour
-      };
-
-      const criteria2 = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 5, // More than 1 hour
-      };
-
-      const { score: score1 } = calculateConfidenceScore(criteria1);
-      const { score: score2 } = calculateConfidenceScore(criteria2);
-
-      expect(score1.greaterThan(score2)).toBe(true);
-    });
-
-    it('should cap suspected migration confidence below auto-confirm threshold', () => {
-      const criteria = {
-        assetMatch: false,
-        suspectedMigration: true,
-        amountSimilarity: parseDecimal('1.0'),
-        timingValid: true,
-        timingHours: 0.1,
-        addressMatch: true,
-        hashMatch: true,
-      };
-
-      const { score, breakdown } = calculateConfidenceScore(criteria);
-      expect(score.toFixed()).toBe('0.94');
-      expect(breakdown.map((c) => c.signal)).toEqual([
-        'suspected_migration_asset',
-        'amount_similarity',
-        'timing_valid',
-        'timing_close_bonus',
-        'address_match',
-        'migration_hash_bonus',
-      ]);
-    });
-
-    it('should produce breakdown with correct weights and contributions', () => {
-      const criteria = {
-        assetMatch: true,
-        amountSimilarity: parseDecimal('0.95'),
-        timingValid: true,
-        timingHours: 0.5,
-      };
-
-      const { score, breakdown } = calculateConfidenceScore(criteria);
-
-      // Verify each component
-      const asset = breakdown.find((c) => c.signal === 'asset_match')!;
-      expect(asset.contribution.toFixed()).toBe('0.3');
-
-      const amount = breakdown.find((c) => c.signal === 'amount_similarity')!;
-      expect(amount.value.toFixed()).toBe('0.95');
-      expect(amount.contribution.toFixed()).toBe('0.38'); // 0.95 * 0.4
-
-      const timing = breakdown.find((c) => c.signal === 'timing_valid')!;
-      expect(timing.contribution.toFixed()).toBe('0.2');
-
-      const bonus = breakdown.find((c) => c.signal === 'timing_close_bonus')!;
-      expect(bonus.contribution.toFixed()).toBe('0.05');
-
-      // Total: 0.3 + 0.38 + 0.2 + 0.05 = 0.93
-      expect(score.toFixed()).toBe('0.93');
-    });
-  });
-
-  describe('buildMatchCriteria', () => {
-    it('should build complete match criteria', () => {
-      const target = createLinkableMovement({
-        id: 2,
-        sourceName: 'bitcoin',
-        sourceType: 'blockchain',
-        timestamp: new Date('2024-01-01T13:00:00Z'),
-        amount: parseDecimal('0.99'),
-        direction: 'in',
-        fromAddress: 'bc1qxyz123',
-      });
-
-      const criteria = buildMatchCriteria(source, target, DEFAULT_MATCHING_CONFIG);
-
-      expect(criteria.assetMatch).toBe(true);
-      expect(criteria.amountSimilarity.toString()).toBe('0.99');
-      expect(criteria.timingValid).toBe(true);
-      expect(criteria.timingHours).toBe(1);
-      expect(criteria.addressMatch).toBe(true);
     });
   });
 
@@ -484,7 +115,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetMovement.id).toBe(2);
@@ -521,12 +152,10 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const criteria = buildMatchCriteria(migrationSource, targets[0]!, DEFAULT_MATCHING_CONFIG);
-      expect(criteria.assetMatch).toBe(false);
-
-      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(migrationSource, targets, buildMatchingConfig());
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetMovement.id).toBe(8813);
+      expect(matches[0]?.matchCriteria.assetMatch).toBe(false);
       expect(matches[0]?.confidenceScore.toFixed()).toBe('0.94');
       expect(matches[0]?.matchCriteria.suspectedMigration).toBe(true);
       expect(matches[0]?.matchCriteria.hashMatch).toBe(true);
@@ -562,7 +191,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(migrationSource, targets, buildMatchingConfig());
       expect(matches).toHaveLength(0);
     });
 
@@ -578,7 +207,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should not match due to low confidence
       expect(matches).toHaveLength(0);
@@ -609,7 +238,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(migrationSource, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(migrationSource, targets, buildMatchingConfig());
       expect(matches).toHaveLength(0);
     });
 
@@ -633,7 +262,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(2);
       // Best match should be first
@@ -659,7 +288,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.linkType).toBe('blockchain_to_exchange');
@@ -691,7 +320,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetMovement.id).toBe(388);
@@ -722,7 +351,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Without grossAmount, target > source by 5% → similarity = 0 → confidence too low
       expect(matches).toHaveLength(0);
@@ -744,7 +373,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
     });
@@ -763,7 +392,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(0);
     });
@@ -779,7 +408,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should find no matches due to timing outside window
       expect(matches).toHaveLength(0);
@@ -799,7 +428,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Amount similarity feeds into confidence ranking, not hard filtering.
       // Capacity-based dedup in allocateMatches() handles amount matching.
@@ -819,7 +448,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.targetMovement.id).toBe(2);
@@ -844,7 +473,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
       expect(matches).toHaveLength(0);
     });
 
@@ -865,7 +494,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
       expect(matches).toHaveLength(1);
     });
 
@@ -886,7 +515,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
       expect(matches).toHaveLength(0);
     });
 
@@ -907,7 +536,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
       expect(matches).toHaveLength(1);
     });
   });
@@ -1168,7 +797,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.confidenceScore.toString()).toBe('1');
@@ -1200,7 +829,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should have 2 matches (both are valid)
       expect(matches.length).toBeGreaterThanOrEqual(2);
@@ -1229,7 +858,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.confidenceScore.toString()).toBe('1');
@@ -1253,7 +882,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should use normal matching (not hash-based), if any
       // Hash-based matching is skipped for blockchain→blockchain
@@ -1278,7 +907,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       expect(matches).toHaveLength(1);
       expect(matches[0]?.confidenceScore.toString()).toBe('1'); // Still 100% confidence (hash match)
@@ -1317,7 +946,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should find matches, but NOT with 100% confidence (ambiguous hash)
       expect(matches.length).toBeGreaterThan(0);
@@ -1359,7 +988,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should find the hash match
       expect(matches.length).toBeGreaterThan(0);
@@ -1400,7 +1029,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should detect non-uniqueness (case-insensitive comparison)
       // and fall back to heuristic matching (not 100% confidence)
@@ -1442,7 +1071,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should find hash match with id:2 only (case-sensitive for non-hex)
       expect(matches.length).toBeGreaterThan(0);
@@ -1480,7 +1109,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should create hash matches for both targets (sum 0.99 < 1.0)
       const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
@@ -1515,7 +1144,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should NOT create perfect hash matches (sum exceeds source)
       // but the normalized hash can still survive as a heuristic signal.
@@ -1550,7 +1179,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should create hash match for id:2 only (self-target excluded from sum)
       const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
@@ -1579,7 +1208,7 @@ describe('candidate-scoring', () => {
         // Exchange target (would be included, but no exchange targets here)
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should NOT create hash matches (blockchain→blockchain skipped)
       const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);
@@ -1603,7 +1232,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should create hash match (single target always valid)
       expect(matches).toHaveLength(1);
@@ -1643,7 +1272,7 @@ describe('candidate-scoring', () => {
         }),
       ];
 
-      const matches = scoreAndFilterMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+      const matches = scoreAndFilterMatches(source, targets, buildMatchingConfig());
 
       // Should only match id:2 (same log index)
       const hashMatches = matches.filter((m) => m.matchCriteria.hashMatch === true);

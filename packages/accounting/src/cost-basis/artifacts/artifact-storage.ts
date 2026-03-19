@@ -1,7 +1,6 @@
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, randomUUID, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
-import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import type { CostBasisDependencyWatermark, CostBasisSnapshotRecord } from '../../ports/cost-basis-persistence.js';
@@ -922,28 +921,4 @@ function hashString(value: string): string {
   }
 
   return (hash >>> 0).toString(16).padStart(8, '0');
-}
-
-export function containsOnlyPlainJson(value: unknown): boolean {
-  if (value === null) {
-    return true;
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return true;
-  }
-
-  if (Array.isArray(value)) {
-    return value.every(containsOnlyPlainJson);
-  }
-
-  if (value instanceof Date || value instanceof Decimal || value instanceof Map) {
-    return false;
-  }
-
-  if (typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).every(containsOnlyPlainJson);
-  }
-
-  return false;
 }

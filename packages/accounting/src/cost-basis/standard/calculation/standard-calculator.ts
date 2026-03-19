@@ -1,4 +1,4 @@
-import { err, ok, randomUUID, type Result, type Transaction, type TransactionLink, wrapError } from '@exitbook/core';
+import { err, ok, randomUUID, type Result, type TransactionLink, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -6,10 +6,7 @@ import type { IJurisdictionRules } from '../../jurisdictions/jurisdiction-rules.
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
 import type { CostBasisCalculation } from '../../model/schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
-import {
-  buildCostBasisScopedTransactions,
-  type AccountingScopedBuildResult,
-} from '../matching/build-cost-basis-scoped-transactions.js';
+import { type AccountingScopedBuildResult } from '../matching/build-cost-basis-scoped-transactions.js';
 import type { LotMatcher } from '../matching/lot-matcher.js';
 import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
 import { getStrategyForMethod } from '../strategies/strategy-factory.js';
@@ -42,34 +39,6 @@ export interface CostBasisSummary {
 }
 
 const logger = getLogger('calculateScopedCostBasis');
-
-/**
- * Calculate cost basis for a set of pre-validated transactions.
- *
- * Transactions must have priceAtTxTime populated for all non-fiat movements.
- * Use runCostBasisPipeline for the full flow, including explicit missing-price
- * policy handling at the scoped accounting boundary.
- *
- * @param transactions - Transactions to process (must have priceAtTxTime populated)
- * @param config - Cost basis configuration
- * @param rules - Jurisdiction-specific tax rules
- * @param lotMatcher - Lot matcher instance
- * @param confirmedLinks - Confirmed transaction links for transfer detection
- */
-export async function calculateScopedCostBasis(
-  transactions: Transaction[],
-  config: CostBasisConfig,
-  rules: IJurisdictionRules,
-  lotMatcher: LotMatcher,
-  confirmedLinks: TransactionLink[] = []
-): Promise<Result<CostBasisSummary, Error>> {
-  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
-  if (scopedResult.isErr()) {
-    return err(scopedResult.error);
-  }
-
-  return calculateCostBasisFromScopedTransactions(scopedResult.value, config, rules, lotMatcher, confirmedLinks);
-}
 
 export async function calculateCostBasisFromScopedTransactions(
   scopedBuildResult: AccountingScopedBuildResult,

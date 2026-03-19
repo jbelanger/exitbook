@@ -24,7 +24,7 @@ export type CanadaTaxInputEventKind =
   | 'transfer-out'
   | 'fee-adjustment'
   | 'superficial-loss-adjustment';
-export type CanadaTaxEventProvenanceKind =
+type CanadaTaxEventProvenanceKind =
   | 'scoped-movement'
   | 'validated-link'
   | 'fee-only-carryover'

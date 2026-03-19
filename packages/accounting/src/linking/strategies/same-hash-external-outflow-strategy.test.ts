@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCHING_CONFIG } from '../matching/matching-config.js';
+import { buildMatchingConfig } from '../matching/matching-config.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 import { SameHashExternalOutflowStrategy } from './same-hash-external-outflow-strategy.js';
@@ -106,7 +106,7 @@ describe('SameHashExternalOutflowStrategy', () => {
     ];
 
     const strategy = new SameHashExternalOutflowStrategy();
-    const result = strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG);
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -228,7 +228,7 @@ describe('SameHashExternalOutflowStrategy', () => {
     ];
 
     const strategy = new SameHashExternalOutflowStrategy();
-    const result = strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG);
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -329,7 +329,7 @@ describe('SameHashExternalOutflowStrategy', () => {
     ];
 
     const strategy = new SameHashExternalOutflowStrategy();
-    const result = strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG);
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -399,7 +399,7 @@ describe('SameHashExternalOutflowStrategy', () => {
     ];
 
     const strategy = new SameHashExternalOutflowStrategy();
-    const result = strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG);
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {

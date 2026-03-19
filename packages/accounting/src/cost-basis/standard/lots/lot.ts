@@ -1,8 +1,7 @@
 import type { Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotStatus } from '../../model/types.js';
+import type { AcquisitionLot } from '../../model/types.js';
 
 /**
  * Create a new acquisition lot
@@ -37,43 +36,4 @@ export function createAcquisitionLot(params: {
     totalCostBasis,
     updatedAt: now,
   };
-}
-
-/**
- * Update lot status based on remaining quantity
- */
-export function updateLotStatus(lot: AcquisitionLot): LotStatus {
-  if (lot.remainingQuantity.isZero()) {
-    return 'fully_disposed';
-  }
-  if (lot.remainingQuantity.lessThan(lot.quantity)) {
-    return 'partially_disposed';
-  }
-  return 'open';
-}
-
-/**
- * Reduce lot quantity by disposal amount
- */
-export function disposeLot(lot: AcquisitionLot, quantityDisposed: Decimal): Result<AcquisitionLot, Error> {
-  const remainingQuantity = lot.remainingQuantity.minus(quantityDisposed);
-
-  if (remainingQuantity.isNegative()) {
-    return err(
-      new Error(
-        `Cannot dispose ${quantityDisposed.toFixed()} from lot ${lot.id} with only ${lot.remainingQuantity.toFixed()} remaining`
-      )
-    );
-  }
-
-  const updatedLot: AcquisitionLot = {
-    ...lot,
-    remainingQuantity,
-    updatedAt: new Date(),
-  };
-
-  return ok({
-    ...updatedLot,
-    status: updateLotStatus(updatedLot),
-  });
 }

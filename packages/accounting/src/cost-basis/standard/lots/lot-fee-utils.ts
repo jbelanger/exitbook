@@ -154,7 +154,7 @@ export function extractAllocatedCryptoFee(
  * Extract only on-chain fees for a specific asset from a transaction.
  * Per ADR-005, only fees with settlement='on-chain' reduce the netAmount.
  */
-export function extractOnChainFees(transaction: CostBasisTransactionLike, assetId: string): Decimal {
+function extractOnChainFees(transaction: CostBasisTransactionLike, assetId: string): Decimal {
   let totalOnChainFees = parseDecimal('0');
 
   for (const fee of getTransactionFees(transaction)) {

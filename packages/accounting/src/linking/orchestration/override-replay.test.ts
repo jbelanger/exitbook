@@ -1,7 +1,7 @@
 import type { LinkOverridePayload, OverrideEvent } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { applyLinkOverrides, buildFingerprintMap, resolveTxId } from './override-replay.js';
+import { applyLinkOverrides } from './override-replay.js';
 
 const sourceAssetId = 'exchange:kraken:btc';
 const targetAssetId = 'blockchain:bitcoin:native';
@@ -35,46 +35,6 @@ function createLinkOverridePayload(targetTxFingerprint = targetFingerprint): Lin
     target_amount: '0.999',
   };
 }
-
-describe('buildFingerprintMap', () => {
-  it('should build fingerprint to ID map', () => {
-    const transactions = [
-      { id: 1, txFingerprint: 'tx:v2:kraken:1:TRADE-123' },
-      { id: 2, txFingerprint: 'tx:v2:blockchain:bitcoin:2:abc123' },
-      { id: 3, txFingerprint: 'tx:v2:coinbase:3:DEPOSIT-456' },
-    ];
-
-    const map = buildFingerprintMap(transactions);
-
-    expect(map.get('tx:v2:kraken:1:TRADE-123')).toBe(1);
-    expect(map.get('tx:v2:blockchain:bitcoin:2:abc123')).toBe(2);
-    expect(map.get('tx:v2:coinbase:3:DEPOSIT-456')).toBe(3);
-  });
-
-  it('should handle empty transaction array', () => {
-    const map = buildFingerprintMap([]);
-
-    expect(map.size).toBe(0);
-  });
-});
-
-describe('resolveTxId', () => {
-  it('should resolve transaction ID from fingerprint', () => {
-    const map = new Map<string, number>([
-      ['tx:v2:kraken:1:TRADE-123', 1],
-      ['tx:v2:blockchain:bitcoin:2:abc123', 2],
-    ]);
-
-    expect(resolveTxId('tx:v2:kraken:1:TRADE-123', map)).toBe(1);
-    expect(resolveTxId('tx:v2:blockchain:bitcoin:2:abc123', map)).toBe(2);
-  });
-
-  it('should return null for unknown fingerprint', () => {
-    const map = new Map<string, number>([['tx:v2:kraken:1:TRADE-123', 1]]);
-
-    expect(resolveTxId('unknown:fingerprint', map)).toBeNull();
-  });
-});
 
 describe('applyLinkOverrides', () => {
   it('should confirm suggested link', () => {

@@ -2,7 +2,7 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCHING_CONFIG } from '../matching/matching-config.js';
+import { buildMatchingConfig } from '../matching/matching-config.js';
 import { createLinkableMovement } from '../shared/test-utils.js';
 
 import { AmountTimingStrategy } from './amount-timing-strategy.js';
@@ -15,7 +15,7 @@ describe('AmountTimingStrategy', () => {
 
   it('returns empty result when no sources or targets are provided', () => {
     const strategy = new AmountTimingStrategy();
-    const result = assertOk(strategy.execute([], [], DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute([], [], buildMatchingConfig()));
 
     expect(result.links).toHaveLength(0);
     expect(result.consumedCandidateIds.size).toBe(0);
@@ -52,7 +52,7 @@ describe('AmountTimingStrategy', () => {
       }),
     ];
 
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute(sources, targets, buildMatchingConfig()));
 
     expect(result.links).toHaveLength(0);
     expect(result.consumedCandidateIds.size).toBe(0);
@@ -91,7 +91,7 @@ describe('AmountTimingStrategy', () => {
       }),
     ];
 
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute(sources, targets, buildMatchingConfig()));
 
     expect(result.links.length).toBeGreaterThanOrEqual(1);
     expect(result.consumedCandidateIds.has(1)).toBe(true);
@@ -135,7 +135,7 @@ describe('AmountTimingStrategy', () => {
       }),
     ];
 
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute(sources, targets, buildMatchingConfig()));
 
     expect(result.links).toHaveLength(0);
   });
@@ -172,7 +172,7 @@ describe('AmountTimingStrategy', () => {
       }),
     ];
 
-    const result = assertOk(strategy.execute(sources, targets, DEFAULT_MATCHING_CONFIG));
+    const result = assertOk(strategy.execute(sources, targets, buildMatchingConfig()));
 
     expect(result.links).toHaveLength(0);
   });
