@@ -26,7 +26,7 @@ import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };
 
-export interface CostBasisArtifactExecutionResult {
+interface CostBasisArtifactExecutionResult {
   artifact: CostBasisWorkflowResult;
   scopeKey: string;
   snapshotId: string;

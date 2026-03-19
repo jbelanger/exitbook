@@ -129,7 +129,7 @@ function materializeFeeMovements(txFingerprint: string, fees: FeeMovementDraft[]
 }
 
 /** Shorthand movement description for buildTransaction. Omit `price` to create an unpriced movement. */
-export interface TestMovementInput {
+interface TestMovementInput {
   assetSymbol: string;
   amount: string;
   assetId?: string | undefined;
@@ -525,27 +525,6 @@ export function createTransactionFromMovements(
     },
     blockchain,
   });
-}
-
-/**
- * Creates a Transaction with fees
- */
-export function createTransactionWithFee(
-  id: number,
-  datetime: string,
-  inflows: { amount: string; assetSymbol: string; price: string }[],
-  outflows: { amount: string; assetSymbol: string; price: string }[],
-  platformFee?: { amount: string; assetSymbol: string; price: string }
-): Transaction {
-  const fees: FeeMovementDraft[] = platformFee
-    ? [
-        createFee(platformFee.assetSymbol, platformFee.amount, {
-          priceAmount: platformFee.price,
-        }),
-      ]
-    : [];
-
-  return createTransaction(id, datetime, inflows, outflows, { fees });
 }
 
 /**

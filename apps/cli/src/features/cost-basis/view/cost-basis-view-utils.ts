@@ -30,7 +30,7 @@ interface FilingFactAssetIdentity {
   taxPropertyKey?: string | undefined;
 }
 
-export interface CostBasisPresentationTotals {
+interface CostBasisPresentationTotals {
   longTermGainLoss?: string | undefined;
   shortTermGainLoss?: string | undefined;
   totalCostBasis: string;

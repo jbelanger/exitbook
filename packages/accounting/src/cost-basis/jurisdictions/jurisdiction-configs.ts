@@ -59,7 +59,7 @@ export function getJurisdictionConfig(code: string): JurisdictionConfig | undefi
   return JURISDICTION_CONFIGS[code] ?? undefined;
 }
 
-export function requireJurisdictionConfig(code: JurisdictionConfig['code']): Result<JurisdictionConfig, Error> {
+function requireJurisdictionConfig(code: JurisdictionConfig['code']): Result<JurisdictionConfig, Error> {
   const config = getJurisdictionConfig(code);
   if (!config) {
     return err(new Error(`Jurisdiction config ${code} is not registered`));

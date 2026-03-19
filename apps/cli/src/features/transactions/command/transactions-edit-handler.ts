@@ -14,13 +14,13 @@ interface TransactionIdentity {
   txFingerprint: string;
 }
 
-export interface TransactionNoteSetParams {
+interface TransactionNoteSetParams {
   message: string;
   reason?: string | undefined;
   transactionId: number;
 }
 
-export interface TransactionNoteClearParams {
+interface TransactionNoteClearParams {
   reason?: string | undefined;
   transactionId: number;
 }

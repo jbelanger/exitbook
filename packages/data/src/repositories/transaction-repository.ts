@@ -50,7 +50,7 @@ export interface SummaryTransactionQueryParams extends TransactionQueryParams {
   projection: 'summary';
 }
 
-export interface MaterializeTransactionNoteOverridesParams extends TransactionMaterializationScope {
+interface MaterializeTransactionNoteOverridesParams extends TransactionMaterializationScope {
   notesByFingerprint: ReadonlyMap<string, string>;
 }
 

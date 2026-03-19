@@ -1,10 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for db */
-export {
-  seedAssetMovementFingerprint,
-  seedFeeMovementFingerprint,
-  seedMovementFingerprint,
-  seedTxFingerprint,
-} from '@exitbook/core/test-utils';
+export { seedAssetMovementFingerprint, seedFeeMovementFingerprint, seedTxFingerprint } from '@exitbook/core/test-utils';
 
 import type { KyselyDB } from '../../database.js';
 
