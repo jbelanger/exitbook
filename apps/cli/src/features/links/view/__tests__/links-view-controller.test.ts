@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createMockGapAnalysis, createMockLink, createMockLinksBatch } from '../../__tests__/test-utils.js';
-import { handleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
+import { linksViewHandleKeyboardInput, linksViewReducer } from '../links-view-controller.js';
 import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
 
 describe('linksViewReducer', () => {
@@ -399,7 +399,7 @@ describe('linksViewReducer - gaps mode', () => {
   });
 });
 
-describe('handleKeyboardInput', () => {
+describe('linksViewHandleKeyboardInput', () => {
   it('handles arrow up key', () => {
     let actionReceived = false;
     const dispatch = (action: unknown) => {
@@ -410,7 +410,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       '',
       {
         upArrow: true,
@@ -439,7 +439,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       '',
       {
         upArrow: false,
@@ -468,7 +468,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'k',
       {
         upArrow: false,
@@ -497,7 +497,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'j',
       {
         upArrow: false,
@@ -526,7 +526,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'c',
       {
         upArrow: false,
@@ -555,7 +555,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'r',
       {
         upArrow: false,
@@ -583,7 +583,7 @@ describe('handleKeyboardInput', () => {
       quitCalled = true;
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'q',
       {
         upArrow: false,
@@ -611,7 +611,7 @@ describe('handleKeyboardInput', () => {
       /* empty */
     };
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'c',
       {
         upArrow: false,
@@ -630,7 +630,7 @@ describe('handleKeyboardInput', () => {
     );
     expect(dispatched).toBe(false);
 
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'r',
       {
         upArrow: false,
@@ -660,7 +660,7 @@ describe('handleKeyboardInput', () => {
     };
 
     // Links mode: terminalHeight(24) - 17 = 7
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'j',
       {
         upArrow: false,
@@ -680,7 +680,7 @@ describe('handleKeyboardInput', () => {
     expect(receivedVisibleRows).toBe(7);
 
     // Gaps mode with one summary asset: terminalHeight(24) - 19 = 5
-    handleKeyboardInput(
+    linksViewHandleKeyboardInput(
       'j',
       {
         upArrow: false,
