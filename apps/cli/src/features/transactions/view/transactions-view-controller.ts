@@ -36,9 +36,6 @@ type TransactionsViewAction =
   | { type: 'DISMISS_EXPORT_RESULT' }
   | { direction: 'up' | 'down'; type: 'MOVE_FORMAT_CURSOR' };
 
-/**
- * Reducer function for transactions view state
- */
 export function transactionsViewReducer(
   state: TransactionsViewState,
   action: TransactionsViewAction
@@ -113,8 +110,6 @@ export function transactionsViewReducer(
 }
 
 /**
- * Handle keyboard input for transactions view.
- *
  * Returns the selected format option when a format is chosen (caller must invoke onExport),
  * or undefined when the key was handled internally.
  */

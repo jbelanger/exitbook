@@ -66,32 +66,35 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
       console.log('─'.repeat(40));
 
       for (const [blockchain, blockchainConfig] of Object.entries(config)) {
-        if (!blockchainConfig || typeof blockchainConfig !== 'object') continue;
+        if (!blockchainConfig) continue;
 
-        const { explorers = [] } = blockchainConfig as {
-          explorers: {
-            enabled: boolean;
-            name: string;
-            priority: number;
-          }[];
-        };
-        const enabled = explorers.filter((e) => e.enabled);
+        const defaultEnabled = blockchainConfig.defaultEnabled ?? [];
+        const overrides = blockchainConfig.overrides ?? {};
+        const allProviderNames = registry
+          .getAllProviders()
+          .filter((p) => p.blockchain === blockchain)
+          .map((p) => p.name);
 
         console.log(`${blockchain.toUpperCase()}:`);
-        console.log(`  Total providers: ${explorers.length}`);
-        console.log(`  Enabled: ${enabled.length}`);
-        console.log(`  Disabled: ${explorers.length - enabled.length}`);
+        console.log(`  Total providers: ${allProviderNames.length}`);
+        console.log(
+          `  Default enabled: ${defaultEnabled.length > 0 ? defaultEnabled.join(', ') : '(none — all available)'}`
+        );
 
-        if (enabled.length > 0) {
-          console.log('  Enabled providers:');
-          for (const provider of enabled.sort((a, b) => a.priority - b.priority)) {
-            const metadata = registry.getMetadata(blockchain, provider.name);
+        if (Object.keys(overrides).length > 0) {
+          console.log('  Overrides:');
+          const sortedOverrides = Object.entries(overrides).sort(
+            ([, a], [, b]) => (a.priority ?? 0) - (b.priority ?? 0)
+          );
+          for (const [providerName, override] of sortedOverrides) {
+            const metadata = registry.getMetadata(blockchain, providerName);
             const apiKeyInfo = metadata?.requiresApiKey
               ? metadata.apiKeyEnvVar
                 ? ` (${metadata.apiKeyEnvVar})`
                 : ' (API key required)'
               : '';
-            console.log(`    ${provider.priority}. ${provider.name}${apiKeyInfo}`);
+            const enabledStr = override.enabled === false ? 'disabled' : 'enabled';
+            console.log(`    ${override.priority ?? '?'}. ${providerName} [${enabledStr}]${apiKeyInfo}`);
           }
         }
 

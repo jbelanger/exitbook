@@ -9,8 +9,8 @@ import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { sql } from '@exitbook/sqlite';
 
+import type { PriceData } from '../../core/types.js';
 import { roundToMinute, roundToHour, roundToDay } from '../../core/utils.js';
-import type { PriceData } from '../../index.js';
 import type { PricesDB } from '../database.js';
 
 interface PriceRecord {

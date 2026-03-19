@@ -16,8 +16,6 @@ export interface PriceQuery {
   timestamp: Date;
   /** Target currency (default: 'USD') */
   currency: Currency;
-  /** @internal Recursion depth for stablecoin conversion */
-  _depth?: number | undefined;
 }
 
 /**

@@ -34,68 +34,57 @@ function generateConfiguration(): void {
     providersByBlockchain.get(provider.blockchain)!.push(provider);
   }
 
-  // Generate configuration object
+  // Generate configuration object using the BlockchainExplorersConfig format:
+  // { defaultEnabled: string[], overrides: { [providerName]: { priority, rateLimit, ... } } }
   const config: Record<
     string,
     {
-      explorers: {
-        enabled: boolean;
-        name: string;
-        priority?: number | undefined;
-      }[];
+      defaultEnabled: string[];
+      overrides: Record<
+        string,
+        {
+          description?: string | undefined;
+          enabled: boolean;
+          priority: number;
+          rateLimit?: Record<string, number | undefined> | undefined;
+          retries?: number | undefined;
+          timeout?: number | undefined;
+        }
+      >;
     }
   > = {};
 
   for (const [blockchain, providers] of providersByBlockchain.entries()) {
-    config[blockchain] = {
-      explorers: providers.map((provider, index) => {
-        const metadata = registry.getMetadata(blockchain, provider.name);
+    const firstProvider = providers[0];
+    const defaultEnabled = firstProvider ? [firstProvider.name] : [];
+    const overrides: (typeof config)[string]['overrides'] = {};
 
-        const explorerConfig: {
-          [key: string]: unknown;
-          capabilities?: Record<string, unknown> | undefined;
-          enabled: boolean;
-          name: string;
-          priority?: number | undefined;
-        } = {
-          displayName: provider.displayName,
-          enabled: index === 0, // Enable first provider by default
-          name: provider.name,
-          priority: index + 1,
-          ...(metadata?.requiresApiKey && {
-            requiresApiKey: true,
-            ...(metadata.apiKeyEnvVar && {
-              apiKeyEnvVar: metadata.apiKeyEnvVar,
+    for (const [index, provider] of providers.entries()) {
+      const metadata = registry.getMetadata(blockchain, provider.name);
+      overrides[provider.name] = {
+        priority: index + 1,
+        enabled: index === 0, // Enable first provider by default
+        ...(metadata?.description && { description: metadata.description }),
+        ...(metadata?.defaultConfig.rateLimit && {
+          rateLimit: {
+            requestsPerSecond: metadata.defaultConfig.rateLimit.requestsPerSecond,
+            ...(metadata.defaultConfig.rateLimit.requestsPerMinute && {
+              requestsPerMinute: metadata.defaultConfig.rateLimit.requestsPerMinute,
             }),
-          }),
-          ...(metadata?.description && {
-            description: metadata.description,
-          }),
-          baseUrl: metadata?.baseUrl,
-          capabilities: {
-            supportedOperations: provider.capabilities.supportedOperations,
+            ...(metadata.defaultConfig.rateLimit.requestsPerHour && {
+              requestsPerHour: metadata.defaultConfig.rateLimit.requestsPerHour,
+            }),
+            ...(metadata.defaultConfig.rateLimit.burstLimit && {
+              burstLimit: metadata.defaultConfig.rateLimit.burstLimit,
+            }),
           },
-          defaultConfig: {
-            rateLimit: {
-              requestsPerSecond: metadata?.defaultConfig.rateLimit.requestsPerSecond,
-              ...(metadata?.defaultConfig.rateLimit.requestsPerMinute && {
-                requestsPerMinute: metadata.defaultConfig.rateLimit.requestsPerMinute,
-              }),
-              ...(metadata?.defaultConfig.rateLimit.requestsPerHour && {
-                requestsPerHour: metadata.defaultConfig.rateLimit.requestsPerHour,
-              }),
-              ...(metadata?.defaultConfig.rateLimit.burstLimit && {
-                burstLimit: metadata.defaultConfig.rateLimit.burstLimit,
-              }),
-            },
-            retries: metadata?.defaultConfig.retries,
-            timeout: metadata?.defaultConfig.timeout,
-          },
-        };
+        }),
+        ...(metadata?.defaultConfig.retries !== undefined && { retries: metadata.defaultConfig.retries }),
+        ...(metadata?.defaultConfig.timeout !== undefined && { timeout: metadata.defaultConfig.timeout }),
+      };
+    }
 
-        return explorerConfig;
-      }),
-    };
+    config[blockchain] = { defaultEnabled, overrides };
   }
 
   // Write configuration file
@@ -120,12 +109,12 @@ function generateConfiguration(): void {
     console.log('─'.repeat(50));
 
     for (const [blockchain, blockchainConfig] of Object.entries(config)) {
-      const { explorers } = blockchainConfig;
-      const enabled = explorers.filter((e) => e.enabled);
+      const { defaultEnabled, overrides } = blockchainConfig;
+      const totalProviders = Object.keys(overrides).length;
 
       console.log(`${blockchain.toUpperCase()}:`);
-      console.log(`  Providers: ${explorers.length} (${enabled.length} enabled)`);
-      console.log(`  Default: ${enabled.length > 0 && enabled[0] ? enabled[0].name : 'none'}`);
+      console.log(`  Providers: ${totalProviders} (${defaultEnabled.length} enabled by default)`);
+      console.log(`  Default: ${defaultEnabled.length > 0 ? defaultEnabled.join(', ') : 'none'}`);
       console.log('');
     }
 

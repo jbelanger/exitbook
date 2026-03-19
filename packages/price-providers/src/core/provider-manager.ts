@@ -25,6 +25,9 @@ import type {
 import { MAX_PRICE_QUERY_DEPTH } from './types.js';
 import { createCacheKey } from './utils.js';
 
+/** Internal query type used only within this module to thread recursion depth */
+type InternalPriceQuery = PriceQuery & { _depth?: number | undefined };
+
 const logger = getLogger('PriceProviderManager');
 
 /**
@@ -108,7 +111,7 @@ export class PriceProviderManager {
 
     // Convert stablecoin-denominated prices to USD
     // Depth guard prevents infinite recursion (stablecoin rate lookup is depth 1)
-    const depth = query._depth ?? 0;
+    const depth = (query as InternalPriceQuery)._depth ?? 0;
     if (isStablecoin(result.value.data.currency) && depth < MAX_PRICE_QUERY_DEPTH) {
       return await this.convertStablecoinPriceToUSD(result.value, query.timestamp, depth);
     }
@@ -288,12 +291,13 @@ export class PriceProviderManager {
     // Fetch stablecoin/USD rate using recursive call to fetchPrice
     // This tries ALL providers with automatic failover
     // Safe because we check !query.asset.isStablecoin() before calling this method
-    const stablecoinPriceResult = await this.fetchPrice({
+    const internalQuery: InternalPriceQuery = {
       assetSymbol: stablecoin,
       currency: 'USD' as Currency,
       timestamp,
       _depth: depth + 1,
-    });
+    };
+    const stablecoinPriceResult = await this.fetchPrice(internalQuery);
 
     let conversionRate = priceData.price;
     let conversionSource: string;

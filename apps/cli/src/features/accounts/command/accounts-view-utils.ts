@@ -3,9 +3,6 @@ import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../
 
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 
-/**
- * Convert an AccountSummary to an AccountViewItem for TUI display.
- */
 export function toAccountViewItem(account: AccountSummary, sessions?: Map<number, SessionSummary[]>): AccountViewItem {
   const childAccounts: ChildAccountViewItem[] | undefined = account.childAccounts?.map((child) => ({
     id: child.id,

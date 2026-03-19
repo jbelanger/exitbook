@@ -67,9 +67,6 @@ function applyNavigationUpdate(
   return { ...state, ...updates, error: undefined };
 }
 
-/**
- * Reducer function for state updates
- */
 export function linksViewReducer(state: LinksViewState, action: LinksViewAction): LinksViewState {
   if (isListNavigationAction(action)) {
     const nav = reduceListNavigation(
@@ -230,9 +227,6 @@ function normalizeScrollOffset(scrollOffset: number, itemCount: number): number 
   return Math.min(scrollOffset, itemCount - 1);
 }
 
-/**
- * Handle keyboard input
- */
 export function linksViewHandleKeyboardInput(
   input: string,
   key: {

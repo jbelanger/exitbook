@@ -17,9 +17,6 @@ import type { ProvidersViewState } from './providers-view-state.js';
  */
 type ProvidersViewAction = ListNavigationAction;
 
-/**
- * Reducer function for providers view state
- */
 export function providersViewReducer(state: ProvidersViewState, action: ProvidersViewAction): ProvidersViewState {
   const nav = reduceListNavigation(
     { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
@@ -29,9 +26,6 @@ export function providersViewReducer(state: ProvidersViewState, action: Provider
   return { ...state, ...nav };
 }
 
-/**
- * Handle keyboard input for providers view
- */
 export function handleProvidersKeyboardInput(
   input: string,
   key: {
