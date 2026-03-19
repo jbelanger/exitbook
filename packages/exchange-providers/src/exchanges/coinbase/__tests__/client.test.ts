@@ -125,10 +125,20 @@ describe('createCoinbaseClient - Factory', () => {
     }
   });
 
-  test('returns error with non-ECDSA private key', () => {
+  test('creates client with PKCS#8 private key', () => {
     const credentials = {
       apiKey: 'organizations/test-org/apiKeys/test-key',
       apiSecret: '-----BEGIN PRIVATE KEY-----\nMHcCAQEEITest123\n-----END PRIVATE KEY-----',
+    };
+
+    const result = createCoinbaseClient(credentials);
+    expect(result.isOk()).toBe(true);
+  });
+
+  test('returns error with unsupported private key PEM', () => {
+    const credentials = {
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      apiSecret: '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAtest\n-----END RSA PRIVATE KEY-----',
     };
 
     const result = createCoinbaseClient(credentials);

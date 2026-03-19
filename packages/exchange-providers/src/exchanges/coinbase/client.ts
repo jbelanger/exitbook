@@ -13,6 +13,8 @@ import { CoinbaseAccountSchema, CoinbaseCredentialsSchema, RawCoinbaseLedgerEntr
 import type { CoinbaseAccount } from './schemas.js';
 
 const logger = getLogger('CoinbaseClient');
+const EC_PRIVATE_KEY_HEADER = '-----BEGIN EC PRIVATE KEY-----';
+const PKCS8_PRIVATE_KEY_HEADER = '-----BEGIN PRIVATE KEY-----';
 
 /** Coinbase Advanced Trade API rate limit: ~5 req/s (conservative for v2 endpoints) */
 const COINBASE_RATE_LIMIT = {
@@ -40,13 +42,14 @@ function validateCoinbaseCredentials(apiKey: string, secret: string): Result<voi
     );
   }
 
-  if (!secret.includes('-----BEGIN EC PRIVATE KEY-----')) {
+  if (!secret.includes(EC_PRIVATE_KEY_HEADER) && !secret.includes(PKCS8_PRIVATE_KEY_HEADER)) {
     return err(
       new Error(
         `Invalid Coinbase private key format. Expected ECDSA PEM key, got: ${secret.substring(0, 50)}...\n\n` +
           `Requirements:\n` +
           `   • Must be ECDSA key (NOT Ed25519)\n` +
           `   • Must be in PEM format: -----BEGIN EC PRIVATE KEY-----\\n...\\n-----END EC PRIVATE KEY-----\n` +
+          `     or: -----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\n` +
           `   • When passing via CLI, use escaped newlines: "-----BEGIN EC PRIVATE KEY-----\\n..."\n\n` +
           `Example CLI format:\n` +
           `   --api-secret "-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEE...\\n-----END EC PRIVATE KEY-----"`
