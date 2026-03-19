@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, sha256Hex, type Result } from '@exitbook/core';
 
 import { buildCostBasisFilingFacts } from '../filing-facts/filing-facts-builder.js';
 import type { CostBasisFilingFacts } from '../filing-facts/filing-facts-types.js';
@@ -118,7 +118,7 @@ async function backfillArtifactIndexHashes(
     return err(new Error('Tax package build result is missing manifest.json'));
   }
 
-  const artifactIndexResult = await withArtifactHashes(buildResult.manifest.artifactIndex, filesByPath);
+  const artifactIndexResult = withArtifactHashes(buildResult.manifest.artifactIndex, filesByPath);
   if (artifactIndexResult.isErr()) {
     return err(artifactIndexResult.error);
   }
@@ -138,29 +138,27 @@ async function backfillArtifactIndexHashes(
   });
 }
 
-async function withArtifactHashes(
+function withArtifactHashes(
   artifactIndex: readonly TaxPackageManifest['artifactIndex'][number][],
   filesByPath: ReadonlyMap<string, TaxPackageFile>
-): Promise<Result<TaxPackageManifest['artifactIndex'], Error>> {
+): Result<TaxPackageManifest['artifactIndex'], Error> {
   try {
-    const hashedEntries = await Promise.all(
-      artifactIndex.map(async (entry) => {
-        if (entry.relativePath === 'manifest.json') {
-          const { sha256: _ignoredSha256, ...manifestEntry } = entry;
-          return manifestEntry;
-        }
+    const hashedEntries = artifactIndex.map((entry) => {
+      if (entry.relativePath === 'manifest.json') {
+        const { sha256: _ignoredSha256, ...manifestEntry } = entry;
+        return manifestEntry;
+      }
 
-        const file = filesByPath.get(entry.relativePath);
-        if (!file) {
-          throw new Error(`Tax package artifact index references missing file '${entry.relativePath}'`);
-        }
+      const file = filesByPath.get(entry.relativePath);
+      if (!file) {
+        throw new Error(`Tax package artifact index references missing file '${entry.relativePath}'`);
+      }
 
-        return {
-          ...entry,
-          sha256: await computeSha256(file.content),
-        };
-      })
-    );
+      return {
+        ...entry,
+        sha256: sha256Hex(file.content),
+      };
+    });
 
     return ok(hashedEntries);
   } catch (error) {
@@ -171,9 +169,4 @@ async function withArtifactHashes(
 function serializeManifest(manifest: TaxPackageManifest): string {
   // eslint-disable-next-line unicorn/no-null -- needed here for JSON formatting
   return `${JSON.stringify(manifest, null, 2)}\n`;
-}
-
-async function computeSha256(content: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

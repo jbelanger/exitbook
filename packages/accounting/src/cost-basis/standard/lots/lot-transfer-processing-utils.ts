@@ -1,5 +1,12 @@
-import { parseDecimal, type AssetMovementDraft, type Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import {
+  err,
+  ok,
+  parseDecimal,
+  randomUUID,
+  type AssetMovementDraft,
+  type Result,
+  type Transaction,
+} from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
@@ -282,7 +289,7 @@ export function processTransferSource(
       }
 
       transfers.push({
-        id: globalThis.crypto.randomUUID(),
+        id: randomUUID(),
         calculationId,
         sourceLotId: lotDisposal.lotId,
         provenance: {
@@ -444,7 +451,7 @@ export function processTransferTarget(
 
   const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
   const lot = createAcquisitionLot({
-    id: globalThis.crypto.randomUUID(),
+    id: randomUUID(),
     calculationId,
     acquisitionTransactionId: rawTransaction.id,
     assetId: inflow.assetId,

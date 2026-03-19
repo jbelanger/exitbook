@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@exitbook/core';
 
 /**
  * Minimum fields required for generating unique transaction IDs.
@@ -72,5 +72,5 @@ export function generateUniqueTransactionEventId(tx: TransactionIdFields): strin
     parts.push(tx.logIndex.toString());
   }
 
-  return createHash('sha256').update(parts.join('|')).digest('hex');
+  return sha256Hex(parts.join('|'));
 }

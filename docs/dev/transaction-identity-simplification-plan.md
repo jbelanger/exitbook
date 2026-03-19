@@ -200,7 +200,7 @@ Canonical output:
 txFingerprint = sha256(canonicalMaterial) // hex digest
 ```
 
-SHA-256 hashing must use the Web Crypto API (`globalThis.crypto.subtle.digest`), not `node:crypto`, because `@exitbook/core` must remain runtime-agnostic (React Native target is planned). The `computeTxFingerprint` and `computeAccountFingerprint` helpers in core should accept/return `Promise<Result<string, Error>>` to accommodate the async Web Crypto API.
+SHA-256 hashing should live behind shared `@exitbook/core` helpers backed by `@noble/hashes`, not `node:crypto`, because `@exitbook/core` must remain runtime-agnostic (React Native target is planned). With a synchronous hashing backend, `computeTxFingerprint` and `computeAccountFingerprint` can remain synchronous and return `Result<string, Error>`.
 
 Where:
 
@@ -355,20 +355,16 @@ Steps:
 Pseudo-code:
 
 ```ts
-export async function computeAccountFingerprint(account: Account): Promise<string> {
+export function computeAccountFingerprint(account: Account): string {
   const material = `${account.accountType}|${account.sourceName}|${account.identifier.trim()}`;
-  const encoded = new TextEncoder().encode(material);
-  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', encoded);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return sha256Hex(material);
 }
 ```
 
 Implementation note:
 
 - do not reuse `computeAccountHash()` from `packages/data/src/utils/account-hash.ts`
-- use Web Crypto API (`globalThis.crypto.subtle`), not `node:crypto` — core must stay runtime-agnostic
+- use shared `@exitbook/core` crypto helpers backed by `@noble/hashes`, not `node:crypto`
 
 ## 2. Split Persisted Transaction Shape From Processor Output
 
@@ -531,7 +527,7 @@ Implementation rules:
    - require `blockchainTransactionHash`
    - build canonical material:
      - `${accountFingerprint}|blockchain|${source}|${blockchainTransactionHash}`
-   - return SHA-256 hex via Web Crypto (`globalThis.crypto.subtle.digest`)
+   - return SHA-256 hex via shared core helper `sha256Hex()`
 3. Exchange branch:
    - require `componentEventIds`
    - trim and sort them
@@ -539,7 +535,7 @@ Implementation rules:
    - do not dedupe them
    - build canonical material:
      - `${accountFingerprint}|exchange|${source}|${sortedComponentEventIds.join('|')}`
-   - return SHA-256 hex via Web Crypto (`globalThis.crypto.subtle.digest`)
+   - return SHA-256 hex via shared core helper `sha256Hex()`
 4. Reject:
    - empty `accountFingerprint`
    - empty `source`
@@ -862,7 +858,7 @@ The refactor is safe to merge only when all of the following are true:
 - transaction CLI views can locate and display transactions using `txFingerprint`
 - repository duplicate detection uses the new `txFingerprint` formula only
 - any pre-change `overrides.db` has been deleted before rebuilding with the new fingerprint formula
-- no `node:crypto` imports in `@exitbook/core` — fingerprint hashing uses Web Crypto API
+- no `node:crypto` imports in `@exitbook/core` — fingerprint hashing uses shared `@noble/hashes`-backed helpers
 
 ## Decisions Captured By This Plan
 
@@ -878,7 +874,7 @@ The refactor is safe to merge only when all of the following are true:
 - exchange v1 fingerprints use the grouped raw `event_id` set exactly as imported
 - duplicate-insensitive exchange raw-event canonicalization is deferred to a follow-up phase
 - pre-change `overrides.db` data is incompatible and must be deleted before rebuilding from a clean dataset
-- SHA-256 hashing uses Web Crypto API (`globalThis.crypto.subtle`), not `node:crypto`, to keep `@exitbook/core` runtime-agnostic
+- SHA-256 hashing uses shared `@noble/hashes`-backed helpers in `@exitbook/core`, not `node:crypto`, to keep `@exitbook/core` runtime-agnostic
 
 ## Naming Notes
 

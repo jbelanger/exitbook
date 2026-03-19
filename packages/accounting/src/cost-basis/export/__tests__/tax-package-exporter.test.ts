@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/core';
+import { ok, sha256Hex } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
@@ -28,14 +28,12 @@ describe('exportTaxPackage', () => {
           now: () => new Date('2026-03-15T14:00:00.000Z'),
           writer: {
             writeAll: async (files) => {
-              const writtenFiles = await Promise.all(
-                files.map(async (file) => ({
-                  ...file,
-                  absolutePath: `/tmp/${file.relativePath}`,
-                  bytesWritten: Buffer.byteLength(file.content, 'utf8'),
-                  sha256: await computeSha256(file.content),
-                }))
-              );
+              const writtenFiles = files.map((file) => ({
+                ...file,
+                absolutePath: `/tmp/${file.relativePath}`,
+                bytesWritten: Buffer.byteLength(file.content, 'utf8'),
+                sha256: sha256Hex(file.content),
+              }));
               capturedWrites.push(...writtenFiles);
               return ok(writtenFiles);
             },
@@ -92,14 +90,12 @@ describe('exportTaxPackage', () => {
           now: () => new Date('2026-03-15T14:00:00.000Z'),
           writer: {
             writeAll: async (files) => {
-              const writtenFiles = await Promise.all(
-                files.map(async (file) => ({
-                  ...file,
-                  absolutePath: `/tmp/${file.relativePath}`,
-                  bytesWritten: Buffer.byteLength(file.content, 'utf8'),
-                  sha256: await computeSha256(file.content),
-                }))
-              );
+              const writtenFiles = files.map((file) => ({
+                ...file,
+                absolutePath: `/tmp/${file.relativePath}`,
+                bytesWritten: Buffer.byteLength(file.content, 'utf8'),
+                sha256: sha256Hex(file.content),
+              }));
               capturedWrites.push(...writtenFiles);
               return ok(writtenFiles);
             },
@@ -122,11 +118,6 @@ describe('exportTaxPackage', () => {
     expect(lotsEntry?.sha256).toBe(lotsFile?.sha256);
   });
 });
-
-async function computeSha256(content: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
 
 function neverScope(): never {
   throw new Error('Expected canada-workflow scope');

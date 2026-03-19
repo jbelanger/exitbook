@@ -1,5 +1,5 @@
 import { parseDecimal, type Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, randomUUID, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
@@ -349,7 +349,7 @@ export function buildCostBasisSnapshotRecord(
     return err(new Error('Cannot persist a cost-basis snapshot without fresh upstream projection timestamps'));
   }
 
-  const snapshotId = globalThis.crypto.randomUUID();
+  const snapshotId = randomUUID();
   const createdAt = new Date();
   let debug: CostBasisArtifactDebugPayload;
   let envelope: StoredArtifactEnvelope;

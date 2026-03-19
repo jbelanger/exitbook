@@ -4,9 +4,9 @@ import { err, ok, type Result } from '../result/index.js';
 import { getErrorMessage, sha256Hex } from '../utils/index.js';
 
 // Wrap the raw sha256Hex in Result for fingerprint use
-async function sha256Result(material: string): Promise<Result<string, Error>> {
+function sha256Result(material: string): Result<string, Error> {
   try {
-    return ok(await sha256Hex(material));
+    return ok(sha256Hex(material));
   } catch (error) {
     return err(new Error(`Failed to compute SHA-256 fingerprint: ${getErrorMessage(error)}`));
   }
@@ -28,7 +28,7 @@ export interface AccountFingerprintInput {
  * Derived from semantic account identity material — not database IDs.
  * Deterministic across rebuilds for the same account type/source/identifier.
  */
-export async function computeAccountFingerprint(input: AccountFingerprintInput): Promise<Result<string, Error>> {
+export function computeAccountFingerprint(input: AccountFingerprintInput): Result<string, Error> {
   const { accountType, sourceName, identifier } = input;
   const trimmedAccountType = accountType.trim();
   const trimmedSourceName = sourceName.trim();
@@ -68,7 +68,7 @@ export interface TransactionFingerprintInput {
  * Blockchain: sha256(accountFingerprint|blockchain|source|transactionHash)
  * Exchange:   sha256(accountFingerprint|exchange|source|sortedEventId1|sortedEventId2|...)
  */
-export async function computeTxFingerprint(input: TransactionFingerprintInput): Promise<Result<string, Error>> {
+export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
   const { accountFingerprint, source, sourceType } = input;
   const trimmedAccountFingerprint = accountFingerprint.trim();
   const trimmedSource = source.trim();
@@ -158,7 +158,7 @@ export interface MovementFingerprintInput {
  * ordering. Exact duplicates are intentionally treated as interchangeable and
  * only receive a bucket-local occurrence suffix.
  */
-export async function computeMovementFingerprint(input: MovementFingerprintInput): Promise<Result<string, Error>> {
+export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
   const { txFingerprint, canonicalMaterial, duplicateOccurrence } = input;
 
   if (!txFingerprint || txFingerprint.trim() === '') {
@@ -173,7 +173,7 @@ export async function computeMovementFingerprint(input: MovementFingerprintInput
     return err(new Error(`duplicateOccurrence must be a positive integer, got ${duplicateOccurrence}`));
   }
 
-  const contentHashResult = await sha256Result(canonicalMaterial);
+  const contentHashResult = sha256Result(canonicalMaterial);
   if (contentHashResult.isErr()) {
     return err(contentHashResult.error);
   }

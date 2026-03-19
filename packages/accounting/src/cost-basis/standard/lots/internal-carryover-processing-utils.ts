@@ -1,5 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, parseDecimal, randomUUID, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
@@ -141,7 +140,7 @@ export function processFeeOnlyInternalCarryoverSource(
       }
 
       transfers.push({
-        id: globalThis.crypto.randomUUID(),
+        id: randomUUID(),
         calculationId,
         sourceLotId: lotDisposal.lotId,
         provenance: {
@@ -297,7 +296,7 @@ export function processFeeOnlyInternalCarryoverTarget(
 
   const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
   const lot = createAcquisitionLot({
-    id: globalThis.crypto.randomUUID(),
+    id: randomUUID(),
     calculationId,
     acquisitionTransactionId: targetTransaction.tx.id,
     assetId: targetInflow.assetId,

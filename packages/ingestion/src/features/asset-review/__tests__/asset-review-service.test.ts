@@ -1,7 +1,10 @@
-import { createHash } from 'node:crypto';
-
 import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
-import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial, parseDecimal } from '@exitbook/core';
+import {
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  parseDecimal,
+  sha256Hex,
+} from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,7 +16,7 @@ function materializeMovementFingerprint(
   canonicalMaterial: string,
   duplicateOccurrence: number
 ): string {
-  return `movement:${txFingerprint}:${createHash('sha256').update(canonicalMaterial).digest('hex')}:${duplicateOccurrence}`;
+  return `movement:${txFingerprint}:${sha256Hex(canonicalMaterial)}:${duplicateOccurrence}`;
 }
 
 function createTransaction(params: {

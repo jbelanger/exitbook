@@ -183,7 +183,7 @@ movementFingerprint = `movement:${txFingerprint}:${movementContentHash}:${duplic
 
 Implication:
 
-- `computeMovementFingerprint()` becomes async, like `computeTxFingerprint()`
+- `computeMovementFingerprint()` stays synchronous, like `computeTxFingerprint()`
 
 ### 5. Canonical Ordering
 
@@ -231,7 +231,7 @@ Changes:
 - replace `MovementFingerprintInput.position` with:
   - `canonicalMaterial`
   - `duplicateOccurrence`
-- make `computeMovementFingerprint()` async
+- keep `computeMovementFingerprint()` synchronous
 - add validation:
   - `txFingerprint` must not be empty
   - `canonicalMaterial` must not be empty
@@ -247,8 +247,8 @@ export interface MovementFingerprintInput {
   duplicateOccurrence: number;
 }
 
-export async function computeMovementFingerprint(input: MovementFingerprintInput): Promise<Result<string, Error>> {
-  const contentHash = await sha256Hex(input.canonicalMaterial);
+export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
+  const contentHash = sha256Hex(input.canonicalMaterial);
   return ok(`movement:${input.txFingerprint}:${contentHash}:${input.duplicateOccurrence}`);
 }
 ```
@@ -303,7 +303,7 @@ Functions to update:
 Concrete changes:
 
 - remove `position` from movement-row insert values
-- make `buildMovementRows()` async
+- keep `buildMovementRows()` synchronous
 - compute canonical material for each movement before insert
 - assign duplicate occurrence within exact canonical-material buckets
 - compute the persisted `movement_fingerprint` from:
@@ -321,7 +321,7 @@ for each inflow in transaction.movements.inflows:
   bucketKey = canonicalMaterial
   occurrence = (duplicateCounts.get(bucketKey) ?? 0) + 1
   duplicateCounts.set(bucketKey, occurrence)
-  movementFingerprint = await computeMovementFingerprint({
+  movementFingerprint = computeMovementFingerprint({
     txFingerprint,
     canonicalMaterial,
     duplicateOccurrence: occurrence,
@@ -493,7 +493,7 @@ Suggested command-level workflow for verification after landing:
 
 Implement in this order:
 
-1. add the new movement canonical-material helpers and async fingerprint contract in core
+1. add the new movement canonical-material helpers and synchronous fingerprint contract in core
 2. remove `transaction_movements.position` from schema and initial migration
 3. update repository write paths to assign duplicate occurrence and persist the new fingerprint
 4. update repository read paths to canonical in-memory ordering

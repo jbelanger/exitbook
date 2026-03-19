@@ -344,11 +344,11 @@ function buildCanonicalMovementEntries<TMovement>(
   return entries.sort(compareCanonicalMovementEntries);
 }
 
-async function buildMovementRows(
+function buildMovementRows(
   transaction: TransactionDraft,
   transactionId: number,
   txFingerprint: string
-): Promise<Result<Insertable<TransactionMovementsTable>[], Error>> {
+): Result<Insertable<TransactionMovementsTable>[], Error> {
   const inflows = transaction.movements.inflows ?? [];
   const outflows = transaction.movements.outflows ?? [];
   const fees = transaction.fees ?? [];
@@ -364,7 +364,7 @@ async function buildMovementRows(
     })
   );
   for (const inflowEntry of inflowEntries) {
-    const movementFingerprintResult = await computeMovementFingerprint({
+    const movementFingerprintResult = computeMovementFingerprint({
       txFingerprint,
       canonicalMaterial: inflowEntry.canonicalMaterial,
       duplicateOccurrence: inflowEntry.duplicateOccurrence,
@@ -387,7 +387,7 @@ async function buildMovementRows(
     })
   );
   for (const outflowEntry of outflowEntries) {
-    const movementFingerprintResult = await computeMovementFingerprint({
+    const movementFingerprintResult = computeMovementFingerprint({
       txFingerprint,
       canonicalMaterial: outflowEntry.canonicalMaterial,
       duplicateOccurrence: outflowEntry.duplicateOccurrence,
@@ -410,7 +410,7 @@ async function buildMovementRows(
     })
   );
   for (const feeEntry of feeEntries) {
-    const movementFingerprintResult = await computeMovementFingerprint({
+    const movementFingerprintResult = computeMovementFingerprint({
       txFingerprint,
       canonicalMaterial: feeEntry.canonicalMaterial,
       duplicateOccurrence: feeEntry.duplicateOccurrence,
@@ -507,12 +507,12 @@ function sortMovementRowsByCanonicalIdentity(rows: MovementRow[]): Result<Moveme
   return ok(sortableRows.map((entry) => entry.row));
 }
 
-async function buildInsertValues(
+function buildInsertValues(
   transaction: TransactionDraft,
   accountFingerprint: string,
   accountId: number,
   createdAt?: string
-): Promise<Result<BuildInsertValuesResult, Error>> {
+): Result<BuildInsertValuesResult, Error> {
   if (transaction.notes !== undefined) {
     const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
     if (!notesValidation.success) {
@@ -540,7 +540,7 @@ async function buildInsertValues(
     return err(notesJsonResult.error);
   }
 
-  const txFingerprintResult = await deriveTransactionFingerprint(transaction, accountFingerprint);
+  const txFingerprintResult = deriveTransactionFingerprint(transaction, accountFingerprint);
   if (txFingerprintResult.isErr()) {
     return err(txFingerprintResult.error);
   }
@@ -661,7 +661,7 @@ export class TransactionRepository extends BaseRepository {
       return err(accountFingerprintResult.error);
     }
 
-    const valuesResult = await buildInsertValues(transaction, accountFingerprintResult.value, accountId);
+    const valuesResult = buildInsertValues(transaction, accountFingerprintResult.value, accountId);
     if (valuesResult.isErr()) {
       return err(valuesResult.error);
     }
@@ -690,7 +690,7 @@ export class TransactionRepository extends BaseRepository {
 
       const transactionId = txResult.id;
 
-      const movementRowsResult = await buildMovementRows(transaction, transactionId, txFingerprint);
+      const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
       if (movementRowsResult.isErr()) {
         return err(movementRowsResult.error);
       }
@@ -730,7 +730,7 @@ export class TransactionRepository extends BaseRepository {
       let duplicates = 0;
 
       for (const [index, transaction] of transactions.entries()) {
-        const valuesResult = await buildInsertValues(transaction, accountFingerprintResult.value, accountId, createdAt);
+        const valuesResult = buildInsertValues(transaction, accountFingerprintResult.value, accountId, createdAt);
         if (valuesResult.isErr()) {
           return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
         }
@@ -763,7 +763,7 @@ export class TransactionRepository extends BaseRepository {
         }
 
         if (!isDuplicate) {
-          const movementRowsResult = await buildMovementRows(transaction, transactionId, txFingerprint);
+          const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
           if (movementRowsResult.isErr()) {
             return err(movementRowsResult.error);
           }
@@ -958,7 +958,7 @@ export class TransactionRepository extends BaseRepository {
         accountId: undefined,
       } as Omit<Transaction, 'id' | 'accountId'>;
 
-      const movementRowsResult = await buildMovementRows(
+      const movementRowsResult = buildMovementRows(
         transactionForMovementRebuild,
         transaction.id,
         txExists.tx_fingerprint

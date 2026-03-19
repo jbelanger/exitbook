@@ -1,9 +1,8 @@
-import crypto from 'node:crypto';
 import type { Dirent } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { getErrorMessage, type RawTransactionInput } from '@exitbook/core';
+import { getErrorMessage, sha256Hex, type RawTransactionInput } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
 
@@ -675,7 +674,7 @@ export class KucoinCsvImporter implements IImporter {
    */
   private generateEventId(type: string, timestamp: string, currency: string, amount: string): string {
     const data = `${type}-${timestamp}-${currency}-${amount}`;
-    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+    return sha256Hex(data).substring(0, 16);
   }
 
   /**

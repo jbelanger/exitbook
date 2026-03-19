@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type {
   BlockchainProviderManager,
   FailoverExecutionResult,
@@ -14,16 +12,17 @@ import type {
   Transaction,
   TransactionDraft,
 } from '@exitbook/core';
-import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial, parseDecimal } from '@exitbook/core';
+import {
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  parseDecimal,
+  sha256Hex,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BalancePorts } from '../../../ports/balance-ports.js';
 import { BalanceWorkflow } from '../balance-workflow.js';
-
-function sha256Hex(material: string): string {
-  return createHash('sha256').update(material).digest('hex');
-}
 
 function materializeMovementFingerprint(
   txFingerprint: string,

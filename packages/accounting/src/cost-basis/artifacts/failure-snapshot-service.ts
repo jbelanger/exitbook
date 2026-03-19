@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, randomUUID, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type {
@@ -41,7 +41,7 @@ export async function persistCostBasisFailureSnapshot(
   }
 
   const scopeKey = buildCostBasisScopeKey(config);
-  const snapshotId = globalThis.crypto.randomUUID();
+  const snapshotId = randomUUID();
   const timestamp = new Date();
   const snapshot: CostBasisFailureSnapshotRecord = {
     scopeKey,

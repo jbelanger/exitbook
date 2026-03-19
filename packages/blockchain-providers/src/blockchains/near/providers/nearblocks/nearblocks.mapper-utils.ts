@@ -5,10 +5,8 @@
  * to provider-agnostic types. Correlation logic is handled separately in the processor.
  */
 
-import { createHash } from 'node:crypto';
-
 import type { Result } from '@exitbook/core';
-import { ok, err } from '@exitbook/core';
+import { ok, err, sha256Hex } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
@@ -79,13 +77,13 @@ function generateEventId(
         return `token-transfers:${txHash}:${ft.event_index}`;
       }
       const rawJson = JSON.stringify(sortKeys(data));
-      const hash = createHash('sha256').update(rawJson).digest('hex');
+      const hash = sha256Hex(rawJson);
       return `token-transfers:${txHash}:${hash}`;
     }
 
     case 'balance-changes': {
       const rawJson = JSON.stringify(sortKeys(data));
-      const hash = createHash('sha256').update(rawJson).digest('hex');
+      const hash = sha256Hex(rawJson);
       return `${type}:${hash}`;
     }
   }
