@@ -5,7 +5,7 @@ import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.
 import { CANADA_JURISDICTION_CONFIG } from './canada/config.js';
 import { CanadaRules } from './canada/rules.js';
 import { runCanadaCostBasisCalculation } from './canada/workflow/run-canada-cost-basis-calculation.js';
-import { requireJurisdictionConfig } from './jurisdiction-configs.js';
+import { EU_JURISDICTION_CONFIG, UK_JURISDICTION_CONFIG } from './jurisdiction-configs.js';
 import type { ICostBasisJurisdictionModule, RunCostBasisJurisdictionWorkflowInput } from './jurisdiction-module.js';
 import type { IJurisdictionRules } from './jurisdiction-rules.js';
 import { US_JURISDICTION_CONFIG } from './us/config.js';
@@ -57,7 +57,7 @@ const COST_BASIS_JURISDICTION_MODULES: Record<string, ICostBasisJurisdictionModu
   },
   UK: {
     code: 'UK',
-    config: requireJurisdictionConfig('UK'),
+    config: UK_JURISDICTION_CONFIG,
     createRules: () => err(new Error('UK jurisdiction rules not yet implemented')),
     workflow: {
       kind: 'standard',
@@ -66,7 +66,7 @@ const COST_BASIS_JURISDICTION_MODULES: Record<string, ICostBasisJurisdictionModu
   },
   EU: {
     code: 'EU',
-    config: requireJurisdictionConfig('EU'),
+    config: EU_JURISDICTION_CONFIG,
     createRules: () => err(new Error('EU jurisdiction rules not yet implemented')),
     workflow: {
       kind: 'standard',

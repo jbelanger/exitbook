@@ -4,7 +4,7 @@ import type { Decimal } from 'decimal.js';
 
 import type { LotTransfer } from '../../model/schemas.js';
 
-import { getVarianceTolerance } from './lot-sorting-utils.js';
+import { getVarianceTolerance } from './transaction-dependency-sorting.js';
 
 /**
  * Validate transfer variance between source and target amounts

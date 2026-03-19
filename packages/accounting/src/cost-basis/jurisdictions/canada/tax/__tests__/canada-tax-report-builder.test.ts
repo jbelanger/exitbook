@@ -89,7 +89,7 @@ describe('canada-tax-report-builder', () => {
         calculation: createCalculation(),
         inputContext,
         acbEngineResult,
-        poolSnapshot: acbEngineResult,
+        poolStateEngineResult: acbEngineResult,
       })
     );
 
@@ -155,7 +155,7 @@ describe('canada-tax-report-builder', () => {
         calculation: createCalculation(),
         inputContext,
         acbEngineResult,
-        poolSnapshot: acbEngineResult,
+        poolStateEngineResult: acbEngineResult,
       })
     );
 
@@ -200,7 +200,7 @@ describe('canada-tax-report-builder', () => {
         calculation: createCalculation(),
         inputContext,
         acbEngineResult,
-        poolSnapshot: acbEngineResult,
+        poolStateEngineResult: acbEngineResult,
       })
     );
 

@@ -43,7 +43,7 @@ export function buildCanadaTaxReport(params: {
   acbEngineResult: CanadaAcbEngineResult;
   calculation: CanadaCostBasisCalculation;
   inputContext: CanadaTaxInputContext;
-  poolSnapshot: CanadaAcbEngineResult;
+  poolStateEngineResult: CanadaAcbEngineResult;
   superficialLossEngineResult?: CanadaSuperficialLossEngineResult | undefined;
 }): Result<CanadaTaxReport, Error> {
   const acquisitionEvents = new Map(
@@ -59,7 +59,7 @@ export function buildCanadaTaxReport(params: {
   );
 
   const acquisitions: CanadaTaxReportAcquisition[] = [];
-  for (const pool of params.poolSnapshot.pools) {
+  for (const pool of params.poolStateEngineResult.pools) {
     for (const layer of pool.acquisitionLayers) {
       const acquisitionEvent = acquisitionEvents.get(layer.acquisitionEventId);
       if (!acquisitionEvent) {

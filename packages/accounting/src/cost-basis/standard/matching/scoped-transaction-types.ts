@@ -1,0 +1,43 @@
+import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
+import type { Decimal } from 'decimal.js';
+
+export interface ScopedFeeMovement extends FeeMovement {
+  originalTransactionId: number;
+}
+
+export interface AccountingScopedTransaction {
+  tx: Transaction;
+  /**
+   * Raw transaction ids that must accompany this scoped transaction when
+   * rebuilding after price filtering, because same-hash scoping consumed
+   * sibling rows to produce the current scoped shape.
+   */
+  rebuildDependencyTransactionIds: number[];
+  movements: {
+    inflows: AssetMovement[];
+    outflows: AssetMovement[];
+  };
+  fees: ScopedFeeMovement[];
+}
+
+export interface FeeOnlyInternalCarryoverTarget {
+  targetTransactionId: number;
+  targetMovementFingerprint: string;
+  quantity: Decimal;
+}
+
+export interface FeeOnlyInternalCarryover {
+  assetId: string;
+  assetSymbol: Currency;
+  fee: ScopedFeeMovement;
+  retainedQuantity: Decimal;
+  sourceTransactionId: number;
+  sourceMovementFingerprint: string;
+  targets: FeeOnlyInternalCarryoverTarget[];
+}
+
+export interface AccountingScopedBuildResult {
+  inputTransactions: Transaction[];
+  transactions: AccountingScopedTransaction[];
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+}

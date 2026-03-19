@@ -24,7 +24,9 @@ export function getStrategyForMethod(method: CostBasisConfig['method']): Result<
     case 'specific-id': {
       return err(new Error('specific-id cost basis method is not yet implemented'));
     }
+    default: {
+      const _exhaustive: never = method;
+      return err(new Error(`Unsupported cost basis method '${String(_exhaustive)}'`));
+    }
   }
-
-  return err(new Error(`Unsupported cost basis method '${String(method)}'`));
 }

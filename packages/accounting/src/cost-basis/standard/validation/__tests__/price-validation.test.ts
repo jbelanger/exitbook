@@ -4,7 +4,7 @@ import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction } from '../../../../__tests__/test-utils.js';
-import type { AccountingScopedBuildResult } from '../../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedBuildResult } from '../../matching/scoped-transaction-types.js';
 import { assertScopedPriceDataQuality } from '../price-validation.js';
 
 /**

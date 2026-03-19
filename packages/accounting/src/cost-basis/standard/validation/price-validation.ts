@@ -2,10 +2,7 @@ import { isFiat, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
-} from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedBuildResult, AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 const logger = getLogger('cost-basis.standard.validation.price');
 

@@ -117,7 +117,7 @@ export async function runCanadaCostBasisCalculation(
     calculation,
     inputContext: augmentedInputContext,
     acbEngineResult: adjustedAcbEngineResult.value,
-    poolSnapshot: poolSnapshotResult.value,
+    poolStateEngineResult: poolSnapshotResult.value,
     superficialLossEngineResult: superficialLossResult.value,
   });
   if (taxReportResult.isErr()) {

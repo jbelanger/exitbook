@@ -1,7 +1,7 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
   const lines = ['Assets flagged for review require confirmation or exclusion before accounting can proceed:'];

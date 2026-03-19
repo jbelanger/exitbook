@@ -2,7 +2,7 @@ import type { AssetMovement, TransactionLink } from '@exitbook/core';
 import { err, isPartialMatchLinkMetadata, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingScopedTransaction } from './build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from './scoped-transaction-types.js';
 
 export interface ValidatedScopedTransferLink {
   isPartialMatch: boolean;

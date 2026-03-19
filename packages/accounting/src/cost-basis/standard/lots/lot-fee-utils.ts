@@ -7,11 +7,14 @@ import {
   type Transaction,
 } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
+const logger = getLogger('lot-fee-utils');
 
-import { getVarianceTolerance } from './lot-sorting-utils.js';
+import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
+
+import { getVarianceTolerance } from './transaction-dependency-sorting.js';
 
 type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
 
@@ -39,44 +42,40 @@ export function extractCryptoFee(
   transaction: CostBasisTransactionLike,
   assetId: string
 ): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
-  try {
-    let totalAmount = parseDecimal('0');
-    let hasNetwork = false;
-    let hasPlatform = false;
-    let priceAtTxTime: PriceAtTxTime | undefined = undefined;
+  let totalAmount = parseDecimal('0');
+  let hasNetwork = false;
+  let hasPlatform = false;
+  let priceAtTxTime: PriceAtTxTime | undefined = undefined;
 
-    for (const fee of getTransactionFees(transaction)) {
-      if (fee.assetId !== assetId) continue;
+  for (const fee of getTransactionFees(transaction)) {
+    if (fee.assetId !== assetId) continue;
 
-      totalAmount = totalAmount.plus(fee.amount);
-      if (fee.scope === 'network') {
-        hasNetwork = true;
-      } else if (fee.scope === 'platform') {
-        hasPlatform = true;
-      }
-
-      if (!priceAtTxTime) {
-        priceAtTxTime = fee.priceAtTxTime;
-      }
+    totalAmount = totalAmount.plus(fee.amount);
+    if (fee.scope === 'network') {
+      hasNetwork = true;
+    } else if (fee.scope === 'platform') {
+      hasPlatform = true;
     }
 
-    let feeType = 'none';
-    if (hasNetwork && hasPlatform) {
-      feeType = 'network+platform';
-    } else if (hasNetwork) {
-      feeType = 'network';
-    } else if (hasPlatform) {
-      feeType = 'platform';
+    if (!priceAtTxTime) {
+      priceAtTxTime = fee.priceAtTxTime;
     }
-
-    return ok({
-      amount: totalAmount,
-      feeType,
-      priceAtTxTime,
-    });
-  } catch (error) {
-    return err(new Error(`Failed to extract crypto fee: ${error instanceof Error ? error.message : String(error)}`));
   }
+
+  let feeType = 'none';
+  if (hasNetwork && hasPlatform) {
+    feeType = 'network+platform';
+  } else if (hasNetwork) {
+    feeType = 'network';
+  } else if (hasPlatform) {
+    feeType = 'platform';
+  }
+
+  return ok({
+    amount: totalAmount,
+    feeType,
+    priceAtTxTime,
+  });
 }
 
 export function extractAllocatedCryptoFee(
@@ -319,6 +318,7 @@ function calculateMovementValues(
     try {
       return !isFiat(movement.assetSymbol);
     } catch {
+      logger.warn({ assetSymbol: movement.assetSymbol }, 'isFiat check failed, treating as non-fiat');
       return true;
     }
   });

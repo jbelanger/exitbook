@@ -1,4 +1,4 @@
-import type { Currency, AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
+import type { AssetMovement, Currency, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -9,50 +9,20 @@ import {
   planSameHashUtxoSourceCapacities,
 } from '../../../shared/same-hash-utxo-allocation.js';
 
-// ---------------------------------------------------------------------------
-// Types — cost-basis-local, not shared
-// ---------------------------------------------------------------------------
+export type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+  FeeOnlyInternalCarryover,
+  FeeOnlyInternalCarryoverTarget,
+  ScopedFeeMovement,
+} from './scoped-transaction-types.js';
 
-export interface ScopedFeeMovement extends FeeMovement {
-  originalTransactionId: number;
-}
-
-export interface AccountingScopedTransaction {
-  tx: Transaction;
-  /**
-   * Raw transaction ids that must accompany this scoped transaction when
-   * rebuilding after price filtering, because same-hash scoping consumed
-   * sibling rows to produce the current scoped shape.
-   */
-  rebuildDependencyTransactionIds: number[];
-  movements: {
-    inflows: AssetMovement[];
-    outflows: AssetMovement[];
-  };
-  fees: ScopedFeeMovement[];
-}
-
-export interface FeeOnlyInternalCarryoverTarget {
-  targetTransactionId: number;
-  targetMovementFingerprint: string;
-  quantity: Decimal;
-}
-
-export interface FeeOnlyInternalCarryover {
-  assetId: string;
-  assetSymbol: Currency;
-  fee: ScopedFeeMovement;
-  retainedQuantity: Decimal;
-  sourceTransactionId: number;
-  sourceMovementFingerprint: string;
-  targets: FeeOnlyInternalCarryoverTarget[];
-}
-
-export interface AccountingScopedBuildResult {
-  inputTransactions: Transaction[];
-  transactions: AccountingScopedTransaction[];
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
-}
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+  FeeOnlyInternalCarryover,
+  ScopedFeeMovement,
+} from './scoped-transaction-types.js';
 
 // ---------------------------------------------------------------------------
 // Internal grouping types

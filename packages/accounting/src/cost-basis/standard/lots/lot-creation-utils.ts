@@ -1,7 +1,7 @@
 import { err, ok, randomUUID, type AssetMovementDraft, type Result, type Transaction } from '@exitbook/core';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
 import { createAcquisitionLot } from './lot.js';

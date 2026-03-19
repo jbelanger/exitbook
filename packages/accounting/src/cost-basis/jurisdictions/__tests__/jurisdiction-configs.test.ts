@@ -1,3 +1,4 @@
+import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -134,21 +135,17 @@ describe('jurisdiction-configs', () => {
     });
 
     it('lists method capabilities from the shared registry', () => {
-      expect(listCostBasisMethodCapabilitiesForJurisdiction('CA').map((method) => method.code)).toEqual([
-        'average-cost',
-      ]);
-      expect(listCostBasisMethodCapabilitiesForJurisdiction('US').map((method) => method.code)).toEqual([
-        'fifo',
-        'lifo',
-        'specific-id',
-      ]);
+      const caResult = assertOk(listCostBasisMethodCapabilitiesForJurisdiction('CA'));
+      expect(caResult.map((method) => method.code)).toEqual(['average-cost']);
+      const usResult = assertOk(listCostBasisMethodCapabilitiesForJurisdiction('US'));
+      expect(usResult.map((method) => method.code)).toEqual(['fifo', 'lifo', 'specific-id']);
     });
 
     it('returns default method and currency from the shared registry', () => {
-      expect(getDefaultCostBasisMethodForJurisdiction('CA')).toBe('average-cost');
-      expect(getDefaultCostBasisMethodForJurisdiction('US')).toBeUndefined();
-      expect(getDefaultCostBasisCurrencyForJurisdiction('CA')).toBe('CAD');
-      expect(getDefaultCostBasisCurrencyForJurisdiction('US')).toBe('USD');
+      expect(assertOk(getDefaultCostBasisMethodForJurisdiction('CA'))).toBe('average-cost');
+      expect(assertOk(getDefaultCostBasisMethodForJurisdiction('US'))).toBeUndefined();
+      expect(assertOk(getDefaultCostBasisCurrencyForJurisdiction('CA'))).toBe('CAD');
+      expect(assertOk(getDefaultCostBasisCurrencyForJurisdiction('US'))).toBe('USD');
     });
 
     it('keeps supported fiat currencies explicit and ordered', () => {

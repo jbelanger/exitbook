@@ -24,7 +24,6 @@ import {
   extractCryptoFee,
   validateOutflowFees,
 } from '../lot-fee-utils.js';
-import { getVarianceTolerance, sortTransactionsByDependency } from '../lot-sorting-utils.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
@@ -33,6 +32,7 @@ import {
   calculateTransferDisposalAmount,
   validateTransferVariance,
 } from '../lot-transfer-utils.js';
+import { getVarianceTolerance, sortTransactionsByDependency } from '../transaction-dependency-sorting.js';
 
 function createTransactionLink(
   id: number,

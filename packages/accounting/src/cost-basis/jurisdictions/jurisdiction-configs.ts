@@ -1,3 +1,5 @@
+import { err, ok, type Result } from '@exitbook/core';
+
 import type { CostBasisConfig, FiatCurrency } from '../model/cost-basis-config.js';
 import type { CostBasisMethodSupport, JurisdictionConfig } from '../model/types.js';
 
@@ -18,29 +20,33 @@ export const SUPPORTED_COST_BASIS_FIAT_CURRENCIES: FiatCurrency[] = ['USD', 'CAD
  * - UK (HMRC): Fees may constitute disposals, similar to US treatment
  * - EU: Most member states treat fees as disposals, though individual countries may vary
  */
+export const UK_JURISDICTION_CONFIG: JurisdictionConfig = {
+  code: 'UK',
+  label: 'United Kingdom (UK)',
+  defaultCurrency: 'GBP',
+  costBasisImplemented: false,
+  supportedMethods: US_COST_BASIS_METHODS,
+  sameAssetTransferFeePolicy: 'disposal',
+  taxAssetIdentityPolicy: 'strict-onchain-tokens',
+  relaxedTaxIdentitySymbols: [],
+};
+
+export const EU_JURISDICTION_CONFIG: JurisdictionConfig = {
+  code: 'EU',
+  label: 'European Union (EU)',
+  defaultCurrency: 'EUR',
+  costBasisImplemented: false,
+  supportedMethods: US_COST_BASIS_METHODS,
+  sameAssetTransferFeePolicy: 'disposal',
+  taxAssetIdentityPolicy: 'strict-onchain-tokens',
+  relaxedTaxIdentitySymbols: [],
+};
+
 const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {
   US: US_JURISDICTION_CONFIG,
   CA: CANADA_JURISDICTION_CONFIG,
-  UK: {
-    code: 'UK',
-    label: 'United Kingdom (UK)',
-    defaultCurrency: 'GBP',
-    costBasisImplemented: false,
-    supportedMethods: US_COST_BASIS_METHODS,
-    sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    relaxedTaxIdentitySymbols: [],
-  },
-  EU: {
-    code: 'EU',
-    label: 'European Union (EU)',
-    defaultCurrency: 'EUR',
-    costBasisImplemented: false,
-    supportedMethods: US_COST_BASIS_METHODS,
-    sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    relaxedTaxIdentitySymbols: [],
-  },
+  UK: UK_JURISDICTION_CONFIG,
+  EU: EU_JURISDICTION_CONFIG,
 };
 
 /**
@@ -53,13 +59,13 @@ export function getJurisdictionConfig(code: string): JurisdictionConfig | undefi
   return JURISDICTION_CONFIGS[code] ?? undefined;
 }
 
-export function requireJurisdictionConfig(code: JurisdictionConfig['code']): JurisdictionConfig {
+export function requireJurisdictionConfig(code: JurisdictionConfig['code']): Result<JurisdictionConfig, Error> {
   const config = getJurisdictionConfig(code);
   if (!config) {
-    throw new Error(`Jurisdiction config ${code} is not registered`);
+    return err(new Error(`Jurisdiction config ${code} is not registered`));
   }
 
-  return config;
+  return ok(config);
 }
 
 export function listCostBasisJurisdictionCapabilities(): JurisdictionConfig[] {
@@ -68,16 +74,30 @@ export function listCostBasisJurisdictionCapabilities(): JurisdictionConfig[] {
 
 export function listCostBasisMethodCapabilitiesForJurisdiction(
   jurisdiction: CostBasisJurisdiction
-): CostBasisMethodSupport[] {
-  return requireJurisdictionConfig(jurisdiction).supportedMethods;
+): Result<CostBasisMethodSupport[], Error> {
+  const configResult = requireJurisdictionConfig(jurisdiction);
+  if (configResult.isErr()) {
+    return err(configResult.error);
+  }
+  return ok(configResult.value.supportedMethods);
 }
 
-export function getDefaultCostBasisCurrencyForJurisdiction(jurisdiction: CostBasisJurisdiction): FiatCurrency {
-  return requireJurisdictionConfig(jurisdiction).defaultCurrency;
+export function getDefaultCostBasisCurrencyForJurisdiction(
+  jurisdiction: CostBasisJurisdiction
+): Result<FiatCurrency, Error> {
+  const configResult = requireJurisdictionConfig(jurisdiction);
+  if (configResult.isErr()) {
+    return err(configResult.error);
+  }
+  return ok(configResult.value.defaultCurrency);
 }
 
 export function getDefaultCostBasisMethodForJurisdiction(
   jurisdiction: CostBasisJurisdiction
-): CostBasisMethod | undefined {
-  return requireJurisdictionConfig(jurisdiction).defaultMethod;
+): Result<CostBasisMethod | undefined, Error> {
+  const configResult = requireJurisdictionConfig(jurisdiction);
+  if (configResult.isErr()) {
+    return err(configResult.error);
+  }
+  return ok(configResult.value.defaultMethod);
 }

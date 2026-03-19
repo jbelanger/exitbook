@@ -1,7 +1,4 @@
-import type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
-} from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedBuildResult, AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 export interface AccountingExclusionPolicy {
   excludedAssetIds: ReadonlySet<string>;

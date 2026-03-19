@@ -51,7 +51,7 @@ export async function exportTaxPackage(
     return err(buildResult.error);
   }
 
-  const preparedWriteResult = await backfillArtifactIndexHashes(buildResult.value);
+  const preparedWriteResult = backfillArtifactIndexHashes(buildResult.value);
   if (preparedWriteResult.isErr()) {
     return err(preparedWriteResult.error);
   }
@@ -109,9 +109,7 @@ function buildJurisdictionPackage(
   }
 }
 
-async function backfillArtifactIndexHashes(
-  buildResult: TaxPackageBuildResult
-): Promise<Result<TaxPackageBuildResult, Error>> {
+function backfillArtifactIndexHashes(buildResult: TaxPackageBuildResult): Result<TaxPackageBuildResult, Error> {
   const filesByPath = new Map(buildResult.files.map((file) => [file.relativePath, file] as const));
   const manifestFile = filesByPath.get('manifest.json');
   if (!manifestFile) {

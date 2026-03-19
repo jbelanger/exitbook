@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';

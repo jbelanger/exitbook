@@ -7,7 +7,6 @@ export type {
   CostBasisMethodSupport,
   JurisdictionConfig,
   LotDisposal,
-  LotStatus,
   LotTransfer,
   TaxAssetIdentityPolicy,
 } from './schemas.js';

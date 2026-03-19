@@ -223,10 +223,16 @@ export function formatOptionalMoney(value: Decimal): string {
   return value.isZero() ? '' : formatMoney(value);
 }
 
+/** Format an asset quantity (e.g. amount acquired, disposed, transferred). */
 export function formatQuantity(value: Decimal): string {
   return trimTrailingZeros(value.toFixed());
 }
 
+/**
+ * Format a per-unit measure (e.g. cost_basis_per_unit, acb_per_unit).
+ * Currently identical to formatQuantity; kept separate so the two domains
+ * can diverge independently (e.g. fixed-precision rounding for unit prices).
+ */
 export function formatMeasure(value: Decimal): string {
   return trimTrailingZeros(value.toFixed());
 }

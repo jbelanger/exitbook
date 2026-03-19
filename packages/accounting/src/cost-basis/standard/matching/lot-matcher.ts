@@ -10,8 +10,11 @@ import {
 } from '../lots/internal-carryover-processing-utils.js';
 import { buildAcquisitionLotFromInflow } from '../lots/lot-creation-utils.js';
 import { matchOutflowDisposal } from '../lots/lot-disposal-utils.js';
-import { sortTransactionsByDependency, type TransactionDependencyEdge } from '../lots/lot-sorting-utils.js';
 import { processTransferSource, processTransferTarget } from '../lots/lot-transfer-processing-utils.js';
+import {
+  sortTransactionsByDependency,
+  type TransactionDependencyEdge,
+} from '../lots/transaction-dependency-sorting.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import type {

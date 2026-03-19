@@ -39,7 +39,7 @@ export const JurisdictionConfigSchema = z.object({
   varianceTolerance: VarianceToleranceSchema.optional(),
 });
 
-export const LotStatusSchema = z.enum(['open', 'partially_disposed', 'fully_disposed']);
+const LotStatusSchema = z.enum(['open', 'partially_disposed', 'fully_disposed']);
 
 const CalculationStatusSchema = z.enum(['pending', 'completed', 'failed']);
 
@@ -158,7 +158,6 @@ export type AcquisitionLot = z.infer<typeof AcquisitionLotSchema>;
 export type LotDisposal = z.infer<typeof LotDisposalSchema>;
 export type LotTransfer = z.infer<typeof LotTransferSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
-export type LotStatus = z.infer<typeof LotStatusSchema>;
 export type CostBasisMethodSupport = z.infer<typeof CostBasisMethodSupportSchema>;
 export type JurisdictionConfig = z.infer<typeof JurisdictionConfigSchema>;
 export type TaxAssetIdentityPolicy = z.infer<typeof TaxAssetIdentityPolicySchema>;

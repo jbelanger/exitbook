@@ -31,7 +31,7 @@ export function sortTransactionsByDependency(
   transactions: Transaction[],
   edges: TransactionDependencyEdge[]
 ): Result<Transaction[], Error> {
-  const logger = getLogger('lot-sorting-utils:sortTransactionsByDependency');
+  const logger = getLogger('transaction-dependency-sorting:sortTransactionsByDependency');
 
   // Build dependency graph
   const graph = new Map<number, Set<number>>(); // txId → [dependent txIds]

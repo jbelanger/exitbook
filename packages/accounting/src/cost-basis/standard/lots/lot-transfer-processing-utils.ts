@@ -10,7 +10,7 @@ import {
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 import type { ValidatedScopedTransferLink } from '../matching/validated-scoped-transfer-links.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 

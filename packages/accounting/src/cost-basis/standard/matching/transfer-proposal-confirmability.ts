@@ -8,7 +8,7 @@ import {
   type TransferProposalLink,
 } from '../../../linking/shared/transfer-proposals.js';
 
-import type { AccountingScopedTransaction } from './build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from './scoped-transaction-types.js';
 import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
 
 export function validateTransferProposalConfirmability(

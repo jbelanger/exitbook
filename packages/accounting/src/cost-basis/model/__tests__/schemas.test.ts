@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CostBasisMethodSupportSchema, JurisdictionConfigSchema, LotStatusSchema } from '../schemas.js';
+import { AcquisitionLotSchema, CostBasisMethodSupportSchema, JurisdictionConfigSchema } from '../schemas.js';
 
 describe('CostBasisMethodSchema (via CostBasisMethodSupportSchema)', () => {
   const validSupport = { code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true };
@@ -64,15 +64,32 @@ describe('JurisdictionSchema (via JurisdictionConfigSchema)', () => {
   });
 });
 
-describe('LotStatusSchema', () => {
+describe('LotStatusSchema (via AcquisitionLotSchema)', () => {
+  const validLot = {
+    id: '00000000-0000-4000-a000-000000000001',
+    calculationId: '00000000-0000-4000-a000-000000000002',
+    acquisitionTransactionId: 1,
+    assetId: 'test:btc',
+    assetSymbol: 'BTC',
+    quantity: '1.0',
+    costBasisPerUnit: '50000',
+    totalCostBasis: '50000',
+    acquisitionDate: '2024-01-15',
+    method: 'fifo',
+    remainingQuantity: '1.0',
+    status: 'open',
+    createdAt: '2024-01-15',
+    updatedAt: '2024-01-15',
+  };
+
   it('should accept valid statuses', () => {
-    expect(LotStatusSchema.parse('open')).toBe('open');
-    expect(LotStatusSchema.parse('partially_disposed')).toBe('partially_disposed');
-    expect(LotStatusSchema.parse('fully_disposed')).toBe('fully_disposed');
+    for (const status of ['open', 'partially_disposed', 'fully_disposed']) {
+      expect(AcquisitionLotSchema.parse({ ...validLot, status }).status).toBe(status);
+    }
   });
 
   it('should reject invalid statuses', () => {
-    expect(() => LotStatusSchema.parse('closed')).toThrow();
+    expect(() => AcquisitionLotSchema.parse({ ...validLot, status: 'closed' })).toThrow();
   });
 });
 

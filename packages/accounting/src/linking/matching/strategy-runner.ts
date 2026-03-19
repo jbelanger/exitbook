@@ -1,7 +1,7 @@
 import { ok, type NewTransactionLink, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 
-import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
+import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/scoped-transaction-types.js';
 import { filterConfirmableTransferProposals } from '../../cost-basis/standard/matching/transfer-proposal-confirmability.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
 import type { MatchingConfig } from '../shared/types.js';

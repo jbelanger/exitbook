@@ -256,9 +256,10 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
 
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: ValidatedCostBasisConfig;
-      const defaultMethodForJurisdiction = options.jurisdiction
+      const defaultMethodResult = options.jurisdiction
         ? getDefaultCostBasisMethodForJurisdiction(options.jurisdiction as CostBasisJurisdiction)
         : undefined;
+      const defaultMethodForJurisdiction = defaultMethodResult?.isOk() ? defaultMethodResult.value : undefined;
       const needsPrompt =
         !options.jurisdiction || !options.taxYear || (!options.method && !defaultMethodForJurisdiction);
 

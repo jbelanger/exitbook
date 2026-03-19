@@ -33,9 +33,9 @@ function validateMethod(method: string): Result<CostBasisConfig['method'], Error
 function getSelectableMethodsForJurisdiction(
   jurisdiction: CostBasisConfig['jurisdiction']
 ): CostBasisConfig['method'][] {
-  return listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction)
-    .filter((capability) => capability.implemented)
-    .map((capability) => capability.code);
+  const result = listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction);
+  if (result.isErr()) return [];
+  return result.value.filter((capability) => capability.implemented).map((capability) => capability.code);
 }
 
 function resolveMethod(
@@ -140,12 +140,8 @@ export function buildCostBasisInput(fields: {
   const taxYear = taxYearResult.value;
 
   const currency = fields.fiatCurrency
-    ? (() => {
-        const currencyResult = validateFiatCurrency(fields.fiatCurrency);
-        if (currencyResult.isErr()) return currencyResult;
-        return ok(currencyResult.value);
-      })()
-    : ok(getDefaultCostBasisCurrencyForJurisdiction(jurisdiction));
+    ? validateFiatCurrency(fields.fiatCurrency)
+    : getDefaultCostBasisCurrencyForJurisdiction(jurisdiction);
   if (currency.isErr()) return err(currency.error);
 
   let startDate: Date;

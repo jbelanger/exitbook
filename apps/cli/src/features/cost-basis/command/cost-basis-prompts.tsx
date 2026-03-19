@@ -42,12 +42,19 @@ const jurisdictionOptions: SelectOption[] = listCostBasisJurisdictionCapabilitie
 }));
 
 function buildMethodOptions(jurisdiction: CostBasisJurisdiction): SelectOption[] {
-  return listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction).map((capability) => ({
+  const result = listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction);
+  if (result.isErr()) return [];
+  return result.value.map((capability) => ({
     label: capability.implemented ? capability.label : `${capability.label} (coming soon)`,
     value: capability.code,
     hint: capability.implemented ? capability.description : 'Not yet implemented',
     disabled: !capability.implemented,
   }));
+}
+
+function getDefaultMethod(jurisdiction: CostBasisJurisdiction): CostBasisMethod | undefined {
+  const result = getDefaultCostBasisMethodForJurisdiction(jurisdiction);
+  return result.isOk() ? result.value : undefined;
 }
 
 function isJurisdiction(value: string | undefined): value is CostBasisJurisdiction {
@@ -59,9 +66,10 @@ function isMethod(value: string | undefined): value is CostBasisMethod {
     return false;
   }
 
-  return listCostBasisJurisdictionCapabilities().some((jurisdiction) =>
-    listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction.code).some((capability) => capability.code === value)
-  );
+  return listCostBasisJurisdictionCapabilities().some((jurisdiction) => {
+    const result = listCostBasisMethodCapabilitiesForJurisdiction(jurisdiction.code);
+    return result.isOk() && result.value.some((capability) => capability.code === value);
+  });
 }
 
 function getInitialAnswers(initialValues: PromptSeedValues): PromptAnswers {
@@ -76,7 +84,7 @@ function getInitialAnswers(initialValues: PromptSeedValues): PromptAnswers {
 
   return {
     jurisdiction,
-    method: jurisdiction ? (getDefaultCostBasisMethodForJurisdiction(jurisdiction) ?? method) : method,
+    method: (jurisdiction ? getDefaultMethod(jurisdiction) : undefined) ?? method,
     taxYear: Number.isNaN(taxYear) ? undefined : taxYear,
   };
 }
@@ -111,7 +119,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
   // Step transitions
   const handleJurisdiction = (value: string): void => {
     const jurisdiction = value as CostBasisJurisdiction;
-    const method = getDefaultCostBasisMethodForJurisdiction(jurisdiction);
+    const method = getDefaultMethod(jurisdiction);
     setAnswers((prev) => ({ ...prev, jurisdiction, method }));
     setStep(method ? 'tax-year' : 'method');
   };
@@ -167,7 +175,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
         <SelectPrompt
           message="Select cost basis calculation method:"
           options={buildMethodOptions(answers.jurisdiction!)}
-          initialValue={getDefaultCostBasisMethodForJurisdiction(answers.jurisdiction!) ?? 'fifo'}
+          initialValue={getDefaultMethod(answers.jurisdiction!) ?? 'fifo'}
           onSubmit={handleMethod}
           onCancel={onCancel}
         />

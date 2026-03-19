@@ -84,11 +84,11 @@ class UnionFind {
  *
  * Algorithm:
  * 1. Initialize Union-Find with all transaction IDs
- * 2. Seed: Union transactions from the same EXCHANGE (preserves Phase 1 backward compatibility)
+ * 2. Seed: Union transactions from the same EXCHANGE source
  *    - Exchange transactions (Kraken, Coinbase, etc.) grouped by source
  *    - Blockchain transactions (Bitcoin, Ethereum, etc.) remain isolated
  *    - Rationale: Exchanges = single user's activity; Blockchains = multiple wallets
- * 3. Enhance: Union confirmed cross-platform links (adds Phase 2 functionality)
+ * 3. Enhance: Union confirmed cross-platform links
  *    - Links connect related transactions across platforms
  * 4. Group transactions by their root representative
  * 5. Build LinkedTransactionGroup objects with metadata
@@ -112,11 +112,11 @@ export function buildLinkGraph(transactions: Transaction[], links: TransactionLi
   const transactionIdSet = new Set(transactionIds);
   const uf = new UnionFind(transactionIds);
 
-  // SEED: Union transactions from the same EXCHANGE source (Phase 1 backward compatibility)
-  // IMPORTANT: Only group EXCHANGE transactions, NOT blockchain transactions
+  // SEED: Union transactions from the same EXCHANGE source
+  // Only group EXCHANGE transactions, NOT blockchain transactions.
   // Rationale:
-  // - Exchanges: All activity belongs to one user → safe to group together
-  // - Blockchains: Multiple wallets possible → must NOT group together
+  // - Exchanges: All activity belongs to one user -> safe to group together
+  // - Blockchains: Multiple wallets possible -> must NOT group together
   // Example: Bitcoin chain can have wallet A (tx1, tx2) and wallet B (tx3, tx4)
   //          Grouping all bitcoin txs would leak prices from wallet A to wallet B
   const txsByExchange = new Map<string, number[]>();
@@ -144,8 +144,8 @@ export function buildLinkGraph(transactions: Transaction[], links: TransactionLi
     }
   }
 
-  // ENHANCE: Then, union confirmed cross-platform links (Phase 2 functionality)
-  // This enables price rederive across different sources (exchange ↔ blockchain)
+  // ENHANCE: Union confirmed cross-platform links
+  // This enables price inference across different sources (exchange <-> blockchain)
   for (const link of links) {
     if (link.status === 'confirmed') {
       // Check that both transactions exist in our transaction set (O(1) lookup with Set)
