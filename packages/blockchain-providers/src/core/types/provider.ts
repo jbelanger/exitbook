@@ -53,7 +53,6 @@ export interface ProviderCapabilities {
 
 /**
  * Streaming batch result with Result wrapper
- * Follows neverthrow pattern for consistent error handling
  */
 export interface StreamingBatchResult<T extends NormalizedTransactionBase = NormalizedTransactionBase> {
   data: TransactionWithRawData<T>[];
@@ -78,7 +77,7 @@ export interface IBlockchainProvider extends IProvider {
    * Execute operation with streaming pagination
    *
    * IMPORTANT: This method yields Result<T, Error> to maintain consistency with
-   * the repository's neverthrow pattern. Errors are yielded as err(Error) rather
+   * the repository's Result pattern. Errors are yielded as err(Error) rather
    * than thrown directly. Consumers should check each yielded result with .isErr().
    *
    * @param operation - The operation to execute

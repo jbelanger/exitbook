@@ -1,6 +1,6 @@
 # Result Type (`@exitbook/core`)
 
-Custom `Result<T, E>` — not neverthrow. Located in `packages/core/src/result/`.
+Custom `Result<T, E>`. Located in `packages/core/src/result/`.
 
 ## Construction
 

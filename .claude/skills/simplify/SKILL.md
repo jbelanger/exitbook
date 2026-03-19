@@ -29,7 +29,7 @@ Follow the established coding standards from CLAUDE.md including:
 - Prefer function keyword over arrow functions
 - Use explicit return type annotations for top-level functions
 - Maintain consistent naming conventions
-- Use neverthrow's Result type for error handling
+- Use Result type for error handling
 - Zod schemas for runtime validation
 - Functional core, imperative shell pattern
 

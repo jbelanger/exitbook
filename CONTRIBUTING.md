@@ -92,7 +92,7 @@ See `docs/architecture/import-pipeline.md` for the full pipeline design.
 
 ## Code Conventions (summary)
 
-- **Error handling:** all fallible functions return `Result<T, Error>` (neverthrow). No throws in business logic; no silent suppression.
+- **Error handling:** all fallible functions return `Result<T, Error>`. No throws in business logic; no silent suppression.
 - **Schemas:** Zod for runtime validation. Core schemas in `packages/core/src/schemas/`.
 - **Logging:** `import { getLogger } from '@exitbook/logger'` — pass structured context as first arg when relevant.
 - **Decimals:** `import { Decimal } from 'decimal.js'` — use `.toFixed()` for strings, never `.toString()`.

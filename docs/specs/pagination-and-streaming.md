@@ -77,7 +77,7 @@ interface CursorState {
 
 ### Streaming Contract (all sources)
 
-- Iterators yield `Result<Batch, Error>` (neverthrow) and must not throw for expected failures.
+- Iterators yield `Result<Batch, Error>` and must not throw for expected failures.
 - Each batch includes `operationType`, `cursor`, `rawTransactions` (or provider-specific items), and `isComplete = cursor.metadata?.isComplete ?? false`.
 - Batches are independently persistable; ingestion updates cursor storage **after every batch** for crash recovery. Cursor update failures log `warn` and import continues.
 - Completion must propagate even if the batch contains only duplicates or is synthetically empty.

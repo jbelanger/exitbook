@@ -64,4 +64,4 @@ Follows **Functional Core, Imperative Shell** pattern:
 
 - Pure business logic in `*-utils.ts` modules
 - Classes only for resource management and side effects
-- All functions return `Result<T, Error>` (neverthrow)
+- All functions return `Result<T, Error>`

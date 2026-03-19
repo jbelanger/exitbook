@@ -16,7 +16,7 @@ Find where architecture and code structure have become unnecessarily complex, pr
 ## Non-Negotiables
 
 - Financial integrity first: no silent assumptions, no swallowed errors, no hidden data loss.
-- Keep strict `Result<T, E>` style error propagation (`neverthrow`) for fallible paths.
+- Keep strict `Result<T, E>` style error propagation for fallible paths.
 - Preserve runtime validation boundaries (Zod).
 - Respect `exactOptionalPropertyTypes`.
 - Favor **vertical slices** (feature-oriented) over technical-layer sprawl.

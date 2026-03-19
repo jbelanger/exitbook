@@ -65,7 +65,6 @@ pnpm build && pnpm lint && pnpm test
 
 Update one at a time, test after each:
 
-- `neverthrow` (used everywhere)
 - `decimal.js` (check for version inconsistencies first)
 - `zod` (v4.x - verify breaking changes)
 

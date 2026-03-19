@@ -95,6 +95,7 @@ Custom logger (`@exitbook/logger`) — not Pino. Use `getLogger('name')` with `t
 ## Code Requirements
 
 - **Prefer Direct Tools for Small Tasks:** For simple lookups, use direct tool calls (Read, Grep, Glob). Sub-agents are appropriate for multi-package exploration, broad refactors, or parallel research across the codebase.
+- **Agent Concurrency Limit:** Never launch more than 4 background agents at a time. Wait for running agents to complete before launching the next batch. This prevents usage exhaustion and wasted work.
 - **Correctness Over Speed:** Prioritize doing it right over doing it fast. Address every issue, edge case, and design concern as it surfaces rather than deferring. No shortcuts, no "we'll fix it later." When refactoring, design from scratch rather than patching around existing structure.
 - **No Technical Debt:** Stop and report architectural issues immediately. Fix foundational problems first. Prefer over-engineering slightly over accumulating debt — it's cheaper to simplify a robust design than to retrofit correctness later.
 - **Never Silently Hide Errors:** This is a financial system where accuracy is critical. Never catch and suppress errors without logging. Never make silent assumptions or apply defaults for unexpected behavior. Always log warnings for edge cases, validation failures, or data inconsistencies. Use `logger.warn()` liberally for unexpected but recoverable conditions. Propagate errors upward via Result types rather than swallowing them.

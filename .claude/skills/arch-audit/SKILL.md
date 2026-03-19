@@ -176,7 +176,7 @@ pattern, factory pattern, registry/decorator pattern, etc.):
 
 **a) Error strategy fitness**
 
-- Is the current approach (neverthrow Result types) the right tool, or would
+- Is the current approach (Result types) the right tool, or would
   a different error model (Effect, typed exceptions, error boundaries) be
   a better fit for the project's needs?
 - Does the strategy preserve enough context for debugging?

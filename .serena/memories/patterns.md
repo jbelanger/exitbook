@@ -1,6 +1,6 @@
 # exitbook — Code Patterns & Conventions
 
-## Result Type (neverthrow)
+## Result Type
 
 - All fallible functions return `Result<T, Error>` — no throws
 - `errAsync`/`okAsync` are valid from `async` methods typed as `Promise<Result<...>>`
