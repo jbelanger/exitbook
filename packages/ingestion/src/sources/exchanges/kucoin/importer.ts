@@ -343,7 +343,7 @@ export class KucoinCsvImporter implements IImporter {
     rowLabel: string,
     rows: T[],
     validator: (rows: T[]) => {
-      invalid: { errors: { issues: { message: string; path: (string | number)[]; }[] }; rowIndex: number; }[];
+      invalid: { errors: { issues: { message: string; path: PropertyKey[] }[] }; rowIndex: number }[];
       valid: T[];
     },
     buildTransaction: (row: T) => RawTransactionInput,
