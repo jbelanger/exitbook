@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-09
+last_verified: 2026-03-19
 status: canonical
 ---
 
@@ -11,17 +11,17 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 
 ## Quick Reference
 
-| Concept                | Key Rule                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| Scoped boundary        | Cost basis builds `AccountingScopedBuildResult` in memory from processed transactions       |
-| Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                    |
-| Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`        |
-| Movement identity      | Scoped inflows/outflows keep `movementFingerprint` plus `rawPosition` from raw source facts |
-| Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`   |
-| Fee-only internal case | Purely internal same-hash groups emit `FeeOnlyInternalCarryover` sidecars                   |
-| Price gating           | Price coverage and hard price validation run on scoped movements and scoped fees            |
-| Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links              |
-| Exclusions seam        | Accounting exclusions belong after scoped build and before downstream validation/matching   |
+| Concept                | Key Rule                                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Scoped boundary        | Cost basis builds `AccountingScopedBuildResult` in memory from processed transactions                                |
+| Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                                             |
+| Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`                                 |
+| Movement identity      | Scoped inflows/outflows keep persisted `movementFingerprint`; scoped rewrites preserve fingerprint-targeted identity |
+| Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`                            |
+| Fee-only internal case | Purely internal same-hash groups emit `FeeOnlyInternalCarryover` sidecars                                            |
+| Price gating           | Price coverage and hard price validation run on scoped movements and scoped fees                                     |
+| Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links                                       |
+| Exclusions seam        | Accounting exclusions belong after scoped build and before downstream validation/matching                            |
 
 ## Goals
 
@@ -45,18 +45,15 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 Cost-basis-local transaction shape derived from one `Transaction`:
 
 ```ts
-interface ScopedAssetMovement extends AssetMovementDraft {
-  movementFingerprint: string;
-  rawPosition: number;
-}
+interface ScopedAssetMovement extends AssetMovement {}
 
-interface ScopedFeeMovement extends FeeMovementDraft {
+interface ScopedFeeMovement extends FeeMovement {
   originalTransactionId: number;
-  rawPosition: number;
 }
 
 interface AccountingScopedTransaction {
   tx: Transaction;
+  rebuildDependencyTransactionIds: number[];
   movements: {
     inflows: ScopedAssetMovement[];
     outflows: ScopedAssetMovement[];
@@ -68,8 +65,9 @@ interface AccountingScopedTransaction {
 Semantics:
 
 - `tx` remains the immutable raw source fact.
+- `rebuildDependencyTransactionIds` records sibling raw transactions that must accompany this scoped row if the pipeline rebuilds after price filtering.
 - `movements` and `fees` are the authoritative accounting input for cost basis.
-- `movementFingerprint` and `rawPosition` always point back to the original raw movement slot, even after scoped rewriting.
+- `movementFingerprint` always points back to the persisted processed movement identity, even after scoped rewriting.
 - scoped fees are cloned and normalized separately from raw `tx.fees`.
 
 ### FeeOnlyInternalCarryover
@@ -100,6 +98,7 @@ This is not a persisted `TransactionLink`. It exists only inside the cost-basis 
 
 ```ts
 interface AccountingScopedBuildResult {
+  inputTransactions: Transaction[];
   transactions: AccountingScopedTransaction[];
   feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
 }
@@ -140,11 +139,11 @@ These indexes are matcher-facing lookup structures, not persistence.
 
 For every raw transaction it:
 
-- computes a deterministic transaction fingerprint
-- computes deterministic inflow/outflow movement fingerprints by direction-local position
+- reuses the persisted transaction fingerprint
+- reuses the persisted inflow/outflow movement fingerprints
 - clones inflows, outflows, and fees into scoped arrays
 - clones numeric amounts into new `Decimal` instances
-- preserves raw movement order through `rawPosition`
+- initializes `rebuildDependencyTransactionIds` for later same-hash dependency tracking
 
 Raw source facts are never mutated. All same-hash reduction happens against the cloned scoped view.
 
@@ -302,7 +301,7 @@ graph TD
 ## Invariants
 
 - **Required**: `tx` remains the immutable raw fact; only scoped clones are rewritten.
-- **Required**: scoped movement identity survives rewriting via `movementFingerprint` and `rawPosition`.
+- **Required**: scoped movement identity survives rewriting via `movementFingerprint`.
 - **Required**: same-hash grouping keys by `assetId`, not symbol alone.
 - **Required**: mixed or multi-movement same-hash groups fail closed.
 - **Required**: same-asset on-chain fee ownership is normalized to one scoped sender fee after same-hash reduction.
@@ -327,6 +326,7 @@ graph TD
 
 ## Related Specs
 
+- [Transaction and Movement Identity](./transaction-and-movement-identity.md) — canonical processed identity contracts that scoped accounting reuses
 - [Cost Basis Orchestration](./cost-basis-orchestration.md) — workflow ownership and consumer execution boundaries above the scoped input layer
 - [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — persisted debug/artifact surfaces built from scoped execution results
 - [Transaction Linking](./transaction-linking.md) — persisted link contract and link-generation rules
@@ -337,4 +337,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-19_

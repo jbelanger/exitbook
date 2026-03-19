@@ -156,16 +156,20 @@ export interface MovementFingerprintInput {
  *
  * The fingerprint is rooted in canonical semantic movement content, not array
  * ordering. Exact duplicates are intentionally treated as interchangeable and
- * only receive a bucket-local occurrence suffix.
+ * only receive a bucket-local occurrence suffix. The stored value hashes the
+ * transaction fingerprint together with canonical material so movement identity
+ * stays globally unique without embedding the full transaction fingerprint.
  */
 export function computeMovementFingerprint(input: MovementFingerprintInput): Result<string, Error> {
   const { txFingerprint, canonicalMaterial, duplicateOccurrence } = input;
+  const normalizedTxFingerprint = txFingerprint.trim();
+  const normalizedCanonicalMaterial = canonicalMaterial.trim();
 
-  if (!txFingerprint || txFingerprint.trim() === '') {
+  if (!txFingerprint || normalizedTxFingerprint === '') {
     return err(new Error('txFingerprint must not be empty'));
   }
 
-  if (!canonicalMaterial || canonicalMaterial.trim() === '') {
+  if (!canonicalMaterial || normalizedCanonicalMaterial === '') {
     return err(new Error('canonicalMaterial must not be empty'));
   }
 
@@ -173,10 +177,10 @@ export function computeMovementFingerprint(input: MovementFingerprintInput): Res
     return err(new Error(`duplicateOccurrence must be a positive integer, got ${duplicateOccurrence}`));
   }
 
-  const contentHashResult = sha256Result(canonicalMaterial);
-  if (contentHashResult.isErr()) {
-    return err(contentHashResult.error);
+  const compositeHashResult = sha256Result(`${normalizedTxFingerprint}|${normalizedCanonicalMaterial}`);
+  if (compositeHashResult.isErr()) {
+    return err(compositeHashResult.error);
   }
 
-  return ok(`movement:${txFingerprint}:${contentHashResult.value}:${duplicateOccurrence}`);
+  return ok(`movement:${compositeHashResult.value}:${duplicateOccurrence}`);
 }

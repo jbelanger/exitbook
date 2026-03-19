@@ -10,6 +10,11 @@ Two-phase interaction: browse mode (scrollable list + transaction detail panel) 
 
 The non-interactive counterpart `exitbook transactions export` provides the same export functionality for scripting (flags only, no TUI). Export lives under the `transactions` namespace.
 
+Durable transaction reference rule:
+
+- user-facing transaction references use persisted `txFingerprint` / `tx_fingerprint`
+- numeric `id` is still displayed, but it is a database row identifier rather than the canonical processed-transaction identity
+
 ---
 
 ## Two-Panel Layout

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-17
+last_verified: 2026-03-19
 status: canonical
 ---
 
@@ -21,7 +21,7 @@ override replay, and the persisted link contract.
 | Structural trades      | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                               |
 | Same-hash grouping     | Blockchain transactions group by normalized hash, then by `assetId`                                                                                    |
 | Internal-link topology | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                  |
-| Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${txFingerprint}:${movementType}:${position}`                       |
+| Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                             |
 | Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                      |
 | Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1` |
 | Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                        |
@@ -66,7 +66,6 @@ interface LinkableMovement {
   toAddress?: string;
   isInternal: boolean;
   excluded: boolean;
-  position: number;
   movementFingerprint: string;
 }
 ```
@@ -76,24 +75,25 @@ Important semantics:
 - `amount` is the matching amount.
 - `grossAmount` is only present when it differs from `amount`.
 - `excluded=true` means the linkable movement exists for observability but strategies must not match it.
-- `movementFingerprint` is deterministic and position-based within the transaction.
+- `movementFingerprint` is copied from the persisted processed movement.
 
 ### Movement Fingerprint
 
-Stable movement identity derived from transaction identity plus direction-local position:
+Stable movement identity derived from transaction identity plus canonical movement content:
 
 ```ts
 computeMovementFingerprint({
   txFingerprint,
-  movementType,
-  position,
+  canonicalMaterial,
+  duplicateOccurrence,
 });
 
-// movement:${txFingerprint}:${movementType}:${position}
+// movement:${sha256Hex(txFingerprint|canonicalMaterial)}:${duplicateOccurrence}
 ```
 
 This intentionally does not use `transaction_movements.id`. Movement rows can be
-rebuilt; position within inflows, outflows, and fees is the stable contract.
+rebuilt because identity is rooted in semantic movement content plus a bucket-local
+duplicate occurrence, not insertion order.
 
 ### TransactionLink
 
@@ -188,7 +188,7 @@ For every transaction:
 
 - normalize blockchain hash when present
 - reuse the persisted `txFingerprint` on the transaction
-- compute a deterministic movement fingerprint for each inflow and outflow by direction-local position
+- reuse the persisted `movementFingerprint` on each inflow and outflow
 - set `amount = netAmount ?? grossAmount`
 - set `grossAmount` only when `netAmount` exists and differs from `grossAmount`
 
@@ -400,11 +400,11 @@ the matcher.
 Required behavior:
 
 1. resolve source and target transactions from override fingerprints
-2. find source outflow movements for the override `assetSymbol`
-3. find target inflow movements for the override `assetSymbol`
-4. materialize only when exactly one source movement and one target movement remain
+2. resolve the exact source outflow movement by `transactionId + direction='out' + sourceMovementFingerprint + sourceAssetId`
+3. resolve the exact target inflow movement by `transactionId + direction='in' + targetMovementFingerprint + targetAssetId`
+4. materialize only when both exact movements resolve
 5. derive the persisted link type from the source and target `sourceType`
-6. persist linkable-movement-derived `sourceAssetId`, `targetAssetId`, `sourceAmount`, `targetAmount`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
+6. persist `sourceAssetId`, `targetAssetId`, `sourceAmount`, `targetAmount`, `sourceMovementFingerprint`, and `targetMovementFingerprint` from those resolved linkable movements
 7. persist `status='confirmed'`, `confidenceScore=1`, and override metadata
 8. otherwise log and skip materialization
 
@@ -481,7 +481,7 @@ graph TD
 - **Hash-match target excess**: A small target-over-source excess is only tolerated for hash matches, and only up to `1%`.
 - **Multi-output hash matches**: A source can hash-match multiple targets only when their summed target amount does not exceed the source amount.
 - **Asset-symbol matching**: Strategy matching and override fingerprints still key off `assetSymbol`, even though persisted links carry both asset ids.
-- **Append-order replay**: Override conflict resolution follows JSONL append order; it is not re-sorted by `created_at`.
+- **Append-order replay**: Override conflict resolution follows SQLite append order; it is not re-sorted by `created_at`.
 
 ## Known Limitations (Current Implementation)
 
@@ -493,6 +493,7 @@ graph TD
 
 ## Related Specs
 
+- [Transaction and Movement Identity](./transaction-and-movement-identity.md) — canonical processed identity contracts for `txFingerprint` and `movementFingerprint`
 - [Override Event Store and Replay](./override-event-store-and-replay.md) — append-only override storage and replay rules
 - [UTXO Address Model](./utxo-address-model.md) — raw per-address UTXO semantics feeding same-hash grouping
 - [Transfers & Tax](./transfers-and-tax.md) — downstream tax treatment of confirmed links
@@ -500,4 +501,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-03-19_

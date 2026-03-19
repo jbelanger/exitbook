@@ -29,7 +29,7 @@ function materializeMovementFingerprint(
   canonicalMaterial: string,
   duplicateOccurrence: number
 ): string {
-  return `movement:${txFingerprint}:${sha256Hex(canonicalMaterial)}:${duplicateOccurrence}`;
+  return `movement:${sha256Hex(`${txFingerprint}|${canonicalMaterial}`)}:${duplicateOccurrence}`;
 }
 
 function createAccount(overrides: Partial<Account> = {}): Account {

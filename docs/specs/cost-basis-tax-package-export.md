@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-15
+last_verified: 2026-03-19
 status: canonical
 ---
 
@@ -334,6 +334,7 @@ Columns:
 Purpose:
 
 - preserve audit traceability without leaking raw transaction identifiers into the primary accountant-facing CSVs
+- use persisted `tx_fingerprint` as the durable processed-transaction reference for each source row
 
 ## US Package Contract
 
@@ -630,8 +631,9 @@ The current Canada report explicitly documents that:
 - [Cost Basis Orchestration](./cost-basis-orchestration.md)
 - [Average Cost Basis](./average-cost-basis.md)
 - [Transfers & Tax](./transfers-and-tax.md)
+- [Transaction and Movement Identity](./transaction-and-movement-identity.md)
 - [CLI Cost Basis View](./cli/cost-basis/cost-basis-view-spec.md)
 
 ---
 
-_Last updated: 2026-03-15_
+_Last updated: 2026-03-19_

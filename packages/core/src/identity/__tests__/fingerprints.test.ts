@@ -296,7 +296,28 @@ describe('computeMovementFingerprint', () => {
         duplicateOccurrence: 1,
       })
     );
-    expect(fp).toMatch(/^movement:abc123:[0-9a-f]{64}:1$/);
+    expect(fp).toMatch(/^movement:[0-9a-f]{64}:1$/);
+  });
+
+  it('changes when txFingerprint changes even if canonical material is the same', async () => {
+    const canonicalMaterial = 'outflow|blockchain:ethereum:native|1|0.99';
+
+    const fp1 = assertOk(
+      computeMovementFingerprint({
+        txFingerprint: 'tx-a',
+        canonicalMaterial,
+        duplicateOccurrence: 1,
+      })
+    );
+    const fp2 = assertOk(
+      computeMovementFingerprint({
+        txFingerprint: 'tx-b',
+        canonicalMaterial,
+        duplicateOccurrence: 1,
+      })
+    );
+
+    expect(fp1).not.toBe(fp2);
   });
 
   it('is deterministic for identical canonical material and occurrence', async () => {
