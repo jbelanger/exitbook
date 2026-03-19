@@ -664,15 +664,14 @@ export class ImportWorkflow {
       if (allWarnings.length > 0) {
         const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
 
-        const finalizeResult = await this.ports.importSessions.finalize(
-          importSessionId,
-          'failed',
+        const finalizeResult = await this.ports.importSessions.finalize(importSessionId, {
+          status: 'failed',
           startTime,
-          totalImported,
-          totalSkipped,
-          warningMessage,
-          { warnings: allWarnings }
-        );
+          imported: totalImported,
+          skipped: totalSkipped,
+          errorMessage: warningMessage,
+          metadata: { warnings: allWarnings },
+        });
         if (finalizeResult.isErr()) return err(finalizeResult.error);
 
         logger.warn(`Import marked failed due to ${allWarnings.length} warning(s). Data may be incomplete.`);
@@ -690,13 +689,12 @@ export class ImportWorkflow {
       // Success: finalize session + invalidate projections atomically
       if (totalImported > 0) {
         const finalizeResult = await this.ports.withTransaction(async (tx) => {
-          const finalize = await tx.importSessions.finalize(
-            importSessionId,
-            'completed',
+          const finalize = await tx.importSessions.finalize(importSessionId, {
+            status: 'completed',
             startTime,
-            totalImported,
-            totalSkipped
-          );
+            imported: totalImported,
+            skipped: totalSkipped,
+          });
           if (finalize.isErr()) return err(finalize.error);
 
           const invalidate = await tx.invalidateProjections([account.id], `import:${sourceName}:account-${account.id}`);
@@ -706,13 +704,12 @@ export class ImportWorkflow {
         });
         if (finalizeResult.isErr()) return err(finalizeResult.error);
       } else {
-        const finalizeResult = await this.ports.importSessions.finalize(
-          importSessionId,
-          'completed',
+        const finalizeResult = await this.ports.importSessions.finalize(importSessionId, {
+          status: 'completed',
           startTime,
-          totalImported,
-          totalSkipped
-        );
+          imported: totalImported,
+          skipped: totalSkipped,
+        });
         if (finalizeResult.isErr()) return err(finalizeResult.error);
       }
 
@@ -743,15 +740,14 @@ export class ImportWorkflow {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      await this.ports.importSessions.finalize(
-        importSessionId,
-        'failed',
+      await this.ports.importSessions.finalize(importSessionId, {
+        status: 'failed',
         startTime,
-        totalImported,
-        totalSkipped,
-        originalError.message,
-        error instanceof Error ? { stack: error.stack } : { error: String(error) }
-      );
+        imported: totalImported,
+        skipped: totalSkipped,
+        errorMessage: originalError.message,
+        metadata: error instanceof Error ? { stack: error.stack } : { error: String(error) },
+      });
 
       logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
 

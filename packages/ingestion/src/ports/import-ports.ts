@@ -40,12 +40,14 @@ export interface IImportSessionStore {
   ): Promise<Result<void, Error>>;
   finalize(
     sessionId: number,
-    status: ImportSessionStatus,
-    startTime: number,
-    imported: number,
-    skipped: number,
-    errorMessage?: string,
-    metadata?: Record<string, unknown>
+    params: {
+      errorMessage?: string | undefined;
+      imported: number;
+      metadata?: Record<string, unknown> | undefined;
+      skipped: number;
+      startTime: number;
+      status: ImportSessionStatus;
+    }
   ): Promise<Result<void, Error>>;
   findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
 }

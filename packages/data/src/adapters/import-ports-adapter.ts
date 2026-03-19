@@ -31,7 +31,7 @@ export function buildImportPorts(db: DataContext): ImportPorts {
         const cleaned = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
         return db.importSessions.update(sessionId, cleaned);
       },
-      finalize: (sessionId, status, startTime, imported, skipped, errorMessage, metadata) => {
+      finalize: (sessionId, { status, startTime, imported, skipped, errorMessage, metadata }) => {
         // Port uses full status union; repo excludes 'started' (which the workflow never passes to finalize)
         const repoStatus = status as Exclude<typeof status, 'started'>;
         return db.importSessions.finalize(sessionId, repoStatus, startTime, imported, skipped, errorMessage, metadata);

@@ -12,9 +12,9 @@ import type { HttpClient } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { BasePriceProvider } from '../../core/base-provider.js';
+import type { ProviderMetadata, PriceQuery, PriceData } from '../../core/types.js';
 import type { ProviderRateLimitConfig } from '../../core/utils.js';
 import { createProviderHttpClient } from '../../core/utils.js';
-import type { ProviderMetadata, PriceQuery, PriceData } from '../../index.js';
 import type { PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 import { BusinessDayFallbackExhaustedError, fetchWithBusinessDayFallback } from '../shared/fx-fallback-utils.js';

@@ -1,5 +1,3 @@
-// Unified providers command for viewing blockchain API provider configuration and health
-
 import type { Command } from 'commander';
 
 import { registerProvidersBenchmarkCommand } from './providers-benchmark.js';

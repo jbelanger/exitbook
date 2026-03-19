@@ -575,15 +575,3 @@ describe('err()', () => {
     }
   });
 });
-
-// -- compat shims --
-
-describe('compat shims', () => {
-  it('Ok.unwrapOr returns value, ignoring default', () => {
-    expect(ok(42).unwrapOr(0)).toBe(42);
-  });
-
-  it('Err.unwrapOr returns default value', () => {
-    expect(err<number>(new Error('boom')).unwrapOr(99)).toBe(99);
-  });
-});

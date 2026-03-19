@@ -1,6 +1,3 @@
-// Unified links command with all link management operations
-// Provides a single namespace for running linking algorithm, viewing, confirming, and rejecting links
-
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
