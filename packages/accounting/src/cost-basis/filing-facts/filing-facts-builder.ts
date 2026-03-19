@@ -6,7 +6,7 @@ import { buildCanadaCostBasisFilingFacts } from './canada-filing-facts-builder.j
 import type { CostBasisFilingFacts } from './filing-facts-types.js';
 import { buildStandardCostBasisFilingFacts } from './standard-filing-facts-builder.js';
 
-export interface BuildCostBasisFilingFactsInput {
+interface BuildCostBasisFilingFactsInput {
   artifact: CostBasisWorkflowResult;
   scopeKey?: string | undefined;
   snapshotId?: string | undefined;

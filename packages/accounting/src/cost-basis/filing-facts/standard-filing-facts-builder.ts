@@ -17,7 +17,7 @@ import type {
 
 type StandardTaxTreatmentCategory = 'short_term' | 'long_term';
 
-export interface BuildStandardCostBasisFilingFactsInput {
+interface BuildStandardCostBasisFilingFactsInput {
   artifact: StandardCostBasisWorkflowResult;
   scopeKey?: string | undefined;
   snapshotId?: string | undefined;

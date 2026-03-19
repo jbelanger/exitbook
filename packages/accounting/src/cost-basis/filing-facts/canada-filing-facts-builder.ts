@@ -14,7 +14,7 @@ import type {
   CanadaSuperficialLossAdjustmentFilingFact,
 } from './filing-facts-types.js';
 
-export interface BuildCanadaCostBasisFilingFactsInput {
+interface BuildCanadaCostBasisFilingFactsInput {
   artifact: CanadaCostBasisWorkflowResult;
   scopeKey?: string | undefined;
   snapshotId?: string | undefined;

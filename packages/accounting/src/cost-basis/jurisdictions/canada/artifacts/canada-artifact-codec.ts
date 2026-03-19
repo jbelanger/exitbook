@@ -292,7 +292,7 @@ export const StoredCanadaDebugSchema = z.object({
 type StoredCanadaArtifact = z.infer<typeof StoredCanadaCostBasisArtifactSchema>;
 type StoredCanadaDebug = z.infer<typeof StoredCanadaDebugSchema>;
 
-export interface CanadaArtifactSnapshotParts {
+interface CanadaArtifactSnapshotParts {
   artifact: StoredCanadaArtifact;
   debug: StoredCanadaDebug;
   debugPayload: CostBasisArtifactDebugPayload;

@@ -71,7 +71,7 @@ export interface UsTransferRow {
   transfer_status: 'review_needed_inbound' | 'verified';
 }
 
-export interface UsRowRefMaps {
+interface UsRowRefMaps {
   dispositionRefById: Map<string, string>;
   dispositionGroupRefById: Map<string, string>;
   lotRefById: Map<string, string>;
