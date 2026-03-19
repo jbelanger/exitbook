@@ -67,6 +67,24 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 // ---------------------------------------------------------------------------
+// Random Bytes
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate cryptographically secure random bytes.
+ */
+export function randomBytes(length: number): Uint8Array {
+  return globalThis.crypto.getRandomValues(new Uint8Array(length));
+}
+
+/**
+ * Generate a lowercase hex string from cryptographically secure random bytes.
+ */
+export function randomHex(byteCount: number): string {
+  return bytesToHex(randomBytes(byteCount));
+}
+
+// ---------------------------------------------------------------------------
 // Random UUID
 // ---------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { base64ToBytes, bytesToBase64, hmacSha512, sha256Hex } from '../crypto-utils.js';
+import { base64ToBytes, bytesToBase64, hmacSha512, randomBytes, randomHex, sha256Hex } from '../crypto-utils.js';
 
 describe('crypto-utils', () => {
   it('round-trips byte arrays through base64', () => {
@@ -30,5 +30,15 @@ describe('crypto-utils', () => {
     expect(bytesToBase64(hmacSha512(key, message))).toBe(
       'G7pYfHMO7box9Tq7C2ylieCd5OiU7kVeYUCAc5l1mtqvoGnux8AWR7sXPcsX9V0ir0mhgHG3SMXC7df3qCnGMg=='
     );
+  });
+
+  it('generates random bytes with the requested length', () => {
+    expect(randomBytes(16)).toHaveLength(16);
+  });
+
+  it('generates lowercase random hex with the requested byte length', () => {
+    const value = randomHex(16);
+
+    expect(value).toMatch(/^[0-9a-f]{32}$/);
   });
 });

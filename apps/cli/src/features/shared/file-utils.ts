@@ -3,11 +3,10 @@
  * Ensures all-or-nothing semantics for multi-file writes.
  */
 
-import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, randomHex, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('file-utils');
@@ -32,7 +31,7 @@ export async function writeFilesAtomically(files: FileWrite[]): Promise<Result<s
 
     // Write to temp files first
     for (const file of files) {
-      const tempPath = `${file.path}.${randomBytes(6).toString('hex')}.tmp`;
+      const tempPath = `${file.path}.${randomHex(6)}.tmp`;
       tempPaths.push(tempPath);
       await fs.writeFile(tempPath, file.content, 'utf8');
     }
