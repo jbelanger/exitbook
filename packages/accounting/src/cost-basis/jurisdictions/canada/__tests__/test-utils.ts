@@ -148,9 +148,15 @@ export async function buildCanadaTestInputContext(
   const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, confirmedLinks);
   const validatedLinks = assertOk(validatedLinksResult);
 
-  return buildCanadaTaxInputContext(scoped.transactions, validatedLinks, scoped.feeOnlyInternalCarryovers, fxProvider, {
-    taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
-    relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
+  return buildCanadaTaxInputContext({
+    scopedTransactions: scoped.transactions,
+    validatedTransfers: validatedLinks,
+    feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
+    fxProvider,
+    identityConfig: {
+      taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
+      relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
+    },
   });
 }
 

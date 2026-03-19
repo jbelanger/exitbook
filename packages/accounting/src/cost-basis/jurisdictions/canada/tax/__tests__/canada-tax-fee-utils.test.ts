@@ -33,7 +33,7 @@ describe('buildValuedFee', () => {
     };
     const fxProvider = createFxProvider();
 
-    const result = assertOk(await buildValuedFee(fee, timestamp, fxProvider, identityConfig));
+    const result = assertOk(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
 
     expect(result.feeAssetSymbol).toBe('CAD');
     expect(result.feeQuantity.toFixed()).toBe('10');
@@ -56,7 +56,7 @@ describe('buildValuedFee', () => {
     };
     const fxProvider = createFxProvider({ CAD: '1.36' });
 
-    const result = assertOk(await buildValuedFee(fee, timestamp, fxProvider, identityConfig));
+    const result = assertOk(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
 
     expect(result.feeAssetIdentityKey).toBe('btc');
     expect(result.feeAssetSymbol).toBe('BTC');
@@ -71,7 +71,7 @@ describe('buildValuedFee', () => {
     };
     const fxProvider = createFxProvider();
 
-    const result = assertErr(await buildValuedFee(fee, timestamp, fxProvider, identityConfig));
+    const result = assertErr(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
 
     expect(result.message).toContain('Missing priceAtTxTime');
     expect(result.message).toContain('BTC');

@@ -27,17 +27,18 @@ interface CollectedFiatFee {
   txId: number;
 }
 
-export async function buildValuedFee(
+export async function buildValuedFee(params: {
   fee: {
     amount: Decimal;
     assetId: string;
     assetSymbol: Currency;
     priceAtTxTime?: PriceAtTxTime | undefined;
-  },
-  timestamp: Date,
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaValuedFee, Error>> {
+  };
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  timestamp: Date;
+}): Promise<Result<CanadaValuedFee, Error>> {
+  const { fee, fxProvider, identityConfig, timestamp } = params;
   if (!fee.priceAtTxTime && !isFiat(fee.assetSymbol)) {
     return err(new Error(`Missing priceAtTxTime for fee ${fee.assetSymbol} at ${timestamp.toISOString()}`));
   }
@@ -66,12 +67,12 @@ export async function buildValuedFee(
     feeAssetIdentityKey = feeIdentityResult.value.identityKey;
   }
 
-  const valuationResult = await buildCanadaTaxValuation(
-    fee.priceAtTxTime ?? createFiatIdentityPrice(fee.assetSymbol, timestamp),
-    fee.amount,
+  const valuationResult = await buildCanadaTaxValuation({
+    priceAtTxTime: fee.priceAtTxTime ?? createFiatIdentityPrice(fee.assetSymbol, timestamp),
+    quantity: fee.amount,
     timestamp,
-    fxProvider
-  );
+    fxProvider,
+  });
   if (valuationResult.isErr()) {
     return err(valuationResult.error);
   }
@@ -95,8 +96,8 @@ export async function valueScopedFees(
   const valuedFees: CanadaValuedFee[] = [];
 
   for (const fee of fees) {
-    const valuedFeeResult = await buildValuedFee(
-      {
+    const valuedFeeResult = await buildValuedFee({
+      fee: {
         amount: fee.amount,
         assetId: fee.assetId,
         assetSymbol: fee.assetSymbol,
@@ -104,8 +105,8 @@ export async function valueScopedFees(
       },
       timestamp,
       fxProvider,
-      identityConfig
-    );
+      identityConfig,
+    });
     if (valuedFeeResult.isErr()) {
       return err(valuedFeeResult.error);
     }
@@ -125,8 +126,8 @@ export async function valueCollectedFiatFees(
   const valuedFees: CanadaValuedFee[] = [];
 
   for (const fee of fees) {
-    const valuedFeeResult = await buildValuedFee(
-      {
+    const valuedFeeResult = await buildValuedFee({
+      fee: {
         amount: fee.amount,
         assetId: `fiat:${fee.assetSymbol.toLowerCase()}`,
         assetSymbol: fee.assetSymbol as Currency,
@@ -134,8 +135,8 @@ export async function valueCollectedFiatFees(
       },
       timestamp,
       fxProvider,
-      identityConfig
-    );
+      identityConfig,
+    });
     if (valuedFeeResult.isErr()) {
       return err(valuedFeeResult.error);
     }

@@ -63,16 +63,16 @@ export async function runCanadaAcbWorkflow(
     return err(validatedLinksResult.error);
   }
 
-  const inputContextResult = await buildCanadaTaxInputContext(
-    exclusionApplied.scopedBuildResult.transactions,
-    validatedLinksResult.value,
-    exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
+  const inputContextResult = await buildCanadaTaxInputContext({
+    scopedTransactions: exclusionApplied.scopedBuildResult.transactions,
+    validatedTransfers: validatedLinksResult.value,
+    feeOnlyInternalCarryovers: exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
     fxProvider,
-    {
+    identityConfig: {
       relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
       taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
-    }
-  );
+    },
+  });
   if (inputContextResult.isErr()) {
     return err(inputContextResult.error);
   }

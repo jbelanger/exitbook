@@ -132,7 +132,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(1);
@@ -158,7 +163,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(1);
@@ -178,7 +188,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(0);
@@ -194,7 +209,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const error = assertErr(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(error.message).toContain('Missing priceAtTxTime');
@@ -266,7 +286,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scopedWithdrawal, scopedDeposit], transfers, fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // Deposit side: full match -> transfer-in
@@ -350,7 +375,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scopedWithdrawal, scopedDeposit], transfers, fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // No residual: full match on both sides
@@ -374,7 +404,12 @@ describe('projectCanadaMovementEvents', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(2);
@@ -414,7 +449,12 @@ describe('applyCarryoverSemantics', () => {
     // Project events first — target inflow produces an acquisition
     const fxProvider = createFxProvider({ CAD: '1.35' });
     const projectedEvents = assertOk(
-      await projectCanadaMovementEvents([scopedSource, scopedTarget], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scopedSource, scopedTarget],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // Verify an acquisition exists for the target
@@ -446,13 +486,13 @@ describe('applyCarryoverSemantics', () => {
     };
 
     const result = assertOk(
-      await applyCarryoverSemantics(
-        projectedEvents,
-        [scopedSource, scopedTarget],
-        [carryover],
+      await applyCarryoverSemantics({
+        events: projectedEvents,
+        scopedTransactions: [scopedSource, scopedTarget],
+        feeOnlyInternalCarryovers: [carryover],
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     // The acquisition at targetMovementFp should now be a transfer-in
@@ -476,7 +516,12 @@ describe('applyCarryoverSemantics', () => {
     // Project: outflow produces a disposition, not acquisition
     const fxProvider = createFxProvider({ CAD: '1.35' });
     const projectedEvents = assertOk(
-      await projectCanadaMovementEvents([scopedTarget], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scopedTarget],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // Try to carryover into a fingerprint that has a disposition (not acquisition)
@@ -515,13 +560,13 @@ describe('applyCarryoverSemantics', () => {
     const scopedSource = buildScopedTransaction(sourceTx);
 
     const error = assertErr(
-      await applyCarryoverSemantics(
-        projectedEvents,
-        [scopedSource, scopedTarget],
-        [carryover],
+      await applyCarryoverSemantics({
+        events: projectedEvents,
+        scopedTransactions: [scopedSource, scopedTarget],
+        feeOnlyInternalCarryovers: [carryover],
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     expect(error.message).toContain('already classified as disposition');
@@ -554,7 +599,15 @@ describe('applyCarryoverSemantics', () => {
       ],
     };
 
-    const error = assertErr(await applyCarryoverSemantics([], [], [carryover], fxProvider, identityConfig));
+    const error = assertErr(
+      await applyCarryoverSemantics({
+        events: [],
+        scopedTransactions: [],
+        feeOnlyInternalCarryovers: [carryover],
+        fxProvider,
+        identityConfig,
+      })
+    );
 
     expect(error.message).toContain('Carryover source transaction 999 not found');
   });
@@ -592,7 +645,15 @@ describe('applyCarryoverSemantics', () => {
       ],
     };
 
-    const error = assertErr(await applyCarryoverSemantics([], [scopedSource], [carryover], fxProvider, identityConfig));
+    const error = assertErr(
+      await applyCarryoverSemantics({
+        events: [],
+        scopedTransactions: [scopedSource],
+        feeOnlyInternalCarryovers: [carryover],
+        fxProvider,
+        identityConfig,
+      })
+    );
 
     expect(error.message).toContain('was not projected as acquisition');
   });
@@ -621,14 +682,27 @@ describe('applyGenericFeeAdjustments', () => {
 
     // Project events first
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(1);
     expect(events[0]!.kind).toBe('acquisition');
 
     // Apply fee adjustments (mutates events in place)
-    assertOk(await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, []));
+    assertOk(
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [],
+      })
+    );
 
     const acquisition = events[0] as CanadaAcquisitionEvent;
     // Fee: 25 USD * 1.40 = 35 CAD
@@ -656,12 +730,25 @@ describe('applyGenericFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.00' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(2);
 
-    assertOk(await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, []));
+    assertOk(
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [],
+      })
+    );
 
     // Total fee: 100 USD * 1.00 = 100 CAD
     // BTC value: 40000 * 1, ETH value: 2000 * 10 = 20000 each => 50/50 allocation
@@ -695,14 +782,27 @@ describe('applyGenericFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(1);
     expect(events[0]!.kind).toBe('disposition');
 
     // No same-asset fee events reserved
-    assertOk(await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, []));
+    assertOk(
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [],
+      })
+    );
 
     const disposition = events[0] as { proceedsReductionCad?: { toFixed: (n?: number) => string } };
     // Fee: 0.001 BTC * 60000 USD * 1.40 CAD = 84 CAD
@@ -727,7 +827,12 @@ describe('applyGenericFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // Simulate a same-asset fee event that reserves 42 CAD of the 84 total on-chain fee
@@ -757,7 +862,15 @@ describe('applyGenericFeeAdjustments', () => {
       provenanceKind: 'validated-link',
     };
 
-    assertOk(await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, [reservedFeeEvent]));
+    assertOk(
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [reservedFeeEvent],
+      })
+    );
 
     const disposition = events[0] as { proceedsReductionCad?: { toFixed: (n?: number) => string } };
     // 84 CAD total - 42 reserved = 42 CAD residual
@@ -775,10 +888,23 @@ describe('applyGenericFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
-    assertOk(await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, []));
+    assertOk(
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [],
+      })
+    );
 
     const acquisition = events[0] as CanadaAcquisitionEvent;
     expect(acquisition.costBasisAdjustmentCad).toBeUndefined();
@@ -801,7 +927,12 @@ describe('applyGenericFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await projectCanadaMovementEvents([scoped], emptyTransferSet(), fxProvider, identityConfig)
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        fxProvider,
+        identityConfig,
+      })
     );
 
     // Reserve more than the total on-chain fee
@@ -832,7 +963,13 @@ describe('applyGenericFeeAdjustments', () => {
     };
 
     const error = assertErr(
-      await applyGenericFeeAdjustments(events, [scoped], fxProvider, identityConfig, [overReservedFeeEvent])
+      await applyGenericFeeAdjustments({
+        events,
+        scopedTransactions: [scoped],
+        fxProvider,
+        identityConfig,
+        sameAssetTransferFeeEvents: [overReservedFeeEvent],
+      })
     );
 
     expect(error.message).toContain('over-allocated');
@@ -907,12 +1044,12 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await buildValidatedTransferTargetFeeAdjustments(
-        [scopedWithdrawal, scopedDeposit],
-        transfers,
+      await buildValidatedTransferTargetFeeAdjustments({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     // Source has a $10 USD fiat fee -> should produce a fee adjustment on the target pool
@@ -981,12 +1118,12 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await buildValidatedTransferTargetFeeAdjustments(
-        [scopedWithdrawal, scopedDeposit],
-        transfers,
+      await buildValidatedTransferTargetFeeAdjustments({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(0);
@@ -1039,7 +1176,12 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const error = assertErr(
-      await buildValidatedTransferTargetFeeAdjustments([scopedDeposit], transfers, fxProvider, identityConfig)
+      await buildValidatedTransferTargetFeeAdjustments({
+        scopedTransactions: [scopedDeposit],
+        validatedTransfers: transfers,
+        fxProvider,
+        identityConfig,
+      })
     );
 
     expect(error.message).toContain('Transfer source transaction 520 not found');
@@ -1114,13 +1256,13 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await buildSameAssetTransferFeeAdjustments(
-        [scopedWithdrawal, scopedDeposit],
-        transfers,
-        [],
+      await buildSameAssetTransferFeeAdjustments({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
+        feeOnlyInternalCarryovers: [],
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     // Should produce fee adjustment events for the same-asset on-chain fee
@@ -1189,13 +1331,13 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await buildSameAssetTransferFeeAdjustments(
-        [scopedWithdrawal, scopedDeposit],
-        transfers,
-        [],
+      await buildSameAssetTransferFeeAdjustments({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: transfers,
+        feeOnlyInternalCarryovers: [],
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     expect(events).toHaveLength(0);
@@ -1254,13 +1396,13 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     const fxProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
-      await buildSameAssetTransferFeeAdjustments(
-        [scopedSource, scopedTarget],
-        emptyTransferSet(),
-        [carryover],
+      await buildSameAssetTransferFeeAdjustments({
+        scopedTransactions: [scopedSource, scopedTarget],
+        validatedTransfers: emptyTransferSet(),
+        feeOnlyInternalCarryovers: [carryover],
         fxProvider,
-        identityConfig
-      )
+        identityConfig,
+      })
     );
 
     expect(events.length).toBeGreaterThanOrEqual(1);

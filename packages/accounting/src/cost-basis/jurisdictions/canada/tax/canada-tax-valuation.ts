@@ -10,12 +10,13 @@ export function normalizeDecimal(value: Decimal): Decimal {
   return value.abs().lt(parseDecimal('1e-18')) ? parseDecimal('0') : value;
 }
 
-export async function buildCanadaTaxValuation(
-  priceAtTxTime: PriceAtTxTime,
-  quantity: Decimal,
-  timestamp: Date,
-  fxProvider: IFxRateProvider
-): Promise<Result<CanadaTaxValuation, Error>> {
+export async function buildCanadaTaxValuation(params: {
+  fxProvider: IFxRateProvider;
+  priceAtTxTime: PriceAtTxTime;
+  quantity: Decimal;
+  timestamp: Date;
+}): Promise<Result<CanadaTaxValuation, Error>> {
+  const { fxProvider, priceAtTxTime, quantity, timestamp } = params;
   const quotedPrice = priceAtTxTime.quotedPrice ?? priceAtTxTime.price;
 
   if (quotedPrice.currency === 'CAD') {
