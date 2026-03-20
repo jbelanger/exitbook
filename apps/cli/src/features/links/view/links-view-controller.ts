@@ -227,7 +227,7 @@ function normalizeScrollOffset(scrollOffset: number, itemCount: number): number 
   return Math.min(scrollOffset, itemCount - 1);
 }
 
-export function linksViewHandleKeyboardInput(
+export function handleLinksKeyboardInput(
   input: string,
   key: {
     ctrl: boolean;

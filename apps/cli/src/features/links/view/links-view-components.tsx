@@ -23,7 +23,7 @@ import {
 } from '../../../ui/shared/index.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../command/links-gap-utils.js';
 
-import { linksViewHandleKeyboardInput, linksViewReducer } from './links-view-controller.js';
+import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
   GAP_DETAIL_LINES,
   GAP_TOP_ASSET_LIMIT,
@@ -63,7 +63,7 @@ export const LinksViewApp: FC<{
 
   // Handle keyboard input
   useInput((input, key) => {
-    linksViewHandleKeyboardInput(
+    handleLinksKeyboardInput(
       input,
       key,
       dispatch,
