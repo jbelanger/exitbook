@@ -3,11 +3,11 @@ import { err, ok, type Result } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
-import { normalizeTransactionHash } from '../../../linking/strategies/exact-hash-utils.js';
 import {
   allocateSameHashUtxoAmountInTxOrder,
   planSameHashUtxoSourceCapacities,
-} from '../../../shared/same-hash-utxo-allocation.js';
+} from '../../../linking/same-hash-utxo-allocation.js';
+import { normalizeTransactionHash } from '../../../linking/strategies/exact-hash-utils.js';
 
 export type {
   AccountingScopedBuildResult,

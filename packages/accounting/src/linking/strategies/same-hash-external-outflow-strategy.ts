@@ -9,15 +9,15 @@ import {
 } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
+import { createTransactionLink } from '../matching/link-construction.js';
+import { shouldAutoConfirm } from '../matching/match-allocation.js';
+import type { LinkableMovement } from '../pre-linking/types.js';
 import {
   allocateSameHashUtxoAmountInTxOrder,
   planSameHashUtxoSourceCapacities,
   type SameHashUtxoCapacityPlan,
   type SameHashUtxoSourceAllocation,
-} from '../../shared/same-hash-utxo-allocation.js';
-import { createTransactionLink } from '../matching/link-construction.js';
-import { shouldAutoConfirm } from '../matching/match-allocation.js';
-import type { LinkableMovement } from '../pre-linking/types.js';
+} from '../same-hash-utxo-allocation.js';
 import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
 
 import { scoreAndFilterMatches } from './amount-timing-utils.js';
