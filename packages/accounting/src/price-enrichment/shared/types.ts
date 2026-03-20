@@ -1,5 +1,6 @@
 import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
+import type { PriceData, PriceQuery } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 /**
@@ -14,6 +15,14 @@ export interface FxRateData {
 
   /** When the rate was fetched or provided */
   fetchedAt: Date;
+}
+
+/**
+ * Narrow port for fetching a single asset price at a point in time.
+ * Decouples accounting from the concrete PriceProviderManager implementation.
+ */
+export interface IAssetPriceFetcher {
+  fetchPrice(query: PriceQuery): Promise<Result<{ data: PriceData }, Error>>;
 }
 
 /**

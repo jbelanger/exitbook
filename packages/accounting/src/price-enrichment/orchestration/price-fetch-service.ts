@@ -4,7 +4,6 @@ import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
@@ -21,6 +20,7 @@ import {
   validateAssetFilter,
 } from '../enrichment/price-fetch-utils.js';
 import type { PriceEvent } from '../shared/price-events.js';
+import type { IAssetPriceFetcher } from '../shared/types.js';
 
 const logger = getLogger('PriceFetchService');
 
@@ -60,7 +60,7 @@ export class PriceFetchService {
    */
   async fetchPrices(
     options: PriceFetchOptions,
-    priceManager: PriceProviderManager
+    priceManager: IAssetPriceFetcher
   ): Promise<Result<PricesFetchResult, Error>> {
     const errors: string[] = [];
 

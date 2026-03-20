@@ -18,13 +18,13 @@ import { err, ok, resultTryAsync } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
-import type { PriceProviderManager } from '@exitbook/price-providers';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import type { PricesFetchResult } from '../enrichment/price-fetch-utils.js';
 import { determineEnrichmentStages } from '../enrichment/price-fetch-utils.js';
 import type { PriceEvent } from '../shared/price-events.js';
+import type { IAssetPriceFetcher } from '../shared/types.js';
 import type { IFxRateProvider } from '../shared/types.js';
 
 import { PriceFetchService } from './price-fetch-service.js';
@@ -93,7 +93,7 @@ class NormalizeAbortError extends Error {
 
 /**
  * Orchestrates the four-stage price enrichment pipeline.
- * Caller is responsible for creating and destroying the PriceProviderManager.
+ * Caller is responsible for creating and destroying the price provider.
  */
 export class PriceEnrichmentPipeline {
   private readonly logger = getLogger('PriceEnrichmentPipeline');
@@ -117,7 +117,7 @@ export class PriceEnrichmentPipeline {
    */
   async execute(
     options: PricesEnrichOptions,
-    priceManager: PriceProviderManager,
+    priceManager: IAssetPriceFetcher,
     fxRateProvider: IFxRateProvider
   ): Promise<Result<PricesEnrichResult, Error>> {
     return resultTryAsync(
