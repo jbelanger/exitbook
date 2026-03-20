@@ -6,7 +6,8 @@
  * in BlockchainProviderManager.
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import type { Result } from '@exitbook/core';
+import { ok, wrapError } from '@exitbook/core';
 import type { HttpClientHooks } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
@@ -88,9 +89,13 @@ export class ProviderInstanceFactory {
     const providers: IBlockchainProvider[] = [];
 
     for (const [index, providerInfo] of registeredProviders.entries()) {
-      const instance = this.createInstance(blockchain, providerInfo.name, index + 1);
-      if (instance) {
-        providers.push(instance);
+      const result = this.createInstance(blockchain, providerInfo.name, index + 1);
+      if (result.isErr()) {
+        logger.warn({ error: result.error }, `Failed to create provider ${providerInfo.name} for ${blockchain}`);
+        continue;
+      }
+      if (result.value !== undefined) {
+        providers.push(result.value);
       }
     }
 
@@ -153,14 +158,18 @@ export class ProviderInstanceFactory {
     const providers: IBlockchainProvider[] = [];
 
     for (const providerPlanEntry of providerCreationPlan) {
-      const instance = this.createInstance(
+      const result = this.createInstance(
         blockchain,
         providerPlanEntry.name,
         providerPlanEntry.priority,
         providerPlanEntry.override
       );
-      if (instance) {
-        providers.push(instance);
+      if (result.isErr()) {
+        logger.warn({ error: result.error }, `Failed to create provider ${providerPlanEntry.name} for ${blockchain}`);
+        continue;
+      }
+      if (result.value !== undefined) {
+        providers.push(result.value);
       }
     }
 
@@ -190,12 +199,12 @@ export class ProviderInstanceFactory {
     providerName: string,
     priority: number,
     override?: ProviderOverride
-  ): IBlockchainProvider | undefined {
+  ): Result<IBlockchainProvider | undefined, Error> {
     try {
       const metadata = this.registry.getMetadata(blockchain, providerName);
       if (!metadata) {
         logger.warn(`No metadata found for provider ${providerName}. Skipping.`);
-        return undefined;
+        return ok(undefined);
       }
 
       if (metadata.requiresApiKey) {
@@ -204,7 +213,7 @@ export class ProviderInstanceFactory {
           logger.warn(
             `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
           );
-          return undefined;
+          return ok(undefined);
         }
       }
 
@@ -216,10 +225,9 @@ export class ProviderInstanceFactory {
         `Created provider ${providerName} for ${blockchain} - Priority: ${priority}, BaseUrl: ${baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
       );
 
-      return provider;
+      return ok(provider);
     } catch (error) {
-      logger.error(`Failed to create provider ${providerName} for ${blockchain} - Error: ${getErrorMessage(error)}`);
-      return undefined;
+      return wrapError(error, `Failed to create provider ${providerName} for ${blockchain}`);
     }
   }
 

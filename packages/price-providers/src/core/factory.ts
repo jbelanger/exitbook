@@ -5,7 +5,7 @@
  */
 
 import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { err, ok, wrapError } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
@@ -127,7 +127,7 @@ export async function createPriceProviders(config: ProviderFactoryConfig): Promi
   const dbResult = createPricesDatabase(config.databasePath);
 
   if (dbResult.isErr()) {
-    return err(new Error(`Failed to create prices database: ${dbResult.error.message}`));
+    return wrapError(dbResult.error, 'Failed to create prices database');
   }
 
   const db = dbResult.value;
@@ -135,7 +135,7 @@ export async function createPriceProviders(config: ProviderFactoryConfig): Promi
   // Run migrations
   const migrationResult = await initializePricesDatabase(db);
   if (migrationResult.isErr()) {
-    return err(new Error(`Failed to initialize database: ${migrationResult.error.message}`));
+    return wrapError(migrationResult.error, 'Failed to initialize database');
   }
 
   logger.debug({ databasePath: config.databasePath }, 'Prices database initialized');

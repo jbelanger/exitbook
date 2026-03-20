@@ -75,6 +75,10 @@ export class CostBasisWorkflow {
       return ok(workflowResult.value);
     }
 
+    if (config.currency !== 'USD' && !this.fxRateProvider) {
+      return err(new Error('FX rate provider required for non-USD currency conversion'));
+    }
+
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
       accountingExclusionPolicy: options.accountingExclusionPolicy,
       assetReviewSummaries: options.assetReviewSummaries,
@@ -87,10 +91,6 @@ export class CostBasisWorkflow {
     const { summary } = pipelineResult.value;
 
     const { lots, disposals, lotTransfers } = summary;
-
-    if (config.currency !== 'USD' && !this.fxRateProvider) {
-      return err(new Error('FX rate provider required for non-USD currency conversion'));
-    }
 
     let report: CostBasisReport | undefined;
     if (config.currency !== 'USD') {
