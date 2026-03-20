@@ -32,9 +32,7 @@ export function buildImportPorts(db: DataContext): ImportPorts {
         return db.importSessions.update(sessionId, cleaned);
       },
       finalize: (sessionId, { status, startTime, imported, skipped, errorMessage, metadata }) => {
-        // Port uses full status union; repo excludes 'started' (which the workflow never passes to finalize)
-        const repoStatus = status as Exclude<typeof status, 'started'>;
-        return db.importSessions.finalize(sessionId, repoStatus, startTime, imported, skipped, errorMessage, metadata);
+        return db.importSessions.finalize(sessionId, status, startTime, imported, skipped, errorMessage, metadata);
       },
       findById: (sessionId) => db.importSessions.findById(sessionId),
     },

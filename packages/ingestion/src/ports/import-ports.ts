@@ -46,7 +46,7 @@ export interface IImportSessionStore {
       metadata?: Record<string, unknown> | undefined;
       skipped: number;
       startTime: number;
-      status: ImportSessionStatus;
+      status: Exclude<ImportSessionStatus, 'started'>;
     }
   ): Promise<Result<void, Error>>;
   findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
