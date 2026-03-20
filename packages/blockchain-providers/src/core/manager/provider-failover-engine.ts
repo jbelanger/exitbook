@@ -9,7 +9,7 @@ import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-s
 
 import type { ProviderEvent } from '../../events.js';
 import { getProviderKey, type ProviderStatsStore } from '../health/provider-stats-store.js';
-import type { NormalizedTransactionBase } from '../index.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { ProviderError } from '../types/errors.js';
 import type {
   FailoverExecutionResult,

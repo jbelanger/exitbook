@@ -1,8 +1,8 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { NormalizedTransactionBase } from '../index.js';
 import { createDeduplicationWindow, deduplicateTransactions } from '../manager/provider-manager-utils.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import type { StreamingBatchResult, StreamingOperation, TransactionWithRawData } from '../types/index.js';
 import { buildCursorState, createEmptyCompletionCursor } from '../utils/cursor-utils.js';
 

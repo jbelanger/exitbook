@@ -17,64 +17,66 @@ import {
 import { sortCanadaEvents } from './canada-tax-event-ordering.js';
 import type { CanadaTaxInputContext, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
-export async function buildCanadaTaxInputContext(
-  scopedTransactions: AccountingScopedTransaction[],
-  validatedTransfers: ValidatedScopedTransferSet,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
-  fxProvider: IFxRateProvider,
-  options: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaTaxInputContext, Error>> {
-  const projectedEventsResult = await projectCanadaMovementEvents(
+export async function buildCanadaTaxInputContext(params: {
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  scopedTransactions: AccountingScopedTransaction[];
+  validatedTransfers: ValidatedScopedTransferSet;
+}): Promise<Result<CanadaTaxInputContext, Error>> {
+  const { feeOnlyInternalCarryovers, fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
+
+  const projectedEventsResult = await projectCanadaMovementEvents({
     scopedTransactions,
     validatedTransfers,
     fxProvider,
-    options
-  );
+    identityConfig,
+  });
   if (projectedEventsResult.isErr()) {
     return err(projectedEventsResult.error);
   }
 
-  const carryoverEventsResult = await applyCarryoverSemantics(
-    projectedEventsResult.value,
+  const carryoverEventsResult = await applyCarryoverSemantics({
+    events: projectedEventsResult.value,
     scopedTransactions,
     feeOnlyInternalCarryovers,
     fxProvider,
-    options
-  );
+    identityConfig,
+  });
   if (carryoverEventsResult.isErr()) {
     return err(carryoverEventsResult.error);
   }
 
   const finalizedEvents = carryoverEventsResult.value;
 
-  const validatedTargetFeeEventsResult = await buildValidatedTransferTargetFeeAdjustments(
+  const validatedTargetFeeEventsResult = await buildValidatedTransferTargetFeeAdjustments({
     scopedTransactions,
     validatedTransfers,
     fxProvider,
-    options
-  );
+    identityConfig,
+  });
   if (validatedTargetFeeEventsResult.isErr()) {
     return err(validatedTargetFeeEventsResult.error);
   }
 
-  const sameAssetTransferFeeEventsResult = await buildSameAssetTransferFeeAdjustments(
+  const sameAssetTransferFeeEventsResult = await buildSameAssetTransferFeeAdjustments({
     scopedTransactions,
     validatedTransfers,
     feeOnlyInternalCarryovers,
     fxProvider,
-    options
-  );
+    identityConfig,
+  });
   if (sameAssetTransferFeeEventsResult.isErr()) {
     return err(sameAssetTransferFeeEventsResult.error);
   }
 
-  const genericFeeAdjustmentsResult = await applyGenericFeeAdjustments(
-    finalizedEvents,
+  const genericFeeAdjustmentsResult = await applyGenericFeeAdjustments({
+    events: finalizedEvents,
     scopedTransactions,
     fxProvider,
-    options,
-    sameAssetTransferFeeEventsResult.value
-  );
+    identityConfig,
+    sameAssetTransferFeeEvents: sameAssetTransferFeeEventsResult.value,
+  });
   if (genericFeeAdjustmentsResult.isErr()) {
     return err(genericFeeAdjustmentsResult.error);
   }

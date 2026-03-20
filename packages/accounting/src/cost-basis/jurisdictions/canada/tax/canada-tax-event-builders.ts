@@ -203,12 +203,12 @@ async function buildMovementEvent(
     return err(identityResult.error);
   }
 
-  const valuationResult = await buildCanadaTaxValuation(
-    movement.priceAtTxTime,
+  const valuationResult = await buildCanadaTaxValuation({
+    priceAtTxTime: movement.priceAtTxTime,
     quantity,
-    new Date(scopedTransaction.tx.datetime),
-    fxProvider
-  );
+    timestamp: new Date(scopedTransaction.tx.datetime),
+    fxProvider,
+  });
   if (valuationResult.isErr()) {
     return err(valuationResult.error);
   }
@@ -357,12 +357,13 @@ async function projectTransferAwareMovementEvents(
   return ok(events);
 }
 
-export async function projectCanadaMovementEvents(
-  scopedTransactions: AccountingScopedTransaction[],
-  validatedTransfers: ValidatedScopedTransferSet,
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaMovementEvent[], Error>> {
+export async function projectCanadaMovementEvents(params: {
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  scopedTransactions: AccountingScopedTransaction[];
+  validatedTransfers: ValidatedScopedTransferSet;
+}): Promise<Result<CanadaMovementEvent[], Error>> {
+  const { fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
   const events: CanadaMovementEvent[] = [];
 
   for (const scopedTransaction of scopedTransactions) {
@@ -479,8 +480,8 @@ async function buildSameAssetTransferFeeAdjustmentEvent(
     return ok(undefined);
   }
 
-  const valuedFeeResult = await buildValuedFee(
-    {
+  const valuedFeeResult = await buildValuedFee({
+    fee: {
       amount: feeAmount,
       assetId: ref.assetId,
       assetSymbol: ref.assetSymbol,
@@ -488,8 +489,8 @@ async function buildSameAssetTransferFeeAdjustmentEvent(
     },
     timestamp,
     fxProvider,
-    identityConfig
-  );
+    identityConfig,
+  });
   if (valuedFeeResult.isErr()) {
     return err(valuedFeeResult.error);
   }
@@ -642,13 +643,14 @@ function convertCarryoverTargetToTransferIn(
   };
 }
 
-export async function applyCarryoverSemantics(
-  events: CanadaTaxInputEvent[],
-  scopedTransactions: AccountingScopedTransaction[],
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaTaxInputEvent[], Error>> {
+export async function applyCarryoverSemantics(params: {
+  events: CanadaTaxInputEvent[];
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  scopedTransactions: AccountingScopedTransaction[];
+}): Promise<Result<CanadaTaxInputEvent[], Error>> {
+  const { events, feeOnlyInternalCarryovers, fxProvider, identityConfig, scopedTransactions } = params;
   const { byMovementFingerprint } = buildEventIndex(events);
   const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
   const finalizedEvents = [...events];
@@ -783,13 +785,14 @@ function allocateCadAcrossEvents(
   return totalCad.dividedBy(candidateEvents.length);
 }
 
-export async function applyGenericFeeAdjustments(
-  events: CanadaTaxInputEvent[],
-  scopedTransactions: AccountingScopedTransaction[],
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions,
-  sameAssetTransferFeeEvents: CanadaFeeAdjustmentEvent[]
-): Promise<Result<void, Error>> {
+export async function applyGenericFeeAdjustments(params: {
+  events: CanadaTaxInputEvent[];
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  sameAssetTransferFeeEvents: CanadaFeeAdjustmentEvent[];
+  scopedTransactions: AccountingScopedTransaction[];
+}): Promise<Result<void, Error>> {
+  const { events, fxProvider, identityConfig, sameAssetTransferFeeEvents, scopedTransactions } = params;
   for (const scopedTransaction of scopedTransactions) {
     const timestamp = new Date(scopedTransaction.tx.datetime);
     const valuedFeesResult = await valueScopedFees(scopedTransaction.fees, timestamp, fxProvider, identityConfig);
@@ -879,12 +882,13 @@ export async function applyGenericFeeAdjustments(
   return ok(undefined);
 }
 
-export async function buildValidatedTransferTargetFeeAdjustments(
-  scopedTransactions: AccountingScopedTransaction[],
-  validatedTransfers: ValidatedScopedTransferSet,
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
+export async function buildValidatedTransferTargetFeeAdjustments(params: {
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  scopedTransactions: AccountingScopedTransaction[];
+  validatedTransfers: ValidatedScopedTransferSet;
+}): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
+  const { fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
   const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
   const events: CanadaFeeAdjustmentEvent[] = [];
 
@@ -1049,13 +1053,14 @@ function buildSameAssetFeeSourceRefs(
   return ok(refs);
 }
 
-export async function buildSameAssetTransferFeeAdjustments(
-  scopedTransactions: AccountingScopedTransaction[],
-  validatedTransfers: ValidatedScopedTransferSet,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
-  fxProvider: IFxRateProvider,
-  identityConfig: CanadaTaxInputContextBuildOptions
-): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
+export async function buildSameAssetTransferFeeAdjustments(params: {
+  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  fxProvider: IFxRateProvider;
+  identityConfig: CanadaTaxInputContextBuildOptions;
+  scopedTransactions: AccountingScopedTransaction[];
+  validatedTransfers: ValidatedScopedTransferSet;
+}): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
+  const { feeOnlyInternalCarryovers, fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
   const refsResult = buildSameAssetFeeSourceRefs(
     scopedTransactions,
     validatedTransfers,

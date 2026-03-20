@@ -9,14 +9,8 @@ import type { Decimal } from 'decimal.js';
  */
 export type SpotPriceResult = { price: Decimal } | { error: string };
 
-/**
- * Sort modes for portfolio view
- */
 export type SortMode = 'value' | 'gain' | 'loss' | 'allocation';
 
-/**
- * Open lot item for display
- */
 export interface OpenLotItem {
   lotId: string;
   quantity: string;

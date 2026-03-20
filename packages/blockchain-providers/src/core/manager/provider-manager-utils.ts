@@ -9,7 +9,7 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
 import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { selectProviders } from '@exitbook/resilience/provider-selection';
 
-import type { NormalizedTransactionBase } from '../index.js';
+import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import type {
   IBlockchainProvider,
   ProviderCapabilities,

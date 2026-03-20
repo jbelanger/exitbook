@@ -15,9 +15,6 @@ import type { BlockchainsViewState } from './blockchains-view-state.js';
  */
 type BlockchainsViewAction = ListNavigationAction;
 
-/**
- * Reducer function for blockchains view state
- */
 export function blockchainsViewReducer(
   state: BlockchainsViewState,
   action: BlockchainsViewAction
@@ -30,9 +27,6 @@ export function blockchainsViewReducer(
   return { ...state, ...nav };
 }
 
-/**
- * Handle keyboard input for blockchains view
- */
 export function handleBlockchainsKeyboardInput(
   input: string,
   key: {

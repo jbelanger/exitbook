@@ -70,16 +70,10 @@ export function applyTransactionFilters(
 
 // ─── TUI Transformation Utilities ───────────────────────────────────────────
 
-/**
- * Check if an asset is fiat (no pricing needed).
- */
 function isFiatAsset(assetSymbol: string): boolean {
   return isFiat(assetSymbol as Currency);
 }
 
-/**
- * Convert an AssetMovementDraft to a MovementDisplayItem.
- */
 function toMovementDisplayItem(m: AssetMovementDraft): MovementDisplayItem {
   return {
     assetSymbol: m.assetSymbol,
@@ -90,9 +84,6 @@ function toMovementDisplayItem(m: AssetMovementDraft): MovementDisplayItem {
   };
 }
 
-/**
- * Convert a FeeMovementDraft to a FeeDisplayItem.
- */
 function toFeeDisplayItem(f: FeeMovementDraft): FeeDisplayItem {
   return {
     assetSymbol: f.assetSymbol,

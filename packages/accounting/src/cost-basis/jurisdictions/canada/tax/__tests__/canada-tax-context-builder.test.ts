@@ -346,16 +346,16 @@ describe('buildCanadaTaxInputContext', () => {
       byTargetMovementFingerprint: new Map([[targetMovementFingerprint, [validatedLink]]]),
     };
 
-    const result = await buildCanadaTaxInputContext(
-      scoped.transactions,
+    const result = await buildCanadaTaxInputContext({
+      scopedTransactions: scoped.transactions,
       validatedTransfers,
-      scoped.feeOnlyInternalCarryovers,
+      feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
       fxProvider,
-      {
+      identityConfig: {
         taxAssetIdentityPolicy: canadaConfig.taxAssetIdentityPolicy,
         relaxedTaxIdentitySymbols: canadaConfig.relaxedTaxIdentitySymbols,
-      }
-    );
+      },
+    });
     const context = assertOk(result);
     const disposition = context.inputEvents.find(
       (event): event is Extract<(typeof context.inputEvents)[number], { kind: 'disposition' }> =>

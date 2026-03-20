@@ -1,6 +1,3 @@
-// Unified transactions command for managing processed transactions
-// Provides a single namespace for viewing, editing, and exporting transaction data
-
 import type { Command } from 'commander';
 
 import { registerTransactionsEditCommand } from './transactions-edit.js';

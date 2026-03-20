@@ -60,7 +60,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('50000', 'USD', { amount: '68000', currency: 'CAD' });
     const fxProvider = createFxProvider({});
 
-    const result = assertOk(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertOk(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.taxCurrency).toBe('CAD');
     expect(result.unitValueCad.toFixed()).toBe('68000');
@@ -73,7 +73,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('68000', 'CAD');
     const fxProvider = createFxProvider({});
 
-    const result = assertOk(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertOk(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.unitValueCad.toFixed()).toBe('68000');
     expect(result.totalValueCad.toFixed()).toBe('680000');
@@ -84,7 +84,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('50000', 'USD');
     const fxProvider = createFxProvider({ fromUSD: { CAD: '1.36' } });
 
-    const result = assertOk(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertOk(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.unitValueCad.toFixed()).toBe('68000');
     expect(result.totalValueCad.toFixed()).toBe('680000');
@@ -99,7 +99,7 @@ describe('buildCanadaTaxValuation', () => {
       fromUSD: { CAD: '1.36' },
     });
 
-    const result = assertOk(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertOk(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     // 45000 EUR × 1.1 USD/EUR × 1.36 CAD/USD = 67320 CAD
     expect(result.unitValueCad.toFixed()).toBe('67320');
@@ -110,7 +110,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('1', 'BTC');
     const fxProvider = createFxProvider({});
 
-    const result = assertErr(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertErr(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.message).toContain('requires fiat or USD price data');
     expect(result.message).toContain('BTC');
@@ -120,7 +120,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('50000', 'USD');
     const fxProvider = createFxProvider({}); // No rates configured
 
-    const result = assertErr(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertErr(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.message).toContain('Failed to convert USD price to CAD');
   });
@@ -129,7 +129,7 @@ describe('buildCanadaTaxValuation', () => {
     const price = createPrice('45000', 'EUR');
     const fxProvider = createFxProvider({ fromUSD: { CAD: '1.36' } }); // No EUR→USD
 
-    const result = assertErr(await buildCanadaTaxValuation(price, quantity, timestamp, fxProvider));
+    const result = assertErr(await buildCanadaTaxValuation({ priceAtTxTime: price, quantity, timestamp, fxProvider }));
 
     expect(result.message).toContain('Failed to normalize EUR price to USD');
   });

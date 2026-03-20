@@ -17,9 +17,6 @@ import type { AccountsViewState } from './accounts-view-state.js';
  */
 type AccountsViewAction = ListNavigationAction;
 
-/**
- * Reducer function for accounts view state
- */
 export function accountsViewReducer(state: AccountsViewState, action: AccountsViewAction): AccountsViewState {
   const nav = reduceListNavigation(
     { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
@@ -29,9 +26,6 @@ export function accountsViewReducer(state: AccountsViewState, action: AccountsVi
   return { ...state, ...nav };
 }
 
-/**
- * Handle keyboard input for accounts view
- */
 export function handleAccountsKeyboardInput(
   input: string,
   key: {
