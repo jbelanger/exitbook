@@ -1,7 +1,10 @@
 ---
-status: draft
-last_updated: 2026-03-17
+status: superseded
+last_updated: 2026-03-19
+superseded_by: docs/dev/profiles-and-accounts-plan.md
 ---
+
+> Superseded by [profiles-and-accounts-plan.md](./profiles-and-accounts-plan.md).
 
 # Profiles And Named Sources Plan
 
