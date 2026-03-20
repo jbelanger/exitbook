@@ -6,6 +6,7 @@ import { calculateVisibleRows } from '../../../ui/shared/chrome-layout.js';
 import {
   dispatchListNavigationKeys,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 
@@ -28,16 +29,7 @@ export function accountsViewReducer(state: AccountsViewState, action: AccountsVi
 
 export function handleAccountsKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey,
   dispatch: (action: AccountsViewAction) => void,
   onQuit: () => void,
   terminalHeight: number

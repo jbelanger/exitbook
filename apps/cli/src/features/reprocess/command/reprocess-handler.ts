@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { AdapterRegistry, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -103,6 +103,6 @@ export async function createReprocessHandler(
 
     return ok(new ReprocessHandler(database, infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to create reprocess handler');
   }
 }

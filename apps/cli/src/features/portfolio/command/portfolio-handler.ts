@@ -16,7 +16,7 @@ import {
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
 import { parseCurrency, type AssetReviewSummary, type Currency, type Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
@@ -476,7 +476,7 @@ export class PortfolioHandler {
         },
       });
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to build portfolio');
     }
   }
 

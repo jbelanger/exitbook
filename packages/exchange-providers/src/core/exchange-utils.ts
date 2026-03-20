@@ -37,7 +37,7 @@ export function validateRawData<T>(schema: ZodType<T>, rawData: unknown, exchang
  * @param normalizeAsset - Optional function to normalize asset symbols
  * @returns Balance record mapping currency to total balance string
  */
-export function processCCXTBalance(
+export function normalizeCCXTBalance(
   ccxtBalance: Record<string, unknown>,
   normalizeAsset?: (assetSymbol: string) => string
 ): Record<string, string> {

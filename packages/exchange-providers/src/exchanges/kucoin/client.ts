@@ -62,9 +62,9 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           for (const accountType of accountTypes) {
             try {
               const balance = await exchange.fetchBalance({ type: accountType });
-              const processed = ExchangeUtils.processCCXTBalance(balance);
+              const processed = ExchangeUtils.normalizeCCXTBalance(balance);
 
-              // Merge balances from this account type (processCCXTBalance returns Record<string, string>)
+              // Merge balances from this account type (normalizeCCXTBalance returns Record<string, string>)
               for (const [asset, amountStr] of Object.entries(processed)) {
                 const amount = new Decimal(amountStr);
                 allBalances[asset] = (allBalances[asset] ?? new Decimal(0)).plus(amount);

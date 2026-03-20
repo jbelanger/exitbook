@@ -6,6 +6,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 
@@ -225,18 +226,7 @@ function handleDrillUp(state: BalanceState): BalanceState {
 
 export function handleBalanceKeyboardInput(
   input: string,
-  key: {
-    backspace: boolean;
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    return: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { backspace: boolean; return: boolean },
   state: BalanceState,
   dispatch: (action: BalanceAction) => void,
   onQuit: () => void,

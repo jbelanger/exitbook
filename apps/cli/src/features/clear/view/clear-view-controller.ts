@@ -7,6 +7,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import type { FlatDeletionPreview } from '../command/clear-handler.js';
@@ -88,16 +89,7 @@ export function clearViewReducer(state: ClearViewState, action: ClearViewAction)
  */
 export function handleClearKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey,
   state: ClearViewState,
   dispatch: (action: ClearViewAction) => void,
   onQuit: () => void,

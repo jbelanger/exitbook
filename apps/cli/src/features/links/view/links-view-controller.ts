@@ -7,6 +7,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 
@@ -229,16 +230,7 @@ function normalizeScrollOffset(scrollOffset: number, itemCount: number): number 
 
 export function handleLinksKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey,
   dispatch: (action: LinksViewAction) => void,
   onQuit: () => void,
   terminalHeight: number,

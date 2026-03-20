@@ -12,7 +12,7 @@ import {
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting';
-import { err, ok, sha256Hex, type Result } from '@exitbook/core';
+import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
@@ -236,7 +236,7 @@ export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
         })
       );
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to write export files');
     }
   }
 }
@@ -331,7 +331,7 @@ async function removeStaleManagedTaxPackageFiles(
 
     return ok(undefined);
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Cost basis export failed');
   }
 }
 

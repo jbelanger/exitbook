@@ -5,7 +5,7 @@ import {
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildPricingPorts, type DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -62,7 +62,7 @@ class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, 
           logger.warn({ e }, 'Failed to stop controller after exception');
         });
       }
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Price enrichment failed');
     }
   }
 

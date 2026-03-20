@@ -5,6 +5,7 @@
 import {
   dispatchListNavigationKeys,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 
@@ -29,16 +30,7 @@ export function blockchainsViewReducer(
 
 export function handleBlockchainsKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey,
   dispatch: (action: BlockchainsViewAction) => void,
   onQuit: () => void,
   visibleRows: number

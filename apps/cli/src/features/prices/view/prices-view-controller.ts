@@ -7,6 +7,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import type { AssetBreakdownEntry, MissingPriceMovement } from '../command/prices-view-utils.js';
@@ -215,19 +216,7 @@ export function pricesViewReducer(state: PricesViewState, action: PricesViewActi
  */
 export function handlePricesKeyboardInput(
   input: string,
-  key: {
-    backspace: boolean;
-    ctrl: boolean;
-    delete: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    return: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { backspace: boolean; delete: boolean; return: boolean },
   dispatch: (action: PricesViewAction) => void,
   onQuit: () => void,
   terminalHeight: number,

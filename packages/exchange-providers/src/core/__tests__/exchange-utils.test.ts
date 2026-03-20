@@ -2,7 +2,7 @@ import { assertErr } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { processCCXTBalance, validateCredentials, validateRawData } from '../exchange-utils.js';
+import { normalizeCCXTBalance, validateCredentials, validateRawData } from '../exchange-utils.js';
 
 describe('validateCredentials', () => {
   const TestCredentialsSchema = z.object({
@@ -196,7 +196,7 @@ describe('validateRawData', () => {
   });
 });
 
-describe('processCCXTBalance', () => {
+describe('normalizeCCXTBalance', () => {
   it('should process balance with multiple currencies', () => {
     const ccxtBalance = {
       BTC: { total: 1.5, free: 1.0, used: 0.5 },
@@ -209,7 +209,7 @@ describe('processCCXTBalance', () => {
       datetime: '2024-01-01T00:00:00.000Z',
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({
       BTC: '1.5',
@@ -226,7 +226,7 @@ describe('processCCXTBalance', () => {
       datetime: '2024-01-01T00:00:00.000Z',
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).not.toHaveProperty('info');
     expect(result).not.toHaveProperty('timestamp');
@@ -241,7 +241,7 @@ describe('processCCXTBalance', () => {
       USD: { total: 0 },
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({ BTC: '1' });
     expect(result).not.toHaveProperty('ETH');
@@ -253,7 +253,7 @@ describe('processCCXTBalance', () => {
       BTC: { free: 1.0, used: 0.5 }, // no total
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({});
   });
@@ -265,7 +265,7 @@ describe('processCCXTBalance', () => {
       datetime: '2024-01-01T00:00:00.000Z',
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({});
   });
@@ -276,7 +276,7 @@ describe('processCCXTBalance', () => {
       ETH: { total: 10 },
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result['BTC']).toBe('1.23456789');
     expect(result['ETH']).toBe('10');
@@ -289,7 +289,7 @@ describe('processCCXTBalance', () => {
       BTC: { total: -0.5 }, // margin trading
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({ BTC: '-0.5' });
   });
@@ -302,7 +302,7 @@ describe('processCCXTBalance', () => {
 
     const normalizeAsset = (assetSymbol: string) => assetSymbol.replace(/[./].*$/, '');
 
-    const result = processCCXTBalance(ccxtBalance, normalizeAsset);
+    const result = normalizeCCXTBalance(ccxtBalance, normalizeAsset);
 
     expect(result).toEqual({
       BTC: '1',
@@ -315,7 +315,7 @@ describe('processCCXTBalance', () => {
       'BTC.USD': { total: 1.0 },
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result).toEqual({
       'BTC.USD': '1',
@@ -331,7 +331,7 @@ describe('processCCXTBalance', () => {
 
     const normalizeAsset = (assetSymbol: string) => assetSymbol.toUpperCase().split('-')[0]!;
 
-    const result = processCCXTBalance(ccxtBalance, normalizeAsset);
+    const result = normalizeCCXTBalance(ccxtBalance, normalizeAsset);
 
     // All will be normalized to BTC, last one wins
     expect(Object.keys(result)).toContain('BTC');
@@ -342,7 +342,7 @@ describe('processCCXTBalance', () => {
       SHIB: { total: 1000000000 }, // 1 billion
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result['SHIB']).toBe('1000000000');
   });
@@ -352,7 +352,7 @@ describe('processCCXTBalance', () => {
       BTC: { total: 0.00000001 }, // 1 satoshi
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     // JavaScript toString() for very small numbers uses scientific notation
     expect(result['BTC']).toBe('1e-8');
@@ -365,7 +365,7 @@ describe('processCCXTBalance', () => {
       uSd: { total: 5000 },
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result['btc']).toBe('1');
     expect(result['ETH']).toBe('10');
@@ -379,7 +379,7 @@ describe('processCCXTBalance', () => {
       'BNB:BUSD': { total: 100 },
     };
 
-    const result = processCCXTBalance(ccxtBalance);
+    const result = normalizeCCXTBalance(ccxtBalance);
 
     expect(result['BTC-USD']).toBe('1');
     expect(result['ETH/USDT']).toBe('10');

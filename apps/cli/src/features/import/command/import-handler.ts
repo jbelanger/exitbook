@@ -1,5 +1,5 @@
 import type { ImportSession } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import { buildImportPorts } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
@@ -125,6 +125,6 @@ export async function createImportHandler(
 
     return ok(new ImportHandler(importWorkflow, registry, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to create import handler');
   }
 }

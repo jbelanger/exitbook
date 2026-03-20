@@ -7,6 +7,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 
@@ -73,18 +74,7 @@ function handleDrillUp(state: CostBasisState): CostBasisState {
 
 export function handleCostBasisKeyboardInput(
   input: string,
-  key: {
-    backspace: boolean;
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    return: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { backspace: boolean; return: boolean },
   state: CostBasisState,
   dispatch: (action: CostBasisAction) => void,
   onQuit: () => void,

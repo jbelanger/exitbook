@@ -4,7 +4,7 @@ import {
   type LinkingRunParams,
   type LinkingRunResult,
 } from '@exitbook/accounting';
-import { err, ok, type OverrideEvent, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type OverrideEvent, type Result } from '@exitbook/core';
 import { buildLinkingPorts, type DataContext, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
@@ -53,7 +53,7 @@ export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, 
 
       return ok(result.value);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to run links operation');
     }
   }
 

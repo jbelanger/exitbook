@@ -203,7 +203,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
  * Prompt user for cost basis parameters in interactive mode using Ink.
  * Returns null if the user cancels.
  */
-export async function promptForCostBasisParams(
+export function promptForCostBasisParams(
   initialValues: PromptSeedValues = {}
 ): Promise<ValidatedCostBasisConfig | null> {
   return new Promise<ValidatedCostBasisConfig | null>((resolve, reject) => {

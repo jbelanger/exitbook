@@ -3,7 +3,7 @@ import {
   type BenchmarkableBlockchainProvider,
   type ProviderBenchmarkSession,
 } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { BenchmarkProgressEvent, BenchmarkResult } from './benchmark-tool.js';
@@ -112,7 +112,7 @@ export class ProviderBenchmarkHandler {
         result,
       });
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Benchmark request failed');
     }
   }
 

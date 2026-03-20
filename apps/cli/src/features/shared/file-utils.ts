@@ -6,7 +6,7 @@
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { err, ok, randomHex, type Result } from '@exitbook/core';
+import { ok, randomHex, wrapError, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('file-utils');
@@ -56,6 +56,6 @@ export async function writeFilesAtomically(files: FileWrite[]): Promise<Result<s
       )
     );
 
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to write file');
   }
 }

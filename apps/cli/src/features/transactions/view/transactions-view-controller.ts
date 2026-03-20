@@ -7,6 +7,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import type { CsvFormat, ExportFormat } from '../command/transactions-export-utils.js';
@@ -115,17 +116,7 @@ export function transactionsViewReducer(
  */
 export function handleTransactionsKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    return: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { return: boolean },
   dispatch: (action: TransactionsViewAction) => void,
   onQuit: () => void,
   terminalHeight: number,

@@ -1,6 +1,6 @@
 import { buildCostBasisScopedTransactions, validateTransferProposalConfirmability } from '@exitbook/accounting';
 import type { Result, TransactionLink } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { err, ok, wrapError } from '@exitbook/core';
 import type { DataContext, OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
 
@@ -161,7 +161,7 @@ export class TransferProposalReviewService {
       });
     } catch (error) {
       logger.error({ error, linkId, targetStatus }, 'Failed to review transfer proposal');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to review transfer proposal');
     }
   }
 

@@ -66,20 +66,27 @@ export function reduceListNavigation(
 }
 
 /**
+ * Key input shape used by all view-controller keyboard handlers.
+ * Includes all navigation keys plus escape for quit/cancel.
+ */
+export interface ListNavigationKey {
+  ctrl: boolean;
+  downArrow: boolean;
+  end: boolean;
+  escape: boolean;
+  home: boolean;
+  pageDown: boolean;
+  pageUp: boolean;
+  upArrow: boolean;
+}
+
+/**
  * Dispatches a navigation action for the pressed key.
  * Returns true if the key was handled, false otherwise.
  * Covers arrow keys, page up/down (and Ctrl+U/D), home/end, and vim j/k.
  */
 export function dispatchListNavigationKeys(
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    upArrow: boolean;
-  },
+  key: Omit<ListNavigationKey, 'escape'>,
   input: string,
   dispatch: (action: ListNavigationAction) => void,
   visibleRows: number

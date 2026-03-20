@@ -2,6 +2,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
@@ -162,17 +163,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
 
 export function handleAssetsKeyboardInput(
   input: string,
-  key: {
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    tab: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { tab: boolean },
   dispatch: (action: AssetsViewAction) => void,
   onQuit: () => void,
   terminalHeight: number,

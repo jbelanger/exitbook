@@ -6,6 +6,7 @@ import {
   dispatchListNavigationKeys,
   isListNavigationAction,
   type ListNavigationAction,
+  type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import { sortPositions } from '../command/portfolio-utils.js';
@@ -140,18 +141,7 @@ function handleDrillUp(state: PortfolioState): PortfolioState {
 
 export function handlePortfolioKeyboardInput(
   input: string,
-  key: {
-    backspace: boolean;
-    ctrl: boolean;
-    downArrow: boolean;
-    end: boolean;
-    escape: boolean;
-    home: boolean;
-    pageDown: boolean;
-    pageUp: boolean;
-    return: boolean;
-    upArrow: boolean;
-  },
+  key: ListNavigationKey & { backspace: boolean; return: boolean },
   state: PortfolioState,
   dispatch: (action: PortfolioAction) => void,
   onQuit: () => void,
