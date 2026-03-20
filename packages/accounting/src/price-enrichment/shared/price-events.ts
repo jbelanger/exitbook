@@ -3,11 +3,10 @@
  * Used for CLI progress display and UI decoupling.
  */
 
-import type { PriceProviderEvent } from '@exitbook/price-providers';
-
 export type PriceEvent =
-  // Provider lifecycle events (from @exitbook/price-providers)
-  | PriceProviderEvent
+  // Provider lifecycle events (mirrored from @exitbook/price-providers to avoid cross-package coupling)
+  | { type: 'providers.initializing' }
+  | { providerCount: number; type: 'providers.ready'; }
   // Stage lifecycle events
   | {
       /**
