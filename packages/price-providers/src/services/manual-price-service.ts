@@ -67,13 +67,11 @@ export class ManualPriceService {
    */
   async savePrice(entry: ManualPriceEntry): Promise<Result<void, Error>> {
     try {
-      // Ensure initialized
       const initResult = await this.ensureInitialized();
       if (initResult.isErr()) {
         return err(initResult.error);
       }
 
-      // Save to cache
       const saveResult = await this.queries!.savePrice({
         assetSymbol: entry.assetSymbol,
         currency: entry.currency ?? ('USD' as Currency),
@@ -113,18 +111,16 @@ export class ManualPriceService {
    */
   async saveFxRate(entry: ManualFxRateEntry): Promise<Result<void, Error>> {
     try {
-      // Ensure initialized
       const initResult = await this.ensureInitialized();
       if (initResult.isErr()) {
         return err(initResult.error);
       }
 
-      // Validate currencies are different
       if (entry.from === entry.to) {
         return err(new Error('Source and target currencies must be different'));
       }
 
-      // Save to cache (asset=from, currency=to)
+      // FX rates stored as prices: asset=from, currency=to (matches StandardFxRateProvider fetch pattern)
       const saveResult = await this.queries!.savePrice({
         assetSymbol: entry.from,
         currency: entry.to,

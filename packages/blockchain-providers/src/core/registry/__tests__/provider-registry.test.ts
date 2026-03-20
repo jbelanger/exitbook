@@ -65,25 +65,7 @@ describe('ProviderRegistry', () => {
     ).toThrow(/metadata mismatch/i);
   });
 
-  test('should validate legacy configuration correctly', () => {
-    const validConfig = {
-      ethereum: { explorers: [{ enabled: true, name: 'moralis', priority: 1 }] },
-    };
-    const invalidConfig = {
-      ethereum: { explorers: [{ enabled: true, name: 'invalid-provider', priority: 1 }] },
-    };
-
-    const validResult = providerRegistry.validateConfig(validConfig);
-    expect(validResult.valid).toBe(true);
-    expect(validResult.errors).toHaveLength(0);
-
-    const invalidResult = providerRegistry.validateConfig(invalidConfig);
-    expect(invalidResult.valid).toBe(false);
-    expect(invalidResult.errors.length).toBeGreaterThan(0);
-    expect(invalidResult.errors[0]).toContain('invalid-provider');
-  });
-
-  test('should validate new override-based configuration correctly', () => {
+  test('should validate override-based configuration correctly', () => {
     const validOverrideConfig = {
       ethereum: {
         defaultEnabled: ['routescan', 'moralis'],

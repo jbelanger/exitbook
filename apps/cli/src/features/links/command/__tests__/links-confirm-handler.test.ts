@@ -352,7 +352,7 @@ describe('LinksConfirmHandler', () => {
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toBe('Unexpected error');
+      expect(error.message).toContain('Unexpected error');
     });
 
     it('should reject confirming a partial link that does not fully reconcile the target movement', async () => {

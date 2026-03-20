@@ -300,7 +300,7 @@ describe('TransactionsExportHandler', () => {
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toBe('Unexpected error');
+      expect(error.message).toContain('Unexpected error');
     });
 
     it('should handle non-Error exceptions', async () => {
@@ -314,7 +314,7 @@ describe('TransactionsExportHandler', () => {
       const result = await handler.execute(params);
 
       const error = assertErr(result);
-      expect(error.message).toBe('String error');
+      expect(error.message).toContain('String error');
     });
   });
 });

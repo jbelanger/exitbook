@@ -145,7 +145,7 @@ export class PriceNormalizationService {
       logger.info({ transactionsToUpdate: transactionsToUpdate.size }, 'Updating transactions with normalized prices');
 
       for (const tx of transactionsToUpdate.values()) {
-        const updateResult = await this.updateTransactionPrices(tx);
+        const updateResult = await this.store.saveTransactionPrices(tx);
         if (updateResult.isErr()) {
           logger.error({ txId: tx.id, error: updateResult.error }, 'Failed to update transaction');
           result.failures++;
@@ -199,12 +199,5 @@ export class PriceNormalizationService {
 
     // Delegate to pure utility function
     return normalizeTransactionMovements(tx, normalizePriceFn);
-  }
-
-  /**
-   * Update transaction in database with normalized price data
-   */
-  private async updateTransactionPrices(tx: Transaction): Promise<Result<void, Error>> {
-    return this.store.saveTransactionPrices(tx);
   }
 }

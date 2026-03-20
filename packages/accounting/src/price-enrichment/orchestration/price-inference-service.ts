@@ -191,7 +191,7 @@ export class PriceInferenceService {
           continue;
         }
 
-        const updateResult = await this.updateTransactionPrices(tx);
+        const updateResult = await this.store.saveTransactionPrices(tx);
         if (updateResult.isOk()) {
           updatedCount++;
         }
@@ -205,15 +205,5 @@ export class PriceInferenceService {
     } catch (error) {
       return wrapError(error, `Failed to derive prices for transaction group: ${group.groupId}`);
     }
-  }
-
-  /**
-   * Update transaction in database with derived price data
-   *
-   * The transaction passed in already has derived movements with correct priorities
-   * applied by the multi-pass algorithm. Just persist it directly.
-   */
-  private async updateTransactionPrices(tx: Transaction): Promise<Result<void, Error>> {
-    return this.store.saveTransactionPrices(tx);
   }
 }

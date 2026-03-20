@@ -244,7 +244,6 @@ export interface PriceProviderManagerFactoryConfig {
 export async function createPriceProviderManager(
   config: PriceProviderManagerFactoryConfig
 ): Promise<Result<PriceProviderManager, Error>> {
-  // Create providers
   const providersResult = await createPriceProviders(config.providers);
 
   if (providersResult.isErr()) {
@@ -253,7 +252,6 @@ export async function createPriceProviderManager(
 
   const providers = providersResult.value;
 
-  // Create manager with config
   const manager = new PriceProviderManager({
     defaultCurrency: 'USD',
     maxConsecutiveFailures: 5,
@@ -261,7 +259,6 @@ export async function createPriceProviderManager(
     ...config.manager,
   });
 
-  // Register providers
   manager.registerProviders(providers);
 
   // Start background tasks (cache cleanup) explicitly

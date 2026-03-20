@@ -67,7 +67,6 @@ export class PriceProviderManager {
    * Register providers with the manager
    */
   registerProviders(providers: IPriceProvider[]): void {
-    // Sort by priority (pure operation)
     this.providers = providers;
 
     // Initialize health status and circuit breaker for each provider
@@ -106,7 +105,6 @@ export class PriceProviderManager {
       return result;
     }
 
-    // Cache the result
     this.requestCache.set(cacheKey, result.value.data);
 
     // Convert stablecoin-denominated prices to USD

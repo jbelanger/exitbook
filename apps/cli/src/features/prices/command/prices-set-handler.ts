@@ -127,13 +127,13 @@ export class PricesSetHandler {
   > {
     try {
       // Validate asset
-      if (!options.asset || typeof options.asset !== 'string') {
+      if (!options.asset) {
         return err(new Error('Asset symbol is required'));
       }
       const asset = options.asset.toUpperCase() as Currency;
 
       // Validate timestamp
-      if (!options.date || typeof options.date !== 'string') {
+      if (!options.date) {
         return err(new Error('Date is required (ISO 8601 format)'));
       }
       const timestamp = new Date(options.date);
@@ -142,7 +142,7 @@ export class PricesSetHandler {
       }
 
       // Validate price
-      if (!options.price || typeof options.price !== 'string') {
+      if (!options.price) {
         return err(new Error('Price is required'));
       }
       let priceValue;

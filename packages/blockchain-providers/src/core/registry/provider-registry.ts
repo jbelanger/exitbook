@@ -183,7 +183,6 @@ export class ProviderRegistry {
 
   /**
    * Validate provider configuration against registered providers.
-   * Supports both legacy (explorers array) and new (override-based) formats.
    */
   validateConfig(config: Record<string, unknown>): {
     errors: string[];
@@ -198,31 +197,16 @@ export class ProviderRegistry {
 
       const configObj = blockchainConfig as {
         defaultEnabled?: string[];
-        explorers?: unknown[];
         overrides?: Record<string, unknown>;
       };
 
       const availableNames = this.getAvailable(blockchain).map((provider) => provider.name);
       const availableNameSet = new Set(availableNames);
       const availableNamesText = availableNames.join(', ');
-      const addUnknownProviderError = (providerName: string, section: 'defaultEnabled' | 'explorers' | 'overrides') =>
+      const addUnknownProviderError = (providerName: string, section: 'defaultEnabled' | 'overrides') =>
         errors.push(
           `Unknown provider '${providerName}' in ${section} for blockchain '${blockchain}'. Available: ${availableNamesText}`
         );
-
-      if (configObj.explorers) {
-        for (const explorer of configObj.explorers) {
-          const explorerObj = explorer as { name?: string };
-          if (!explorerObj.name) {
-            errors.push(`Missing name for explorer in blockchain ${blockchain}`);
-            continue;
-          }
-
-          if (!availableNameSet.has(explorerObj.name)) {
-            addUnknownProviderError(explorerObj.name, 'explorers');
-          }
-        }
-      }
 
       if (configObj.defaultEnabled) {
         for (const providerName of configObj.defaultEnabled) {
