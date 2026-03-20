@@ -77,9 +77,7 @@ export function createFrankfurterProvider(
 
     return ok(provider);
   } catch (error) {
-    return err(
-      new Error(`Failed to create Frankfurter provider: ${error instanceof Error ? error.message : String(error)}`)
-    );
+    return wrapError(error, 'Failed to create Frankfurter provider');
   }
 }
 

@@ -80,8 +80,6 @@ export class BlockstreamApiClient extends BaseApiClient {
       throw new Error(`Unsupported blockchain: ${config.blockchain}`);
     }
     this.chainConfig = chainConfig;
-
-    this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   extractCursors(transaction: BitcoinTransaction): PaginationCursor[] {

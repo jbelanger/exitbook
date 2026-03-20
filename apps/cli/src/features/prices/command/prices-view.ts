@@ -14,7 +14,7 @@ import { buildViewMeta } from '../../shared/view-utils.js';
 import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../view/index.js';
 
 import { PricesSetHandler } from './prices-set-handler.js';
-import { ViewPricesHandler } from './prices-view-handler.js';
+import { PricesViewHandler } from './prices-view-handler.js';
 import type {
   AssetBreakdownEntry,
   PriceCoverageInfo,
@@ -112,7 +112,7 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new ViewPricesHandler(database);
+      const handler = new PricesViewHandler(database);
 
       const detailResult = await handler.executeCoverageDetail(params);
       if (detailResult.isErr()) {
@@ -178,7 +178,7 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new ViewPricesHandler(database);
+      const handler = new PricesViewHandler(database);
 
       const missingResult = await handler.executeMissing(params);
       if (missingResult.isErr()) {
@@ -225,7 +225,7 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new ViewPricesHandler(database);
+      const handler = new PricesViewHandler(database);
 
       const result = await handler.execute(params);
 
@@ -280,7 +280,7 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new ViewPricesHandler(database);
+      const handler = new PricesViewHandler(database);
 
       const result = await handler.executeMissing(params);
 

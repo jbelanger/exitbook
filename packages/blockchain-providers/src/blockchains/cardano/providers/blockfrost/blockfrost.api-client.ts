@@ -85,8 +85,6 @@ export const blockfrostFactory: ProviderFactory = {
 export class BlockfrostApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
-
-    this.logger.debug(`Initialized BlockfrostApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   extractCursors(transaction: CardanoTransaction): PaginationCursor[] {

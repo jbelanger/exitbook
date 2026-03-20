@@ -4,7 +4,7 @@ import type { DataContext } from '@exitbook/data';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
-import { ProcessHandler } from '../reprocess-handler.js';
+import { ReprocessHandler } from '../reprocess-handler.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
@@ -19,12 +19,12 @@ vi.mock('../../../shared/projection-runtime.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 
-describe('ProcessHandler', () => {
+describe('ReprocessHandler', () => {
   let mockDatabase: DataContext;
   let mockProcessingWorkflow: { prepareReprocess: Mock; processImportedSessions: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
-  let handler: ProcessHandler;
+  let handler: ReprocessHandler;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,7 +46,7 @@ describe('ProcessHandler', () => {
       getSummary: vi.fn().mockReturnValue({ totalRequests: 0 }),
     };
 
-    handler = new ProcessHandler(
+    handler = new ReprocessHandler(
       mockDatabase,
       mockProcessingWorkflow as unknown as ProcessingWorkflow,
       mockIngestionMonitor as never,

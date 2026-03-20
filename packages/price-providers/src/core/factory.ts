@@ -62,6 +62,8 @@ export interface ProviderFactoryConfig {
   databasePath: string;
   /** Optional instrumentation collector to record HTTP metrics */
   instrumentation?: InstrumentationCollector | undefined;
+  /** Optional event bus for provider lifecycle events */
+  eventBus?: EventBus<PriceProviderEvent> | undefined;
   'bank-of-canada'?: {
     enabled?: boolean | undefined;
   };
@@ -120,11 +122,7 @@ export interface ProviderFactoryConfig {
  * const providers = result.value;
  * ```
  */
-export async function createPriceProviders(
-  config: ProviderFactoryConfig,
-  instrumentation?: InstrumentationCollector,
-  eventBus?: EventBus<PriceProviderEvent>
-): Promise<Result<IPriceProvider[], Error>> {
+export async function createPriceProviders(config: ProviderFactoryConfig): Promise<Result<IPriceProvider[], Error>> {
   // Initialize database (internal detail - caller never touches it)
   const dbResult = createPricesDatabase(config.databasePath);
 
@@ -143,7 +141,7 @@ export async function createPriceProviders(
   logger.debug({ databasePath: config.databasePath }, 'Prices database initialized');
 
   const providers: IPriceProvider[] = [];
-  const instrumentationCollector = instrumentation ?? config.instrumentation;
+  const { instrumentation: instrumentationCollector, eventBus } = config;
 
   eventBus?.emit({ type: 'providers.initializing' });
 
@@ -251,7 +249,11 @@ export async function createPriceProviderManager(
   config: PriceProviderManagerFactoryConfig
 ): Promise<Result<PriceProviderManager, Error>> {
   // Create providers
-  const providersResult = await createPriceProviders(config.providers, config.instrumentation, config.eventBus);
+  const providersResult = await createPriceProviders({
+    ...config.providers,
+    instrumentation: config.instrumentation ?? config.providers.instrumentation,
+    eventBus: config.eventBus ?? config.providers.eventBus,
+  });
 
   if (providersResult.isErr()) {
     return err(providersResult.error);

@@ -8,7 +8,7 @@
  *   new FooHandler(database)
  *   handler.execute(params) -> Result<T, Error>
  *   No factory. No cleanup. No abort.
- *   Examples: CostBasisHandler, ViewPricesHandler, LinksConfirmHandler
+ *   Examples: CostBasisHandler, PricesViewHandler, LinksConfirmHandler
  *
  * -- Tier 2: Infrastructure ---------------------------------------------
  *   createFooHandler(ctx, database, ...) -> handler

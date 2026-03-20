@@ -9,7 +9,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import { createProcessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
+import { createReprocessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -72,7 +72,7 @@ async function executeReprocessJSON(options: ProcessCommandOptions, registry: Ad
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createProcessHandler(ctx, database, registry);
+      const handlerResult = await createReprocessHandler(ctx, database, registry);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -101,7 +101,7 @@ async function executeReprocessTUI(options: ProcessCommandOptions, registry: Ada
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handlerResult = await createProcessHandler(ctx, database, registry);
+      const handlerResult = await createReprocessHandler(ctx, database, registry);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

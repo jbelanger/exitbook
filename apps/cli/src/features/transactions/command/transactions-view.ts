@@ -144,8 +144,8 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const initialState = createTransactionsViewState(viewItems, viewFilters, totalCount, categoryCounts);
 
-      const { ExportHandler } = await import('./transactions-export-handler.js');
-      const exportHandler = new ExportHandler(database);
+      const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
+      const exportHandler = new TransactionsExportHandler(database);
 
       const onExport: OnExport = async (format, csvFormat) => {
         try {

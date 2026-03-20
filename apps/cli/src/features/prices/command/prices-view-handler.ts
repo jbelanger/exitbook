@@ -28,7 +28,7 @@ interface MissingPricesResult {
 /**
  * Handler for viewing price coverage.
  */
-export class ViewPricesHandler {
+export class PricesViewHandler {
   constructor(private readonly db: DataContext) {}
 
   /**
