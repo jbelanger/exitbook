@@ -98,14 +98,22 @@ class NormalizeAbortError extends Error {
 export class PriceEnrichmentPipeline {
   private readonly logger = getLogger('PriceEnrichmentPipeline');
   private readonly instrumentation: InstrumentationCollector;
+  private readonly inferenceService: PriceInferenceService;
+  private readonly fetchService: PriceFetchService;
 
   constructor(
     private readonly store: IPricingPersistence,
     private readonly eventBus?: EventBus<PriceEvent>,
     instrumentation?: InstrumentationCollector,
-    private readonly accountingExclusionPolicy?: AccountingExclusionPolicy
+    private readonly accountingExclusionPolicy?: AccountingExclusionPolicy,
+    inferenceService?: PriceInferenceService,
+    fetchService?: PriceFetchService
   ) {
     this.instrumentation = instrumentation ?? new InstrumentationCollector();
+    this.inferenceService = inferenceService ?? new PriceInferenceService(this.store);
+    this.fetchService =
+      fetchService ??
+      new PriceFetchService(this.store, this.instrumentation, this.eventBus, this.accountingExclusionPolicy);
   }
 
   /**
@@ -133,11 +141,10 @@ export class PriceEnrichmentPipeline {
 
         // Stage 1: Derive (extract from trades: USD + non-USD fiat, propagate via links)
         if (stages.derive) {
-          const enrichmentService = new PriceInferenceService(self.store);
           result.derive = yield* await self.runStage(
             'Stage 1: Deriving prices from trades (USD + fiat)',
             'tradePrices',
-            () => enrichmentService.derivePrices(),
+            () => self.inferenceService.derivePrices(),
             (value) => ({ stage: 'tradePrices' as const, transactionsUpdated: value.transactionsUpdated })
           );
         }
@@ -172,17 +179,11 @@ export class PriceEnrichmentPipeline {
 
         // Stage 3: Fetch (external providers for remaining crypto prices)
         if (stages.fetch) {
-          const fetchService = new PriceFetchService(
-            self.store,
-            self.instrumentation,
-            self.eventBus,
-            self.accountingExclusionPolicy
-          );
           result.fetch = yield* await self.runStage(
             'Stage 3: Fetching missing prices from external providers',
             'marketPrices',
             () =>
-              fetchService.fetchPrices(
+              self.fetchService.fetchPrices(
                 { asset: options.asset, onMissing: options.onMissing },
                 historicalAssetPriceSource
               ),
@@ -199,11 +200,10 @@ export class PriceEnrichmentPipeline {
 
         // Stage 4: Derive (second pass) — use newly fetched/normalized prices
         if (stages.derive && (stages.fetch || stages.normalize)) {
-          const enrichmentService = new PriceInferenceService(self.store);
           result.rederive = yield* await self.runStage(
             'Stage 4: Re-deriving prices using fetched/normalized data',
             'rederive',
-            () => enrichmentService.derivePrices(),
+            () => self.inferenceService.derivePrices(),
             (value) => ({ stage: 'rederive' as const, transactionsUpdated: value.transactionsUpdated })
           );
         }

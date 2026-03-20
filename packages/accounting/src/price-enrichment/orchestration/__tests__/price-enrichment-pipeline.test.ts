@@ -5,6 +5,8 @@ import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceEvent } from '../../shared/price-events.js';
 import { PriceEnrichmentPipeline } from '../price-enrichment-pipeline.js';
+import type { PriceFetchService } from '../price-fetch-service.js';
+import type { PriceInferenceService } from '../price-inference-service.js';
 
 // --- Mocks for internal services ---
 
@@ -12,23 +14,14 @@ const mockDerivePrices = vi.fn();
 const mockNormalize = vi.fn();
 const mockFetchPrices = vi.fn();
 
-vi.mock('../price-inference-service.js', () => ({
-  PriceInferenceService: class {
-    derivePrices = mockDerivePrices;
-  },
-}));
-
 vi.mock('../price-normalization-service.js', () => ({
   PriceNormalizationService: class {
     normalize = mockNormalize;
   },
 }));
 
-vi.mock('../price-fetch-service.js', () => ({
-  PriceFetchService: class {
-    fetchPrices = mockFetchPrices;
-  },
-}));
+const mockInferenceService = { derivePrices: mockDerivePrices } as unknown as PriceInferenceService;
+const mockFetchService = { fetchPrices: mockFetchPrices } as unknown as PriceFetchService;
 
 // --- Test helpers ---
 
@@ -91,7 +84,14 @@ beforeEach(() => {
 describe('PriceEnrichmentPipeline', () => {
   describe('stage execution', () => {
     it('should run all four stages by default', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
       expect(result.derive).toEqual({ transactionsUpdated: 5 });
@@ -104,7 +104,14 @@ describe('PriceEnrichmentPipeline', () => {
     });
 
     it('should run only derive when deriveOnly is true', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(
         await pipeline.execute({ deriveOnly: true }, mockHistoricalAssetPriceSource, mockFxProvider)
       );
@@ -117,7 +124,14 @@ describe('PriceEnrichmentPipeline', () => {
     });
 
     it('should run only normalize when normalizeOnly is true', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(
         await pipeline.execute({ normalizeOnly: true }, mockHistoricalAssetPriceSource, mockFxProvider)
       );
@@ -129,7 +143,14 @@ describe('PriceEnrichmentPipeline', () => {
     });
 
     it('should run only fetch when fetchOnly is true', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(
         await pipeline.execute({ fetchOnly: true }, mockHistoricalAssetPriceSource, mockFxProvider)
       );
@@ -141,7 +162,14 @@ describe('PriceEnrichmentPipeline', () => {
     });
 
     it('should not rederive when derive runs alone', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       assertOk(await pipeline.execute({ deriveOnly: true }, mockHistoricalAssetPriceSource, mockFxProvider));
 
       // Only 1 call — no rederive pass
@@ -152,7 +180,14 @@ describe('PriceEnrichmentPipeline', () => {
   describe('event bus', () => {
     it('should emit stage lifecycle events', async () => {
       const bus = createEventBus();
-      const pipeline = new PriceEnrichmentPipeline(mockStore, bus);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        bus,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
 
       assertOk(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
@@ -166,7 +201,14 @@ describe('PriceEnrichmentPipeline', () => {
     it('should emit stage.failed on stage error', async () => {
       mockDerivePrices.mockResolvedValue(err(new Error('derive boom')));
       const bus = createEventBus();
-      const pipeline = new PriceEnrichmentPipeline(mockStore, bus);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        bus,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
 
       assertErr(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
@@ -183,7 +225,14 @@ describe('PriceEnrichmentPipeline', () => {
   describe('error propagation', () => {
     it('should propagate derive stage error', async () => {
       mockDerivePrices.mockResolvedValue(err(new Error('derive failed')));
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
 
       const error = assertErr(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
@@ -193,7 +242,14 @@ describe('PriceEnrichmentPipeline', () => {
 
     it('should propagate normalize stage error', async () => {
       mockNormalize.mockResolvedValue(err(new Error('normalize failed')));
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
 
       const error = assertErr(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
@@ -203,7 +259,14 @@ describe('PriceEnrichmentPipeline', () => {
 
     it('should propagate fetch stage error', async () => {
       mockFetchPrices.mockResolvedValue(err(new Error('fetch failed')));
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
 
       const error = assertErr(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
@@ -222,7 +285,14 @@ describe('PriceEnrichmentPipeline', () => {
         })
       );
 
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const error = assertErr(
         await pipeline.execute({ onMissing: 'fail' }, mockHistoricalAssetPriceSource, mockFxProvider)
       );
@@ -242,7 +312,14 @@ describe('PriceEnrichmentPipeline', () => {
         })
       );
 
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
       expect(result.normalize?.failures).toBe(2);
@@ -252,7 +329,14 @@ describe('PriceEnrichmentPipeline', () => {
 
   describe('runStats', () => {
     it('should include aggregated run stats in result', async () => {
-      const pipeline = new PriceEnrichmentPipeline(mockStore);
+      const pipeline = new PriceEnrichmentPipeline(
+        mockStore,
+        undefined,
+        undefined,
+        undefined,
+        mockInferenceService,
+        mockFetchService
+      );
       const result = assertOk(await pipeline.execute({}, mockHistoricalAssetPriceSource, mockFxProvider));
 
       expect(result.runStats).toBeDefined();
