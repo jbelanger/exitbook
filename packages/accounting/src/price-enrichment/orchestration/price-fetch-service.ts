@@ -4,10 +4,10 @@ import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import { type PriceProviderManager } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
+import type { IHistoricalAssetPriceSource } from '../../ports/historical-asset-price-source.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import {
   enrichFeesWithPricesByAssetId,
@@ -56,11 +56,11 @@ export class PriceFetchService {
    * Fetch prices for transactions.
    *
    * @param options - Fetch options
-   * @param priceManager - Initialized price provider manager (caller is responsible for lifecycle)
+   * @param historicalAssetPriceSource - Historical asset price source for external price lookups
    */
   async fetchPrices(
     options: PriceFetchOptions,
-    priceManager: PriceProviderManager
+    historicalAssetPriceSource: IHistoricalAssetPriceSource
   ): Promise<Result<PricesFetchResult, Error>> {
     const errors: string[] = [];
 
@@ -154,7 +154,7 @@ export class PriceFetchService {
           continue;
         }
 
-        const priceResult = await priceManager.fetchPrice(queryResult.value);
+        const priceResult = await historicalAssetPriceSource.fetchPrice(queryResult.value);
 
         if (priceResult.isErr()) {
           logger.warn(`Failed to fetch price for ${assetSymbol} in transaction ${tx.id}: ${priceResult.error.message}`);
@@ -171,7 +171,7 @@ export class PriceFetchService {
 
         consecutiveFailures = 0;
 
-        const priceData = priceResult.value.data;
+        const priceData = priceResult.value;
         stats.pricesFetched++;
 
         if (priceData.granularity) {

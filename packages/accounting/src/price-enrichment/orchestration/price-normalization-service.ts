@@ -3,7 +3,7 @@
  *
  * This is Stage 1 of the enrichment pipeline:
  * - Finds movements with non-USD fiat prices (EUR, CAD, GBP, etc.)
- * - Fetches historical FX rates via PriceProviderManager
+ * - Fetches historical FX rates via IFxRateProvider
  * - Converts prices to USD
  * - Populates FX metadata (fxRateToUSD, fxSource, fxTimestamp)
  *

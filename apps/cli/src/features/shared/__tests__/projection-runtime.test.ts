@@ -13,7 +13,7 @@ const {
   mockBuildProcessedTransactionsFreshnessPorts,
   mockBuildProcessedTransactionsResetPorts,
   mockCheckTransactionPriceCoverage,
-  mockCreateDefaultPriceProviderManager,
+  mockOpenPriceProviderRuntime,
   mockPipelineExecute,
 } = vi.hoisted(() => ({
   mockBuildAssetReviewFreshnessPorts: vi.fn(),
@@ -26,7 +26,7 @@ const {
   mockBuildProcessedTransactionsFreshnessPorts: vi.fn(),
   mockBuildProcessedTransactionsResetPorts: vi.fn(),
   mockCheckTransactionPriceCoverage: vi.fn(),
-  mockCreateDefaultPriceProviderManager: vi.fn(),
+  mockOpenPriceProviderRuntime: vi.fn(),
   mockPipelineExecute: vi.fn(),
 }));
 
@@ -60,8 +60,8 @@ vi.mock('@exitbook/accounting', async () => {
   };
 });
 
-vi.mock('../../prices/command/prices-utils.js', () => ({
-  createDefaultPriceProviderManager: mockCreateDefaultPriceProviderManager,
+vi.mock('../price-provider-runtime.js', () => ({
+  openPriceProviderRuntime: mockOpenPriceProviderRuntime,
 }));
 
 import { ensureConsumerInputsReady, resetProjections } from '../projection-runtime.js';
@@ -83,9 +83,10 @@ describe('projection-runtime', () => {
       loadTransactions: vi.fn().mockResolvedValue(ok([])),
     });
     mockBuildPricingPorts.mockReturnValue({});
-    mockCreateDefaultPriceProviderManager.mockResolvedValue(
+    mockOpenPriceProviderRuntime.mockResolvedValue(
       ok({
-        destroy: vi.fn().mockResolvedValue(undefined),
+        historicalAssetPriceSource: { fetchPrice: vi.fn() },
+        cleanup: vi.fn().mockResolvedValue(undefined),
       })
     );
     mockPipelineExecute.mockResolvedValue(ok({}));

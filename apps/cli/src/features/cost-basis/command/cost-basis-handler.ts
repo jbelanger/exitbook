@@ -16,12 +16,12 @@ import {
   type DataContext,
 } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
-import { createDefaultPriceProviderManager } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
+import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };
@@ -93,16 +93,14 @@ export class CostBasisHandler {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
-    const priceManagerResult = await createDefaultPriceProviderManager({
-      dataDir: this.dataDir,
-    });
-    if (priceManagerResult.isErr()) {
-      return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
+    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: this.dataDir });
+    if (priceRuntimeResult.isErr()) {
+      return err(new Error(`Failed to create price provider manager: ${priceRuntimeResult.error.message}`));
     }
 
-    const priceManager = priceManagerResult.value;
+    const priceRuntime = priceRuntimeResult.value;
     try {
-      const fxRateProvider = new StandardFxRateProvider(priceManager);
+      const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
       const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
       const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
@@ -156,7 +154,7 @@ export class CostBasisHandler {
         assetReviewSummaries: assetReviewSummariesResult.value,
       });
     } finally {
-      await priceManager.destroy();
+      await priceRuntime.cleanup();
     }
   }
 }

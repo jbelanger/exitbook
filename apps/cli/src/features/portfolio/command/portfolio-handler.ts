@@ -5,6 +5,7 @@
 import {
   CostBasisWorkflow,
   type AccountingExclusionPolicy,
+  type IHistoricalAssetPriceSource,
   persistCostBasisFailureSnapshot,
   runCanadaCostBasisCalculation,
   StandardFxRateProvider,
@@ -21,7 +22,6 @@ import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import { createDefaultPriceProviderManager, type PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -31,6 +31,7 @@ import {
 } from '../../shared/asset-review-projection-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
+import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
 
@@ -94,12 +95,15 @@ interface PortfolioResult {
  * Portfolio Handler - Encapsulates all portfolio calculation business logic.
  */
 export class PortfolioHandler {
+  fxRateProvider: StandardFxRateProvider;
   constructor(
     private readonly db: DataContext,
-    private readonly priceManager: PriceProviderManager,
+    private readonly historicalAssetPriceSource: IHistoricalAssetPriceSource,
     private readonly dataDir: string,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
-  ) {}
+  ) {
+    this.fxRateProvider = new StandardFxRateProvider(this.historicalAssetPriceSource);
+  }
 
   /**
    * Execute the portfolio calculation.
@@ -186,14 +190,14 @@ export class PortfolioHandler {
         }
       }
 
-      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, this.priceManager, asOf);
+      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, this.historicalAssetPriceSource, asOf);
       const spotPrices = new Map<string, SpotPriceResult>([...invalidSymbolPrices, ...fetchedSpotPrices]);
 
       const warnings: string[] = [...fiatFlowWarnings];
       let fxRate: Decimal | undefined;
       let effectiveDisplayCurrency = displayCurrency;
       if (displayCurrency !== 'USD') {
-        const fxResult = await this.priceManager.fetchPrice({
+        const fxResult = await this.historicalAssetPriceSource.fetchPrice({
           assetSymbol: displayCurrency,
           timestamp: asOf,
           currency: 'USD' as Currency,
@@ -206,7 +210,7 @@ export class PortfolioHandler {
           logger.warn({ displayCurrency, error: fxResult.error.message }, 'Failed to fetch FX rate, using USD');
           effectiveDisplayCurrency = 'USD' as Currency;
         } else {
-          fxRate = new Decimal(1).div(fxResult.value.data.price);
+          fxRate = new Decimal(1).div(fxResult.value.price);
           logger.debug({ displayCurrency, fxRate: fxRate.toFixed(6) }, 'FX rate fetched');
         }
       }
@@ -293,7 +297,7 @@ export class PortfolioHandler {
         realizedGainLossByAssetId = canadaPortfolioResult.value.realizedGainLossByPortfolioKey;
         realizedGainLossDisplayContext = { sourceCurrency: 'display' };
       } else {
-        const workflow = new CostBasisWorkflow(costBasisStore, new StandardFxRateProvider(this.priceManager));
+        const workflow = new CostBasisWorkflow(costBasisStore, this.fxRateProvider);
         const workflowResult = await workflow.execute(costBasisParams, portfolioTransactions, {
           accountingExclusionPolicy: this.accountingExclusionPolicy,
           assetReviewSummaries,
@@ -533,7 +537,7 @@ export class PortfolioHandler {
       input: params.costBasisParams,
       transactions: params.transactionsUpToAsOf,
       confirmedLinks: contextResult.value.confirmedLinks,
-      fxRateProvider: new StandardFxRateProvider(this.priceManager),
+      fxRateProvider: this.fxRateProvider,
       accountingExclusionPolicy: this.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
       missingPricePolicy: 'exclude',
@@ -668,19 +672,24 @@ export async function createPortfolioHandler(
     return err(readyResult.error);
   }
 
-  // Create price manager for spot prices + FX
-  const priceManagerResult = await createDefaultPriceProviderManager({
-    dataDir,
-  });
-  if (priceManagerResult.isErr()) {
-    return err(new Error(`Failed to create price provider manager: ${priceManagerResult.error.message}`));
+  // Open shared price runtime for spot prices + FX
+  const priceRuntimeResult = await openPriceProviderRuntime({ dataDir });
+  if (priceRuntimeResult.isErr()) {
+    return err(new Error(`Failed to create price provider manager: ${priceRuntimeResult.error.message}`));
   }
 
-  const priceManager = priceManagerResult.value;
-  ctx.onCleanup(async () => priceManager.destroy());
+  const priceRuntime = priceRuntimeResult.value;
+  ctx.onCleanup(priceRuntime.cleanup);
 
   prereqAbort = undefined;
-  return ok(new PortfolioHandler(database, priceManager, dataDir, accountingExclusionPolicyResult.value));
+  return ok(
+    new PortfolioHandler(
+      database,
+      priceRuntime.historicalAssetPriceSource,
+      dataDir,
+      accountingExclusionPolicyResult.value
+    )
+  );
 }
 
 function emptyPortfolioResult(

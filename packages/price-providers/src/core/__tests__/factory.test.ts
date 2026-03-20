@@ -464,6 +464,25 @@ describe('createPriceProviderManager', () => {
     );
   });
 
+  it('should pass nested provider instrumentation to provider factories', async () => {
+    const instrumentation = {
+      recordMetric: vi.fn(),
+    } as unknown as import('@exitbook/observability').InstrumentationCollector;
+    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+
+    const result = await createPriceProviderManager({
+      providers: {
+        databasePath: ':memory:',
+        instrumentation,
+      },
+    });
+    if (result.isOk()) {
+      createdManagers.push(result.value);
+    }
+
+    expect(createCoinGeckoProvider).toHaveBeenCalledWith(expect.anything(), {}, instrumentation);
+  });
+
   it('should return error if provider creation fails', async () => {
     const result = await createPriceProviderManager({
       providers: {

@@ -15,9 +15,8 @@ import { createEventDrivenController, type EventDrivenController } from '../../.
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
+import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
-
-import { createDefaultPriceProviderManager } from './prices-utils.js';
 
 const logger = getLogger('PricesEnrichHandler');
 
@@ -28,7 +27,7 @@ const logger = getLogger('PricesEnrichHandler');
 class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
   constructor(
     private readonly pipeline: PriceEnrichmentPipeline,
-    private readonly priceManager: import('@exitbook/price-providers').PriceProviderManager,
+    private readonly historicalAssetPriceSource: import('@exitbook/accounting').IHistoricalAssetPriceSource,
     private readonly controller: EventDrivenController<PriceEvent> | undefined
   ) {}
 
@@ -38,8 +37,8 @@ class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, 
         await this.controller.start();
       }
 
-      const fxRateProvider = new StandardFxRateProvider(this.priceManager);
-      const result = await this.pipeline.execute(params, this.priceManager, fxRateProvider);
+      const fxRateProvider = new StandardFxRateProvider(this.historicalAssetPriceSource);
+      const result = await this.pipeline.execute(params, this.historicalAssetPriceSource, fxRateProvider);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -95,15 +94,15 @@ export async function createPricesEnrichHandler(
 
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
-    const priceManagerResult = await createDefaultPriceProviderManager(ctx.dataDir, instrumentation);
-    if (priceManagerResult.isErr()) {
-      return err(priceManagerResult.error);
+    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation });
+    if (priceRuntimeResult.isErr()) {
+      return err(priceRuntimeResult.error);
     }
-    const priceManager = priceManagerResult.value;
-    ctx.onCleanup(async () => priceManager.destroy());
+    const priceRuntime = priceRuntimeResult.value;
+    ctx.onCleanup(priceRuntime.cleanup);
 
     const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
-    return ok(new PricesEnrichHandler(pipeline, priceManager, undefined));
+    return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, undefined));
   }
 
   const eventBus = new EventBus<PriceEvent>({
@@ -114,15 +113,15 @@ export async function createPricesEnrichHandler(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceManagerResult = await createDefaultPriceProviderManager(ctx.dataDir, instrumentation, eventBus);
-  if (priceManagerResult.isErr()) {
-    controller.fail(priceManagerResult.error.message);
+  const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation, eventBus });
+  if (priceRuntimeResult.isErr()) {
+    controller.fail(priceRuntimeResult.error.message);
     await controller.stop();
-    return err(priceManagerResult.error);
+    return err(priceRuntimeResult.error);
   }
-  const priceManager = priceManagerResult.value;
-  ctx.onCleanup(async () => priceManager.destroy());
+  const priceRuntime = priceRuntimeResult.value;
+  ctx.onCleanup(priceRuntime.cleanup);
 
   const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-  return ok(new PricesEnrichHandler(pipeline, priceManager, controller));
+  return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, controller));
 }

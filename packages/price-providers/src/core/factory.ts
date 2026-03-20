@@ -205,10 +205,6 @@ export interface PriceProviderManagerFactoryConfig {
   providers: ProviderFactoryConfig;
   /** Manager-specific configuration */
   manager?: Partial<ProviderManagerConfig> | undefined;
-  /** Optional instrumentation collector for HTTP metrics */
-  instrumentation?: InstrumentationCollector | undefined;
-  /** Optional event bus for provider lifecycle events */
-  eventBus?: EventBus<PriceProviderEvent> | undefined;
 }
 
 /**
@@ -249,11 +245,7 @@ export async function createPriceProviderManager(
   config: PriceProviderManagerFactoryConfig
 ): Promise<Result<PriceProviderManager, Error>> {
   // Create providers
-  const providersResult = await createPriceProviders({
-    ...config.providers,
-    instrumentation: config.instrumentation ?? config.providers.instrumentation,
-    eventBus: config.eventBus ?? config.providers.eventBus,
-  });
+  const providersResult = await createPriceProviders(config.providers);
 
   if (providersResult.isErr()) {
     return err(providersResult.error);

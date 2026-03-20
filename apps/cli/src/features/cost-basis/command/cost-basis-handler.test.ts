@@ -1,14 +1,11 @@
 import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
 import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import {
-  createDefaultPriceProviderManager,
-  readPriceCacheFreshness,
-  type PriceProviderManager,
-} from '@exitbook/price-providers';
+import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
+import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
@@ -24,8 +21,11 @@ vi.mock('@exitbook/accounting', async () => {
 });
 
 vi.mock('@exitbook/price-providers', () => ({
-  createDefaultPriceProviderManager: vi.fn(),
   readPriceCacheFreshness: vi.fn(),
+}));
+
+vi.mock('../../shared/price-provider-runtime.js', () => ({
+  openPriceProviderRuntime: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -42,7 +42,7 @@ vi.mock('../../shared/asset-review-projection-runtime.js', () => ({
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockPriceManager: PriceProviderManager;
+  let mockPriceRuntime: { cleanup: Mock; historicalAssetPriceSource: { fetchPrice: Mock } };
   let mockArtifactServiceExecute: Mock;
   let mockTransactionsFindAll: Mock;
   let mockTransactionLinksFindAll: Mock;
@@ -85,8 +85,11 @@ describe('CostBasisHandler', () => {
       },
     } as unknown as DataContext;
 
-    mockPriceManager = { destroy: vi.fn() } as unknown as PriceProviderManager;
-    vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(ok(mockPriceManager));
+    mockPriceRuntime = {
+      cleanup: vi.fn().mockResolvedValue(undefined),
+      historicalAssetPriceSource: { fetchPrice: vi.fn() },
+    };
+    vi.mocked(openPriceProviderRuntime).mockResolvedValue(ok(mockPriceRuntime));
     vi.mocked(readPriceCacheFreshness).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
@@ -122,7 +125,7 @@ describe('CostBasisHandler', () => {
 
   describe('execute', () => {
     it('returns error when price manager creation fails', async () => {
-      vi.mocked(createDefaultPriceProviderManager).mockResolvedValue(err(new Error('DB init failed')));
+      vi.mocked(openPriceProviderRuntime).mockResolvedValue(err(new Error('DB init failed')));
 
       const result = await handler.execute(validParams);
 
@@ -180,8 +183,8 @@ describe('CostBasisHandler', () => {
 
       await handler.execute(validParams);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- we just want to check that destroy was called, not its this context
-      expect(mockPriceManager.destroy).toHaveBeenCalled();
+       
+      expect(mockPriceRuntime.cleanup).toHaveBeenCalled();
     });
 
     it('persists a failure snapshot when artifact execution fails', async () => {
