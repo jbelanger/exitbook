@@ -38,11 +38,11 @@ import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
-import { createDefaultPriceProviderManager } from '../prices/command/prices-utils.js';
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import { openPriceProviderRuntime } from './price-provider-runtime.js';
 
 const logger = getLogger('projection-runtime');
 
@@ -398,21 +398,21 @@ async function ensureTransactionPricesReady(
   const store = buildPricingPorts(db);
 
   if (isJsonMode) {
-    const priceManagerResult = await createDefaultPriceProviderManager(deps.dataDir);
-    if (priceManagerResult.isErr()) return err(priceManagerResult.error);
-    const priceManager = priceManagerResult.value;
+    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: deps.dataDir });
+    if (priceRuntimeResult.isErr()) return err(priceRuntimeResult.error);
+    const priceRuntime = priceRuntimeResult.value;
     try {
       const pipeline = new PriceEnrichmentPipeline(store, undefined, undefined, accountingExclusionPolicy);
-      const fxRateProvider = new StandardFxRateProvider(priceManager);
-      const result = await pipeline.execute({}, priceManager, fxRateProvider);
+      const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
+      const result = await pipeline.execute({}, priceRuntime.historicalAssetPriceSource, fxRateProvider);
       if (result.isErr()) return err(result.error);
       const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
       if (postCoverageResult.isErr()) return err(postCoverageResult.error);
       logger.info('Price enrichment completed (JSON mode)');
       return ok(undefined);
     } finally {
-      await priceManager.destroy().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to destroy price manager after JSON enrichment');
+      await priceRuntime.cleanup().catch((cleanupErr) => {
+        logger.warn({ cleanupErr }, 'Failed to clean up price runtime after JSON enrichment');
       });
     }
   }
@@ -428,13 +428,17 @@ async function ensureTransactionPricesReady(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceManagerResult = await createDefaultPriceProviderManager(deps.dataDir, instrumentation, eventBus);
-  if (priceManagerResult.isErr()) {
-    controller.fail(priceManagerResult.error.message);
+  const priceRuntimeResult = await openPriceProviderRuntime({
+    dataDir: deps.dataDir,
+    instrumentation,
+    eventBus,
+  });
+  if (priceRuntimeResult.isErr()) {
+    controller.fail(priceRuntimeResult.error.message);
     await controller.stop();
-    return err(priceManagerResult.error);
+    return err(priceRuntimeResult.error);
   }
-  const priceManager = priceManagerResult.value;
+  const priceRuntime = priceRuntimeResult.value;
   const abort = () => {
     controller.abort();
     void controller.stop().catch((cleanupErr) => {
@@ -447,8 +451,8 @@ async function ensureTransactionPricesReady(
     await controller.start();
 
     const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-    const fxRateProvider = new StandardFxRateProvider(priceManager);
-    const result = await pipeline.execute({}, priceManager, fxRateProvider);
+    const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
+    const result = await pipeline.execute({}, priceRuntime.historicalAssetPriceSource, fxRateProvider);
 
     if (result.isErr()) {
       controller.fail(result.error.message);
@@ -472,8 +476,8 @@ async function ensureTransactionPricesReady(
     await controller.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop prices controller during cleanup');
     });
-    await priceManager.destroy().catch((cleanupErr) => {
-      logger.warn({ cleanupErr }, 'Failed to destroy price manager after TUI enrichment');
+    await priceRuntime.cleanup().catch((cleanupErr) => {
+      logger.warn({ cleanupErr }, 'Failed to clean up price runtime after TUI enrichment');
     });
   }
 }

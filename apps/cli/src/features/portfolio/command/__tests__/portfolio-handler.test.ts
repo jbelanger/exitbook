@@ -3,7 +3,6 @@ import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '
 import { err, ok, type Currency, type Transaction } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
-import type { PriceProviderManager } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -148,7 +147,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
 describe('PortfolioHandler', () => {
   let handler: PortfolioHandler;
   let mockDb: DataContext;
-  let mockPriceManager: PriceProviderManager;
+  let mockHistoricalAssetPriceSource: { fetchPrice: Mock };
   let transactionRepo: { findAll: Mock };
   let accountRepo: { findAll: Mock };
   const tx = createTransaction();
@@ -165,17 +164,18 @@ describe('PortfolioHandler', () => {
       accounts: accountRepo,
     } as unknown as DataContext;
 
-    mockPriceManager = {
+    mockHistoricalAssetPriceSource = {
       fetchPrice: vi.fn().mockResolvedValue(
         ok({
-          data: {
-            price: new Decimal('9000'),
-            source: 'test',
-            fetchedAt: new Date('2025-01-01T00:00:00.000Z'),
-          },
+          assetSymbol: 'BTC' as Currency,
+          timestamp: new Date('2025-01-01T00:00:00.000Z'),
+          currency: 'USD' as Currency,
+          price: new Decimal('9000'),
+          source: 'test',
+          fetchedAt: new Date('2025-01-01T00:00:00.000Z'),
         })
       ),
-    } as unknown as PriceProviderManager;
+    };
 
     vi.mocked(calculateBalances).mockReturnValue({
       balances: { 'exchange:kraken:btc': new Decimal('1') },
@@ -336,7 +336,7 @@ describe('PortfolioHandler', () => {
 
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data');
+    handler = new PortfolioHandler(mockDb, mockHistoricalAssetPriceSource as never, '/tmp/test-data');
   });
 
   it('routes CA portfolio calculations through the Canada path instead of the standard workflow', async () => {
@@ -482,7 +482,7 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    handler = new PortfolioHandler(mockDb, mockPriceManager, '/tmp/test-data', {
+    handler = new PortfolioHandler(mockDb, mockHistoricalAssetPriceSource as never, '/tmp/test-data', {
       excludedAssetIds: new Set(['blockchain:base:0xspam']),
     });
 

@@ -149,6 +149,10 @@ export type {
   ICostBasisArtifactStore,
   ICostBasisContextReader,
   ICostBasisDependencyWatermarkReader,
+  HistoricalAssetPrice,
+  HistoricalAssetPriceGranularity,
+  HistoricalAssetPriceRequest,
+  IHistoricalAssetPriceSource,
 } from './ports/index.js';
 
 // Linking orchestrator

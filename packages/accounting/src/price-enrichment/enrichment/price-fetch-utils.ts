@@ -3,10 +3,10 @@
 import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, resultDo, type Result } from '@exitbook/core';
 import type { MetricsSummary } from '@exitbook/observability';
-import type { PriceQuery } from '@exitbook/price-providers';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
 import { isExcludedAsset } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
+import type { HistoricalAssetPriceRequest } from '../../ports/historical-asset-price-source.js';
 
 /**
  * Command options for prices fetch
@@ -158,14 +158,14 @@ export function extractAssetsNeedingPrices(
 }
 
 /**
- * Convert transaction and asset to PriceQuery.
+ * Convert transaction and asset to a historical asset price request.
  * Always fetches prices in USD regardless of transaction currency.
  */
 export function createPriceQuery(
   tx: Transaction,
   assetSymbol: string,
   targetCurrency = 'USD'
-): Result<PriceQuery, Error> {
+): Result<HistoricalAssetPriceRequest, Error> {
   if (!tx.datetime) {
     return err(new Error(`Transaction ${tx.id} has no transaction datetime`));
   }

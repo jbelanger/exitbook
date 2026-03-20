@@ -22,6 +22,8 @@ export async function createDefaultPriceProviderManager(
   const config: PriceProviderManagerFactoryConfig = {
     providers: {
       databasePath: path.join(options.dataDir, 'prices.db'),
+      instrumentation: options.instrumentation,
+      eventBus: options.eventBus,
       coingecko: {
         enabled: true,
         apiKey: process.env['COINGECKO_API_KEY'],
@@ -42,8 +44,6 @@ export async function createDefaultPriceProviderManager(
       },
     },
     manager: options.manager,
-    instrumentation: options.instrumentation,
-    eventBus: options.eventBus,
   };
 
   return createPriceProviderManager(config);
