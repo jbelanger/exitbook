@@ -17,14 +17,14 @@ export interface ProcessResultWithMetrics {
   runStats: MetricsSummary;
 }
 
-interface ProcessHandlerParams {
+interface ReprocessHandlerParams {
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
 }
 
-const logger = getLogger('ProcessHandler');
+const logger = getLogger('ReprocessHandler');
 
-export class ProcessHandler implements InfrastructureHandler<ProcessHandlerParams, ProcessResultWithMetrics> {
+export class ReprocessHandler implements InfrastructureHandler<ReprocessHandlerParams, ProcessResultWithMetrics> {
   constructor(
     private readonly database: DataContext,
     private readonly processingWorkflow: ProcessingWorkflow,
@@ -32,7 +32,7 @@ export class ProcessHandler implements InfrastructureHandler<ProcessHandlerParam
     private readonly instrumentation: InstrumentationCollector
   ) {}
 
-  async execute(params: ProcessHandlerParams): Promise<Result<ProcessResultWithMetrics, Error>> {
+  async execute(params: ReprocessHandlerParams): Promise<Result<ProcessResultWithMetrics, Error>> {
     // 1. Plan: resolve accounts, guard incomplete imports (no mutations)
     const planResult = await this.processingWorkflow.prepareReprocess(params);
     if (planResult.isErr()) {
@@ -93,15 +93,15 @@ export class ProcessHandler implements InfrastructureHandler<ProcessHandlerParam
   }
 }
 
-export async function createProcessHandler(
+export async function createReprocessHandler(
   ctx: CommandContext,
   database: DataContext,
   registry: AdapterRegistry
-): Promise<Result<ProcessHandler, Error>> {
+): Promise<Result<ReprocessHandler, Error>> {
   try {
     const infra = await createIngestionInfrastructure(ctx, database, registry);
 
-    return ok(new ProcessHandler(database, infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
+    return ok(new ReprocessHandler(database, infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

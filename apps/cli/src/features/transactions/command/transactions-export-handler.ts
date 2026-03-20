@@ -6,7 +6,7 @@ import type { ExportHandlerParams, NormalizedCsvOutput } from './transactions-ex
 import { convertToCSV, convertToJSON, convertToNormalizedCSV } from './transactions-export-utils.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 
-const logger = getLogger('ExportHandler');
+const logger = getLogger('TransactionsExportHandler');
 
 /**
  * Result of the export operation.
@@ -37,7 +37,7 @@ interface ExportOutput {
  * Export handler - encapsulates all export business logic.
  * Reusable by both CLI command and other contexts.
  */
-export class ExportHandler {
+export class TransactionsExportHandler {
   constructor(private readonly db: DataContext) {}
 
   /**

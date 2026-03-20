@@ -6,17 +6,17 @@ import { type DataContext } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { ExportHandler } from '../transactions-export-handler.js';
+import { TransactionsExportHandler } from '../transactions-export-handler.js';
 import type { ExportHandlerParams } from '../transactions-export-utils.js';
 
-describe('ExportHandler', () => {
+describe('TransactionsExportHandler', () => {
   let mockTransactionRepository: {
     findAll: Mock;
   };
   let mockTransactionLinkQueries: {
     findByTransactionIds: Mock;
   };
-  let handler: ExportHandler;
+  let handler: TransactionsExportHandler;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,7 +34,7 @@ describe('ExportHandler', () => {
       transactionLinks: mockTransactionLinkQueries,
     } as unknown as DataContext;
 
-    handler = new ExportHandler(mockDb);
+    handler = new TransactionsExportHandler(mockDb);
   });
 
   const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction =>

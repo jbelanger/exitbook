@@ -55,7 +55,7 @@ export class CostBasisWorkflow {
 
     const jurisdictionModule = jurisdictionModuleResult.value;
     const filteredResult = this.filterTransactionsForWindow(transactions, config, {
-      lookaheadDays: jurisdictionModule.workflow.lookaheadDays || undefined,
+      lookaheadDays: jurisdictionModule.workflow.lookaheadDays ?? undefined,
     });
     if (filteredResult.isErr()) return err(filteredResult.error);
 
@@ -88,8 +88,12 @@ export class CostBasisWorkflow {
 
     const { lots, disposals, lotTransfers } = summary;
 
+    if (config.currency !== 'USD' && !this.fxRateProvider) {
+      return err(new Error('FX rate provider required for non-USD currency conversion'));
+    }
+
     let report: CostBasisReport | undefined;
-    if (config.currency !== 'USD' && this.fxRateProvider) {
+    if (config.currency !== 'USD') {
       const reportResult = await this.generateReport(
         summary.calculation,
         disposals,
@@ -101,8 +105,6 @@ export class CostBasisWorkflow {
         return err(reportResult.error);
       }
       report = reportResult.value;
-    } else if (config.currency !== 'USD' && !this.fxRateProvider) {
-      return err(new Error('FX rate provider required for non-USD currency conversion'));
     }
 
     const workflowResult: CostBasisWorkflowResult = {
