@@ -8,6 +8,7 @@ import {
   type Transaction,
   err,
   ok,
+  wrapError,
   type CreateOverrideEventOptions,
   type Result,
 } from '@exitbook/core';
@@ -440,7 +441,7 @@ export class AssetsHandler {
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {
     const appendResult = await this.overrideStore.append(options);
     if (appendResult.isErr()) {
-      return err(new Error(`Failed to write asset override event: ${appendResult.error.message}`));
+      return wrapError(appendResult.error, 'Failed to write asset override event');
     }
 
     return ok(undefined);
@@ -449,12 +450,12 @@ export class AssetsHandler {
   private async loadSnapshot(): Promise<Result<AssetSnapshot, Error>> {
     const transactionsResult = await this.db.transactions.findAll({ includeExcluded: true });
     if (transactionsResult.isErr()) {
-      return err(new Error(`Failed to load transactions for asset resolution: ${transactionsResult.error.message}`));
+      return wrapError(transactionsResult.error, 'Failed to load transactions for asset resolution');
     }
 
     const snapshotRowsResult = await this.db.balanceSnapshots.findSnapshots();
     if (snapshotRowsResult.isErr()) {
-      return err(new Error(`Failed to load balance snapshots: ${snapshotRowsResult.error.message}`));
+      return wrapError(snapshotRowsResult.error, 'Failed to load balance snapshots');
     }
 
     const freshnessResult = await this.assertFreshBalanceSnapshots(

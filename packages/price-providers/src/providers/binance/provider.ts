@@ -81,9 +81,7 @@ export function createBinanceProvider(
 
     return ok(provider);
   } catch (error) {
-    return err(
-      new Error(`Failed to create Binance provider: ${error instanceof Error ? error.message : String(error)}`)
-    );
+    return wrapError(error, 'Failed to create Binance provider');
   }
 }
 

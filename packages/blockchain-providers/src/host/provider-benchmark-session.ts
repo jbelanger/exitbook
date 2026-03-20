@@ -1,5 +1,6 @@
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import { getLogger } from '@exitbook/logger';
 
 import { BlockchainProviderManager } from '../core/manager/provider-manager.js';
 import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
@@ -124,8 +125,8 @@ export async function openProviderBenchmarkSession(
       },
     });
   } catch (error) {
-    await providerManager.destroy().catch(() => {
-      /* empty */
+    await providerManager.destroy().catch((destroyErr: unknown) => {
+      getLogger('BenchmarkSession').warn({ err: destroyErr }, 'Failed to destroy provider manager during cleanup');
     });
     return err(error instanceof Error ? error : new Error(String(error)));
   }
