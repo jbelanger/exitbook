@@ -189,11 +189,7 @@ export class PriceProviderManager {
       this.providers,
       healthMap,
       this.circuitBreakers.asReadonlyMap(),
-      operationType,
-      now,
-      query.timestamp,
-      assetSymbol,
-      isFiat(assetSymbol)
+      { operationType, now, timestamp: query.timestamp, assetSymbol, isFiat: isFiat(assetSymbol) }
     );
 
     // Log selection info

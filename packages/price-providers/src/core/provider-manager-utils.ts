@@ -102,21 +102,27 @@ export function supportsAsset(metadata: ProviderMetadata, assetSymbol: string, i
  * Select and order providers based on scores and capabilities
  * Pure function - no side effects, deterministic ordering
  */
+export interface ProviderSelectionQuery {
+  operationType: string;
+  now: number;
+  timestamp?: Date | undefined;
+  assetSymbol?: string | undefined;
+  isFiat?: boolean | undefined;
+}
+
 export function selectProvidersForOperation(
   providers: IPriceProvider[],
   healthMap: Map<string, ProviderHealth>,
   circuitMap: ReadonlyMap<string, CircuitState>,
-  operationType: string,
-  now: number,
-  timestamp?: Date,
-  assetSymbol?: string,
-  isFiat?: boolean
+  query: ProviderSelectionQuery
 ): {
   health: ProviderHealth;
   metadata: ProviderMetadata;
   provider: IPriceProvider;
   score: number;
 }[] {
+  const { operationType, now, timestamp, assetSymbol, isFiat } = query;
+
   // Build a metadata cache to avoid calling getMetadata() twice per provider
   const metadataCache = new Map<string, ProviderMetadata>();
   for (const p of providers) {
