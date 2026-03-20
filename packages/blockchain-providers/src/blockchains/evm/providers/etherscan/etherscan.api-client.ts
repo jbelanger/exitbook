@@ -196,8 +196,6 @@ export class EtherscanApiClient extends BaseApiClient {
       this.logger.debug(
         `Initialized EtherscanApiClient for ${config.blockchain} with custom URL - BaseUrl: ${this.baseUrl}`
       );
-    } else {
-      this.logger.debug(`Initialized EtherscanApiClient for ${config.blockchain} - BaseUrl: ${this.baseUrl}`);
     }
   }
 

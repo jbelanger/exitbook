@@ -78,8 +78,6 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       throw new Error(`Unsupported blockchain: ${config.blockchain}`);
     }
     this.chainConfig = chainConfig;
-
-    this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   extractCursors(transaction: BitcoinTransaction): PaginationCursor[] {

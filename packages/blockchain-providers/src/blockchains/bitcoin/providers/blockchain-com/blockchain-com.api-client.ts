@@ -77,8 +77,6 @@ export class BlockchainComApiClient extends BaseApiClient {
       throw new Error(`Unsupported blockchain: ${config.blockchain}`);
     }
     this.chainConfig = chainConfig;
-
-    this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   extractCursors(transaction: BitcoinTransaction): PaginationCursor[] {

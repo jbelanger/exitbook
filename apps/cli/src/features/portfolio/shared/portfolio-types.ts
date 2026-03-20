@@ -20,9 +20,6 @@ export interface OpenLotItem {
   holdingDays: number;
 }
 
-/**
- * Per-account breakdown of holdings
- */
 export interface AccountBreakdownItem {
   accountId: number;
   sourceName: string;
@@ -30,9 +27,6 @@ export interface AccountBreakdownItem {
   quantity: string;
 }
 
-/**
- * Portfolio position (single asset)
- */
 export interface PortfolioPositionItem {
   assetId: string;
   /**
@@ -66,9 +60,6 @@ export interface PortfolioPositionItem {
   accountBreakdown: AccountBreakdownItem[];
 }
 
-/**
- * Transaction item for Level 2 history view
- */
 export interface PortfolioTransactionItem {
   id: number;
   datetime: string; // ISO 8601
