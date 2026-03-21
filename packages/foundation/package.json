@@ -1,0 +1,29 @@
+{
+  "name": "@exitbook/foundation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical value types and technical primitives for exitbook",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "decimal.js": "^10.6.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*"
+  }
+}
