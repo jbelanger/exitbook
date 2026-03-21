@@ -3,20 +3,20 @@ import type { CursorState } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { FetchBatchResult, IExchangeClient } from '../../../core/types.js';
-import type { CoinbaseAccount, RawCoinbaseLedgerEntry } from '../schemas.js';
+import type { FetchBatchResult, IExchangeClient } from '../../../contracts/index.js';
+import type { CoinbaseAccount, RawCoinbaseLedgerEntry } from '../contracts.js';
 
 type CoinbaseCursorMetadata = CursorState['metadata'] & {
   accountId?: string | undefined;
 };
 
 // Mock the coinbase-auth module
-vi.mock('../coinbase-auth.js', () => ({
+vi.mock('../auth.js', () => ({
   coinbaseGet: vi.fn(),
 }));
 
 // Import after mock setup
-const { coinbaseGet } = await import('../coinbase-auth.js');
+const { coinbaseGet } = await import('../auth.js');
 const { createCoinbaseClient } = await import('../client.js');
 
 const mockCoinbaseGet = coinbaseGet as ReturnType<typeof vi.fn>;

@@ -4,7 +4,7 @@ import type { HttpClient } from '@exitbook/http';
 import { importSPKI, jwtVerify } from 'jose';
 import { describe, expect, it, vi } from 'vitest';
 
-import { coinbaseGet } from '../coinbase-auth.js';
+import { coinbaseGet } from '../auth.js';
 
 const TEST_API_KEY = 'organizations/test-org/apiKeys/test-key';
 const TEST_PRIVATE_KEY = `-----BEGIN EC PRIVATE KEY-----

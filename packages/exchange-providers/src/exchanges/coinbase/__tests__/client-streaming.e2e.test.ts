@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { FetchBatchResult } from '../../../core/types.js';
+import type { FetchBatchResult } from '../../../contracts/index.js';
 import { createCoinbaseClient } from '../client.js';
 
 type CoinbaseCursorMetadata = CursorState['metadata'] & {

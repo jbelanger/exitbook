@@ -6,8 +6,9 @@ import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 
-import * as ExchangeUtils from '../../core/exchange-utils.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
+import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
+import { validateCredentials } from '../../runtime/schema-validation.js';
+import { normalizeCCXTBalance } from '../shared/ccxt-balance.js';
 
 /**
  * Factory function that creates a KuCoin exchange client
@@ -20,7 +21,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
   const logger = getLogger('KuCoinClient');
 
   return resultDo(function* () {
-    const { apiKey, apiSecret, apiPassphrase } = yield* ExchangeUtils.validateCredentials(
+    const { apiKey, apiSecret, apiPassphrase } = yield* validateCredentials(
       ExchangeCredentialsSchema,
       credentials,
       'kucoin'
@@ -62,7 +63,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
           for (const accountType of accountTypes) {
             try {
               const balance = await exchange.fetchBalance({ type: accountType });
-              const processed = ExchangeUtils.normalizeCCXTBalance(balance);
+              const processed = normalizeCCXTBalance(balance);
 
               // Merge balances from this account type (normalizeCCXTBalance returns Record<string, string>)
               for (const [asset, amountStr] of Object.entries(processed)) {

@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { FetchBatchResult } from '../../../core/types.js';
+import type { FetchBatchResult } from '../../../contracts/index.js';
 import { createKrakenClient } from '../client.js';
 
 type KrakenCursorMetadata = CursorState['metadata'] & {

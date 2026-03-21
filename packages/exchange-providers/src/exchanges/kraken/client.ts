@@ -5,12 +5,12 @@ import { err, ok } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
-import * as ExchangeUtils from '../../core/exchange-utils.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
+import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
+import { validateCredentials, validateRawData } from '../../runtime/schema-validation.js';
 
-import { krakenPost } from './kraken-auth.js';
-import { normalizeKrakenAsset } from './kraken-utils.js';
-import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.js';
+import { normalizeKrakenAsset } from './asset-normalization.js';
+import { krakenPost } from './auth.js';
+import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './contracts.js';
 
 const logger = getLogger('KrakenClient');
 
@@ -58,11 +58,7 @@ async function fetchLedger(
  */
 export function createKrakenClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   return resultDo(function* () {
-    const { apiKey, apiSecret } = yield* ExchangeUtils.validateCredentials(
-      KrakenCredentialsSchema,
-      credentials,
-      'kraken'
-    );
+    const { apiKey, apiSecret } = yield* validateCredentials(KrakenCredentialsSchema, credentials, 'kraken');
     const auth = { apiKey, apiSecret };
 
     const httpClient = new HttpClient({
@@ -128,7 +124,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
           for (let i = 0; i < ledgerEntries.length; i++) {
             const rawItem = ledgerEntries[i]!;
 
-            const validationResult = ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken');
+            const validationResult = validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken');
             if (validationResult.isErr()) {
               validationError = new Error(
                 `Validation failed after ${i} items in batch: ${validationResult.error.message}`

@@ -2,11 +2,10 @@ import type { ExchangeCredentials } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err } from '@exitbook/core';
 
-import { createCoinbaseClient } from '../exchanges/coinbase/client.js';
-import { createKrakenClient } from '../exchanges/kraken/client.js';
-import { createKuCoinClient } from '../exchanges/kucoin/client.js';
-
-import type { IExchangeClient } from './types.js';
+import type { IExchangeClient } from '../contracts/index.js';
+import { createCoinbaseClient } from '../exchanges/coinbase/index.js';
+import { createKrakenClient } from '../exchanges/kraken/index.js';
+import { createKuCoinClient } from '../exchanges/kucoin/index.js';
 
 /**
  * Create an exchange client for the specified exchange.

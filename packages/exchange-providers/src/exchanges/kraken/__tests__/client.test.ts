@@ -2,7 +2,7 @@ import type { CursorState } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { IExchangeClient } from '../../../core/types.js';
+import type { IExchangeClient } from '../../../contracts/index.js';
 import { createKrakenClient } from '../client.js';
 
 type KrakenCursorMetadata = CursorState['metadata'] & {
@@ -10,11 +10,11 @@ type KrakenCursorMetadata = CursorState['metadata'] & {
 };
 
 // Mock kraken-auth
-vi.mock('../kraken-auth.js', () => ({
+vi.mock('../auth.js', () => ({
   krakenPost: vi.fn(),
 }));
 
-import { krakenPost } from '../kraken-auth.js';
+import { krakenPost } from '../auth.js';
 
 const mockKrakenPost = krakenPost as ReturnType<typeof vi.fn>;
 

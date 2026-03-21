@@ -5,12 +5,12 @@ import { err, ok } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
-import * as ExchangeUtils from '../../core/exchange-utils.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../core/types.js';
+import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
+import { validateCredentials } from '../../runtime/schema-validation.js';
 
-import { coinbaseGet } from './coinbase-auth.js';
-import { CoinbaseAccountSchema, CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
-import type { CoinbaseAccount } from './schemas.js';
+import { coinbaseGet } from './auth.js';
+import { CoinbaseAccountSchema, CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './contracts.js';
+import type { CoinbaseAccount } from './contracts.js';
 
 const logger = getLogger('CoinbaseClient');
 const EC_PRIVATE_KEY_HEADER = '-----BEGIN EC PRIVATE KEY-----';
@@ -136,11 +136,7 @@ async function fetchTransactionPage(
 
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   return resultDo(function* () {
-    const { apiKey, apiSecret } = yield* ExchangeUtils.validateCredentials(
-      CoinbaseCredentialsSchema,
-      credentials,
-      'coinbase'
-    );
+    const { apiKey, apiSecret } = yield* validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase');
     yield* validateCoinbaseCredentials(apiKey, apiSecret);
 
     const normalizedSecret = normalizePemKey(apiSecret);
