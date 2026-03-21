@@ -1,9 +1,9 @@
 import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { type ProviderStatsDB, createProviderStatsDatabase, initializeProviderStatsDatabase } from '../../database.js';
-import type { ProviderStatsInput } from '../provider-stats-queries.js';
-import { createProviderStatsQueries, type ProviderStatsQueries } from '../provider-stats-queries.js';
+import { type ProviderStatsDB, createProviderStatsDatabase, initializeProviderStatsDatabase } from '../database.js';
+import type { ProviderStatsInput } from '../queries.js';
+import { createProviderStatsQueries, type ProviderStatsQueries } from '../queries.js';
 
 function okValue<T>(result: Result<T, Error>): T {
   expect(result.isOk()).toBe(true);

@@ -8,14 +8,14 @@ import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience/circuit-breaker';
 
 import type { ProviderEvent } from '../../events.js';
-import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
-import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';
-import type { TokenMetadataRecord } from '../../token-metadata/index.js';
+import { ProviderHealthMonitor } from '../../provider-stats/health-monitor.js';
+import type { ProviderStatsQueries } from '../../provider-stats/persistence/queries.js';
+import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../../provider-stats/store.js';
+import { TokenMetadataCache } from '../../token-metadata/cache.js';
+import type { TokenMetadataRecord } from '../../token-metadata/contracts.js';
+import type { TokenMetadataQueries } from '../../token-metadata/persistence/queries.js';
 import { ProviderInstanceFactory } from '../factory/provider-instance-factory.js';
-import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
-import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../health/provider-stats-store.js';
 import type { ProviderRegistry } from '../registry/provider-registry.js';
-import { TokenMetadataCache } from '../token-metadata/token-metadata-cache.js';
 import type {
   AddressInfoData,
   FailoverExecutionResult,

@@ -2,17 +2,68 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  closeTokenMetadataDatabase,
-  createTokenMetadataDatabase,
-  createTokenMetadataQueries,
-  initializeTokenMetadataDatabase,
-  type TokenMetadataDB,
-} from '@exitbook/blockchain-providers';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { DataContext, OverrideStore } from '@exitbook/data';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+interface MockTokenMetadataRecord {
+  blockchain: string;
+  contractAddress: string;
+  possibleSpam?: boolean | undefined;
+  refreshedAt: Date;
+  source: string;
+}
+
+const providerState = vi.hoisted(() => ({
+  latestTokenMetadataAt: undefined as Date | undefined,
+  metadataByChainAndRef: new Map<string, MockTokenMetadataRecord | undefined>(),
+}));
+
+vi.mock('@exitbook/blockchain-providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@exitbook/blockchain-providers')>();
+  const { ok } = await import('@exitbook/core');
+
+  return {
+    ...actual,
+    createAssetReviewProviderSupport: vi.fn(async () =>
+      ok({
+        tokenMetadataReader: {
+          getByTokenRefs: async (blockchain: string, tokenRefs: string[]) =>
+            ok(
+              new Map(
+                tokenRefs.map((tokenRef) => [
+                  tokenRef,
+                  providerState.metadataByChainAndRef.get(`${blockchain}:${tokenRef}`),
+                ])
+              )
+            ),
+        },
+        referenceResolver: {
+          resolveBatch: async (_blockchain: string, tokenRefs: string[]) =>
+            ok(
+              new Map(
+                tokenRefs.map((tokenRef) => [
+                  tokenRef,
+                  {
+                    provider: 'coingecko',
+                    referenceStatus: 'unknown' as const,
+                  },
+                ])
+              )
+            ),
+          close: async () => {
+            /* empty */
+          },
+        },
+        cleanup: async () => {
+          /* empty */
+        },
+      })
+    ),
+    findLatestTokenMetadataRefreshAt: vi.fn(async () => ok(providerState.latestTokenMetadataAt)),
+  };
+});
 
 import { findLatestAssetReviewExternalInputAt } from '../asset-review-external-input-freshness.js';
 import {
@@ -23,8 +74,6 @@ import {
 describe('asset-review-projection-runtime', () => {
   let dataDir: string;
   let db: DataContext;
-  let tokenMetadataDb: TokenMetadataDB;
-  let tokenMetadataQueries: ReturnType<typeof createTokenMetadataQueries>;
   let originalCoinGeckoApiKey: string | undefined;
   let originalCoinGeckoUseProApi: string | undefined;
 
@@ -38,12 +87,11 @@ describe('asset-review-projection-runtime', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-03-10T00:00:00.000Z'));
 
+    providerState.latestTokenMetadataAt = undefined;
+    providerState.metadataByChainAndRef.clear();
+
     dataDir = mkdtempSync(join(tmpdir(), 'asset-review-projection-runtime-test-'));
     db = assertOk(await DataContext.initialize(join(dataDir, 'transactions.db')));
-
-    tokenMetadataDb = assertOk(createTokenMetadataDatabase(join(dataDir, 'token-metadata.db')));
-    assertOk(await initializeTokenMetadataDatabase(tokenMetadataDb));
-    tokenMetadataQueries = createTokenMetadataQueries(tokenMetadataDb);
 
     const user = assertOk(await db.users.findOrCreateDefault());
     const account = assertOk(
@@ -94,7 +142,6 @@ describe('asset-review-projection-runtime', () => {
   afterEach(async () => {
     vi.useRealTimers();
     assertOk(await db.close());
-    assertOk(await closeTokenMetadataDatabase(tokenMetadataDb));
     rmSync(dataDir, { recursive: true, force: true });
 
     if (originalCoinGeckoApiKey === undefined) {
@@ -142,15 +189,14 @@ describe('asset-review-projection-runtime', () => {
     });
 
     vi.setSystemTime(new Date('2026-03-10T00:10:00.000Z'));
-    assertOk(
-      await tokenMetadataQueries.save('ethereum', '0xscam', {
-        blockchain: 'ethereum',
-        contractAddress: '0xscam',
-        possibleSpam: true,
-        refreshedAt: new Date('2026-03-10T00:10:00.000Z'),
-        source: 'test-provider',
-      })
-    );
+    providerState.latestTokenMetadataAt = new Date('2026-03-10T00:10:00.000Z');
+    providerState.metadataByChainAndRef.set('ethereum:0xscam', {
+      blockchain: 'ethereum',
+      contractAddress: '0xscam',
+      possibleSpam: true,
+      refreshedAt: new Date('2026-03-10T00:10:00.000Z'),
+      source: 'test-provider',
+    });
 
     vi.setSystemTime(new Date('2026-03-10T00:15:00.000Z'));
     assertOk(await ensureAssetReviewProjectionFresh(db, dataDir));

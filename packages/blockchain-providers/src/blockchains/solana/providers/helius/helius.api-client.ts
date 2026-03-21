@@ -21,7 +21,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { TokenMetadata } from '../../../../token-metadata/index.js';
+import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
 import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.js';
 import type { SolanaTokenAccountsResponse } from '../../types.js';

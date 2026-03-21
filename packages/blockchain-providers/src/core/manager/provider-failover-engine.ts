@@ -8,7 +8,7 @@ import { executeWithFailover } from '@exitbook/resilience/failover';
 import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
 
 import type { ProviderEvent } from '../../events.js';
-import { getProviderKey, type ProviderStatsStore } from '../health/provider-stats-store.js';
+import { getProviderKey, type ProviderStatsStore } from '../../provider-stats/index.js';
 import type { NormalizedTransactionBase } from '../schemas/normalized-transaction.js';
 import { ProviderError } from '../types/errors.js';
 import type {

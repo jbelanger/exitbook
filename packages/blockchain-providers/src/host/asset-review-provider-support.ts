@@ -5,14 +5,18 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import { createTokenMetadataPersistence } from '../persistence/token-metadata/factory.js';
-import { closeTokenMetadataDatabase, createTokenMetadataDatabase } from '../persistence/token-metadata/index.js';
-import { createTokenMetadataQueries, type TokenMetadataQueries } from '../persistence/token-metadata/queries.js';
+import {
+  closeTokenMetadataDatabase,
+  createTokenMetadataDatabase,
+  createTokenMetadataQueries,
+  type TokenMetadataQueries,
+} from '../token-metadata/persistence/index.js';
+import { initTokenMetadataPersistence } from '../token-metadata/persistence/runtime.js';
 import {
   createCoinGeckoTokenReferenceResolver,
   type CoinGeckoTokenReferenceResolverConfig,
   type TokenReferenceResolver,
-} from '../reference/coingecko/coingecko-token-reference.js';
+} from '../token-metadata/reference/index.js';
 
 const logger = getLogger('AssetReviewProviderSupport');
 
@@ -28,7 +32,7 @@ export async function createAssetReviewProviderSupport(
   dataDir: string,
   config: CoinGeckoTokenReferenceResolverConfig = {}
 ): Promise<Result<AssetReviewProviderSupport, Error>> {
-  const persistenceResult = await createTokenMetadataPersistence(dataDir);
+  const persistenceResult = await initTokenMetadataPersistence(dataDir);
   if (persistenceResult.isErr()) {
     return err(
       new Error(`Failed to initialize token metadata persistence for asset review: ${persistenceResult.error.message}`)

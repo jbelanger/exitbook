@@ -20,7 +20,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
-import type { TokenMetadata } from '../../../../token-metadata/index.js';
+import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
 import { transformXrpBalance, toIssuedCurrencyRawBalance } from '../../balance-utils.js';
 import type { XrpChainConfig } from '../../chain-config.interface.js';
 import { getXrpChainConfig } from '../../chain-registry.js';

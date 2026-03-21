@@ -5,7 +5,7 @@
 import { createInitialCircuitState } from '@exitbook/resilience/circuit-breaker';
 import { describe, expect, test } from 'vitest';
 
-import { getProviderKey, parseProviderKey, ProviderStatsStore, type ProviderKey } from '../provider-stats-store.js';
+import { getProviderKey, parseProviderKey, ProviderStatsStore, type ProviderKey } from '../store.js';
 
 describe('getProviderKey / parseProviderKey', () => {
   test('encodes blockchain and provider name into a composite key', () => {

@@ -9,7 +9,7 @@
 import { getErrorMessage } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { IBlockchainProvider } from '../types/index.js';
+import type { IBlockchainProvider } from '../core/types/index.js';
 
 const logger = getLogger('ProviderHealthMonitor');
 

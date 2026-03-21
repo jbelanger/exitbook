@@ -7,8 +7,8 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 
-import type { ProviderStatsDB } from '../database.js';
-import type { ProviderStatsRow } from '../provider-stats-utils.js';
+import type { ProviderStatsDB } from './database.js';
+import type { ProviderStatsRow } from './utils.js';
 
 const STATS_COLUMNS = [
   'blockchain',

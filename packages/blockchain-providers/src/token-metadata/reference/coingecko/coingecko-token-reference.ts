@@ -3,12 +3,12 @@ import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { z } from 'zod';
 
-import { getChainCatalogEntry } from '../../catalog/chain-catalog.js';
+import { getChainCatalogEntry } from '../../../catalog/chain-catalog.js';
 import type {
   ReferencePlatformMappingRecord,
   TokenMetadataQueries,
   TokenReferenceMatchRecord,
-} from '../../persistence/token-metadata/queries.js';
+} from '../../persistence/queries.js';
 
 const logger = getLogger('coingecko-token-reference');
 

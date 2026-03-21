@@ -3,8 +3,7 @@
  */
 
 import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
-
-import type { ProviderHealth } from '../core/types/index.js';
+import type { ProviderHealth } from '@exitbook/resilience/provider-health';
 
 export interface ProviderStatsRow {
   blockchain: string;

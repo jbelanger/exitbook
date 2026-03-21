@@ -8,14 +8,12 @@ export { createProviderRegistry } from './initialize.js';
 
 export * from './core/index.js';
 export * from './host/index.js';
+export * from './provider-stats/index.js';
 export * from './token-metadata/index.js';
 
 // Events
 export type { ProviderEvent } from './events.js';
 
-// Persistence
-export * from './persistence/index.js';
-export * from './reference/index.js';
 export * from './catalog/chain-catalog.js';
 export * from './catalog/types.js';
 

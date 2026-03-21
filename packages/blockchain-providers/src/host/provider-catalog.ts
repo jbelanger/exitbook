@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -7,13 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { ProviderInfo } from '../core/types/registry.js';
 import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
 import { createProviderRegistry } from '../initialize.js';
-import { initializeProviderStatsDatabase } from '../persistence/database.js';
-import {
-  closeProviderStatsDatabase,
-  createProviderStatsDatabase,
-  createProviderStatsQueries,
-  type ProviderStatsRow,
-} from '../persistence/index.js';
+import { createProviderStatsPersistence, type ProviderStatsRow } from '../provider-stats/index.js';
 
 const logger = getLogger('BlockchainProviderCatalog');
 
@@ -45,29 +37,23 @@ export async function loadBlockchainProviderCatalog(
   }));
 
   let providerStats: ProviderStatsRow[] = [];
-  const dbResult = createProviderStatsDatabase(path.join(dataDir, 'providers.db'));
-  if (dbResult.isOk()) {
-    const db = dbResult.value;
-    const migrationResult = await initializeProviderStatsDatabase(db);
-
-    if (migrationResult.isOk()) {
-      const statsQueries = createProviderStatsQueries(db);
-      const statsResult = await statsQueries.getAll();
-      if (statsResult.isOk()) {
-        providerStats = statsResult.value;
-      } else {
-        logger.warn({ error: statsResult.error }, 'Failed to load provider stats. Continuing without stats.');
-      }
+  const persistenceResult = await createProviderStatsPersistence(dataDir);
+  if (persistenceResult.isOk()) {
+    const statsResult = await persistenceResult.value.queries.getAll();
+    if (statsResult.isOk()) {
+      providerStats = statsResult.value;
     } else {
-      logger.warn({ error: migrationResult.error }, 'Provider stats migration failed. Continuing without stats.');
+      logger.warn({ error: statsResult.error }, 'Failed to load provider stats. Continuing without stats.');
     }
 
-    const closeResult = await closeProviderStatsDatabase(db);
-    if (closeResult.isErr()) {
-      logger.warn({ error: closeResult.error }, 'Failed to close provider stats database after catalog load');
-    }
+    await persistenceResult.value.cleanup().catch((error: unknown) => {
+      logger.warn({ error }, 'Failed to close provider stats persistence after catalog load');
+    });
   } else {
-    logger.warn({ error: dbResult.error }, 'Failed to open provider stats database. Continuing without stats.');
+    logger.warn(
+      { error: persistenceResult.error },
+      'Failed to open provider stats database. Continuing without stats.'
+    );
   }
 
   return ok({

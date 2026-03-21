@@ -36,7 +36,7 @@ import type {
   StreamingOperation,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
-import type { TokenMetadata } from '../../../../token-metadata/index.js';
+import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
 import { isNativeToken } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';

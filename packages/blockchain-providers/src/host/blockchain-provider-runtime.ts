@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
@@ -10,17 +8,8 @@ import { BlockchainProviderManager } from '../core/manager/provider-manager.js';
 import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
-import { initializeProviderStatsDatabase } from '../persistence/database.js';
-import {
-  closeProviderStatsDatabase,
-  createProviderStatsDatabase,
-  createProviderStatsQueries,
-  type ProviderStatsDB,
-} from '../persistence/index.js';
-import {
-  createTokenMetadataPersistence,
-  type TokenMetadataPersistenceDeps,
-} from '../persistence/token-metadata/index.js';
+import { createProviderStatsPersistence, type ProviderStatsPersistenceDeps } from '../provider-stats/index.js';
+import { initTokenMetadataPersistence, type TokenMetadataPersistence } from '../token-metadata/persistence/runtime.js';
 
 const logger = getLogger('BlockchainProviderRuntime');
 
@@ -41,24 +30,10 @@ export async function createBlockchainProviderRuntime(
 ): Promise<Result<BlockchainProviderRuntime, Error>> {
   const explorerConfig = options.explorerConfig ?? loadExplorerConfig();
 
-  let providerStatsDb: ProviderStatsDB | undefined;
-  let statsQueries: ReturnType<typeof createProviderStatsQueries> | undefined;
-
-  const providerStatsResult = createProviderStatsDatabase(path.join(options.dataDir, 'providers.db'));
+  let providerStatsPersistence: ProviderStatsPersistenceDeps | undefined;
+  const providerStatsResult = await createProviderStatsPersistence(options.dataDir);
   if (providerStatsResult.isOk()) {
-    providerStatsDb = providerStatsResult.value;
-    const migrationResult = await initializeProviderStatsDatabase(providerStatsDb);
-
-    if (migrationResult.isOk()) {
-      statsQueries = createProviderStatsQueries(providerStatsDb);
-    } else {
-      logger.warn({ error: migrationResult.error }, 'Provider stats migration failed. Running without persistence.');
-      const closeResult = await closeProviderStatsDatabase(providerStatsDb);
-      if (closeResult.isErr()) {
-        logger.warn({ error: closeResult.error }, 'Failed to close provider stats database after migration failure');
-      }
-      providerStatsDb = undefined;
-    }
+    providerStatsPersistence = providerStatsResult.value;
   } else {
     logger.warn(
       { error: providerStatsResult.error },
@@ -66,8 +41,8 @@ export async function createBlockchainProviderRuntime(
     );
   }
 
-  let tokenMetadataPersistence: TokenMetadataPersistenceDeps | undefined;
-  const tokenMetadataResult = await createTokenMetadataPersistence(options.dataDir);
+  let tokenMetadataPersistence: TokenMetadataPersistence | undefined;
+  const tokenMetadataResult = await initTokenMetadataPersistence(options.dataDir);
   if (tokenMetadataResult.isOk()) {
     tokenMetadataPersistence = tokenMetadataResult.value;
   } else {
@@ -82,7 +57,7 @@ export async function createBlockchainProviderRuntime(
   try {
     providerManager = new BlockchainProviderManager(createProviderRegistry(), {
       explorerConfig,
-      statsQueries,
+      statsQueries: providerStatsPersistence?.queries,
       tokenMetadataQueries: tokenMetadataPersistence?.queries,
       instrumentation: options.instrumentation,
       eventBus: options.eventBus,
@@ -90,7 +65,7 @@ export async function createBlockchainProviderRuntime(
     const readyProviderManager = providerManager;
     readyProviderManager.startBackgroundTasks();
 
-    if (statsQueries) {
+    if (providerStatsPersistence?.queries) {
       await readyProviderManager.loadPersistedStats();
     }
 
@@ -106,11 +81,10 @@ export async function createBlockchainProviderRuntime(
             });
           }
 
-          if (providerStatsDb) {
-            const closeResult = await closeProviderStatsDatabase(providerStatsDb);
-            if (closeResult.isErr()) {
-              logger.warn({ error: closeResult.error }, 'Failed to close provider stats database during cleanup');
-            }
+          if (providerStatsPersistence) {
+            await providerStatsPersistence.cleanup().catch((error: unknown) => {
+              logger.warn({ error }, 'Failed to close provider stats persistence during cleanup');
+            });
           }
         }
       },
@@ -131,14 +105,13 @@ export async function createBlockchainProviderRuntime(
       });
     }
 
-    if (providerStatsDb) {
-      const closeResult = await closeProviderStatsDatabase(providerStatsDb);
-      if (closeResult.isErr()) {
+    if (providerStatsPersistence) {
+      await providerStatsPersistence.cleanup().catch((cleanupError: unknown) => {
         logger.warn(
-          { error: closeResult.error },
-          'Failed to close provider stats database after initialization failure'
+          { error: cleanupError },
+          'Failed to cleanup provider stats persistence after initialization failure'
         );
-      }
+      });
     }
 
     return err(error instanceof Error ? error : new Error(String(error)));

@@ -1,6 +1,6 @@
 import type { CursorState } from '@exitbook/core';
 
-import type { TokenMetadata } from '../../token-metadata/index.js';
+import type { TokenMetadata } from '../../token-metadata/contracts.js';
 
 import type { RawBalanceData } from './common.js';
 

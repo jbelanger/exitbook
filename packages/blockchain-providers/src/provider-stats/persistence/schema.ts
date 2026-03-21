@@ -1,8 +1,5 @@
 /**
- * Database schema for provider stats database
- *
- * Separate database from main transactions.db to persist provider health
- * and circuit breaker state across CLI runs
+ * Database schema for provider stats persistence.
  */
 
 import type { ColumnType } from '@exitbook/sqlite';

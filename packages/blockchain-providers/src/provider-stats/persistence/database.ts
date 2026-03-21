@@ -1,8 +1,5 @@
 /**
- * Database initialization for provider stats database
- *
- * Separate database from transactions.db to persist provider health
- * and circuit breaker state across CLI runs
+ * Database initialization for provider stats persistence.
  */
 
 import type { Result } from '@exitbook/core';

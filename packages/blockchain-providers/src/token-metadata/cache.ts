@@ -3,11 +3,12 @@ import { ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
-import type { ProviderEvent } from '../../events.js';
-import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';
-import type { TokenMetadata, TokenMetadataRecord } from '../../token-metadata/index.js';
-import { ProviderError } from '../types/errors.js';
-import type { FailoverExecutionResult } from '../types/index.js';
+import { ProviderError } from '../core/types/errors.js';
+import type { FailoverExecutionResult } from '../core/types/index.js';
+import type { ProviderEvent } from '../events.js';
+
+import type { TokenMetadata, TokenMetadataRecord } from './contracts.js';
+import type { TokenMetadataQueries } from './persistence/queries.js';
 
 const BATCH_SIZE = 100;
 

@@ -10,7 +10,7 @@ import type { TokenMetadataDatabase } from './schema.js';
 const logger = getLogger('TokenMetadataDatabase');
 
 /**
- * Create and configure token metadata database instance.
+ * Create token metadata database instance.
  */
 export function createTokenMetadataDatabase(dbPath: string): Result<Kysely<TokenMetadataDatabase>, Error> {
   const result = createSqliteDatabase<TokenMetadataDatabase>(dbPath);

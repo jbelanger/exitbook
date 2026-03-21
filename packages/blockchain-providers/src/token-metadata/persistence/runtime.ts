@@ -12,20 +12,18 @@ import {
 } from './database.js';
 import { createTokenMetadataQueries, type TokenMetadataQueries } from './queries.js';
 
-const logger = getLogger('TokenMetadataQueriesFactory');
+const logger = getLogger('TokenMetadataPersistence');
 
-export interface TokenMetadataPersistenceDeps {
+export interface TokenMetadataPersistence {
   queries: TokenMetadataQueries;
   database: TokenMetadataDB;
   cleanup: () => Promise<void>;
 }
 
 /**
- * Create token metadata persistence dependencies backed by token-metadata.db.
+ * Initialize token metadata persistence backed by token-metadata.db.
  */
-export async function createTokenMetadataPersistence(
-  dataDir: string
-): Promise<Result<TokenMetadataPersistenceDeps, Error>> {
+export async function initTokenMetadataPersistence(dataDir: string): Promise<Result<TokenMetadataPersistence, Error>> {
   const dbPath = path.join(dataDir, 'token-metadata.db');
   const dbResult = createTokenMetadataDatabase(dbPath);
 
@@ -48,7 +46,6 @@ export async function createTokenMetadataPersistence(
   }
 
   const queries = createTokenMetadataQueries(database);
-
   const cleanup = async () => {
     const closeResult = await closeTokenMetadataDatabase(database);
     if (closeResult.isErr()) {

@@ -10,8 +10,8 @@ import type { CircuitBreakerRegistry, CircuitState, CircuitStatus } from '@exitb
 import type { ProviderHealth } from '@exitbook/resilience/provider-health';
 import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
 
-import { hydrateProviderStats } from '../../persistence/provider-stats-utils.js';
-import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
+import type { ProviderStatsQueries } from './persistence/queries.js';
+import { hydrateProviderStats } from './persistence/utils.js';
 
 const logger = getLogger('ProviderStatsStore');
 

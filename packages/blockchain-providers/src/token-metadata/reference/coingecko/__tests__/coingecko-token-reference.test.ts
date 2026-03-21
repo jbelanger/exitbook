@@ -13,7 +13,7 @@ import {
   createTokenMetadataQueries,
   initializeTokenMetadataDatabase,
   type TokenMetadataDB,
-} from '../../../persistence/token-metadata/index.js';
+} from '../../../persistence/index.js';
 import { createCoinGeckoTokenReferenceResolver } from '../coingecko-token-reference.js';
 
 describe('coingecko-token-reference', () => {

@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- required for db */
 import { describe, expect, it } from 'vitest';
 
-import { hydrateProviderStats, type ProviderStatsRow } from '../provider-stats-utils.js';
+import { hydrateProviderStats, type ProviderStatsRow } from '../utils.js';
 
 function makeRow(overrides: Partial<ProviderStatsRow> = {}): ProviderStatsRow {
   return {

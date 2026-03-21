@@ -17,7 +17,7 @@ const TokenMetadataRefreshedAtSchema = z
   });
 
 /**
- * Normalized token metadata returned by blockchain providers before cache/persistence enrichment.
+ * Normalized token metadata returned by blockchain providers before cache enrichment.
  */
 export const TokenMetadataSchema = z.object({
   contractAddress: z.string(),

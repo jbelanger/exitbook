@@ -5,7 +5,7 @@ import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from '@exitbook/sqlite';
 
-import type { TokenMetadataRecord } from '../../token-metadata/index.js';
+import type { TokenMetadataRecord } from '../contracts.js';
 
 import type { TokenMetadataDatabase } from './schema.js';
 

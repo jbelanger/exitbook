@@ -64,7 +64,7 @@ export interface ReferencePlatformMappingTable {
 }
 
 /**
- * Complete token metadata database schema.
+ * Token metadata database schema.
  */
 export interface TokenMetadataDatabase {
   token_metadata: TokenMetadataTable;
