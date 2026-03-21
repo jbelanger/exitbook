@@ -1,19 +1,23 @@
-import type {
-  CanadaCostBasisFilingFacts,
-  CanadaDisplayCostBasisReport,
-  ConvertedAcquisitionLot,
-  ConvertedLotDisposal,
-  ConvertedLotTransfer,
-  StandardCostBasisDispositionFilingFact,
-  StandardCostBasisFilingFacts,
+import {
+  buildCostBasisFilingFacts,
+  type CanadaCostBasisFilingFacts,
+  type CanadaDisplayCostBasisReport,
+  type ConvertedAcquisitionLot,
+  type ConvertedLotDisposal,
+  type ConvertedLotTransfer,
+  type CostBasisWorkflowResult,
+  type StandardCostBasisDispositionFilingFact,
+  type StandardCostBasisFilingFacts,
 } from '@exitbook/accounting';
 import { Decimal } from 'decimal.js';
 
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
+import { unwrapResult } from '../../shared/result-utils.js';
 
 import type {
-  AssetCostBasisItem,
   AcquisitionViewItem,
+  AssetCostBasisItem,
+  CalculationContext,
   DisposalViewItem,
   TransferViewItem,
 } from './cost-basis-view-state.js';
@@ -520,4 +524,103 @@ function deriveCanadaAcquisitionStatus(remainingQuantity: Decimal, quantityAcqui
   }
 
   return 'partially_disposed';
+}
+
+// ─── Presentation Model ──────────────────────────────────────────────────────
+
+export interface CostBasisPresentationModel {
+  assetItems: AssetCostBasisItem[];
+  context: CalculationContext;
+  summary: {
+    assetsProcessed: string[];
+    disposalsProcessed: number;
+    longTermGainLoss?: string | undefined;
+    lotsCreated: number;
+    shortTermGainLoss?: string | undefined;
+    totalCostBasis: string;
+    totalGainLoss: string;
+    totalProceeds: string;
+    totalTaxableGainLoss: string;
+    transactionsProcessed: number;
+  };
+}
+
+export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
+  const filingFacts = unwrapResult(buildCostBasisFilingFacts({ artifact: costBasisResult }));
+
+  if (costBasisResult.kind === 'standard-workflow') {
+    if (filingFacts.kind !== 'standard') {
+      throw new Error('Expected standard filing facts for standard-workflow artifact');
+    }
+
+    const { summary, report } = costBasisResult;
+    const jurisdiction = filingFacts.jurisdiction;
+    const currency = report?.displayCurrency ?? filingFacts.taxCurrency;
+    const assetItems = sortAssetsByAbsGainLoss(buildStandardAssetCostBasisItems(filingFacts, report));
+    const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems, {
+      includeTaxTreatmentSplit: jurisdiction === 'US',
+    });
+
+    return {
+      assetItems,
+      context: {
+        calculationId: filingFacts.calculationId,
+        method: filingFacts.method,
+        jurisdiction,
+        taxYear: filingFacts.taxYear,
+        currency,
+        dateRange: {
+          startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
+          endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
+        },
+      },
+      summary: {
+        lotsCreated: filingFacts.summary.acquisitionCount,
+        disposalsProcessed: filingFacts.summary.dispositionCount,
+        assetsProcessed: summary.assetsProcessed,
+        transactionsProcessed: summary.calculation.transactionsProcessed,
+        totalProceeds: summaryTotals.totalProceeds,
+        totalCostBasis: summaryTotals.totalCostBasis,
+        totalGainLoss: summaryTotals.totalGainLoss,
+        totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
+        ...(summaryTotals.shortTermGainLoss ? { shortTermGainLoss: summaryTotals.shortTermGainLoss } : {}),
+        ...(summaryTotals.longTermGainLoss ? { longTermGainLoss: summaryTotals.longTermGainLoss } : {}),
+      },
+    };
+  }
+
+  if (filingFacts.kind !== 'canada') {
+    throw new Error('Expected Canada filing facts for canada-workflow artifact');
+  }
+
+  const currency = costBasisResult.displayReport?.displayCurrency ?? filingFacts.taxCurrency;
+  const assetItems = sortAssetsByAbsGainLoss(
+    buildCanadaAssetCostBasisItems(filingFacts, costBasisResult.displayReport)
+  );
+  const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems);
+
+  return {
+    assetItems,
+    context: {
+      calculationId: filingFacts.calculationId,
+      method: filingFacts.method,
+      jurisdiction: filingFacts.jurisdiction,
+      taxYear: filingFacts.taxYear,
+      currency,
+      dateRange: {
+        startDate: costBasisResult.calculation.startDate.toISOString().split('T')[0] ?? '',
+        endDate: costBasisResult.calculation.endDate.toISOString().split('T')[0] ?? '',
+      },
+    },
+    summary: {
+      lotsCreated: filingFacts.summary.acquisitionCount,
+      disposalsProcessed: filingFacts.summary.dispositionCount,
+      assetsProcessed: costBasisResult.calculation.assetsProcessed,
+      transactionsProcessed: costBasisResult.calculation.transactionsProcessed,
+      totalProceeds: summaryTotals.totalProceeds,
+      totalCostBasis: summaryTotals.totalCostBasis,
+      totalGainLoss: summaryTotals.totalGainLoss,
+      totalTaxableGainLoss: summaryTotals.totalTaxableGainLoss,
+    },
+  };
 }
