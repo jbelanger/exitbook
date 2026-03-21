@@ -6,11 +6,16 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { PriceProviderEvent } from '../../contracts/events.js';
 import type { IPriceProvider } from '../../contracts/types.js';
-import { initPriceCacheDatabase } from '../../price-cache/persistence/runtime.js';
+import { initPriceCachePersistence } from '../../price-cache/persistence/runtime.js';
 
 import { getAvailableProviderNames, PROVIDER_FACTORIES, type ProviderFactory } from './provider-registry.js';
 
 const logger = getLogger('PriceProviderBootstrap');
+
+export interface InitializedPriceProviders {
+  providers: IPriceProvider[];
+  cleanup: () => Promise<void>;
+}
 
 /**
  * Configuration for individual providers.
@@ -48,13 +53,15 @@ export interface ProviderFactoryConfig {
 /**
  * Create all enabled price providers.
  */
-export async function createPriceProviders(config: ProviderFactoryConfig): Promise<Result<IPriceProvider[], Error>> {
-  const dbResult = await initPriceCacheDatabase(config.databasePath);
-  if (dbResult.isErr()) {
-    return err(dbResult.error);
+export async function createPriceProviders(
+  config: ProviderFactoryConfig
+): Promise<Result<InitializedPriceProviders, Error>> {
+  const persistenceResult = await initPriceCachePersistence(config.databasePath);
+  if (persistenceResult.isErr()) {
+    return err(persistenceResult.error);
   }
 
-  const db = dbResult.value;
+  const persistence = persistenceResult.value;
   const providers: IPriceProvider[] = [];
   const { instrumentation, eventBus } = config;
 
@@ -69,7 +76,7 @@ export async function createPriceProviders(config: ProviderFactoryConfig): Promi
       continue;
     }
 
-    const result = factory(db, providerConfig ?? {}, instrumentation);
+    const result = factory(persistence.database, providerConfig ?? {}, instrumentation);
     if (result.isErr()) {
       logger.warn(`Failed to create ${name} provider: ${result.error.message}`);
       continue;
@@ -82,6 +89,10 @@ export async function createPriceProviders(config: ProviderFactoryConfig): Promi
       const initResult = await provider.initialize();
       if (initResult.isErr()) {
         logger.error(`Failed to initialize ${name} provider: ${initResult.error.message}`);
+
+        await provider.destroy().catch((error: unknown) => {
+          logger.warn({ error }, 'Failed to destroy provider after initialization failure');
+        });
         continue;
       }
       logger.info(`${name} provider initialized successfully`);
@@ -92,13 +103,20 @@ export async function createPriceProviders(config: ProviderFactoryConfig): Promi
   }
 
   if (providers.length === 0) {
+    await persistence.cleanup().catch((error: unknown) => {
+      logger.warn({ error }, 'Failed to clean up price cache persistence after provider bootstrap failure');
+    });
+
     return err(new Error('No price providers were successfully created. Check logs for details.'));
   }
 
   eventBus?.emit({ type: 'providers.ready', providerCount: providers.length });
   logger.info(`Successfully created ${providers.length} price provider(s): ${providers.map((p) => p.name).join(', ')}`);
 
-  return ok(providers);
+  return ok({
+    providers,
+    cleanup: persistence.cleanup,
+  });
 }
 
 export { getAvailableProviderNames };

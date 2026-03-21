@@ -6,7 +6,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { PriceProviderEvent } from '../contracts/events.js';
 import type { ProviderManagerConfig } from '../contracts/types.js';
-import type { PriceProviderManager } from '../core/provider-manager.js';
+import type { PriceProviderManager } from '../runtime/manager/provider-manager.js';
 import {
   createPriceProviderManager,
   type PriceProviderManagerFactoryConfig,

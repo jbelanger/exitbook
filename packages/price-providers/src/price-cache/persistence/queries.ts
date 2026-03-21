@@ -10,8 +10,9 @@ import { getLogger } from '@exitbook/logger';
 import { sql } from '@exitbook/sqlite';
 
 import type { PriceData } from '../../contracts/types.js';
-import { roundToDay, roundToHour, roundToMinute } from '../../price-cache/time-buckets.js';
-import type { PricesDB } from '../database.js';
+import { roundToDay, roundToHour, roundToMinute } from '../time-buckets.js';
+
+import type { PricesDB } from './database.js';
 
 interface PriceRecord {
   id: number;

@@ -7,7 +7,7 @@
 import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { selectProviders } from '@exitbook/resilience/provider-selection';
 
-import type { IPriceProvider, ProviderHealth, ProviderMetadata } from '../contracts/types.js';
+import type { IPriceProvider, ProviderHealth, ProviderMetadata } from '../../contracts/types.js';
 
 /**
  * Calculate granularity bonus for a provider based on timestamp and capabilities

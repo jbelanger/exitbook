@@ -3,7 +3,7 @@ import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
 import type { ProviderManagerConfig } from '../../contracts/types.js';
-import { PriceProviderManager } from '../../core/provider-manager.js';
+import { PriceProviderManager } from '../manager/provider-manager.js';
 
 import { createPriceProviders, type ProviderFactoryConfig } from './provider-bootstrap.js';
 
@@ -35,7 +35,8 @@ export async function createPriceProviderManager(
     ...config.manager,
   });
 
-  manager.registerProviders(providersResult.value);
+  manager.registerProviders(providersResult.value.providers);
+  manager.registerCleanup(providersResult.value.cleanup);
   manager.startBackgroundTasks();
 
   logger.info('PriceProviderManager created and initialized successfully');

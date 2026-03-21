@@ -2,9 +2,13 @@ import { type Currency } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
+import {
+  createPricesDatabase,
+  initializePricesDatabase,
+  type PricesDB,
+} from '../../../price-cache/persistence/database.js';
 import type { CoinMappingInput } from '../queries.js';
-import { createProviderQueries, type ProviderQueries } from '../queries.js';
+import { createProviderCatalogQueries, type ProviderCatalogQueries } from '../queries.js';
 
 function okValue<T>(result: Result<T, Error>): T {
   expect(result.isOk()).toBe(true);
@@ -14,9 +18,9 @@ function okValue<T>(result: Result<T, Error>): T {
   return result.value;
 }
 
-describe('ProviderQueries', () => {
+describe('ProviderCatalogQueries', () => {
   let db: PricesDB;
-  let queries: ProviderQueries;
+  let queries: ProviderCatalogQueries;
 
   beforeEach(async () => {
     const dbResult = createPricesDatabase(':memory:');
@@ -30,7 +34,7 @@ describe('ProviderQueries', () => {
       throw migrationResult.error;
     }
 
-    queries = createProviderQueries(db);
+    queries = createProviderCatalogQueries(db);
   });
 
   afterEach(async () => {

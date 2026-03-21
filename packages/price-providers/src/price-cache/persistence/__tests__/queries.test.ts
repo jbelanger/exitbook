@@ -4,8 +4,8 @@ import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { PriceData } from '../../../contracts/types.js';
-import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../database.js';
-import { createPriceQueries, type PriceQueries } from '../price-queries.js';
+import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../database.js';
+import { createPriceQueries, type PriceQueries } from '../queries.js';
 
 function okValue<T>(result: Result<T, Error>): T {
   expect(result.isOk()).toBe(true);

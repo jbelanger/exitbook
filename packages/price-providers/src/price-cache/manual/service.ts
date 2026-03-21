@@ -10,8 +10,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../persistence/queries/price-queries.js';
+import { initPriceCachePersistence, type PriceCachePersistence } from '../persistence/runtime.js';
 
 /**
  * Manual price entry data
@@ -42,7 +41,7 @@ export interface ManualFxRateEntry {
  * to the price cache. All database management is handled internally.
  */
 export class ManualPriceService {
-  private queries: PriceQueries | undefined;
+  private persistence: PriceCachePersistence | undefined;
   private initialized = false;
 
   constructor(private readonly databasePath: string) {}
@@ -72,7 +71,7 @@ export class ManualPriceService {
         return err(initResult.error);
       }
 
-      const saveResult = await this.queries!.savePrice({
+      const saveResult = await this.persistence!.queries.savePrice({
         assetSymbol: entry.assetSymbol,
         currency: entry.currency ?? ('USD' as Currency),
         timestamp: entry.date,
@@ -121,7 +120,7 @@ export class ManualPriceService {
       }
 
       // FX rates stored as prices: asset=from, currency=to (matches StandardFxRateProvider fetch pattern)
-      const saveResult = await this.queries!.savePrice({
+      const saveResult = await this.persistence!.queries.savePrice({
         assetSymbol: entry.from,
         currency: entry.to,
         timestamp: entry.date,
@@ -137,31 +136,31 @@ export class ManualPriceService {
     }
   }
 
+  async destroy(): Promise<void> {
+    if (!this.persistence) {
+      return;
+    }
+
+    await this.persistence.cleanup();
+    this.persistence = undefined;
+    this.initialized = false;
+  }
+
   /**
    * Ensure database is initialized
    */
   private async ensureInitialized(): Promise<Result<void, Error>> {
-    if (this.initialized && this.queries) {
+    if (this.initialized && this.persistence) {
       return ok(undefined);
     }
 
     try {
-      // Create database
-      const dbResult = createPricesDatabase(this.databasePath);
-      if (dbResult.isErr()) {
-        return wrapError(dbResult.error, 'Failed to create prices database');
+      const persistenceResult = await initPriceCachePersistence(this.databasePath);
+      if (persistenceResult.isErr()) {
+        return wrapError(persistenceResult.error, 'Failed to initialize manual price service');
       }
 
-      const db = dbResult.value;
-
-      // Run migrations
-      const migrationResult = await initializePricesDatabase(db);
-      if (migrationResult.isErr()) {
-        return wrapError(migrationResult.error, 'Failed to initialize database');
-      }
-
-      // Create queries
-      this.queries = createPriceQueries(db);
+      this.persistence = persistenceResult.value;
       this.initialized = true;
 
       return ok(undefined);

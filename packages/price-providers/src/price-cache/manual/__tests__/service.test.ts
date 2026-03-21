@@ -12,15 +12,17 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
-import { ManualPriceService } from '../manual-price-service.js';
+import { createPriceQueries, type PriceQueries } from '../../persistence/queries.js';
+import { ManualPriceService } from '../service.js';
 
 describe('ManualPriceService', () => {
   let db: PricesDB;
+  let createdServices: ManualPriceService[];
   let queries: PriceQueries;
   let testDbPath: string;
 
   beforeEach(async () => {
+    createdServices = [];
     // Create a temporary database file path
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-price-service-test-'));
     testDbPath = path.join(tmpDir, 'test.db');
@@ -42,6 +44,7 @@ describe('ManualPriceService', () => {
   });
 
   afterEach(async () => {
+    await Promise.all(createdServices.map(async (service) => service.destroy()));
     await db.destroy();
     // Clean up test database file
     try {
@@ -61,6 +64,7 @@ describe('ManualPriceService', () => {
   describe('savePrice', () => {
     it('should save a manual price entry with defaults', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.savePrice({
         assetSymbol: 'BTC' as Currency,
@@ -90,6 +94,7 @@ describe('ManualPriceService', () => {
 
     it('should save a manual price entry with custom currency', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.savePrice({
         assetSymbol: 'BTC' as Currency,
@@ -116,6 +121,7 @@ describe('ManualPriceService', () => {
 
     it('should save a manual price entry with custom source', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.savePrice({
         assetSymbol: 'ETH' as Currency,
@@ -141,6 +147,7 @@ describe('ManualPriceService', () => {
 
     it('should handle database errors gracefully', async () => {
       const service = new ManualPriceService('/invalid/path/that/does/not/exist/db.sqlite');
+      createdServices.push(service);
 
       const result = await service.savePrice({
         assetSymbol: 'BTC' as Currency,
@@ -159,6 +166,7 @@ describe('ManualPriceService', () => {
   describe('saveFxRate', () => {
     it('should save a manual FX rate entry', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.saveFxRate({
         from: 'EUR' as Currency,
@@ -185,6 +193,7 @@ describe('ManualPriceService', () => {
 
     it('should save a manual FX rate entry with custom source', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.saveFxRate({
         from: 'CAD' as Currency,
@@ -207,6 +216,7 @@ describe('ManualPriceService', () => {
 
     it('should reject FX rate when from and to currencies are the same', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       const result = await service.saveFxRate({
         from: 'USD' as Currency,
@@ -223,6 +233,7 @@ describe('ManualPriceService', () => {
 
     it('should handle database errors gracefully', async () => {
       const service = new ManualPriceService('/invalid/path/that/does/not/exist/db.sqlite');
+      createdServices.push(service);
 
       const result = await service.saveFxRate({
         from: 'EUR' as Currency,
@@ -242,6 +253,7 @@ describe('ManualPriceService', () => {
   describe('multiple calls', () => {
     it('should reuse initialized database connection', async () => {
       const service = new ManualPriceService(testDbPath);
+      createdServices.push(service);
 
       // First call
       const result1 = await service.savePrice({

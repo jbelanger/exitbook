@@ -13,18 +13,18 @@ import { executeWithFailover, type FailoverResult } from '@exitbook/resilience/f
 import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
 import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
 
-import { CoinNotFoundError, PriceDataUnavailableError } from '../contracts/errors.js';
+import { CoinNotFoundError, PriceDataUnavailableError } from '../../contracts/errors.js';
 import type {
   IPriceProvider,
   PriceData,
   PriceQuery,
   ProviderHealthWithCircuit,
   ProviderManagerConfig,
-} from '../contracts/types.js';
-import { MAX_PRICE_QUERY_DEPTH } from '../contracts/types.js';
-import { createCacheKey } from '../price-cache/cache-key.js';
+} from '../../contracts/types.js';
+import { MAX_PRICE_QUERY_DEPTH } from '../../contracts/types.js';
+import { createCacheKey } from '../../price-cache/cache-key.js';
 
-import * as ProviderManagerUtils from './provider-manager-utils.js';
+import * as ProviderSelection from './provider-selection.js';
 
 /** Internal query type used only within this module to thread recursion depth */
 type InternalPriceQuery = PriceQuery & { _depth?: number | undefined };
@@ -35,12 +35,13 @@ const logger = getLogger('PriceProviderManager');
  * Manages price providers with automatic failover, circuit breakers, and health tracking
  *
  * This is the imperative shell - it manages mutable state and coordinates side effects,
- * but delegates all decision logic to pure functions in provider-manager-utils.js
+ * but delegates all decision logic to pure functions in provider-selection.js
  */
 export class PriceProviderManager {
   private readonly config: ProviderManagerConfig;
 
   // Mutable state (only place side effects live)
+  private readonly cleanupHandlers: (() => Promise<void>)[] = [];
   private providers: IPriceProvider[] = [];
   private readonly healthStore = new ProviderHealthStore();
   private readonly circuitBreakers = new CircuitBreakerRegistry();
@@ -77,6 +78,10 @@ export class PriceProviderManager {
     }
 
     logger.info(`Registered ${providers.length} price providers: ${providers.map((p) => p.name).join(', ')}`);
+  }
+
+  registerCleanup(cleanup: () => Promise<void>): void {
+    this.cleanupHandlers.push(cleanup);
   }
 
   /**
@@ -162,7 +167,17 @@ export class PriceProviderManager {
 
     await Promise.all(closePromises);
 
+    const cleanupPromises = this.cleanupHandlers.map((cleanup) =>
+      cleanup().catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error({ error: errorMessage }, 'Failed to clean up price provider manager dependency');
+      })
+    );
+
+    await Promise.all(cleanupPromises);
+
     this.providers = [];
+    this.cleanupHandlers.length = 0;
     this.healthStore.clear();
     this.circuitBreakers.clear();
     this.requestCache.clear();
@@ -186,7 +201,7 @@ export class PriceProviderManager {
     const healthMap = this.healthStore.getHealthMapForKeys(this.providers.map((p) => ({ key: p.name, mapAs: p.name })));
 
     // Select providers (pure)
-    const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
+    const scoredProviders = ProviderSelection.selectProvidersForOperation(
       this.providers,
       healthMap,
       this.circuitBreakers.asReadonlyMap(),

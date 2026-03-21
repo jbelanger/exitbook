@@ -1,5 +1,5 @@
 /**
- * Tests for provider manager pure utility functions
+ * Tests for provider selection logic
  *
  * No mocks needed - all functions are pure!
  */
@@ -16,8 +16,8 @@ import type {
   ProviderMetadata,
   PriceData,
   PriceProviderOperation,
-} from '../../contracts/types.js';
-import * as ProviderManagerUtils from '../provider-manager-utils.js';
+} from '../../../contracts/types.js';
+import * as ProviderSelection from '../provider-selection.js';
 
 describe('calculateGranularityBonus', () => {
   const mockRateLimit = {
@@ -47,7 +47,7 @@ describe('calculateGranularityBonus', () => {
       const midnightUTC = new Date('2024-01-15T00:00:00Z');
       const now = Date.now();
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, midnightUTC, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, midnightUTC, now);
 
       expect(bonus).toBe(0);
     });
@@ -57,7 +57,7 @@ describe('calculateGranularityBonus', () => {
       const midnightUTC = new Date('2024-01-15T00:00:00Z');
       const now = Date.now();
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, midnightUTC, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, midnightUTC, now);
 
       expect(bonus).toBe(0);
     });
@@ -69,7 +69,7 @@ describe('calculateGranularityBonus', () => {
       const intradayTime = new Date('2024-01-15T14:30:00Z');
       const now = Date.now();
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, intradayTime, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, intradayTime, now);
 
       expect(bonus).toBe(-10);
     });
@@ -79,7 +79,7 @@ describe('calculateGranularityBonus', () => {
       const intradayTime = new Date('2024-01-15T14:30:00Z');
       const now = Date.now();
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, intradayTime, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, intradayTime, now);
 
       expect(bonus).toBe(-10);
     });
@@ -92,7 +92,7 @@ describe('calculateGranularityBonus', () => {
       const fiveDaysAgo = new Date(now - 5 * 24 * 60 * 60 * 1000);
       fiveDaysAgo.setUTCHours(14, 30, 0, 0); // 2:30pm
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, fiveDaysAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, fiveDaysAgo, now);
 
       expect(bonus).toBe(30);
     });
@@ -103,7 +103,7 @@ describe('calculateGranularityBonus', () => {
       const tenDaysAgo = new Date(now - 10 * 24 * 60 * 60 * 1000);
       tenDaysAgo.setUTCHours(14, 30, 0, 0);
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, tenDaysAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, tenDaysAgo, now);
 
       expect(bonus).toBe(-10);
     });
@@ -114,7 +114,7 @@ describe('calculateGranularityBonus', () => {
       const oneYearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
       oneYearAgo.setUTCHours(14, 30, 0, 0);
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, oneYearAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, oneYearAgo, now);
 
       expect(bonus).toBe(30);
     });
@@ -127,7 +127,7 @@ describe('calculateGranularityBonus', () => {
       const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
       thirtyDaysAgo.setUTCHours(14, 30, 0, 0);
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, thirtyDaysAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, thirtyDaysAgo, now);
 
       expect(bonus).toBe(20);
     });
@@ -138,7 +138,7 @@ describe('calculateGranularityBonus', () => {
       const oneHundredDaysAgo = new Date(now - 100 * 24 * 60 * 60 * 1000);
       oneHundredDaysAgo.setUTCHours(14, 30, 0, 0);
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, oneHundredDaysAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, oneHundredDaysAgo, now);
 
       expect(bonus).toBe(-10);
     });
@@ -151,7 +151,7 @@ describe('calculateGranularityBonus', () => {
       const yesterday = new Date(now - 1 * 24 * 60 * 60 * 1000);
       yesterday.setUTCHours(14, 30, 0, 0);
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, yesterday, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, yesterday, now);
 
       expect(bonus).toBe(-10);
     });
@@ -170,17 +170,17 @@ describe('calculateGranularityBonus', () => {
       // 5 days ago - should get minute data (+30)
       const fiveDaysAgo = new Date(now - 5 * 24 * 60 * 60 * 1000);
       fiveDaysAgo.setUTCHours(14, 30, 0, 0);
-      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, fiveDaysAgo, now)).toBe(30);
+      expect(ProviderSelection.calculateGranularityBonus(metadata, fiveDaysAgo, now)).toBe(30);
 
       // 30 days ago - should get hourly data (+20)
       const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
       thirtyDaysAgo.setUTCHours(14, 30, 0, 0);
-      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, thirtyDaysAgo, now)).toBe(20);
+      expect(ProviderSelection.calculateGranularityBonus(metadata, thirtyDaysAgo, now)).toBe(20);
 
       // 200 days ago - should get daily data only (-10 penalty for intraday)
       const twoHundredDaysAgo = new Date(now - 200 * 24 * 60 * 60 * 1000);
       twoHundredDaysAgo.setUTCHours(14, 30, 0, 0);
-      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, twoHundredDaysAgo, now)).toBe(-10);
+      expect(ProviderSelection.calculateGranularityBonus(metadata, twoHundredDaysAgo, now)).toBe(-10);
     });
   });
 
@@ -192,7 +192,7 @@ describe('calculateGranularityBonus', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const exactlySevenDaysAgo = new Date('2024-01-15T14:30:00Z');
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, exactlySevenDaysAgo, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, exactlySevenDaysAgo, now);
 
       // Should be available (diffDays <= maxHistoryDays, 7.0 <= 7)
       expect(bonus).toBe(30);
@@ -208,7 +208,7 @@ describe('calculateGranularityBonus', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const slightlyPastSeven = new Date('2024-01-15T12:00:00Z'); // 7 days + 2.5 hours ago
 
-      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, slightlyPastSeven, now);
+      const bonus = ProviderSelection.calculateGranularityBonus(metadata, slightlyPastSeven, now);
 
       // Should fall back to daily (-10 penalty for intraday request)
       expect(bonus).toBe(-10);
@@ -236,7 +236,7 @@ describe('supportsOperation', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsOperation(metadata, 'fetchPrice')).toBe(true);
+    expect(ProviderSelection.supportsOperation(metadata, 'fetchPrice')).toBe(true);
   });
 
   it('should return false when operation is not supported', () => {
@@ -251,7 +251,7 @@ describe('supportsOperation', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsOperation(metadata, 'fetchBatch')).toBe(false);
+    expect(ProviderSelection.supportsOperation(metadata, 'fetchBatch')).toBe(false);
   });
 });
 
@@ -296,7 +296,7 @@ describe('selectProvidersForOperation', () => {
     assetSymbol?: string,
     isFiat?: boolean
   ) {
-    return ProviderManagerUtils.selectProvidersForOperation(providers, healthMap, circuitMap, {
+    return ProviderSelection.selectProvidersForOperation(providers, healthMap, circuitMap, {
       operationType,
       now,
       timestamp,
@@ -876,7 +876,7 @@ describe('supportsAsset', () => {
     };
 
     // Try to check fiat currency
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'EUR', true)).toBe(false);
   });
 
   it('should return true when provider supports asset type and has no specific asset list', () => {
@@ -893,9 +893,9 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'ETH', false)).toBe(true);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'RANDOMCOIN', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'ETH', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'RANDOMCOIN', false)).toBe(true);
   });
 
   it('should return true when asset is in supportedAssets list', () => {
@@ -912,7 +912,7 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'EUR', true)).toBe(true);
   });
 
   it('should return false when asset is not in supportedAssets list', () => {
@@ -929,8 +929,8 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'CAD', true)).toBe(false);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'GBP', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'CAD', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'GBP', true)).toBe(false);
   });
 
   it('should return false when trying to check crypto on fiat provider', () => {
@@ -947,7 +947,7 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'BTC', false)).toBe(false);
   });
 
   it('should return false when trying to check fiat on crypto provider', () => {
@@ -963,7 +963,7 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'EUR', true)).toBe(false);
   });
 
   it('should support both crypto and fiat for multi-type providers', () => {
@@ -979,8 +979,8 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'EUR', true)).toBe(true);
   });
 
   it('should return true for empty supportedAssets array (universal for that type)', () => {
@@ -997,8 +997,8 @@ describe('supportsAsset', () => {
       requiresApiKey: false,
     };
 
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(true);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'ANYTHING', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'BTC', false)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'ANYTHING', false)).toBe(true);
   });
 
   it('should handle Bank of Canada provider correctly (CAD only)', () => {
@@ -1015,13 +1015,13 @@ describe('supportsAsset', () => {
     };
 
     // Should support CAD
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'CAD', true)).toBe(true);
+    expect(ProviderSelection.supportsAsset(metadata, 'CAD', true)).toBe(true);
 
     // Should not support other fiat
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'EUR', true)).toBe(false);
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'USD', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'EUR', true)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'USD', true)).toBe(false);
 
     // Should not support crypto
-    expect(ProviderManagerUtils.supportsAsset(metadata, 'BTC', false)).toBe(false);
+    expect(ProviderSelection.supportsAsset(metadata, 'BTC', false)).toBe(false);
   });
 });

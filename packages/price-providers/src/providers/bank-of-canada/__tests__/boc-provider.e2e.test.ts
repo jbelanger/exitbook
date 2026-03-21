@@ -2,7 +2,11 @@ import { type Currency } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
+import {
+  createPricesDatabase,
+  initializePricesDatabase,
+  type PricesDB,
+} from '../../../price-cache/persistence/database.js';
 import { createBankOfCanadaProvider, type BankOfCanadaProvider } from '../provider.js';
 
 /**

@@ -2,7 +2,7 @@ import type { Result } from '@exitbook/core';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { IPriceProvider } from '../../contracts/types.js';
-import type { PricesDB } from '../../persistence/database.js';
+import type { PricesDB } from '../../price-cache/persistence/database.js';
 import { createBankOfCanadaProvider } from '../../providers/bank-of-canada/provider.js';
 import { createBinanceProvider } from '../../providers/binance/provider.js';
 import { createCoinGeckoProvider } from '../../providers/coingecko/provider.js';

@@ -4,17 +4,21 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PriceProviderManager } from '../../../core/provider-manager.js';
+import type { PriceProviderManager } from '../../../runtime/manager/provider-manager.js';
 import { createPriceProviderManager } from '../manager-bootstrap.js';
 import { createPriceProviders, getAvailableProviderNames } from '../provider-bootstrap.js';
 
 // Mock database initialization
 vi.mock('../../../price-cache/persistence/runtime.js', () => ({
-  initPriceCacheDatabase: vi.fn(() =>
+  initPriceCachePersistence: vi.fn(() =>
     Promise.resolve({
       isErr: () => false,
       isOk: () => true,
-      value: {} as unknown, // Mock database instance
+      value: {
+        cleanup: vi.fn(() => Promise.resolve()),
+        database: {} as unknown,
+        queries: {} as unknown,
+      },
     })
   ),
 }));
@@ -210,7 +214,7 @@ describe('createPriceProviders', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const providers = result.value;
+      const providers = result.value.providers;
       // All providers (bank-of-canada, binance, coingecko, cryptocompare, ecb, frankfurter) are enabled by default
       expect(providers).toHaveLength(6);
       expect(providers[0]?.getMetadata().name).toBe('bank-of-canada');
@@ -227,7 +231,7 @@ describe('createPriceProviders', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const providers = result.value;
+      const providers = result.value.providers;
 
       for (const provider of providers) {
         const metadata = provider.getMetadata();
@@ -293,7 +297,7 @@ describe('createPriceProviders', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const providers = result.value;
+      const providers = result.value.providers;
       // CoinGecko is at index 2 (after bank-of-canada and binance)
       const coinGeckoProvider = providers[2];
 
@@ -346,9 +350,9 @@ describe('createPriceProviders', () => {
           requiresApiKey: false,
         }),
         initialize: vi.fn(() => Promise.resolve(err(new Error('Init failed')))),
+        destroy: vi.fn(() => Promise.resolve()),
         fetchPrice: vi.fn(),
         fetchHistoricalPrice: vi.fn(),
-        close: vi.fn(),
       } as unknown as import('../../../providers/coingecko/provider.js').CoinGeckoProvider)
     );
 
@@ -356,7 +360,7 @@ describe('createPriceProviders', () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const providers = result.value;
+      const providers = result.value.providers;
       // bank-of-canada, binance, cryptocompare, ecb, and frankfurter should succeed (CoinGecko failed initialization)
       expect(providers).toHaveLength(5);
       expect(providers[0]?.getMetadata().name).toBe('bank-of-canada');

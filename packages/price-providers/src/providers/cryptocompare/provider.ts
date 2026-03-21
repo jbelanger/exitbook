@@ -11,9 +11,9 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { CoinNotFoundError } from '../../contracts/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
-import { BasePriceProvider } from '../../core/base-provider.js';
-import type { PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
+import type { PricesDB } from '../../price-cache/persistence/database.js';
+import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import { BasePriceProvider } from '../../runtime/base-provider.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
 
 import {

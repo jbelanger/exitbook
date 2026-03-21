@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { Result } from '@exitbook/core';
 
-import { readLatestPriceMutationAt } from '../services/price-mutation-watermark-service.js';
+import { readLatestPriceMutationAt } from './persistence/watermark.js';
 
 /**
  * Host-facing API for price-cache freshness.

@@ -32,8 +32,8 @@ import { type Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import type { PriceData } from '../../../contracts/types.js';
-import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
-import type { ProviderQueries } from '../../../provider-catalog/persistence/queries.js';
+import type { PriceQueries } from '../../../price-cache/persistence/queries.js';
+import type { ProviderCatalogQueries } from '../../../provider-catalog/persistence/queries.js';
 // Import after mocks so they receive mocked dependencies
 import { CoinGeckoProvider } from '../provider.js';
 
@@ -49,7 +49,7 @@ describe('CoinGeckoProvider', () => {
     upsertCoinMappings: ReturnType<typeof vi.fn>;
     upsertProvider: ReturnType<typeof vi.fn>;
   };
-  let providerRepo: ProviderQueries;
+  let providerRepo: ProviderCatalogQueries;
   let priceRepoMocks: {
     getPrice: ReturnType<typeof vi.fn>;
     savePrice: ReturnType<typeof vi.fn>;
@@ -72,7 +72,7 @@ describe('CoinGeckoProvider', () => {
       upsertCoinMappings: vi.fn().mockResolvedValue(ok(undefined)),
       upsertProvider: vi.fn().mockResolvedValue(ok({ id: 1 } as const)),
     };
-    providerRepo = providerRepoMocks as unknown as ProviderQueries;
+    providerRepo = providerRepoMocks as unknown as ProviderCatalogQueries;
 
     priceRepoMocks = {
       getPrice: vi.fn().mockResolvedValue(ok(undefined)),

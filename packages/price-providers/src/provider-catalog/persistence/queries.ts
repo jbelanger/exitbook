@@ -1,5 +1,5 @@
 /**
- * Provider queries - manages provider metadata and coin mappings
+ * Provider catalog queries - manages provider metadata and coin mappings.
  */
 
 import type { Currency } from '@exitbook/core';
@@ -7,7 +7,7 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
-import type { PricesDB } from '../../persistence/database.js';
+import type { PricesDB } from '../../price-cache/persistence/database.js';
 
 interface ProviderRecord {
   id: number;
@@ -40,9 +40,9 @@ export interface CoinMappingInput {
 }
 
 /**
- * Queries for managing price providers and coin mappings
+ * Queries for managing provider catalog records and coin mappings.
  */
-export function createProviderQueries(db: PricesDB) {
+export function createProviderCatalogQueries(db: PricesDB) {
   /**
    * Get or create a provider by name
    */
@@ -222,4 +222,4 @@ export function createProviderQueries(db: PricesDB) {
   };
 }
 
-export type ProviderQueries = ReturnType<typeof createProviderQueries>;
+export type ProviderCatalogQueries = ReturnType<typeof createProviderCatalogQueries>;

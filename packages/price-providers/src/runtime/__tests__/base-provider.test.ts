@@ -5,7 +5,7 @@ import type { HttpClient } from '@exitbook/http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceData, PriceQuery, ProviderMetadata } from '../../contracts/types.js';
-import type { PriceQueries } from '../../persistence/queries/price-queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import { BasePriceProvider } from '../base-provider.js';
 
 // Mock logger

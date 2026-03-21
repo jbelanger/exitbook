@@ -1,7 +1,11 @@
 import { type Currency } from '@exitbook/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
+import {
+  createPricesDatabase,
+  initializePricesDatabase,
+  type PricesDB,
+} from '../../../price-cache/persistence/database.js';
 import { createBinanceProvider, type BinanceProvider } from '../provider.js';
 
 /**

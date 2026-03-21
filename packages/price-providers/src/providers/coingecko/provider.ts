@@ -11,10 +11,13 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { CoinNotFoundError, PriceDataUnavailableError } from '../../contracts/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
-import { BasePriceProvider } from '../../core/base-provider.js';
-import type { PricesDB } from '../../persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
-import { createProviderQueries, type ProviderQueries } from '../../provider-catalog/persistence/queries.js';
+import type { PricesDB } from '../../price-cache/persistence/database.js';
+import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import {
+  createProviderCatalogQueries,
+  type ProviderCatalogQueries,
+} from '../../provider-catalog/persistence/queries.js';
+import { BasePriceProvider } from '../../runtime/base-provider.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
 
 import {
@@ -108,7 +111,7 @@ export function createCoinGeckoProvider(
 
     // Create queries
     const priceQueries = createPriceQueries(db);
-    const providerRepo = createProviderQueries(db);
+    const providerRepo = createProviderCatalogQueries(db);
 
     // Create provider
     const provider = new CoinGeckoProvider(httpClient, priceQueries, providerRepo, { apiKey, useProApi }, rateLimit);
@@ -128,7 +131,7 @@ export function createCoinGeckoProvider(
  */
 export class CoinGeckoProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly providerRepo: ProviderQueries;
+  private readonly providerRepo: ProviderCatalogQueries;
   private readonly config: CoinGeckoProviderConfig;
 
   // Cache provider ID after first lookup
@@ -137,7 +140,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
   constructor(
     httpClient: HttpClient,
     priceQueries: PriceQueries,
-    providerRepo: ProviderQueries,
+    providerRepo: ProviderCatalogQueries,
     config: CoinGeckoProviderConfig = {},
     rateLimit: ProviderRateLimitConfig
   ) {

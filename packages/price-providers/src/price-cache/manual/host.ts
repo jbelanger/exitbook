@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { ManualPriceService } from '../services/manual-price-service.js';
+import { ManualPriceService } from './service.js';
 
 /**
  * Host-facing factory for ManualPriceService.

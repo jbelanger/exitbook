@@ -12,7 +12,7 @@ Two-level TUI: asset list (Level 1) with detail panel, and per-asset transaction
 
 ### Pricing Contract
 
-Spot prices are always fetched in **USD** first. All providers normalize to USD per the `PriceData.currency` contract in `packages/price-providers/src/core/types.ts`. Non-USD display currencies apply FX conversion as a separate step — no direct non-USD spot quotes.
+Spot prices are always fetched in **USD** first. All providers normalize to USD per the `PriceData.currency` contract in `packages/price-providers/src/contracts/types.ts`. Non-USD display currencies apply FX conversion as a separate step — no direct non-USD spot quotes.
 
 ### Canonical Keying
 

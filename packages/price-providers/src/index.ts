@@ -17,7 +17,7 @@ export type {
 } from './contracts/types.js';
 
 // Provider manager
-export { PriceProviderManager } from './core/provider-manager.js';
+export { PriceProviderManager } from './runtime/manager/provider-manager.js';
 
 // Shared factory - recommended way to create providers
 export { createPriceProviders, getAvailableProviderNames } from './runtime/registry/provider-bootstrap.js';
@@ -27,8 +27,8 @@ export type { ProviderName } from './runtime/registry/provider-registry.js';
 export type { PriceProviderManagerFactoryConfig } from './runtime/registry/manager-bootstrap.js';
 export { createDefaultPriceProviderManager } from './host/index.js';
 export type { DefaultPriceProviderManagerOptions } from './host/index.js';
-export { createManualPriceService } from './host/index.js';
-export { readPriceCacheFreshness } from './host/index.js';
+export { createManualPriceService } from './price-cache/manual/host.js';
+export { readPriceCacheFreshness } from './price-cache/freshness.js';
 // Events
 export type { PriceProviderEvent } from './contracts/events.js';
 
@@ -36,6 +36,5 @@ export type { PriceProviderEvent } from './contracts/events.js';
 export { CoinNotFoundError, PriceDataUnavailableError } from './contracts/errors.js';
 
 // Manual price entry service
-export { ManualPriceService } from './services/manual-price-service.js';
-export type { ManualPriceEntry, ManualFxRateEntry } from './services/manual-price-service.js';
-export { readLatestPriceMutationAt } from './services/price-mutation-watermark-service.js';
+export { ManualPriceService } from './price-cache/manual/service.js';
+export type { ManualPriceEntry, ManualFxRateEntry } from './price-cache/manual/service.js';
