@@ -286,6 +286,25 @@ describe('selectProvidersForOperation', () => {
     },
   });
 
+  function selectProvidersForOperation(
+    providers: IPriceProvider[],
+    healthMap: Map<string, ProviderHealth>,
+    circuitMap: ReadonlyMap<string, CircuitState>,
+    operationType: string,
+    now: number,
+    timestamp?: Date,
+    assetSymbol?: string,
+    isFiat?: boolean
+  ) {
+    return ProviderManagerUtils.selectProvidersForOperation(providers, healthMap, circuitMap, {
+      operationType,
+      now,
+      timestamp,
+      assetSymbol,
+      isFiat,
+    });
+  }
+
   it('should filter providers by operation support', () => {
     const provider1 = createMockProvider('provider1', ['fetchPrice']);
     const provider2 = createMockProvider('provider2', ['fetchPrice', 'fetchBatch']);
@@ -301,13 +320,7 @@ describe('selectProvidersForOperation', () => {
       ['provider2', createInitialCircuitState()],
     ]);
 
-    const selected = ProviderManagerUtils.selectProvidersForOperation(
-      providers,
-      healthMap,
-      circuitMap,
-      'fetchBatch',
-      Date.now()
-    );
+    const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchBatch', Date.now());
 
     expect(selected).toHaveLength(1);
     expect(selected[0]?.metadata.name).toBe('provider2');
@@ -328,13 +341,7 @@ describe('selectProvidersForOperation', () => {
       ['slow', createInitialCircuitState()],
     ]);
 
-    const selected = ProviderManagerUtils.selectProvidersForOperation(
-      providers,
-      healthMap,
-      circuitMap,
-      'fetchPrice',
-      Date.now()
-    );
+    const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchPrice', Date.now());
 
     expect(selected).toHaveLength(2);
     expect(selected[0]?.metadata.name).toBe('fast');
@@ -348,13 +355,7 @@ describe('selectProvidersForOperation', () => {
     const healthMap = new Map<string, ProviderHealth>();
     const circuitMap = new Map<string, CircuitState>();
 
-    const selected = ProviderManagerUtils.selectProvidersForOperation(
-      providers,
-      healthMap,
-      circuitMap,
-      'fetchPrice',
-      Date.now()
-    );
+    const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchPrice', Date.now());
 
     expect(selected).toHaveLength(0);
   });
@@ -394,14 +395,7 @@ describe('selectProvidersForOperation', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const fiveDaysAgo = new Date('2024-01-17T14:30:00Z'); // 5 days ago, intraday
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
-        providers,
-        healthMap,
-        circuitMap,
-        'fetchPrice',
-        now,
-        fiveDaysAgo
-      );
+      const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchPrice', now, fiveDaysAgo);
 
       expect(selected).toHaveLength(2);
       // CryptoCompare should win: 100 (base) + 20 (fast) + 30 (minute) = 150
@@ -445,14 +439,7 @@ describe('selectProvidersForOperation', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const thirtyDaysAgo = new Date('2023-12-23T14:30:00Z'); // 30 days ago, intraday
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
-        providers,
-        healthMap,
-        circuitMap,
-        'fetchPrice',
-        now,
-        thirtyDaysAgo
-      );
+      const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchPrice', now, thirtyDaysAgo);
 
       expect(selected).toHaveLength(2);
       // CryptoCompare should win: 100 + 20 + 20 (hourly) = 140
@@ -498,14 +485,7 @@ describe('selectProvidersForOperation', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const thirtyDaysAgo = new Date('2023-12-23T14:30:00Z'); // 30 days ago
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
-        providers,
-        healthMap,
-        circuitMap,
-        'fetchPrice',
-        now,
-        thirtyDaysAgo
-      );
+      const selected = selectProvidersForOperation(providers, healthMap, circuitMap, 'fetchPrice', now, thirtyDaysAgo);
 
       expect(selected).toHaveLength(2);
       // Binance should win: 100 + 20 + 30 (minute) = 150
@@ -544,7 +524,7 @@ describe('selectProvidersForOperation', () => {
       const now = new Date('2024-01-22T00:00:00Z').getTime();
       const fiveDaysAgoMidnight = new Date('2024-01-17T00:00:00Z'); // Midnight UTC
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -593,7 +573,7 @@ describe('selectProvidersForOperation', () => {
       const now = new Date('2024-01-22T14:30:00Z').getTime();
       const twoHundredDaysAgo = new Date('2023-07-06T14:30:00Z'); // 200 days ago, intraday
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -657,7 +637,7 @@ describe('selectProvidersForOperation', () => {
         ['ecb', createInitialCircuitState()],
       ]);
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -688,7 +668,7 @@ describe('selectProvidersForOperation', () => {
         ['ecb', createInitialCircuitState()],
       ]);
 
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -720,7 +700,7 @@ describe('selectProvidersForOperation', () => {
       ]);
 
       // Request EUR - only ECB should match
-      const selectedEUR = ProviderManagerUtils.selectProvidersForOperation(
+      const selectedEUR = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -735,7 +715,7 @@ describe('selectProvidersForOperation', () => {
       expect(selectedEUR[0]?.metadata.name).toBe('ecb');
 
       // Request CAD - only BoC should match
-      const selectedCAD = ProviderManagerUtils.selectProvidersForOperation(
+      const selectedCAD = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -766,7 +746,7 @@ describe('selectProvidersForOperation', () => {
       ]);
 
       // Both should support any crypto asset
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -796,7 +776,7 @@ describe('selectProvidersForOperation', () => {
       ]);
 
       // No asset filtering - should return all providers
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,
@@ -856,7 +836,7 @@ describe('selectProvidersForOperation', () => {
       yesterday.setUTCHours(14, 30, 0, 0); // Intraday
 
       // Request crypto with intraday timestamp - should only get binance with minute bonus
-      const selected = ProviderManagerUtils.selectProvidersForOperation(
+      const selected = selectProvidersForOperation(
         providers,
         healthMap,
         circuitMap,

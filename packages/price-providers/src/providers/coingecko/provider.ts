@@ -12,11 +12,10 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { BasePriceProvider } from '../../core/base-provider.js';
 import { CoinNotFoundError, PriceDataUnavailableError } from '../../core/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../core/types.js';
-import type { ProviderRateLimitConfig } from '../../core/utils.js';
-import { createProviderHttpClient } from '../../core/utils.js';
 import type { PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 import { createProviderQueries, type ProviderQueries } from '../../persistence/queries/provider-queries.js';
+import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
 
 import {
   canUseSimplePrice,

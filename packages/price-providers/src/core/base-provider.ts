@@ -10,9 +10,9 @@ import type { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import type { PriceQueries } from '../persistence/queries/price-queries.js';
+import { validatePriceData, validateQueryTimeRange } from '../runtime/price-validation.js';
 
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types.js';
-import { validatePriceData, validateQueryTimeRange } from './utils.js';
 
 /**
  * Base class providing common provider functionality

@@ -2,19 +2,17 @@ import { type Currency, parseDecimal } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import { createTestPriceData } from '../../__tests__/test-helpers.js';
-import type { PriceData, PriceQuery } from '../types.js';
+import { createCacheKey } from '../../price-cache/cache-key.js';
+import { isSameDay, roundToDay } from '../../price-cache/time-buckets.js';
+import { createProviderHttpClient } from '../../runtime/http/provider-http-client.js';
 import {
   calculatePriceChange,
-  createCacheKey,
-  createProviderHttpClient,
   deduplicatePrices,
   formatPrice,
-  isSameDay,
-  roundToDay,
   sortByTimestamp,
-  validatePriceData,
-  validateQueryTimeRange,
-} from '../utils.js';
+} from '../../runtime/price-data-utils.js';
+import { validatePriceData, validateQueryTimeRange } from '../../runtime/price-validation.js';
+import type { PriceData, PriceQuery } from '../types.js';
 
 describe('roundToDay', () => {
   it('should round down to start of day in UTC', () => {

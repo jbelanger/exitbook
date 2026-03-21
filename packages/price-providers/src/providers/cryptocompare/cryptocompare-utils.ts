@@ -9,7 +9,8 @@ import { err, ok, type Result } from '@exitbook/core';
 
 import { CoinNotFoundError } from '../../core/errors.js';
 import type { PriceData } from '../../core/types.js';
-import { validateRawPrice, roundTimestampByGranularity } from '../../core/utils.js';
+import { roundTimestampByGranularity } from '../../price-cache/time-buckets.js';
+import { validateRawPrice } from '../shared/raw-price-utils.js';
 
 import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoComparePriceResponse } from './schemas.js';
 

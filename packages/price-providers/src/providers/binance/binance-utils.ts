@@ -8,7 +8,8 @@ import type { Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
 import type { PriceGranularity, PriceData } from '../../core/types.js';
-import { validateRawPrice, roundTimestampByGranularity } from '../../core/utils.js';
+import { roundTimestampByGranularity } from '../../price-cache/time-buckets.js';
+import { validateRawPrice } from '../shared/raw-price-utils.js';
 
 import type { BinanceKline } from './schemas.js';
 
