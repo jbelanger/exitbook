@@ -1,7 +1,7 @@
-import type { ExchangeCredentials } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err } from '@exitbook/foundation';
 
+import type { ExchangeCredentials } from '../contracts/exchange-credentials.js';
 import type { IExchangeClient } from '../contracts/index.js';
 import { createCoinbaseClient } from '../exchanges/coinbase/index.js';
 import { createKrakenClient } from '../exchanges/kraken/index.js';

@@ -1,4 +1,4 @@
-import type { CursorState } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { FetchBatchResult } from '../../../contracts/index.js';

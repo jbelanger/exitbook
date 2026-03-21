@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/core": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "ccxt": "^4.5.43",

@@ -1,5 +1,5 @@
-import { base64ToBytes, bytesToBase64, err, ok, randomHex } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import { base64ToBytes, bytesToBase64, err, ok, randomHex } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import { importPKCS8, SignJWT } from 'jose';
 

@@ -6,7 +6,15 @@
  */
 
 export { createExchangeClient } from './runtime/client-factory.js';
-export type { BalanceSnapshot, FetchBatchResult, IExchangeClient } from './contracts/index.js';
+export {
+  ExchangeCredentialsSchema,
+  RawTransactionInputSchema,
+  type BalanceSnapshot,
+  type ExchangeCredentials,
+  type FetchBatchResult,
+  type IExchangeClient,
+  type RawTransactionInput,
+} from './contracts/index.js';
 
 export {
   createCoinbaseClient,

@@ -1,5 +1,9 @@
-import type { CursorState, RawTransactionInput } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { CursorState, Result } from '@exitbook/foundation';
+
+import type { RawTransactionInput } from './raw-transaction.js';
+
+export { ExchangeCredentialsSchema, type ExchangeCredentials } from './exchange-credentials.js';
+export { RawTransactionInputSchema, type RawTransactionInput } from './raw-transaction.js';
 
 /**
  * Parameters for fetching exchange data

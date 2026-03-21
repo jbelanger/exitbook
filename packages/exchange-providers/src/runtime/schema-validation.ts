@@ -1,8 +1,8 @@
 // Pure schema validation helpers for exchange clients.
 
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { type ZodType } from 'zod';
 
 /**

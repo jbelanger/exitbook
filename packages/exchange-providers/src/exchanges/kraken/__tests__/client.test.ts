@@ -1,5 +1,5 @@
-import type { CursorState } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { IExchangeClient } from '../../../contracts/index.js';

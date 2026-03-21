@@ -1,8 +1,14 @@
-import { assertErr } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { validateCredentials, validateRawData } from '../schema-validation.js';
+
+function assertErr<T, E>(result: { error?: E; isErr(): boolean; value?: T }): E {
+  if (!result.isErr()) {
+    throw new Error(`Expected Result to be Err, but got Ok: ${String(result.value)}`);
+  }
+  return result.error as E;
+}
 
 describe('validateCredentials', () => {
   const TestCredentialsSchema = z.object({

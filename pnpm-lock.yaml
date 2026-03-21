@@ -297,9 +297,9 @@ importers:
 
   packages/exchange-providers:
     dependencies:
-      '@exitbook/core':
+      '@exitbook/foundation':
         specifier: workspace:*
-        version: link:../core
+        version: link:../foundation
       '@exitbook/http':
         specifier: workspace:*
         version: link:../http

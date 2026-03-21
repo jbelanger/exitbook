@@ -1,11 +1,10 @@
-import type { ExchangeCredentials } from '@exitbook/core';
-import { ExchangeCredentialsSchema, resultDo, wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, resultDo, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 
+import { ExchangeCredentialsSchema, type ExchangeCredentials } from '../../contracts/exchange-credentials.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
 import { validateCredentials } from '../../runtime/schema-validation.js';
 import { normalizeCCXTBalance } from '../shared/ccxt-balance.js';

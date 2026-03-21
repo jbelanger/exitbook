@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- needed by api response */
-import type { CursorState } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { FetchBatchResult, IExchangeClient } from '../../../contracts/index.js';

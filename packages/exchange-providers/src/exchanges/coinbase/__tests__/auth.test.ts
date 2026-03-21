@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- API response fixture shape */
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import { importSPKI, jwtVerify } from 'jose';
 import { describe, expect, it, vi } from 'vitest';

@@ -1,5 +1,6 @@
-import { ExchangeCredentialsSchema } from '@exitbook/core';
 import { z } from 'zod';
+
+import { ExchangeCredentialsSchema } from '../../contracts/exchange-credentials.js';
 
 /**
  * Kraken API credentials schema
