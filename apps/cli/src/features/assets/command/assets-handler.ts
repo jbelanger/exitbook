@@ -21,11 +21,11 @@ import {
   type OverrideStore,
 } from '@exitbook/data';
 
+import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
 import {
-  ensureAssetReviewProjectionFresh,
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
-} from '../../shared/asset-review-projection-runtime.js';
+} from '../../shared/asset-review-projection-store.js';
 import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 

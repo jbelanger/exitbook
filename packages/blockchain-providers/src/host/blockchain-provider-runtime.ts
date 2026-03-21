@@ -8,7 +8,7 @@ import { BlockchainProviderManager } from '../core/manager/provider-manager.js';
 import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
-import { createProviderStatsPersistence, type ProviderStatsPersistenceDeps } from '../provider-stats/index.js';
+import { initProviderStatsPersistence, type ProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
 import { initTokenMetadataPersistence, type TokenMetadataPersistence } from '../token-metadata/persistence/runtime.js';
 
 const logger = getLogger('BlockchainProviderRuntime');
@@ -30,8 +30,8 @@ export async function createBlockchainProviderRuntime(
 ): Promise<Result<BlockchainProviderRuntime, Error>> {
   const explorerConfig = options.explorerConfig ?? loadExplorerConfig();
 
-  let providerStatsPersistence: ProviderStatsPersistenceDeps | undefined;
-  const providerStatsResult = await createProviderStatsPersistence(options.dataDir);
+  let providerStatsPersistence: ProviderStatsPersistence | undefined;
+  const providerStatsResult = await initProviderStatsPersistence(options.dataDir);
   if (providerStatsResult.isOk()) {
     providerStatsPersistence = providerStatsResult.value;
   } else {

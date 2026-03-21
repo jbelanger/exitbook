@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, Result, Transaction } from '@exitbook/core';
+import type { AssetReviewSummary, ProjectionStatus, Result, Transaction } from '@exitbook/core';
 
 import type { AssetReviewDecisionInput } from '../features/asset-review/asset-review-service.js';
 
@@ -22,3 +22,25 @@ export interface IAssetReviewProjectionStore {
 export type AssetReviewProjectionPorts = IAssetReviewProjectionDataSource &
   IAssetReviewDecisionSource &
   IAssetReviewProjectionStore;
+
+export interface AssetReviewProjectionFreshnessResult {
+  status: ProjectionStatus;
+  reason: string | undefined;
+}
+
+export interface IAssetReviewProjectionFreshness {
+  checkAssetReviewFreshness(): Promise<Result<AssetReviewProjectionFreshnessResult, Error>>;
+}
+
+export interface IAssetReviewProjectionBuildStateReader {
+  getLastAssetReviewBuiltAt(): Promise<Result<Date | undefined, Error>>;
+}
+
+export interface IAssetReviewOverrideFreshness {
+  findLatestAssetReviewOverrideAt(): Promise<Result<Date | undefined, Error>>;
+}
+
+export type AssetReviewProjectionRuntimePorts = AssetReviewProjectionPorts &
+  IAssetReviewProjectionFreshness &
+  IAssetReviewProjectionBuildStateReader &
+  IAssetReviewOverrideFreshness;

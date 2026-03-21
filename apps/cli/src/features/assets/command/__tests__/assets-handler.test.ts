@@ -12,15 +12,18 @@ import type { DataContext, OverrideStore } from '@exitbook/data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
+import { ensureAssetReviewProjectionFresh } from '../../../shared/asset-review-projection-runtime.js';
 import {
-  ensureAssetReviewProjectionFresh,
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
-} from '../../../shared/asset-review-projection-runtime.js';
+} from '../../../shared/asset-review-projection-store.js';
 import { AssetsHandler } from '../assets-handler.js';
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   ensureAssetReviewProjectionFresh: vi.fn(),
+}));
+
+vi.mock('../../../shared/asset-review-projection-store.js', () => ({
   invalidateAssetReviewProjection: vi.fn(),
   readAssetReviewProjectionSummaries: vi.fn(),
 }));

@@ -45,6 +45,7 @@ export * from './overrides/index.js';
 // Adapters — bridge DataContext to capability-owned port interfaces
 export { buildAssetReviewFreshnessPorts } from './adapters/asset-review-freshness-adapter.js';
 export { buildAssetReviewProjectionDataPorts } from './adapters/asset-review-projection-data-ports-adapter.js';
+export { buildAssetReviewRuntimePorts } from './adapters/asset-review-projection-runtime-ports-adapter.js';
 export { buildAssetReviewResetPorts } from './adapters/asset-review-reset-adapter.js';
 export { buildBalancesFreshnessPorts } from './adapters/balances-freshness-adapter.js';
 export { buildBalancesResetPorts } from './adapters/balances-reset-adapter.js';

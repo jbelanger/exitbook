@@ -18,7 +18,13 @@ export { BalanceWorkflow } from './features/balance/balance-workflow.js';
 export type { BalanceParams } from './features/balance/balance-workflow.js';
 export {
   AssetReviewProjectionWorkflow,
+  createAssetReviewProjectionRuntime,
   buildAssetReviewSummaries,
+  type AssetReviewProjectionRuntime,
+  type AssetReviewProviderSupport,
+  type AssetReviewProviderSupportFactory,
+  type AssetReviewTokenMetadataFreshnessReader,
+  type CreateAssetReviewProjectionRuntimeOptions,
   type AssetReviewProjectionRebuildOptions,
   type AssetReviewDecisionInput,
   type AssetReviewReferenceResolver,

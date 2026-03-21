@@ -6,10 +6,8 @@ import { calculateBalances } from '@exitbook/ingestion';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import {
-  ensureAssetReviewProjectionFresh,
-  readAssetReviewProjectionSummaries,
-} from '../../../shared/asset-review-projection-runtime.js';
+import { ensureAssetReviewProjectionFresh } from '../../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../../shared/asset-review-projection-store.js';
 import { PortfolioHandler } from '../portfolio-handler.ts';
 
 const { mockCostBasisWorkflowExecute } = vi.hoisted(() => ({
@@ -58,6 +56,9 @@ vi.mock('@exitbook/logger', () => ({
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   ensureAssetReviewProjectionFresh: vi.fn(),
+}));
+
+vi.mock('../../../shared/asset-review-projection-store.js', () => ({
   readAssetReviewProjectionSummaries: vi.fn(),
 }));
 

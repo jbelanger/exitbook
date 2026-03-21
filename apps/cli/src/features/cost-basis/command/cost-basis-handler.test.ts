@@ -4,7 +4,7 @@ import type { DataContext } from '@exitbook/data';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
@@ -36,7 +36,7 @@ vi.mock('../../shared/data-dir.js', () => ({
   getDataDir: vi.fn().mockReturnValue('/tmp/test-data'),
 }));
 
-vi.mock('../../shared/asset-review-projection-runtime.js', () => ({
+vi.mock('../../shared/asset-review-projection-store.js', () => ({
   readAssetReviewProjectionSummaries: vi.fn(),
 }));
 
@@ -183,7 +183,6 @@ describe('CostBasisHandler', () => {
 
       await handler.execute(validParams);
 
-       
       expect(mockPriceRuntime.cleanup).toHaveBeenCalled();
     });
 

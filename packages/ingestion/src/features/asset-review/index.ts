@@ -9,3 +9,11 @@ export {
   AssetReviewProjectionWorkflow,
   type AssetReviewProjectionRebuildOptions,
 } from './asset-review-projection-workflow.js';
+export {
+  createAssetReviewProjectionRuntime,
+  type AssetReviewProjectionRuntime,
+  type AssetReviewProviderSupport,
+  type AssetReviewProviderSupportFactory,
+  type AssetReviewTokenMetadataFreshnessReader,
+  type CreateAssetReviewProjectionRuntimeOptions,
+} from './asset-review-projection-runtime.js';

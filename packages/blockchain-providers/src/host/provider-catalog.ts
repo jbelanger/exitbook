@@ -5,7 +5,8 @@ import { getLogger } from '@exitbook/logger';
 import type { ProviderInfo } from '../core/types/registry.js';
 import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
 import { createProviderRegistry } from '../initialize.js';
-import { createProviderStatsPersistence, type ProviderStatsRow } from '../provider-stats/index.js';
+import type { ProviderStatsRow } from '../provider-stats/index.js';
+import { initProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
 
 const logger = getLogger('BlockchainProviderCatalog');
 
@@ -37,7 +38,7 @@ export async function loadBlockchainProviderCatalog(
   }));
 
   let providerStats: ProviderStatsRow[] = [];
-  const persistenceResult = await createProviderStatsPersistence(dataDir);
+  const persistenceResult = await initProviderStatsPersistence(dataDir);
   if (persistenceResult.isOk()) {
     const statsResult = await persistenceResult.value.queries.getAll();
     if (statsResult.isOk()) {

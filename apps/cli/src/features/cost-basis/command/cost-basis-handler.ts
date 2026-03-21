@@ -18,7 +18,7 @@ import {
 import type { AdapterRegistry } from '@exitbook/ingestion';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';

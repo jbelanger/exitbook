@@ -25,10 +25,8 @@ import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import {
-  ensureAssetReviewProjectionFresh,
-  readAssetReviewProjectionSummaries,
-} from '../../shared/asset-review-projection-runtime.js';
+import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
