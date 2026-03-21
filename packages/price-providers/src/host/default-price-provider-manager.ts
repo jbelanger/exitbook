@@ -4,10 +4,13 @@ import type { Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import { createPriceProviderManager, type PriceProviderManagerFactoryConfig } from '../core/factory.js';
+import type { PriceProviderEvent } from '../contracts/events.js';
+import type { ProviderManagerConfig } from '../contracts/types.js';
 import type { PriceProviderManager } from '../core/provider-manager.js';
-import type { ProviderManagerConfig } from '../core/types.js';
-import type { PriceProviderEvent } from '../events.js';
+import {
+  createPriceProviderManager,
+  type PriceProviderManagerFactoryConfig,
+} from '../runtime/registry/manager-bootstrap.js';
 
 export interface DefaultPriceProviderManagerOptions {
   dataDir: string;

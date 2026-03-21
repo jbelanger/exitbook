@@ -14,23 +14,26 @@ export type {
   ProviderCapabilities,
   ProviderRateLimit,
   ProviderManagerConfig,
-} from './core/types.js';
+} from './contracts/types.js';
 
 // Provider manager
 export { PriceProviderManager } from './core/provider-manager.js';
 
 // Shared factory - recommended way to create providers
-export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './core/factory.js';
-export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './core/factory.js';
+export { createPriceProviders, getAvailableProviderNames } from './runtime/registry/provider-bootstrap.js';
+export { createPriceProviderManager } from './runtime/registry/manager-bootstrap.js';
+export type { ProviderFactoryConfig } from './runtime/registry/provider-bootstrap.js';
+export type { ProviderName } from './runtime/registry/provider-registry.js';
+export type { PriceProviderManagerFactoryConfig } from './runtime/registry/manager-bootstrap.js';
 export { createDefaultPriceProviderManager } from './host/index.js';
 export type { DefaultPriceProviderManagerOptions } from './host/index.js';
 export { createManualPriceService } from './host/index.js';
 export { readPriceCacheFreshness } from './host/index.js';
 // Events
-export type { PriceProviderEvent } from './events.js';
+export type { PriceProviderEvent } from './contracts/events.js';
 
 // Error types
-export { CoinNotFoundError, PriceDataUnavailableError } from './core/errors.js';
+export { CoinNotFoundError, PriceDataUnavailableError } from './contracts/errors.js';
 
 // Manual price entry service
 export { ManualPriceService } from './services/manual-price-service.js';

@@ -9,7 +9,6 @@ import { createInitialCircuitState, type CircuitState } from '@exitbook/resilien
 import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { describe, expect, it } from 'vitest';
 
-import * as ProviderManagerUtils from '../provider-manager-utils.js';
 import type {
   AssetType,
   IPriceProvider,
@@ -17,7 +16,8 @@ import type {
   ProviderMetadata,
   PriceData,
   PriceProviderOperation,
-} from '../types.js';
+} from '../../contracts/types.js';
+import * as ProviderManagerUtils from '../provider-manager-utils.js';
 
 describe('calculateGranularityBonus', () => {
   const mockRateLimit = {

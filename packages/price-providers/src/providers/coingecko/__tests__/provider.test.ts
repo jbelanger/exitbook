@@ -31,9 +31,9 @@ vi.mock('../coingecko-utils.js', async () => {
 import { type Currency } from '@exitbook/core';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
-import type { PriceData } from '../../../core/types.js';
+import type { PriceData } from '../../../contracts/types.js';
 import type { PriceQueries } from '../../../persistence/queries/price-queries.js';
-import type { ProviderQueries } from '../../../persistence/queries/provider-queries.js';
+import type { ProviderQueries } from '../../../provider-catalog/persistence/queries.js';
 // Import after mocks so they receive mocked dependencies
 import { CoinGeckoProvider } from '../provider.js';
 

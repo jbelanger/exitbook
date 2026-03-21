@@ -2,9 +2,9 @@ import { type Currency } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../database.js';
-import type { CoinMappingInput } from '../provider-queries.js';
-import { createProviderQueries, type ProviderQueries } from '../provider-queries.js';
+import { createPricesDatabase, initializePricesDatabase, type PricesDB } from '../../../persistence/database.js';
+import type { CoinMappingInput } from '../queries.js';
+import { createProviderQueries, type ProviderQueries } from '../queries.js';
 
 function okValue<T>(result: Result<T, Error>): T {
   expect(result.isOk()).toBe(true);

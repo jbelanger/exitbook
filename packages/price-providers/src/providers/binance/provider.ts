@@ -10,9 +10,9 @@ import type { HttpClient } from '@exitbook/http';
 import { HttpError } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
+import { CoinNotFoundError } from '../../contracts/errors.js';
+import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import { BasePriceProvider } from '../../core/base-provider.js';
-import { CoinNotFoundError } from '../../core/errors.js';
-import type { ProviderMetadata, PriceQuery, PriceData } from '../../core/types.js';
 import type { PricesDB } from '../../persistence/database.js';
 import { createPriceQueries, type PriceQueries } from '../../persistence/queries/price-queries.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';

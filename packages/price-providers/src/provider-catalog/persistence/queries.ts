@@ -7,7 +7,7 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
-import type { PricesDB } from '../database.js';
+import type { PricesDB } from '../../persistence/database.js';
 
 interface ProviderRecord {
   id: number;

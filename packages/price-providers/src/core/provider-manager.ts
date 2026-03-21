@@ -13,18 +13,18 @@ import { executeWithFailover, type FailoverResult } from '@exitbook/resilience/f
 import { buildProviderSelectionDebugInfo } from '@exitbook/resilience/provider-selection';
 import { ProviderHealthStore } from '@exitbook/resilience/provider-stats';
 
-import { createCacheKey } from '../price-cache/cache-key.js';
-
-import { CoinNotFoundError, PriceDataUnavailableError } from './errors.js';
-import * as ProviderManagerUtils from './provider-manager-utils.js';
+import { CoinNotFoundError, PriceDataUnavailableError } from '../contracts/errors.js';
 import type {
   IPriceProvider,
   PriceData,
   PriceQuery,
   ProviderHealthWithCircuit,
   ProviderManagerConfig,
-} from './types.js';
-import { MAX_PRICE_QUERY_DEPTH } from './types.js';
+} from '../contracts/types.js';
+import { MAX_PRICE_QUERY_DEPTH } from '../contracts/types.js';
+import { createCacheKey } from '../price-cache/cache-key.js';
+
+import * as ProviderManagerUtils from './provider-manager-utils.js';
 
 /** Internal query type used only within this module to thread recursion depth */
 type InternalPriceQuery = PriceQuery & { _depth?: number | undefined };

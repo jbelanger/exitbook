@@ -12,8 +12,8 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { IPriceProvider, PriceData, PriceQuery } from '../../contracts/types.js';
 import { PriceProviderManager } from '../provider-manager.js';
-import type { IPriceProvider, PriceData, PriceQuery } from '../types.js';
 
 // Mock logger
 vi.mock('@exitbook/logger', () => ({

@@ -9,7 +9,7 @@ import { ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { sql } from '@exitbook/sqlite';
 
-import type { PriceData } from '../../core/types.js';
+import type { PriceData } from '../../contracts/types.js';
 import { roundToDay, roundToHour, roundToMinute } from '../../price-cache/time-buckets.js';
 import type { PricesDB } from '../database.js';
 

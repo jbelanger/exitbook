@@ -1,4 +1,4 @@
-import type { PriceData } from '../core/types.js';
+import type { PriceData } from '../contracts/types.js';
 
 /**
  * Validate that price data is reasonable.

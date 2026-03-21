@@ -1,4 +1,4 @@
-import type { PriceQuery } from '../core/types.js';
+import type { PriceQuery } from '../contracts/types.js';
 
 import { roundToDay } from './time-buckets.js';
 

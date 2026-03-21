@@ -1,7 +1,7 @@
 import { HttpClient } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import type { ProviderRateLimit } from '../../core/types.js';
+import type { ProviderRateLimit } from '../../contracts/types.js';
 
 export type ProviderRateLimitConfig = ProviderRateLimit;
 

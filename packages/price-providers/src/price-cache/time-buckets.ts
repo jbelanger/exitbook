@@ -1,4 +1,4 @@
-import type { PriceGranularity } from '../core/types.js';
+import type { PriceGranularity } from '../contracts/types.js';
 
 /**
  * Round timestamp to nearest day (for daily price lookups).

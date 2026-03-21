@@ -10,7 +10,7 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { PriceData } from '../../core/types.js';
+import type { PriceData } from '../../contracts/types.js';
 import { formatUtcDateYyyyMmDd } from '../shared/date-format-utils.js';
 
 import type { BankOfCanadaResponse } from './schemas.js';

@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { PriceData } from '../core/types.js';
+import type { PriceData } from '../contracts/types.js';
 
 /**
  * Sort price data by timestamp (ascending).

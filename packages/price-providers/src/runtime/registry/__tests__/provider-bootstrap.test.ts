@@ -1,29 +1,26 @@
 /**
- * Tests for shared factory (createPriceProviders)
+ * Tests for price-provider bootstrap helpers.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from '../factory.js';
-import type { PriceProviderManager } from '../provider-manager.js';
+import type { PriceProviderManager } from '../../../core/provider-manager.js';
+import { createPriceProviderManager } from '../manager-bootstrap.js';
+import { createPriceProviders, getAvailableProviderNames } from '../provider-bootstrap.js';
 
 // Mock database initialization
-vi.mock('../../persistence/database.js', () => ({
-  createPricesDatabase: vi.fn(() => ({
-    isErr: () => false,
-    isOk: () => true,
-    value: {} as unknown, // Mock database instance
-  })),
-  initializePricesDatabase: vi.fn(() =>
+vi.mock('../../../price-cache/persistence/runtime.js', () => ({
+  initPriceCacheDatabase: vi.fn(() =>
     Promise.resolve({
       isErr: () => false,
       isOk: () => true,
+      value: {} as unknown, // Mock database instance
     })
   ),
 }));
 
 // Mock CoinGecko provider creation
-vi.mock('../../providers/coingecko/provider.js', () => ({
+vi.mock('../../../providers/coingecko/provider.js', () => ({
   createCoinGeckoProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -56,7 +53,7 @@ vi.mock('../../providers/coingecko/provider.js', () => ({
 }));
 
 // Mock CryptoCompare provider creation
-vi.mock('../../providers/cryptocompare/provider.js', () => ({
+vi.mock('../../../providers/cryptocompare/provider.js', () => ({
   createCryptoCompareProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -82,7 +79,7 @@ vi.mock('../../providers/cryptocompare/provider.js', () => ({
 }));
 
 // Mock Binance provider creation
-vi.mock('../../providers/binance/provider.js', () => ({
+vi.mock('../../../providers/binance/provider.js', () => ({
   createBinanceProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -108,7 +105,7 @@ vi.mock('../../providers/binance/provider.js', () => ({
 }));
 
 // Mock ECB provider creation
-vi.mock('../../providers/ecb/provider.js', () => ({
+vi.mock('../../../providers/ecb/provider.js', () => ({
   createECBProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -135,7 +132,7 @@ vi.mock('../../providers/ecb/provider.js', () => ({
 }));
 
 // Mock Bank of Canada provider creation
-vi.mock('../../providers/bank-of-canada/provider.js', () => ({
+vi.mock('../../../providers/bank-of-canada/provider.js', () => ({
   createBankOfCanadaProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -162,7 +159,7 @@ vi.mock('../../providers/bank-of-canada/provider.js', () => ({
 }));
 
 // Mock Frankfurter provider creation
-vi.mock('../../providers/frankfurter/provider.js', () => ({
+vi.mock('../../../providers/frankfurter/provider.js', () => ({
   createFrankfurterProvider: vi.fn(() => ({
     isErr: () => false,
     isOk: () => true,
@@ -244,7 +241,7 @@ describe('createPriceProviders', () => {
   });
 
   it('should pass empty config when no config provided', async () => {
-    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
     await createPriceProviders({ databasePath: ':memory:' });
 
     // Factory passes empty config, individual providers read from process.env
@@ -258,7 +255,7 @@ describe('createPriceProviders', () => {
   it('should prefer config over env vars', async () => {
     process.env['COINGECKO_API_KEY'] = 'env-key';
 
-    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
     await createPriceProviders({
       databasePath: ':memory:',
       coingecko: { apiKey: 'config-key' },
@@ -310,7 +307,7 @@ describe('createPriceProviders', () => {
 
   it('should skip provider if initialization fails', async () => {
     // Mock CoinGecko to fail initialization
-    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
     const { ok, err } = await import('@exitbook/core');
     // Provide all required properties for CoinGeckoProvider mock
     vi.mocked(createCoinGeckoProvider).mockReturnValueOnce(
@@ -352,7 +349,7 @@ describe('createPriceProviders', () => {
         fetchPrice: vi.fn(),
         fetchHistoricalPrice: vi.fn(),
         close: vi.fn(),
-      } as unknown as import('../../providers/coingecko/provider.js').CoinGeckoProvider)
+      } as unknown as import('../../../providers/coingecko/provider.js').CoinGeckoProvider)
     );
 
     const result = await createPriceProviders({ databasePath: ':memory:' });
@@ -442,7 +439,7 @@ describe('createPriceProviderManager', () => {
   });
 
   it('should pass provider config to createPriceProviders', async () => {
-    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
 
     const result = await createPriceProviderManager({
       providers: {
@@ -468,7 +465,7 @@ describe('createPriceProviderManager', () => {
     const instrumentation = {
       recordMetric: vi.fn(),
     } as unknown as import('@exitbook/observability').InstrumentationCollector;
-    const { createCoinGeckoProvider } = await import('../../providers/coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
 
     const result = await createPriceProviderManager({
       providers: {

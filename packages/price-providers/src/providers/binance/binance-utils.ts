@@ -7,7 +7,7 @@
 import type { Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
-import type { PriceGranularity, PriceData } from '../../core/types.js';
+import type { PriceGranularity, PriceData } from '../../contracts/types.js';
 import { roundTimestampByGranularity } from '../../price-cache/time-buckets.js';
 import { validateRawPrice } from '../shared/raw-price-utils.js';
 
