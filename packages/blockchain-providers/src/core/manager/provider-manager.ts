@@ -1,4 +1,4 @@
-import { getErrorMessage, type CursorState, type TokenMetadataRecord } from '@exitbook/core';
+import { getErrorMessage, type CursorState } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
@@ -10,6 +10,7 @@ import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience
 import type { ProviderEvent } from '../../events.js';
 import type { ProviderStatsQueries } from '../../persistence/queries/provider-stats-queries.js';
 import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';
+import type { TokenMetadataRecord } from '../../token-metadata/index.js';
 import { ProviderInstanceFactory } from '../factory/provider-instance-factory.js';
 import { ProviderHealthMonitor } from '../health/provider-health-monitor.js';
 import { getProviderKey, ProviderStatsStore, type ProviderStatsStoreOptions } from '../health/provider-stats-store.js';

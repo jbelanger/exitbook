@@ -9,6 +9,5 @@ export * from './cursor/index.js';
 export * from './override/index.js';
 export * from './identity/index.js';
 export * from './asset-review/asset-review.js';
-export * from './token-metadata/token-metadata.js';
 export * from './result/index.js';
 export * from './projections/index.js';

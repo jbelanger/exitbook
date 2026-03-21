@@ -1,4 +1,4 @@
-import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
@@ -20,6 +20,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
+import type { TokenMetadata } from '../../../../token-metadata/index.js';
 import { transformXrpBalance, toIssuedCurrencyRawBalance } from '../../balance-utils.js';
 import type { XrpChainConfig } from '../../chain-config.interface.js';
 import { getXrpChainConfig } from '../../chain-registry.js';

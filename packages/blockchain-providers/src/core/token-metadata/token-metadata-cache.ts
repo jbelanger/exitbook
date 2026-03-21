@@ -1,5 +1,3 @@
-import type { TokenMetadataRecord } from '@exitbook/core';
-import type { TokenMetadata } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
@@ -7,6 +5,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { ProviderEvent } from '../../events.js';
 import type { TokenMetadataQueries } from '../../persistence/token-metadata/queries.js';
+import type { TokenMetadata, TokenMetadataRecord } from '../../token-metadata/index.js';
 import { ProviderError } from '../types/errors.js';
 import type { FailoverExecutionResult } from '../types/index.js';
 

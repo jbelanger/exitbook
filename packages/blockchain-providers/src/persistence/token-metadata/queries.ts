@@ -1,9 +1,11 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type AssetReferenceStatus, type TokenMetadataRecord, wrapError, pickLatestDate } from '@exitbook/core';
+import { type AssetReferenceStatus, wrapError, pickLatestDate } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from '@exitbook/sqlite';
+
+import type { TokenMetadataRecord } from '../../token-metadata/index.js';
 
 import type { TokenMetadataDatabase } from './schema.js';
 

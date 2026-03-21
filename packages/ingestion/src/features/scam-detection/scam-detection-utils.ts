@@ -1,4 +1,5 @@
-import { parseDecimal, type TokenMetadataRecord, type TransactionNote, tryParseDecimal } from '@exitbook/core';
+import type { TokenMetadataRecord } from '@exitbook/blockchain-providers';
+import { parseDecimal, type TransactionNote, tryParseDecimal } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 

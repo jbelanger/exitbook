@@ -8,7 +8,7 @@
  * - Fails loudly on data quality issues - no silent defaults
  */
 
-import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { HttpClient } from '@exitbook/http';
@@ -36,6 +36,7 @@ import type {
   StreamingOperation,
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
+import type { TokenMetadata } from '../../../../token-metadata/index.js';
 import { isNativeToken } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';

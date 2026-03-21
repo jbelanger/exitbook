@@ -1,4 +1,4 @@
-import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 
@@ -21,6 +21,7 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../core/streaming/streaming-adapter.js';
+import type { TokenMetadata } from '../../../../token-metadata/index.js';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
 import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.js';
 import type { SolanaTokenAccountsResponse } from '../../types.js';

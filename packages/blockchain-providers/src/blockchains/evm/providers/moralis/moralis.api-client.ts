@@ -1,4 +1,4 @@
-import type { CursorState, PaginationCursor, TokenMetadata } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { z } from 'zod';
@@ -26,6 +26,7 @@ import type {
 } from '../../../../core/types/index.js';
 import { maskAddress } from '../../../../core/utils/address-utils.js';
 import { createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
+import type { TokenMetadata } from '../../../../token-metadata/index.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
@@ -253,7 +254,6 @@ export class MoralisApiClient extends BaseApiClient {
     // Map each returned metadata to our format
     const metadataResults: TokenMetadata[] = rawMetadataArray.map((metadata) => ({
       contractAddress: metadata.address || '',
-      refreshedAt: new Date(),
       decimals: metadata.decimals ?? undefined,
       logoUrl: metadata.logo ?? undefined,
       name: metadata.name ?? undefined,
@@ -267,8 +267,6 @@ export class MoralisApiClient extends BaseApiClient {
       totalSupply: metadata.total_supply ?? undefined,
       createdAt: metadata.created_at ?? undefined,
       blockNumber: metadata.block_number ?? undefined,
-
-      source: 'moralis',
     }));
 
     return ok(metadataResults);

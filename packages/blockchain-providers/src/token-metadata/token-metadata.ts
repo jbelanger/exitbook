@@ -1,10 +1,23 @@
 import { z } from 'zod';
 
-import { DateSchema } from '../utils/primitives.js';
+const TokenMetadataRefreshedAtSchema = z
+  .union([
+    z.number().int().positive(),
+    z.string().refine((value) => !Number.isNaN(Date.parse(value)), { message: 'Invalid date string' }),
+    z.date(),
+  ])
+  .transform((value) => {
+    if (typeof value === 'number') {
+      return new Date(value);
+    }
+    if (typeof value === 'string') {
+      return new Date(value);
+    }
+    return value;
+  });
 
 /**
- * Schema for token metadata from API clients (write-side)
- * Used when fetching from providers - blockchain, source, and refreshedAt added during persistence
+ * Normalized token metadata returned by blockchain providers before cache/persistence enrichment.
  */
 export const TokenMetadataSchema = z.object({
   contractAddress: z.string(),
@@ -12,33 +25,23 @@ export const TokenMetadataSchema = z.object({
   name: z.string().optional(),
   decimals: z.number().int().nonnegative().optional(),
   logoUrl: z.string().optional(),
-
-  // Professional spam detection (Moralis, Helius, etc.)
   possibleSpam: z.boolean().optional(),
   verifiedContract: z.boolean().optional(),
-
-  // Additional metadata for pattern-based detection (fallback)
   description: z.string().optional(),
   externalUrl: z.string().optional(),
-
-  // Additional useful fields from providers
   totalSupply: z.string().optional(),
   createdAt: z.string().optional(),
   blockNumber: z.number().int().nonnegative().optional(),
 });
 
 /**
- * Schema for token metadata after database persistence (read-side)
- * Extends base schema with database-specific fields
+ * Cached token metadata enriched with blockchain/provider provenance.
  */
 export const TokenMetadataRecordSchema = TokenMetadataSchema.extend({
   blockchain: z.string(),
   source: z.string(),
-  refreshedAt: DateSchema,
+  refreshedAt: TokenMetadataRefreshedAtSchema,
 });
 
-/**
- * Type exports inferred from schemas
- */
 export type TokenMetadata = z.infer<typeof TokenMetadataSchema>;
 export type TokenMetadataRecord = z.infer<typeof TokenMetadataRecordSchema>;

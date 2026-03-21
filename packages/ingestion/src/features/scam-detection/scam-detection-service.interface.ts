@@ -1,4 +1,5 @@
-import type { TransactionNote, TokenMetadataRecord } from '@exitbook/core';
+import type { TokenMetadataRecord } from '@exitbook/blockchain-providers';
+import type { TransactionNote } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 /**

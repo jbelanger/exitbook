@@ -1,4 +1,5 @@
-import { parseDecimal, type TokenMetadataRecord } from '@exitbook/core';
+import type { TokenMetadataRecord } from '@exitbook/blockchain-providers';
+import { parseDecimal } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
 import { describe, expect, it } from 'vitest';
 
