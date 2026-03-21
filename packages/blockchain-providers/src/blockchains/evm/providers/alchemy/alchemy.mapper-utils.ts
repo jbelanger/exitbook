@@ -2,8 +2,9 @@ import { parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import { calculateGasFee } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';

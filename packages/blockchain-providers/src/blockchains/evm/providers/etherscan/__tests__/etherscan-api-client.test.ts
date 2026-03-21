@@ -2,6 +2,7 @@
 import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createProviderRegistry } from '../../../../../initialize.js';
 import {
   createMockHttpClient,
   expectErr,
@@ -9,8 +10,7 @@ import {
   injectMockHttpClient,
   type MockHttpClient,
   resetMockHttpClient,
-} from '../../../../../core/utils/test-utils.js';
-import { createProviderRegistry } from '../../../../../initialize.js';
+} from '../../../../../test-support/provider-test-utils.js';
 import type { EvmTransaction } from '../../../types.js';
 import { EtherscanApiClient, etherscanMetadata } from '../etherscan.api-client.js';
 

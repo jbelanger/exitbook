@@ -156,12 +156,13 @@ For paginated blockchain imports, failover has additional complexity handled by 
 
 ## Key Files
 
-| File                                                               | Role                                                             |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `packages/resilience/src/circuit-breaker/circuit-breaker.ts`       | Pure circuit breaker state machine                               |
-| `packages/resilience/src/circuit-breaker/registry.ts`              | Circuit breaker registry (manages state per provider)            |
-| `packages/resilience/src/provider-scoring/provider-scoring.ts`     | Health-based scoring algorithm                                   |
-| `packages/resilience/src/provider-selection/provider-selection.ts` | Filter → score → sort pipeline                                   |
-| `packages/resilience/src/failover/failover.ts`                     | Generic failover executor with timeout and abort support         |
-| `packages/resilience/src/provider-stats/provider-health-store.ts`  | SQLite persistence for health metrics                            |
-| `packages/blockchain-providers/src/core/`                          | Blockchain-specific provider manager wrapping generic resilience |
+| File                                                               | Role                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `packages/resilience/src/circuit-breaker/circuit-breaker.ts`       | Pure circuit breaker state machine                         |
+| `packages/resilience/src/circuit-breaker/registry.ts`              | Circuit breaker registry (manages state per provider)      |
+| `packages/resilience/src/provider-scoring/provider-scoring.ts`     | Health-based scoring algorithm                             |
+| `packages/resilience/src/provider-selection/provider-selection.ts` | Filter → score → sort pipeline                             |
+| `packages/resilience/src/failover/failover.ts`                     | Generic failover executor with timeout and abort support   |
+| `packages/resilience/src/provider-stats/provider-health-store.ts`  | SQLite persistence for health metrics                      |
+| `packages/blockchain-providers/src/runtime/`                       | Blockchain-specific provider manager and streaming runtime |
+| `packages/blockchain-providers/src/provider-stats/`                | Provider health persistence and statistics                 |

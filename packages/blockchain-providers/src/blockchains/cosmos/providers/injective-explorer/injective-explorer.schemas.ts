@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/utils/zod-utils.js';
+import { timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { CosmosAddressSchema } from '../../schemas.js';
 
 /** Normalizes any address-like string to lowercase without structural validation (for Ethereum hex addresses). */

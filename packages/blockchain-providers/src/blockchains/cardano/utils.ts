@@ -2,9 +2,9 @@ import { getErrorMessage, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import type { RawBalanceData } from '../../core/index.js';
-import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
-import { performAddressGapScanning } from '../../core/utils/gap-scan-utils.js';
+import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
+import type { RawBalanceData } from '../../contracts/index.js';
+import type { BlockchainProviderManager } from '../../runtime/manager/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 

@@ -7,7 +7,7 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+import { NormalizedTransactionBaseSchema } from '../../contracts/normalized-transaction.js';
 
 import { normalizeCardanoAddress } from './utils.js';
 

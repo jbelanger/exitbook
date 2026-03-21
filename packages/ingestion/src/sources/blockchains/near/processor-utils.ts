@@ -69,7 +69,7 @@ function normalizeNearAmount(yoctoAmount: Decimal | string): Decimal {
   return new Decimal(yoctoAmount).dividedBy(new Decimal(10).pow(NEAR_DECIMALS));
 }
 
-function normalizeTokenAmount(rawAmount: Decimal | string, decimals: number): Decimal {
+function normalizeNearTokenAmount(rawAmount: Decimal | string, decimals: number): Decimal {
   return new Decimal(rawAmount).dividedBy(new Decimal(10).pow(decimals));
 }
 
@@ -683,7 +683,7 @@ export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], p
 
     // Determine direction based on affected account
     const direction = transfer.affectedAccountId === primaryAddress ? 'in' : 'out';
-    const normalizedAmount = normalizeTokenAmount(delta.abs(), transfer.decimals);
+    const normalizedAmount = normalizeNearTokenAmount(delta.abs(), transfer.decimals);
 
     movements.push({
       asset: (transfer.symbol || 'UNKNOWN') as Currency,

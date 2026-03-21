@@ -1,4 +1,4 @@
-import type { ProviderFactory } from '../../core/types/index.js';
+import type { ProviderFactory } from '../../contracts/index.js';
 
 import { alchemyFactory } from './providers/alchemy/alchemy.api-client.js';
 import { etherscanFactory } from './providers/etherscan/etherscan.api-client.js';

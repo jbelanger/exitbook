@@ -2,9 +2,10 @@ import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import { BlockchainProviderManager } from '../core/manager/provider-manager.js';
-import { loadExplorerConfig, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
 import { createProviderRegistry } from '../initialize.js';
+import { BlockchainProviderManager } from '../runtime/manager/provider-manager.js';
+
+import { loadExplorerConfig, type BlockchainExplorersConfig } from './explorer-config.js';
 
 export interface BenchmarkableBlockchainProvider {
   blockchain: string;

@@ -7,7 +7,7 @@
 import { DecimalStringSchema, IntegerStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/utils/zod-utils.js';
+import { timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**

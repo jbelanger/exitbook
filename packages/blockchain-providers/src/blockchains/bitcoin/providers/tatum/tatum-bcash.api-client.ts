@@ -1,4 +1,4 @@
-import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../contracts/index.js';
 
 import { TatumBCashBalanceSchema, TatumBCashTransactionSchema } from './tatum-bcash.schemas.js';
 import type { TatumBCashTransaction, TatumBCashBalance } from './tatum-bcash.schemas.js';

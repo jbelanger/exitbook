@@ -1,6 +1,6 @@
 import type { EvmTransaction } from '@exitbook/blockchain-providers';
-import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import { isZeroDecimal, parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
+import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
+import type { OperationClassification } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -371,7 +371,7 @@ export function analyzeEvmFundFlow(
 
       // Normalize token amount using decimals metadata
       // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const amountResult = normalizeTokenAmount(rawAmount, tx.tokenDecimals);
+      const amountResult = fromBaseUnitsToDecimalString(rawAmount, tx.tokenDecimals);
       if (amountResult.isErr()) {
         return err(
           `Failed to normalize EVM token amount for transaction ${tx.id}: ${amountResult.error.message}. ` +
@@ -409,7 +409,7 @@ export function analyzeEvmFundFlow(
   // Process all native currency movements involving the user
   for (const tx of txGroup) {
     if (isEvmNativeMovement(tx, chainConfig) && isEvmUserParticipant(tx, userAddress)) {
-      const normalizedAmountResult = normalizeNativeAmount(tx.amount, chainConfig.nativeDecimals);
+      const normalizedAmountResult = fromBaseUnitsToDecimalString(tx.amount, chainConfig.nativeDecimals);
       if (normalizedAmountResult.isErr()) {
         return err(
           `Failed to normalize EVM native amount for transaction ${tx.id}: ${normalizedAmountResult.error.message}. ` +

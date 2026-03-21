@@ -1,4 +1,4 @@
-import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../contracts/index.js';
 
 import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 import { mapTatumTransaction } from './tatum.mapper-utils.js';

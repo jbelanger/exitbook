@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { AlchemyApiClient } from '../alchemy.api-client.js';

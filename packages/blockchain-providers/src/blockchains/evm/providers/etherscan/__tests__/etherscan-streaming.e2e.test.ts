@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { OneShotOperation, StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { OneShotOperation, StreamingBatchResult } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { EtherscanApiClient } from '../etherscan.api-client.js';

@@ -2,7 +2,7 @@
 import { err, ok, sha256Hex } from '@exitbook/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StreamingOperation } from '../../../../../core/index.js';
+import type { StreamingOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { NearBalanceChange, NearReceipt, NearTokenTransfer, NearTransaction } from '../../../schemas.js';
 import { NearBlocksApiClient } from '../nearblocks.api-client.js';

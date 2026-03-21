@@ -1,7 +1,8 @@
 import { type Result } from '@exitbook/core';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import { calculateGasFeeBigInt } from '../../receipt-utils.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';

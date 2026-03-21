@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import { generateUniqueTransactionEventId } from '../../core/index.js';
+import { generateUniqueTransactionEventId } from '../../normalization/event-id.js';
 
 import type { SolanaTokenBalance, SolanaTokenChange } from './schemas.js';
 

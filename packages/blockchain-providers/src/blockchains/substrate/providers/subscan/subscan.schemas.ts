@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 
-import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../core/utils/zod-utils.js';
+import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { SubstrateAddressSchema } from '../../schemas.js';
 
 /**

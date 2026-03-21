@@ -1,8 +1,8 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 
-import { type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import type { SolanaTransaction, SolanaTokenChange } from '../../schemas.js';
 import { SolanaTransactionSchema } from '../../schemas.js';
 import { lamportsToSol, extractAccountChangesFromSolscan, generateSolanaTransactionEventId } from '../../utils.js';

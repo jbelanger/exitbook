@@ -1,28 +1,28 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 
-import { BaseApiClient } from '../../../../core/base/api-client.js';
-import type {
-  NormalizedTransactionBase,
-  ProviderConfig,
-  ProviderFactory,
-  ProviderMetadata,
-  ProviderOperation,
-} from '../../../../core/index.js';
-import {
-  createStreamingIterator,
-  type StreamingPage,
-  type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
   OneShotOperationResult,
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/types/index.js';
-import { maskAddress } from '../../../../core/utils/address-utils.js';
+} from '../../../../contracts/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../runtime/streaming/adapter.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
 import { getEvmChainConfig } from '../../chain-registry.js';
 import type { EvmTransaction } from '../../types.js';

@@ -1,4 +1,4 @@
-import type { RawBalanceData } from '../../core/types/index.js';
+import type { RawBalanceData } from '../../contracts/index.js';
 
 import { dropsToXrpDecimalString } from './utils.js';
 

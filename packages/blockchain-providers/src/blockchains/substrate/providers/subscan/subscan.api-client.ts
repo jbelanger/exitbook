@@ -1,7 +1,14 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 
+import type {
+  OneShotOperation,
+  OneShotOperationResult,
+  RawBalanceData,
+  StreamingOperation,
+} from '../../../../contracts/index.js';
 import type {
   NormalizedTransactionBase,
   ProviderConfig,
@@ -9,20 +16,13 @@ import type {
   ProviderMetadata,
   ProviderOperation,
   StreamingBatchResult,
-} from '../../../../core/index.js';
-import { BaseApiClient } from '../../../../core/index.js';
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
-import type {
-  OneShotOperation,
-  OneShotOperationResult,
-  RawBalanceData,
-  StreamingOperation,
-} from '../../../../core/types/index.js';
-import { maskAddress } from '../../../../core/utils/address-utils.js';
+} from '../../../../runtime/streaming/adapter.js';
 import { convertToMainUnit, createRawBalanceData } from '../../balance-utils.js';
 import type { SubstrateChainConfig } from '../../chain-config.interface.js';
 import { getSubstrateChainConfig } from '../../chain-registry.js';

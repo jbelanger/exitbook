@@ -1,7 +1,7 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { parseApiBoolean, timestampToDate } from '../../../../core/index.js';
+import { parseApiBoolean, timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**

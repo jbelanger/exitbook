@@ -1,4 +1,4 @@
-import type { ProviderFactory } from '../../core/types/index.js';
+import type { ProviderFactory } from '../../contracts/index.js';
 
 import { xrplRpcFactory } from './providers/xrpl-rpc/xrpl-rpc.api-client.js';
 

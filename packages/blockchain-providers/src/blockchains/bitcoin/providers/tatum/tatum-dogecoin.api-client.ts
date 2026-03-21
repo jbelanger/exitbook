@@ -1,4 +1,4 @@
-import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../contracts/index.js';
 
 import { TatumDogecoinBalanceSchema, TatumDogecoinTransactionSchema } from './tatum-dogecoin.schemas.js';
 import type { TatumDogecoinTransaction, TatumDogecoinBalance } from './tatum-dogecoin.schemas.js';

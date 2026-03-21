@@ -1,21 +1,9 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 import { z } from 'zod';
 
-import type {
-  NormalizedTransactionBase,
-  ProviderConfig,
-  ProviderFactory,
-  ProviderMetadata,
-  ProviderOperation,
-} from '../../../../core/index.js';
-import { BaseApiClient } from '../../../../core/index.js';
-import {
-  createStreamingIterator,
-  type StreamingPage,
-  type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
   OneShotOperationResult,
@@ -23,9 +11,21 @@ import type {
   StreamingBatchResult,
   StreamingOperation,
   TransactionWithRawData,
-} from '../../../../core/types/index.js';
-import { maskAddress } from '../../../../core/utils/address-utils.js';
-import { createEmptyCompletionCursor } from '../../../../core/utils/cursor-utils.js';
+} from '../../../../contracts/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../runtime/streaming/adapter.js';
+import { createEmptyCompletionCursor } from '../../../../runtime/streaming/cursor-state.js';
 import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';

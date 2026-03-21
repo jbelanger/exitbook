@@ -4,9 +4,9 @@ import { getLogger } from '@exitbook/logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
-import { generateUniqueTransactionEventId } from '../../core/index.js';
-import type { BlockchainProviderManager } from '../../core/manager/provider-manager.js';
-import { performAddressGapScanning } from '../../core/utils/gap-scan-utils.js';
+import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
+import { generateUniqueTransactionEventId } from '../../normalization/event-id.js';
+import type { BlockchainProviderManager } from '../../runtime/manager/provider-manager.js';
 
 import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';

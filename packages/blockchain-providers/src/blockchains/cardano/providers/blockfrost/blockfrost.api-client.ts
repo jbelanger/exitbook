@@ -1,20 +1,9 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 import { z } from 'zod';
 
-import { BaseApiClient } from '../../../../core/base/api-client.js';
-import type {
-  NormalizedTransactionBase,
-  ProviderConfig,
-  ProviderFactory,
-  ProviderMetadata,
-} from '../../../../core/index.js';
-import {
-  createStreamingIterator,
-  type StreamingPage,
-  type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
 import type {
   OneShotOperation,
   OneShotOperationResult,
@@ -22,8 +11,19 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/types/index.js';
-import { maskAddress } from '../../../../core/utils/address-utils.js';
+} from '../../../../contracts/index.js';
+import type {
+  NormalizedTransactionBase,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderMetadata,
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
+import {
+  createStreamingIterator,
+  type StreamingPage,
+  type StreamingPageContext,
+} from '../../../../runtime/streaming/adapter.js';
 import type { CardanoTransaction } from '../../schemas.js';
 import { createRawBalanceData } from '../../utils.js';
 

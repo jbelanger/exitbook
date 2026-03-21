@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 
 import type {
   ProviderConfig,
@@ -9,8 +10,8 @@ import type {
   RawBalanceData,
   OneShotOperation,
   OneShotOperationResult,
-} from '../../../../core/index.js';
-import { BaseApiClient, maskAddress } from '../../../../core/index.js';
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
 import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
 import { isValidSolanaAddress } from '../../utils.js';
 

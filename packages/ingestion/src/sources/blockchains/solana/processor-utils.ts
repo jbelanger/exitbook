@@ -1,6 +1,5 @@
 import type { SolanaTransaction } from '@exitbook/blockchain-providers';
-import { normalizeNativeAmount, normalizeTokenAmount } from '@exitbook/blockchain-providers';
-import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
+import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -403,7 +402,7 @@ export function analyzeSolanaBalanceChanges(
 
       // Normalize token amount using decimals metadata
       // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const normalizedAmountResult = normalizeTokenAmount(tokenDelta.abs().toFixed(), change.decimals);
+      const normalizedAmountResult = fromBaseUnitsToDecimalString(tokenDelta.abs().toFixed(), change.decimals);
       if (normalizedAmountResult.isErr()) {
         return err(
           new Error(
@@ -443,7 +442,7 @@ export function analyzeSolanaBalanceChanges(
 
       // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
       const absLamports = solDeltaLamports < 0n ? -solDeltaLamports : solDeltaLamports;
-      const normalizedSolAmountResult = normalizeNativeAmount(absLamports.toString(), 9);
+      const normalizedSolAmountResult = fromBaseUnitsToDecimalString(absLamports.toString(), 9);
       if (normalizedSolAmountResult.isErr()) {
         return err(
           new Error(

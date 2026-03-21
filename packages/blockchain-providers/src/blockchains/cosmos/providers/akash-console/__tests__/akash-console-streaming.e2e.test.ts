@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult, StreamingOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { AkashConsoleApiClient } from '../akash-console.api-client.js';

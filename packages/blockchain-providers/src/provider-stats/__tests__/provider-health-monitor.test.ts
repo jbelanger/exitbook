@@ -6,7 +6,7 @@
 import { err, ok } from '@exitbook/core';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import type { IBlockchainProvider } from '../../core/types/index.js';
+import type { IBlockchainProvider } from '../../contracts/index.js';
 import { ProviderHealthMonitor } from '../health-monitor.js';
 
 function makeProvider(name: string, blockchain: string, healthy = true): IBlockchainProvider {

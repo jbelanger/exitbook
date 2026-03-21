@@ -49,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Registration is explicit: each blockchain exports provider factory arrays from `blockchains/<blockchain>/register-apis.ts`; `packages/blockchain-providers/src/register-apis.ts` aggregates them.
 - Chain lists come from `*-chains.json` (e.g., EVM has many chains; see file instead of enumerating here).
-- Core handles failover/circuit-breakers/caching (`packages/blockchain-providers/src/core/`).
+- Runtime and slice modules handle failover/circuit-breakers/caching (`packages/blockchain-providers/src/runtime/`, `packages/blockchain-providers/src/provider-stats/`, `packages/blockchain-providers/src/token-metadata/`).
 
 ### Exchange Integration
 

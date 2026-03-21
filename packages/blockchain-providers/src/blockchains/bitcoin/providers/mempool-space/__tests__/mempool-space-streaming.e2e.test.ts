@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import type { StreamingBatchResult, StreamingOperation } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult, StreamingOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { BitcoinTransaction } from '../../../schemas.js';
 import { MempoolSpaceApiClient } from '../mempool-space.api-client.js';

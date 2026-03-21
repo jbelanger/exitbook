@@ -3,8 +3,8 @@ import { ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
-import { ProviderError } from '../core/types/errors.js';
-import type { FailoverExecutionResult } from '../core/types/index.js';
+import { ProviderError } from '../contracts/errors.js';
+import type { FailoverExecutionResult } from '../contracts/index.js';
 import type { ProviderEvent } from '../events.js';
 
 import type { TokenMetadata, TokenMetadataRecord } from './contracts.js';

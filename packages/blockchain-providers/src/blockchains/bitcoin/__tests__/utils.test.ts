@@ -2,7 +2,7 @@ import { ok } from '@exitbook/core';
 import { HDKey } from '@scure/bip32';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BlockchainProviderManager } from '../../../core/manager/provider-manager.js';
+import type { BlockchainProviderManager } from '../../../runtime/manager/provider-manager.js';
 import type { BitcoinWalletAddress } from '../types.js';
 import {
   canonicalizeBitcoinAddress,

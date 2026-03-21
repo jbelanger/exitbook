@@ -1,4 +1,4 @@
-import type { ProviderFactory } from '../../core/types/index.js';
+import type { ProviderFactory } from '../../contracts/index.js';
 
 import { blockchainComFactory } from './providers/blockchain-com/blockchain-com.api-client.js';
 import { blockcypherFactory } from './providers/blockcypher/blockcypher.api-client.js';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/utils/zod-utils.js';
+import { timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { CardanoAddressSchema } from '../../schemas.js';
 
 /**

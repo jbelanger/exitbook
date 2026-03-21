@@ -4,7 +4,7 @@ import {
   hexOrNumericToNumericOptional,
   hexOrNumericToNumericRequired,
   timestampToDate,
-} from '../../../../core/utils/zod-utils.js';
+} from '../../../../normalization/schema-transforms.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
 /**

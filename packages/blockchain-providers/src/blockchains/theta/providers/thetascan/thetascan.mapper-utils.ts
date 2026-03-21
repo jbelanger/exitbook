@@ -1,8 +1,9 @@
 import { parseDecimal } from '@exitbook/core';
 import { type Result, ok } from '@exitbook/core';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { withValidation } from '../../../../normalization/mapper-validation.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import {
   isThetaTokenTransfer,

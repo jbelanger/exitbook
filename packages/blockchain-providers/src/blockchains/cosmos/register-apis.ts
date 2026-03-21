@@ -1,4 +1,4 @@
-import type { ProviderFactory } from '../../core/types/index.js';
+import type { ProviderFactory } from '../../contracts/index.js';
 
 import { akashConsoleFactory } from './providers/akash-console/akash-console.api-client.js';
 import { cosmosRestFactories } from './providers/cosmos-rest/cosmos-rest.api-client.js';

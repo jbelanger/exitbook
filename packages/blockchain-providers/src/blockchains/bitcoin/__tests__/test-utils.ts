@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/core';
 import type { BitcoinChainConfig } from '../chain-config.interface.js';
 
 // Re-export core test helpers for convenient single-import in bitcoin tests
-export { expectOk } from '../../../core/utils/test-utils.js';
+export { expectOk } from '../../../test-support/provider-test-utils.js';
 
 // ── Mock chain configs ──────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import type { ProviderFactory } from '../../core/types/index.js';
+import type { ProviderFactory } from '../../contracts/index.js';
 
 import { heliusFactory } from './providers/helius/helius.api-client.js';
 import { solanaRpcFactory } from './providers/solana-rpc/solana-rpc.api-client.js';

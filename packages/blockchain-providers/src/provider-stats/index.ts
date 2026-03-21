@@ -6,4 +6,4 @@ export {
   type ProviderKey,
   type ProviderStatsStoreOptions,
 } from './store.js';
-export type { ProviderStatsRow } from './persistence/utils.js';
+export type { ProviderStatsSnapshot } from './snapshot.js';

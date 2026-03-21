@@ -1,8 +1,9 @@
 import { type Result, err } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import { calculateFee } from '../../calculation-utils.js';
 import {
   parseBankMultiSendMessage,

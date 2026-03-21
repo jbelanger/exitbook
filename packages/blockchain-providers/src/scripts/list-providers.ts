@@ -6,7 +6,7 @@
 import { getErrorMessage } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 
-import type { ProviderCapabilities } from '../core/types/index.js';
+import type { ProviderCapabilities } from '../contracts/index.js';
 import { createProviderRegistry } from '../initialize.js';
 
 const registry = createProviderRegistry();

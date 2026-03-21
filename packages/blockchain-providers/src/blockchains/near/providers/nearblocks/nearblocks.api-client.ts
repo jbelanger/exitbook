@@ -1,6 +1,7 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 
 import type {
   NormalizedTransactionBase,
@@ -13,13 +14,14 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/index.js';
-import { BaseApiClient, maskAddress, validateOutput } from '../../../../core/index.js';
+} from '../../../../contracts/index.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
+} from '../../../../runtime/streaming/adapter.js';
 import { transformNearBalance } from '../../balance-utils.js';
 import type {
   NearBalanceChange,

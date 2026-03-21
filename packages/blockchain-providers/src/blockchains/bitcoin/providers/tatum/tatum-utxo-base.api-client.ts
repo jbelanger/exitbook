@@ -1,8 +1,10 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 import { z, type ZodType } from 'zod';
 
+import type { NormalizationError } from '../../../../contracts/index.js';
 import type {
   NormalizedTransactionBase,
   OneShotOperation,
@@ -12,11 +14,10 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/index.js';
-import { BaseApiClient, maskAddress } from '../../../../core/index.js';
-import type { NormalizationError } from '../../../../core/index.js';
-import type { StreamingPage, StreamingPageContext } from '../../../../core/streaming/streaming-adapter.js';
-import { createStreamingIterator } from '../../../../core/streaming/streaming-adapter.js';
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
+import type { StreamingPage, StreamingPageContext } from '../../../../runtime/streaming/adapter.js';
+import { createStreamingIterator } from '../../../../runtime/streaming/adapter.js';
 import { createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';

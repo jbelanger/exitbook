@@ -1,8 +1,9 @@
 import { isErrorWithMessage } from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import type { XrpBalanceChange, XrpTransaction } from '../../schemas.js';
 import { XrpTransactionSchema } from '../../schemas.js';
 import { dropsToXrpDecimalString, rippleTimeToUnix } from '../../utils.js';

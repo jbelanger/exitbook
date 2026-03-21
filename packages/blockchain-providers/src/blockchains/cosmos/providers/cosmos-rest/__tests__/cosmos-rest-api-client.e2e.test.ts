@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TransactionWithRawData } from '../../../../../core/types/index.js';
+import type { TransactionWithRawData } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { CosmosRestApiClient } from '../cosmos-rest.api-client.js';

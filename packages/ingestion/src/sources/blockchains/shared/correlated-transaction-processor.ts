@@ -1,11 +1,7 @@
-import {
-  maskAddress,
-  ProviderError,
-  type BlockchainProviderManager,
-  type EvmTransaction,
-} from '@exitbook/blockchain-providers';
+import { ProviderError, type BlockchainProviderManager, type EvmTransaction } from '@exitbook/blockchain-providers';
 import {
   buildBlockchainNativeAssetId,
+  maskAddress,
   parseDecimal,
   type Currency,
   type OperationClassification,

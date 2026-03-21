@@ -1,7 +1,7 @@
 import { DecimalStringSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { NormalizedTransactionBaseSchema } from '../../core/schemas/normalized-transaction.js';
+import { NormalizedTransactionBaseSchema } from '../../contracts/normalized-transaction.js';
 
 import { BITCOIN_CHAINS } from './chain-registry.js';
 import { canonicalizeBitcoinAddress } from './utils.js';

@@ -16,6 +16,7 @@
 import type { CursorState, PaginationCursor } from '@exitbook/core';
 import { getErrorMessage, hasStringProperty } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
+import { maskAddress } from '@exitbook/core';
 import { z } from 'zod';
 
 import type {
@@ -29,13 +30,13 @@ import type {
   RawBalanceData,
   StreamingBatchResult,
   StreamingOperation,
-} from '../../../../core/index.js';
-import { BaseApiClient, maskAddress } from '../../../../core/index.js';
+} from '../../../../contracts/index.js';
+import { BaseApiClient } from '../../../../runtime/base-api-client.js';
 import {
   createStreamingIterator,
   type StreamingPage,
   type StreamingPageContext,
-} from '../../../../core/streaming/streaming-adapter.js';
+} from '../../../../runtime/streaming/adapter.js';
 import { createRawBalanceData } from '../../balance-utils.js';
 import type { BitcoinChainConfig } from '../../chain-config.interface.js';
 import { getBitcoinChainConfig } from '../../chain-registry.js';

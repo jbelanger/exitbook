@@ -4,8 +4,8 @@ import { RateLimitError } from '@exitbook/http';
 import { Decimal } from 'decimal.js';
 import type { ZodType } from 'zod';
 
-import type { NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/index.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 import { generateBeaconWithdrawalEventId, normalizeEvmAddress } from '../../utils.js';

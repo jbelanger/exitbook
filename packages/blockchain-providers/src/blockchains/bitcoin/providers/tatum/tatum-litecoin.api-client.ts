@@ -1,4 +1,4 @@
-import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../core/index.js';
+import type { ProviderConfig, ProviderFactory, ProviderMetadata } from '../../../../contracts/index.js';
 
 import { TatumLitecoinBalanceSchema, TatumLitecoinTransactionSchema } from './tatum-litecoin.schemas.js';
 import type { TatumLitecoinTransaction, TatumLitecoinBalance } from './tatum-litecoin.schemas.js';

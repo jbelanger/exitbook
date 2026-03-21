@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { StreamingBatchResult } from '../../../../../core/types/index.js';
+import type { StreamingBatchResult } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { EvmTransaction } from '../../../types.js';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';

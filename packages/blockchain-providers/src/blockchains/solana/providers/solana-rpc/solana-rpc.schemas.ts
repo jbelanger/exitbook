@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/index.js';
+import { timestampToDate } from '../../../../normalization/schema-transforms.js';
 import {
   SolanaAddressSchema,
   SolanaTokenBalanceSchema,

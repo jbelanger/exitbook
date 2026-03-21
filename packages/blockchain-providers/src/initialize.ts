@@ -1,5 +1,5 @@
-import { ProviderRegistry } from './core/registry/provider-registry.js';
 import { allProviderFactories } from './register-apis.js';
+import { ProviderRegistry } from './runtime/registry/provider-registry.js';
 
 /**
  * Create a new ProviderRegistry populated with all blockchain provider factories.

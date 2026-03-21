@@ -1,8 +1,9 @@
 import { ok, type Result } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { withValidation } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { withValidation } from '../../../../normalization/mapper-validation.js';
 import {
   CardanoTransactionSchema,
   type CardanoAssetAmount,

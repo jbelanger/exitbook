@@ -1,7 +1,11 @@
 // Pure utility functions for providers view command
 // All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
 
-import type { BlockchainExplorersConfig, ProviderCatalogEntry, ProviderStatsRow } from '@exitbook/blockchain-providers';
+import type {
+  BlockchainExplorersConfig,
+  ProviderCatalogEntry,
+  ProviderStatsSnapshot,
+} from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
@@ -178,13 +182,13 @@ export function detectConfigSource(
 /**
  * Find the worst (most recent) error across all blockchain stats for a provider.
  */
-function findLastError(statsRows: ProviderStatsRow[]): { lastError: string; lastErrorTime: number } | undefined {
+function findLastError(statsRows: ProviderStatsSnapshot[]): { lastError: string; lastErrorTime: number } | undefined {
   let worstError: { lastError: string; lastErrorTime: number } | undefined;
 
   for (const row of statsRows) {
-    if (row.last_error && row.last_failure_time > 0) {
-      if (!worstError || row.last_failure_time > worstError.lastErrorTime) {
-        worstError = { lastError: row.last_error, lastErrorTime: row.last_failure_time };
+    if (row.lastError && row.lastFailureTime > 0) {
+      if (!worstError || row.lastFailureTime > worstError.lastErrorTime) {
+        worstError = { lastError: row.lastError, lastErrorTime: row.lastFailureTime };
       }
     }
   }
@@ -197,13 +201,13 @@ function findLastError(statsRows: ProviderStatsRow[]): { lastError: string; last
  */
 export function buildProviderViewItems(
   providerMap: Map<string, ProviderBlockchainEntry[]>,
-  allStatsRows: ProviderStatsRow[],
+  allStatsRows: ProviderStatsSnapshot[],
   explorerConfig: BlockchainExplorersConfig | undefined
 ): ProviderViewItem[] {
-  // Index stats by "blockchain:provider_name"
-  const statsIndex = new Map<string, ProviderStatsRow>();
+  // Index stats by "blockchain:providerName"
+  const statsIndex = new Map<string, ProviderStatsSnapshot>();
   for (const row of allStatsRows) {
-    statsIndex.set(`${row.blockchain}:${row.provider_name}`, row);
+    statsIndex.set(`${row.blockchain}:${row.providerName}`, row);
   }
 
   const items: ProviderViewItem[] = [];
@@ -231,14 +235,14 @@ export function buildProviderViewItems(
         configSource,
       };
 
-      if (statsRow && (statsRow.total_successes > 0 || statsRow.total_failures > 0)) {
-        const totalReqs = statsRow.total_successes + statsRow.total_failures;
+      if (statsRow && (statsRow.totalSuccesses > 0 || statsRow.totalFailures > 0)) {
+        const totalReqs = statsRow.totalSuccesses + statsRow.totalFailures;
         item.stats = {
-          totalSuccesses: statsRow.total_successes,
-          totalFailures: statsRow.total_failures,
-          avgResponseTime: Math.round(statsRow.avg_response_time),
-          errorRate: totalReqs > 0 ? Number(((statsRow.total_failures / totalReqs) * 100).toFixed(1)) : 0,
-          isHealthy: statsRow.is_healthy === 1,
+          totalSuccesses: statsRow.totalSuccesses,
+          totalFailures: statsRow.totalFailures,
+          avgResponseTime: Math.round(statsRow.avgResponseTime),
+          errorRate: totalReqs > 0 ? Number(((statsRow.totalFailures / totalReqs) * 100).toFixed(1)) : 0,
+          isHealthy: statsRow.isHealthy,
         };
       }
 
@@ -248,20 +252,20 @@ export function buildProviderViewItems(
     // Collect stats for aggregate computation
     const providerStatsRows = entries
       .map((e) => statsIndex.get(`${e.blockchain}:${providerName}`))
-      .filter((row): row is ProviderStatsRow => row !== undefined);
+      .filter((row): row is ProviderStatsSnapshot => row !== undefined);
 
     const perChainStatsForAggregate = providerStatsRows
-      .filter((row) => row.total_successes > 0 || row.total_failures > 0)
+      .filter((row) => row.totalSuccesses > 0 || row.totalFailures > 0)
       .map((row) => ({
-        avgResponseTime: row.avg_response_time,
-        totalSuccesses: row.total_successes,
-        totalFailures: row.total_failures,
+        avgResponseTime: row.avgResponseTime,
+        totalSuccesses: row.totalSuccesses,
+        totalFailures: row.totalFailures,
         errorRate:
-          row.total_successes + row.total_failures > 0
-            ? (row.total_failures / (row.total_successes + row.total_failures)) * 100
+          row.totalSuccesses + row.totalFailures > 0
+            ? (row.totalFailures / (row.totalSuccesses + row.totalFailures)) * 100
             : 0,
-        lastChecked: row.last_checked,
-        isHealthy: row.is_healthy === 1,
+        lastChecked: row.lastChecked,
+        isHealthy: row.isHealthy,
       }));
 
     const aggregateStats = computeAggregateStats(perChainStatsForAggregate);

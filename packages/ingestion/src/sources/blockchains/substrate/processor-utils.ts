@@ -1,6 +1,11 @@
 import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
-import { derivePolkadotAddressVariants, normalizeNativeAmount } from '@exitbook/blockchain-providers';
-import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
+import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers';
+import {
+  fromBaseUnitsToDecimalString,
+  parseDecimal,
+  type Currency,
+  type OperationClassification,
+} from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
@@ -82,7 +87,7 @@ export function analyzeSubstrateFundFlow(
   const outflows: SubstrateMovement[] = [];
 
   const amount = parseDecimal(transaction.amount);
-  const normalizedAmountResult = normalizeNativeAmount(transaction.amount, chainConfig.nativeDecimals);
+  const normalizedAmountResult = fromBaseUnitsToDecimalString(transaction.amount, chainConfig.nativeDecimals);
   const currency = transaction.currency as Currency;
 
   // Skip zero amounts (but NOT fees)
@@ -140,7 +145,7 @@ export function analyzeSubstrateFundFlow(
   }
 
   // Normalize fee amount with error handling
-  const feeAmountResult = normalizeNativeAmount(transaction.feeAmount, chainConfig.nativeDecimals);
+  const feeAmountResult = fromBaseUnitsToDecimalString(transaction.feeAmount, chainConfig.nativeDecimals);
   if (feeAmountResult.isErr()) {
     return err(
       new Error(

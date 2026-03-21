@@ -10,7 +10,7 @@ import {
   type MockHttpClient,
   resetMockHttpClient,
 } from '../../../__tests__/test-utils.js';
-import type { OneShotOperation } from '../../../../../core/index.js';
+import type { OneShotOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import type { CardanoTransaction } from '../../../schemas.js';
 import { BlockfrostApiClient, blockfrostMetadata } from '../blockfrost.api-client.js';

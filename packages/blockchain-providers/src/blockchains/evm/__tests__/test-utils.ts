@@ -10,7 +10,7 @@ export {
   injectMockHttpClient,
   resetMockHttpClient,
   type MockHttpClient,
-} from '../../../core/utils/test-utils.js';
+} from '../../../test-support/provider-test-utils.js';
 
 // ── Mock chain configs ──────────────────────────────────────────────
 

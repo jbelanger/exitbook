@@ -8,7 +8,7 @@ import { getErrorMessage } from '@exitbook/core';
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from '../core/utils/config-utils.js';
+import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from '../catalog/explorer-config.js';
 import { createProviderRegistry } from '../initialize.js';
 
 const registry = createProviderRegistry();

@@ -1,4 +1,4 @@
-import type { ProviderCatalogEntry, ProviderStatsRow } from '@exitbook/blockchain-providers';
+import type { ProviderCatalogEntry, ProviderStatsSnapshot } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -37,22 +37,20 @@ function makeProviderCatalogEntry(
   };
 }
 
-function makeStatsRow(
-  overrides: Partial<ProviderStatsRow> & { blockchain: string; provider_name: string }
-): ProviderStatsRow {
+function makeStatsSnapshot(
+  overrides: Partial<ProviderStatsSnapshot> & { blockchain: string; providerName: string }
+): ProviderStatsSnapshot {
   return {
-    avg_response_time: 100,
-    error_rate: 0.5,
-    consecutive_failures: 0,
-    is_healthy: 1,
-    // eslint-disable-next-line unicorn/no-null -- db null ok
-    last_error: null,
-    last_checked: Date.now(),
-    failure_count: 0,
-    last_failure_time: 0,
-    last_success_time: Date.now(),
-    total_successes: 100,
-    total_failures: 1,
+    avgResponseTime: 100,
+    errorRate: 0.5,
+    consecutiveFailures: 0,
+    isHealthy: true,
+    lastChecked: Date.now(),
+    failureCount: 0,
+    lastFailureTime: 0,
+    lastSuccessTime: Date.now(),
+    totalSuccesses: 100,
+    totalFailures: 1,
     ...overrides,
   };
 }
@@ -477,13 +475,13 @@ describe('view-providers-utils', () => {
         ],
       ]);
 
-      const statsRows: ProviderStatsRow[] = [
-        makeStatsRow({
+      const statsRows: ProviderStatsSnapshot[] = [
+        makeStatsSnapshot({
           blockchain: 'bitcoin',
-          provider_name: 'blockstream',
-          total_successes: 100,
-          total_failures: 2,
-          avg_response_time: 150,
+          providerName: 'blockstream',
+          totalSuccesses: 100,
+          totalFailures: 2,
+          avgResponseTime: 150,
         }),
       ];
 

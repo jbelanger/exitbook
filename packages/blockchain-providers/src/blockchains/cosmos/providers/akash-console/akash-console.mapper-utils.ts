@@ -2,8 +2,9 @@ import { parseDecimal } from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 
-import { generateUniqueTransactionEventId, type NormalizationError } from '../../../../core/index.js';
-import { validateOutput } from '../../../../core/index.js';
+import type { NormalizationError } from '../../../../contracts/errors.js';
+import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
+import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import {
