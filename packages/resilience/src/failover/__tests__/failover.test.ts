@@ -3,8 +3,8 @@
  * Pure function tests — mocks only for side-effect callbacks
  */
 
-import { err, ok, type Result } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { err, ok, type Result } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CircuitBreakerRegistry } from '../../circuit-breaker/registry.js';

@@ -338,9 +338,9 @@ importers:
 
   packages/http:
     dependencies:
-      '@exitbook/core':
+      '@exitbook/foundation':
         specifier: workspace:*
-        version: link:../core
+        version: link:../foundation
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -440,9 +440,9 @@ importers:
 
   packages/resilience:
     dependencies:
-      '@exitbook/core':
+      '@exitbook/foundation':
         specifier: workspace:*
-        version: link:../core
+        version: link:../foundation
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -453,9 +453,9 @@ importers:
 
   packages/sqlite:
     dependencies:
-      '@exitbook/core':
+      '@exitbook/foundation':
         specifier: workspace:*
-        version: link:../core
+        version: link:../foundation
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger

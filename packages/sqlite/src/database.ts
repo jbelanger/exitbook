@@ -1,9 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect, type KyselyPlugin } from 'kysely';

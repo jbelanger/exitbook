@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/core": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "better-sqlite3": "^12.8.0",
     "kysely": "^0.28.12"

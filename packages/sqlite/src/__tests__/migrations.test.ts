@@ -1,4 +1,4 @@
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { sql } from 'kysely';
 import type { Migration } from 'kysely';
 import { describe, expect, it } from 'vitest';

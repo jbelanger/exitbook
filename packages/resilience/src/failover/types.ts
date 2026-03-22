@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import type { CircuitState, CircuitStatus } from '../circuit-breaker/types.js';

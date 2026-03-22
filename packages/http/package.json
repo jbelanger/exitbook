@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/core": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",
     "undici": "^7.24.4",
