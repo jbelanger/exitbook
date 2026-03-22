@@ -1,4 +1,4 @@
-import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
 import { isZeroDecimal, type Currency } from '@exitbook/core';
 import { assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, it } from 'vitest';

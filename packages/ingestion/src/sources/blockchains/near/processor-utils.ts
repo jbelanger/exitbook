@@ -1,22 +1,10 @@
-/**
- * NEAR Processor Utilities
- *
- * Pure utility functions for processing NEAR transactions:
- * - Group normalized data by transaction hash
- * - Two-hop correlation: receipts → transactions, activities → receipts
- * - Handle NEAR's two-phase balance change model (transaction-level vs receipt-level)
- * - Extract fees with single source of truth
- * - Extract fund flows and aggregate by asset
- * - Classify operation types
- */
-
-import type {
-  NearBalanceChange,
-  NearStreamEvent,
-  NearTokenTransfer,
-  NearBalanceChangeCause,
-  NearActionType,
-} from '@exitbook/blockchain-providers';
+import {
+  type NearBalanceChange,
+  type NearStreamEvent,
+  type NearTokenTransfer,
+  type NearBalanceChangeCause,
+  type NearActionType,
+} from '@exitbook/blockchain-providers/near';
 import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';

@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 
@@ -13,7 +13,7 @@ export const nearAdapters: BlockchainAdapter[] = [
 
     normalizeAddress: normalizeNearAddress,
 
-    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+    createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) =>
       new NearImporter(providerManager, {
         preferredProvider: providerName,
       }),

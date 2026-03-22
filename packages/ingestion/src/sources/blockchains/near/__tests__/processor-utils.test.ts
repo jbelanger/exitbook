@@ -1,22 +1,11 @@
-/**
- * Unit tests for NEAR Processor Utilities
- *
- * Tests pure utility functions for architecture:
- * - Grouping normalized data by transaction hash
- * - Correlating receipts with balance changes and token transfers
- * - Extracting fees with single source of truth
- * - Extracting fund flows
- * - Consolidating movements by asset
- * - Classifying operation types
- */
-import type {
-  NearBalanceChange,
-  NearBalanceChangeCause,
-  NearReceipt as NearReceiptRaw,
-  NearTokenTransfer,
-  NearTransaction,
-  NearReceiptAction,
-} from '@exitbook/blockchain-providers';
+import {
+  type NearBalanceChange,
+  type NearBalanceChangeCause,
+  type NearReceipt as NearReceiptRaw,
+  type NearTokenTransfer,
+  type NearTransaction,
+  type NearReceiptAction,
+} from '@exitbook/blockchain-providers/near';
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import { describe, expect, test } from 'vitest';

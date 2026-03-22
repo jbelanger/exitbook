@@ -1,9 +1,5 @@
-import type {
-  BitcoinChainConfig,
-  BitcoinTransaction,
-  BlockchainProviderManager,
-  TransactionWithRawData,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type BitcoinChainConfig, type BitcoinTransaction } from '@exitbook/blockchain-providers/bitcoin';
 import type { CursorState } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
@@ -18,11 +14,11 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 export class BitcoinImporter implements IImporter {
   private readonly chainConfig: BitcoinChainConfig;
   private readonly logger: Logger;
-  private providerManager: BlockchainProviderManager;
+  private providerManager: IBlockchainProviderManager;
 
   constructor(
     chainConfig: BitcoinChainConfig,
-    blockchainProviderManager: BlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.chainConfig = chainConfig;

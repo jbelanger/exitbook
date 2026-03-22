@@ -1,4 +1,4 @@
-import type { XrpTransaction } from '@exitbook/blockchain-providers';
+import { type XrpTransaction } from '@exitbook/blockchain-providers/xrp';
 import { describe, expect, test } from 'vitest';
 
 import { analyzeXrpFundFlow } from '../processor-utils.js';

@@ -1,4 +1,5 @@
-import type { EvmTransaction, TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import type { RawTransactionInput } from '@exitbook/core';
 
 /**

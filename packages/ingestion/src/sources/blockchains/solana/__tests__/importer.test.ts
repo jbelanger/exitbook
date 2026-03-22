@@ -1,9 +1,4 @@
-/**
- * Unit tests for the Solana importer
- * Tests transaction fetching with provider failover
- */
-
-import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -62,7 +57,7 @@ describe('SolanaImporter', () => {
   });
 
   const createImporter = (options?: { preferredProvider?: string | undefined }): SolanaImporter =>
-    new SolanaImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+    new SolanaImporter(mockProviderManager as unknown as IBlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -130,7 +125,7 @@ describe('SolanaImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(2);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, address1, options1] = executeCalls[0]!;
@@ -234,7 +229,7 @@ describe('SolanaImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[0]).toBe('solana');

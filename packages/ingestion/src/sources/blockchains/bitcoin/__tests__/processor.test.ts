@@ -1,5 +1,5 @@
-import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { getBitcoinChainConfig } from '@exitbook/blockchain-providers';
+import { type BitcoinTransaction } from '@exitbook/blockchain-providers/bitcoin';
+import { getBitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
 import { describe, expect, test } from 'vitest';
 
 import { BitcoinProcessor } from '../processor.js';

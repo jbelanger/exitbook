@@ -1,10 +1,10 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { vi, type Mocked } from 'vitest';
 
 /**
- * Creates a mock BlockchainProviderManager with default implementations.
+ * Creates a mock IBlockchainProviderManager with default implementations.
  * Provides a single mock provider for the specified blockchain.
  *
  * The streamAddressTransactions method returns an async iterator by default.
@@ -21,18 +21,18 @@ export function createMockProviderManager(
   blockchain: string
 ): Mocked<
   Pick<
-    BlockchainProviderManager,
+    IBlockchainProviderManager,
     'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
   >
 > {
   const mockProviderManager = {
-    autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-    streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-    getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
-    getTokenMetadata: vi.fn<BlockchainProviderManager['getTokenMetadata']>().mockResolvedValue(ok(new Map())),
+    autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+    streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+    getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
+    getTokenMetadata: vi.fn<IBlockchainProviderManager['getTokenMetadata']>().mockResolvedValue(ok(new Map())),
   } as unknown as Mocked<
     Pick<
-      BlockchainProviderManager,
+      IBlockchainProviderManager,
       'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
     >
   >;

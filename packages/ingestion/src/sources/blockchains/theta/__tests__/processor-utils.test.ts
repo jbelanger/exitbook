@@ -1,4 +1,4 @@
-import type { EvmTransaction } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import type { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 

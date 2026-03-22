@@ -1,5 +1,5 @@
-import type { SubstrateChainConfig, SubstrateTransaction } from '@exitbook/blockchain-providers';
-import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers';
+import { type SubstrateChainConfig, type SubstrateTransaction } from '@exitbook/blockchain-providers/substrate';
+import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers/substrate';
 import {
   fromBaseUnitsToDecimalString,
   parseDecimal,

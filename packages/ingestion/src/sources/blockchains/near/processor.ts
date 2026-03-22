@@ -1,21 +1,10 @@
-/**
- * NEAR Transaction Processor
- *
- * Processing steps:
- * 1. Load raw data from 4 stream types (transactions, receipts, balance-changes, token-transfers)
- * 2. Group by transaction hash
- * 3. Two-hop correlation: receipts → transactions, balance changes → receipts
- * 4. Aggregate multiple receipts into one TransactionDraft per parent hash
- * 5. Fail-fast on missing deltas or incomplete data
- */
-
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import {
-  type BlockchainProviderManager,
   type NearBalanceChange,
   type NearStreamEvent,
   type NearTokenTransfer,
   NearStreamEventSchema,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/near';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -58,7 +47,7 @@ import type { NearCorrelatedTransaction } from './types.js';
  */
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
-    providerManager: BlockchainProviderManager,
+    providerManager: IBlockchainProviderManager,
     scamDetectionService?: IScamDetectionService,
     private readonly nearBatchSource?: INearBatchSource,
     private readonly accountId?: number | undefined

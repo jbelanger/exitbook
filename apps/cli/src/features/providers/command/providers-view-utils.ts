@@ -1,10 +1,7 @@
-// Pure utility functions for providers view command
-// All functions are pure — no side effects (except checkApiKeyStatus which reads process.env)
-
-import type {
-  BlockchainExplorersConfig,
-  ProviderCatalogEntry,
-  ProviderStatsSnapshot,
+import {
+  type BlockchainExplorersConfig,
+  type BlockchainProviderDescriptor,
+  type ProviderStatsSnapshot,
 } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
@@ -28,7 +25,7 @@ export type HealthFilter = (typeof VALID_HEALTH_FILTERS)[number];
  */
 interface ProviderBlockchainEntry {
   blockchain: string;
-  providerInfo: ProviderCatalogEntry;
+  providerInfo: BlockchainProviderDescriptor;
 }
 
 /**
@@ -45,7 +42,9 @@ export function validateHealthFilter(value: string): Result<HealthFilter, Error>
  * Build a map from provider name to all blockchains it serves.
  * Iterates all blockchains and groups by provider name.
  */
-export function groupProvidersByName(providers: ProviderCatalogEntry[]): Map<string, ProviderBlockchainEntry[]> {
+export function groupProvidersByName(
+  providers: BlockchainProviderDescriptor[]
+): Map<string, ProviderBlockchainEntry[]> {
   const providerMap = new Map<string, ProviderBlockchainEntry[]>();
 
   for (const provider of providers) {
@@ -64,7 +63,7 @@ export function groupProvidersByName(providers: ProviderCatalogEntry[]): Map<str
 /**
  * Shorten operation names for display (reuses logic from blockchains view).
  */
-function shortenCapabilities(providerInfo: ProviderCatalogEntry): string[] {
+function shortenCapabilities(providerInfo: BlockchainProviderDescriptor): string[] {
   const summary = providerToSummary(providerInfo);
   return summary.capabilities;
 }
@@ -72,7 +71,7 @@ function shortenCapabilities(providerInfo: ProviderCatalogEntry): string[] {
 /**
  * Get rate limit string from provider info.
  */
-function getRateLimit(providerInfo: ProviderCatalogEntry): string | undefined {
+function getRateLimit(providerInfo: BlockchainProviderDescriptor): string | undefined {
   if (providerInfo.defaultConfig?.rateLimit) {
     const rl = providerInfo.defaultConfig.rateLimit;
     return `${rl.requestsPerSecond}/sec`;

@@ -1,19 +1,10 @@
-/**
- * TypeScript types for NEAR transaction processing
- *
- * These types support the architecture where:
- * - Normalized data from 4 API streams is stored (not raw)
- * - Processor correlates normalized data by receipt_id
- * - Processor aggregates multiple receipts into one transaction per parent hash
- */
-
-import type {
-  NearTransaction,
-  NearReceipt as NearReceiptSchema,
-  NearBalanceChange,
-  NearTokenTransfer,
-  NearReceiptAction,
-} from '@exitbook/blockchain-providers';
+import {
+  type NearTransaction,
+  type NearReceipt as NearReceiptSchema,
+  type NearBalanceChange,
+  type NearTokenTransfer,
+  type NearReceiptAction,
+} from '@exitbook/blockchain-providers/near';
 
 /**
  * NEAR receipt with correlated balance changes and token transfers

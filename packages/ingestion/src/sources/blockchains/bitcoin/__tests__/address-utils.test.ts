@@ -1,4 +1,4 @@
-import type { BitcoinChainConfig } from '@exitbook/blockchain-providers';
+import { type BitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
 import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 

@@ -1,4 +1,5 @@
-import type { ThetaChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
+import { type ThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 
 import type { EvmFundFlow } from '../evm/types.js';
 

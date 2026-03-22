@@ -1,4 +1,5 @@
-import type { EvmChainConfig, CosmosChainConfig } from '@exitbook/blockchain-providers';
+import { type CosmosChainConfig } from '@exitbook/blockchain-providers/cosmos';
+import { type EvmChainConfig } from '@exitbook/blockchain-providers/evm';
 import type { Currency } from '@exitbook/core';
 
 /**

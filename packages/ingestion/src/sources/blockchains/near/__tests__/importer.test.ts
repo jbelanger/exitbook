@@ -1,8 +1,4 @@
-/**
- * Unit tests for the NEAR importer
- * Tests transaction fetching with provider failover
- */
-import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -91,7 +87,7 @@ describe('NearImporter', () => {
     });
   });
   const createImporter = (options?: { preferredProvider?: string | undefined }): NearImporter =>
-    new NearImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+    new NearImporter(mockProviderManager as unknown as IBlockchainProviderManager, options);
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -163,7 +159,7 @@ describe('NearImporter', () => {
       expect(value.rawTransactions[1]?.eventId).toMatch(/^[a-f0-9]{64}$/);
       // Verify API calls were made (makes 4 calls for 4 transaction types)
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       // Verify all 4 transaction types were called
@@ -354,7 +350,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'alice.near';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
       expect(calls[0]?.[1]).toBe(address);
@@ -363,7 +359,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
       expect(calls[0]?.[1]).toBe(address);
@@ -372,7 +368,7 @@ describe('NearImporter', () => {
       const importer = createImporter();
       const address = 'token.sub.alice.near';
       await consumeImportStream(importer, { sourceName: 'near', sourceType: 'blockchain' as const, address });
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
       expect(calls[0]?.[1]).toBe(address);

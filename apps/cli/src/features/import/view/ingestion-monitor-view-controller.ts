@@ -4,7 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
-import type { BlockchainProviderManager, ProviderEvent } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type ProviderEvent } from '@exitbook/blockchain-providers';
 import type { IngestionEvent } from '@exitbook/ingestion';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
@@ -24,7 +24,7 @@ type IngestionMonitorAction =
   | {
       event: CliEvent;
       instrumentation: InstrumentationCollector;
-      providerManager: BlockchainProviderManager;
+      providerManager: IBlockchainProviderManager;
       type: 'event';
     }
   | { errorMessage: string; type: 'fail' }
@@ -82,7 +82,7 @@ function updateStateFromEvent(
   state: IngestionMonitorState,
   event: CliEvent,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   switch (event.type) {
     // Xpub events
@@ -411,7 +411,7 @@ function handleImportBatch(
   state: IngestionMonitorState,
   event: Extract<IngestionEvent, { type: 'import.batch' }>,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   if (!state.import) return;
 
@@ -543,7 +543,7 @@ function handleImportWarning(
 function handleProviderSelection(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.selection' }>,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   state.currentProvider = event.selected;
   state.blockchain = event.blockchain;
@@ -587,7 +587,7 @@ function handleProviderSelection(
 function handleProviderResume(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.resume' }>,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   state.currentProvider = event.provider;
   state.blockchain = event.blockchain;
@@ -660,7 +660,7 @@ function handleProviderRequestSucceeded(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.succeeded' }>,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
   stats.inFlightCount = Math.max(0, stats.inFlightCount - 1); // Decrement in-flight count
@@ -708,7 +708,7 @@ function handleProviderRequestFailed(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.request.failed' }>,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   const stats = getOrCreateProviderStats(state, event.provider);
   stats.inFlightCount = Math.max(0, stats.inFlightCount - 1); // Decrement in-flight count
@@ -901,7 +901,7 @@ function handleMetadataBatchCompleted(
   state: IngestionMonitorState,
   event: Extract<ProviderEvent, { type: 'provider.metadata.batch.completed' }>,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   if (!state.processing) return;
 
@@ -926,7 +926,7 @@ function handleMetadataBatchCompleted(
 function calculateProviderRate(
   provider: string,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   blockchain: string | undefined
 ): { currentRate: number; maxRate: number | undefined } {
   const now = Date.now();
@@ -955,7 +955,7 @@ function calculateProviderRate(
 function updateStreamRates(
   state: IngestionMonitorState,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   if (!state.import) return;
 
@@ -1033,7 +1033,7 @@ function handleScamBatchSummary(
 function updateProcessingRates(
   state: IngestionMonitorState,
   instrumentation: InstrumentationCollector,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): void {
   if (!state.processing?.metadata?.activeProvider || state.processing.status !== 'active') return;
 

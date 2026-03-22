@@ -1,23 +1,11 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-/**
- * Unit tests for NEAR Transaction Processor
- *
- * Tests the NearProcessor class which:
- * - Groups normalized data by transaction hash
- * - Correlates receipts with balance changes and token transfers
- * - Aggregates multiple receipts into one TransactionDraft
- * - Extracts fees and fund flows
- * - Performs fail-fast validation
- * - Integrates with token metadata and scam detection services
- */
-import type {
-  NearBalanceChange,
-  NearReceipt,
-  NearStreamEvent,
-  NearTokenTransfer,
-  NearTransaction,
-} from '@exitbook/blockchain-providers';
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import {
+  type NearBalanceChange,
+  type NearReceipt,
+  type NearStreamEvent,
+  type NearTokenTransfer,
+  type NearTransaction,
+} from '@exitbook/blockchain-providers/near';
 import { ok } from '@exitbook/core';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
@@ -92,11 +80,15 @@ const createTokenTransferEvent = (overrides: Partial<NearTokenTransfer> = {}): N
   ...overrides,
 });
 
+type ProviderManagerMock = IBlockchainProviderManager & {
+  getTokenMetadata: ReturnType<typeof vi.fn>;
+};
+
 // Mock services
-function createMockProviderManager(): BlockchainProviderManager {
+function createMockProviderManager(): ProviderManagerMock {
   return {
     getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as BlockchainProviderManager;
+  } as unknown as ProviderManagerMock;
 }
 
 function createMockScamDetectionService(): IScamDetectionService {

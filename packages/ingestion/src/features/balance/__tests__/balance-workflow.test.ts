@@ -1,7 +1,7 @@
-import type {
-  BlockchainProviderManager,
-  FailoverExecutionResult,
-  RawBalanceData,
+import {
+  type IBlockchainProviderManager,
+  type FailoverExecutionResult,
+  type RawBalanceData,
 } from '@exitbook/blockchain-providers';
 import type {
   Account,
@@ -144,7 +144,7 @@ function createTransaction(
 function createProviderManager(
   providers: { capabilities: { supportedOperations: string[]; supportedTransactionTypes?: string[] | undefined } }[],
   nativeData: RawBalanceData
-): BlockchainProviderManager {
+): IBlockchainProviderManager {
   const nativeResult: FailoverExecutionResult<RawBalanceData> = {
     data: nativeData,
     providerName: 'mock-provider',
@@ -159,7 +159,7 @@ function createProviderManager(
     getProviders: vi.fn().mockReturnValue(providers),
     getAddressBalances: vi.fn().mockResolvedValue(ok(nativeResult)),
     getAddressTokenBalances: vi.fn(),
-  } as unknown as BlockchainProviderManager;
+  } as unknown as IBlockchainProviderManager;
 }
 
 function createPortsMock(params: {
@@ -521,7 +521,7 @@ describe('BalanceWorkflow', () => {
       getProviders: vi.fn().mockReturnValue([]),
       getAddressBalances: vi.fn(),
       getAddressTokenBalances: vi.fn(),
-    } as unknown as BlockchainProviderManager;
+    } as unknown as IBlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
     const result = await workflow.refreshVerification({ accountId: account.id });
@@ -764,7 +764,7 @@ describe('BalanceWorkflow', () => {
     const providerManager = {
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn(),
-    } as unknown as BlockchainProviderManager;
+    } as unknown as IBlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
     const result = await workflow.refreshVerification({ accountId: 999 });
@@ -791,7 +791,7 @@ describe('BalanceWorkflow', () => {
       hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([{ capabilities: { supportedOperations: ['getAddressBalances'] } }]),
       getAddressBalances: vi.fn().mockResolvedValue(err(new Error('RPC down'))),
-    } as unknown as BlockchainProviderManager;
+    } as unknown as IBlockchainProviderManager;
 
     const workflow = new BalanceWorkflow(ports, providerManager);
     const result = await workflow.refreshVerification({ accountId: account.id });

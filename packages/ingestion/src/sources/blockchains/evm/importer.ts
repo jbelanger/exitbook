@@ -1,9 +1,5 @@
-import type {
-  BlockchainProviderManager,
-  EvmChainConfig,
-  EvmTransaction,
-  TransactionWithRawData,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type EvmChainConfig, type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import type { CursorState } from '@exitbook/core';
 import { getErrorMessage, wrapError } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -27,7 +23,7 @@ import { mapToRawTransactions } from './evm-importer-utils.js';
  */
 export class EvmImporter implements IImporter {
   private readonly logger: Logger;
-  private providerManager: BlockchainProviderManager;
+  private providerManager: IBlockchainProviderManager;
   private chainConfig: EvmChainConfig;
 
   /**
@@ -38,7 +34,7 @@ export class EvmImporter implements IImporter {
 
   constructor(
     chainConfig: EvmChainConfig,
-    blockchainProviderManager: BlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.chainConfig = chainConfig;

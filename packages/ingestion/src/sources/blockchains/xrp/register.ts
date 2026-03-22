@@ -1,4 +1,4 @@
-import { XRP_CHAINS, getXrpChainConfig } from '@exitbook/blockchain-providers';
+import { XRP_CHAINS, getXrpChainConfig } from '@exitbook/blockchain-providers/xrp';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 

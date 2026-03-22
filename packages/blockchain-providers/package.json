@@ -6,7 +6,16 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./bitcoin": "./src/blockchains/bitcoin/index.ts",
+    "./cardano": "./src/blockchains/cardano/index.ts",
+    "./cosmos": "./src/blockchains/cosmos/index.ts",
+    "./evm": "./src/blockchains/evm/index.ts",
+    "./near": "./src/blockchains/near/index.ts",
+    "./solana": "./src/blockchains/solana/index.ts",
+    "./substrate": "./src/blockchains/substrate/index.ts",
+    "./theta": "./src/blockchains/theta/index.ts",
+    "./xrp": "./src/blockchains/xrp/index.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",

@@ -2,7 +2,7 @@ import {
   type BitcoinChainConfig,
   type BitcoinTransaction,
   BitcoinTransactionSchema,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/bitcoin';
 import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency, type TransactionDraft } from '@exitbook/core';
 import { type Result, err } from '@exitbook/core';
 

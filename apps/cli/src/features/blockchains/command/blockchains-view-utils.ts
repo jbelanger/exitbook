@@ -1,7 +1,4 @@
-// Pure utility functions for blockchains view command
-// All functions are pure — no side effects
-
-import type { ProviderCatalogEntry } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 
@@ -88,7 +85,7 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
  * Convert provider info to summary.
  * Always includes rate limit (TUI detail panel always shows full info).
  */
-export function providerToSummary(provider: ProviderCatalogEntry): ProviderSummary {
+export function providerToSummary(provider: BlockchainProviderDescriptor): ProviderSummary {
   // Shorten operation names for display
   const capabilities = Array.from(
     new Set(
@@ -126,7 +123,7 @@ export function providerToSummary(provider: ProviderCatalogEntry): ProviderSumma
  */
 export function buildBlockchainCatalogItem(
   blockchain: string,
-  providers: ProviderCatalogEntry[]
+  providers: BlockchainProviderDescriptor[]
 ): BlockchainCatalogItem {
   const providerSummaries = providers.map((p) => providerToSummary(p));
 

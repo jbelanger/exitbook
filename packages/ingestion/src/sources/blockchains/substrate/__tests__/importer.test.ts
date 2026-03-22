@@ -1,13 +1,5 @@
-/**
- * Unit tests for the generic Substrate importer
- * Tests the fetch pattern across multiple Substrate-based chains (Polkadot, Bittensor, Kusama, etc.)
- */
-
-import {
-  type BlockchainProviderManager,
-  ProviderError,
-  type SubstrateChainConfig,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type SubstrateChainConfig } from '@exitbook/blockchain-providers/substrate';
 import type { Currency, PaginationCursor } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -81,7 +73,7 @@ const mockSubstrateTx2 = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('SubstrateImporter', () => {
@@ -109,9 +101,9 @@ describe('SubstrateImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -137,7 +129,7 @@ describe('SubstrateImporter', () => {
     config: SubstrateChainConfig = POLKADOT_CONFIG,
     options?: { preferredProvider?: string | undefined }
   ): SubstrateImporter =>
-    new SubstrateImporter(config, mockProviderManager as unknown as BlockchainProviderManager, options);
+    new SubstrateImporter(config, mockProviderManager as unknown as IBlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -220,7 +212,7 @@ describe('SubstrateImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [blockchain, callAddress] = executeCalls[0]!;
@@ -460,7 +452,7 @@ describe('SubstrateImporter', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'bittensor' blockchain name
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('bittensor');
@@ -496,7 +488,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('kusama');
@@ -580,7 +572,7 @@ describe('SubstrateImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[0]).toBe('polkadot');
@@ -606,7 +598,7 @@ describe('SubstrateImporter', () => {
         address,
       });
 
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[0]).toBe('polkadot');
@@ -622,7 +614,7 @@ describe('SubstrateImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[0]).toBe('polkadot');
@@ -684,7 +676,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
 
-      const calls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[1]).toBe(address);

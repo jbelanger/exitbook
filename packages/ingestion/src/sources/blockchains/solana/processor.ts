@@ -1,8 +1,5 @@
-import {
-  type BlockchainProviderManager,
-  type SolanaTransaction,
-  SolanaTransactionSchema,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers/solana';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -28,7 +25,7 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * and historical context for accurate transaction classification.
  */
 export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction> {
-  constructor(providerManager: BlockchainProviderManager, scamDetectionService?: IScamDetectionService) {
+  constructor(providerManager: IBlockchainProviderManager, scamDetectionService?: IScamDetectionService) {
     super('solana', providerManager, scamDetectionService);
   }
 

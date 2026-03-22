@@ -1,4 +1,4 @@
-import type { ProviderCatalogEntry } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
@@ -55,9 +55,10 @@ function createRegistry(blockchains: string[] = ['bitcoin', 'solana']): AdapterR
   } as unknown as AdapterRegistry;
 }
 
-function createProviderCatalogEntry(
-  overrides: Partial<ProviderCatalogEntry> & Pick<ProviderCatalogEntry, 'blockchain' | 'displayName' | 'name'>
-): ProviderCatalogEntry {
+function createBlockchainProviderDescriptor(
+  overrides: Partial<BlockchainProviderDescriptor> &
+    Pick<BlockchainProviderDescriptor, 'blockchain' | 'displayName' | 'name'>
+): BlockchainProviderDescriptor {
   return {
     blockchain: overrides.blockchain,
     capabilities: overrides.capabilities ?? {
@@ -109,12 +110,12 @@ describe('registerBlockchainsViewCommand', () => {
     const program = new Command();
 
     mockListBlockchainProviders.mockReturnValue([
-      createProviderCatalogEntry({
+      createBlockchainProviderDescriptor({
         blockchain: 'bitcoin',
         displayName: 'Mempool',
         name: 'mempool',
       }),
-      createProviderCatalogEntry({
+      createBlockchainProviderDescriptor({
         apiKeyEnvVar: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',
@@ -164,7 +165,7 @@ describe('registerBlockchainsViewCommand', () => {
 
     mockCreateBlockchainsViewState.mockReturnValue(initialState);
     mockListBlockchainProviders.mockReturnValue([
-      createProviderCatalogEntry({
+      createBlockchainProviderDescriptor({
         apiKeyEnvVar: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',

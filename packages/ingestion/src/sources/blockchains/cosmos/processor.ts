@@ -2,7 +2,7 @@ import {
   type CosmosChainConfig,
   type CosmosTransaction,
   CosmosTransactionSchema,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/cosmos';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,

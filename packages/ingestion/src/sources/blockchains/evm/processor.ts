@@ -1,9 +1,5 @@
-import {
-  type BlockchainProviderManager,
-  type EvmChainConfig,
-  type EvmTransaction,
-  EvmTransactionSchema,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type EvmChainConfig, type EvmTransaction, EvmTransactionSchema } from '@exitbook/blockchain-providers/evm';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TransactionDraft } from '@exitbook/core';
 import { err, type Result } from '@exitbook/core';
 
@@ -26,12 +22,12 @@ import {
  */
 export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
   // Narrows base class optional to required — EvmProcessor always requires a provider manager
-  declare protected readonly providerManager: BlockchainProviderManager;
+  declare protected readonly providerManager: IBlockchainProviderManager;
   private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: EvmChainConfig,
-    providerManager: BlockchainProviderManager,
+    providerManager: IBlockchainProviderManager,
     scamDetectionService?: IScamDetectionService
   ) {
     super(chainConfig.chainName, providerManager, scamDetectionService);

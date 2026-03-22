@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import {
   loadBlockchainExplorerConfig,
   openProviderBenchmarkSession,
@@ -50,7 +49,7 @@ function createMockBenchmarkSession(
     name: 'blockstream.info',
     rateLimit: { requestsPerSecond: 5, burstLimit: 10 },
   })
-): ProviderBenchmarkSession {
+): ProviderBenchmarkSession & { cleanup: ReturnType<typeof vi.fn> } {
   return {
     provider,
     providerInfo: {
@@ -66,7 +65,7 @@ describe('ProviderBenchmarkHandler', () => {
   let handler: ProviderBenchmarkHandler;
   let mockLoadBlockchainExplorerConfig: ReturnType<typeof vi.fn>;
   let mockOpenProviderBenchmarkSession: ReturnType<typeof vi.fn>;
-  let mockBenchmarkSession: ProviderBenchmarkSession;
+  let mockBenchmarkSession: ReturnType<typeof createMockBenchmarkSession>;
 
   beforeEach(() => {
     vi.clearAllMocks();

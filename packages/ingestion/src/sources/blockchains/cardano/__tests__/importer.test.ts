@@ -1,9 +1,4 @@
-/**
- * Unit tests for the Cardano importer
- * Tests transaction fetching with provider failover
- */
-
-import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -52,7 +47,7 @@ const mockCardanoTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('CardanoImporter', () => {
@@ -60,9 +55,9 @@ describe('CardanoImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -85,7 +80,7 @@ describe('CardanoImporter', () => {
   });
 
   const createImporter = (options?: { preferredProvider?: string | undefined }): CardanoImporter =>
-    new CardanoImporter(mockProviderManager as unknown as BlockchainProviderManager, options);
+    new CardanoImporter(mockProviderManager as unknown as IBlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -166,7 +161,7 @@ describe('CardanoImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, opAddress] = executeCalls[0]!;

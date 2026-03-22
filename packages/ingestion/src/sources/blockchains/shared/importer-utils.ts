@@ -1,4 +1,4 @@
-import type { NormalizedTransactionBase, TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type NormalizedTransactionBase, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import type { RawTransactionInput } from '@exitbook/core';
 
 /**

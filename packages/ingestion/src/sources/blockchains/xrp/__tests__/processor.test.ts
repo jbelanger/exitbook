@@ -1,5 +1,5 @@
-import type { XrpTransaction } from '@exitbook/blockchain-providers';
-import { getXrpChainConfig } from '@exitbook/blockchain-providers';
+import { type XrpTransaction } from '@exitbook/blockchain-providers/xrp';
+import { getXrpChainConfig } from '@exitbook/blockchain-providers/xrp';
 import { describe, expect, test } from 'vitest';
 
 import { XrpProcessor } from '../processor.js';

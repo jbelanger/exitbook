@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager, RawBalanceData } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type RawBalanceData } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
 import {
   buildBlockchainNativeAssetId,
@@ -88,7 +88,7 @@ export async function fetchExchangeBalance(
  * Fetches both native asset balance and token balances if the provider supports it.
  */
 export async function fetchBlockchainBalance(
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   blockchain: string,
   address: string,
   providerName?: string
@@ -195,7 +195,7 @@ export async function fetchBlockchainBalance(
  * Fetches balance for each child account's address and sums them up.
  */
 export async function fetchChildAccountsBalance(
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   blockchain: string,
   parentAddress: string,
   childAccounts: { identifier: string }[],
@@ -275,7 +275,7 @@ export async function fetchChildAccountsBalance(
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): Promise<Result<RawBalanceData, Error>> {
   if (balance.symbol && balance.decimals !== undefined) {
     return ok(balance);

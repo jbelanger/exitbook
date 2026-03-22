@@ -1,9 +1,5 @@
-/**
- * Unit tests for the generic EVM importer
- * Tests the three-method fetch pattern (normal, internal, token) across multiple chains
- */
-
-import { type BlockchainProviderManager, type EvmChainConfig, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type EvmChainConfig } from '@exitbook/blockchain-providers/evm';
 import { err, ok, type Currency, type PaginationCursor } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -37,7 +33,7 @@ const mockTokenTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('EvmImporter', () => {
@@ -117,9 +113,9 @@ describe('EvmImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -147,7 +143,7 @@ describe('EvmImporter', () => {
   const createImporter = (
     config: EvmChainConfig = ETHEREUM_CONFIG,
     options?: { preferredProvider?: string | undefined }
-  ): EvmImporter => new EvmImporter(config, mockProviderManager as unknown as BlockchainProviderManager, options);
+  ): EvmImporter => new EvmImporter(config, mockProviderManager as unknown as IBlockchainProviderManager, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -251,7 +247,7 @@ describe('EvmImporter', () => {
       // Verify all four API calls were made (one for each Ethereum transaction type)
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, normalAddr, normalOpts] = executeCalls[0]!;
@@ -367,7 +363,7 @@ describe('EvmImporter', () => {
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(4);
 
       // Verify the fourth call was for beacon withdrawals
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       const [, beaconAddr, beaconOpts] = executeCalls[3]!;
       expect(beaconAddr).toBe(address);
@@ -401,7 +397,7 @@ describe('EvmImporter', () => {
 
       // Verify calls were made with 'avalanche' blockchain name
       // Avalanche only supports normal and token transactions (no internal)
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls.length).toBe(2);

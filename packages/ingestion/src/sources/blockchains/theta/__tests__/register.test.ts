@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { describe, expect, test, vi } from 'vitest';
 
 import { evmAdapters } from '../../evm/register.js';
@@ -8,13 +7,20 @@ import { ThetaImporter } from '../importer.js';
 import { ThetaProcessor } from '../processor.js';
 import { thetaAdapters } from '../register.js';
 
-function createProviderManager(): BlockchainProviderManager {
+type ProviderManagerMock = IBlockchainProviderManager & {
+  autoRegisterFromConfig: ReturnType<typeof vi.fn>;
+  getAddressInfo: ReturnType<typeof vi.fn>;
+  getProviders: ReturnType<typeof vi.fn>;
+  getTokenMetadata: ReturnType<typeof vi.fn>;
+};
+
+function createProviderManager(): ProviderManagerMock {
   return {
     autoRegisterFromConfig: vi.fn().mockReturnValue([]),
     getProviders: vi.fn().mockReturnValue([]),
     getAddressInfo: vi.fn(),
     getTokenMetadata: vi.fn(),
-  } as unknown as BlockchainProviderManager;
+  } as unknown as ProviderManagerMock;
 }
 
 describe('theta/register', () => {

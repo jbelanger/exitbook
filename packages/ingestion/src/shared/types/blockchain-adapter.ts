@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import { type Result } from '@exitbook/core';
 
 import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
@@ -13,7 +13,7 @@ export interface DerivedAddress {
 }
 
 interface BlockchainProcessorContext {
-  providerManager: BlockchainProviderManager;
+  providerManager: IBlockchainProviderManager;
   scamDetectionService: IScamDetectionService | undefined;
   /** Only needed by NEAR processors for balance-change delta derivation. */
   nearBatchSource?: INearBatchSource | undefined;
@@ -23,7 +23,7 @@ interface BlockchainProcessorContext {
 interface BlockchainAdapterBase {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
-  createImporter: (providerManager: BlockchainProviderManager, providerName?: string) => IImporter;
+  createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) => IImporter;
   createProcessor: (deps: BlockchainProcessorContext) => ITransactionProcessor;
 }
 
@@ -36,7 +36,7 @@ export interface UtxoBlockchainAdapter extends BlockchainAdapterBase {
   isExtendedPublicKey: (address: string) => boolean;
   deriveAddressesFromXpub: (
     xpub: string,
-    providerManager: BlockchainProviderManager,
+    providerManager: IBlockchainProviderManager,
     blockchain: string,
     gap?: number
   ) => Promise<Result<DerivedAddress[], Error>>;

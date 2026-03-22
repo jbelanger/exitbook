@@ -1,11 +1,11 @@
 import type { ProviderInfo } from '../contracts/registry.js';
 import { createProviderRegistry } from '../initialize.js';
 
-export interface ProviderCatalogEntry extends ProviderInfo {
+export interface BlockchainProviderDescriptor extends ProviderInfo {
   apiKeyEnvVar?: string | undefined;
 }
 
-export function listBlockchainProviders(): ProviderCatalogEntry[] {
+export function listBlockchainProviders(): BlockchainProviderDescriptor[] {
   const registry = createProviderRegistry();
 
   return registry.getAllProviders().map((provider) => ({

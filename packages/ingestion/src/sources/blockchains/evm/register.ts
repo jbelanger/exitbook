@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { EVM_CHAINS, getEvmChainConfig } from '@exitbook/blockchain-providers/evm';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 
@@ -17,7 +17,7 @@ export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap(
 
     normalizeAddress: (address: string) => normalizeEvmAddress(address, chainName),
 
-    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+    createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) =>
       new EvmImporter(config, providerManager, {
         preferredProvider: providerName,
       }),

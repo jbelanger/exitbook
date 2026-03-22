@@ -1,9 +1,5 @@
-import type {
-  BlockchainProviderManager,
-  CosmosChainConfig,
-  CosmosTransaction,
-  TransactionWithRawData,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type CosmosChainConfig, type CosmosTransaction } from '@exitbook/blockchain-providers/cosmos';
 import type { CursorState } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
@@ -18,12 +14,12 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  */
 export class CosmosImporter implements IImporter {
   private readonly logger: Logger;
-  private providerManager: BlockchainProviderManager;
+  private providerManager: IBlockchainProviderManager;
   private chainConfig: CosmosChainConfig;
 
   constructor(
     chainConfig: CosmosChainConfig,
-    blockchainProviderManager: BlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.chainConfig = chainConfig;

@@ -1,4 +1,4 @@
-import { isValidXrpAddress, normalizeXrpAddress as applyNormalization } from '@exitbook/blockchain-providers';
+import { isValidXrpAddress, normalizeXrpAddress as applyNormalization } from '@exitbook/blockchain-providers/xrp';
 import { err, ok, type Result } from '@exitbook/core';
 
 export function normalizeXrpAddress(address: string): Result<string, Error> {

@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager, EvmChainConfig, EvmTransaction } from '@exitbook/blockchain-providers';
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type EvmChainConfig, type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import type { Currency } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import { describe, expect, test, vi } from 'vitest';
@@ -26,7 +26,12 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 
-function createMockProviderManager(isContract = false): BlockchainProviderManager {
+type ProviderManagerMock = IBlockchainProviderManager & {
+  getAddressInfo: ReturnType<typeof vi.fn>;
+  getTokenMetadata: ReturnType<typeof vi.fn>;
+};
+
+function createMockProviderManager(isContract = false): ProviderManagerMock {
   return {
     getAddressInfo: vi.fn().mockResolvedValue(
       ok({
@@ -35,14 +40,14 @@ function createMockProviderManager(isContract = false): BlockchainProviderManage
       })
     ),
     getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as BlockchainProviderManager;
+  } as unknown as ProviderManagerMock;
 }
 
-function createEthereumProcessor(providerManager?: BlockchainProviderManager) {
+function createEthereumProcessor(providerManager?: IBlockchainProviderManager) {
   return new EvmProcessor(ETHEREUM_CONFIG, providerManager ?? createMockProviderManager());
 }
 
-function createAvalancheProcessor(providerManager?: BlockchainProviderManager) {
+function createAvalancheProcessor(providerManager?: IBlockchainProviderManager) {
   return new EvmProcessor(AVALANCHE_CONFIG, providerManager ?? createMockProviderManager());
 }
 
@@ -1407,7 +1412,7 @@ describe('EvmProcessor - Classification Uncertainty', () => {
 });
 
 describe('EvmProcessor - Token Metadata Enrichment', () => {
-  function createMetadataProviderManager(): BlockchainProviderManager {
+  function createMetadataProviderManager(): ProviderManagerMock {
     const metadataMap = new Map([
       [
         '0xusdc000000000000000000000000000000000000',
@@ -1447,7 +1452,7 @@ describe('EvmProcessor - Token Metadata Enrichment', () => {
     return {
       getAddressInfo: vi.fn().mockResolvedValue(ok({ data: { isContract: false }, providerName: 'mock' })),
       getTokenMetadata: vi.fn().mockResolvedValue(ok(metadataMap)),
-    } as unknown as BlockchainProviderManager;
+    } as unknown as ProviderManagerMock;
   }
 
   test('enriches token metadata when symbol looks like contract address', async () => {

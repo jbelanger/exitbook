@@ -24,7 +24,7 @@ interface SetupResult {
 
 /**
  * Handler for providers-benchmark command.
- * Manages BlockchainProviderManager lifecycle and orchestrates benchmark execution.
+ * Manages blockchain provider runtime lifecycle and orchestrates benchmark execution.
  */
 export class ProviderBenchmarkHandler {
   private benchmarkSession: ProviderBenchmarkSession | undefined;

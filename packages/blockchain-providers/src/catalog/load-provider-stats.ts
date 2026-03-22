@@ -8,7 +8,9 @@ import { toProviderStatsSnapshot } from '../provider-stats/snapshot.js';
 
 const logger = getLogger('BlockchainProviderStats');
 
-export async function loadBlockchainProviderStats(dataDir: string): Promise<Result<ProviderStatsSnapshot[], Error>> {
+export async function loadBlockchainProviderHealthStats(
+  dataDir: string
+): Promise<Result<ProviderStatsSnapshot[], Error>> {
   const persistenceResult = await initProviderStatsPersistence(dataDir);
   if (persistenceResult.isErr()) {
     logger.warn(

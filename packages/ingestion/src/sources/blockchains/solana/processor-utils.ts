@@ -1,4 +1,4 @@
-import type { SolanaTransaction } from '@exitbook/blockchain-providers';
+import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';

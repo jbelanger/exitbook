@@ -1,7 +1,7 @@
 import {
   listBlockchainProviders,
   loadBlockchainExplorerConfig,
-  loadBlockchainProviderStats,
+  loadBlockchainProviderHealthStats,
 } from '@exitbook/blockchain-providers';
 
 import type { ProviderViewItem } from '../view/index.js';
@@ -33,7 +33,7 @@ export class ProvidersViewHandler {
       throw explorerConfigResult.error;
     }
 
-    const providerStatsResult = await loadBlockchainProviderStats(this.dataDir);
+    const providerStatsResult = await loadBlockchainProviderHealthStats(this.dataDir);
     if (providerStatsResult.isErr()) {
       throw providerStatsResult.error;
     }

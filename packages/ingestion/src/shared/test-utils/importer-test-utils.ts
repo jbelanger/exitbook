@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type { CursorState, RawTransactionInput } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { type Mocked } from 'vitest';
@@ -8,7 +8,7 @@ import type { IImporter, StreamingImportParams } from '../../shared/types/import
 export { createMockProviderManager } from './mock-factories.js';
 
 export type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 /**

@@ -1,4 +1,4 @@
-import { isValidEvmAddress, normalizeEvmAddress as applyNormalization } from '@exitbook/blockchain-providers';
+import { isValidEvmAddress, normalizeEvmAddress as applyNormalization } from '@exitbook/blockchain-providers/evm';
 import { err, ok, type Result } from '@exitbook/core';
 
 export function normalizeThetaAddress(address: string): Result<string, Error> {

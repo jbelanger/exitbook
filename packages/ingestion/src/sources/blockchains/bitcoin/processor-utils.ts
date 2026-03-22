@@ -1,5 +1,5 @@
-import type { BitcoinTransaction } from '@exitbook/blockchain-providers';
-import { satoshisToBtcString } from '@exitbook/blockchain-providers';
+import { type BitcoinTransaction } from '@exitbook/blockchain-providers/bitcoin';
+import { satoshisToBtcString } from '@exitbook/blockchain-providers/bitcoin';
 import { type Result, ok } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 

@@ -1,4 +1,4 @@
-import type { CardanoTransaction } from '@exitbook/blockchain-providers';
+import { type CardanoTransaction } from '@exitbook/blockchain-providers/cardano';
 import { isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import { type Result, ok } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';

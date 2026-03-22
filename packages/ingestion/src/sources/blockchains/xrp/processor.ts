@@ -1,4 +1,4 @@
-import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers';
+import { type XrpChainConfig, type XrpTransaction, XrpTransactionSchema } from '@exitbook/blockchain-providers/xrp';
 import { buildBlockchainNativeAssetId, parseDecimal, type Currency, type TransactionDraft } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 

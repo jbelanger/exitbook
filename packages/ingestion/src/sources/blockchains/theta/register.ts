@@ -1,4 +1,4 @@
-import { getThetaChainConfig } from '@exitbook/blockchain-providers';
+import { getThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 

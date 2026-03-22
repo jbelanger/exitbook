@@ -1,8 +1,5 @@
-import type {
-  BlockchainProviderManager,
-  CardanoTransaction,
-  TransactionWithRawData,
-} from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type CardanoTransaction } from '@exitbook/blockchain-providers/cardano';
 import type { CursorState } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import { getLogger, type Logger } from '@exitbook/logger';
@@ -16,10 +13,10 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  */
 export class CardanoImporter implements IImporter {
   private readonly logger: Logger;
-  private providerManager: BlockchainProviderManager;
+  private providerManager: IBlockchainProviderManager;
 
   constructor(
-    blockchainProviderManager: BlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger('cardanoImporter');

@@ -1,4 +1,4 @@
-import { isValidNearAccountId } from '@exitbook/blockchain-providers';
+import { isValidNearAccountId } from '@exitbook/blockchain-providers/near';
 import { err, ok, type Result } from '@exitbook/core';
 
 // NEAR accounts are case-sensitive — preserve original casing.

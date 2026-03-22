@@ -2,7 +2,7 @@ import {
   type SubstrateTransaction,
   type SubstrateChainConfig,
   SubstrateTransactionSchema,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/substrate';
 import {
   type AssetMovementDraft,
   buildBlockchainNativeAssetId,

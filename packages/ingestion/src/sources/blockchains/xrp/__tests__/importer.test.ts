@@ -1,14 +1,9 @@
-/**
- * Unit tests for the XRP importer
- * Tests transaction fetching with provider failover
- */
-
 import {
-  type BlockchainProviderManager,
+  type IBlockchainProviderManager,
   type IBlockchainProvider,
   ProviderError,
 } from '@exitbook/blockchain-providers';
-import { getXrpChainConfig } from '@exitbook/blockchain-providers';
+import { getXrpChainConfig } from '@exitbook/blockchain-providers/xrp';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -50,9 +45,9 @@ describe('XrpImporter', () => {
     vi.clearAllMocks();
 
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -63,7 +58,7 @@ describe('XrpImporter', () => {
     if (!chainConfig) {
       throw new Error('XRP chain config not found');
     }
-    importer = new XrpImporter(chainConfig, mockProviderManager as unknown as BlockchainProviderManager);
+    importer = new XrpImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderManager);
   });
 
   afterEach(() => {

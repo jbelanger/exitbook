@@ -1,9 +1,5 @@
-/**
- * Tests for EVM importer utility functions
- * Tests the pure mapping function that converts provider transactions to external transactions
- */
-
-import type { EvmTransaction, TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import { describe, expect, test } from 'vitest';
 
 import { mapToRawTransactions } from '../evm-importer-utils.js';

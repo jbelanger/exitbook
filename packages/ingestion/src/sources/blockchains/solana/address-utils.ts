@@ -1,4 +1,4 @@
-import { isValidSolanaAddress } from '@exitbook/blockchain-providers';
+import { isValidSolanaAddress } from '@exitbook/blockchain-providers/solana';
 import { err, ok, type Result } from '@exitbook/core';
 
 // Solana addresses are case-sensitive base58 — preserve original casing.

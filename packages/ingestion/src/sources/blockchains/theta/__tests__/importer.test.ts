@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { THETA_CHAINS } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { THETA_CHAINS } from '@exitbook/blockchain-providers/theta';
 import { err, ok, type PaginationCursor } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -7,7 +7,7 @@ import { consumeImportStream } from '../../../../shared/test-utils/importer-test
 import { ThetaImporter } from '../importer.js';
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 const THETA_CONFIG = (() => {
@@ -24,9 +24,9 @@ describe('ThetaImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -52,7 +52,7 @@ describe('ThetaImporter', () => {
   });
 
   function createImporter(options?: { preferredProvider?: string | undefined }): ThetaImporter {
-    return new ThetaImporter(THETA_CONFIG, mockProviderManager as unknown as BlockchainProviderManager, options);
+    return new ThetaImporter(THETA_CONFIG, mockProviderManager as unknown as IBlockchainProviderManager, options);
   }
 
   test('registers Theta providers for the selected chain', () => {

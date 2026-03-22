@@ -1,4 +1,4 @@
-import type { EvmTransaction } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';

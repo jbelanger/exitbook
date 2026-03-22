@@ -1,5 +1,5 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
-import { COSMOS_CHAINS, getCosmosChainConfig } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { COSMOS_CHAINS, getCosmosChainConfig } from '@exitbook/blockchain-providers/cosmos';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
 
@@ -17,7 +17,7 @@ export const cosmosAdapters: BlockchainAdapter[] = Object.keys(COSMOS_CHAINS).fl
 
     normalizeAddress: (address: string) => normalizeCosmosAddress(address, chainName),
 
-    createImporter: (providerManager: BlockchainProviderManager, providerName?: string) =>
+    createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) =>
       new CosmosImporter(config, providerManager, {
         preferredProvider: providerName,
       }),

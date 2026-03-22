@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
 import type {
   Account,
   BalanceSnapshot,
@@ -57,7 +57,7 @@ interface BalanceRebuildResult {
 export class BalanceWorkflow {
   constructor(
     private readonly ports: BalancePorts,
-    private readonly providerManager: BlockchainProviderManager
+    private readonly providerManager: IBlockchainProviderManager
   ) {}
 
   /**

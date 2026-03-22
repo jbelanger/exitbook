@@ -1,4 +1,4 @@
-import type { ProviderCatalogEntry, ProviderOperationType } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderDescriptor, type ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import type { BlockchainCatalogItem } from '../../command/blockchains-view-utils.js';
@@ -110,7 +110,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should always include rate limit', () => {
-      const provider: ProviderCatalogEntry = {
+      const provider: BlockchainProviderDescriptor = {
         ...createMockProvider('test-provider', 'bitcoin'),
         defaultConfig: {
           rateLimit: {
@@ -326,7 +326,7 @@ function createMockProvider(
   blockchain: string,
   requiresApiKey = false,
   operations: ProviderOperationType[] = ['getAddressTransactions']
-): ProviderCatalogEntry {
+): BlockchainProviderDescriptor {
   return {
     name,
     displayName: name

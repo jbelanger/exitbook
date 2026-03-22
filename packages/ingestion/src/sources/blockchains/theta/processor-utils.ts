@@ -1,4 +1,4 @@
-import type { ThetaChainConfig } from '@exitbook/blockchain-providers';
+import { type ThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 import type { OperationClassification } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 

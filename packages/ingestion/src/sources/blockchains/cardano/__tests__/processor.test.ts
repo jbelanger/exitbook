@@ -1,8 +1,8 @@
-import type {
-  CardanoTransaction,
-  CardanoTransactionInput,
-  CardanoTransactionOutput,
-} from '@exitbook/blockchain-providers';
+import {
+  type CardanoTransaction,
+  type CardanoTransactionInput,
+  type CardanoTransactionOutput,
+} from '@exitbook/blockchain-providers/cardano';
 import { describe, expect, test } from 'vitest';
 
 import { CardanoProcessor } from '../processor.js';

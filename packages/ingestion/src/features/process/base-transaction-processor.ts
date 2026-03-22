@@ -1,4 +1,4 @@
-import type { BlockchainProviderManager, TokenMetadataRecord } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, type TokenMetadataRecord } from '@exitbook/blockchain-providers';
 import type { TransactionDraft } from '@exitbook/core';
 import { TransactionDraftSchema, type Result, err, ok } from '@exitbook/core';
 import type { Logger } from '@exitbook/logger';
@@ -20,7 +20,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
 
   constructor(
     protected sourceName: string,
-    protected providerManager?: BlockchainProviderManager,
+    protected providerManager?: IBlockchainProviderManager,
     protected scamDetectionService?: IScamDetectionService
   ) {
     this.logger = getLogger(`${sourceName}Processor`);

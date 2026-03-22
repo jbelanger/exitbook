@@ -1,4 +1,4 @@
-import { validateBech32Address } from '@exitbook/blockchain-providers';
+import { validateBech32Address } from '@exitbook/blockchain-providers/cosmos';
 import { err, ok, type Result } from '@exitbook/core';
 
 // Cosmos bech32 addresses are case-insensitive; canonical form is lowercase.

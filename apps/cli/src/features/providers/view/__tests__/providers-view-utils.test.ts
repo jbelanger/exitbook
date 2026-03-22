@@ -1,4 +1,4 @@
-import type { ProviderCatalogEntry, ProviderStatsSnapshot } from '@exitbook/blockchain-providers';
+import { type BlockchainProviderDescriptor, type ProviderStatsSnapshot } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,9 +18,9 @@ import type { ProviderViewItem } from '../providers-view-state.js';
 
 // --- Test Helpers ---
 
-function makeProviderCatalogEntry(
-  overrides: Partial<ProviderCatalogEntry> & { blockchain: string; name: string }
-): ProviderCatalogEntry {
+function makeBlockchainProviderDescriptor(
+  overrides: Partial<BlockchainProviderDescriptor> & { blockchain: string; name: string }
+): BlockchainProviderDescriptor {
   return {
     displayName: overrides.displayName ?? overrides.name,
     description: '',
@@ -94,9 +94,9 @@ describe('view-providers-utils', () => {
   describe('groupProvidersByName', () => {
     it('should group providers by name across blockchains', () => {
       const map = groupProvidersByName([
-        makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'ethereum' }),
-        makeProviderCatalogEntry({ name: 'etherscan', blockchain: 'ethereum' }),
-        makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'polygon' }),
+        makeBlockchainProviderDescriptor({ name: 'alchemy', blockchain: 'ethereum' }),
+        makeBlockchainProviderDescriptor({ name: 'etherscan', blockchain: 'ethereum' }),
+        makeBlockchainProviderDescriptor({ name: 'alchemy', blockchain: 'polygon' }),
       ]);
 
       expect(map.size).toBe(2);
@@ -469,7 +469,7 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'bitcoin',
-              providerInfo: makeProviderCatalogEntry({ name: 'blockstream', blockchain: 'bitcoin' }),
+              providerInfo: makeBlockchainProviderDescriptor({ name: 'blockstream', blockchain: 'bitcoin' }),
             },
           ],
         ],
@@ -502,7 +502,7 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'bitcoin',
-              providerInfo: makeProviderCatalogEntry({ name: 'blockstream', blockchain: 'bitcoin' }),
+              providerInfo: makeBlockchainProviderDescriptor({ name: 'blockstream', blockchain: 'bitcoin' }),
             },
           ],
         ],
@@ -522,7 +522,7 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'ethereum',
-              providerInfo: makeProviderCatalogEntry({
+              providerInfo: makeBlockchainProviderDescriptor({
                 name: 'alchemy',
                 blockchain: 'ethereum',
                 requiresApiKey: true,
@@ -531,7 +531,7 @@ describe('view-providers-utils', () => {
             },
             {
               blockchain: 'polygon',
-              providerInfo: makeProviderCatalogEntry({
+              providerInfo: makeBlockchainProviderDescriptor({
                 name: 'alchemy',
                 blockchain: 'polygon',
                 requiresApiKey: true,
@@ -556,15 +556,15 @@ describe('view-providers-utils', () => {
           [
             {
               blockchain: 'ethereum',
-              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'ethereum' }),
+              providerInfo: makeBlockchainProviderDescriptor({ name: 'alchemy', blockchain: 'ethereum' }),
             },
             {
               blockchain: 'polygon',
-              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'polygon' }),
+              providerInfo: makeBlockchainProviderDescriptor({ name: 'alchemy', blockchain: 'polygon' }),
             },
             {
               blockchain: 'arbitrum',
-              providerInfo: makeProviderCatalogEntry({ name: 'alchemy', blockchain: 'arbitrum' }),
+              providerInfo: makeBlockchainProviderDescriptor({ name: 'alchemy', blockchain: 'arbitrum' }),
             },
           ],
         ],

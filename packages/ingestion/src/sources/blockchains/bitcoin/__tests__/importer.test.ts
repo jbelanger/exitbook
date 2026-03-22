@@ -1,10 +1,5 @@
-/**
- * Unit tests for the Bitcoin importer
- * Tests transaction fetching with provider failover
- */
-
-import { type BlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
-import { getBitcoinChainConfig } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { getBitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
 import { err, ok, type PaginationCursor } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
@@ -41,7 +36,7 @@ const mockBitcoinTx = {
 };
 
 type ProviderManagerMock = Mocked<
-  Pick<BlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 describe('BitcoinImporter', () => {
@@ -49,9 +44,9 @@ describe('BitcoinImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
-      streamAddressTransactions: vi.fn<BlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<BlockchainProviderManager['getProviders']>(),
+      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
@@ -78,7 +73,7 @@ describe('BitcoinImporter', () => {
     if (!chainConfig) {
       throw new Error('Bitcoin chain config not found');
     }
-    return new BitcoinImporter(chainConfig, mockProviderManager as unknown as BlockchainProviderManager, options);
+    return new BitcoinImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderManager, options);
   };
 
   afterEach(() => {
@@ -164,7 +159,7 @@ describe('BitcoinImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<BlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, opAddress] = executeCalls[0]!;

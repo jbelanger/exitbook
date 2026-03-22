@@ -1,4 +1,4 @@
-import type { CardanoTransaction } from '@exitbook/blockchain-providers';
+import { type CardanoTransaction } from '@exitbook/blockchain-providers/cardano';
 import type { Currency } from '@exitbook/core';
 import { describe, expect, test } from 'vitest';
 

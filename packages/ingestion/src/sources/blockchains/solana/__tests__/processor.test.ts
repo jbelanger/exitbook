@@ -1,4 +1,5 @@
-import type { BlockchainProviderManager, SolanaTransaction } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
 import { ok } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
 import { describe, expect, test, vi } from 'vitest';
@@ -11,13 +12,13 @@ const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
-function createMockProviderManager(): BlockchainProviderManager {
+function createMockProviderManager(): IBlockchainProviderManager {
   return {
     getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as BlockchainProviderManager;
+  } as unknown as IBlockchainProviderManager;
 }
 
-function createProcessor(customProviderManager?: BlockchainProviderManager) {
+function createProcessor(customProviderManager?: IBlockchainProviderManager) {
   return new SolanaProcessor(customProviderManager || createMockProviderManager());
 }
 

@@ -1,4 +1,4 @@
-import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers';
+import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers/cardano';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,

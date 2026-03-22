@@ -1,4 +1,4 @@
-import type { XrpBalanceChange, XrpTransaction } from '@exitbook/blockchain-providers';
+import { type XrpBalanceChange, type XrpTransaction } from '@exitbook/blockchain-providers/xrp';
 import { parseDecimal } from '@exitbook/core';
 import { type Result, err, ok } from '@exitbook/core';
 

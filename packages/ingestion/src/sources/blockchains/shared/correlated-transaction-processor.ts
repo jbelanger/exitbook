@@ -1,4 +1,5 @@
-import { ProviderError, type BlockchainProviderManager, type EvmTransaction } from '@exitbook/blockchain-providers';
+import { ProviderError, type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import {
   buildBlockchainNativeAssetId,
   maskAddress,
@@ -65,7 +66,7 @@ interface ProcessCorrelatedTransactionsParams<
   groupTransactions: (transactions: TTransaction[]) => Map<string, TTransaction[]>;
   logger: Logger;
   normalizedData: TTransaction[];
-  providerManager: BlockchainProviderManager;
+  providerManager: IBlockchainProviderManager;
   runScamDetection: (
     transactions: TransactionDraft[],
     movements: MovementWithContext[],
@@ -255,7 +256,7 @@ export async function processCorrelatedTransactions<
 async function enrichContractTokenMetadata(
   transactions: EvmTransaction[],
   chainName: string,
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   logger: Logger
 ): Promise<Result<void, Error>> {
   const tokenTransfers = transactions.filter(
@@ -295,7 +296,7 @@ async function enrichContractTokenMetadata(
 async function resolveAccountIsContract(
   address: string,
   chainName: string,
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   logger: Logger,
   contractAddressCache: Map<string, boolean>
 ): Promise<boolean | undefined> {

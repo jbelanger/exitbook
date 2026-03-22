@@ -1,11 +1,12 @@
 /**
  * @exitbook/blockchain-providers
  *
- * Public package API for blockchain provider runtimes, contracts, and normalized chain models.
+ * Public package API for blockchain provider runtimes, contracts, and discovery.
+ * Chain-specific models and helpers are exported from explicit subpaths.
  */
 
 export type { ProviderEvent } from './events.js';
-export type { IBlockchainProviderManager as BlockchainProviderManager } from './contracts/provider-manager.js';
+export type { IBlockchainProviderManager } from './contracts/provider-manager.js';
 
 export {
   createAssetReviewProviderSupport,
@@ -16,8 +17,8 @@ export {
   type BlockchainProviderRuntime,
   type BlockchainProviderRuntimeOptions,
 } from './runtime/create-blockchain-provider-runtime.js';
-export { listBlockchainProviders, type ProviderCatalogEntry } from './catalog/list-blockchain-providers.js';
-export { loadBlockchainProviderStats } from './catalog/load-provider-stats.js';
+export { listBlockchainProviders, type BlockchainProviderDescriptor } from './catalog/list-blockchain-providers.js';
+export { loadBlockchainProviderHealthStats } from './catalog/load-provider-stats.js';
 export { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from './catalog/load-explorer-config.js';
 export {
   openProviderBenchmarkSession,
@@ -36,87 +37,3 @@ export { ProviderError } from './contracts/errors.js';
 export type { NormalizedTransactionBase } from './contracts/normalized-transaction.js';
 export type { FailoverExecutionResult, ProviderOperationType } from './contracts/operations.js';
 export type { IBlockchainProvider } from './contracts/provider.js';
-
-export {
-  BITCOIN_CHAINS,
-  getBitcoinChainConfig,
-  BitcoinTransactionSchema,
-  canonicalizeBitcoinAddress,
-  initializeBitcoinXpubWallet,
-  isBitcoinXpub,
-  satoshisToBtcString,
-  type BitcoinChainConfig,
-  type BitcoinTransaction,
-  type BitcoinWalletAddress,
-} from './blockchains/bitcoin/index.js';
-
-export {
-  CardanoTransactionSchema,
-  initializeCardanoXpubWallet,
-  isCardanoXpub,
-  isValidCardanoAddress,
-  normalizeCardanoAddress,
-  type CardanoTransaction,
-  type CardanoTransactionInput,
-  type CardanoTransactionOutput,
-  type CardanoWalletAddress,
-} from './blockchains/cardano/index.js';
-
-export {
-  COSMOS_CHAINS,
-  getCosmosChainConfig,
-  CosmosTransactionSchema,
-  validateBech32Address,
-  type CosmosChainConfig,
-  type CosmosTransaction,
-} from './blockchains/cosmos/index.js';
-
-export {
-  EVM_CHAINS,
-  getEvmChainConfig,
-  EvmTransactionSchema,
-  isValidEvmAddress,
-  normalizeEvmAddress,
-  type EvmChainConfig,
-  type EvmTransaction,
-} from './blockchains/evm/index.js';
-
-export {
-  NearStreamEventSchema,
-  NearStreamTypeSchema,
-  isValidNearAccountId,
-  type NearActionType,
-  type NearBalanceChange,
-  type NearBalanceChangeCause,
-  type NearReceipt,
-  type NearReceiptAction,
-  type NearStreamEvent,
-  type NearStreamType,
-  type NearTokenTransfer,
-  type NearTransaction,
-} from './blockchains/near/index.js';
-
-export { SolanaTransactionSchema, isValidSolanaAddress, type SolanaTransaction } from './blockchains/solana/index.js';
-
-export {
-  SUBSTRATE_CHAINS,
-  getSubstrateChainConfig,
-  SubstrateTransactionSchema,
-  derivePolkadotAddressVariants,
-  isValidSS58Address,
-  type SubstrateChainConfig,
-  type SubstrateTransaction,
-} from './blockchains/substrate/index.js';
-
-export { THETA_CHAINS, getThetaChainConfig, type ThetaChainConfig } from './blockchains/theta/index.js';
-
-export {
-  XRP_CHAINS,
-  getXrpChainConfig,
-  XrpTransactionSchema,
-  isValidXrpAddress,
-  normalizeXrpAddress,
-  type XrpBalanceChange,
-  type XrpChainConfig,
-  type XrpTransaction,
-} from './blockchains/xrp/index.js';

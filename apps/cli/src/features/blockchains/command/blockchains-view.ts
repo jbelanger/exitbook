@@ -1,6 +1,4 @@
-// Command registration for view blockchains subcommand
-
-import { listBlockchainProviders, type ProviderCatalogEntry } from '@exitbook/blockchain-providers';
+import { listBlockchainProviders, type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
@@ -93,7 +91,7 @@ async function loadBlockchainCatalogData(
   options: CommandOptions,
   registry: AdapterRegistry
 ): Promise<{
-  allProviders: ProviderCatalogEntry[];
+  allProviders: BlockchainProviderDescriptor[];
   blockchains: ReturnType<typeof buildBlockchainCatalogItem>[];
   validatedCategory: BlockchainCategory | undefined;
 } | null> {
