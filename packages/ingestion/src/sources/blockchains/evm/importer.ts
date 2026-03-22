@@ -23,6 +23,7 @@ import { mapToRawTransactions } from './evm-importer-utils.js';
  */
 export class EvmImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
   private chainConfig: EvmChainConfig;
 
@@ -40,14 +41,13 @@ export class EvmImporter implements IImporter {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`evmImporter:${chainConfig.chainName}`);
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     // Get transaction types from chain config (required field in evm-chains.json)
     this.transactionTypes = chainConfig.transactionTypes;
 
     this.logger.info(
-      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName).length}`
+      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -107,7 +107,7 @@ export class EvmImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
       address,
-      { streamType },
+      { preferredProvider: this.preferredProvider, streamType },
       resumeCursor
     );
 
@@ -156,7 +156,9 @@ export class EvmImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+      preferredProvider: this.preferredProvider,
+    });
     const hasSupport = providers.some(
       (p) =>
         p.capabilities.supportedOperations.includes('getAddressTransactions') &&
@@ -239,7 +241,9 @@ export class EvmImporter implements IImporter {
   }
 
   private hasProviderSupport(streamType: string): boolean {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+      preferredProvider: this.preferredProvider,
+    });
     return providers.some((provider) => {
       if (!provider.capabilities.supportedOperations.includes('getAddressTransactions')) {
         return false;

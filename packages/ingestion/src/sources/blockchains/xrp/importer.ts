@@ -14,6 +14,7 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 export class XrpImporter implements IImporter {
   private readonly chainConfig: XrpChainConfig;
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
 
   constructor(
@@ -24,11 +25,10 @@ export class XrpImporter implements IImporter {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig(this.chainConfig.chainName, options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized XRP transaction importer - ProvidersCount: ${this.providerManager.getProviders(this.chainConfig.chainName).length}`
+      `Initialized XRP transaction importer - ProvidersCount: ${this.providerManager.getProviders(this.chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -55,7 +55,7 @@ export class XrpImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<XrpTransaction>>(
       this.chainConfig.chainName,
       address,
-      undefined,
+      { preferredProvider: this.preferredProvider },
       resumeCursor
     );
 

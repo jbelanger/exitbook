@@ -45,12 +45,9 @@ describe('XrpImporter', () => {
     vi.clearAllMocks();
 
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
     mockProviderManager.getProviders.mockReturnValue([{ name: 'xrpl-rpc', blockchain: 'xrp' } as IBlockchainProvider]);
 

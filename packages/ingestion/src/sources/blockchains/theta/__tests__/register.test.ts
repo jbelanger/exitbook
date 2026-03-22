@@ -8,7 +8,6 @@ import { ThetaProcessor } from '../processor.js';
 import { thetaAdapters } from '../register.js';
 
 type ProviderManagerMock = IBlockchainProviderManager & {
-  autoRegisterFromConfig: ReturnType<typeof vi.fn>;
   getAddressInfo: ReturnType<typeof vi.fn>;
   getProviders: ReturnType<typeof vi.fn>;
   getTokenMetadata: ReturnType<typeof vi.fn>;
@@ -16,7 +15,6 @@ type ProviderManagerMock = IBlockchainProviderManager & {
 
 function createProviderManager(): ProviderManagerMock {
   return {
-    autoRegisterFromConfig: vi.fn().mockReturnValue([]),
     getProviders: vi.fn().mockReturnValue([]),
     getAddressInfo: vi.fn(),
     getTokenMetadata: vi.fn(),
@@ -44,7 +42,7 @@ describe('theta/register', () => {
 
     expect(importer).toBeInstanceOf(ThetaImporter);
     expect(processor).toBeInstanceOf(ThetaProcessor);
-    expect(providerManager.autoRegisterFromConfig).toHaveBeenCalledWith('theta', 'thetascan');
+    expect(providerManager.getProviders).toHaveBeenCalledWith('theta', { preferredProvider: 'thetascan' });
   });
 
   test('normalizes valid Theta addresses and rejects invalid ones', () => {

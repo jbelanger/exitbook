@@ -99,7 +99,12 @@ export async function createPricesEnrichHandler(
       return err(priceRuntimeResult.error);
     }
     const priceRuntime = priceRuntimeResult.value;
-    ctx.onCleanup(priceRuntime.cleanup);
+    ctx.onCleanup(async () => {
+      const cleanupResult = await priceRuntime.cleanup();
+      if (cleanupResult.isErr()) {
+        throw cleanupResult.error;
+      }
+    });
 
     const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
     return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, undefined));
@@ -120,7 +125,12 @@ export async function createPricesEnrichHandler(
     return err(priceRuntimeResult.error);
   }
   const priceRuntime = priceRuntimeResult.value;
-  ctx.onCleanup(priceRuntime.cleanup);
+  ctx.onCleanup(async () => {
+    const cleanupResult = await priceRuntime.cleanup();
+    if (cleanupResult.isErr()) {
+      throw cleanupResult.error;
+    }
+  });
 
   const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
   return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, controller));

@@ -24,6 +24,7 @@ import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../
  */
 export class NearImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
 
   constructor(
@@ -33,11 +34,10 @@ export class NearImporter implements IImporter {
     this.logger = getLogger('nearImporter');
 
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig('near', options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized NEAR transaction importer - ProvidersCount: ${this.providerManager.getProviders('near').length}`
+      `Initialized NEAR transaction importer - ProvidersCount: ${this.providerManager.getProviders('near', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -100,7 +100,7 @@ export class NearImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<NearStreamEvent>>(
       'near',
       address,
-      { streamType },
+      { preferredProvider: this.preferredProvider, streamType },
       resumeCursor
     );
 

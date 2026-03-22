@@ -99,63 +99,81 @@ export class CostBasisHandler {
     }
 
     const priceRuntime = priceRuntimeResult.value;
-    try {
-      const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
-      const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
-      const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
+    const executionResult = await (async (): Promise<Result<PreparedCostBasisArtifactResult, Error>> => {
+      try {
+        const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
+        const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
+        const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
-      const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
-      if (assetReviewSummariesResult.isErr()) {
-        return err(assetReviewSummariesResult.error);
-      }
-
-      const watermarkResult = await readCostBasisDependencyWatermark(
-        this.db,
-        this.dataDir,
-        this.accountingExclusionPolicy
-      );
-      if (watermarkResult.isErr()) {
-        return err(watermarkResult.error);
-      }
-
-      const result = await artifactService.execute({
-        config: params,
-        dependencyWatermark: watermarkResult.value,
-        refresh: options?.refresh,
-        accountingExclusionPolicy: this.accountingExclusionPolicy,
-        assetReviewSummaries: assetReviewSummariesResult.value,
-      });
-      if (result.isErr()) {
-        const failurePersistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
-          consumer: 'cost-basis',
-          input: params,
-          dependencyWatermark: watermarkResult.value,
-          error: result.error,
-          stage: 'artifact-service.execute',
-          context: {
-            refresh: options?.refresh === true,
-          },
-        });
-        if (failurePersistResult.isErr()) {
-          return err(
-            new Error(
-              `Cost basis failed: ${result.error.message}. Additionally, failure snapshot persistence failed: ${failurePersistResult.error.message}`,
-              { cause: result.error }
-            )
-          );
+        const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
+        if (assetReviewSummariesResult.isErr()) {
+          return err(assetReviewSummariesResult.error);
         }
-        return err(result.error);
+
+        const watermarkResult = await readCostBasisDependencyWatermark(
+          this.db,
+          this.dataDir,
+          this.accountingExclusionPolicy
+        );
+        if (watermarkResult.isErr()) {
+          return err(watermarkResult.error);
+        }
+
+        const result = await artifactService.execute({
+          config: params,
+          dependencyWatermark: watermarkResult.value,
+          refresh: options?.refresh,
+          accountingExclusionPolicy: this.accountingExclusionPolicy,
+          assetReviewSummaries: assetReviewSummariesResult.value,
+        });
+        if (result.isErr()) {
+          const failurePersistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
+            consumer: 'cost-basis',
+            input: params,
+            dependencyWatermark: watermarkResult.value,
+            error: result.error,
+            stage: 'artifact-service.execute',
+            context: {
+              refresh: options?.refresh === true,
+            },
+          });
+          if (failurePersistResult.isErr()) {
+            return err(
+              new Error(
+                `Cost basis failed: ${result.error.message}. Additionally, failure snapshot persistence failed: ${failurePersistResult.error.message}`,
+                { cause: result.error }
+              )
+            );
+          }
+          return err(result.error);
+        }
+
+        return ok({
+          artifact: result.value.artifact,
+          scopeKey: result.value.scopeKey,
+          snapshotId: result.value.snapshotId,
+          assetReviewSummaries: assetReviewSummariesResult.value,
+        });
+      } catch (error) {
+        return err(error instanceof Error ? error : new Error(String(error)));
+      }
+    })();
+
+    const cleanupResult = await priceRuntime.cleanup();
+    if (cleanupResult.isErr()) {
+      if (executionResult.isErr()) {
+        return err(
+          new AggregateError(
+            [executionResult.error, cleanupResult.error],
+            'Cost basis execution failed and price provider runtime cleanup also failed'
+          )
+        );
       }
 
-      return ok({
-        artifact: result.value.artifact,
-        scopeKey: result.value.scopeKey,
-        snapshotId: result.value.snapshotId,
-        assetReviewSummaries: assetReviewSummariesResult.value,
-      });
-    } finally {
-      await priceRuntime.cleanup();
+      return err(cleanupResult.error);
     }
+
+    return executionResult;
   }
 }
 

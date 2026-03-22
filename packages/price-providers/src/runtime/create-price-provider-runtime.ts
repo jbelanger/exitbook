@@ -54,7 +54,7 @@ export interface PriceProviderRuntime {
   fetchPrice(this: void, query: PriceQuery): Promise<Result<PriceData, Error>>;
   setManualFxRate(this: void, entry: ManualFxRateEntry): Promise<Result<void, Error>>;
   setManualPrice(this: void, entry: ManualPriceEntry): Promise<Result<void, Error>>;
-  cleanup(this: void): Promise<void>;
+  cleanup(this: void): Promise<Result<void, Error>>;
 }
 
 const DEFAULT_MANAGER_CONFIG: Partial<ProviderManagerConfig> = {
@@ -182,8 +182,10 @@ export async function createPriceProviderRuntime(
       }
 
       if (cleanupErrors.length > 0) {
-        throw new AggregateError(cleanupErrors, 'Failed to cleanup price provider runtime');
+        return err(new AggregateError(cleanupErrors, 'Failed to cleanup price provider runtime'));
       }
+
+      return ok(undefined);
     },
   });
 }

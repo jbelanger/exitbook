@@ -756,15 +756,16 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
-      dataDir: ctx.dataDir,
-    });
+    const providerRuntime = await openBlockchainProviderRuntime(undefined, { dataDir: ctx.dataDir });
     const balancePorts = buildBalancePorts(database);
-    const balanceWorkflow = new BalanceWorkflow(balancePorts, providerManager);
+    const balanceWorkflow = new BalanceWorkflow(balancePorts, providerRuntime);
     const handler = new BalanceHandler(database, balanceWorkflow);
     ctx.onCleanup(async () => {
       await handler.awaitStream();
-      await cleanupProviderManager();
+      const cleanupResult = await providerRuntime.cleanup();
+      if (cleanupResult.isErr()) {
+        throw cleanupResult.error;
+      }
     });
 
     return ok(handler);

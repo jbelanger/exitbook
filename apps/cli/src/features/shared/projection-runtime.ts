@@ -108,9 +108,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
       }
 
-      const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
-        dataDir,
-      });
+      const providerRuntime = await openBlockchainProviderRuntime(undefined, { dataDir });
 
       try {
         const eventBus = new EventBus<IngestionEvent>({
@@ -124,7 +122,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
           rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
           overrideStore,
         });
-        const processingWorkflow = new ProcessingWorkflow(ports, providerManager, eventBus, registry);
+        const processingWorkflow = new ProcessingWorkflow(ports, providerRuntime, eventBus, registry);
 
         // 1. Plan: resolve accounts and guard incomplete imports
         const planResult = await processingWorkflow.prepareReprocess({});
@@ -153,9 +151,10 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
 
         return ok(undefined);
       } finally {
-        await cleanupProviderManager().catch((e) => {
-          logger.warn({ e }, 'Failed to cleanup provider manager after reprocess');
-        });
+        const cleanupResult = await providerRuntime.cleanup();
+        if (cleanupResult.isErr()) {
+          logger.warn({ error: cleanupResult.error }, 'Failed to cleanup provider runtime after reprocess');
+        }
       }
     },
   };
@@ -411,9 +410,10 @@ async function ensureTransactionPricesReady(
       logger.info('Price enrichment completed (JSON mode)');
       return ok(undefined);
     } finally {
-      await priceRuntime.cleanup().catch((cleanupErr) => {
-        logger.warn({ cleanupErr }, 'Failed to clean up price runtime after JSON enrichment');
-      });
+      const cleanupResult = await priceRuntime.cleanup();
+      if (cleanupResult.isErr()) {
+        logger.warn({ error: cleanupResult.error }, 'Failed to clean up price runtime after JSON enrichment');
+      }
     }
   }
 
@@ -476,9 +476,10 @@ async function ensureTransactionPricesReady(
     await controller.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop prices controller during cleanup');
     });
-    await priceRuntime.cleanup().catch((cleanupErr) => {
-      logger.warn({ cleanupErr }, 'Failed to clean up price runtime after TUI enrichment');
-    });
+    const cleanupResult = await priceRuntime.cleanup();
+    if (cleanupResult.isErr()) {
+      logger.warn({ error: cleanupResult.error }, 'Failed to clean up price runtime after TUI enrichment');
+    }
   }
 }
 

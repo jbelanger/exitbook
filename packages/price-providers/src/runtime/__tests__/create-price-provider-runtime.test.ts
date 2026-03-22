@@ -77,7 +77,8 @@ describe('createPriceProviderRuntime', () => {
         await db.destroy();
       }
     } finally {
-      await runtime.cleanup();
+      const cleanupResult = await runtime.cleanup();
+      expect(cleanupResult.isOk()).toBe(true);
     }
   });
 
@@ -128,7 +129,8 @@ describe('createPriceProviderRuntime', () => {
       expect(mockCreatePriceProviderManager).toHaveBeenCalledTimes(1);
       expect(manager.fetchPrice).toHaveBeenCalledTimes(2);
     } finally {
-      await runtime.cleanup();
+      const cleanupResult = await runtime.cleanup();
+      expect(cleanupResult.isOk()).toBe(true);
     }
 
     expect(manager.destroy).toHaveBeenCalledTimes(1);

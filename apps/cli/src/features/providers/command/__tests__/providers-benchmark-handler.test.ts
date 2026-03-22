@@ -4,6 +4,7 @@ import {
   type ProviderBenchmarkSession,
 } from '@exitbook/blockchain-providers';
 import { err, ok } from '@exitbook/core';
+import type { RateLimitConfig } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { benchmarkRateLimit } from '../benchmark-tool.js';
@@ -32,7 +33,7 @@ vi.mock('@exitbook/logger', () => ({
   })),
 }));
 
-function createMockBenchmarkableProvider(overrides: { blockchain?: string; name: string; rateLimit: unknown }) {
+function createMockBenchmarkableProvider(overrides: { blockchain?: string; name: string; rateLimit: RateLimitConfig }) {
   return {
     name: overrides.name,
     rateLimit: overrides.rateLimit,

@@ -72,9 +72,7 @@ const mockSubstrateTx2 = {
   to: '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg',
 };
 
-type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
->;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('SubstrateImporter', () => {
   let mockProviderManager: ProviderManagerMock;
@@ -101,12 +99,9 @@ describe('SubstrateImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
         blockchain: 'polkadot',
@@ -139,24 +134,21 @@ describe('SubstrateImporter', () => {
     test('should initialize with Polkadot config', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('polkadot', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
     test('should initialize with Bittensor config', () => {
       const importer = createImporter(BITTENSOR_CONFIG);
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('bittensor', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('bittensor');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('bittensor', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
     test('should initialize with Kusama config', () => {
       const importer = createImporter(KUSAMA_CONFIG);
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('kusama', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('kusama');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('kusama', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -165,7 +157,7 @@ describe('SubstrateImporter', () => {
         preferredProvider: 'subscan',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('polkadot', 'subscan');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot', { preferredProvider: 'subscan' });
       expect(importer).toBeDefined();
     });
   });
@@ -623,22 +615,22 @@ describe('SubstrateImporter', () => {
   });
 
   describe('Provider Integration', () => {
-    test('should auto-register providers on initialization', () => {
+    test('should resolve providers on initialization', () => {
       createImporter(POLKADOT_CONFIG);
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('polkadot', undefined);
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot', { preferredProvider: undefined });
     });
 
-    test('should auto-register with preferred provider', () => {
+    test('should resolve preferred provider on initialization', () => {
       createImporter(POLKADOT_CONFIG, { preferredProvider: 'subscan' });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('polkadot', 'subscan');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot', { preferredProvider: 'subscan' });
     });
 
     test('should query registered providers on initialization', () => {
       createImporter(POLKADOT_CONFIG);
 
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('polkadot', { preferredProvider: undefined });
     });
 
     test('should correctly handle provider metadata in responses', async () => {

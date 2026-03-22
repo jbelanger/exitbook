@@ -23,8 +23,15 @@ export interface BlockchainProviderRuntimeOptions {
 }
 
 export interface BlockchainProviderRuntime {
-  providerManager: IBlockchainProviderManager;
-  cleanup(): Promise<void>;
+  cleanup(this: void): Promise<Result<void, Error>>;
+  getAddressBalances: IBlockchainProviderManager['getAddressBalances'];
+  getAddressInfo: IBlockchainProviderManager['getAddressInfo'];
+  getAddressTokenBalances: IBlockchainProviderManager['getAddressTokenBalances'];
+  getProviders: IBlockchainProviderManager['getProviders'];
+  getTokenMetadata: IBlockchainProviderManager['getTokenMetadata'];
+  hasAddressTransactions: IBlockchainProviderManager['hasAddressTransactions'];
+  hasRegisteredOperationSupport: IBlockchainProviderManager['hasRegisteredOperationSupport'];
+  streamAddressTransactions: IBlockchainProviderManager['streamAddressTransactions'];
 }
 
 export async function createBlockchainProviderRuntime(
@@ -70,23 +77,44 @@ export async function createBlockchainProviderRuntime(
     }
 
     return ok({
-      providerManager: readyProviderManager,
-      async cleanup() {
+      getAddressBalances: (...args) => readyProviderManager.getAddressBalances(...args),
+      getAddressInfo: (...args) => readyProviderManager.getAddressInfo(...args),
+      getAddressTokenBalances: (...args) => readyProviderManager.getAddressTokenBalances(...args),
+      getProviders: (...args) => readyProviderManager.getProviders(...args),
+      getTokenMetadata: (...args) => readyProviderManager.getTokenMetadata(...args),
+      hasAddressTransactions: (...args) => readyProviderManager.hasAddressTransactions(...args),
+      hasRegisteredOperationSupport: (...args) => readyProviderManager.hasRegisteredOperationSupport(...args),
+      streamAddressTransactions: (...args) => readyProviderManager.streamAddressTransactions(...args),
+      async cleanup(this: void) {
+        const cleanupErrors: Error[] = [];
+
         try {
           await readyProviderManager.destroy();
-        } finally {
-          if (tokenMetadataPersistence) {
-            await tokenMetadataPersistence.cleanup().catch((error: unknown) => {
-              logger.warn({ error }, 'Failed to close token metadata persistence during cleanup');
-            });
-          }
-
-          if (providerStatsPersistence) {
-            await providerStatsPersistence.cleanup().catch((error: unknown) => {
-              logger.warn({ error }, 'Failed to close provider stats persistence during cleanup');
-            });
-          }
+        } catch (error) {
+          cleanupErrors.push(error instanceof Error ? error : new Error(String(error)));
         }
+
+        if (tokenMetadataPersistence) {
+          await tokenMetadataPersistence.cleanup().catch((error: unknown) => {
+            const cleanupError = error instanceof Error ? error : new Error(String(error));
+            cleanupErrors.push(cleanupError);
+            logger.warn({ error: cleanupError }, 'Failed to close token metadata persistence during cleanup');
+          });
+        }
+
+        if (providerStatsPersistence) {
+          await providerStatsPersistence.cleanup().catch((error: unknown) => {
+            const cleanupError = error instanceof Error ? error : new Error(String(error));
+            cleanupErrors.push(cleanupError);
+            logger.warn({ error: cleanupError }, 'Failed to close provider stats persistence during cleanup');
+          });
+        }
+
+        if (cleanupErrors.length > 0) {
+          return err(new AggregateError(cleanupErrors, 'Failed to cleanup blockchain provider runtime'));
+        }
+
+        return ok(undefined);
       },
     });
   } catch (error) {

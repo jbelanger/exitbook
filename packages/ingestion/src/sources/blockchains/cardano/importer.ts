@@ -13,6 +13,7 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  */
 export class CardanoImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
 
   constructor(
@@ -21,11 +22,10 @@ export class CardanoImporter implements IImporter {
   ) {
     this.logger = getLogger('cardanoImporter');
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig('cardano', options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized Cardano transaction importer - ProvidersCount: ${this.providerManager.getProviders('cardano').length}`
+      `Initialized Cardano transaction importer - ProvidersCount: ${this.providerManager.getProviders('cardano', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -61,7 +61,7 @@ export class CardanoImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<CardanoTransaction>>(
       'cardano',
       address,
-      undefined,
+      { preferredProvider: this.preferredProvider },
       resumeCursor
     );
 

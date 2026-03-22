@@ -10,6 +10,9 @@ import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience
 import type { BlockchainExplorersConfig } from '../../catalog/explorer-config.js';
 import type {
   AddressInfoData,
+  BlockchainBalanceQueryOptions,
+  BlockchainProviderSelectionOptions,
+  BlockchainTransactionStreamOptions,
   FailoverExecutionResult,
   FailoverStreamingExecutionResult,
   IBlockchainProvider,
@@ -79,7 +82,7 @@ export class BlockchainProviderManager {
       this.responseCache,
       this.preferredProviders,
       this.eventBus,
-      (blockchain: string) => this.autoRegisterFromConfig(blockchain)
+      (blockchain: string) => this.ensureProvidersRegistered(blockchain)
     );
 
     if (options?.tokenMetadataQueries) {
@@ -105,52 +108,6 @@ export class BlockchainProviderManager {
   startBackgroundTasks(): void {
     this.healthMonitor.start();
     this.responseCache.startAutoCleanup();
-  }
-
-  /**
-   * Auto-register providers from configuration using the registry.
-   * Falls back to all registered providers when no configuration exists.
-   * Idempotent: skips if providers are already registered (unless preferred provider changed).
-   */
-  autoRegisterFromConfig(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
-    const existingProviders = this.providers.get(blockchain);
-
-    if (existingProviders && existingProviders.length > 0) {
-      if (!preferredProvider) {
-        logger.debug(`Providers already registered for ${blockchain}; skipping auto-registration`);
-        return existingProviders;
-      }
-
-      const preferredAlreadyRegistered =
-        existingProviders.length === 1 && existingProviders[0]?.name === preferredProvider;
-      if (preferredAlreadyRegistered) {
-        logger.debug(
-          `Preferred provider '${preferredProvider}' already registered for ${blockchain}; skipping auto-registration`
-        );
-        return existingProviders;
-      }
-
-      logger.info(
-        `Re-registering providers for ${blockchain} to honor preferred provider '${preferredProvider}' (existing: ${existingProviders.map((p) => p.name).join(', ')})`
-      );
-    }
-
-    try {
-      const result = this.instanceFactory.createProvidersForBlockchain(blockchain, preferredProvider);
-
-      if (result.preferredProviderName) {
-        this.preferredProviders.set(blockchain, result.preferredProviderName);
-      }
-
-      if (result.providers.length > 0) {
-        this.registerProviders(blockchain, result.providers);
-      }
-
-      return result.providers;
-    } catch (error) {
-      logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${getErrorMessage(error)}`);
-      return [];
-    }
   }
 
   /**
@@ -200,12 +157,11 @@ export class BlockchainProviderManager {
   async *streamAddressTransactions<T>(
     blockchain: string,
     address: string,
-    options?: {
-      contractAddress?: string | undefined;
-      streamType?: string | undefined;
-    },
+    options?: BlockchainTransactionStreamOptions,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     yield* this.engine.executeStreamingImpl<T>(
       blockchain,
       {
@@ -221,31 +177,38 @@ export class BlockchainProviderManager {
   async getAddressBalances(
     blockchain: string,
     address: string,
-    contractAddresses?: string[]
+    options?: BlockchainBalanceQueryOptions
   ): Promise<Result<FailoverExecutionResult<RawBalanceData>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressBalances',
       address,
-      contractAddresses,
+      contractAddresses: options?.contractAddresses,
     });
   }
 
   async getAddressTokenBalances(
     blockchain: string,
     address: string,
-    contractAddresses?: string[]
+    options?: BlockchainBalanceQueryOptions
   ): Promise<Result<FailoverExecutionResult<RawBalanceData[]>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressTokenBalances',
       address,
-      contractAddresses,
+      contractAddresses: options?.contractAddresses,
     });
   }
 
   async getTokenMetadata(
     blockchain: string,
-    contractAddresses: string[]
+    contractAddresses: string[],
+    options?: BlockchainProviderSelectionOptions
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     if (this.tokenMetadataCache) {
       return this.tokenMetadataCache.getBatch(blockchain, contractAddresses);
     }
@@ -285,8 +248,11 @@ export class BlockchainProviderManager {
 
   async hasAddressTransactions(
     blockchain: string,
-    address: string
+    address: string,
+    options?: BlockchainProviderSelectionOptions
   ): Promise<Result<FailoverExecutionResult<boolean>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'hasAddressTransactions',
       address,
@@ -296,8 +262,11 @@ export class BlockchainProviderManager {
 
   async getAddressInfo(
     blockchain: string,
-    address: string
+    address: string,
+    options?: BlockchainProviderSelectionOptions
   ): Promise<Result<FailoverExecutionResult<AddressInfoData>, Error>> {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressInfo',
       address,
@@ -345,7 +314,8 @@ export class BlockchainProviderManager {
   /**
    * Get registered providers for a blockchain
    */
-  getProviders(blockchain: string): IBlockchainProvider[] {
+  getProviders(blockchain: string, options?: BlockchainProviderSelectionOptions): IBlockchainProvider[] {
+    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
     return this.providers.get(blockchain) ?? [];
   }
 
@@ -387,6 +357,52 @@ export class BlockchainProviderManager {
    */
   async loadPersistedStats(): Promise<void> {
     await this.statsStore.load(this.circuitBreakers);
+  }
+
+  /**
+   * Auto-register providers from configuration using the registry.
+   * Falls back to all registered providers when no configuration exists.
+   * Idempotent: skips if providers are already registered (unless preferred provider changed).
+   */
+  private ensureProvidersRegistered(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
+    const existingProviders = this.providers.get(blockchain);
+
+    if (existingProviders && existingProviders.length > 0) {
+      if (!preferredProvider) {
+        logger.debug(`Providers already registered for ${blockchain}; skipping auto-registration`);
+        return existingProviders;
+      }
+
+      const preferredAlreadyRegistered =
+        existingProviders.length === 1 && existingProviders[0]?.name === preferredProvider;
+      if (preferredAlreadyRegistered) {
+        logger.debug(
+          `Preferred provider '${preferredProvider}' already registered for ${blockchain}; skipping auto-registration`
+        );
+        return existingProviders;
+      }
+
+      logger.info(
+        `Re-registering providers for ${blockchain} to honor preferred provider '${preferredProvider}' (existing: ${existingProviders.map((p) => p.name).join(', ')})`
+      );
+    }
+
+    try {
+      const result = this.instanceFactory.createProvidersForBlockchain(blockchain, preferredProvider);
+
+      if (result.preferredProviderName) {
+        this.preferredProviders.set(blockchain, result.preferredProviderName);
+      }
+
+      if (result.providers.length > 0) {
+        this.registerProviders(blockchain, result.providers);
+      }
+
+      return result.providers;
+    } catch (error) {
+      logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${getErrorMessage(error)}`);
+      return [];
+    }
   }
 
   /**

@@ -69,16 +69,13 @@ export async function withCliPriceProviderRuntime<T>(
     operationError = error instanceof Error ? error : new Error(String(error));
   }
 
-  try {
-    await priceRuntime.cleanup();
-  } catch (error) {
-    const cleanupError = error instanceof Error ? error : new Error(String(error));
-
+  const cleanupResult = await priceRuntime.cleanup();
+  if (cleanupResult.isErr()) {
     if (operationError) {
-      return err(new AggregateError([operationError, cleanupError], 'Price provider runtime operation failed'));
+      return err(new AggregateError([operationError, cleanupResult.error], 'Price provider runtime operation failed'));
     }
 
-    return err(cleanupError);
+    return err(cleanupResult.error);
   }
 
   if (operationError) {

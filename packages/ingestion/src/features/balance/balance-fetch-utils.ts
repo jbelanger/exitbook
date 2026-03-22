@@ -94,15 +94,14 @@ export async function fetchBlockchainBalance(
   providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    const existingProviders = providerManager.getProviders(blockchain);
-    if (!existingProviders || existingProviders.length === 0) {
-      providerManager.autoRegisterFromConfig(blockchain, providerName);
-    }
+    providerManager.getProviders(blockchain, { preferredProvider: providerName });
 
     const balances: Record<string, string> = {};
 
     // 1. Fetch native asset balance
-    const nativeResult = await providerManager.getAddressBalances(blockchain, address);
+    const nativeResult = await providerManager.getAddressBalances(blockchain, address, {
+      preferredProvider: providerName,
+    });
 
     if (nativeResult.isErr()) {
       return err(nativeResult.error);
@@ -122,14 +121,16 @@ export async function fetchBlockchainBalance(
     assetMetadata[nativeAssetId] = nativeSymbol;
 
     // 2. Check if any provider supports token balances
-    const providers = providerManager.getProviders(blockchain);
+    const providers = providerManager.getProviders(blockchain, { preferredProvider: providerName });
     const supportsTokenBalances = providers.some((provider) =>
       provider.capabilities.supportedOperations.includes('getAddressTokenBalances')
     );
 
     // 3. Fetch token balances if supported
     if (supportsTokenBalances) {
-      const tokenResult = await providerManager.getAddressTokenBalances(blockchain, address);
+      const tokenResult = await providerManager.getAddressTokenBalances(blockchain, address, {
+        preferredProvider: providerName,
+      });
 
       if (tokenResult.isErr()) {
         return err(
@@ -206,10 +207,7 @@ export async function fetchChildAccountsBalance(
       return err(new Error('No child accounts provided for balance aggregation'));
     }
 
-    const existingProviders = providerManager.getProviders(blockchain);
-    if (!existingProviders || existingProviders.length === 0) {
-      providerManager.autoRegisterFromConfig(blockchain, providerName);
-    }
+    providerManager.getProviders(blockchain, { preferredProvider: providerName });
 
     const aggregatedBalances: Record<string, ReturnType<typeof parseDecimal>> = {};
     const aggregatedMetadata: Record<string, string> = {};

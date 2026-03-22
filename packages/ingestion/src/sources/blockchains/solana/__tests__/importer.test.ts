@@ -67,8 +67,7 @@ describe('SolanaImporter', () => {
     test('should initialize with Solana provider manager', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('solana', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('solana');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('solana', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -77,7 +76,7 @@ describe('SolanaImporter', () => {
         preferredProvider: 'helius',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('solana', 'helius');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('solana', { preferredProvider: 'helius' });
       expect(importer).toBeDefined();
     });
   });
@@ -130,10 +129,12 @@ describe('SolanaImporter', () => {
 
       const [, address1, options1] = executeCalls[0]!;
       expect(address1).toBe(address);
+      expect(options1?.preferredProvider).toBeUndefined();
       expect(options1?.streamType).toBe('normal');
 
       const [, address2, options2] = executeCalls[1]!;
       expect(address2).toBe(address);
+      expect(options2?.preferredProvider).toBeUndefined();
       expect(options2?.streamType).toBe('token');
     });
 

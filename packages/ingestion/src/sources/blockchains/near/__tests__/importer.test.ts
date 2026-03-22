@@ -94,15 +94,14 @@ describe('NearImporter', () => {
   describe('Constructor', () => {
     test('should initialize with NEAR provider manager', () => {
       const importer = createImporter();
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('near', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('near');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('near', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
     test('should initialize with preferred provider', () => {
       const importer = createImporter({
         preferredProvider: 'nearblocks',
       });
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('near', 'nearblocks');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('near', { preferredProvider: 'nearblocks' });
       expect(importer).toBeDefined();
     });
   });
@@ -167,6 +166,7 @@ describe('NearImporter', () => {
       for (let i = 0; i < 4; i++) {
         const [, callAddress, options] = executeCalls[i]!;
         expect(callAddress).toBe(address);
+        expect(options?.preferredProvider).toBeUndefined();
         expect(options?.streamType).toBe(transactionTypes[i]);
       }
     });

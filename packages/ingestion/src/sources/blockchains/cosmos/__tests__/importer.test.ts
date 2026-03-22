@@ -106,16 +106,14 @@ describe('CosmosImporter', () => {
     test('should initialize with Injective config', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('injective', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('injective');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('injective', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
     test('should initialize with Osmosis config', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('osmosis', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('osmosis');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('osmosis', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -124,7 +122,9 @@ describe('CosmosImporter', () => {
         preferredProvider: 'injective-explorer',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('injective', 'injective-explorer');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('injective', {
+        preferredProvider: 'injective-explorer',
+      });
       expect(importer).toBeDefined();
     });
   });

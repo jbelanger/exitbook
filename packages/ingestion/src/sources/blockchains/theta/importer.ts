@@ -12,6 +12,7 @@ import type { ThetaTransaction } from './types.js';
 
 export class ThetaImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private readonly transactionTypes: string[];
 
   constructor(
@@ -20,12 +21,11 @@ export class ThetaImporter implements IImporter {
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger(`thetaImporter:${chainConfig.chainName}`);
-
-    this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
     this.transactionTypes = chainConfig.transactionTypes;
 
     this.logger.info(
-      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName).length}`
+      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -71,7 +71,7 @@ export class ThetaImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<ThetaTransaction>>(
       this.chainConfig.chainName,
       address,
-      { streamType },
+      { preferredProvider: this.preferredProvider, streamType },
       resumeCursor
     );
 
@@ -108,7 +108,9 @@ export class ThetaImporter implements IImporter {
   }
 
   private hasProviderSupport(streamType: string): boolean {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName);
+    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+      preferredProvider: this.preferredProvider,
+    });
     return providers.some((provider) => {
       if (!provider.capabilities.supportedOperations.includes('getAddressTransactions')) {
         return false;

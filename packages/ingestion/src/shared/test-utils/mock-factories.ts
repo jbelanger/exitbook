@@ -19,25 +19,14 @@ import { vi, type Mocked } from 'vitest';
  */
 export function createMockProviderManager(
   blockchain: string
-): Mocked<
-  Pick<
-    IBlockchainProviderManager,
-    'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
-  >
-> {
+): Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'>> {
   const mockProviderManager = {
-    autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
     streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
     getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     getTokenMetadata: vi.fn<IBlockchainProviderManager['getTokenMetadata']>().mockResolvedValue(ok(new Map())),
   } as unknown as Mocked<
-    Pick<
-      IBlockchainProviderManager,
-      'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
-    >
+    Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'>
   >;
-
-  mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
 
   // Default implementation: returns empty async iterator
   mockProviderManager.streamAddressTransactions.mockImplementation(async function* () {

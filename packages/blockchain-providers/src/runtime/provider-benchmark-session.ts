@@ -1,5 +1,6 @@
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
+import type { RateLimitConfig } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import type { BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
@@ -14,7 +15,7 @@ export interface BenchmarkableBlockchainProvider {
     destroy: () => Promise<void>;
   };
   name: string;
-  rateLimit: unknown;
+  rateLimit: RateLimitConfig;
 }
 
 export interface ProviderBenchmarkSession {
@@ -22,7 +23,7 @@ export interface ProviderBenchmarkSession {
   providerInfo: {
     blockchain: string;
     name: string;
-    rateLimit: unknown;
+    rateLimit: RateLimitConfig;
   };
   cleanup(): Promise<void>;
 }
@@ -89,7 +90,9 @@ export async function openProviderBenchmarkSession(
   const providerManager = new BlockchainProviderManager(registry, { explorerConfig: options.explorerConfig });
 
   try {
-    const providers = providerManager.autoRegisterFromConfig(options.blockchain, options.providerName);
+    const providers = providerManager.getProviders(options.blockchain, {
+      preferredProvider: options.providerName,
+    });
     if (providers.length === 0) {
       await providerManager.destroy();
       return err(

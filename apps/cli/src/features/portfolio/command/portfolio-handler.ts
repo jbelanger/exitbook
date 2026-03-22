@@ -677,7 +677,12 @@ export async function createPortfolioHandler(
   }
 
   const priceRuntime = priceRuntimeResult.value;
-  ctx.onCleanup(priceRuntime.cleanup);
+  ctx.onCleanup(async () => {
+    const cleanupResult = await priceRuntime.cleanup();
+    if (cleanupResult.isErr()) {
+      throw cleanupResult.error;
+    }
+  });
 
   prereqAbort = undefined;
   return ok(

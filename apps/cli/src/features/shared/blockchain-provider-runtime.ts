@@ -1,7 +1,7 @@
 import {
   createBlockchainProviderRuntime,
+  type BlockchainProviderRuntime,
   type BlockchainExplorersConfig,
-  type IBlockchainProviderManager,
   loadBlockchainExplorerConfig,
   type ProviderEvent,
 } from '@exitbook/blockchain-providers';
@@ -10,10 +10,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { getDataDir } from './data-dir.js';
 
-export interface OpenedBlockchainProviderRuntime {
-  providerManager: IBlockchainProviderManager;
-  cleanup: () => Promise<void>;
-}
+export type OpenedBlockchainProviderRuntime = BlockchainProviderRuntime;
 
 export async function openBlockchainProviderRuntime(
   config?: BlockchainExplorersConfig,

@@ -35,21 +35,16 @@ const mockBitcoinTx = {
   timestamp: Date.now(),
 };
 
-type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
->;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('BitcoinImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
         name: 'mock-provider',
@@ -84,8 +79,7 @@ describe('BitcoinImporter', () => {
     test('should initialize with Bitcoin provider manager', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('bitcoin', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('bitcoin');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('bitcoin', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -94,7 +88,9 @@ describe('BitcoinImporter', () => {
         preferredProvider: 'blockstream.info',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('bitcoin', 'blockstream.info');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('bitcoin', {
+        preferredProvider: 'blockstream.info',
+      });
       expect(importer).toBeDefined();
     });
   });

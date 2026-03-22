@@ -534,9 +534,7 @@ export class BalanceWorkflow {
       });
     }
 
-    const registeredProviders = this.providerManager.getProviders(blockchain);
-    const providers =
-      registeredProviders.length > 0 ? registeredProviders : this.providerManager.autoRegisterFromConfig(blockchain);
+    const providers = this.providerManager.getProviders(blockchain);
     const supportsBalance = providers.some((provider) =>
       provider.capabilities.supportedOperations.includes('getAddressBalances')
     );

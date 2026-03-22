@@ -19,7 +19,7 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 
 interface IngestionInfrastructure {
   processingWorkflow: ProcessingWorkflow;
-  providerManager: OpenedBlockchainProviderRuntime['providerManager'];
+  providerManager: OpenedBlockchainProviderRuntime;
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor: EventDrivenController<CliEvent>;
@@ -42,7 +42,7 @@ export async function createIngestionInfrastructure(
     },
   });
 
-  const { providerManager, cleanup: cleanupProviderManager } = await openBlockchainProviderRuntime(undefined, {
+  const providerRuntime = await openBlockchainProviderRuntime(undefined, {
     dataDir: ctx.dataDir,
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
@@ -56,37 +56,54 @@ export async function createIngestionInfrastructure(
     });
     const processingWorkflow = new ProcessingWorkflow(
       ports,
-      providerManager,
+      providerRuntime,
       eventBus as EventBus<IngestionEvent>,
       registry
     );
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,
-      providerManager,
+      providerManager: providerRuntime,
     });
     await ingestionMonitor.start();
 
     // LIFO: monitor stops first, then provider manager (which handles its own DB cleanup)
     ctx.onCleanup(async () => {
+      let stopError: Error | undefined;
+
       try {
         await ingestionMonitor.stop();
-      } finally {
-        await cleanupProviderManager();
+      } catch (error) {
+        stopError = error instanceof Error ? error : new Error(String(error));
+      }
+
+      const cleanupResult = await providerRuntime.cleanup();
+      if (stopError && cleanupResult.isErr()) {
+        throw new AggregateError(
+          [stopError, cleanupResult.error],
+          'Failed to stop ingestion monitor and cleanup blockchain provider runtime'
+        );
+      }
+      if (stopError) {
+        throw stopError;
+      }
+      if (cleanupResult.isErr()) {
+        throw cleanupResult.error;
       }
     });
 
     return {
       processingWorkflow,
-      providerManager,
+      providerManager: providerRuntime,
       instrumentation,
       eventBus,
       ingestionMonitor,
     };
   } catch (error) {
-    await cleanupProviderManager().catch((e) =>
-      logger.warn({ e }, 'Failed to cleanup blockchain provider runtime on setup failure')
-    );
+    const cleanupResult = await providerRuntime.cleanup();
+    if (cleanupResult.isErr()) {
+      logger.warn({ error: cleanupResult.error }, 'Failed to cleanup blockchain provider runtime on setup failure');
+    }
     throw error;
   }
 }

@@ -32,9 +32,7 @@ const mockTokenTx = {
   value: '1000000',
 };
 
-type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
->;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('EvmImporter', () => {
   let mockProviderManager: ProviderManagerMock;
@@ -113,12 +111,9 @@ describe('EvmImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
         name: 'mock-provider',
@@ -153,16 +148,14 @@ describe('EvmImporter', () => {
     test('should initialize with Ethereum config', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('ethereum', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('ethereum');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('ethereum', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
     test('should initialize with Avalanche config', () => {
       const importer = createImporter(AVALANCHE_CONFIG);
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('avalanche', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('avalanche');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('avalanche', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -171,7 +164,9 @@ describe('EvmImporter', () => {
         preferredProvider: 'alchemy',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('ethereum', 'alchemy');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('ethereum', {
+        preferredProvider: 'alchemy',
+      });
       expect(importer).toBeDefined();
     });
   });

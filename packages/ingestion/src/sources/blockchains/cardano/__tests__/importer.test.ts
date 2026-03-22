@@ -46,21 +46,16 @@ const mockCardanoTx = {
   timestamp: Date.now(),
 };
 
-type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
->;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('CardanoImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
         name: 'mock-provider',
@@ -90,8 +85,7 @@ describe('CardanoImporter', () => {
     test('should initialize with Cardano provider manager', () => {
       const importer = createImporter();
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('cardano', undefined);
-      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('cardano');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('cardano', { preferredProvider: undefined });
       expect(importer).toBeDefined();
     });
 
@@ -100,7 +94,9 @@ describe('CardanoImporter', () => {
         preferredProvider: 'blockfrost',
       });
 
-      expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('cardano', 'blockfrost');
+      expect(mockProviderManager.getProviders).toHaveBeenCalledWith('cardano', {
+        preferredProvider: 'blockfrost',
+      });
       expect(importer).toBeDefined();
     });
   });

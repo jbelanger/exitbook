@@ -5,6 +5,7 @@
  */
 
 export type { PriceQuery, PriceData } from './contracts/types.js';
+export { listPriceProviders, type PriceProviderDescriptor } from './catalog/list-price-providers.js';
 export {
   createPriceProviderRuntime,
   type CoinGeckoPriceProviderConfig,

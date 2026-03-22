@@ -6,9 +6,7 @@ import { beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import { ThetaImporter } from '../importer.js';
 
-type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderManager, 'autoRegisterFromConfig' | 'streamAddressTransactions' | 'getProviders'>
->;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
 
 const THETA_CONFIG = (() => {
   const config = THETA_CHAINS['theta'];
@@ -24,12 +22,9 @@ describe('ThetaImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      autoRegisterFromConfig: vi.fn<IBlockchainProviderManager['autoRegisterFromConfig']>(),
       streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
       getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
     } as unknown as ProviderManagerMock;
-
-    mockProviderManager.autoRegisterFromConfig.mockReturnValue([]);
     mockProviderManager.getProviders.mockReturnValue([
       {
         name: 'thetascan',
@@ -58,8 +53,7 @@ describe('ThetaImporter', () => {
   test('registers Theta providers for the selected chain', () => {
     createImporter({ preferredProvider: 'thetascan' });
 
-    expect(mockProviderManager.autoRegisterFromConfig).toHaveBeenCalledWith('theta', 'thetascan');
-    expect(mockProviderManager.getProviders).toHaveBeenCalledWith('theta');
+    expect(mockProviderManager.getProviders).toHaveBeenCalledWith('theta', { preferredProvider: 'thetascan' });
   });
 
   test('streams the normal Theta transaction feed', async () => {
@@ -109,7 +103,7 @@ describe('ThetaImporter', () => {
     expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledWith(
       'theta',
       TEST_ADDRESS,
-      { streamType: 'normal' },
+      { preferredProvider: undefined, streamType: 'normal' },
       undefined
     );
   });

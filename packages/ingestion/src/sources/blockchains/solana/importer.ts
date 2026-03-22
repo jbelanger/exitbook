@@ -14,6 +14,7 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  */
 export class SolanaImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
 
   constructor(
@@ -23,11 +24,10 @@ export class SolanaImporter implements IImporter {
     this.logger = getLogger('solanaImporter');
 
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig('solana', options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized Solana transaction importer - ProvidersCount: ${this.providerManager.getProviders('solana').length}`
+      `Initialized Solana transaction importer - ProvidersCount: ${this.providerManager.getProviders('solana', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -76,7 +76,7 @@ export class SolanaImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SolanaTransaction>>(
       'solana',
       address,
-      { streamType },
+      { preferredProvider: this.preferredProvider, streamType },
       resumeCursor
     );
 

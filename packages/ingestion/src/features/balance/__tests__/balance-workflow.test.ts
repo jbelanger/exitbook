@@ -151,7 +151,6 @@ function createProviderManager(
   };
 
   return {
-    autoRegisterFromConfig: vi.fn(),
     destroy: vi.fn().mockResolvedValue(undefined),
     hasRegisteredOperationSupport: vi.fn((_: string, operation: string) =>
       providers.some((provider) => provider.capabilities.supportedOperations.includes(operation))
@@ -515,7 +514,6 @@ describe('BalanceWorkflow', () => {
     });
 
     const providerManager = {
-      autoRegisterFromConfig: vi.fn().mockReturnValue([]),
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([]),
@@ -786,7 +784,6 @@ describe('BalanceWorkflow', () => {
     });
 
     const providerManager = {
-      autoRegisterFromConfig: vi.fn(),
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([{ capabilities: { supportedOperations: ['getAddressBalances'] } }]),

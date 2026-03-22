@@ -138,11 +138,11 @@ describe('BlockchainProviderManager', () => {
     expect(providers[1]?.name).toBe('fallback');
   });
 
-  test('autoRegisterFromConfig is idempotent when providers already exist', () => {
+  test('getProviders is idempotent when providers already exist', () => {
     const registerSpy = vi.spyOn(manager, 'registerProviders');
 
     const existingProviders = manager.getProviders('ethereum');
-    const result = manager.autoRegisterFromConfig('ethereum');
+    const result = manager.getProviders('ethereum');
 
     expect(result).toBe(existingProviders);
     expect(registerSpy).not.toHaveBeenCalled();

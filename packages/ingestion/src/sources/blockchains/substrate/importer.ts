@@ -15,6 +15,7 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  */
 export class SubstrateImporter implements IImporter {
   private readonly logger: Logger;
+  private readonly preferredProvider?: string | undefined;
   private providerManager: IBlockchainProviderManager;
   private chainConfig: SubstrateChainConfig;
 
@@ -26,11 +27,10 @@ export class SubstrateImporter implements IImporter {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`substrateImporter:${chainConfig.chainName}`);
     this.providerManager = blockchainProviderManager;
-
-    this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
+    this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName).length}`
+      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -67,7 +67,7 @@ export class SubstrateImporter implements IImporter {
     const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SubstrateTransaction>>(
       this.chainConfig.chainName,
       address,
-      undefined,
+      { preferredProvider: this.preferredProvider },
       resumeCursor
     );
 
