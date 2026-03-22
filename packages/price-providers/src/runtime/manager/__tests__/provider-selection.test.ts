@@ -4,7 +4,7 @@
  * No mocks needed - all functions are pure!
  */
 
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import { createInitialCircuitState, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { describe, expect, it } from 'vitest';

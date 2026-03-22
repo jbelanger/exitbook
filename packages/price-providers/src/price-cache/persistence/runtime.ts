@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { err, ok, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { closePricesDatabase, createPricesDatabase, initializePricesDatabase, type PricesDB } from './database.js';

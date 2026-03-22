@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- explicit null assertions for sqlite rows */
-import { type Currency, parseDecimal } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { PriceData } from '../../../contracts/types.js';

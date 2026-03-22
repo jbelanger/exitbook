@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import { readLatestPriceMutationAt } from './persistence/watermark.js';
 

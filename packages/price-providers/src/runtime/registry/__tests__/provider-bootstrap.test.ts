@@ -312,7 +312,7 @@ describe('createPriceProviders', () => {
   it('should skip provider if initialization fails', async () => {
     // Mock CoinGecko to fail initialization
     const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
-    const { ok, err } = await import('@exitbook/core');
+    const { ok, err } = await import('@exitbook/foundation');
     // Provide all required properties for CoinGeckoProvider mock
     vi.mocked(createCoinGeckoProvider).mockReturnValueOnce(
       ok({

@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {

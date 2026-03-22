@@ -2,10 +2,10 @@
  * Provider catalog queries - manages provider metadata and coin mappings.
  */
 
-import type { Currency } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import type { PricesDB } from '../../price-cache/persistence/database.js';
 

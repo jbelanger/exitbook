@@ -3,9 +3,9 @@
  *
  */
 
-import { isFiat, isStablecoin, type Currency } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import { isFiat, isStablecoin, type Currency } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry } from '@exitbook/resilience/circuit-breaker';

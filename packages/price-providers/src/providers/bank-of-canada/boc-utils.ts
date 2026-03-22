@@ -4,10 +4,10 @@
  * Pure functions for transforming Bank of Canada API responses
  */
 
-import type { Currency } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { PriceData } from '../../contracts/types.js';
