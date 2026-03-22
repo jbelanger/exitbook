@@ -1,12 +1,12 @@
 import { err, ok, type Result } from '@exitbook/core';
-import { createCoinbaseClient } from '@exitbook/exchange-providers';
+import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 
 import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 
 /**
  * API-based importer for Coinbase exchange.
- * Uses createCoinbaseClient from @exitbook/exchange-providers to fetch and validate transaction data.
+ * Uses the generic exchange client facade to fetch and validate transaction data.
  * The client handles validation, timestamp extraction, and external ID extraction.
  */
 export class CoinbaseApiImporter implements IImporter {
@@ -31,7 +31,7 @@ export class CoinbaseApiImporter implements IImporter {
     }
 
     // Initialize Coinbase client with credentials
-    const clientResult = createCoinbaseClient(params.credentials);
+    const clientResult = createExchangeClient('coinbase', params.credentials);
 
     if (clientResult.isErr()) {
       yield err(clientResult.error);

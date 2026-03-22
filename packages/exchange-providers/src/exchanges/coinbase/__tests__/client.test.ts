@@ -3,7 +3,7 @@ import type { CursorState } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { FetchBatchResult, IExchangeClient } from '../../../contracts/index.js';
+import type { ExchangeClientTransactionBatch, IExchangeClient } from '../../../contracts/index.js';
 import type { CoinbaseAccount, RawCoinbaseLedgerEntry } from '../contracts.js';
 
 type CoinbaseCursorMetadata = CursorState['metadata'] & {
@@ -291,7 +291,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       nextCursor: null,
     });
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -325,7 +325,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       { data: secondPage, nextCursor: null }
     );
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -353,7 +353,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       { data: [makeTransaction('USD1', 'transaction', '1000', 'USD', '2024-01-01T00:00:01.000Z')], nextCursor: null }
     );
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -384,7 +384,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
   test('handles empty account with completion batch', async () => {
     mockAccountsAndTransactions([makeAccount('account1', 'USD')], { data: [], nextCursor: null });
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -416,7 +416,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       },
     };
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming({ cursor })) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -458,7 +458,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
       },
     };
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming({ cursor })) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -493,7 +493,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
     // fetchTransactionPage - returns mixed valid/invalid
     mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([validTx, invalidTx])));
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     const errors: Error[] = [];
 
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
@@ -517,7 +517,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
   test('handles no accounts gracefully', async () => {
     mockCoinbaseGet.mockResolvedValueOnce(ok(paginatedResponse([])));
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -549,7 +549,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
 
     mockAccountsAndTransactions([makeAccount('account1', 'BTC')], { data: [tradeTx], nextCursor: null });
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);
@@ -581,7 +581,7 @@ describe('createCoinbaseClient - fetchTransactionDataStreaming', () => {
 
     mockAccountsAndTransactions([makeAccount('account1', 'USDC')], { data: [tradeTx], nextCursor: null });
 
-    const batches: FetchBatchResult[] = [];
+    const batches: ExchangeClientTransactionBatch[] = [];
     for await (const batchResult of client.fetchTransactionDataStreaming()) {
       if (batchResult.isOk()) {
         batches.push(batchResult.value);

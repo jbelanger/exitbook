@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Schema for provider transaction DTOs emitted by exchange clients before persistence.
  */
-export const RawTransactionInputSchema = z.object({
+export const ExchangeClientTransactionSchema = z.object({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   sourceAddress: z.string().optional(),
   transactionTypeHint: z.string().optional(),
@@ -14,4 +14,4 @@ export const RawTransactionInputSchema = z.object({
   normalizedData: z.unknown().optional(),
 });
 
-export type RawTransactionInput = z.infer<typeof RawTransactionInputSchema>;
+export type ExchangeClientTransaction = z.infer<typeof ExchangeClientTransactionSchema>;

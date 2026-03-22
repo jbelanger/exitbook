@@ -4,9 +4,14 @@ import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import { validateCredentials, validateRawData } from '../../client/schema-validation.js';
-import type { ExchangeCredentials } from '../../contracts/exchange-credentials.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
-import type { RawTransactionInput } from '../../contracts/raw-transaction.js';
+import type { ExchangeClientCredentials } from '../../contracts/exchange-credentials.js';
+import type {
+  ExchangeBalanceSnapshot,
+  ExchangeClientTransactionBatch,
+  ExchangeClientFetchParams,
+  IExchangeClient,
+} from '../../contracts/index.js';
+import type { ExchangeClientTransaction } from '../../contracts/raw-transaction.js';
 
 import { normalizeKrakenAsset } from './asset-normalization.js';
 import { krakenPost } from './auth.js';
@@ -56,7 +61,7 @@ async function fetchLedger(
  * Factory function that creates a Kraken exchange client.
  * Returns raw Kraken API data as providerData — normalization happens in the processor.
  */
-export function createKrakenClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
+export function createKrakenClient(credentials: ExchangeClientCredentials): Result<IExchangeClient, Error> {
   return resultDo(function* () {
     const { apiKey, apiSecret } = yield* validateCredentials(KrakenCredentialsSchema, credentials, 'kraken');
     const auth = { apiKey, apiSecret };
@@ -74,8 +79,8 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
       exchangeId: 'kraken',
 
       async *fetchTransactionDataStreaming(
-        params?: FetchParams
-      ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
+        params?: ExchangeClientFetchParams
+      ): AsyncIterableIterator<Result<ExchangeClientTransactionBatch, Error>> {
         const ledgerCursor = params?.cursor?.['ledger'];
         let ofs = (ledgerCursor?.metadata?.['offset'] as number) || 0;
         const limit = 50;
@@ -117,7 +122,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
             break;
           }
 
-          const transactions: RawTransactionInput[] = [];
+          const transactions: ExchangeClientTransaction[] = [];
           let lastCursorState: CursorState | undefined;
           let validationError: Error | undefined;
 
@@ -220,7 +225,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
         }
       },
 
-      async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+      async fetchBalance(): Promise<Result<ExchangeBalanceSnapshot, Error>> {
         const postResult = await krakenPost<KrakenBalanceExResponse>(httpClient, auth, 'BalanceEx');
 
         if (postResult.isErr()) {

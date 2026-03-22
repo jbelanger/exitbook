@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import type { FetchBatchResult } from '../../../contracts/index.js';
+import type { ExchangeClientTransactionBatch } from '../../../contracts/index.js';
 import { createCoinbaseClient } from '../client.js';
 
 type CoinbaseCursorMetadata = CursorState['metadata'] & {
@@ -31,7 +31,7 @@ describe('Coinbase Client Streaming E2E', () => {
           throw new Error('fetchTransactionDataStreaming not implemented');
         }
 
-        let firstBatch: FetchBatchResult | undefined;
+        let firstBatch: ExchangeClientTransactionBatch | undefined;
 
         for await (const result of client.fetchTransactionDataStreaming()) {
           expect(result.isOk()).toBe(true);
@@ -223,7 +223,7 @@ describe('Coinbase Client Streaming E2E', () => {
           throw new Error('fetchTransactionDataStreaming not implemented');
         }
 
-        const accountBatches = new Map<string, FetchBatchResult[]>();
+        const accountBatches = new Map<string, ExchangeClientTransactionBatch[]>();
         let batchCount = 0;
         const maxBatches = 5; // Limit to minimize API usage
 

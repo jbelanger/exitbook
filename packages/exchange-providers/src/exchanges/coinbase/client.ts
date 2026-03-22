@@ -4,9 +4,14 @@ import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
 import { validateCredentials } from '../../client/schema-validation.js';
-import type { ExchangeCredentials } from '../../contracts/exchange-credentials.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
-import type { RawTransactionInput } from '../../contracts/raw-transaction.js';
+import type { ExchangeClientCredentials } from '../../contracts/exchange-credentials.js';
+import type {
+  ExchangeBalanceSnapshot,
+  ExchangeClientTransactionBatch,
+  ExchangeClientFetchParams,
+  IExchangeClient,
+} from '../../contracts/index.js';
+import type { ExchangeClientTransaction } from '../../contracts/raw-transaction.js';
 
 import { coinbaseGet } from './auth.js';
 import { CoinbaseAccountSchema, CoinbaseCredentialsSchema, RawCoinbaseLedgerEntrySchema } from './contracts.js';
@@ -134,7 +139,7 @@ async function fetchTransactionPage(
   });
 }
 
-export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
+export function createCoinbaseClient(credentials: ExchangeClientCredentials): Result<IExchangeClient, Error> {
   return resultDo(function* () {
     const { apiKey, apiSecret } = yield* validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase');
     yield* validateCoinbaseCredentials(apiKey, apiSecret);
@@ -155,8 +160,8 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
       exchangeId: 'coinbase',
 
       async *fetchTransactionDataStreaming(
-        params?: FetchParams
-      ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
+        params?: ExchangeClientFetchParams
+      ): AsyncIterableIterator<Result<ExchangeClientTransactionBatch, Error>> {
         const limit = 100;
 
         // Step 1: Fetch all accounts
@@ -236,7 +241,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               break;
             }
 
-            const transactions: RawTransactionInput[] = [];
+            const transactions: ExchangeClientTransaction[] = [];
             lastCursorState = undefined;
             let validationError: Error | undefined;
 
@@ -348,7 +353,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
         }
       },
 
-      async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+      async fetchBalance(): Promise<Result<ExchangeBalanceSnapshot, Error>> {
         const accountsResult = await fetchAllAccounts(httpClient, auth);
 
         if (accountsResult.isErr()) {

@@ -1,14 +1,14 @@
 import type { CursorState, Result } from '@exitbook/foundation';
 
-import type { RawTransactionInput } from './raw-transaction.js';
+import type { ExchangeClientTransaction } from './raw-transaction.js';
 
-export { ExchangeCredentialsSchema, type ExchangeCredentials } from './exchange-credentials.js';
-export { RawTransactionInputSchema, type RawTransactionInput } from './raw-transaction.js';
+export { ExchangeClientCredentialsSchema, type ExchangeClientCredentials } from './exchange-credentials.js';
+export { ExchangeClientTransactionSchema, type ExchangeClientTransaction } from './raw-transaction.js';
 
 /**
  * Parameters for fetching exchange data
  */
-export interface FetchParams {
+export interface ExchangeClientFetchParams {
   cursor?: Record<string, CursorState> | undefined;
 }
 
@@ -16,7 +16,7 @@ export interface FetchParams {
  * Balance snapshot from exchange
  * Maps currency symbol to total balance as decimal string
  */
-export interface BalanceSnapshot {
+export interface ExchangeBalanceSnapshot {
   balances: Record<string, string>;
   timestamp: number;
 }
@@ -24,9 +24,9 @@ export interface BalanceSnapshot {
 /**
  * Single batch of transactions from streaming fetch
  */
-export interface FetchBatchResult {
+export interface ExchangeClientTransactionBatch {
   // Transactions in this batch
-  transactions: RawTransactionInput[];
+  transactions: ExchangeClientTransaction[];
   // Operation type (e.g., "ledger", "trade", "deposit")
   operationType: string;
   // Cursor state for this operation type
@@ -46,10 +46,12 @@ export interface IExchangeClient {
    * Yields batches as they're fetched, enabling incremental persistence and crash recovery
    * Optional - exchanges can implement this for improved performance
    */
-  fetchTransactionDataStreaming(params?: FetchParams): AsyncIterableIterator<Result<FetchBatchResult, Error>>;
+  fetchTransactionDataStreaming(
+    params?: ExchangeClientFetchParams
+  ): AsyncIterableIterator<Result<ExchangeClientTransactionBatch, Error>>;
 
   /**
    * Fetch current total balance for all currencies
    */
-  fetchBalance(): Promise<Result<BalanceSnapshot, Error>>;
+  fetchBalance(): Promise<Result<ExchangeBalanceSnapshot, Error>>;
 }

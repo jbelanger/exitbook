@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { ExchangeCredentialsSchema } from '../../contracts/exchange-credentials.js';
+import { ExchangeClientCredentialsSchema } from '../../contracts/exchange-credentials.js';
 
 /**
  * Coinbase API credentials schema
  */
-export const CoinbaseCredentialsSchema = ExchangeCredentialsSchema.omit({ apiPassphrase: true });
+export const CoinbaseCredentialsSchema = ExchangeClientCredentialsSchema.omit({ apiPassphrase: true });
 export type CoinbaseCredentials = z.infer<typeof CoinbaseCredentialsSchema>;
 
 /**

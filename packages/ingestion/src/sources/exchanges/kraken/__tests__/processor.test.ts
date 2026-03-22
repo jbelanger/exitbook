@@ -1,4 +1,4 @@
-import type { KrakenLedgerEntry } from '@exitbook/exchange-providers';
+import type { KrakenLedgerEntry } from '@exitbook/exchange-providers/kraken';
 import { describe, expect, test } from 'vitest';
 
 import type { RawExchangeProcessorInput } from '../../shared/index.js';

@@ -1,34 +1,23 @@
 /**
  * @exitbook/exchange-providers
  *
- * Exchange provider integrations for raw data fetching.
- * Each exchange has its own authenticated API client.
+ * Public package API for exchange client creation and shared exchange contracts.
+ * Exchange-specific integrations are exported from explicit subpaths.
  */
 
-export { createExchangeClient } from './client/create-exchange-client.js';
 export {
-  ExchangeCredentialsSchema,
-  RawTransactionInputSchema,
-  type BalanceSnapshot,
-  type ExchangeCredentials,
-  type FetchBatchResult,
+  createExchangeClient,
+  listExchangeProviders,
+  type ExchangeName,
+  type ExchangeProviderDescriptor,
+} from './client/create-exchange-client.js';
+export {
+  ExchangeClientCredentialsSchema,
+  ExchangeClientTransactionSchema,
+  type ExchangeBalanceSnapshot,
+  type ExchangeClientCredentials,
+  type ExchangeClientFetchParams,
+  type ExchangeClientTransaction,
+  type ExchangeClientTransactionBatch,
   type IExchangeClient,
-  type RawTransactionInput,
 } from './contracts/index.js';
-
-export {
-  createCoinbaseClient,
-  CoinbaseCredentialsSchema,
-  RawCoinbaseLedgerEntrySchema,
-  type CoinbaseCredentials,
-  type RawCoinbaseLedgerEntry,
-} from './exchanges/coinbase/index.js';
-
-export {
-  createKrakenClient,
-  KrakenCredentialsSchema,
-  KrakenLedgerEntrySchema,
-  normalizeKrakenAsset,
-  type KrakenCredentials,
-  type KrakenLedgerEntry,
-} from './exchanges/kraken/index.js';

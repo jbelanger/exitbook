@@ -1,4 +1,4 @@
-import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
+import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers/coinbase';
 import { describe, expect, test } from 'vitest';
 
 import type { DeepPartial } from '../../../../shared/test-utils/index.js';

@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Exchange credentials schema - generic key-value pairs validated per exchange.
  */
-export const ExchangeCredentialsSchema = z
+export const ExchangeClientCredentialsSchema = z
   .object({
     apiKey: z.string().min(1),
     apiSecret: z.string().min(1),
@@ -11,4 +11,4 @@ export const ExchangeCredentialsSchema = z
   })
   .strict();
 
-export type ExchangeCredentials = z.infer<typeof ExchangeCredentialsSchema>;
+export type ExchangeClientCredentials = z.infer<typeof ExchangeClientCredentialsSchema>;

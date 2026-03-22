@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { ExchangeCredentialsSchema } from '../../contracts/exchange-credentials.js';
+import { ExchangeClientCredentialsSchema } from '../../contracts/exchange-credentials.js';
 
 /**
  * Kraken API credentials schema
  */
-export const KrakenCredentialsSchema = ExchangeCredentialsSchema.omit({ apiPassphrase: true });
+export const KrakenCredentialsSchema = ExchangeClientCredentialsSchema.omit({ apiPassphrase: true });
 export type KrakenCredentials = z.infer<typeof KrakenCredentialsSchema>;
 
 /**

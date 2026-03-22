@@ -3,16 +3,16 @@ import { err, ok } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 vi.mock('@exitbook/exchange-providers', () => ({
-  createKrakenClient: vi.fn(),
+  createExchangeClient: vi.fn(),
 }));
 
-import { createKrakenClient } from '@exitbook/exchange-providers';
+import { createExchangeClient } from '@exitbook/exchange-providers';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import type { StreamingImportParams } from '../../../../shared/types/importers.js';
 import { KrakenApiImporter } from '../importer.js';
 
-const mockCreateKrakenClient = vi.mocked(createKrakenClient);
+const mockCreateExchangeClient = vi.mocked(createExchangeClient);
 
 function makeParams(overrides: Partial<StreamingImportParams> = {}): StreamingImportParams {
   return {
@@ -55,7 +55,7 @@ function makeRawTransaction(eventId: string): RawTransactionInput {
 
 describe('KrakenApiImporter', () => {
   beforeEach(() => {
-    mockCreateKrakenClient.mockReset();
+    mockCreateExchangeClient.mockReset();
   });
 
   test('returns an error when credentials are missing', async () => {
@@ -69,11 +69,11 @@ describe('KrakenApiImporter', () => {
     }
 
     expect(result.error.message).toContain('API credentials are required');
-    expect(mockCreateKrakenClient).not.toHaveBeenCalled();
+    expect(mockCreateExchangeClient).not.toHaveBeenCalled();
   });
 
   test('returns a client creation error unchanged', async () => {
-    mockCreateKrakenClient.mockReturnValue(err(new Error('bad kraken credentials')));
+    mockCreateExchangeClient.mockReturnValue(err(new Error('bad kraken credentials')));
 
     const importer = new KrakenApiImporter();
     const result = await consumeImportStream(importer, makeParams());
@@ -87,7 +87,7 @@ describe('KrakenApiImporter', () => {
   });
 
   test('returns an error when the client does not support streaming', async () => {
-    mockCreateKrakenClient.mockReturnValue(
+    mockCreateExchangeClient.mockReturnValue(
       ok({
         exchangeId: 'kraken',
         fetchBalance: vi.fn(),
@@ -118,7 +118,7 @@ describe('KrakenApiImporter', () => {
       });
     });
 
-    mockCreateKrakenClient.mockReturnValue(
+    mockCreateExchangeClient.mockReturnValue(
       ok({
         exchangeId: 'kraken',
         fetchBalance: vi.fn(),
@@ -134,7 +134,7 @@ describe('KrakenApiImporter', () => {
       return;
     }
 
-    expect(mockCreateKrakenClient).toHaveBeenCalledWith({
+    expect(mockCreateExchangeClient).toHaveBeenCalledWith('kraken', {
       apiKey: 'test-key',
       apiSecret: 'test-secret',
     });
@@ -148,7 +148,7 @@ describe('KrakenApiImporter', () => {
       yield err(new Error('kraken transport failed'));
     });
 
-    mockCreateKrakenClient.mockReturnValue(
+    mockCreateExchangeClient.mockReturnValue(
       ok({
         exchangeId: 'kraken',
         fetchBalance: vi.fn(),

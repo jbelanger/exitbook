@@ -6,7 +6,10 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./coinbase": "./src/exchanges/coinbase/index.ts",
+    "./kraken": "./src/exchanges/kraken/index.ts",
+    "./kucoin": "./src/exchanges/kucoin/index.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",

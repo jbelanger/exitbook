@@ -36,6 +36,21 @@ describe('createKuCoinClient', () => {
     expect(result.error.message).toContain('Invalid kucoin credentials');
   });
 
+  test('returns a validation error when passphrase is missing', () => {
+    const result = createKuCoinClient({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toContain('Invalid kucoin credentials');
+    expect(result.error.message).toContain('apiPassphrase');
+  });
+
   test('yields an unsupported error for streaming imports', async () => {
     const result = createKuCoinClient({
       apiKey: 'test-key',

@@ -1,12 +1,12 @@
 import { err, ok, type Result } from '@exitbook/core';
-import { createKrakenClient } from '@exitbook/exchange-providers';
+import { createExchangeClient } from '@exitbook/exchange-providers';
 import { getLogger, type Logger } from '@exitbook/logger';
 
 import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';
 
 /**
  * API-based importer for Kraken exchange.
- * Uses createKrakenClient from @exitbook/exchange-providers to fetch and validate transaction data.
+ * Uses the generic exchange client facade to fetch and validate transaction data.
  * The client handles validation, timestamp extraction, and external ID extraction.
  */
 export class KrakenApiImporter implements IImporter {
@@ -30,7 +30,7 @@ export class KrakenApiImporter implements IImporter {
     }
 
     // Initialize Kraken client with credentials
-    const clientResult = createKrakenClient(params.credentials);
+    const clientResult = createExchangeClient('kraken', params.credentials);
 
     if (clientResult.isErr()) {
       yield err(clientResult.error);

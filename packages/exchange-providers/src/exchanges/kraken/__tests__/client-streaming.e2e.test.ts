@@ -1,7 +1,7 @@
 import type { CursorState } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import type { FetchBatchResult } from '../../../contracts/index.js';
+import type { ExchangeClientTransactionBatch } from '../../../contracts/index.js';
 import { createKrakenClient } from '../client.js';
 
 type KrakenCursorMetadata = CursorState['metadata'] & {
@@ -31,7 +31,7 @@ describe('Kraken Client Streaming E2E', () => {
           throw new Error('fetchTransactionDataStreaming not implemented');
         }
 
-        let firstBatch: FetchBatchResult | undefined;
+        let firstBatch: ExchangeClientTransactionBatch | undefined;
 
         for await (const result of client.fetchTransactionDataStreaming()) {
           expect(result.isOk()).toBe(true);

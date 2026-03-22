@@ -5,9 +5,16 @@ import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 
 import { validateCredentials } from '../../client/schema-validation.js';
-import { ExchangeCredentialsSchema, type ExchangeCredentials } from '../../contracts/exchange-credentials.js';
-import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
+import type { ExchangeClientCredentials } from '../../contracts/exchange-credentials.js';
+import type {
+  ExchangeBalanceSnapshot,
+  ExchangeClientTransactionBatch,
+  ExchangeClientFetchParams,
+  IExchangeClient,
+} from '../../contracts/index.js';
 import { normalizeCCXTBalance } from '../shared/ccxt-balance.js';
+
+import { KuCoinCredentialsSchema } from './contracts.js';
 
 /**
  * Factory function that creates a KuCoin exchange client
@@ -16,12 +23,12 @@ import { normalizeCCXTBalance } from '../shared/ccxt-balance.js';
  * Imperative shell pattern: manages side effects (ccxt API calls)
  * and delegates business logic to pure functions
  */
-export function createKuCoinClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
+export function createKuCoinClient(credentials: ExchangeClientCredentials): Result<IExchangeClient, Error> {
   const logger = getLogger('KuCoinClient');
 
   return resultDo(function* () {
     const { apiKey, apiSecret, apiPassphrase } = yield* validateCredentials(
-      ExchangeCredentialsSchema,
+      KuCoinCredentialsSchema,
       credentials,
       'kucoin'
     );
@@ -30,7 +37,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
     const exchange = new ccxt.kucoin({
       apiKey,
       secret: apiSecret,
-      password: apiPassphrase!, // KuCoin uses 'password' field for passphrase in ccxt
+      password: apiPassphrase, // KuCoin uses 'password' field for passphrase in ccxt
     });
 
     logger.info('KuCoin client created successfully');
@@ -39,8 +46,8 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
       exchangeId: 'kucoin',
 
       async *fetchTransactionDataStreaming(
-        _params?: FetchParams
-      ): AsyncIterableIterator<Result<FetchBatchResult, Error>> {
+        _params?: ExchangeClientFetchParams
+      ): AsyncIterableIterator<Result<ExchangeClientTransactionBatch, Error>> {
         yield err(
           new Error(
             'KuCoin API import is not supported due to API limitations (1-day query window, 365-day max lookback). ' +
@@ -52,7 +59,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
         // See packages/ingestion/src/sources/exchanges/kucoin/ for the CSV importer implementation.
       },
 
-      async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+      async fetchBalance(): Promise<Result<ExchangeBalanceSnapshot, Error>> {
         try {
           // KuCoin has multiple account types (main, spot/trade, margin, etc.)
           // Fetch balances from all account types and combine them

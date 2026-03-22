@@ -1,6 +1,6 @@
 import { parseCurrency, parseDecimal } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
-import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers';
+import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers/coinbase';
 
 import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';
