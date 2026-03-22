@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,7 +28,7 @@ vi.mock('../cryptocompare-utils.js', async () => {
   };
 });
 
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 
 import type { PriceData } from '../../../contracts/types.js';
 import type { PriceQueries } from '../../../price-cache/persistence/queries.js';

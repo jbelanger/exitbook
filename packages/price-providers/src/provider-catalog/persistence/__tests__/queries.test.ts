@@ -1,5 +1,5 @@
-import { type Currency } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import { type Currency } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {

@@ -4,8 +4,8 @@
  * Stateless transformations and mappings for Binance data
  */
 
-import type { Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { PriceGranularity, PriceData } from '../../contracts/types.js';
 import { roundTimestampByGranularity } from '../../price-cache/time-buckets.js';

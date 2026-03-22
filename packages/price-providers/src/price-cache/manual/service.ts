@@ -5,9 +5,9 @@
  * Handles all database initialization internally.
  */
 
-import { type Currency, wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { type Currency, wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import { initPriceCachePersistence, type PriceCachePersistence } from '../persistence/runtime.js';

@@ -21,8 +21,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/core": "workspace:*",
     "@exitbook/events": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",

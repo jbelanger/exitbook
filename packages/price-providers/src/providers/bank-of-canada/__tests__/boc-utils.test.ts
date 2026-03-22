@@ -4,7 +4,7 @@
  * Pure function tests - no mocks needed
  */
 
-import { type Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { formatBoCDate, transformBoCResponse } from '../boc-utils.js';

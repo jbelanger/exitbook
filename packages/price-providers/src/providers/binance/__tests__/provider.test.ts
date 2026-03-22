@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,7 +41,7 @@ vi.mock('../binance-utils.js', async () => {
   };
 });
 
-import { type Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/foundation';
 
 import { createTestPriceData } from '../../../__tests__/test-helpers.js';
 import { CoinNotFoundError, type PriceData } from '../../../index.js';

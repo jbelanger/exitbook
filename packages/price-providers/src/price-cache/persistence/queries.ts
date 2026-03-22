@@ -2,10 +2,10 @@
  * Price queries - manages cached price data
  */
 
-import type { Currency } from '@exitbook/core';
-import { CurrencySchema, parseDecimal, wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { CurrencySchema, parseDecimal, wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { sql } from '@exitbook/sqlite';
 

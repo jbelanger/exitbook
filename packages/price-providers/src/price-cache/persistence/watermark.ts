@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { err } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { initPriceCachePersistence } from './runtime.js';

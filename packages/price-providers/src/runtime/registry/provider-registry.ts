@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { IPriceProvider } from '../../contracts/types.js';

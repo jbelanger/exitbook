@@ -2,10 +2,10 @@
  * Binance price provider implementation
  */
 
-import type { Currency } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import { HttpError } from '@exitbook/http';
 import type { InstrumentationCollector } from '@exitbook/observability';

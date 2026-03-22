@@ -1,4 +1,4 @@
-import { type Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

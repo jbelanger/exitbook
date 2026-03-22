@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';

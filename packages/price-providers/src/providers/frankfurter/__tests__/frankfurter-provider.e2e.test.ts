@@ -5,7 +5,7 @@
  * No API key required
  */
 
-import { type Currency } from '@exitbook/core';
+import { type Currency } from '@exitbook/foundation';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
