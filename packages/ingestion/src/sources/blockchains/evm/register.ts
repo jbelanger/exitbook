@@ -17,13 +17,13 @@ export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap(
 
     normalizeAddress: (address: string) => normalizeEvmAddress(address, chainName),
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new EvmImporter(config, providerManager, {
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new EvmImporter(config, providerRuntime, {
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ providerManager, scamDetectionService }) =>
-      new EvmProcessor(config, providerManager, scamDetectionService),
+    createProcessor: ({ providerRuntime, scamDetectionService }) =>
+      new EvmProcessor(config, providerRuntime, scamDetectionService),
   };
 
   return [adapter];

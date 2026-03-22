@@ -13,8 +13,8 @@ export const xrpAdapters: BlockchainAdapter[] = Object.keys(XRP_CHAINS).flatMap(
   const adapter: BlockchainAdapter = {
     blockchain: chainName,
     chainModel: 'account-based',
-    createImporter: (providerManager, preferredProvider) =>
-      new XrpImporter(config, providerManager, { preferredProvider }),
+    createImporter: (providerRuntime, preferredProvider) =>
+      new XrpImporter(config, providerRuntime, { preferredProvider }),
     createProcessor: ({ scamDetectionService }) => new XrpProcessor(config, scamDetectionService),
 
     normalizeAddress: normalizeXrpAddress,

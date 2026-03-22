@@ -9,13 +9,13 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
  * XRP transaction importer that fetches raw transaction data from XRPL RPC APIs.
- * Uses provider manager for failover between multiple XRPL RPC providers.
+ * Uses provider runtime for failover between multiple XRPL RPC providers.
  */
 export class XrpImporter implements IImporter {
   private readonly chainConfig: XrpChainConfig;
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
 
   constructor(
     chainConfig: XrpChainConfig,
@@ -24,11 +24,11 @@ export class XrpImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized XRP transaction importer - ProvidersCount: ${this.providerManager.getProviders(this.chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized XRP transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(this.chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -52,7 +52,7 @@ export class XrpImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<XrpTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<XrpTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider },

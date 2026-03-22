@@ -20,7 +20,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
 
   constructor(
     protected sourceName: string,
-    protected providerManager?: IBlockchainProviderRuntime,
+    protected providerRuntime?: IBlockchainProviderRuntime,
     protected scamDetectionService?: IScamDetectionService
   ) {
     this.logger = getLogger(`${sourceName}Processor`);
@@ -87,8 +87,8 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     let metadataMap = new Map<string, TokenMetadataRecord | undefined>();
     let detectionMode: 'metadata' | 'symbol-only' = 'symbol-only';
 
-    if (this.providerManager && uniqueContracts.length > 0) {
-      const metadataResult = await this.providerManager.getTokenMetadata(chainName, uniqueContracts);
+    if (this.providerRuntime && uniqueContracts.length > 0) {
+      const metadataResult = await this.providerRuntime.getTokenMetadata(chainName, uniqueContracts);
       if (metadataResult.isOk()) {
         metadataMap = metadataResult.value;
         detectionMode = 'metadata';

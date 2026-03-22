@@ -286,14 +286,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions,
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '110000000',
       decimalAmount: '1.1',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     if (result.isErr()) {
@@ -378,14 +378,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '250000000',
       decimalAmount: '2.5',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.rebuildCalculatedSnapshot({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
@@ -440,7 +440,7 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = createProviderManager(
+    const providerRuntime = createProviderManager(
       [{ capabilities: { supportedOperations: ['getAddressTransactions'] } }],
       {
         rawAmount: '0',
@@ -450,7 +450,7 @@ describe('BalanceWorkflow', () => {
       }
     );
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     if (result.isErr()) {
@@ -513,7 +513,7 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = {
+    const providerRuntime = {
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([]),
@@ -521,7 +521,7 @@ describe('BalanceWorkflow', () => {
       getAddressTokenBalances: vi.fn(),
     } as unknown as IBlockchainProviderRuntime;
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
@@ -563,7 +563,7 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = createProviderManager(
+    const providerRuntime = createProviderManager(
       [
         {
           capabilities: {
@@ -580,7 +580,7 @@ describe('BalanceWorkflow', () => {
       }
     );
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isOk()).toBe(true);
@@ -651,14 +651,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions,
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '11000000000',
       decimalAmount: '110',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     if (result.isErr()) {
@@ -719,14 +719,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions,
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '6000000000',
       decimalAmount: '60',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     if (result.isErr()) {
@@ -759,12 +759,12 @@ describe('BalanceWorkflow', () => {
       transactionSource: { findByAccountIds: vi.fn() },
     };
 
-    const providerManager = {
+    const providerRuntime = {
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn(),
     } as unknown as IBlockchainProviderRuntime;
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: 999 });
 
     expect(result.isErr()).toBe(true);
@@ -783,14 +783,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = {
+    const providerRuntime = {
       destroy: vi.fn().mockResolvedValue(undefined),
       hasRegisteredOperationSupport: vi.fn().mockReturnValue(true),
       getProviders: vi.fn().mockReturnValue([{ capabilities: { supportedOperations: ['getAddressBalances'] } }]),
       getAddressBalances: vi.fn().mockResolvedValue(err(new Error('RPC down'))),
     } as unknown as IBlockchainProviderRuntime;
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
@@ -814,14 +814,14 @@ describe('BalanceWorkflow', () => {
 
     replaceSnapshot.mockResolvedValueOnce(err(new Error('write failed')));
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '0',
       decimalAmount: '0',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: account.id });
 
     expect(result.isErr()).toBe(true);
@@ -864,14 +864,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '100000000',
       decimalAmount: '1.0',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.refreshVerification({ accountId: childAccount.id });
 
     expect(result.isOk()).toBe(true);
@@ -928,14 +928,14 @@ describe('BalanceWorkflow', () => {
       excludedTransactions: [],
     });
 
-    const providerManager = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
       rawAmount: '0',
       decimalAmount: '0',
       symbol: 'BTC',
       decimals: 8,
     });
 
-    const workflow = new BalanceWorkflow(ports, providerManager);
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
     const result = await workflow.rebuildCalculatedSnapshot({ accountId: grandchildAccount.id });
 
     expect(result.isOk()).toBe(true);

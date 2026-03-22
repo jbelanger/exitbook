@@ -13,13 +13,13 @@ export const nearAdapters: BlockchainAdapter[] = [
 
     normalizeAddress: normalizeNearAddress,
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new NearImporter(providerManager, {
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new NearImporter(providerRuntime, {
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ providerManager, scamDetectionService, nearBatchSource, accountId }) => {
-      return new NearProcessor(providerManager, scamDetectionService, nearBatchSource, accountId);
+    createProcessor: ({ providerRuntime, scamDetectionService, nearBatchSource, accountId }) => {
+      return new NearProcessor(providerRuntime, scamDetectionService, nearBatchSource, accountId);
     },
   },
 ];

@@ -20,15 +20,15 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
   const adapter: BlockchainAdapter = {
     blockchain: chainName,
     chainModel: 'utxo',
-    createImporter: (providerManager, preferredProvider) =>
-      new BitcoinImporter(config, providerManager, { preferredProvider }),
+    createImporter: (providerRuntime, preferredProvider) =>
+      new BitcoinImporter(config, providerRuntime, { preferredProvider }),
     createProcessor: ({ scamDetectionService }) => new BitcoinProcessor(config, scamDetectionService),
 
     isExtendedPublicKey: isBitcoinXpub,
 
     deriveAddressesFromXpub: async (
       xpub: string,
-      providerManager,
+      providerRuntime,
       blockchain: string,
       gap?: number
     ): Promise<Result<DerivedAddress[], Error>> => {
@@ -37,7 +37,7 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
         type: 'xpub',
       };
 
-      const initResult = await initializeBitcoinXpubWallet(walletAddress, blockchain, providerManager, gap ?? 20);
+      const initResult = await initializeBitcoinXpubWallet(walletAddress, blockchain, providerRuntime, gap ?? 20);
 
       if (initResult.isErr()) {
         return err(initResult.error);

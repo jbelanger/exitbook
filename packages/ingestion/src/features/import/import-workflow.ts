@@ -68,7 +68,7 @@ export class ImportWorkflow {
 
   constructor(
     private readonly ports: ImportPorts,
-    private readonly providerManager: IBlockchainProviderRuntime,
+    private readonly providerRuntime: IBlockchainProviderRuntime,
     private readonly registry: AdapterRegistry,
     private readonly eventBus?: EventBus<IngestionEvent> | undefined
   ) {}
@@ -285,7 +285,7 @@ export class ImportWorkflow {
 
       const derivedAddressesResult = await blockchainAdapter.deriveAddressesFromXpub(
         xpub,
-        this.providerManager,
+        this.providerRuntime,
         blockchain,
         requestedGap
       );
@@ -465,7 +465,7 @@ export class ImportWorkflow {
     if (sourceType === 'blockchain') {
       const adapterResult = this.registry.getBlockchain(normalizedSourceName);
       if (adapterResult.isErr()) return err(adapterResult.error);
-      const importer = adapterResult.value.createImporter(this.providerManager, params.providerName);
+      const importer = adapterResult.value.createImporter(this.providerRuntime, params.providerName);
       return ok({ importer, params });
     }
 

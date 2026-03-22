@@ -10,12 +10,12 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
  * Supports Solana addresses using multiple providers (Helius, Solscan, SolanaRPC).
- * Uses provider manager for failover between multiple blockchain API providers.
+ * Uses provider runtime for failover between multiple blockchain API providers.
  */
 export class SolanaImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
 
   constructor(
     blockchainProviderManager: IBlockchainProviderRuntime,
@@ -23,11 +23,11 @@ export class SolanaImporter implements IImporter {
   ) {
     this.logger = getLogger('solanaImporter');
 
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized Solana transaction importer - ProvidersCount: ${this.providerManager.getProviders('solana', { preferredProvider: this.preferredProvider }).length}`
+      `Initialized Solana transaction importer - ProvidersCount: ${this.providerRuntime.getProviders('solana', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -61,7 +61,7 @@ export class SolanaImporter implements IImporter {
 
   /**
    * Stream transactions for a single address with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Uses provider runtime's streaming failover to handle pagination and provider switching
    * Supports both normal address transactions and token account transactions
    */
   private async *streamTransactionsForAddress(
@@ -73,7 +73,7 @@ export class SolanaImporter implements IImporter {
 
     this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
 
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SolanaTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<SolanaTransaction>>(
       'solana',
       address,
       { preferredProvider: this.preferredProvider, streamType },

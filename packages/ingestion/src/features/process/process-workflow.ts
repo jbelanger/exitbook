@@ -34,7 +34,7 @@ export class ProcessingWorkflow {
 
   constructor(
     private ports: ProcessingPorts,
-    private providerManager: IBlockchainProviderRuntime,
+    private providerRuntime: IBlockchainProviderRuntime,
     private eventBus: EventBus<IngestionEvent>,
     private registry: AdapterRegistry
   ) {
@@ -554,7 +554,7 @@ export class ProcessingWorkflow {
 
       return ok(
         adapterResult.value.createProcessor({
-          providerManager: this.providerManager,
+          providerRuntime: this.providerRuntime,
           scamDetectionService: this.scamDetectionService,
           nearBatchSource: this.ports.nearBatchSource,
           accountId,

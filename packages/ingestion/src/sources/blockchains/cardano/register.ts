@@ -23,7 +23,7 @@ export const cardanoAdapters: BlockchainAdapter[] = [
 
     deriveAddressesFromXpub: async (
       xpub: string,
-      providerManager: IBlockchainProviderRuntime,
+      providerRuntime: IBlockchainProviderRuntime,
       _blockchain: string,
       gap?: number
     ): Promise<Result<DerivedAddress[], Error>> => {
@@ -32,7 +32,7 @@ export const cardanoAdapters: BlockchainAdapter[] = [
         type: 'xpub',
       };
 
-      const initResult = await initializeCardanoXpubWallet(walletAddress, providerManager, gap ?? 10);
+      const initResult = await initializeCardanoXpubWallet(walletAddress, providerRuntime, gap ?? 10);
 
       if (initResult.isErr()) {
         return err(initResult.error);
@@ -52,8 +52,8 @@ export const cardanoAdapters: BlockchainAdapter[] = [
       );
     },
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new CardanoImporter(providerManager, { preferredProvider: providerName }),
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new CardanoImporter(providerRuntime, { preferredProvider: providerName }),
 
     createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),
   },

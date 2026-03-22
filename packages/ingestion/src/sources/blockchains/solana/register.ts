@@ -13,12 +13,12 @@ export const solanaAdapters: BlockchainAdapter[] = [
 
     normalizeAddress: normalizeSolanaAddress,
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new SolanaImporter(providerManager, {
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new SolanaImporter(providerRuntime, {
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ providerManager, scamDetectionService }) =>
-      new SolanaProcessor(providerManager, scamDetectionService),
+    createProcessor: ({ providerRuntime, scamDetectionService }) =>
+      new SolanaProcessor(providerRuntime, scamDetectionService),
   },
 ];

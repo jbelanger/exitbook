@@ -47,12 +47,12 @@ import type { NearCorrelatedTransaction } from './types.js';
  */
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
-    providerManager: IBlockchainProviderRuntime,
+    providerRuntime: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService,
     private readonly nearBatchSource?: INearBatchSource,
     private readonly accountId?: number | undefined
   ) {
-    super('near', providerManager, scamDetectionService);
+    super('near', providerRuntime, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -526,10 +526,10 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
    */
   private async enrichTokenMetadata(events: NearStreamEvent[]): Promise<Result<void, Error>> {
     const ftTransferEvents = events.filter((e): e is NearTokenTransfer => e.streamType === 'token-transfers');
-    if (ftTransferEvents.length === 0 || !this.providerManager) return ok(undefined);
+    if (ftTransferEvents.length === 0 || !this.providerRuntime) return ok(undefined);
 
     const addresses = [...new Set(ftTransferEvents.map((e) => e.contractAddress))];
-    const result = await this.providerManager.getTokenMetadata('near', addresses);
+    const result = await this.providerRuntime.getTokenMetadata('near', addresses);
     if (result.isErr()) return err(result.error);
 
     const metadataMap = result.value;

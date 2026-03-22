@@ -5,7 +5,7 @@ import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
-import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-runtime.js';
 import { generateUniqueTransactionEventId } from '../../normalization/event-id.js';
 
 import { getNetworkForChain } from './network-registry.js';
@@ -232,7 +232,7 @@ export function getDefaultDerivationPath(bipStandard: BipStandard): string {
 export async function initializeBitcoinXpubWallet(
   walletAddress: BitcoinWalletAddress,
   blockchain: string,
-  providerManager: AddressActivityProvider,
+  providerRuntime: AddressActivityProvider,
   addressGap = 20
 ): Promise<Result<void, Error>> {
   try {
@@ -240,7 +240,7 @@ export async function initializeBitcoinXpubWallet(
     const { addressFunction, addressType, bipStandard, hdNode } = await smartDetectBitcoinAccountType(
       walletAddress.address,
       blockchain,
-      providerManager
+      providerRuntime
     );
 
     // Update wallet address with detected values
@@ -278,7 +278,7 @@ export async function initializeBitcoinXpubWallet(
     );
 
     // Perform BIP44-compliant gap scanning with user's gap limit
-    const scanResult = await performBitcoinAddressGapScanning(walletAddress, blockchain, providerManager, addressGap);
+    const scanResult = await performBitcoinAddressGapScanning(walletAddress, blockchain, providerRuntime, addressGap);
     if (scanResult.isErr()) {
       return err(scanResult.error);
     }
@@ -316,7 +316,7 @@ export function isBitcoinXpub(address: string): boolean {
 export async function performBitcoinAddressGapScanning(
   walletAddress: BitcoinWalletAddress,
   blockchain: string,
-  providerManager: AddressActivityProvider,
+  providerRuntime: AddressActivityProvider,
   gapLimit = 20
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses || [];
@@ -324,7 +324,7 @@ export async function performBitcoinAddressGapScanning(
 
   const result = await performAddressGapScanning(
     { blockchain, derivedAddresses: allDerived, gapLimit },
-    providerManager
+    providerRuntime
   );
 
   if (result.isErr()) return err(result.error);
@@ -339,7 +339,7 @@ export async function performBitcoinAddressGapScanning(
 export async function smartDetectBitcoinAccountType(
   xpub: string,
   blockchain: string,
-  providerManager: AddressActivityProvider
+  providerRuntime: AddressActivityProvider
 ): Promise<SmartDetectionResult> {
   const network = getNetworkForChain(blockchain);
   logger.info('Intelligently detecting account type from xpub...');
@@ -367,7 +367,7 @@ export async function smartDetectBitcoinAccountType(
 
   // 2. Handle ambiguous case: xpub
   if (xpub.startsWith('xpub')) {
-    return detectXpubAccountType(xpub, blockchain, providerManager, network);
+    return detectXpubAccountType(xpub, blockchain, providerRuntime, network);
   }
 
   throw new Error('Unsupported extended public key format.');
@@ -379,7 +379,7 @@ export async function smartDetectBitcoinAccountType(
 async function detectXpubAccountType(
   xpub: string,
   blockchain: string,
-  providerManager: AddressActivityProvider,
+  providerRuntime: AddressActivityProvider,
   network: bitcoin.Network
 ): Promise<SmartDetectionResult> {
   logger.info('Detected xpub. Attempting to determine account type...');
@@ -388,7 +388,7 @@ async function detectXpubAccountType(
   const legacyHdNode = HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.xpub);
   const legacyAddressGen = getAddressGenerator('legacy', network);
 
-  if (await checkActivityForHdNode(legacyHdNode, legacyAddressGen, blockchain, providerManager)) {
+  if (await checkActivityForHdNode(legacyHdNode, legacyAddressGen, blockchain, providerRuntime)) {
     logger.info('Found activity on Legacy path (BIP44). Proceeding.');
     return {
       addressFunction: legacyAddressGen,
@@ -404,7 +404,7 @@ async function detectXpubAccountType(
   const segwitHdNode = HDKey.fromExtendedKey(xpub, BIP32_VERSIONS.xpub);
   const segwitAddressGen = getAddressGenerator('bech32', network);
 
-  if (await checkActivityForHdNode(segwitHdNode, segwitAddressGen, blockchain, providerManager)) {
+  if (await checkActivityForHdNode(segwitHdNode, segwitAddressGen, blockchain, providerRuntime)) {
     logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
     return {
       addressFunction: segwitAddressGen,
@@ -431,7 +431,7 @@ async function checkActivityForHdNode(
   hdNode: HDKey,
   addressGen: (pubkey: Buffer) => string,
   blockchain: string,
-  providerManager: AddressActivityProvider
+  providerRuntime: AddressActivityProvider
 ): Promise<boolean> {
   const firstChild = hdNode.deriveChild(0).deriveChild(0);
 
@@ -442,7 +442,7 @@ async function checkActivityForHdNode(
   const address = addressGen(Buffer.from(firstChild.publicKey));
   logger.debug(`Checking address for activity: ${address}`);
 
-  const result = await providerManager.hasAddressTransactions(blockchain, address);
+  const result = await providerRuntime.hasAddressTransactions(blockchain, address);
 
   if (result.isErr()) {
     // API error - cannot determine activity, propagate error

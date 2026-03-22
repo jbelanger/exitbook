@@ -68,7 +68,7 @@ export async function createIngestionInfrastructure(
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,
-      providerManager: providerRuntime,
+      providerRuntime,
     });
     await ingestionMonitor.start();
 

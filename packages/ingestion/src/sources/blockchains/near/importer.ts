@@ -25,7 +25,7 @@ import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../
 export class NearImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
 
   constructor(
     blockchainProviderManager: IBlockchainProviderRuntime,
@@ -33,11 +33,11 @@ export class NearImporter implements IImporter {
   ) {
     this.logger = getLogger('nearImporter');
 
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized NEAR transaction importer - ProvidersCount: ${this.providerManager.getProviders('near', { preferredProvider: this.preferredProvider }).length}`
+      `Initialized NEAR transaction importer - ProvidersCount: ${this.providerRuntime.getProviders('near', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -85,7 +85,7 @@ export class NearImporter implements IImporter {
   /**
    * Stream a single transaction type with resume support
    *
-   * Uses provider manager's streaming failover to handle pagination and provider switching.
+   * Uses provider runtime's streaming failover to handle pagination and provider switching.
    * Each stream type is streamed independently from its corresponding API endpoint.
    *
    * @param address - NEAR account ID
@@ -97,7 +97,7 @@ export class NearImporter implements IImporter {
     streamType: NearStreamType,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<NearStreamEvent>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<NearStreamEvent>>(
       'near',
       address,
       { preferredProvider: this.preferredProvider, streamType },

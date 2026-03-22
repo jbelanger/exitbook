@@ -11,7 +11,7 @@ export type {
   BlockchainProviderSelectionOptions,
   BlockchainTransactionStreamOptions,
   IBlockchainProviderRuntime,
-} from './contracts/provider-manager.js';
+} from './contracts/provider-runtime.js';
 
 export {
   createBlockchainProviderRuntime,

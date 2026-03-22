@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
-import type { IBlockchainProviderRuntime } from '../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../contracts/provider-runtime.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
 import { initProviderStatsPersistence, type ProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';

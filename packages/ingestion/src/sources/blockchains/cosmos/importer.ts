@@ -10,12 +10,12 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 /**
  * Generic Cosmos SDK transaction importer that fetches raw transaction data from blockchain APIs.
  * Works with any Cosmos SDK-based chain (Injective, Osmosis, Cosmos Hub, Terra, etc.)
- * Uses provider manager for failover between multiple API providers per chain.
+ * Uses provider runtime for failover between multiple API providers per chain.
  */
 export class CosmosImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
   private chainConfig: CosmosChainConfig;
 
   constructor(
@@ -26,11 +26,11 @@ export class CosmosImporter implements IImporter {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`cosmosImporter:${chainConfig.chainName}`);
 
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -58,13 +58,13 @@ export class CosmosImporter implements IImporter {
 
   /**
    * Stream transactions for a single address with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Uses provider runtime's streaming failover to handle pagination and provider switching
    */
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<CosmosTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<CosmosTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider },

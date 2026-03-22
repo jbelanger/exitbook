@@ -43,12 +43,12 @@ function createMockProviderManager(isContract = false): ProviderManagerMock {
   } as unknown as ProviderManagerMock;
 }
 
-function createEthereumProcessor(providerManager?: IBlockchainProviderRuntime) {
-  return new EvmProcessor(ETHEREUM_CONFIG, providerManager ?? createMockProviderManager());
+function createEthereumProcessor(providerRuntime?: IBlockchainProviderRuntime) {
+  return new EvmProcessor(ETHEREUM_CONFIG, providerRuntime ?? createMockProviderManager());
 }
 
-function createAvalancheProcessor(providerManager?: IBlockchainProviderRuntime) {
-  return new EvmProcessor(AVALANCHE_CONFIG, providerManager ?? createMockProviderManager());
+function createAvalancheProcessor(providerRuntime?: IBlockchainProviderRuntime) {
+  return new EvmProcessor(AVALANCHE_CONFIG, providerRuntime ?? createMockProviderManager());
 }
 
 function createTransaction(overrides: Partial<EvmTransaction> = {}): EvmTransaction {
@@ -331,8 +331,8 @@ describe('EvmProcessor - Fee Accounting', () => {
   });
 
   test('does NOT deduct fee when contract account did not pay gas', async () => {
-    const providerManager = createMockProviderManager(true);
-    const processor = createEthereumProcessor(providerManager);
+    const providerRuntime = createMockProviderManager(true);
+    const processor = createEthereumProcessor(providerRuntime);
 
     const baseTimestamp = Date.now();
     const normalizedData: EvmTransaction[] = [

@@ -84,22 +84,22 @@ export async function fetchExchangeBalance(
 }
 
 /**
- * Fetch balance from a blockchain using the provider manager.
+ * Fetch balance from a blockchain using the provider runtime.
  * Fetches both native asset balance and token balances if the provider supports it.
  */
 export async function fetchBlockchainBalance(
-  providerManager: IBlockchainProviderRuntime,
+  providerRuntime: IBlockchainProviderRuntime,
   blockchain: string,
   address: string,
   providerName?: string
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
-    providerManager.getProviders(blockchain, { preferredProvider: providerName });
+    providerRuntime.getProviders(blockchain, { preferredProvider: providerName });
 
     const balances: Record<string, string> = {};
 
     // 1. Fetch native asset balance
-    const nativeResult = await providerManager.getAddressBalances(blockchain, address, {
+    const nativeResult = await providerRuntime.getAddressBalances(blockchain, address, {
       preferredProvider: providerName,
     });
 
@@ -107,7 +107,7 @@ export async function fetchBlockchainBalance(
       return err(nativeResult.error);
     }
 
-    const enrichedNativeResult = await enrichBalanceData(nativeResult.value.data, blockchain, providerManager);
+    const enrichedNativeResult = await enrichBalanceData(nativeResult.value.data, blockchain, providerRuntime);
     if (enrichedNativeResult.isErr()) {
       return err(enrichedNativeResult.error);
     }
@@ -121,14 +121,14 @@ export async function fetchBlockchainBalance(
     assetMetadata[nativeAssetId] = nativeSymbol;
 
     // 2. Check if any provider supports token balances
-    const providers = providerManager.getProviders(blockchain, { preferredProvider: providerName });
+    const providers = providerRuntime.getProviders(blockchain, { preferredProvider: providerName });
     const supportsTokenBalances = providers.some((provider) =>
       provider.capabilities.supportedOperations.includes('getAddressTokenBalances')
     );
 
     // 3. Fetch token balances if supported
     if (supportsTokenBalances) {
-      const tokenResult = await providerManager.getAddressTokenBalances(blockchain, address, {
+      const tokenResult = await providerRuntime.getAddressTokenBalances(blockchain, address, {
         preferredProvider: providerName,
       });
 
@@ -150,7 +150,7 @@ export async function fetchBlockchainBalance(
           continue;
         }
 
-        const enrichedResult = await enrichBalanceData(tokenBalance, blockchain, providerManager);
+        const enrichedResult = await enrichBalanceData(tokenBalance, blockchain, providerRuntime);
         if (enrichedResult.isErr()) {
           logger.warn(
             { error: enrichedResult.error, contractAddress: tokenBalance.contractAddress },
@@ -196,7 +196,7 @@ export async function fetchBlockchainBalance(
  * Fetches balance for each child account's address and sums them up.
  */
 export async function fetchChildAccountsBalance(
-  providerManager: IBlockchainProviderRuntime,
+  providerRuntime: IBlockchainProviderRuntime,
   blockchain: string,
   parentAddress: string,
   childAccounts: { identifier: string }[],
@@ -207,7 +207,7 @@ export async function fetchChildAccountsBalance(
       return err(new Error('No child accounts provided for balance aggregation'));
     }
 
-    providerManager.getProviders(blockchain, { preferredProvider: providerName });
+    providerRuntime.getProviders(blockchain, { preferredProvider: providerName });
 
     const aggregatedBalances: Record<string, ReturnType<typeof parseDecimal>> = {};
     const aggregatedMetadata: Record<string, string> = {};
@@ -216,7 +216,7 @@ export async function fetchChildAccountsBalance(
 
     for (const childAccount of childAccounts) {
       const address = childAccount.identifier;
-      const balanceResult = await fetchBlockchainBalance(providerManager, blockchain, address, providerName);
+      const balanceResult = await fetchBlockchainBalance(providerRuntime, blockchain, address, providerName);
 
       if (balanceResult.isErr()) {
         const message = `Failed to fetch child account balance for ${blockchain}:${address}: ${balanceResult.error.message}`;
@@ -273,7 +273,7 @@ export async function fetchChildAccountsBalance(
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,
-  providerManager: IBlockchainProviderRuntime
+  providerRuntime: IBlockchainProviderRuntime
 ): Promise<Result<RawBalanceData, Error>> {
   if (balance.symbol && balance.decimals !== undefined) {
     return ok(balance);
@@ -284,7 +284,7 @@ async function enrichBalanceData(
   }
 
   try {
-    const metadataResult = await providerManager.getTokenMetadata(blockchain, [balance.contractAddress]);
+    const metadataResult = await providerRuntime.getTokenMetadata(blockchain, [balance.contractAddress]);
 
     if (metadataResult.isErr()) {
       return err(metadataResult.error);

@@ -30,19 +30,19 @@ describe('theta/register', () => {
   });
 
   test('creates Theta importer and processor from the Theta adapter', () => {
-    const providerManager = createProviderManager();
+    const providerRuntime = createProviderManager();
     const [thetaAdapter] = thetaAdapters;
 
-    const importer = thetaAdapter!.createImporter(providerManager, 'thetascan');
+    const importer = thetaAdapter!.createImporter(providerRuntime, 'thetascan');
     const processor = thetaAdapter!.createProcessor({
-      providerManager,
+      providerRuntime,
       scamDetectionService: undefined,
       accountId: 1,
     });
 
     expect(importer).toBeInstanceOf(ThetaImporter);
     expect(processor).toBeInstanceOf(ThetaProcessor);
-    expect(providerManager.getProviders).toHaveBeenCalledWith('theta', { preferredProvider: 'thetascan' });
+    expect(providerRuntime.getProviders).toHaveBeenCalledWith('theta', { preferredProvider: 'thetascan' });
   });
 
   test('normalizes valid Theta addresses and rejects invalid ones', () => {

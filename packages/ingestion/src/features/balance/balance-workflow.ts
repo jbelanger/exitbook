@@ -57,7 +57,7 @@ interface BalanceRebuildResult {
 export class BalanceWorkflow {
   constructor(
     private readonly ports: BalancePorts,
-    private readonly providerManager: IBlockchainProviderRuntime
+    private readonly providerRuntime: IBlockchainProviderRuntime
   ) {}
 
   /**
@@ -348,7 +348,7 @@ export class BalanceWorkflow {
       return;
     }
 
-    const providers = this.providerManager.getProviders(account.sourceName);
+    const providers = this.providerRuntime.getProviders(account.sourceName);
     const supportsTokenBalances = providers.some((p) =>
       p.capabilities.supportedOperations.includes('getAddressTokenBalances')
     );
@@ -462,7 +462,7 @@ export class BalanceWorkflow {
     if (childAccounts.length > 0) {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
       return fetchChildAccountsBalance(
-        this.providerManager,
+        this.providerRuntime,
         scopeContext.scopeAccount.sourceName,
         scopeContext.scopeAccount.identifier,
         childAccounts
@@ -470,7 +470,7 @@ export class BalanceWorkflow {
     }
 
     return fetchBlockchainBalance(
-      this.providerManager,
+      this.providerRuntime,
       scopeContext.scopeAccount.sourceName,
       scopeContext.scopeAccount.identifier
     );
@@ -522,7 +522,7 @@ export class BalanceWorkflow {
     }
 
     const blockchain = scopeContext.scopeAccount.sourceName;
-    const hasRegisteredBalanceSupport = this.providerManager.hasRegisteredOperationSupport(
+    const hasRegisteredBalanceSupport = this.providerRuntime.hasRegisteredOperationSupport(
       blockchain,
       'getAddressBalances'
     );
@@ -534,7 +534,7 @@ export class BalanceWorkflow {
       });
     }
 
-    const providers = this.providerManager.getProviders(blockchain);
+    const providers = this.providerRuntime.getProviders(blockchain);
     const supportsBalance = providers.some((provider) =>
       provider.capabilities.supportedOperations.includes('getAddressBalances')
     );

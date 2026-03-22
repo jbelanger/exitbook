@@ -3,6 +3,6 @@ export * from './errors.js';
 export * from './health.js';
 export * from './normalized-transaction.js';
 export * from './operations.js';
-export * from './provider-manager.js';
+export * from './provider-runtime.js';
 export * from './provider.js';
 export * from './registry.js';

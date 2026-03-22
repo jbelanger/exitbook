@@ -20,15 +20,15 @@ import {
 import type { ThetaTransaction } from './types.js';
 
 export class ThetaProcessor extends BaseTransactionProcessor<ThetaTransaction> {
-  declare protected readonly providerManager: IBlockchainProviderRuntime;
+  declare protected readonly providerRuntime: IBlockchainProviderRuntime;
   private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: ThetaChainConfig,
-    providerManager: IBlockchainProviderRuntime,
+    providerRuntime: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService
   ) {
-    super(chainConfig.chainName, providerManager, scamDetectionService);
+    super(chainConfig.chainName, providerRuntime, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -44,7 +44,7 @@ export class ThetaProcessor extends BaseTransactionProcessor<ThetaTransaction> {
       normalizedData,
       context,
       logger: this.logger,
-      providerManager: this.providerManager,
+      providerRuntime: this.providerRuntime,
       contractAddressCache: this.contractAddressCache,
       runScamDetection: (transactions, movements, chainName) =>
         this.runScamDetection(transactions, movements, chainName),

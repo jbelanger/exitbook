@@ -13,7 +13,7 @@ export interface DerivedAddress {
 }
 
 interface BlockchainProcessorContext {
-  providerManager: IBlockchainProviderRuntime;
+  providerRuntime: IBlockchainProviderRuntime;
   scamDetectionService: IScamDetectionService | undefined;
   /** Only needed by NEAR processors for balance-change delta derivation. */
   nearBatchSource?: INearBatchSource | undefined;
@@ -23,7 +23,7 @@ interface BlockchainProcessorContext {
 interface BlockchainAdapterBase {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
-  createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) => IImporter;
+  createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) => IImporter;
   createProcessor: (deps: BlockchainProcessorContext) => ITransactionProcessor;
 }
 
@@ -36,7 +36,7 @@ export interface UtxoBlockchainAdapter extends BlockchainAdapterBase {
   isExtendedPublicKey: (address: string) => boolean;
   deriveAddressesFromXpub: (
     xpub: string,
-    providerManager: IBlockchainProviderRuntime,
+    providerRuntime: IBlockchainProviderRuntime,
     blockchain: string,
     gap?: number
   ) => Promise<Result<DerivedAddress[], Error>>;

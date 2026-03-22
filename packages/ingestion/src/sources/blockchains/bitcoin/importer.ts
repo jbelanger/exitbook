@@ -9,13 +9,13 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.
- * Uses provider manager for failover between multiple blockchain API providers.
+ * Uses provider runtime for failover between multiple blockchain API providers.
  */
 export class BitcoinImporter implements IImporter {
   private readonly chainConfig: BitcoinChainConfig;
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
 
   constructor(
     chainConfig: BitcoinChainConfig,
@@ -24,11 +24,11 @@ export class BitcoinImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`${this.chainConfig.chainName}Importer`);
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized Bitcoin transaction importer - ProvidersCount: ${this.providerManager.getProviders(this.chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized Bitcoin transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(this.chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -52,7 +52,7 @@ export class BitcoinImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<BitcoinTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<BitcoinTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider },

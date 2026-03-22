@@ -66,7 +66,7 @@ interface ProcessCorrelatedTransactionsParams<
   groupTransactions: (transactions: TTransaction[]) => Map<string, TTransaction[]>;
   logger: Logger;
   normalizedData: TTransaction[];
-  providerManager: IBlockchainProviderRuntime;
+  providerRuntime: IBlockchainProviderRuntime;
   runScamDetection: (
     transactions: TransactionDraft[],
     movements: MovementWithContext[],
@@ -82,7 +82,7 @@ export async function processCorrelatedTransactions<
   const enrichResult = await enrichContractTokenMetadata(
     params.normalizedData,
     params.chainName,
-    params.providerManager,
+    params.providerRuntime,
     params.logger
   );
   if (enrichResult.isErr()) {
@@ -94,7 +94,7 @@ export async function processCorrelatedTransactions<
     ? await resolveAccountIsContract(
         params.context.primaryAddress,
         params.chainName,
-        params.providerManager,
+        params.providerRuntime,
         params.logger,
         params.contractAddressCache
       )
@@ -256,7 +256,7 @@ export async function processCorrelatedTransactions<
 async function enrichContractTokenMetadata(
   transactions: EvmTransaction[],
   chainName: string,
-  providerManager: IBlockchainProviderRuntime,
+  providerRuntime: IBlockchainProviderRuntime,
   logger: Logger
 ): Promise<Result<void, Error>> {
   const tokenTransfers = transactions.filter(
@@ -267,7 +267,7 @@ async function enrichContractTokenMetadata(
   }
 
   const addresses = [...new Set(tokenTransfers.map((tx) => tx.tokenAddress!))];
-  const result = await providerManager.getTokenMetadata(chainName, addresses);
+  const result = await providerRuntime.getTokenMetadata(chainName, addresses);
   if (result.isErr()) {
     return err(result.error);
   }
@@ -296,7 +296,7 @@ async function enrichContractTokenMetadata(
 async function resolveAccountIsContract(
   address: string,
   chainName: string,
-  providerManager: IBlockchainProviderRuntime,
+  providerRuntime: IBlockchainProviderRuntime,
   logger: Logger,
   contractAddressCache: Map<string, boolean>
 ): Promise<boolean | undefined> {
@@ -305,7 +305,7 @@ async function resolveAccountIsContract(
     return cached;
   }
 
-  const result = await providerManager.getAddressInfo(chainName, address);
+  const result = await providerRuntime.getAddressInfo(chainName, address);
   if (result.isErr()) {
     const error = result.error;
     if (error instanceof ProviderError) {

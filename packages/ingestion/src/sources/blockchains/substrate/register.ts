@@ -17,8 +17,8 @@ export const substrateAdapters: BlockchainAdapter[] = Object.keys(SUBSTRATE_CHAI
 
     normalizeAddress: (address: string) => normalizeSubstrateAddress(address, chainName),
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new SubstrateImporter(config, providerManager, {
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new SubstrateImporter(config, providerRuntime, {
         preferredProvider: providerName,
       }),
 

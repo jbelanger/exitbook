@@ -17,7 +17,7 @@ export class ThetaImporter implements IImporter {
 
   constructor(
     private readonly chainConfig: ThetaChainConfig,
-    private readonly providerManager: IBlockchainProviderRuntime,
+    private readonly providerRuntime: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger(`thetaImporter:${chainConfig.chainName}`);
@@ -25,7 +25,7 @@ export class ThetaImporter implements IImporter {
     this.transactionTypes = chainConfig.transactionTypes;
 
     this.logger.info(
-      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -68,7 +68,7 @@ export class ThetaImporter implements IImporter {
     streamType: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<ThetaTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<ThetaTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider, streamType },
@@ -108,7 +108,7 @@ export class ThetaImporter implements IImporter {
   }
 
   private hasProviderSupport(streamType: string): boolean {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+    const providers = this.providerRuntime.getProviders(this.chainConfig.chainName, {
       preferredProvider: this.preferredProvider,
     });
     return providers.some((provider) => {

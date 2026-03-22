@@ -19,12 +19,12 @@ import { mapToRawTransactions } from './evm-importer-utils.js';
  * - Token transfers (ERC-20/721/1155)
  * - Beacon withdrawals (Ethereum mainnet only, if supported by provider)
  *
- * Uses provider manager for failover between multiple API providers.
+ * Uses provider runtime for failover between multiple API providers.
  */
 export class EvmImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
   private chainConfig: EvmChainConfig;
 
   /**
@@ -40,14 +40,14 @@ export class EvmImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`evmImporter:${chainConfig.chainName}`);
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     // Get transaction types from chain config (required field in evm-chains.json)
     this.transactionTypes = chainConfig.transactionTypes;
 
     this.logger.info(
-      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized ${chainConfig.chainName} transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -97,14 +97,14 @@ export class EvmImporter implements IImporter {
 
   /**
    * Stream a specific transaction type with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Uses provider runtime's streaming failover to handle pagination and provider switching
    */
   private async *streamTransactionType(
     address: string,
     streamType: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<EvmTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<EvmTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider, streamType },
@@ -156,7 +156,7 @@ export class EvmImporter implements IImporter {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+    const providers = this.providerRuntime.getProviders(this.chainConfig.chainName, {
       preferredProvider: this.preferredProvider,
     });
     const hasSupport = providers.some(
@@ -241,7 +241,7 @@ export class EvmImporter implements IImporter {
   }
 
   private hasProviderSupport(streamType: string): boolean {
-    const providers = this.providerManager.getProviders(this.chainConfig.chainName, {
+    const providers = this.providerRuntime.getProviders(this.chainConfig.chainName, {
       preferredProvider: this.preferredProvider,
     });
     return providers.some((provider) => {

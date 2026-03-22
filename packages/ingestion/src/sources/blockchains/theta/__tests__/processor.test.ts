@@ -35,10 +35,10 @@ function createMockProviderManager(isContract = false): ThetaProviderManagerMock
   };
 }
 
-function createThetaProcessor(providerManager?: ThetaProviderManagerMock) {
+function createThetaProcessor(providerRuntime?: ThetaProviderManagerMock) {
   return new ThetaProcessor(
     THETA_CONFIG,
-    (providerManager ?? createMockProviderManager()) as unknown as IBlockchainProviderRuntime
+    (providerRuntime ?? createMockProviderManager()) as unknown as IBlockchainProviderRuntime
   );
 }
 
@@ -84,8 +84,8 @@ describe('ThetaProcessor', () => {
   });
 
   test('maps THETA movements to the symbol-based native asset id and keeps TFUEL fees native', async () => {
-    const providerManager = createMockProviderManager();
-    const processor = createThetaProcessor(providerManager);
+    const providerRuntime = createMockProviderManager();
+    const processor = createThetaProcessor(providerRuntime);
 
     const result = await processor.process(
       [
@@ -119,12 +119,12 @@ describe('ThetaProcessor', () => {
     expect(transaction.movements.outflows?.[0]?.assetId).toBe(assertOk(buildBlockchainTokenAssetId('theta', 'theta')));
     expect(transaction.fees[0]?.assetId).toBe(assertOk(buildBlockchainNativeAssetId('theta')));
     expect(transaction.fees[0]?.assetSymbol).toBe('TFUEL');
-    expect(providerManager.getTokenMetadata).not.toHaveBeenCalled();
+    expect(providerRuntime.getTokenMetadata).not.toHaveBeenCalled();
   });
 
   test('uses contract-address asset ids for real Theta token contracts and enriches metadata', async () => {
-    const providerManager = createMockProviderManager();
-    providerManager.getTokenMetadata.mockResolvedValue(
+    const providerRuntime = createMockProviderManager();
+    providerRuntime.getTokenMetadata.mockResolvedValue(
       ok(
         new Map([
           [
@@ -140,7 +140,7 @@ describe('ThetaProcessor', () => {
       )
     );
 
-    const processor = createThetaProcessor(providerManager);
+    const processor = createThetaProcessor(providerRuntime);
 
     const result = await processor.process(
       [
@@ -173,7 +173,7 @@ describe('ThetaProcessor', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(providerManager.getTokenMetadata).toHaveBeenCalledWith('theta', [TOKEN_ADDRESS]);
+    expect(providerRuntime.getTokenMetadata).toHaveBeenCalledWith('theta', [TOKEN_ADDRESS]);
     expect(transaction.movements.outflows?.[0]?.assetId).toBe(
       assertOk(buildBlockchainTokenAssetId('theta', TOKEN_ADDRESS))
     );

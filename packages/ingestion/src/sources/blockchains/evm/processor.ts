@@ -21,16 +21,16 @@ import {
  * to every EVM-compatible chain.
  */
 export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
-  // Narrows base class optional to required — EvmProcessor always requires a provider manager
-  declare protected readonly providerManager: IBlockchainProviderRuntime;
+  // Narrows base class optional to required — EvmProcessor always requires a provider runtime
+  declare protected readonly providerRuntime: IBlockchainProviderRuntime;
   private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: EvmChainConfig,
-    providerManager: IBlockchainProviderRuntime,
+    providerRuntime: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService
   ) {
-    super(chainConfig.chainName, providerManager, scamDetectionService);
+    super(chainConfig.chainName, providerRuntime, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -46,7 +46,7 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
       normalizedData,
       context,
       logger: this.logger,
-      providerManager: this.providerManager,
+      providerRuntime: this.providerRuntime,
       contractAddressCache: this.contractAddressCache,
       runScamDetection: (transactions, movements, chainName) =>
         this.runScamDetection(transactions, movements, chainName),

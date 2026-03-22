@@ -9,23 +9,23 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
  * Cardano transaction importer that fetches raw transaction data from blockchain APIs.
- * Uses provider manager for failover between multiple blockchain API providers.
+ * Uses provider runtime for failover between multiple blockchain API providers.
  */
 export class CardanoImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
 
   constructor(
     blockchainProviderManager: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger('cardanoImporter');
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized Cardano transaction importer - ProvidersCount: ${this.providerManager.getProviders('cardano', { preferredProvider: this.preferredProvider }).length}`
+      `Initialized Cardano transaction importer - ProvidersCount: ${this.providerRuntime.getProviders('cardano', { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -52,13 +52,13 @@ export class CardanoImporter implements IImporter {
 
   /**
    * Stream transactions for a single address with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Uses provider runtime's streaming failover to handle pagination and provider switching
    */
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<CardanoTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<CardanoTransaction>>(
       'cardano',
       address,
       { preferredProvider: this.preferredProvider },

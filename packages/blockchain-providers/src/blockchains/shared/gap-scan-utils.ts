@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-runtime.js';
 
 const logger = getLogger('GapScanUtils');
 
@@ -40,7 +40,7 @@ export interface GapScanResult {
  */
 export async function performAddressGapScanning(
   config: GapScanConfig,
-  providerManager: AddressActivityProvider
+  providerRuntime: AddressActivityProvider
 ): Promise<Result<GapScanResult, Error>> {
   const { blockchain, derivedAddresses, gapLimit, maxErrors = 3 } = config;
 
@@ -58,7 +58,7 @@ export async function performAddressGapScanning(
     const address = derivedAddresses[i];
     if (!address) continue;
 
-    const result = await providerManager.hasAddressTransactions(blockchain, address);
+    const result = await providerRuntime.hasAddressTransactions(blockchain, address);
 
     if (result.isErr()) {
       errorCount++;

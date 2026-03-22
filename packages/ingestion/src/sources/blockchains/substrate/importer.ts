@@ -11,12 +11,12 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
  * Generic Substrate transaction importer that fetches raw transaction data from blockchain APIs.
  * Works with any Substrate-based chain (Polkadot, Kusama, Bittensor, etc.).
  *
- * Uses provider manager for failover between multiple API providers.
+ * Uses provider runtime for failover between multiple API providers.
  */
 export class SubstrateImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderRuntime;
+  private providerRuntime: IBlockchainProviderRuntime;
   private chainConfig: SubstrateChainConfig;
 
   constructor(
@@ -26,11 +26,11 @@ export class SubstrateImporter implements IImporter {
   ) {
     this.chainConfig = chainConfig;
     this.logger = getLogger(`substrateImporter:${chainConfig.chainName}`);
-    this.providerManager = blockchainProviderManager;
+    this.providerRuntime = blockchainProviderManager;
     this.preferredProvider = options?.preferredProvider;
 
     this.logger.info(
-      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerManager.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
+      `Initialized ${chainConfig.displayName} transaction importer - ProvidersCount: ${this.providerRuntime.getProviders(chainConfig.chainName, { preferredProvider: this.preferredProvider }).length}`
     );
   }
 
@@ -58,13 +58,13 @@ export class SubstrateImporter implements IImporter {
 
   /**
    * Stream transactions for a single address with resume support
-   * Uses provider manager's streaming failover to handle pagination and provider switching
+   * Uses provider runtime's streaming failover to handle pagination and provider switching
    */
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const iterator = this.providerManager.streamAddressTransactions<TransactionWithRawData<SubstrateTransaction>>(
+    const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<SubstrateTransaction>>(
       this.chainConfig.chainName,
       address,
       { preferredProvider: this.preferredProvider },

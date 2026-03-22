@@ -25,8 +25,8 @@ import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './pr
  * and historical context for accurate transaction classification.
  */
 export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction> {
-  constructor(providerManager: IBlockchainProviderRuntime, scamDetectionService?: IScamDetectionService) {
-    super('solana', providerManager, scamDetectionService);
+  constructor(providerRuntime: IBlockchainProviderRuntime, scamDetectionService?: IScamDetectionService) {
+    super('solana', providerRuntime, scamDetectionService);
   }
 
   protected get inputSchema() {
@@ -230,10 +230,10 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
    */
   private async enrichTokenMetadata(transactions: SolanaTransaction[]): Promise<Result<void, Error>> {
     const tokenChanges = transactions.flatMap((tx) => tx.tokenChanges?.filter((c) => !!c.mint) ?? []);
-    if (tokenChanges.length === 0 || !this.providerManager) return ok(undefined);
+    if (tokenChanges.length === 0 || !this.providerRuntime) return ok(undefined);
 
     const addresses = [...new Set(tokenChanges.map((c) => c.mint))];
-    const result = await this.providerManager.getTokenMetadata('solana', addresses);
+    const result = await this.providerRuntime.getTokenMetadata('solana', addresses);
     if (result.isErr()) return err(result.error);
 
     const metadataMap = result.value;

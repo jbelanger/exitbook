@@ -40,7 +40,7 @@ const REFRESH_INTERVAL_MS = 250;
 function useIngestionMonitorState(
   relay: EventRelay<CliEvent>,
   instrumentation: InstrumentationCollector,
-  providerManager: IBlockchainProviderRuntime,
+  providerRuntime: IBlockchainProviderRuntime,
   lifecycle: LifecycleBridge
 ): IngestionMonitorState {
   const [state, dispatch] = useReducer(ingestionMonitorReducer, undefined, createIngestionMonitorState);
@@ -52,7 +52,7 @@ function useIngestionMonitorState(
     lifecycle.onFail = (errorMessage: string) => dispatch({ type: 'fail', errorMessage });
 
     const disconnect = relay.connect((event: CliEvent) => {
-      dispatch({ type: 'event', event, instrumentation, providerManager });
+      dispatch({ type: 'event', event, instrumentation, providerRuntime });
     });
 
     return () => {
@@ -60,7 +60,7 @@ function useIngestionMonitorState(
       lifecycle.onFail = undefined;
       disconnect();
     };
-  }, [relay, lifecycle, instrumentation, providerManager]);
+  }, [relay, lifecycle, instrumentation, providerRuntime]);
 
   // Periodic refresh for elapsed times and transient messages
   useEffect(() => {
@@ -78,15 +78,15 @@ function useIngestionMonitorState(
 interface IngestionMonitorProps {
   instrumentation: InstrumentationCollector;
   lifecycle: LifecycleBridge;
-  providerManager: IBlockchainProviderRuntime;
+  providerRuntime: IBlockchainProviderRuntime;
   relay: EventRelay<CliEvent>;
 }
 
 /**
  * Main ingestion monitor component
  */
-export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumentation, providerManager, lifecycle }) => {
-  const state = useIngestionMonitorState(relay, instrumentation, providerManager, lifecycle);
+export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumentation, providerRuntime, lifecycle }) => {
+  const state = useIngestionMonitorState(relay, instrumentation, providerRuntime, lifecycle);
 
   return (
     <Box flexDirection="column">

@@ -17,8 +17,8 @@ export const cosmosAdapters: BlockchainAdapter[] = Object.keys(COSMOS_CHAINS).fl
 
     normalizeAddress: (address: string) => normalizeCosmosAddress(address, chainName),
 
-    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
-      new CosmosImporter(config, providerManager, {
+    createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
+      new CosmosImporter(config, providerRuntime, {
         preferredProvider: providerName,
       }),
 

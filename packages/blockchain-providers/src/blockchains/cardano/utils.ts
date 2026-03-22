@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
 import type { RawBalanceData } from '../../contracts/index.js';
-import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-runtime.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 
@@ -188,7 +188,7 @@ export async function deriveCardanoAddressesFromXpub(xpub: string, addressGap = 
  */
 export async function initializeCardanoXpubWallet(
   walletAddress: CardanoWalletAddress,
-  providerManager: AddressActivityProvider,
+  providerRuntime: AddressActivityProvider,
   addressGap = 10
 ): Promise<Result<void, Error>> {
   try {
@@ -211,7 +211,7 @@ export async function initializeCardanoXpubWallet(
       `Successfully derived ${derivedAddresses.length} addresses - Xpub: ${walletAddress.address.substring(0, 20)}..., Era: shelley, DerivationPath: ${walletAddress.derivationPath}, TotalAddresses: ${derivedAddresses.length}`
     );
 
-    const scanResult = await performCardanoAddressGapScanning(walletAddress, providerManager);
+    const scanResult = await performCardanoAddressGapScanning(walletAddress, providerRuntime);
 
     if (scanResult.isErr()) {
       return err(scanResult.error);
@@ -233,7 +233,7 @@ export async function initializeCardanoXpubWallet(
  */
 export async function performCardanoAddressGapScanning(
   walletAddress: CardanoWalletAddress,
-  providerManager: AddressActivityProvider
+  providerRuntime: AddressActivityProvider
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses ?? [];
   if (allDerived.length === 0) {
@@ -244,7 +244,7 @@ export async function performCardanoAddressGapScanning(
 
   const result = await performAddressGapScanning(
     { blockchain: 'cardano', derivedAddresses: allDerived, gapLimit },
-    providerManager
+    providerRuntime
   );
 
   if (result.isErr()) return err(result.error);
