@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
 import { ok } from '@exitbook/core';
 import { describe, expect, test, vi } from 'vitest';
@@ -13,7 +13,7 @@ const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 function createProcessor() {
   const mockProviderManager = {
     getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as IBlockchainProviderManager;
+  } as unknown as IBlockchainProviderRuntime;
 
   return new SolanaProcessor(mockProviderManager);
 }

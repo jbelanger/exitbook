@@ -88,7 +88,7 @@ describe('projection-runtime', () => {
       ok({
         fetchPrice,
         historicalAssetPriceSource: { fetchPrice },
-        cleanup: vi.fn().mockResolvedValue(undefined),
+        cleanup: vi.fn().mockResolvedValue(ok(undefined)),
         setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
         setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
       })

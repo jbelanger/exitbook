@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { type XrpChainConfig, type XrpTransaction } from '@exitbook/blockchain-providers/xrp';
 import type { CursorState } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -15,11 +15,11 @@ export class XrpImporter implements IImporter {
   private readonly chainConfig: XrpChainConfig;
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderManager;
+  private providerManager: IBlockchainProviderRuntime;
 
   constructor(
     chainConfig: XrpChainConfig,
-    blockchainProviderManager: IBlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.chainConfig = chainConfig;

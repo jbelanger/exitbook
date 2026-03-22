@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import { THETA_CHAINS } from '@exitbook/blockchain-providers/theta';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, type Currency } from '@exitbook/core';
@@ -18,7 +18,7 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const TOKEN_ADDRESS = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 
-type ThetaProviderManagerMock = Pick<IBlockchainProviderManager, 'getAddressInfo' | 'getTokenMetadata'> & {
+type ThetaProviderManagerMock = Pick<IBlockchainProviderRuntime, 'getAddressInfo' | 'getTokenMetadata'> & {
   getAddressInfo: ReturnType<typeof vi.fn>;
   getTokenMetadata: ReturnType<typeof vi.fn>;
 };
@@ -38,7 +38,7 @@ function createMockProviderManager(isContract = false): ThetaProviderManagerMock
 function createThetaProcessor(providerManager?: ThetaProviderManagerMock) {
   return new ThetaProcessor(
     THETA_CONFIG,
-    (providerManager ?? createMockProviderManager()) as unknown as IBlockchainProviderManager
+    (providerManager ?? createMockProviderManager()) as unknown as IBlockchainProviderRuntime
   );
 }
 

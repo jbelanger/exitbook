@@ -36,7 +36,7 @@ export interface PriceProviderConfig {
   frankfurter?: ToggleablePriceProviderConfig | undefined;
 }
 
-export interface PriceProviderRuntimeManagerOptions {
+export interface PriceProviderRuntimeBehaviorOptions {
   cacheTtlSeconds?: number | undefined;
   defaultCurrency?: string | undefined;
   maxConsecutiveFailures?: number | undefined;
@@ -46,11 +46,11 @@ export interface PriceProviderRuntimeOptions {
   dataDir: string;
   eventBus?: EventBus<PriceProviderEvent> | undefined;
   instrumentation?: InstrumentationCollector | undefined;
-  manager?: PriceProviderRuntimeManagerOptions | undefined;
+  behavior?: PriceProviderRuntimeBehaviorOptions | undefined;
   providers?: PriceProviderConfig | undefined;
 }
 
-export interface PriceProviderRuntime {
+export interface IPriceProviderRuntime {
   fetchPrice(this: void, query: PriceQuery): Promise<Result<PriceData, Error>>;
   setManualFxRate(this: void, entry: ManualFxRateEntry): Promise<Result<void, Error>>;
   setManualPrice(this: void, entry: ManualPriceEntry): Promise<Result<void, Error>>;
@@ -97,14 +97,14 @@ function buildManagerConfig(options: PriceProviderRuntimeOptions): Partial<Provi
     ...DEFAULT_MANAGER_CONFIG,
   };
 
-  if (options.manager?.cacheTtlSeconds !== undefined) {
-    managerConfig.cacheTtlSeconds = options.manager.cacheTtlSeconds;
+  if (options.behavior?.cacheTtlSeconds !== undefined) {
+    managerConfig.cacheTtlSeconds = options.behavior.cacheTtlSeconds;
   }
-  if (options.manager?.defaultCurrency !== undefined) {
-    managerConfig.defaultCurrency = options.manager.defaultCurrency;
+  if (options.behavior?.defaultCurrency !== undefined) {
+    managerConfig.defaultCurrency = options.behavior.defaultCurrency;
   }
-  if (options.manager?.maxConsecutiveFailures !== undefined) {
-    managerConfig.maxConsecutiveFailures = options.manager.maxConsecutiveFailures;
+  if (options.behavior?.maxConsecutiveFailures !== undefined) {
+    managerConfig.maxConsecutiveFailures = options.behavior.maxConsecutiveFailures;
   }
 
   return managerConfig;
@@ -112,7 +112,7 @@ function buildManagerConfig(options: PriceProviderRuntimeOptions): Partial<Provi
 
 export async function createPriceProviderRuntime(
   options: PriceProviderRuntimeOptions
-): Promise<Result<PriceProviderRuntime, Error>> {
+): Promise<Result<IPriceProviderRuntime, Error>> {
   const databasePath = path.join(options.dataDir, 'prices.db');
   const manualPriceService = new ManualPriceService(databasePath);
 

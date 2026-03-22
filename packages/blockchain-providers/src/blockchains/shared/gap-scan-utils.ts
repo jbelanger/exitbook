@@ -1,9 +1,11 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { IBlockchainProviderManager } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
 
 const logger = getLogger('GapScanUtils');
+
+type AddressActivityProvider = Pick<IBlockchainProviderRuntime, 'hasAddressTransactions'>;
 
 /**
  * Configuration for BIP44-compliant gap scanning
@@ -38,7 +40,7 @@ export interface GapScanResult {
  */
 export async function performAddressGapScanning(
   config: GapScanConfig,
-  providerManager: IBlockchainProviderManager
+  providerManager: AddressActivityProvider
 ): Promise<Result<GapScanResult, Error>> {
   const { blockchain, derivedAddresses, gapLimit, maxErrors = 3 } = config;
 

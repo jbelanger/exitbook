@@ -10,9 +10,9 @@ export {
   createPriceProviderRuntime,
   type CoinGeckoPriceProviderConfig,
   type CryptoComparePriceProviderConfig,
+  type PriceProviderRuntimeBehaviorOptions,
   type PriceProviderConfig,
-  type PriceProviderRuntime,
-  type PriceProviderRuntimeManagerOptions,
+  type IPriceProviderRuntime,
   type PriceProviderRuntimeOptions,
   type ToggleablePriceProviderConfig,
 } from './runtime/create-price-provider-runtime.js';

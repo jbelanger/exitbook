@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { type NearStreamEvent, type NearStreamType } from '@exitbook/blockchain-providers/near';
 import { NearStreamTypeSchema } from '@exitbook/blockchain-providers/near';
 import type { CursorState } from '@exitbook/core';
@@ -25,10 +25,10 @@ import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../
 export class NearImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderManager;
+  private providerManager: IBlockchainProviderRuntime;
 
   constructor(
-    blockchainProviderManager: IBlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger('nearImporter');

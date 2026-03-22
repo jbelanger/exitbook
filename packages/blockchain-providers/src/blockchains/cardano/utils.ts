@@ -4,11 +4,13 @@ import { getLogger } from '@exitbook/logger';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
 import type { RawBalanceData } from '../../contracts/index.js';
-import type { IBlockchainProviderManager } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 
 const logger = getLogger('CardanoUtils');
+
+type AddressActivityProvider = Pick<IBlockchainProviderRuntime, 'hasAddressTransactions'>;
 
 /**
  * Normalize Cardano address based on address era and encoding.
@@ -186,7 +188,7 @@ export async function deriveCardanoAddressesFromXpub(xpub: string, addressGap = 
  */
 export async function initializeCardanoXpubWallet(
   walletAddress: CardanoWalletAddress,
-  providerManager: IBlockchainProviderManager,
+  providerManager: AddressActivityProvider,
   addressGap = 10
 ): Promise<Result<void, Error>> {
   try {
@@ -231,7 +233,7 @@ export async function initializeCardanoXpubWallet(
  */
 export async function performCardanoAddressGapScanning(
   walletAddress: CardanoWalletAddress,
-  providerManager: IBlockchainProviderManager
+  providerManager: AddressActivityProvider
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses ?? [];
   if (allDerived.length === 0) {

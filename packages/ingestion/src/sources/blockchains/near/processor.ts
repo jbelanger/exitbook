@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import {
   type NearBalanceChange,
   type NearStreamEvent,
@@ -47,7 +47,7 @@ import type { NearCorrelatedTransaction } from './types.js';
  */
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
-    providerManager: IBlockchainProviderManager,
+    providerManager: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService,
     private readonly nearBatchSource?: INearBatchSource,
     private readonly accountId?: number | undefined

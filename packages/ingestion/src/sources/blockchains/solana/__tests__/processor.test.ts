@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
 import { ok } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
@@ -12,13 +12,13 @@ const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
 
-function createMockProviderManager(): IBlockchainProviderManager {
+function createMockProviderManager(): IBlockchainProviderRuntime {
   return {
     getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
-  } as unknown as IBlockchainProviderManager;
+  } as unknown as IBlockchainProviderRuntime;
 }
 
-function createProcessor(customProviderManager?: IBlockchainProviderManager) {
+function createProcessor(customProviderManager?: IBlockchainProviderRuntime) {
   return new SolanaProcessor(customProviderManager || createMockProviderManager());
 }
 

@@ -93,7 +93,7 @@ describe('CostBasisHandler', () => {
 
     const fetchPrice = vi.fn();
     mockPriceRuntime = {
-      cleanup: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
       fetchPrice,
       historicalAssetPriceSource: { fetchPrice },
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),

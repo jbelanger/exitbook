@@ -5,7 +5,7 @@ import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import type { ManualPriceEntry, PriceProviderRuntime } from '@exitbook/price-providers';
+import type { ManualPriceEntry, IPriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetHandler');
@@ -41,7 +41,7 @@ interface PricesSetResult {
   source: string;
 }
 
-type ManualPriceWriter = Pick<PriceProviderRuntime, 'setManualPrice'>;
+type ManualPriceWriter = Pick<IPriceProviderRuntime, 'setManualPrice'>;
 
 /**
  * Handler for prices set command

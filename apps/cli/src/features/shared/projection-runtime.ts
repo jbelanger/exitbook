@@ -41,7 +41,7 @@ import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
-import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
 import { openCliPriceProviderRuntime } from './cli-price-provider-runtime.js';
 
 const logger = getLogger('projection-runtime');
@@ -108,9 +108,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
       }
 
-      const providerRuntime = await openBlockchainProviderRuntime(undefined, { dataDir });
-
-      try {
+      return withCliBlockchainProviderRuntimeResult({ dataDir }, async (providerRuntime) => {
         const eventBus = new EventBus<IngestionEvent>({
           onError: (error) => {
             logger.error({ error }, 'EventBus error during reprocess');
@@ -150,12 +148,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         }
 
         return ok(undefined);
-      } finally {
-        const cleanupResult = await providerRuntime.cleanup();
-        if (cleanupResult.isErr()) {
-          logger.warn({ error: cleanupResult.error }, 'Failed to cleanup provider runtime after reprocess');
-        }
-      }
+      });
     },
   };
 }

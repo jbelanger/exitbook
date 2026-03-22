@@ -222,6 +222,14 @@ If multiple slices share one provider-owned database, exactly one slice owns the
 
 Treat provider packages as standalone published products with a small, user-friendly public surface. Detailed public API and UX rules live in [Provider Package Design](./provider-package-design.md).
 
+At the public API level, name contracts by role:
+
+- managed facade: `I...Runtime`
+- stateless facade: `I...Client`
+- low-level provider implementation: `I...Provider`
+
+Do not publish generic `Api` names or public `*Manager` contracts when the manager is only an internal assembly detail. Auxiliary helpers that are intentionally supported but not part of the primary facade should live under explicit subpaths such as `@pkg/benchmark` rather than the root entrypoint.
+
 ---
 
 ### 5. Infrastructure packages

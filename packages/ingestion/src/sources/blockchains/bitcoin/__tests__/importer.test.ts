@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import { getBitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
 import { err, ok, type PaginationCursor } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -35,15 +35,15 @@ const mockBitcoinTx = {
   timestamp: Date.now(),
 };
 
-type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('BitcoinImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
     mockProviderManager = {
-      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderRuntime['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderRuntime['getProviders']>(),
     } as unknown as ProviderManagerMock;
     mockProviderManager.getProviders.mockReturnValue([
       {
@@ -68,7 +68,7 @@ describe('BitcoinImporter', () => {
     if (!chainConfig) {
       throw new Error('Bitcoin chain config not found');
     }
-    return new BitcoinImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderManager, options);
+    return new BitcoinImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderRuntime, options);
   };
 
   afterEach(() => {
@@ -155,7 +155,7 @@ describe('BitcoinImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, opAddress] = executeCalls[0]!;

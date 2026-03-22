@@ -4,7 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
@@ -40,7 +40,7 @@ const REFRESH_INTERVAL_MS = 250;
 function useIngestionMonitorState(
   relay: EventRelay<CliEvent>,
   instrumentation: InstrumentationCollector,
-  providerManager: IBlockchainProviderManager,
+  providerManager: IBlockchainProviderRuntime,
   lifecycle: LifecycleBridge
 ): IngestionMonitorState {
   const [state, dispatch] = useReducer(ingestionMonitorReducer, undefined, createIngestionMonitorState);
@@ -78,7 +78,7 @@ function useIngestionMonitorState(
 interface IngestionMonitorProps {
   instrumentation: InstrumentationCollector;
   lifecycle: LifecycleBridge;
-  providerManager: IBlockchainProviderManager;
+  providerManager: IBlockchainProviderRuntime;
   relay: EventRelay<CliEvent>;
 }
 

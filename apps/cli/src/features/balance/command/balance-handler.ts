@@ -22,7 +22,7 @@ import {
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
   formatBalanceSnapshotFreshnessMessage,
 } from '../../shared/balance-snapshot-freshness-message.js';
-import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
+import { openCliBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { StoredSnapshotAssetItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
@@ -756,7 +756,11 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const providerRuntime = await openBlockchainProviderRuntime(undefined, { dataDir: ctx.dataDir });
+    const providerRuntimeResult = await openCliBlockchainProviderRuntime({ dataDir: ctx.dataDir });
+    if (providerRuntimeResult.isErr()) {
+      return err(providerRuntimeResult.error);
+    }
+    const providerRuntime = providerRuntimeResult.value;
     const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const balancePorts = buildBalancePorts(database);
     const balanceWorkflow = new BalanceWorkflow(balancePorts, providerRuntime);

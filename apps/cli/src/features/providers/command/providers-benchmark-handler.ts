@@ -1,9 +1,9 @@
+import { loadBlockchainExplorerConfig } from '@exitbook/blockchain-providers';
 import {
-  loadBlockchainExplorerConfig,
   openBlockchainProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
   type BlockchainProviderBenchmarkSession,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/benchmark';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
 

@@ -1,8 +1,8 @@
+import { loadBlockchainExplorerConfig } from '@exitbook/blockchain-providers';
 import {
-  loadBlockchainExplorerConfig,
   openBlockchainProviderBenchmarkSession,
   type BlockchainProviderBenchmarkSession,
-} from '@exitbook/blockchain-providers';
+} from '@exitbook/blockchain-providers/benchmark';
 import { err, ok } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,9 +15,12 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   return {
     ...actual,
     loadBlockchainExplorerConfig: vi.fn(),
-    openBlockchainProviderBenchmarkSession: vi.fn(),
   };
 });
+
+vi.mock('@exitbook/blockchain-providers/benchmark', () => ({
+  openBlockchainProviderBenchmarkSession: vi.fn(),
+}));
 
 vi.mock('../benchmark-tool.js', () => ({
   benchmarkRateLimit: vi.fn(),

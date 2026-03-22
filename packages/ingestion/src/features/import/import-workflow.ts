@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
@@ -68,7 +68,7 @@ export class ImportWorkflow {
 
   constructor(
     private readonly ports: ImportPorts,
-    private readonly providerManager: IBlockchainProviderManager,
+    private readonly providerManager: IBlockchainProviderRuntime,
     private readonly registry: AdapterRegistry,
     private readonly eventBus?: EventBus<IngestionEvent> | undefined
   ) {}

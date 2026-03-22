@@ -8,7 +8,7 @@ import type { PriceProviderEvent } from '../../contracts/events.js';
 import type { IPriceProvider } from '../../contracts/types.js';
 import { initPriceCachePersistence } from '../../price-cache/persistence/runtime.js';
 
-import { getAvailableProviderNames, PROVIDER_FACTORIES, type ProviderFactory } from './provider-registry.js';
+import { getAvailableProviderNames, getPriceProviderFactory } from './provider-registry.js';
 
 const logger = getLogger('PriceProviderBootstrap');
 
@@ -68,7 +68,7 @@ export async function createPriceProviders(
   eventBus?.emit({ type: 'providers.initializing' });
 
   for (const name of getAvailableProviderNames()) {
-    const factory: ProviderFactory = PROVIDER_FACTORIES[name];
+    const factory = getPriceProviderFactory(name);
     const providerConfig = config[name];
 
     if (providerConfig?.enabled === false) {

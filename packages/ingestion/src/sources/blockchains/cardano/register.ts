@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import {
   initializeCardanoXpubWallet,
   isCardanoXpub,
@@ -23,7 +23,7 @@ export const cardanoAdapters: BlockchainAdapter[] = [
 
     deriveAddressesFromXpub: async (
       xpub: string,
-      providerManager: IBlockchainProviderManager,
+      providerManager: IBlockchainProviderRuntime,
       _blockchain: string,
       gap?: number
     ): Promise<Result<DerivedAddress[], Error>> => {
@@ -52,7 +52,7 @@ export const cardanoAdapters: BlockchainAdapter[] = [
       );
     },
 
-    createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) =>
+    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
       new CardanoImporter(providerManager, { preferredProvider: providerName }),
 
     createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),

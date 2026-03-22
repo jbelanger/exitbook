@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import type { PaginationCursor } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -46,15 +46,15 @@ const mockCardanoTx = {
   timestamp: Date.now(),
 };
 
-type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders'>>;
 
 describe('CardanoImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
     mockProviderManager = {
-      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderRuntime['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderRuntime['getProviders']>(),
     } as unknown as ProviderManagerMock;
     mockProviderManager.getProviders.mockReturnValue([
       {
@@ -75,7 +75,7 @@ describe('CardanoImporter', () => {
   });
 
   const createImporter = (options?: { preferredProvider?: string | undefined }): CardanoImporter =>
-    new CardanoImporter(mockProviderManager as unknown as IBlockchainProviderManager, options);
+    new CardanoImporter(mockProviderManager as unknown as IBlockchainProviderRuntime, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -157,7 +157,7 @@ describe('CardanoImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, opAddress] = executeCalls[0]!;

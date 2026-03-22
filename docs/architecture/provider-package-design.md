@@ -94,6 +94,29 @@ Use the README test:
 
 If an export would be awkward to explain in the package README, it probably should not be public.
 
+### 4.1 Naming by role
+
+Public provider package contracts should use names that match the package role:
+
+- managed package facade: `IPriceProviderRuntime`, `IBlockchainProviderRuntime`
+- stateless package facade: `IExchangeClient`
+- low-level provider implementation: `IPriceProvider`, `IBlockchainProvider`
+
+Avoid introducing generic public names like `Api` when a more specific role name already exists.
+Also avoid exporting public `*Manager` interfaces when the manager is only an internal assembly detail.
+
+### 4.2 Dedicated subpaths for auxiliary helpers
+
+If a provider package has auxiliary helpers that are useful but not part of the primary "one obvious way to start" flow, expose them from explicit subpaths instead of the root facade.
+
+Good examples:
+
+- `@pkg/benchmark`
+- `@pkg/asset-review`
+- `@pkg/<provider>`
+
+This keeps the root entrypoint focused on the main runtime or client while still allowing intentionally supported secondary capabilities.
+
 ### 5. Clear lifecycle
 
 Some provider packages are stateful and own resources. Others are stateless.

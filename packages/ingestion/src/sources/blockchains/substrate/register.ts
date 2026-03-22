@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '@exitbook/blockchain-providers/substrate';
 
 import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter.js';
@@ -17,7 +17,7 @@ export const substrateAdapters: BlockchainAdapter[] = Object.keys(SUBSTRATE_CHAI
 
     normalizeAddress: (address: string) => normalizeSubstrateAddress(address, chainName),
 
-    createImporter: (providerManager: IBlockchainProviderManager, providerName?: string) =>
+    createImporter: (providerManager: IBlockchainProviderRuntime, providerName?: string) =>
       new SubstrateImporter(config, providerManager, {
         preferredProvider: providerName,
       }),

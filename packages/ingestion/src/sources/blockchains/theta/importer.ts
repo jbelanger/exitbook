@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { type ThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 import type { CursorState } from '@exitbook/core';
 import { getErrorMessage, wrapError } from '@exitbook/core';
@@ -17,7 +17,7 @@ export class ThetaImporter implements IImporter {
 
   constructor(
     private readonly chainConfig: ThetaChainConfig,
-    private readonly providerManager: IBlockchainProviderManager,
+    private readonly providerManager: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.logger = getLogger(`thetaImporter:${chainConfig.chainName}`);

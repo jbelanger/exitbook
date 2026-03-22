@@ -16,8 +16,6 @@
     "lint": "eslint \"src/**/*.ts\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "providers:list": "tsx src/scripts/list-providers.ts",
-    "providers:validate": "tsx src/scripts/validate-registry.ts",
     "test": "vitest run"
   },
   "dependencies": {

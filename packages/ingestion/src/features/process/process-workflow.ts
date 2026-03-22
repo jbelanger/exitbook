@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { getErrorMessage, type RawTransaction } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
 import type { Result, TransactionDraft } from '@exitbook/core';
@@ -34,7 +34,7 @@ export class ProcessingWorkflow {
 
   constructor(
     private ports: ProcessingPorts,
-    private providerManager: IBlockchainProviderManager,
+    private providerManager: IBlockchainProviderRuntime,
     private eventBus: EventBus<IngestionEvent>,
     private registry: AdapterRegistry
   ) {

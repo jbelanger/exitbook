@@ -9,8 +9,8 @@ import { createEventDrivenController, type EventDrivenController } from '../../u
 import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
-import type { OpenedBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import { openCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandContext } from './command-runtime.js';
 
 const logger = getLogger('ingestion-infrastructure');
@@ -19,7 +19,7 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 
 interface IngestionInfrastructure {
   processingWorkflow: ProcessingWorkflow;
-  blockchainProviderRuntime: OpenedBlockchainProviderRuntime;
+  blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor: EventDrivenController<CliEvent>;
@@ -42,11 +42,15 @@ export async function createIngestionInfrastructure(
     },
   });
 
-  const providerRuntime = await openBlockchainProviderRuntime(undefined, {
+  const providerRuntimeResult = await openCliBlockchainProviderRuntime({
     dataDir: ctx.dataDir,
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
   });
+  if (providerRuntimeResult.isErr()) {
+    throw providerRuntimeResult.error;
+  }
+  const providerRuntime = providerRuntimeResult.value;
   const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
 
   try {

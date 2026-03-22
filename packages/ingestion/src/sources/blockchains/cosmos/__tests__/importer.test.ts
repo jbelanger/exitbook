@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, ProviderError } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import { type CosmosTransaction } from '@exitbook/blockchain-providers/cosmos';
 import { type CosmosChainConfig } from '@exitbook/blockchain-providers/cosmos';
 import { err, ok, type Currency } from '@exitbook/core';
@@ -96,7 +96,7 @@ describe('CosmosImporter', () => {
     config: CosmosChainConfig = INJECTIVE_CONFIG,
     options?: { preferredProvider?: string | undefined }
   ): CosmosImporter =>
-    new CosmosImporter(config, mockProviderManager as unknown as IBlockchainProviderManager, options);
+    new CosmosImporter(config, mockProviderManager as unknown as IBlockchainProviderRuntime, options);
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -162,7 +162,7 @@ describe('CosmosImporter', () => {
       // Verify API call was made
       expect(mockProviderManager.streamAddressTransactions).toHaveBeenCalledTimes(1);
 
-      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       const [, callAddress] = executeCalls[0]!;
@@ -322,7 +322,7 @@ describe('CosmosImporter', () => {
       expect(result.isOk()).toBe(true);
 
       // Verify calls were made with 'osmosis' blockchain name
-      const executeCalls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
+      const executeCalls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(executeCalls[0]?.[0]).toBe('osmosis');
@@ -355,7 +355,7 @@ describe('CosmosImporter', () => {
 
       await consumeImportStream(importer, { sourceName: 'cosmos', sourceType: 'blockchain' as const, address });
 
-      const calls: Parameters<IBlockchainProviderManager['streamAddressTransactions']>[] =
+      const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
 
       expect(calls[0]?.[0]).toBe('injective');

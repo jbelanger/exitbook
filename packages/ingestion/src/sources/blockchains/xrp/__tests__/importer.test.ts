@@ -1,5 +1,5 @@
 import {
-  type IBlockchainProviderManager,
+  type IBlockchainProviderRuntime,
   type IBlockchainProvider,
   ProviderError,
 } from '@exitbook/blockchain-providers';
@@ -45,8 +45,8 @@ describe('XrpImporter', () => {
     vi.clearAllMocks();
 
     mockProviderManager = {
-      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderRuntime['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderRuntime['getProviders']>(),
     } as unknown as ProviderManagerMock;
 
     mockProviderManager.getProviders.mockReturnValue([{ name: 'xrpl-rpc', blockchain: 'xrp' } as IBlockchainProvider]);
@@ -55,7 +55,7 @@ describe('XrpImporter', () => {
     if (!chainConfig) {
       throw new Error('XRP chain config not found');
     }
-    importer = new XrpImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderManager);
+    importer = new XrpImporter(chainConfig, mockProviderManager as unknown as IBlockchainProviderRuntime);
   });
 
   afterEach(() => {

@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { THETA_CHAINS } from '@exitbook/blockchain-providers/theta';
 import { err, ok, type PaginationCursor } from '@exitbook/core';
 import { beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import { ThetaImporter } from '../importer.js';
 
-type ProviderManagerMock = Mocked<Pick<IBlockchainProviderManager, 'streamAddressTransactions' | 'getProviders'>>;
+type ProviderManagerMock = Mocked<Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders'>>;
 
 const THETA_CONFIG = (() => {
   const config = THETA_CHAINS['theta'];
@@ -22,8 +22,8 @@ describe('ThetaImporter', () => {
 
   beforeEach(() => {
     mockProviderManager = {
-      streamAddressTransactions: vi.fn<IBlockchainProviderManager['streamAddressTransactions']>(),
-      getProviders: vi.fn<IBlockchainProviderManager['getProviders']>(),
+      streamAddressTransactions: vi.fn<IBlockchainProviderRuntime['streamAddressTransactions']>(),
+      getProviders: vi.fn<IBlockchainProviderRuntime['getProviders']>(),
     } as unknown as ProviderManagerMock;
     mockProviderManager.getProviders.mockReturnValue([
       {
@@ -47,7 +47,7 @@ describe('ThetaImporter', () => {
   });
 
   function createImporter(options?: { preferredProvider?: string | undefined }): ThetaImporter {
-    return new ThetaImporter(THETA_CONFIG, mockProviderManager as unknown as IBlockchainProviderManager, options);
+    return new ThetaImporter(THETA_CONFIG, mockProviderManager as unknown as IBlockchainProviderRuntime, options);
   }
 
   test('registers Theta providers for the selected chain', () => {

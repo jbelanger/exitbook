@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { EvmTransactionSchema } from '@exitbook/blockchain-providers/evm';
 import { type ThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TransactionDraft } from '@exitbook/core';
@@ -20,12 +20,12 @@ import {
 import type { ThetaTransaction } from './types.js';
 
 export class ThetaProcessor extends BaseTransactionProcessor<ThetaTransaction> {
-  declare protected readonly providerManager: IBlockchainProviderManager;
+  declare protected readonly providerManager: IBlockchainProviderRuntime;
   private readonly contractAddressCache = new Map<string, boolean>();
 
   constructor(
     private readonly chainConfig: ThetaChainConfig,
-    providerManager: IBlockchainProviderManager,
+    providerManager: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService
   ) {
     super(chainConfig.chainName, providerManager, scamDetectionService);

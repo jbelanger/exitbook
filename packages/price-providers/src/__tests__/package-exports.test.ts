@@ -38,6 +38,11 @@ describe('published package exports', () => {
       supportedAssetTypes: string[];
     }>();
     expectTypeOf<PriceProviderRuntimeOptions>().toMatchTypeOf<{
+      behavior?:
+        | {
+            cacheTtlSeconds?: number | undefined;
+          }
+        | undefined;
       dataDir: string;
     }>();
     expectTypeOf<ManualPriceEntry>().toMatchTypeOf<{

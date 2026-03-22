@@ -10,28 +10,16 @@ export type {
   BlockchainBalanceQueryOptions,
   BlockchainProviderSelectionOptions,
   BlockchainTransactionStreamOptions,
-  IBlockchainProviderManager,
+  IBlockchainProviderRuntime,
 } from './contracts/provider-manager.js';
 
 export {
-  createAssetReviewProviderSupport,
-  findLatestTokenMetadataRefreshAt,
-} from './token-metadata/asset-review-provider-support.js';
-export {
   createBlockchainProviderRuntime,
-  type BlockchainProviderRuntime,
   type BlockchainProviderRuntimeOptions,
 } from './runtime/create-blockchain-provider-runtime.js';
 export { listBlockchainProviders, type BlockchainProviderDescriptor } from './catalog/list-blockchain-providers.js';
 export { loadBlockchainProviderHealthStats } from './catalog/load-provider-stats.js';
 export { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from './catalog/load-explorer-config.js';
-export {
-  openBlockchainProviderBenchmarkSession,
-  type BenchmarkableBlockchainProvider,
-  type OpenBlockchainProviderBenchmarkSessionOptions,
-  type BlockchainProviderBenchmarkSession,
-} from './runtime/provider-benchmark-session.js';
-
 export type { ProviderStatsSnapshot } from './provider-stats/index.js';
 
 export type { TokenMetadataRecord } from './token-metadata/contracts.js';

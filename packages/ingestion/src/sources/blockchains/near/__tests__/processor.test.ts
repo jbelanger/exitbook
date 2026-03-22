@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import {
   type NearBalanceChange,
   type NearReceipt,
@@ -80,7 +80,7 @@ const createTokenTransferEvent = (overrides: Partial<NearTokenTransfer> = {}): N
   ...overrides,
 });
 
-type ProviderManagerMock = IBlockchainProviderManager & {
+type ProviderManagerMock = IBlockchainProviderRuntime & {
   getTokenMetadata: ReturnType<typeof vi.fn>;
 };
 

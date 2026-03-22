@@ -5,7 +5,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import {
   createPriceProviderRuntime,
   type PriceProviderEvent,
-  type PriceProviderRuntime,
+  type IPriceProviderRuntime,
 } from '@exitbook/price-providers';
 
 import { getDataDir } from './data-dir.js';
@@ -16,7 +16,7 @@ export interface CliPriceProviderRuntimeOptions {
   instrumentation?: InstrumentationCollector | undefined;
 }
 
-export interface OpenedCliPriceProviderRuntime extends PriceProviderRuntime {
+export interface OpenedCliPriceProviderRuntime extends IPriceProviderRuntime {
   historicalAssetPriceSource: IHistoricalAssetPriceSource;
 }
 

@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager, type TransactionWithRawData } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { type SubstrateChainConfig, type SubstrateTransaction } from '@exitbook/blockchain-providers/substrate';
 import type { CursorState } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
@@ -16,12 +16,12 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 export class SubstrateImporter implements IImporter {
   private readonly logger: Logger;
   private readonly preferredProvider?: string | undefined;
-  private providerManager: IBlockchainProviderManager;
+  private providerManager: IBlockchainProviderRuntime;
   private chainConfig: SubstrateChainConfig;
 
   constructor(
     chainConfig: SubstrateChainConfig,
-    blockchainProviderManager: IBlockchainProviderManager,
+    blockchainProviderManager: IBlockchainProviderRuntime,
     options?: { preferredProvider?: string | undefined }
   ) {
     this.chainConfig = chainConfig;

@@ -5,13 +5,15 @@ import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
-import type { IBlockchainProviderManager } from '../../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../../contracts/provider-manager.js';
 import { generateUniqueTransactionEventId } from '../../normalization/event-id.js';
 
 import { getNetworkForChain } from './network-registry.js';
 import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 
 const logger = getLogger('BitcoinUtils');
+
+type AddressActivityProvider = Pick<IBlockchainProviderRuntime, 'hasAddressTransactions'>;
 
 /**
  * Version bytes for BIP32 extended keys (SLIP-132)
@@ -230,7 +232,7 @@ export function getDefaultDerivationPath(bipStandard: BipStandard): string {
 export async function initializeBitcoinXpubWallet(
   walletAddress: BitcoinWalletAddress,
   blockchain: string,
-  providerManager: IBlockchainProviderManager,
+  providerManager: AddressActivityProvider,
   addressGap = 20
 ): Promise<Result<void, Error>> {
   try {
@@ -314,7 +316,7 @@ export function isBitcoinXpub(address: string): boolean {
 export async function performBitcoinAddressGapScanning(
   walletAddress: BitcoinWalletAddress,
   blockchain: string,
-  providerManager: IBlockchainProviderManager,
+  providerManager: AddressActivityProvider,
   gapLimit = 20
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses || [];
@@ -337,7 +339,7 @@ export async function performBitcoinAddressGapScanning(
 export async function smartDetectBitcoinAccountType(
   xpub: string,
   blockchain: string,
-  providerManager: IBlockchainProviderManager
+  providerManager: AddressActivityProvider
 ): Promise<SmartDetectionResult> {
   const network = getNetworkForChain(blockchain);
   logger.info('Intelligently detecting account type from xpub...');
@@ -377,7 +379,7 @@ export async function smartDetectBitcoinAccountType(
 async function detectXpubAccountType(
   xpub: string,
   blockchain: string,
-  providerManager: IBlockchainProviderManager,
+  providerManager: AddressActivityProvider,
   network: bitcoin.Network
 ): Promise<SmartDetectionResult> {
   logger.info('Detected xpub. Attempting to determine account type...');
@@ -429,7 +431,7 @@ async function checkActivityForHdNode(
   hdNode: HDKey,
   addressGen: (pubkey: Buffer) => string,
   blockchain: string,
-  providerManager: IBlockchainProviderManager
+  providerManager: AddressActivityProvider
 ): Promise<boolean> {
   const firstChild = hdNode.deriveChild(0).deriveChild(0);
 

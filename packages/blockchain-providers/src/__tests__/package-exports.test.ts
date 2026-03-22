@@ -1,21 +1,23 @@
 import {
   ProviderError,
-  createAssetReviewProviderSupport,
   createBlockchainProviderRuntime,
-  findLatestTokenMetadataRefreshAt,
   listBlockchainProviders,
   loadBlockchainExplorerConfig,
   loadBlockchainProviderHealthStats,
-  openBlockchainProviderBenchmarkSession,
   type BlockchainBalanceQueryOptions,
   type BlockchainProviderDescriptor,
   type BlockchainProviderSelectionOptions,
   type BlockchainTransactionStreamOptions,
-  type IBlockchainProviderManager,
+  type IBlockchainProviderRuntime,
 } from '@exitbook/blockchain-providers';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 const BLOCKCHAIN_SUBPATH_EXPORTS = {
+  '@exitbook/blockchain-providers/asset-review': [
+    'createAssetReviewProviderSupport',
+    'findLatestTokenMetadataRefreshAt',
+  ],
+  '@exitbook/blockchain-providers/benchmark': ['openBlockchainProviderBenchmarkSession'],
   '@exitbook/blockchain-providers/bitcoin': [
     'BITCOIN_CHAINS',
     'BitcoinAddressSchema',
@@ -166,23 +168,17 @@ describe('published package exports', () => {
     expect(Object.keys(moduleExports).sort()).toEqual(
       [
         'ProviderError',
-        'createAssetReviewProviderSupport',
         'createBlockchainProviderRuntime',
-        'findLatestTokenMetadataRefreshAt',
         'listBlockchainProviders',
         'loadBlockchainExplorerConfig',
         'loadBlockchainProviderHealthStats',
-        'openBlockchainProviderBenchmarkSession',
       ].sort()
     );
 
-    expect(typeof createAssetReviewProviderSupport).toBe('function');
     expect(typeof createBlockchainProviderRuntime).toBe('function');
-    expect(typeof findLatestTokenMetadataRefreshAt).toBe('function');
     expect(typeof listBlockchainProviders).toBe('function');
     expect(typeof loadBlockchainExplorerConfig).toBe('function');
     expect(typeof loadBlockchainProviderHealthStats).toBe('function');
-    expect(typeof openBlockchainProviderBenchmarkSession).toBe('function');
     expect(ProviderError).toBeDefined();
 
     expectTypeOf<BlockchainProviderDescriptor>().toMatchTypeOf<{
@@ -190,7 +186,8 @@ describe('published package exports', () => {
       displayName: string;
       name: string;
     }>();
-    expectTypeOf<IBlockchainProviderManager>().toMatchTypeOf<{
+    expectTypeOf<IBlockchainProviderRuntime>().toMatchTypeOf<{
+      cleanup: () => Promise<unknown>;
       getProviders: (blockchain: string) => unknown;
     }>();
     expectTypeOf<BlockchainProviderSelectionOptions>().toMatchTypeOf<{

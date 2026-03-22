@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
-import type { IBlockchainProviderManager } from '../contracts/provider-manager.js';
+import type { IBlockchainProviderRuntime } from '../contracts/provider-manager.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
 import { initProviderStatsPersistence, type ProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
@@ -22,21 +22,9 @@ export interface BlockchainProviderRuntimeOptions {
   instrumentation?: InstrumentationCollector | undefined;
 }
 
-export interface BlockchainProviderRuntime {
-  cleanup(this: void): Promise<Result<void, Error>>;
-  getAddressBalances: IBlockchainProviderManager['getAddressBalances'];
-  getAddressInfo: IBlockchainProviderManager['getAddressInfo'];
-  getAddressTokenBalances: IBlockchainProviderManager['getAddressTokenBalances'];
-  getProviders: IBlockchainProviderManager['getProviders'];
-  getTokenMetadata: IBlockchainProviderManager['getTokenMetadata'];
-  hasAddressTransactions: IBlockchainProviderManager['hasAddressTransactions'];
-  hasRegisteredOperationSupport: IBlockchainProviderManager['hasRegisteredOperationSupport'];
-  streamAddressTransactions: IBlockchainProviderManager['streamAddressTransactions'];
-}
-
 export async function createBlockchainProviderRuntime(
   options: BlockchainProviderRuntimeOptions
-): Promise<Result<BlockchainProviderRuntime, Error>> {
+): Promise<Result<IBlockchainProviderRuntime, Error>> {
   let providerStatsPersistence: ProviderStatsPersistence | undefined;
   const providerStatsResult = await initProviderStatsPersistence(options.dataDir);
   if (providerStatsResult.isOk()) {

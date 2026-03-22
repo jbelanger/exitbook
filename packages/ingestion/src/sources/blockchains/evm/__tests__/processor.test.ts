@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmChainConfig, type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import type { Currency } from '@exitbook/core';
 import { ok } from '@exitbook/core';
@@ -26,7 +26,7 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 
-type ProviderManagerMock = IBlockchainProviderManager & {
+type ProviderManagerMock = IBlockchainProviderRuntime & {
   getAddressInfo: ReturnType<typeof vi.fn>;
   getTokenMetadata: ReturnType<typeof vi.fn>;
 };
@@ -43,11 +43,11 @@ function createMockProviderManager(isContract = false): ProviderManagerMock {
   } as unknown as ProviderManagerMock;
 }
 
-function createEthereumProcessor(providerManager?: IBlockchainProviderManager) {
+function createEthereumProcessor(providerManager?: IBlockchainProviderRuntime) {
   return new EvmProcessor(ETHEREUM_CONFIG, providerManager ?? createMockProviderManager());
 }
 
-function createAvalancheProcessor(providerManager?: IBlockchainProviderManager) {
+function createAvalancheProcessor(providerManager?: IBlockchainProviderRuntime) {
   return new EvmProcessor(AVALANCHE_CONFIG, providerManager ?? createMockProviderManager());
 }
 

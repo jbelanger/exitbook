@@ -14,8 +14,9 @@ import type { IBlockchainProvider } from './provider.js';
 /**
  * Public blockchain provider runtime contract.
  *
- * This is the curated manager surface intended for consumers of the published
- * package. The concrete manager class remains an internal implementation detail.
+ * This is the curated consumer-facing runtime surface intended for published
+ * package consumers. The concrete manager class remains an internal
+ * implementation detail.
  */
 export interface BlockchainProviderSelectionOptions {
   preferredProvider?: string | undefined;
@@ -30,7 +31,9 @@ export interface BlockchainBalanceQueryOptions extends BlockchainProviderSelecti
   contractAddresses?: string[] | undefined;
 }
 
-export interface IBlockchainProviderManager {
+export interface IBlockchainProviderRuntime {
+  cleanup(this: void): Promise<Result<void, Error>>;
+
   streamAddressTransactions<T>(
     blockchain: string,
     address: string,

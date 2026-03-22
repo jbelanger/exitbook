@@ -1,4 +1,4 @@
-import { type IBlockchainProviderManager } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { describe, expect, test, vi } from 'vitest';
 
 import { evmAdapters } from '../../evm/register.js';
@@ -7,7 +7,7 @@ import { ThetaImporter } from '../importer.js';
 import { ThetaProcessor } from '../processor.js';
 import { thetaAdapters } from '../register.js';
 
-type ProviderManagerMock = IBlockchainProviderManager & {
+type ProviderManagerMock = IBlockchainProviderRuntime & {
   getAddressInfo: ReturnType<typeof vi.fn>;
   getProviders: ReturnType<typeof vi.fn>;
   getTokenMetadata: ReturnType<typeof vi.fn>;
