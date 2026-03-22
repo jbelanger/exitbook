@@ -14,7 +14,7 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
@@ -99,12 +99,7 @@ export async function createPricesEnrichHandler(
       return err(priceRuntimeResult.error);
     }
     const priceRuntime = priceRuntimeResult.value;
-    ctx.onCleanup(async () => {
-      const cleanupResult = await priceRuntime.cleanup();
-      if (cleanupResult.isErr()) {
-        throw cleanupResult.error;
-      }
-    });
+    ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
     const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
     return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, undefined));
@@ -125,12 +120,7 @@ export async function createPricesEnrichHandler(
     return err(priceRuntimeResult.error);
   }
   const priceRuntime = priceRuntimeResult.value;
-  ctx.onCleanup(async () => {
-    const cleanupResult = await priceRuntime.cleanup();
-    if (cleanupResult.isErr()) {
-      throw cleanupResult.error;
-    }
-  });
+  ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
   const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
   return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, controller));

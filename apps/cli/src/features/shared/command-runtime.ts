@@ -9,6 +9,11 @@ import { getDataDir } from './data-dir.js';
 
 const logger = getLogger('command-runtime');
 
+interface ResultCleanupOutcome {
+  error?: Error | undefined;
+  isErr(): boolean;
+}
+
 /**
  * Manages database lifecycle, SIGINT handling, and cleanup for CLI commands.
  *
@@ -155,6 +160,18 @@ export class CommandContext {
       throw new AggregateError(errors, 'Multiple cleanup failures');
     }
   }
+}
+
+/**
+ * Adapt a Result-returning cleanup function into CommandContext.onCleanup() shape.
+ */
+export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>): () => Promise<void> {
+  return async () => {
+    const cleanupResult = await cleanup();
+    if (cleanupResult.isErr()) {
+      throw cleanupResult.error ?? new Error('Cleanup failed');
+    }
+  };
 }
 
 /**

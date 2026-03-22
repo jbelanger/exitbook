@@ -28,7 +28,7 @@ import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion
 import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -677,12 +677,7 @@ export async function createPortfolioHandler(
   }
 
   const priceRuntime = priceRuntimeResult.value;
-  ctx.onCleanup(async () => {
-    const cleanupResult = await priceRuntime.cleanup();
-    if (cleanupResult.isErr()) {
-      throw cleanupResult.error;
-    }
-  });
+  ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
   prereqAbort = undefined;
   return ok(

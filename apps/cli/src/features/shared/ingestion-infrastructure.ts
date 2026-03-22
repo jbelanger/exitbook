@@ -11,7 +11,7 @@ import { IngestionMonitor } from '../import/view/ingestion-monitor-view-componen
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import type { OpenedBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-import type { CommandContext } from './command-runtime.js';
+import { adaptResultCleanup, type CommandContext } from './command-runtime.js';
 
 const logger = getLogger('ingestion-infrastructure');
 
@@ -19,14 +19,14 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 
 interface IngestionInfrastructure {
   processingWorkflow: ProcessingWorkflow;
-  providerManager: OpenedBlockchainProviderRuntime;
+  blockchainProviderRuntime: OpenedBlockchainProviderRuntime;
   instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor: EventDrivenController<CliEvent>;
 }
 
 /**
- * Create shared ingestion infrastructure (providerManager +
+ * Create shared ingestion infrastructure (blockchain provider runtime +
  * ProcessingWorkflow + IngestionMonitor).
  * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
  */
@@ -47,6 +47,7 @@ export async function createIngestionInfrastructure(
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
   });
+  const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
 
   try {
     const overrideStore = new OverrideStore(ctx.dataDir);
@@ -67,7 +68,7 @@ export async function createIngestionInfrastructure(
     });
     await ingestionMonitor.start();
 
-    // LIFO: monitor stops first, then provider manager (which handles its own DB cleanup)
+    // LIFO: monitor stops first, then the blockchain provider runtime.
     ctx.onCleanup(async () => {
       let stopError: Error | undefined;
 
@@ -77,33 +78,39 @@ export async function createIngestionInfrastructure(
         stopError = error instanceof Error ? error : new Error(String(error));
       }
 
-      const cleanupResult = await providerRuntime.cleanup();
-      if (stopError && cleanupResult.isErr()) {
-        throw new AggregateError(
-          [stopError, cleanupResult.error],
-          'Failed to stop ingestion monitor and cleanup blockchain provider runtime'
-        );
+      try {
+        await cleanupBlockchainProviderRuntime();
+      } catch (error) {
+        const cleanupError = error instanceof Error ? error : new Error(String(error));
+        if (stopError) {
+          throw new AggregateError(
+            [stopError, cleanupError],
+            'Failed to stop ingestion monitor and cleanup blockchain provider runtime',
+            { cause: error }
+          );
+        }
+        throw cleanupError;
       }
+
       if (stopError) {
         throw stopError;
-      }
-      if (cleanupResult.isErr()) {
-        throw cleanupResult.error;
       }
     });
 
     return {
       processingWorkflow,
-      providerManager: providerRuntime,
+      blockchainProviderRuntime: providerRuntime,
       instrumentation,
       eventBus,
       ingestionMonitor,
     };
   } catch (error) {
-    const cleanupResult = await providerRuntime.cleanup();
-    if (cleanupResult.isErr()) {
-      logger.warn({ error: cleanupResult.error }, 'Failed to cleanup blockchain provider runtime on setup failure');
-    }
+    await cleanupBlockchainProviderRuntime().catch((cleanupError: unknown) => {
+      logger.warn(
+        { error: cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)) },
+        'Failed to cleanup blockchain provider runtime on setup failure'
+      );
+    });
     throw error;
   }
 }

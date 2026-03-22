@@ -23,7 +23,7 @@ import {
   formatBalanceSnapshotFreshnessMessage,
 } from '../../shared/balance-snapshot-freshness-message.js';
 import { openBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { StoredSnapshotAssetItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
@@ -757,15 +757,13 @@ export async function createBalanceHandler(
     }
 
     const providerRuntime = await openBlockchainProviderRuntime(undefined, { dataDir: ctx.dataDir });
+    const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const balancePorts = buildBalancePorts(database);
     const balanceWorkflow = new BalanceWorkflow(balancePorts, providerRuntime);
     const handler = new BalanceHandler(database, balanceWorkflow);
     ctx.onCleanup(async () => {
       await handler.awaitStream();
-      const cleanupResult = await providerRuntime.cleanup();
-      if (cleanupResult.isErr()) {
-        throw cleanupResult.error;
-      }
+      await cleanupBlockchainProviderRuntime();
     });
 
     return ok(handler);

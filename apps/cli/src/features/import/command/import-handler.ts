@@ -118,7 +118,7 @@ export async function createImportHandler(
     const importPorts = buildImportPorts(database);
     const importWorkflow = new ImportWorkflow(
       importPorts,
-      infra.providerManager,
+      infra.blockchainProviderRuntime,
       registry,
       infra.eventBus as EventBus<IngestionEvent>
     );
