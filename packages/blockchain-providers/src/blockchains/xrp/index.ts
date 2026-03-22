@@ -4,14 +4,31 @@
  * Provides types, schemas, and utilities for working with the XRP Ledger.
  */
 
-// Chain configuration
-export * from './chain-config.interface.js';
-export * from './chain-registry.js';
-
-// Schemas and types
-export * from './schemas.js';
-export * from './types.js';
-
-// Utilities
-export * from './utils.js';
-export * from './balance-utils.js';
+export type { XrpChainConfig } from './chain-config.interface.js';
+export { XRP_CHAINS, getXrpChainConfig, type XrpChainName } from './chain-registry.js';
+export {
+  XrpAddressSchema,
+  XrpAmountSchema,
+  XrpBalanceChangeSchema,
+  XrpDropsAmountSchema,
+  XrpIssuedCurrencyAmountSchema,
+  XrpTransactionSchema,
+} from './schemas.js';
+export type {
+  XrpAddress,
+  XrpAmount,
+  XrpBalanceChange,
+  XrpDropsAmount,
+  XrpIssuedCurrencyAmount,
+  XrpTransaction,
+} from './schemas.js';
+export type { XrpLedgerEntryType, XrpTransactionResult, XrpTransactionType } from './types.js';
+export {
+  dropsToXrpDecimalString,
+  isValidXrpAddress,
+  normalizeXrpAddress,
+  rippleTimeToUnix,
+  unixToRippleTime,
+  xrpToDrops,
+} from './utils.js';
+export { toIssuedCurrencyRawBalance, transformXrpBalance } from './balance-utils.js';

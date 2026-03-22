@@ -2,9 +2,15 @@
  * NEAR blockchain provider exports
  */
 
-export * from './chain-config.interface.js';
-export * from './chain-registry.js';
-export * from './utils.js';
+export type { NearChainConfig } from './chain-config.interface.js';
+export { NEAR_CHAINS, getNearChainConfig } from './chain-registry.js';
+export {
+  formatNearAccountId,
+  isValidNearAccountId,
+  nearToYoctoNear,
+  yoctoNearToNear,
+  yoctoNearToNearString,
+} from './utils.js';
 
 // Schemas and types (normalized streaming model)
 export {
@@ -20,19 +26,13 @@ export {
 } from './schemas.js';
 
 export type {
-  NearStreamType,
   NearActionType,
-  NearReceiptAction,
-  NearTransaction,
-  NearReceipt,
   NearBalanceChangeCause,
   NearBalanceChange,
+  NearReceipt,
+  NearReceiptAction,
   NearTokenTransfer,
+  NearTransaction,
   NearStreamEvent,
+  NearStreamType,
 } from './schemas.js';
-
-// Provider schemas (NearBlocks API responses)
-export * from './providers/nearblocks/nearblocks.schemas.js';
-
-// Mapper utilities (used by processor)
-export * from './providers/nearblocks/nearblocks.mapper-utils.js';

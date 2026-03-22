@@ -2,9 +2,18 @@
  * Solana blockchain provider exports
  */
 
-// Core exports
-export * from './chain-config.interface.js';
-export * from './chain-registry.js';
-export * from './schemas.js';
-export * from './types.js';
-export * from './utils.js';
+export type { SolanaChainConfig } from './chain-config.interface.js';
+export { SOLANA_CHAINS, getSolanaChainConfig } from './chain-registry.js';
+export { SolanaTransactionSchema } from './schemas.js';
+export type { SolanaTransaction } from './schemas.js';
+export {
+  deduplicateTransactionsBySignature,
+  extractAccountChanges,
+  extractAccountChangesFromSolscan,
+  extractTokenChanges,
+  generateSolanaTransactionEventId,
+  isValidSolanaAddress,
+  lamportsToSol,
+  parseSolanaTransactionType,
+  solToLamports,
+} from './utils.js';

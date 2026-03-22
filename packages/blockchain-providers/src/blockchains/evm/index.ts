@@ -2,11 +2,15 @@
  * EVM blockchain provider exports
  */
 
-// Core exports
-export * from './schemas.js';
-export * from './types.js';
-export * from './utils.js';
-
-// Chain configuration helpers
-export * from './chain-config.interface.js';
-export * from './chain-registry.js';
+export type { EvmChainConfig } from './chain-config.interface.js';
+export { EVM_CHAINS, getEvmChainConfig, type EvmChainName } from './chain-registry.js';
+export { EvmAddressSchema, EvmTransactionSchema } from './schemas.js';
+export type { EvmTransaction } from './schemas.js';
+export type { BeaconWithdrawalFields } from './utils.js';
+export {
+  extractMethodId,
+  generateBeaconWithdrawalEventId,
+  getTransactionTypeFromFunctionName,
+  isValidEvmAddress,
+  normalizeEvmAddress,
+} from './utils.js';

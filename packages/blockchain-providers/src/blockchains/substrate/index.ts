@@ -2,11 +2,16 @@
  * Substrate blockchain provider exports
  */
 
-// Core exports
-export * from './schemas.js';
-export * from './types.js';
-export * from './utils.js';
-
-// Chain configuration helpers
-export * from './chain-config.interface.js';
-export * from './chain-registry.js';
+export type { SubstrateChainConfig } from './chain-config.interface.js';
+export { SUBSTRATE_CHAINS, getSubstrateChainConfig } from './chain-registry.js';
+export { SubstrateAddressSchema, SubstrateEventDataSchema, SubstrateTransactionSchema } from './schemas.js';
+export type { SubstrateEventData, SubstrateTransaction } from './schemas.js';
+export {
+  derivePolkadotAddressVariants,
+  encodeSS58Address,
+  isSamePolkadotAddress,
+  isValidSS58Address,
+  normalizeSubstrateAccountIdHex,
+  parseSubstrateTransactionType,
+  trySubstrateAddressToAccountIdHex,
+} from './utils.js';
