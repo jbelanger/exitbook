@@ -302,7 +302,8 @@ describe('createPriceProviders', () => {
       const coinGeckoProvider = providers[2];
 
       // CoinGecko provider has initialize() hook
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- Extracting method for vitest mock assertion
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- we want to check if initialize was called, so we need the method reference
       const initializeMethod = coinGeckoProvider?.initialize;
       expect(initializeMethod).toBeDefined();
       expect(initializeMethod).toHaveBeenCalled();

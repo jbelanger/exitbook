@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { Result } from '@exitbook/foundation';
 import type { EventBus } from '@exitbook/events';
+import type { Result } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { PriceProviderEvent } from '../contracts/events.js';

@@ -406,12 +406,12 @@ importers:
 
   packages/price-providers:
     dependencies:
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../core
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
       '@exitbook/http':
         specifier: workspace:*
         version: link:../http
