@@ -3,8 +3,8 @@
  * Handles receipt-based gas fee enrichment and raw transfer deduplication.
  */
 
-import { getErrorMessage } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { HttpClient } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';
 

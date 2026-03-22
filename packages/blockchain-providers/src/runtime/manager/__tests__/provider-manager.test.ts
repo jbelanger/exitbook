@@ -3,8 +3,8 @@
  * capability routing, caching, and preferred-provider behaviour.
  */
 
-import { type CursorState, type PaginationCursor } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { type CursorState, type PaginationCursor } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { type RateLimitConfig } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 

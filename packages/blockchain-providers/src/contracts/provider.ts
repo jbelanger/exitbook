@@ -1,5 +1,5 @@
-import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { CursorState, CursorType, PaginationCursor } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import type { RateLimitConfig } from '@exitbook/http';
 import type { IProvider } from '@exitbook/resilience/provider-health';
 

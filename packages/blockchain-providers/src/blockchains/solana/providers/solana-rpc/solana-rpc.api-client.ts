@@ -1,6 +1,6 @@
-import { getErrorMessage } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
-import { maskAddress } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
+import { maskAddress } from '@exitbook/foundation';
 
 import type {
   ProviderConfig,

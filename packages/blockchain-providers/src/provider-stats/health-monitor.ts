@@ -6,7 +6,7 @@
  * This prevents timer leaks in tests and short-lived CLI invocations.
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IBlockchainProvider } from '../contracts/index.js';

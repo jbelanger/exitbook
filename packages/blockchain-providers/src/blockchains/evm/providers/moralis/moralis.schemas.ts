@@ -1,4 +1,4 @@
-import { DecimalStringSchema } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { parseApiBoolean, timestampToDate } from '../../../../normalization/schema-transforms.js';

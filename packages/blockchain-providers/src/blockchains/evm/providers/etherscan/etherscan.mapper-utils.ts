@@ -1,5 +1,5 @@
-import { getErrorMessage } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { RateLimitError } from '@exitbook/http';
 import { Decimal } from 'decimal.js';
 import type { ZodType } from 'zod';

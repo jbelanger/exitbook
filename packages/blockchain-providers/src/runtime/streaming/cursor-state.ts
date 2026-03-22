@@ -5,7 +5,7 @@
  * for streaming pagination and resumption.
  */
 
-import type { CursorState, PaginationCursor } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 
 import type { NormalizedTransactionBase } from '../../contracts/normalized-transaction.js';
 

@@ -1,4 +1,4 @@
-import { DecimalStringSchema } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/foundation';
 /**
  * Zod schemas for NearBlocks API responses
  * API: https://api.nearblocks.io

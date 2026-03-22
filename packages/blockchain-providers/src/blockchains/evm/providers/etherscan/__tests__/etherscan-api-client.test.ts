@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createProviderRegistry } from '../../../../../initialize.js';

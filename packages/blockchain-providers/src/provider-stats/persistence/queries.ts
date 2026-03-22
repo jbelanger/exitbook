@@ -3,9 +3,9 @@
  * Queries for persisting blockchain provider health and circuit breaker stats
  */
 
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 
 import type { ProviderStatsDB } from './database.js';
 import type { ProviderStatsRow } from './utils.js';

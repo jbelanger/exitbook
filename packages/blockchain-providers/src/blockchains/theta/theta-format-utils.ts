@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 export const THETA_GAS_ASSET_SYMBOL = 'TFUEL';

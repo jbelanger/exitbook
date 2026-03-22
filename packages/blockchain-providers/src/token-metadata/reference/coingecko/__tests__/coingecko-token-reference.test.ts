@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { err, ok } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { err, ok } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { HttpClient } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

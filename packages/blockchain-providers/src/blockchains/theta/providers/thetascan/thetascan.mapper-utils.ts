@@ -1,5 +1,5 @@
-import { parseDecimal } from '@exitbook/core';
-import { type Result, ok } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
+import { type Result, ok } from '@exitbook/foundation';
 
 import type { NormalizationError } from '../../../../contracts/errors.js';
 import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';

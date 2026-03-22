@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type AssetReferenceStatus, wrapError, pickLatestDate } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { type AssetReferenceStatus, wrapError, pickLatestDate } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Kysely, Selectable } from '@exitbook/sqlite';
 

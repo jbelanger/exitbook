@@ -4,7 +4,7 @@
  * Enhanced with automatic fixes and detailed suggestions
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 
 import { loadExplorerConfig } from '../host/explorer-config.js';
 import { createProviderRegistry } from '../initialize.js';

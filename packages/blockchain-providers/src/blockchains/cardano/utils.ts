@@ -1,5 +1,5 @@
-import { getErrorMessage, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { getErrorMessage, wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';

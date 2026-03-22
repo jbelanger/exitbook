@@ -1,6 +1,6 @@
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { ProviderError } from '../contracts/errors.js';

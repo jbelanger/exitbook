@@ -1,4 +1,4 @@
-import type { CursorState } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
 
 import type { TokenMetadata } from '../token-metadata/contracts.js';
 

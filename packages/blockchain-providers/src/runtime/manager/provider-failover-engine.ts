@@ -1,6 +1,6 @@
-import { getErrorMessage, type CursorState } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import { getErrorMessage, type CursorState } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, isCircuitOpen, type CircuitState } from '@exitbook/resilience/circuit-breaker';

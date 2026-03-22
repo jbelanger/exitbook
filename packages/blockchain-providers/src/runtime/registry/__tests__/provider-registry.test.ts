@@ -2,7 +2,7 @@
  * Tests for ProviderRegistry — registration, metadata, instance creation, and config validation.
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 import { describe, expect, test } from 'vitest';
 
 import type { ProviderFactory, ProviderMetadata } from '../../../contracts/index.js';

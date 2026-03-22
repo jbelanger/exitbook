@@ -1,5 +1,5 @@
-import { parseDecimal } from '@exitbook/core';
-import { type Result, err } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
+import { type Result, err } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { NormalizationError } from '../../../../contracts/errors.js';

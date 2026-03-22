@@ -6,3 +6,4 @@ export * from './crypto/index.js';
 export * from './errors/index.js';
 export * from './dates/index.js';
 export * from './numbers/index.js';
+export * from './privacy/index.js';

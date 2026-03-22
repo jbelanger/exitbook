@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 /**
  * Validate that all providers are properly registered and functional
  */
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import { createProviderRegistry } from '../initialize.js';
 

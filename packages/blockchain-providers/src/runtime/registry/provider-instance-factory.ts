@@ -6,8 +6,8 @@
  * in BlockchainProviderManager.
  */
 
-import type { Result } from '@exitbook/core';
-import { ok, wrapError } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { ok, wrapError } from '@exitbook/foundation';
 import type { HttpClientHooks } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';

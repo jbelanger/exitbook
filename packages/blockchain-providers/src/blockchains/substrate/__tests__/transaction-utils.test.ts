@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { SubstrateChainConfig } from '../chain-config.interface.js';

@@ -4,7 +4,7 @@
  * These functions handle fee and amount calculations for Cosmos SDK-based chains.
  * All calculations use Decimal.js for precision-safe arithmetic.
  */
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type { InjectiveGasFee, InjectiveAmount } from './providers/injective-explorer/injective-explorer.schemas.js';
 

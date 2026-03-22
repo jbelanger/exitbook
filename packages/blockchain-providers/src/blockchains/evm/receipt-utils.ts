@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AlchemyAssetTransfer, AlchemyTransactionReceipt } from './providers/alchemy/alchemy.schemas.js';

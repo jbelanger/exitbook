@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
-import { err, ok, sha256Hex } from '@exitbook/core';
+import { err, ok, sha256Hex } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StreamingOperation } from '../../../../../contracts/index.js';

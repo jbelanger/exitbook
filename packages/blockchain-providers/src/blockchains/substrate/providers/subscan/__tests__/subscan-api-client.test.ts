@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 /* eslint-disable unicorn/no-null -- acceptable for tests */
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {

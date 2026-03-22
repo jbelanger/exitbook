@@ -3,7 +3,7 @@
  * List all registered providers across all blockchains
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 import type { RateLimitConfig } from '@exitbook/http';
 
 import type { ProviderCapabilities } from '../contracts/index.js';

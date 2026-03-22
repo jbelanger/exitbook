@@ -1,4 +1,4 @@
-import { resultDo, type Result } from '@exitbook/core';
+import { resultDo, type Result } from '@exitbook/foundation';
 
 import type { NormalizationError } from '../../../../contracts/index.js';
 import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';

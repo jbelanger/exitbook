@@ -3,7 +3,7 @@
  * and multi-blockchain coverage.
  */
 
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { IBlockchainProvider } from '../../contracts/index.js';

@@ -1,4 +1,4 @@
-import { sha256Hex } from '@exitbook/core';
+import { sha256Hex } from '@exitbook/foundation';
 
 /**
  * Normalize EVM address to lowercase for consistent storage and comparison.

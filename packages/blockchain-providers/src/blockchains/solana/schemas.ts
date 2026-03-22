@@ -5,7 +5,7 @@
  * from different Solana API providers (Helius, SolanaRPC, Solscan)
  * before processing.
  */
-import { DecimalStringSchema } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { NormalizedTransactionBaseSchema } from '../../contracts/normalized-transaction.js';

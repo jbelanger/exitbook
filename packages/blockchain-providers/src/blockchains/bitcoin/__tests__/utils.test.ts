@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import { HDKey } from '@scure/bip32';
 import { describe, expect, it, vi } from 'vitest';
 

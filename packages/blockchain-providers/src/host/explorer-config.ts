@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { getErrorMessage } from '@exitbook/core';
+import { getErrorMessage } from '@exitbook/foundation';
 
 import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from '../catalog/explorer-config.js';
 

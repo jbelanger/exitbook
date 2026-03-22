@@ -1,5 +1,5 @@
-import { isErrorWithMessage } from '@exitbook/core';
-import { type Result, err } from '@exitbook/core';
+import { isErrorWithMessage } from '@exitbook/foundation';
+import { type Result, err } from '@exitbook/foundation';
 
 import type { NormalizationError } from '../../../../contracts/errors.js';
 import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';

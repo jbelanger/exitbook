@@ -3,7 +3,7 @@
  * Pure function tests without mocks
  */
 
-import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
+import type { CursorState, CursorType, PaginationCursor } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { createInitialCircuitState, type CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { createInitialHealth } from '@exitbook/resilience/provider-health';

@@ -3,9 +3,9 @@
  * Phase 2 implementation of ADR-006
  */
 
-import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { CursorState, CursorType, PaginationCursor } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type {

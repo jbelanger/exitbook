@@ -1,4 +1,4 @@
-import { ok, type Result } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { NormalizationError } from '../../../../contracts/errors.js';

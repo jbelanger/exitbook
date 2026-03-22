@@ -1,5 +1,5 @@
-import type { CursorState, PaginationCursor } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { StreamingBatchResult, StreamingOperation, TransactionWithRawData } from '../../contracts/index.js';
 import type { NormalizedTransactionBase } from '../../contracts/normalized-transaction.js';

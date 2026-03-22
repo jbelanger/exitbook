@@ -5,7 +5,7 @@
  * mutate state in place for performance in hot paths.
  */
 
-import type { CursorState, CursorType, PaginationCursor } from '@exitbook/core';
+import type { CursorState, CursorType, PaginationCursor } from '@exitbook/foundation';
 import type { CircuitState } from '@exitbook/resilience/circuit-breaker';
 import { selectProviders } from '@exitbook/resilience/provider-selection';
 

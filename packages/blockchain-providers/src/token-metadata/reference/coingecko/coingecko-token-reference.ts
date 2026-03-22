@@ -1,4 +1,4 @@
-import { err, ok, type AssetReferenceStatus, type Result } from '@exitbook/core';
+import { err, ok, type AssetReferenceStatus, type Result } from '@exitbook/foundation';
 import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 import { z } from 'zod';

@@ -8,10 +8,10 @@
  * - Fails loudly on data quality issues - no silent defaults
  */
 
-import type { CursorState, PaginationCursor } from '@exitbook/core';
-import { getErrorMessage } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
-import { maskAddress } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/foundation';
+import { getErrorMessage } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
+import { maskAddress } from '@exitbook/foundation';
 import { HttpClient } from '@exitbook/http';
 import { z } from 'zod';
 

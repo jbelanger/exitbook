@@ -13,7 +13,7 @@
  * - Peggy bridge withdrawals (MsgSendToEth)
  * - Peggy bridge deposits (MsgDepositClaim)
  */
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type {
   InjectiveMessage,

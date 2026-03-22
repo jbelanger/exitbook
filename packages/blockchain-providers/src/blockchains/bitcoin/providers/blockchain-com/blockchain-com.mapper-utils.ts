@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { NormalizationError } from '../../../../contracts/errors.js';
 import { validateOutput } from '../../../../normalization/mapper-validation.js';

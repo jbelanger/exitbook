@@ -1,4 +1,4 @@
-import { sha256Hex } from '@exitbook/core';
+import { sha256Hex } from '@exitbook/foundation';
 
 /**
  * Minimum fields required for generating unique transaction IDs.

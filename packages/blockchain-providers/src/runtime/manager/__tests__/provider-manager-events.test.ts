@@ -4,8 +4,8 @@
  * Tests event emission logic for provider state transitions
  */
 
-import type { CursorState } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
+import type { CursorState } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 // Helper to wait for microtasks to flush

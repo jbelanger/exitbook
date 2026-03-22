@@ -3,8 +3,8 @@
  * Centralizes event construction and emission logic
  */
 
-import type { CursorState } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import type { CursorState } from '@exitbook/foundation';
 
 import type { StreamingOperation } from '../../contracts/operations.js';
 import type { IBlockchainProvider } from '../../contracts/provider.js';

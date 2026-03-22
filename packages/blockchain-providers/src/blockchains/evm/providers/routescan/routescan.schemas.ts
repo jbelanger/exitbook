@@ -4,7 +4,7 @@
  * These schemas validate the structure and content of transaction data
  * from Routescan API before processing.
  */
-import { DecimalStringSchema, IntegerStringSchema } from '@exitbook/core';
+import { DecimalStringSchema, IntegerStringSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { timestampToDate } from '../../../../normalization/schema-transforms.js';

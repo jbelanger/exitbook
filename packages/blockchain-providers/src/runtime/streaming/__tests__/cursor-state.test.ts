@@ -1,4 +1,4 @@
-import type { PaginationCursor } from '@exitbook/core';
+import type { PaginationCursor } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TransactionWithRawData } from '../../../contracts/index.js';

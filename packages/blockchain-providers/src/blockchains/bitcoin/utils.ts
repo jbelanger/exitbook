@@ -1,5 +1,5 @@
-import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { getErrorMessage, parseDecimal, wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';

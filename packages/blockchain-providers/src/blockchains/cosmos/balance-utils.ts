@@ -4,7 +4,7 @@
  * These functions handle balance extraction, filtering, and conversion
  * for Cosmos SDK-based chains.
  */
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type { InjectiveBalance } from './providers/injective-explorer/injective-explorer.schemas.js';
 

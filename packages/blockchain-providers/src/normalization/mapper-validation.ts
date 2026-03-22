@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { ZodType } from 'zod';
 
 import type { NormalizationError } from '../contracts/errors.js';

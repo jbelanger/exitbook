@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import { expect, vi } from 'vitest';
 
 import type { IBlockchainProvider } from '../contracts/index.js';

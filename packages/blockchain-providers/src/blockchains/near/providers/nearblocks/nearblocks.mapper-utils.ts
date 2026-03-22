@@ -5,8 +5,8 @@
  * to provider-agnostic types. Correlation logic is handled separately in the processor.
  */
 
-import type { Result } from '@exitbook/core';
-import { ok, err, sha256Hex } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { ok, err, sha256Hex } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 

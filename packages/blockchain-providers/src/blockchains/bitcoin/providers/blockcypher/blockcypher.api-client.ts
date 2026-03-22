@@ -13,10 +13,10 @@
  * Use BlockCypher as emergency fallback or for addresses with few transactions only.
  */
 
-import type { CursorState, PaginationCursor } from '@exitbook/core';
-import { getErrorMessage, hasStringProperty } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
-import { maskAddress } from '@exitbook/core';
+import type { CursorState, PaginationCursor } from '@exitbook/foundation';
+import { getErrorMessage, hasStringProperty } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
+import { maskAddress } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import type {

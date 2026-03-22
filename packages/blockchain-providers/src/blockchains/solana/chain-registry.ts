@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 
 import type { SolanaChainConfig } from './chain-config.interface.js';
 

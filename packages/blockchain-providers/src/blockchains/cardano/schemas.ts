@@ -4,7 +4,7 @@
  * These schemas validate the structure and content of transaction data
  * from different Cardano API providers before processing.
  */
-import { DecimalStringSchema } from '@exitbook/core';
+import { DecimalStringSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { NormalizedTransactionBaseSchema } from '../../contracts/normalized-transaction.js';
