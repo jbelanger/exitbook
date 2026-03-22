@@ -2,6 +2,7 @@ import {
   createBlockchainProviderRuntime,
   type BlockchainExplorersConfig,
   type BlockchainProviderManager,
+  loadBlockchainExplorerConfig,
   type ProviderEvent,
 } from '@exitbook/blockchain-providers';
 import type { EventBus } from '@exitbook/events';
@@ -22,9 +23,19 @@ export async function openBlockchainProviderRuntime(
     instrumentation?: InstrumentationCollector | undefined;
   }
 ): Promise<OpenedBlockchainProviderRuntime> {
+  let explorerConfig = config;
+  if (explorerConfig === undefined) {
+    const explorerConfigResult = loadBlockchainExplorerConfig();
+    if (explorerConfigResult.isOk()) {
+      explorerConfig = explorerConfigResult.value;
+    } else {
+      throw explorerConfigResult.error;
+    }
+  }
+
   const runtimeResult = await createBlockchainProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
-    explorerConfig: config,
+    explorerConfig,
     instrumentation: options?.instrumentation,
     eventBus: options?.eventBus,
   });

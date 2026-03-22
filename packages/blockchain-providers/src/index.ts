@@ -4,9 +4,8 @@
  * Public package API for blockchain provider runtimes, contracts, and normalized chain models.
  */
 
-export { BlockchainProviderManager } from './runtime/index.js';
-
 export type { ProviderEvent } from './events.js';
+export type { IBlockchainProviderManager as BlockchainProviderManager } from './contracts/provider-manager.js';
 
 export {
   createAssetReviewProviderSupport,
@@ -17,11 +16,9 @@ export {
   type BlockchainProviderRuntime,
   type BlockchainProviderRuntimeOptions,
 } from './runtime/create-blockchain-provider-runtime.js';
-export {
-  loadBlockchainProviderCatalog,
-  type BlockchainProviderCatalog,
-  type ProviderCatalogEntry,
-} from './catalog/provider-catalog.js';
+export { listBlockchainProviders, type ProviderCatalogEntry } from './catalog/list-blockchain-providers.js';
+export { loadBlockchainProviderStats } from './catalog/load-provider-stats.js';
+export { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from './catalog/load-explorer-config.js';
 export {
   openProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
@@ -39,7 +36,6 @@ export { ProviderError } from './contracts/errors.js';
 export type { NormalizedTransactionBase } from './contracts/normalized-transaction.js';
 export type { FailoverExecutionResult, ProviderOperationType } from './contracts/operations.js';
 export type { IBlockchainProvider } from './contracts/provider.js';
-export type { BlockchainExplorersConfig } from './catalog/explorer-config.js';
 
 export {
   BITCOIN_CHAINS,

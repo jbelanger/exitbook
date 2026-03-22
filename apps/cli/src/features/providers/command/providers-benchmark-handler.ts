@@ -1,4 +1,5 @@
 import {
+  loadBlockchainExplorerConfig,
   openProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
   type ProviderBenchmarkSession,
@@ -41,8 +42,14 @@ export class ProviderBenchmarkHandler {
 
     const params = paramsResult.value;
 
+    const explorerConfigResult = loadBlockchainExplorerConfig();
+    if (explorerConfigResult.isErr()) {
+      return err(explorerConfigResult.error);
+    }
+
     const sessionResult = await openProviderBenchmarkSession({
       blockchain: params.blockchain,
+      explorerConfig: explorerConfigResult.value,
       providerName: params.provider,
     });
     if (sessionResult.isErr()) {

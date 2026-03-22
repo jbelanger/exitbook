@@ -1,4 +1,8 @@
-import { loadBlockchainProviderCatalog } from '@exitbook/blockchain-providers';
+import {
+  listBlockchainProviders,
+  loadBlockchainExplorerConfig,
+  loadBlockchainProviderStats,
+} from '@exitbook/blockchain-providers';
 
 import type { ProviderViewItem } from '../view/index.js';
 
@@ -24,15 +28,19 @@ export class ProvidersViewHandler {
   constructor(private readonly dataDir: string) {}
 
   async execute(params: ProvidersViewParams): Promise<ProviderViewItem[]> {
-    const catalogResult = await loadBlockchainProviderCatalog(this.dataDir);
-    if (catalogResult.isErr()) {
-      throw catalogResult.error;
+    const explorerConfigResult = loadBlockchainExplorerConfig();
+    if (explorerConfigResult.isErr()) {
+      throw explorerConfigResult.error;
     }
 
-    const providerCatalog = catalogResult.value;
-    const providerMap = groupProvidersByName(providerCatalog.providers);
+    const providerStatsResult = await loadBlockchainProviderStats(this.dataDir);
+    if (providerStatsResult.isErr()) {
+      throw providerStatsResult.error;
+    }
 
-    let items = buildProviderViewItems(providerMap, providerCatalog.providerStats, providerCatalog.explorerConfig);
+    const providerMap = groupProvidersByName(listBlockchainProviders());
+
+    let items = buildProviderViewItems(providerMap, providerStatsResult.value, explorerConfigResult.value);
 
     items = filterProviders(items, {
       blockchain: params.blockchain,

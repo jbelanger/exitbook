@@ -1,6 +1,6 @@
 // Command registration for view blockchains subcommand
 
-import { loadBlockchainProviderCatalog, type ProviderCatalogEntry } from '@exitbook/blockchain-providers';
+import { listBlockchainProviders, type ProviderCatalogEntry } from '@exitbook/blockchain-providers';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
@@ -8,7 +8,6 @@ import type { z } from 'zod';
 
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp } from '../../shared/command-runtime.js';
-import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { BlockchainsViewCommandOptionsSchema } from '../../shared/schemas.js';
@@ -108,14 +107,8 @@ async function loadBlockchainCatalogData(
     validatedCategory = categoryResult.value;
   }
 
-  const catalogResult = await loadBlockchainProviderCatalog(getDataDir());
-  if (catalogResult.isErr()) {
-    displayCliError('blockchains-view', catalogResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-  }
-
-  const providerCatalog = catalogResult.value;
   const supportedBlockchains = registry.getAllBlockchains();
-  const allProviders = providerCatalog.providers;
+  const allProviders = listBlockchainProviders();
 
   let blockchains = supportedBlockchains.map((blockchain: string) => {
     const providers = allProviders.filter((provider) => provider.blockchain === blockchain);

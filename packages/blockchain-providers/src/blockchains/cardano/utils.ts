@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 
 import { performAddressGapScanning } from '../../blockchains/shared/gap-scan-utils.js';
 import type { RawBalanceData } from '../../contracts/index.js';
-import type { BlockchainProviderManager } from '../../runtime/manager/provider-manager.js';
+import type { IBlockchainProviderManager } from '../../contracts/provider-manager.js';
 
 import type { CardanoAddressEra, CardanoWalletAddress, DerivedCardanoAddress } from './types.js';
 
@@ -186,7 +186,7 @@ export async function deriveCardanoAddressesFromXpub(xpub: string, addressGap = 
  */
 export async function initializeCardanoXpubWallet(
   walletAddress: CardanoWalletAddress,
-  providerManager: BlockchainProviderManager,
+  providerManager: IBlockchainProviderManager,
   addressGap = 10
 ): Promise<Result<void, Error>> {
   try {
@@ -231,7 +231,7 @@ export async function initializeCardanoXpubWallet(
  */
 export async function performCardanoAddressGapScanning(
   walletAddress: CardanoWalletAddress,
-  providerManager: BlockchainProviderManager
+  providerManager: IBlockchainProviderManager
 ): Promise<Result<void, Error>> {
   const allDerived = walletAddress.derivedAddresses ?? [];
   if (allDerived.length === 0) {

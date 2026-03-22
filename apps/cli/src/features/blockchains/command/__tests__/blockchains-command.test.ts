@@ -1,5 +1,4 @@
 import type { ProviderCatalogEntry } from '@exitbook/blockchain-providers';
-import { ok } from '@exitbook/core';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
@@ -9,20 +8,20 @@ const {
   mockComputeCategoryCounts,
   mockCreateBlockchainsViewState,
   mockDisplayCliError,
-  mockLoadBlockchainProviderCatalog,
+  mockListBlockchainProviders,
   mockOutputSuccess,
   mockRenderApp,
 } = vi.hoisted(() => ({
   mockComputeCategoryCounts: vi.fn(),
   mockCreateBlockchainsViewState: vi.fn(),
   mockDisplayCliError: vi.fn(),
-  mockLoadBlockchainProviderCatalog: vi.fn(),
+  mockListBlockchainProviders: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
 }));
 
 vi.mock('@exitbook/blockchain-providers', () => ({
-  loadBlockchainProviderCatalog: mockLoadBlockchainProviderCatalog,
+  listBlockchainProviders: mockListBlockchainProviders,
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
@@ -109,32 +108,26 @@ describe('registerBlockchainsViewCommand', () => {
   it('outputs filtered blockchain catalog data in JSON mode', async () => {
     const program = new Command();
 
-    mockLoadBlockchainProviderCatalog.mockResolvedValue(
-      ok({
-        explorerConfig: undefined,
-        providerStats: [],
-        providers: [
-          createProviderCatalogEntry({
-            blockchain: 'bitcoin',
-            displayName: 'Mempool',
-            name: 'mempool',
-          }),
-          createProviderCatalogEntry({
-            apiKeyEnvVar: 'HELIUS_API_KEY',
-            blockchain: 'solana',
-            displayName: 'Helius',
-            name: 'helius',
-            requiresApiKey: true,
-          }),
-        ],
-      })
-    );
+    mockListBlockchainProviders.mockReturnValue([
+      createProviderCatalogEntry({
+        blockchain: 'bitcoin',
+        displayName: 'Mempool',
+        name: 'mempool',
+      }),
+      createProviderCatalogEntry({
+        apiKeyEnvVar: 'HELIUS_API_KEY',
+        blockchain: 'solana',
+        displayName: 'Helius',
+        name: 'helius',
+        requiresApiKey: true,
+      }),
+    ]);
 
     registerBlockchainsViewCommand(program.command('blockchains'), createRegistry());
 
     await program.parseAsync(['blockchains', 'view', '--category', 'utxo', '--json'], { from: 'user' });
 
-    expect(mockLoadBlockchainProviderCatalog).toHaveBeenCalledWith('/tmp/exitbook-blockchains');
+    expect(mockListBlockchainProviders).toHaveBeenCalledWith();
     expect(mockOutputSuccess).toHaveBeenCalledWith('blockchains-view', {
       data: {
         blockchains: [
@@ -170,21 +163,15 @@ describe('registerBlockchainsViewCommand', () => {
     const initialState = { selectedIndex: 0 };
 
     mockCreateBlockchainsViewState.mockReturnValue(initialState);
-    mockLoadBlockchainProviderCatalog.mockResolvedValue(
-      ok({
-        explorerConfig: undefined,
-        providerStats: [],
-        providers: [
-          createProviderCatalogEntry({
-            apiKeyEnvVar: 'HELIUS_API_KEY',
-            blockchain: 'solana',
-            displayName: 'Helius',
-            name: 'helius',
-            requiresApiKey: true,
-          }),
-        ],
-      })
-    );
+    mockListBlockchainProviders.mockReturnValue([
+      createProviderCatalogEntry({
+        apiKeyEnvVar: 'HELIUS_API_KEY',
+        blockchain: 'solana',
+        displayName: 'Helius',
+        name: 'helius',
+        requiresApiKey: true,
+      }),
+    ]);
 
     registerBlockchainsViewCommand(program.command('blockchains'), createRegistry(['solana']));
 
@@ -240,6 +227,6 @@ describe('registerBlockchainsViewCommand', () => {
       'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana'
     );
 
-    expect(mockLoadBlockchainProviderCatalog).not.toHaveBeenCalled();
+    expect(mockListBlockchainProviders).not.toHaveBeenCalled();
   });
 });

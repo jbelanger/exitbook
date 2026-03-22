@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { getErrorMessage } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from './explorer-config.js';
 
@@ -30,5 +32,15 @@ export function loadExplorerConfig(configPath?: string): BlockchainExplorersConf
     throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`, {
       cause: error,
     });
+  }
+}
+
+export function loadBlockchainExplorerConfig(
+  configPath?: string
+): Result<BlockchainExplorersConfig | undefined, Error> {
+  try {
+    return ok(loadExplorerConfig(configPath));
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
   }
 }

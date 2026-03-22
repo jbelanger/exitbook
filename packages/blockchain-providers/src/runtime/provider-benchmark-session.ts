@@ -2,7 +2,7 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import { loadExplorerConfig, type BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
+import type { BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
 import { createProviderRegistry } from '../initialize.js';
 
 import { BlockchainProviderManager } from './manager/provider-manager.js';
@@ -86,14 +86,7 @@ export async function openProviderBenchmarkSession(
     );
   }
 
-  let explorerConfig: BlockchainExplorersConfig | undefined;
-  try {
-    explorerConfig = options.explorerConfig ?? loadExplorerConfig();
-  } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
-  }
-
-  const providerManager = new BlockchainProviderManager(registry, { explorerConfig });
+  const providerManager = new BlockchainProviderManager(registry, { explorerConfig: options.explorerConfig });
 
   try {
     const providers = providerManager.autoRegisterFromConfig(options.blockchain, options.providerName);

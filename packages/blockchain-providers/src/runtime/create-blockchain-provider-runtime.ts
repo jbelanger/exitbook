@@ -4,7 +4,8 @@ import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import { loadExplorerConfig, type BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
+import type { BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
+import type { IBlockchainProviderManager } from '../contracts/provider-manager.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
 import { initProviderStatsPersistence, type ProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
@@ -22,15 +23,13 @@ export interface BlockchainProviderRuntimeOptions {
 }
 
 export interface BlockchainProviderRuntime {
-  providerManager: BlockchainProviderManager;
+  providerManager: IBlockchainProviderManager;
   cleanup(): Promise<void>;
 }
 
 export async function createBlockchainProviderRuntime(
   options: BlockchainProviderRuntimeOptions
 ): Promise<Result<BlockchainProviderRuntime, Error>> {
-  const explorerConfig = options.explorerConfig ?? loadExplorerConfig();
-
   let providerStatsPersistence: ProviderStatsPersistence | undefined;
   const providerStatsResult = await initProviderStatsPersistence(options.dataDir);
   if (providerStatsResult.isOk()) {
@@ -57,7 +56,7 @@ export async function createBlockchainProviderRuntime(
 
   try {
     providerManager = new BlockchainProviderManager(createProviderRegistry(), {
-      explorerConfig,
+      explorerConfig: options.explorerConfig,
       statsQueries: providerStatsPersistence?.queries,
       tokenMetadataQueries: tokenMetadataPersistence?.queries,
       instrumentation: options.instrumentation,
