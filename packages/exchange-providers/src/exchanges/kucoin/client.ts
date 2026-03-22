@@ -4,9 +4,9 @@ import { getLogger } from '@exitbook/logger';
 import * as ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 
+import { validateCredentials } from '../../client/schema-validation.js';
 import { ExchangeCredentialsSchema, type ExchangeCredentials } from '../../contracts/exchange-credentials.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
-import { validateCredentials } from '../../runtime/schema-validation.js';
 import { normalizeCCXTBalance } from '../shared/ccxt-balance.js';
 
 /**

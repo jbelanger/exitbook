@@ -4,10 +4,10 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { BlockchainExplorersConfig } from '../../catalog/explorer-config.js';
-import { loadExplorerConfig } from '../explorer-config.js';
+import type { BlockchainExplorersConfig } from '../explorer-config.js';
+import { loadExplorerConfig } from '../load-explorer-config.js';
 
-describe('explorer-config', () => {
+describe('load-explorer-config', () => {
   let tempDir: string;
   let originalCwd: string;
   let originalEnv: string | undefined;

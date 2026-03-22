@@ -25,9 +25,9 @@ export { createPriceProviderManager } from './runtime/registry/manager-bootstrap
 export type { ProviderFactoryConfig } from './runtime/registry/provider-bootstrap.js';
 export type { ProviderName } from './runtime/registry/provider-registry.js';
 export type { PriceProviderManagerFactoryConfig } from './runtime/registry/manager-bootstrap.js';
-export { createDefaultPriceProviderManager } from './host/index.js';
-export type { DefaultPriceProviderManagerOptions } from './host/index.js';
-export { createManualPriceService } from './price-cache/manual/host.js';
+export { createDefaultPriceProviderManager } from './defaults/create-default-price-provider-manager.js';
+export type { DefaultPriceProviderManagerOptions } from './defaults/create-default-price-provider-manager.js';
+export { createManualPriceService } from './price-cache/manual/create-manual-price-service.js';
 export { readPriceCacheFreshness } from './price-cache/freshness.js';
 // Events
 export type { PriceProviderEvent } from './contracts/events.js';

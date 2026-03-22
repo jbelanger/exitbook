@@ -5,7 +5,7 @@
  * Each exchange has its own authenticated API client.
  */
 
-export { createExchangeClient } from './runtime/client-factory.js';
+export { createExchangeClient } from './client/create-exchange-client.js';
 export {
   ExchangeCredentialsSchema,
   RawTransactionInputSchema,

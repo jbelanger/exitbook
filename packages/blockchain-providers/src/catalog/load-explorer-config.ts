@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import { getErrorMessage } from '@exitbook/foundation';
 
-import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from '../catalog/explorer-config.js';
+import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from './explorer-config.js';
 
-export type { BlockchainExplorersConfig } from '../catalog/explorer-config.js';
+export type { BlockchainExplorersConfig } from './explorer-config.js';
 
 /**
  * Load blockchain explorer configuration.

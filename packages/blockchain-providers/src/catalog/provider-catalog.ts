@@ -8,7 +8,7 @@ import type { ProviderStatsSnapshot } from '../provider-stats/index.js';
 import { initProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
 import { toProviderStatsSnapshot } from '../provider-stats/snapshot.js';
 
-import { loadExplorerConfig, type BlockchainExplorersConfig } from './explorer-config.js';
+import { loadExplorerConfig, type BlockchainExplorersConfig } from './load-explorer-config.js';
 
 const logger = getLogger('BlockchainProviderCatalog');
 

@@ -9,7 +9,7 @@ import { createKuCoinClient } from '../exchanges/kucoin/index.js';
 
 /**
  * Create an exchange client for the specified exchange.
- * Factory function that dynamically selects the appropriate client creator.
+ * Dynamically selects the appropriate client creator.
  */
 
 const exchangeFactories: Record<string, (credentials: ExchangeCredentials) => Result<IExchangeClient, Error>> = {

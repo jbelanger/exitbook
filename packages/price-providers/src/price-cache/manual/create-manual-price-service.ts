@@ -3,10 +3,10 @@ import path from 'node:path';
 import { ManualPriceService } from './service.js';
 
 /**
- * Host-facing factory for ManualPriceService.
+ * Factory for ManualPriceService.
  *
- * Encapsulates the provider-owned database path so hosts don't need
- * to know that prices live in `prices.db`.
+ * Encapsulates the provider-owned database path so consumers do not need to know
+ * that manual prices live in `prices.db`.
  */
 export function createManualPriceService(dataDir: string): ManualPriceService {
   return new ManualPriceService(path.join(dataDir, 'prices.db'));

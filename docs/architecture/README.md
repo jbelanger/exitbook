@@ -6,6 +6,14 @@ These documents explain the design decisions behind the core systems — the _wh
 
 ## Documents
 
+### [Architecture Package Contract](./architecture-package-contract.md)
+
+How packages are classified, where new code belongs, and which dependency directions are allowed.
+
+### [Provider Package Design](./provider-package-design.md)
+
+How provider packages are treated as standalone published products with small, user-friendly public APIs.
+
 ### [Streaming Import Pipeline](./import-pipeline.md)
 
 How Exitbook imports transaction histories from diverse sources through a memory-bounded streaming pipeline with per-batch crash recovery and resume semantics.

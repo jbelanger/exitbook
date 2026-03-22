@@ -10,13 +10,13 @@ import {
   createTokenMetadataDatabase,
   createTokenMetadataQueries,
   type TokenMetadataQueries,
-} from '../token-metadata/persistence/index.js';
-import { initTokenMetadataPersistence } from '../token-metadata/persistence/runtime.js';
+} from './persistence/index.js';
+import { initTokenMetadataPersistence } from './persistence/runtime.js';
 import {
   createCoinGeckoTokenReferenceResolver,
   type CoinGeckoTokenReferenceResolverConfig,
   type TokenReferenceResolver,
-} from '../token-metadata/reference/index.js';
+} from './reference/index.js';
 
 const logger = getLogger('AssetReviewProviderSupport');
 

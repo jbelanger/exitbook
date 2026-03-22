@@ -3,10 +3,10 @@ import { err, ok, resultDo, wrapError } from '@exitbook/foundation';
 import { HttpClient } from '@exitbook/http';
 import { getLogger } from '@exitbook/logger';
 
+import { validateCredentials, validateRawData } from '../../client/schema-validation.js';
 import type { ExchangeCredentials } from '../../contracts/exchange-credentials.js';
 import type { BalanceSnapshot, FetchBatchResult, FetchParams, IExchangeClient } from '../../contracts/index.js';
 import type { RawTransactionInput } from '../../contracts/raw-transaction.js';
-import { validateCredentials, validateRawData } from '../../runtime/schema-validation.js';
 
 import { normalizeKrakenAsset } from './asset-normalization.js';
 import { krakenPost } from './auth.js';

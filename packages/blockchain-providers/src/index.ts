@@ -11,13 +11,23 @@ export type { ProviderEvent } from './events.js';
 export {
   createAssetReviewProviderSupport,
   findLatestTokenMetadataRefreshAt,
+} from './token-metadata/asset-review-provider-support.js';
+export {
   createBlockchainProviderRuntime,
+  type BlockchainProviderRuntime,
+  type BlockchainProviderRuntimeOptions,
+} from './runtime/create-blockchain-provider-runtime.js';
+export {
   loadBlockchainProviderCatalog,
+  type BlockchainProviderCatalog,
+  type ProviderCatalogEntry,
+} from './catalog/provider-catalog.js';
+export {
   openProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
+  type OpenProviderBenchmarkSessionOptions,
   type ProviderBenchmarkSession,
-  type ProviderCatalogEntry,
-} from './host/index.js';
+} from './runtime/provider-benchmark-session.js';
 
 export type { ProviderStatsSnapshot } from './provider-stats/index.js';
 

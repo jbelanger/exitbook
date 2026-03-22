@@ -4,13 +4,13 @@ import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
+import { loadExplorerConfig, type BlockchainExplorersConfig } from '../catalog/load-explorer-config.js';
 import { type ProviderEvent } from '../events.js';
 import { createProviderRegistry } from '../initialize.js';
 import { initProviderStatsPersistence, type ProviderStatsPersistence } from '../provider-stats/persistence/runtime.js';
-import { BlockchainProviderManager } from '../runtime/manager/provider-manager.js';
 import { initTokenMetadataPersistence, type TokenMetadataPersistence } from '../token-metadata/persistence/runtime.js';
 
-import { loadExplorerConfig, type BlockchainExplorersConfig } from './explorer-config.js';
+import { BlockchainProviderManager } from './manager/provider-manager.js';
 
 const logger = getLogger('BlockchainProviderRuntime');
 

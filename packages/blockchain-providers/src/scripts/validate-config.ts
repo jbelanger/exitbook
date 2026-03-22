@@ -6,7 +6,7 @@
 
 import { getErrorMessage } from '@exitbook/foundation';
 
-import { loadExplorerConfig } from '../host/explorer-config.js';
+import { loadExplorerConfig } from '../catalog/load-explorer-config.js';
 import { createProviderRegistry } from '../initialize.js';
 
 const registry = createProviderRegistry();

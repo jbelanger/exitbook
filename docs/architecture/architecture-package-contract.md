@@ -220,6 +220,8 @@ When a provider package owns multiple internal capabilities, organize them as ve
 
 If multiple slices share one provider-owned database, exactly one slice owns the DB initialization, schema, migrations, and low-level queries. Adjacent slices may depend on that persistence owner, but they should not recreate a second package-level persistence layer.
 
+Treat provider packages as standalone published products with a small, user-friendly public surface. Detailed public API and UX rules live in [Provider Package Design](./provider-package-design.md).
+
 ---
 
 ### 5. Infrastructure packages
