@@ -6,7 +6,12 @@
  */
 
 export type { ProviderEvent } from './events.js';
-export type { IBlockchainProviderManager } from './contracts/provider-manager.js';
+export type {
+  BlockchainBalanceQueryOptions,
+  BlockchainProviderSelectionOptions,
+  BlockchainTransactionStreamOptions,
+  IBlockchainProviderManager,
+} from './contracts/provider-manager.js';
 
 export {
   createAssetReviewProviderSupport,
@@ -21,10 +26,10 @@ export { listBlockchainProviders, type BlockchainProviderDescriptor } from './ca
 export { loadBlockchainProviderHealthStats } from './catalog/load-provider-stats.js';
 export { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from './catalog/load-explorer-config.js';
 export {
-  openProviderBenchmarkSession,
+  openBlockchainProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
-  type OpenProviderBenchmarkSessionOptions,
-  type ProviderBenchmarkSession,
+  type OpenBlockchainProviderBenchmarkSessionOptions,
+  type BlockchainProviderBenchmarkSession,
 } from './runtime/provider-benchmark-session.js';
 
 export type { ProviderStatsSnapshot } from './provider-stats/index.js';

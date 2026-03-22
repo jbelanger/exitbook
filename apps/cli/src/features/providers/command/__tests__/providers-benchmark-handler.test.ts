@@ -1,7 +1,7 @@
 import {
   loadBlockchainExplorerConfig,
-  openProviderBenchmarkSession,
-  type ProviderBenchmarkSession,
+  openBlockchainProviderBenchmarkSession,
+  type BlockchainProviderBenchmarkSession,
 } from '@exitbook/blockchain-providers';
 import { err, ok } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/http';
@@ -15,7 +15,7 @@ vi.mock('@exitbook/blockchain-providers', async () => {
   return {
     ...actual,
     loadBlockchainExplorerConfig: vi.fn(),
-    openProviderBenchmarkSession: vi.fn(),
+    openBlockchainProviderBenchmarkSession: vi.fn(),
   };
 });
 
@@ -50,7 +50,7 @@ function createMockBenchmarkSession(
     name: 'blockstream.info',
     rateLimit: { requestsPerSecond: 5, burstLimit: 10 },
   })
-): ProviderBenchmarkSession & { cleanup: ReturnType<typeof vi.fn> } {
+): BlockchainProviderBenchmarkSession & { cleanup: ReturnType<typeof vi.fn> } {
   return {
     provider,
     providerInfo: {
@@ -65,13 +65,13 @@ function createMockBenchmarkSession(
 describe('ProviderBenchmarkHandler', () => {
   let handler: ProviderBenchmarkHandler;
   let mockLoadBlockchainExplorerConfig: ReturnType<typeof vi.fn>;
-  let mockOpenProviderBenchmarkSession: ReturnType<typeof vi.fn>;
+  let mockOpenBlockchainProviderBenchmarkSession: ReturnType<typeof vi.fn>;
   let mockBenchmarkSession: ReturnType<typeof createMockBenchmarkSession>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockLoadBlockchainExplorerConfig = vi.mocked(loadBlockchainExplorerConfig);
-    mockOpenProviderBenchmarkSession = vi.mocked(openProviderBenchmarkSession);
+    mockOpenBlockchainProviderBenchmarkSession = vi.mocked(openBlockchainProviderBenchmarkSession);
     mockBenchmarkSession = createMockBenchmarkSession();
     mockLoadBlockchainExplorerConfig.mockReturnValue(ok(undefined));
     handler = new ProviderBenchmarkHandler();
@@ -82,7 +82,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('executes a benchmark for a prepared provider session', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
     vi.mocked(benchmarkRateLimit).mockResolvedValue({
       testResults: [{ rate: 1, success: true, responseTimeMs: 200 }],
       burstLimits: [{ limit: 5, success: true }],
@@ -110,7 +110,7 @@ describe('ProviderBenchmarkHandler', () => {
       expect(result.value.result.maxSafeRate).toBe(2);
     }
 
-    expect(mockOpenProviderBenchmarkSession).toHaveBeenCalledWith({
+    expect(mockOpenBlockchainProviderBenchmarkSession).toHaveBeenCalledWith({
       blockchain: 'bitcoin',
       explorerConfig: undefined,
       providerName: 'blockstream.info',
@@ -125,7 +125,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('passes custom rates through to benchmarkRateLimit', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
     vi.mocked(benchmarkRateLimit).mockResolvedValue({
       testResults: [{ rate: 1, success: true }],
       maxSafeRate: 1,
@@ -147,7 +147,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('skips burst tests when requested', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
     vi.mocked(benchmarkRateLimit).mockResolvedValue({
       testResults: [{ rate: 1, success: true }],
       maxSafeRate: 1,
@@ -169,7 +169,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('returns provider-session errors unchanged', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(
       err(
         new Error(
           "Provider 'invalid-provider' not found for blockchain 'bitcoin'. Available providers: blockstream.info"
@@ -200,7 +200,7 @@ describe('ProviderBenchmarkHandler', () => {
     if (result.isErr()) {
       expect(result.error.message).toContain('Invalid blockchain explorer config');
     }
-    expect(mockOpenProviderBenchmarkSession).not.toHaveBeenCalled();
+    expect(mockOpenBlockchainProviderBenchmarkSession).not.toHaveBeenCalled();
   });
 
   it('returns validation errors before opening a session', async () => {
@@ -213,11 +213,11 @@ describe('ProviderBenchmarkHandler', () => {
     if (result.isErr()) {
       expect(result.error.message).toContain('Blockchain is required');
     }
-    expect(mockOpenProviderBenchmarkSession).not.toHaveBeenCalled();
+    expect(mockOpenBlockchainProviderBenchmarkSession).not.toHaveBeenCalled();
   });
 
   it('returns benchmark errors unchanged', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
     vi.mocked(benchmarkRateLimit).mockRejectedValue(new Error('Network timeout during benchmark'));
 
     const result = await handler.execute({
@@ -232,7 +232,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('prepareSession exposes provider metadata for TUI setup', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
 
     const result = await handler.prepareSession({
       blockchain: 'bitcoin',
@@ -251,7 +251,7 @@ describe('ProviderBenchmarkHandler', () => {
   });
 
   it('destroy cleans up the open benchmark session', async () => {
-    mockOpenProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
     await handler.prepareSession({
       blockchain: 'bitcoin',
       provider: 'blockstream.info',

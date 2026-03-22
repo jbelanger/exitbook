@@ -6,8 +6,11 @@ import {
   listBlockchainProviders,
   loadBlockchainExplorerConfig,
   loadBlockchainProviderHealthStats,
-  openProviderBenchmarkSession,
+  openBlockchainProviderBenchmarkSession,
+  type BlockchainBalanceQueryOptions,
   type BlockchainProviderDescriptor,
+  type BlockchainProviderSelectionOptions,
+  type BlockchainTransactionStreamOptions,
   type IBlockchainProviderManager,
 } from '@exitbook/blockchain-providers';
 import { describe, expect, expectTypeOf, it } from 'vitest';
@@ -169,7 +172,7 @@ describe('published package exports', () => {
         'listBlockchainProviders',
         'loadBlockchainExplorerConfig',
         'loadBlockchainProviderHealthStats',
-        'openProviderBenchmarkSession',
+        'openBlockchainProviderBenchmarkSession',
       ].sort()
     );
 
@@ -179,7 +182,7 @@ describe('published package exports', () => {
     expect(typeof listBlockchainProviders).toBe('function');
     expect(typeof loadBlockchainExplorerConfig).toBe('function');
     expect(typeof loadBlockchainProviderHealthStats).toBe('function');
-    expect(typeof openProviderBenchmarkSession).toBe('function');
+    expect(typeof openBlockchainProviderBenchmarkSession).toBe('function');
     expect(ProviderError).toBeDefined();
 
     expectTypeOf<BlockchainProviderDescriptor>().toMatchTypeOf<{
@@ -189,6 +192,18 @@ describe('published package exports', () => {
     }>();
     expectTypeOf<IBlockchainProviderManager>().toMatchTypeOf<{
       getProviders: (blockchain: string) => unknown;
+    }>();
+    expectTypeOf<BlockchainProviderSelectionOptions>().toMatchTypeOf<{
+      preferredProvider?: string | undefined;
+    }>();
+    expectTypeOf<BlockchainTransactionStreamOptions>().toMatchTypeOf<{
+      contractAddress?: string | undefined;
+      preferredProvider?: string | undefined;
+      streamType?: string | undefined;
+    }>();
+    expectTypeOf<BlockchainBalanceQueryOptions>().toMatchTypeOf<{
+      contractAddresses?: string[] | undefined;
+      preferredProvider?: string | undefined;
     }>();
   });
 

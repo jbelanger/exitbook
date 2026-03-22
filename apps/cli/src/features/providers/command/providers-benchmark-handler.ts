@@ -1,8 +1,8 @@
 import {
   loadBlockchainExplorerConfig,
-  openProviderBenchmarkSession,
+  openBlockchainProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
-  type ProviderBenchmarkSession,
+  type BlockchainProviderBenchmarkSession,
 } from '@exitbook/blockchain-providers';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
@@ -14,7 +14,7 @@ import { buildBenchmarkParams } from './providers-benchmark-utils.js';
 
 interface SetupResult {
   params: BenchmarkParams;
-  session: ProviderBenchmarkSession;
+  session: BlockchainProviderBenchmarkSession;
   providerInfo: {
     blockchain: string;
     name: string;
@@ -27,7 +27,7 @@ interface SetupResult {
  * Manages blockchain provider runtime lifecycle and orchestrates benchmark execution.
  */
 export class ProviderBenchmarkHandler {
-  private benchmarkSession: ProviderBenchmarkSession | undefined;
+  private benchmarkSession: BlockchainProviderBenchmarkSession | undefined;
 
   /**
    * Setup phase: validate parameters and initialize provider.
@@ -47,7 +47,7 @@ export class ProviderBenchmarkHandler {
       return err(explorerConfigResult.error);
     }
 
-    const sessionResult = await openProviderBenchmarkSession({
+    const sessionResult = await openBlockchainProviderBenchmarkSession({
       blockchain: params.blockchain,
       explorerConfig: explorerConfigResult.value,
       providerName: params.provider,

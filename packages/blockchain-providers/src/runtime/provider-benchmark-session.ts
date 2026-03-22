@@ -18,7 +18,7 @@ export interface BenchmarkableBlockchainProvider {
   rateLimit: RateLimitConfig;
 }
 
-export interface ProviderBenchmarkSession {
+export interface BlockchainProviderBenchmarkSession {
   provider: BenchmarkableBlockchainProvider;
   providerInfo: {
     blockchain: string;
@@ -28,7 +28,7 @@ export interface ProviderBenchmarkSession {
   cleanup(): Promise<void>;
 }
 
-export interface OpenProviderBenchmarkSessionOptions {
+export interface OpenBlockchainProviderBenchmarkSessionOptions {
   blockchain: string;
   explorerConfig?: BlockchainExplorersConfig | undefined;
   providerName: string;
@@ -61,9 +61,9 @@ function isBenchmarkableProvider(provider: unknown): provider is BenchmarkableBl
   );
 }
 
-export async function openProviderBenchmarkSession(
-  options: OpenProviderBenchmarkSessionOptions
-): Promise<Result<ProviderBenchmarkSession, Error>> {
+export async function openBlockchainProviderBenchmarkSession(
+  options: OpenBlockchainProviderBenchmarkSessionOptions
+): Promise<Result<BlockchainProviderBenchmarkSession, Error>> {
   const registry = createProviderRegistry();
   const allProviders = registry.getAllProviders();
   const blockchainProviders = allProviders.filter((provider) => provider.blockchain === options.blockchain);
