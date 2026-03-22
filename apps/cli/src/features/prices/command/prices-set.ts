@@ -1,10 +1,10 @@
 // Prices set command - manually set price for an asset
 // Allows bulk preparation of manual prices without interrupting enrichment
 
-import { createManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../../shared/cli-error.js';
+import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -55,14 +55,15 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
     const { OverrideStore } = await import('@exitbook/data');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
-    const service = createManualPriceService(dataDir);
-    const handler = new PricesSetHandler(service, overrideStore);
-    const result = await handler.execute({
-      asset: options.asset,
-      date: options.date,
-      price: options.price,
-      currency: options.currency,
-      source: options.source,
+    const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
+      const handler = new PricesSetHandler(priceRuntime, overrideStore);
+      return handler.execute({
+        asset: options.asset,
+        date: options.date,
+        price: options.price,
+        currency: options.currency,
+        source: options.source,
+      });
     });
 
     if (result.isErr()) {

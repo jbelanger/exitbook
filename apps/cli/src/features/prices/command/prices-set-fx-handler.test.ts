@@ -4,18 +4,18 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
 
-const saveFxRate = vi.fn();
+const setManualFxRate = vi.fn();
 
 describe('PricesSetFxHandler', () => {
   it('saves a manual fx rate and appends the override event', async () => {
-    saveFxRate.mockResolvedValue(ok(undefined));
+    setManualFxRate.mockResolvedValue(ok(undefined));
 
     const overrideStore = {
       append: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
-    const mockService = { saveFxRate } as never;
-    const handler = new PricesSetFxHandler(mockService, overrideStore as never);
+    const fxRateWriter = { setManualFxRate } as never;
+    const handler = new PricesSetFxHandler(fxRateWriter, overrideStore as never);
     const result = await handler.execute({
       from: 'CAD',
       to: 'USD',
@@ -25,7 +25,7 @@ describe('PricesSetFxHandler', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    expect(saveFxRate).toHaveBeenCalledWith({
+    expect(setManualFxRate).toHaveBeenCalledWith({
       from: 'CAD',
       to: 'USD',
       date: new Date('2024-01-15T10:30:00Z'),

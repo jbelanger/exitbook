@@ -13,9 +13,9 @@ import { InstrumentationCollector } from '@exitbook/observability';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
 const logger = getLogger('PricesEnrichHandler');
@@ -94,7 +94,7 @@ export async function createPricesEnrichHandler(
 
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
-    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation });
     if (priceRuntimeResult.isErr()) {
       return err(priceRuntimeResult.error);
     }
@@ -113,7 +113,7 @@ export async function createPricesEnrichHandler(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation, eventBus });
+  const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation, eventBus });
   if (priceRuntimeResult.isErr()) {
     controller.fail(priceRuntimeResult.error.message);
     await controller.stop();

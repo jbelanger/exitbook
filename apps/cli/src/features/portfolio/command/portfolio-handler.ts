@@ -27,9 +27,9 @@ import { Decimal } from 'decimal.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
+import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
-import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
 
@@ -671,9 +671,9 @@ export async function createPortfolioHandler(
   }
 
   // Open shared price runtime for spot prices + FX
-  const priceRuntimeResult = await openPriceProviderRuntime({ dataDir });
+  const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir });
   if (priceRuntimeResult.isErr()) {
-    return err(new Error(`Failed to create price provider manager: ${priceRuntimeResult.error.message}`));
+    return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
   }
 
   const priceRuntime = priceRuntimeResult.value;

@@ -68,8 +68,7 @@ export function createCryptoCompareProvider(
   instrumentation?: InstrumentationCollector
 ): Result<CryptoCompareProvider, Error> {
   try {
-    // Read from environment if not provided in config
-    const apiKey = config.apiKey ?? process.env['CRYPTOCOMPARE_API_KEY'];
+    const apiKey = config.apiKey;
 
     // Determine rate limits based on whether API key is provided
     const rateLimit = apiKey ? CRYPTOCOMPARE_RATE_LIMITS.paid : CRYPTOCOMPARE_RATE_LIMITS.free;

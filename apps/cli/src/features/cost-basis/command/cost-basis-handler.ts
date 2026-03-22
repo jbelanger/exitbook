@@ -19,9 +19,9 @@ import type { AdapterRegistry } from '@exitbook/ingestion';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
+import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
-import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 
 export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };
@@ -93,9 +93,9 @@ export class CostBasisHandler {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
-    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: this.dataDir });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: this.dataDir });
     if (priceRuntimeResult.isErr()) {
-      return err(new Error(`Failed to create price provider manager: ${priceRuntimeResult.error.message}`));
+      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
     }
 
     const priceRuntime = priceRuntimeResult.value;

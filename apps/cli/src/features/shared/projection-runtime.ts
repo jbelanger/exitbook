@@ -42,7 +42,7 @@ import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import { openBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-import { openPriceProviderRuntime } from './price-provider-runtime.js';
+import { openCliPriceProviderRuntime } from './cli-price-provider-runtime.js';
 
 const logger = getLogger('projection-runtime');
 
@@ -398,7 +398,7 @@ async function ensureTransactionPricesReady(
   const store = buildPricingPorts(db);
 
   if (isJsonMode) {
-    const priceRuntimeResult = await openPriceProviderRuntime({ dataDir: deps.dataDir });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: deps.dataDir });
     if (priceRuntimeResult.isErr()) return err(priceRuntimeResult.error);
     const priceRuntime = priceRuntimeResult.value;
     try {
@@ -428,7 +428,7 @@ async function ensureTransactionPricesReady(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceRuntimeResult = await openPriceProviderRuntime({
+  const priceRuntimeResult = await openCliPriceProviderRuntime({
     dataDir: deps.dataDir,
     instrumentation,
     eventBus,

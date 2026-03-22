@@ -2,10 +2,10 @@
 // Allows bulk preparation of manual FX rates without interrupting enrichment
 
 import { OverrideStore } from '@exitbook/data';
-import { createManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../../shared/cli-error.js';
+import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -55,13 +55,15 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   try {
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
-    const handler = new PricesSetFxHandler(createManualPriceService(dataDir), overrideStore);
-    const result = await handler.execute({
-      from: options.from,
-      to: options.to,
-      date: options.date,
-      rate: options.rate,
-      source: options.source,
+    const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
+      const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
+      return handler.execute({
+        from: options.from,
+        to: options.to,
+        date: options.date,
+        rate: options.rate,
+        source: options.source,
+      });
     });
 
     if (result.isErr()) {

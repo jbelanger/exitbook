@@ -85,9 +85,12 @@ export function createCoinGeckoProvider(
   instrumentation?: InstrumentationCollector
 ): Result<CoinGeckoProvider, Error> {
   try {
-    // Read from environment if not provided in config
-    const apiKey = config.apiKey ?? process.env['COINGECKO_API_KEY'];
-    const useProApi = config.useProApi ?? process.env['COINGECKO_USE_PRO_API'] === 'true';
+    const apiKey = config.apiKey;
+    const useProApi = config.useProApi ?? false;
+
+    if (useProApi && !apiKey) {
+      return err(new Error('CoinGecko Pro API requires an apiKey'));
+    }
 
     // Determine base URL based on API type
     const baseUrl = useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';

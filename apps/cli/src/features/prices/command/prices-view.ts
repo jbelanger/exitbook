@@ -1,10 +1,10 @@
 // Command registration for view prices subcommand
 import { OverrideStore } from '@exitbook/data';
-import { createManualPriceService } from '@exitbook/price-providers';
 import type { Command } from 'commander';
 import React from 'react';
 
 import { displayCliError } from '../../shared/cli-error.js';
+import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -142,23 +142,32 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
         return result.value;
       };
 
-      // Set-price callback (used after drilling into missing mode)
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const pricesSetHandler = new PricesSetHandler(createManualPriceService(ctx.dataDir), overrideStore);
+      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
+        { dataDir: ctx.dataDir },
+        async (priceRuntime) => {
+          // Set-price callback (used after drilling into missing mode)
+          const overrideStore = new OverrideStore(ctx.dataDir);
+          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
-      const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-        const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
-        if (result.isErr()) throw result.error;
-      };
+          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            if (result.isErr()) throw result.error;
+          };
 
-      await renderApp((unmount) =>
-        React.createElement(PricesViewApp, {
-          initialState,
-          onLoadMissing: handleLoadMissing,
-          onSetPrice: handleSetPrice,
-          onQuit: unmount,
-        })
+          await renderApp((unmount) =>
+            React.createElement(PricesViewApp, {
+              initialState,
+              onLoadMissing: handleLoadMissing,
+              onSetPrice: handleSetPrice,
+              onQuit: unmount,
+            })
+          );
+        }
       );
+      if (priceRuntimeUseResult.isErr()) {
+        console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+      }
     });
   } catch (error) {
     displayCliError(
@@ -191,22 +200,31 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
 
       const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
 
-      const pricesSetHandler = new PricesSetHandler(createManualPriceService(ctx.dataDir), overrideStore);
+      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
+        { dataDir: ctx.dataDir },
+        async (priceRuntime) => {
+          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
-      const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-        const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
-        if (result.isErr()) {
-          throw result.error;
+          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            if (result.isErr()) {
+              throw result.error;
+            }
+          };
+
+          await renderApp((unmount) =>
+            React.createElement(PricesViewApp, {
+              initialState,
+              onSetPrice: handleSetPrice,
+              onQuit: unmount,
+            })
+          );
         }
-      };
-
-      await renderApp((unmount) =>
-        React.createElement(PricesViewApp, {
-          initialState,
-          onSetPrice: handleSetPrice,
-          onQuit: unmount,
-        })
       );
+      if (priceRuntimeUseResult.isErr()) {
+        console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+      }
     });
   } catch (error) {
     displayCliError(

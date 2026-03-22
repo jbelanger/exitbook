@@ -198,15 +198,8 @@ vi.mock('@exitbook/logger', () => ({
 }));
 
 describe('createPriceProviders', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = { ...originalEnv };
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
   });
 
   it('should create all providers by default', async () => {
@@ -248,17 +241,14 @@ describe('createPriceProviders', () => {
     const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
     await createPriceProviders({ databasePath: ':memory:' });
 
-    // Factory passes empty config, individual providers read from process.env
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
       expect.anything(), // db parameter
-      {}, // Empty config - provider reads process.env itself
+      {}, // Empty config - provider receives no host-specific defaults
       undefined // instrumentation parameter
     );
   });
 
-  it('should prefer config over env vars', async () => {
-    process.env['COINGECKO_API_KEY'] = 'env-key';
-
+  it('should pass explicit provider config through unchanged', async () => {
     const { createCoinGeckoProvider } = await import('../../../providers/coingecko/provider.js');
     await createPriceProviders({
       databasePath: ':memory:',
@@ -391,7 +381,6 @@ describe('createPriceProviderManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = { ...process.env };
     createdManagers = [];
   });
 

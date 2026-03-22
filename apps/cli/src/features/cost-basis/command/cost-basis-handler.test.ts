@@ -5,7 +5,7 @@ import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openPriceProviderRuntime } from '../../shared/price-provider-runtime.js';
+import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
@@ -24,8 +24,8 @@ vi.mock('@exitbook/price-providers', () => ({
   readPriceCacheFreshness: vi.fn(),
 }));
 
-vi.mock('../../shared/price-provider-runtime.js', () => ({
-  openPriceProviderRuntime: vi.fn(),
+vi.mock('../../shared/cli-price-provider-runtime.js', () => ({
+  openCliPriceProviderRuntime: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -42,7 +42,13 @@ vi.mock('../../shared/asset-review-projection-store.js', () => ({
 
 describe('CostBasisHandler', () => {
   let handler: CostBasisHandler;
-  let mockPriceRuntime: { cleanup: Mock; historicalAssetPriceSource: { fetchPrice: Mock } };
+  let mockPriceRuntime: {
+    cleanup: Mock;
+    fetchPrice: Mock;
+    historicalAssetPriceSource: { fetchPrice: Mock };
+    setManualFxRate: Mock;
+    setManualPrice: Mock;
+  };
   let mockArtifactServiceExecute: Mock;
   let mockTransactionsFindAll: Mock;
   let mockTransactionLinksFindAll: Mock;
@@ -85,11 +91,15 @@ describe('CostBasisHandler', () => {
       },
     } as unknown as DataContext;
 
+    const fetchPrice = vi.fn();
     mockPriceRuntime = {
       cleanup: vi.fn().mockResolvedValue(undefined),
-      historicalAssetPriceSource: { fetchPrice: vi.fn() },
+      fetchPrice,
+      historicalAssetPriceSource: { fetchPrice },
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    vi.mocked(openPriceProviderRuntime).mockResolvedValue(ok(mockPriceRuntime));
+    vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(ok(mockPriceRuntime));
     vi.mocked(readPriceCacheFreshness).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
@@ -125,13 +135,13 @@ describe('CostBasisHandler', () => {
 
   describe('execute', () => {
     it('returns error when price manager creation fails', async () => {
-      vi.mocked(openPriceProviderRuntime).mockResolvedValue(err(new Error('DB init failed')));
+      vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(err(new Error('DB init failed')));
 
       const result = await handler.execute(validParams);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Failed to create price provider manager');
+        expect(result.error.message).toContain('Failed to create price provider runtime');
       }
     });
 

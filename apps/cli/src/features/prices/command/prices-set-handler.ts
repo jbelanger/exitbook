@@ -1,11 +1,11 @@
 // Handler for prices set command
-// Uses ManualPriceService to save manual price entries
+// Uses a price runtime facade to save manual price entries.
 
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import { ManualPriceService } from '@exitbook/price-providers';
+import type { ManualPriceEntry, PriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetHandler');
@@ -41,12 +41,14 @@ interface PricesSetResult {
   source: string;
 }
 
+type ManualPriceWriter = Pick<PriceProviderRuntime, 'setManualPrice'>;
+
 /**
  * Handler for prices set command
  */
 export class PricesSetHandler {
   constructor(
-    private readonly service: ManualPriceService,
+    private readonly priceWriter: ManualPriceWriter,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -64,13 +66,13 @@ export class PricesSetHandler {
       const { asset, timestamp, priceValue, currency, source } = validationResult.value;
 
       // Save price using service
-      const saveResult = await this.service.savePrice({
+      const saveResult = await this.priceWriter.setManualPrice({
         assetSymbol: asset,
         date: timestamp,
         price: priceValue,
         currency,
         source,
-      });
+      } satisfies ManualPriceEntry);
 
       if (saveResult.isErr()) {
         return err(saveResult.error);

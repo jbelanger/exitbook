@@ -6,14 +6,14 @@ import { PricesSetHandler } from './prices-set-handler.js';
 
 describe('PricesSetHandler', () => {
   it('saves a manual price and appends the override event', async () => {
-    const service = {
-      savePrice: vi.fn().mockResolvedValue(ok(undefined)),
+    const priceWriter = {
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     const overrideStore = {
       append: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
-    const handler = new PricesSetHandler(service as never, overrideStore as never);
+    const handler = new PricesSetHandler(priceWriter as never, overrideStore as never);
 
     const result = await handler.execute({
       asset: 'BTC',
@@ -24,7 +24,7 @@ describe('PricesSetHandler', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    expect(service.savePrice).toHaveBeenCalledWith({
+    expect(priceWriter.setManualPrice).toHaveBeenCalledWith({
       assetSymbol: 'BTC',
       date: new Date('2024-01-15T10:30:00Z'),
       price: new Decimal('45000'),

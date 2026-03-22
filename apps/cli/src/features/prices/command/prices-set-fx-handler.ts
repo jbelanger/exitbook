@@ -1,11 +1,11 @@
 // Handler for prices set-fx command
-// Uses ManualPriceService to save manual FX rate entries
+// Uses a price runtime facade to save manual FX rate entries.
 
 import { parseDecimal, type Currency } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
-import type { ManualPriceService } from '@exitbook/price-providers';
+import type { ManualFxRateEntry, PriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 const logger = getLogger('PricesSetFxHandler');
@@ -41,12 +41,14 @@ interface PricesSetFxResult {
   source: string;
 }
 
+type ManualFxRateWriter = Pick<PriceProviderRuntime, 'setManualFxRate'>;
+
 /**
  * Handler for prices set-fx command
  */
 export class PricesSetFxHandler {
   constructor(
-    private readonly service: ManualPriceService,
+    private readonly fxRateWriter: ManualFxRateWriter,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -64,13 +66,13 @@ export class PricesSetFxHandler {
       const { from, to, timestamp, rateValue, source } = validationResult.value;
 
       // Save FX rate using service
-      const saveResult = await this.service.saveFxRate({
+      const saveResult = await this.fxRateWriter.setManualFxRate({
         from,
         to,
         date: timestamp,
         rate: rateValue,
         source,
-      });
+      } satisfies ManualFxRateEntry);
 
       if (saveResult.isErr()) {
         return err(saveResult.error);

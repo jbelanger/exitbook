@@ -8,31 +8,9 @@
 import { type Currency, wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
-import type { Decimal } from 'decimal.js';
 
+import type { ManualFxRateEntry, ManualPriceEntry } from '../../contracts/manual-prices.js';
 import { initPriceCachePersistence, type PriceCachePersistence } from '../persistence/runtime.js';
-
-/**
- * Manual price entry data
- */
-export interface ManualPriceEntry {
-  assetSymbol: Currency;
-  date: Date;
-  price: Decimal;
-  currency?: Currency | undefined;
-  source?: string | undefined;
-}
-
-/**
- * Manual FX rate entry data
- */
-export interface ManualFxRateEntry {
-  from: Currency;
-  to: Currency;
-  date: Date;
-  rate: Decimal;
-  source?: string | undefined;
-}
 
 /**
  * Service for manual price and FX rate entry
@@ -41,6 +19,7 @@ export interface ManualFxRateEntry {
  * to the price cache. All database management is handled internally.
  */
 export class ManualPriceService {
+  private initializationPromise: Promise<Result<void, Error>> | undefined;
   private persistence: PriceCachePersistence | undefined;
   private initialized = false;
 
@@ -138,12 +117,14 @@ export class ManualPriceService {
 
   async destroy(): Promise<void> {
     if (!this.persistence) {
+      this.initializationPromise = undefined;
       return;
     }
 
     await this.persistence.cleanup();
     this.persistence = undefined;
     this.initialized = false;
+    this.initializationPromise = undefined;
   }
 
   /**
@@ -154,9 +135,18 @@ export class ManualPriceService {
       return ok(undefined);
     }
 
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initializePersistence();
+    }
+
+    return this.initializationPromise;
+  }
+
+  private async initializePersistence(): Promise<Result<void, Error>> {
     try {
       const persistenceResult = await initPriceCachePersistence(this.databasePath);
       if (persistenceResult.isErr()) {
+        this.initializationPromise = undefined;
         return wrapError(persistenceResult.error, 'Failed to initialize manual price service');
       }
 
@@ -165,6 +155,7 @@ export class ManualPriceService {
 
       return ok(undefined);
     } catch (error) {
+      this.initializationPromise = undefined;
       return wrapError(error, 'Failed to initialize manual price service');
     }
   }
