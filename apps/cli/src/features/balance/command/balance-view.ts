@@ -2,6 +2,8 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import { composeBalanceViewHandler } from '../../../composition/balances.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -12,11 +14,9 @@ import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
-import { createBalanceHandler } from './balance-handler.js';
-
 type BalanceViewCommandOptions = z.infer<typeof BalanceViewCommandOptionsSchema>;
 
-export function registerBalanceViewCommand(balanceCommand: Command): void {
+export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: CliAppRuntime): void {
   balanceCommand
     .command('view')
     .description('View stored balance snapshots without calling live providers')
@@ -37,10 +37,10 @@ Notes:
   - If the snapshot is stale, use "exitbook balance refresh" to rebuild it.
 `
     )
-    .action(executeBalanceViewCommand);
+    .action((rawOptions: unknown) => executeBalanceViewCommand(rawOptions, appRuntime));
 }
 
-async function executeBalanceViewCommand(rawOptions: unknown): Promise<void> {
+async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
   const validationResult = BalanceViewCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
@@ -54,17 +54,16 @@ async function executeBalanceViewCommand(rawOptions: unknown): Promise<void> {
 
   const options = validationResult.data;
   if (options.json) {
-    await executeBalanceViewJSON(options);
+    await executeBalanceViewJSON(options, appRuntime);
   } else {
-    await executeBalanceViewTUI(options);
+    await executeBalanceViewTUI(options, appRuntime);
   }
 }
 
-async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promise<void> {
+async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
+      const handlerResult = await composeBalanceViewHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -120,11 +119,10 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions): Promi
   }
 }
 
-async function executeBalanceViewTUI(options: BalanceViewCommandOptions): Promise<void> {
+async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
+      const handlerResult = await composeBalanceViewHandler(appRuntime, ctx);
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

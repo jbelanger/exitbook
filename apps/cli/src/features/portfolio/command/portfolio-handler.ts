@@ -14,6 +14,7 @@ import {
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { parseCurrency, type AssetReviewSummary, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data';
@@ -21,7 +22,7 @@ import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { IPriceProviderRuntime, PriceProviderConfig } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -637,7 +638,13 @@ export class PortfolioHandler {
 export async function createPortfolioHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { asOf: Date; isJsonMode: boolean; registry: AdapterRegistry }
+  options: {
+    asOf: Date;
+    blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
+    isJsonMode: boolean;
+    priceProviderConfig?: PriceProviderConfig | undefined;
+    registry: AdapterRegistry;
+  }
 ): Promise<Result<PortfolioHandler, Error>> {
   const dataDir = ctx.dataDir;
   const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir);
@@ -659,6 +666,8 @@ export async function createPortfolioHandler(
       registry: options.registry,
       dataDir,
       isJsonMode: options.isJsonMode,
+      blockchainExplorersConfig: options.blockchainExplorersConfig,
+      priceProviderConfig: options.priceProviderConfig,
       setAbort: (abort) => {
         prereqAbort = abort;
       },
@@ -671,7 +680,10 @@ export async function createPortfolioHandler(
   }
 
   // Open shared price runtime for spot prices + FX
-  const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir });
+  const priceRuntimeResult = await openCliPriceProviderRuntime({
+    dataDir,
+    providers: options.priceProviderConfig,
+  });
   if (priceRuntimeResult.isErr()) {
     return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
   }

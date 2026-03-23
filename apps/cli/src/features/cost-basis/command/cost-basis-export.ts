@@ -13,9 +13,10 @@ import {
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting';
 import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/core';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 
+import { composeCostBasisHandler } from '../../../composition/accounting.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -26,7 +27,6 @@ import { CostBasisExportCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
 import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
-import { createCostBasisHandler } from './cost-basis-handler.js';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
 
 interface CostBasisExportCommandResult {
@@ -49,7 +49,7 @@ const V1_TAX_PACKAGE_OUTPUT_FILES = new Set([
   'source-links.csv',
 ]);
 
-export function registerCostBasisExportCommand(costBasisCommand: Command, registry: AdapterRegistry): void {
+export function registerCostBasisExportCommand(costBasisCommand: Command, appRuntime: CliAppRuntime): void {
   costBasisCommand
     .command('export')
     .description('Export a jurisdiction-aware cost-basis filing package')
@@ -74,11 +74,11 @@ Examples:
     .option('--output <dir>', 'Output directory for the tax package')
     .option('--json', 'Output command metadata in JSON format')
     .action((_rawOptions: unknown, command: Command) =>
-      executeCostBasisExportCommand(command.optsWithGlobals(), registry)
+      executeCostBasisExportCommand(command.optsWithGlobals(), appRuntime)
     );
 }
 
-async function executeCostBasisExportCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
   const parseResult = CostBasisExportCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -111,11 +111,9 @@ async function executeCostBasisExportCommand(rawOptions: unknown, registry: Adap
     await mkdir(outputDir, { recursive: true });
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createCostBasisHandler(ctx, database, {
+      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, {
         isJsonMode: isJson,
         params,
-        registry,
       });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');

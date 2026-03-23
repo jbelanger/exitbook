@@ -1,5 +1,6 @@
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
+
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 
 import { registerLinksConfirmCommand } from './links-confirm.js';
 import { registerLinksRejectCommand } from './links-reject.js';
@@ -15,11 +16,11 @@ import { registerLinksViewCommand } from './links-view.js';
  *   links confirm <id>      - Confirm a suggested link
  *   links reject <id>       - Reject a suggested link
  */
-export function registerLinksCommand(program: Command, registry: AdapterRegistry): void {
+export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime): void {
   const links = program.command('links').description('Manage transaction links (run algorithm, view, confirm, reject)');
 
   // Register subcommands
-  registerLinksRunCommand(links, registry);
+  registerLinksRunCommand(links, appRuntime);
   registerLinksViewCommand(links);
   registerLinksConfirmCommand(links);
   registerLinksRejectCommand(links);

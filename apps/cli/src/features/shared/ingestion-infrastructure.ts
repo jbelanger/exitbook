@@ -1,4 +1,4 @@
-import { type ProviderEvent } from '@exitbook/blockchain-providers';
+import { type BlockchainExplorersConfig, type ProviderEvent } from '@exitbook/blockchain-providers';
 import { OverrideStore, type DataContext, buildProcessingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
@@ -33,7 +33,8 @@ interface IngestionInfrastructure {
 export async function createIngestionInfrastructure(
   ctx: CommandContext,
   database: DataContext,
-  registry: AdapterRegistry
+  registry: AdapterRegistry,
+  options?: { explorerConfig?: BlockchainExplorersConfig | undefined }
 ): Promise<IngestionInfrastructure> {
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
@@ -46,6 +47,7 @@ export async function createIngestionInfrastructure(
     dataDir: ctx.dataDir,
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
+    explorerConfig: options?.explorerConfig,
   });
   if (providerRuntimeResult.isErr()) {
     throw providerRuntimeResult.error;

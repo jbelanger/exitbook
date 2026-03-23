@@ -7,6 +7,7 @@ import {
   StandardFxRateProvider,
   type LinkingEvent,
 } from '@exitbook/accounting';
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import {
   type ProjectionId,
   type ProjectionStatus,
@@ -35,6 +36,7 @@ import { EventBus } from '@exitbook/events';
 import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
+import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
@@ -65,6 +67,8 @@ interface ProjectionRuntimeDeps {
   registry: AdapterRegistry;
   dataDir: string;
   isJsonMode: boolean;
+  blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
+  priceProviderConfig?: PriceProviderConfig | undefined;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
 }
 
@@ -94,7 +98,7 @@ function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<Glo
 // ---------------------------------------------------------------------------
 
 function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
-  const { db, registry, isJsonMode, dataDir } = deps;
+  const { db, registry, isJsonMode, dataDir, blockchainExplorersConfig } = deps;
 
   return {
     checkFreshness() {
@@ -108,47 +112,50 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
         console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
       }
 
-      return withCliBlockchainProviderRuntimeResult({ dataDir }, async (providerRuntime) => {
-        const eventBus = new EventBus<IngestionEvent>({
-          onError: (error) => {
-            logger.error({ error }, 'EventBus error during reprocess');
-          },
-        });
+      return withCliBlockchainProviderRuntimeResult(
+        { dataDir, explorerConfig: blockchainExplorersConfig },
+        async (providerRuntime) => {
+          const eventBus = new EventBus<IngestionEvent>({
+            onError: (error) => {
+              logger.error({ error }, 'EventBus error during reprocess');
+            },
+          });
 
-        const overrideStore = new OverrideStore(dataDir);
-        const ports = buildProcessingPorts(db, {
-          rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
-          overrideStore,
-        });
-        const processingWorkflow = new ProcessingWorkflow(ports, providerRuntime, eventBus, registry);
+          const overrideStore = new OverrideStore(dataDir);
+          const ports = buildProcessingPorts(db, {
+            rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
+            overrideStore,
+          });
+          const processingWorkflow = new ProcessingWorkflow(ports, providerRuntime, eventBus, registry);
 
-        // 1. Plan: resolve accounts and guard incomplete imports
-        const planResult = await processingWorkflow.prepareReprocess({});
-        if (planResult.isErr()) return err(planResult.error);
+          // 1. Plan: resolve accounts and guard incomplete imports
+          const planResult = await processingWorkflow.prepareReprocess({});
+          if (planResult.isErr()) return err(planResult.error);
 
-        if (!planResult.value) {
-          logger.info('No raw data found to reprocess');
+          if (!planResult.value) {
+            logger.info('No raw data found to reprocess');
+            return ok(undefined);
+          }
+
+          const { accountIds } = planResult.value;
+
+          // 2. Reset projections in graph order (downstream first)
+          const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
+          if (resetResult.isErr()) return err(resetResult.error);
+
+          // 3. Process raw data
+          const processResult = await processingWorkflow.processImportedSessions(accountIds);
+          if (processResult.isErr()) return err(processResult.error);
+
+          logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
+
+          if (processResult.value.errors.length > 0) {
+            logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
+          }
+
           return ok(undefined);
         }
-
-        const { accountIds } = planResult.value;
-
-        // 2. Reset projections in graph order (downstream first)
-        const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
-        if (resetResult.isErr()) return err(resetResult.error);
-
-        // 3. Process raw data
-        const processResult = await processingWorkflow.processImportedSessions(accountIds);
-        if (processResult.isErr()) return err(processResult.error);
-
-        logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
-
-        if (processResult.value.errors.length > 0) {
-          logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
-        }
-
-        return ok(undefined);
-      });
+      );
     },
   };
 }
@@ -390,7 +397,10 @@ async function ensureTransactionPricesReady(
   const store = buildPricingPorts(db);
 
   if (isJsonMode) {
-    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: deps.dataDir });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({
+      dataDir: deps.dataDir,
+      providers: deps.priceProviderConfig,
+    });
     if (priceRuntimeResult.isErr()) return err(priceRuntimeResult.error);
     const priceRuntime = priceRuntimeResult.value;
     try {
@@ -425,6 +435,7 @@ async function ensureTransactionPricesReady(
     dataDir: deps.dataDir,
     instrumentation,
     eventBus,
+    providers: deps.priceProviderConfig,
   });
   if (priceRuntimeResult.isErr()) {
     controller.fail(priceRuntimeResult.error.message);

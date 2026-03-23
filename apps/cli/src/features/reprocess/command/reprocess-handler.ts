@@ -1,3 +1,4 @@
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import type { AdapterRegistry, ProcessingWorkflow } from '@exitbook/ingestion';
@@ -96,10 +97,13 @@ export class ReprocessHandler implements InfrastructureHandler<ReprocessHandlerP
 export async function createReprocessHandler(
   ctx: CommandContext,
   database: DataContext,
-  registry: AdapterRegistry
+  registry: AdapterRegistry,
+  options?: { explorerConfig?: BlockchainExplorersConfig | undefined }
 ): Promise<Result<ReprocessHandler, Error>> {
   try {
-    const infra = await createIngestionInfrastructure(ctx, database, registry);
+    const infra = await createIngestionInfrastructure(ctx, database, registry, {
+      explorerConfig: options?.explorerConfig,
+    });
 
     return ok(new ReprocessHandler(database, infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {

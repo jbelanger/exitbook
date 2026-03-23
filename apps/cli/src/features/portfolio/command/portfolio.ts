@@ -1,8 +1,9 @@
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import { composePortfolioHandler } from '../../../composition/accounting.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -13,7 +14,6 @@ import { isJsonMode } from '../../shared/utils.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-types.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
-import { createPortfolioHandler } from './portfolio-handler.js';
 import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
 type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
@@ -25,7 +25,7 @@ interface NormalizedPortfolioOptions {
   method: string;
 }
 
-export function registerPortfolioCommand(program: Command, registry: AdapterRegistry): void {
+export function registerPortfolioCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('portfolio')
     .description('View current portfolio holdings, allocation, and unrealized P&L')
@@ -37,10 +37,10 @@ export function registerPortfolioCommand(program: Command, registry: AdapterRegi
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, registry));
+    .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, appRuntime));
 }
 
-async function executePortfolioCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executePortfolioCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const jsonMode = isJsonMode(rawOptions);
 
   const parseResult = PortfolioCommandOptionsSchema.safeParse(rawOptions);
@@ -57,22 +57,20 @@ async function executePortfolioCommand(rawOptions: unknown, registry: AdapterReg
   const options = parseResult.data;
 
   if (options.json) {
-    await executePortfolioJSON(options, registry);
+    await executePortfolioJSON(options, appRuntime);
   } else {
-    await executePortfolioTUI(options, registry);
+    await executePortfolioTUI(options, appRuntime);
   }
 }
 
-async function executePortfolioJSON(options: PortfolioCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     const normalized = normalizeOptions(options);
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createPortfolioHandler(ctx, database, {
+      const handlerResult = await composePortfolioHandler(appRuntime, ctx, {
         isJsonMode: true,
         asOf: normalized.asOf,
-        registry,
       });
 
       if (handlerResult.isErr()) {
@@ -121,16 +119,14 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, registry: 
   }
 }
 
-async function executePortfolioTUI(options: PortfolioCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     const normalized = normalizeOptions(options);
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createPortfolioHandler(ctx, database, {
+      const handlerResult = await composePortfolioHandler(appRuntime, ctx, {
         isJsonMode: false,
         asOf: normalized.asOf,
-        registry,
       });
 
       if (handlerResult.isErr()) {

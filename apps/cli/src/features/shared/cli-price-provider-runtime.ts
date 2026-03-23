@@ -2,7 +2,11 @@ import type { PricingEvent } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import { createPriceProviderRuntime, type IPriceProviderRuntime } from '@exitbook/price-providers';
+import {
+  createPriceProviderRuntime,
+  type IPriceProviderRuntime,
+  type PriceProviderConfig,
+} from '@exitbook/price-providers';
 
 import { getDataDir } from './data-dir.js';
 
@@ -10,6 +14,19 @@ export interface CliPriceProviderRuntimeOptions {
   dataDir?: string | undefined;
   eventBus?: EventBus<PricingEvent> | undefined;
   instrumentation?: InstrumentationCollector | undefined;
+  providers?: PriceProviderConfig | undefined;
+}
+
+function buildDefaultPriceProviderConfig(): PriceProviderConfig {
+  return {
+    coingecko: {
+      apiKey: process.env['COINGECKO_API_KEY'],
+      useProApi: process.env['COINGECKO_USE_PRO_API'] === 'true',
+    },
+    cryptocompare: {
+      apiKey: process.env['CRYPTOCOMPARE_API_KEY'],
+    },
+  };
 }
 
 export async function openCliPriceProviderRuntime(
@@ -17,15 +34,7 @@ export async function openCliPriceProviderRuntime(
 ): Promise<Result<IPriceProviderRuntime, Error>> {
   const runtimeResult = await createPriceProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
-    providers: {
-      coingecko: {
-        apiKey: process.env['COINGECKO_API_KEY'],
-        useProApi: process.env['COINGECKO_USE_PRO_API'] === 'true',
-      },
-      cryptocompare: {
-        apiKey: process.env['CRYPTOCOMPARE_API_KEY'],
-      },
-    },
+    providers: options?.providers ?? buildDefaultPriceProviderConfig(),
     instrumentation: options?.instrumentation,
     eventBus: options?.eventBus,
   });

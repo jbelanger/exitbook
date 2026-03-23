@@ -2,6 +2,8 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import { composeBalanceRefreshHandler } from '../../../composition/balances.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -19,12 +21,11 @@ import {
 } from '../view/balance-view-state.js';
 import { sortAssetsByStatus, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
 
-import { createBalanceHandler } from './balance-handler.js';
 import { buildCliExchangeCredentials } from './balance-utils.js';
 
 type BalanceRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsSchema>;
 
-export function registerBalanceRefreshCommand(balanceCommand: Command): void {
+export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntime: CliAppRuntime): void {
   balanceCommand
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
@@ -48,10 +49,10 @@ Notes:
   - For child accounts, refresh operates on the owning parent balance scope.
 `
     )
-    .action(executeBalanceRefreshCommand);
+    .action((rawOptions: unknown) => executeBalanceRefreshCommand(rawOptions, appRuntime));
 }
 
-async function executeBalanceRefreshCommand(rawOptions: unknown): Promise<void> {
+async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
   const validationResult = BalanceRefreshCommandOptionsSchema.safeParse(rawOptions);
   if (!validationResult.success) {
@@ -65,19 +66,21 @@ async function executeBalanceRefreshCommand(rawOptions: unknown): Promise<void> 
 
   const options = validationResult.data;
   if (options.json) {
-    await executeBalanceRefreshJSON(options);
+    await executeBalanceRefreshJSON(options, appRuntime);
   } else if (options.accountId) {
-    await executeBalanceRefreshSingleTUI(options);
+    await executeBalanceRefreshSingleTUI(options, appRuntime);
   } else {
-    await executeBalanceRefreshAllTUI(options);
+    await executeBalanceRefreshAllTUI(options, appRuntime);
   }
 }
 
-async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions): Promise<void> {
+async function executeBalanceRefreshJSON(
+  options: BalanceRefreshCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
+      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('balance-refresh', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -167,14 +170,16 @@ async function executeBalanceRefreshJSON(options: BalanceRefreshCommandOptions):
   }
 }
 
-async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOptions): Promise<void> {
+async function executeBalanceRefreshSingleTUI(
+  options: BalanceRefreshCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   const accountId = options.accountId;
   if (accountId === undefined) return;
 
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
+      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
@@ -215,11 +220,13 @@ async function executeBalanceRefreshSingleTUI(options: BalanceRefreshCommandOpti
   }
 }
 
-async function executeBalanceRefreshAllTUI(_options: BalanceRefreshCommandOptions): Promise<void> {
+async function executeBalanceRefreshAllTUI(
+  _options: BalanceRefreshCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createBalanceHandler(ctx, database, { needsWorkflow: true });
+      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

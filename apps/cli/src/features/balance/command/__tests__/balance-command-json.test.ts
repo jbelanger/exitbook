@@ -2,6 +2,8 @@ import { err, ok } from '@exitbook/core';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../composition/runtime.js';
+
 const { mockCreateBalanceHandler, mockCtx, mockDisplayCliError, mockOutputSuccess, mockRunCommand } = vi.hoisted(
   () => ({
     mockCreateBalanceHandler: vi.fn(),
@@ -34,10 +36,14 @@ vi.mock('../balance-handler.js', () => ({
 import { registerBalanceRefreshCommand } from '../balance-refresh.js';
 import { registerBalanceViewCommand } from '../balance-view.js';
 
+const appRuntime = {
+  blockchainExplorersConfig: {},
+} as CliAppRuntime;
+
 function createBalanceCommand(): Command {
   const program = new Command();
-  registerBalanceViewCommand(program);
-  registerBalanceRefreshCommand(program);
+  registerBalanceViewCommand(program, appRuntime);
+  registerBalanceRefreshCommand(program, appRuntime);
   return program;
 }
 

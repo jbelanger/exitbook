@@ -8,6 +8,7 @@ import {
   type ValidatedCostBasisConfig,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { err, ok, type AssetReviewSummary, type Result } from '@exitbook/core';
 import {
   buildCostBasisArtifactStore,
@@ -16,6 +17,7 @@ import {
   type DataContext,
 } from '@exitbook/data';
 import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
@@ -184,7 +186,13 @@ export class CostBasisHandler {
 export async function createCostBasisHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { isJsonMode: boolean; params: ValidatedCostBasisConfig; registry: AdapterRegistry }
+  options: {
+    blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
+    isJsonMode: boolean;
+    params: ValidatedCostBasisConfig;
+    priceProviderConfig?: PriceProviderConfig | undefined;
+    registry: AdapterRegistry;
+  }
 ): Promise<Result<CostBasisHandler, Error>> {
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {
@@ -209,6 +217,8 @@ export async function createCostBasisHandler(
       registry: options.registry,
       dataDir: ctx.dataDir,
       isJsonMode: options.isJsonMode,
+      blockchainExplorersConfig: options.blockchainExplorersConfig,
+      priceProviderConfig: options.priceProviderConfig,
       setAbort: (abort) => {
         prereqAbort = abort;
       },

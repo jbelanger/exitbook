@@ -1,10 +1,11 @@
 import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import { composeCostBasisHandler } from '../../../composition/accounting.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -18,7 +19,6 @@ import { buildPresentationModel } from '../view/cost-basis-view-utils.js';
 
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
 import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
-import { createCostBasisHandler } from './cost-basis-handler.js';
 import { outputCostBasisJSON } from './cost-basis-json.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
@@ -30,7 +30,7 @@ type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
 /**
  * Register the cost-basis command.
  */
-export function registerCostBasisCommand(program: Command, registry: AdapterRegistry): void {
+export function registerCostBasisCommand(program: Command, appRuntime: CliAppRuntime): void {
   const costBasisCommand = program
     .command('cost-basis')
     .description('Calculate cost basis and capital gains/losses for tax reporting')
@@ -43,12 +43,12 @@ export function registerCostBasisCommand(program: Command, registry: AdapterRegi
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, registry));
+    .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, appRuntime));
 
-  registerCostBasisExportCommand(costBasisCommand, registry);
+  registerCostBasisExportCommand(costBasisCommand, appRuntime);
 }
 
-async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeCostBasisCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
@@ -65,21 +65,20 @@ async function executeCostBasisCommand(rawOptions: unknown, registry: AdapterReg
   const options = parseResult.data;
 
   if (options.json) {
-    await executeCostBasisCalculateJSON(options, registry);
+    await executeCostBasisCalculateJSON(options, appRuntime);
   } else {
-    await executeCostBasisCalculateTUI(options, registry);
+    await executeCostBasisCalculateTUI(options, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeCostBasisCalculateJSON(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     const params = unwrapResult(buildCostBasisInputFromFlags(options));
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: true, params, registry });
+      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, { isJsonMode: true, params });
 
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -106,11 +105,9 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, registry: 
 
 // ─── TUI: Calculate Mode ─────────────────────────────────────────────────────
 
-async function executeCostBasisCalculateTUI(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: ValidatedCostBasisConfig;
       const defaultMethodResult = options.jurisdiction
@@ -132,7 +129,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, registry: A
       }
 
       // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
-      const handlerResult = await createCostBasisHandler(ctx, database, { isJsonMode: false, params, registry });
+      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, { isJsonMode: false, params });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

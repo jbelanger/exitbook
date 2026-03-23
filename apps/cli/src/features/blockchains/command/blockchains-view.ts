@@ -1,9 +1,9 @@
 import { listBlockchainProviders, type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -29,7 +29,7 @@ type CommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>;
 /**
  * Register the blockchains view subcommand.
  */
-export function registerBlockchainsViewCommand(blockchainsCommand: Command, registry: AdapterRegistry): void {
+export function registerBlockchainsViewCommand(blockchainsCommand: Command, appRuntime: CliAppRuntime): void {
   blockchainsCommand
     .command('view')
     .description('View supported blockchains and provider configuration')
@@ -55,14 +55,14 @@ Categories:
     .option('--requires-api-key', 'Show only blockchains that require API keys')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeBlockchainsViewCommand(rawOptions, registry);
+      await executeBlockchainsViewCommand(rawOptions, appRuntime);
     });
 }
 
 /**
  * Execute the blockchains view command.
  */
-async function executeBlockchainsViewCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeBlockchainsViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = BlockchainsViewCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -78,9 +78,9 @@ async function executeBlockchainsViewCommand(rawOptions: unknown, registry: Adap
   const isJsonMode = options.json ?? false;
 
   if (isJsonMode) {
-    await executeBlockchainsViewJSON(options, registry);
+    await executeBlockchainsViewJSON(options, appRuntime);
   } else {
-    await executeBlockchainsViewTUI(options, registry);
+    await executeBlockchainsViewTUI(options, appRuntime);
   }
 }
 
@@ -89,7 +89,7 @@ async function executeBlockchainsViewCommand(rawOptions: unknown, registry: Adap
  */
 async function loadBlockchainCatalogData(
   options: CommandOptions,
-  registry: AdapterRegistry
+  appRuntime: CliAppRuntime
 ): Promise<{
   allProviders: BlockchainProviderDescriptor[];
   blockchains: ReturnType<typeof buildBlockchainCatalogItem>[];
@@ -105,7 +105,7 @@ async function loadBlockchainCatalogData(
     validatedCategory = categoryResult.value;
   }
 
-  const supportedBlockchains = registry.getAllBlockchains();
+  const supportedBlockchains = appRuntime.adapterRegistry.getAllBlockchains();
   const allProviders = listBlockchainProviders();
 
   let blockchains = supportedBlockchains.map((blockchain: string) => {
@@ -131,8 +131,8 @@ async function loadBlockchainCatalogData(
 /**
  * Execute blockchains view in TUI mode
  */
-async function executeBlockchainsViewTUI(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
-  const data = await loadBlockchainCatalogData(options, registry);
+async function executeBlockchainsViewTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
+  const data = await loadBlockchainCatalogData(options, appRuntime);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;
@@ -162,8 +162,8 @@ async function executeBlockchainsViewTUI(options: CommandOptions, registry: Adap
 /**
  * Execute blockchains view in JSON mode
  */
-async function executeBlockchainsViewJSON(options: CommandOptions, registry: AdapterRegistry): Promise<void> {
-  const data = await loadBlockchainCatalogData(options, registry);
+async function executeBlockchainsViewJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
+  const data = await loadBlockchainCatalogData(options, appRuntime);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;

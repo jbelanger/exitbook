@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion';
 import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
 import { FileSink } from '@exitbook/logger';
 import { Command } from 'commander';
@@ -35,6 +34,7 @@ initLogger({
 // flush() is synchronous (BufferedSink.drain → appendFileSync), safe in 'exit' handler
 process.on('exit', () => flushLoggers());
 
+import { createCliAppRuntime } from './composition/runtime.js';
 import { registerAccountsCommand } from './features/accounts/command/accounts.js';
 import { registerAssetsCommand } from './features/assets/command/assets.js';
 import { registerBalanceCommand } from './features/balance/command/balance.js';
@@ -49,28 +49,31 @@ import { registerProvidersCommand } from './features/providers/command/providers
 import { registerReprocessCommand } from './features/reprocess/command/reprocess.js';
 import { registerTransactionsCommand } from './features/transactions/command/transactions.js';
 
-// Construct registry once at startup — duplicate registrations throw at construction time
-const adapterRegistry = new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters);
-
 const logger = getLogger('CLI');
 const program = new Command();
 
 async function main() {
   program.name('exitbook').description('Crypto transaction reconciliation and reports').version(CLI_VERSION);
 
-  registerImportCommand(program, adapterRegistry);
-  registerReprocessCommand(program, adapterRegistry);
-  registerLinksCommand(program, adapterRegistry);
+  const appRuntimeResult = createCliAppRuntime();
+  if (appRuntimeResult.isErr()) {
+    throw appRuntimeResult.error;
+  }
+  const appRuntime = appRuntimeResult.value;
+
+  registerImportCommand(program, appRuntime);
+  registerReprocessCommand(program, appRuntime);
+  registerLinksCommand(program, appRuntime);
   registerAccountsCommand(program);
   registerAssetsCommand(program);
   registerTransactionsCommand(program);
-  registerPricesCommand(program);
+  registerPricesCommand(program, appRuntime);
   registerClearCommand(program);
-  registerCostBasisCommand(program, adapterRegistry);
-  registerBalanceCommand(program);
-  registerBlockchainsCommand(program, adapterRegistry);
+  registerCostBasisCommand(program, appRuntime);
+  registerBalanceCommand(program, appRuntime);
+  registerBlockchainsCommand(program, appRuntime);
   registerProvidersCommand(program);
-  registerPortfolioCommand(program, adapterRegistry);
+  registerPortfolioCommand(program, appRuntime);
 
   await program.parseAsync();
 }

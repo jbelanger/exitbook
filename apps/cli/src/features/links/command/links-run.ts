@@ -1,22 +1,20 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import type { LinkingRunParams } from '@exitbook/accounting';
 import { parseDecimal } from '@exitbook/core';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
+import { composeLinksRunHandler } from '../../../composition/links.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import { LinksRunCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
-
-import { createLinksRunHandler } from './links-run-handler.js';
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -118,7 +116,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
 /**
  * Register the links run subcommand.
  */
-export function registerLinksRunCommand(linksCommand: Command, registry: AdapterRegistry): void {
+export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAppRuntime): void {
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
@@ -126,11 +124,11 @@ export function registerLinksRunCommand(linksCommand: Command, registry: Adapter
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeLinksRunCommand(rawOptions, registry);
+      await executeLinksRunCommand(rawOptions, appRuntime);
     });
 }
 
-async function executeLinksRunCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeLinksRunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
@@ -145,33 +143,25 @@ async function executeLinksRunCommand(rawOptions: unknown, registry: AdapterRegi
 
   const options = parseResult.data;
   if (options.json) {
-    await executeLinksRunJSON(options, registry);
+    await executeLinksRunJSON(options, appRuntime);
   } else {
-    await executeLinksRunTUI(options, registry);
+    await executeLinksRunTUI(options, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   const startTime = Date.now();
   const params = buildLinksRunParamsFromFlags(options);
 
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-
-      const readyResult = await ensureConsumerInputsReady('links-run', {
-        db: database,
-        registry,
-        dataDir: ctx.dataDir,
-        isJsonMode: true,
-      });
-      if (readyResult.isErr()) {
-        displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      const handlerResult = await composeLinksRunHandler(appRuntime, ctx, { isJsonMode: true });
+      if (handlerResult.isErr()) {
+        displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
-
-      const handler = createLinksRunHandler(ctx, database, { isJsonMode: true });
+      const handler = handlerResult.value;
 
       const result = await handler.execute(params);
       if (result.isErr()) {
@@ -192,7 +182,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, registry: Ad
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     let params: LinkingRunParams;
     if (!options.minConfidence && !options.autoConfirmThreshold) {
@@ -207,19 +197,11 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, registry: Ada
     }
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-
-      const readyResult = await ensureConsumerInputsReady('links-run', {
-        db: database,
-        registry,
-        dataDir: ctx.dataDir,
-        isJsonMode: false,
-      });
-      if (readyResult.isErr()) {
-        displayCliError('links-run', readyResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      const handlerResult = await composeLinksRunHandler(appRuntime, ctx, { isJsonMode: false });
+      if (handlerResult.isErr()) {
+        displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
-
-      const handler = createLinksRunHandler(ctx, database, { isJsonMode: false });
+      const handler = handlerResult.value;
 
       ctx.onAbort(() => handler.abort());
 

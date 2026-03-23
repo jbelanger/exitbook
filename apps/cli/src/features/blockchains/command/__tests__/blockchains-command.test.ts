@@ -4,6 +4,8 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../composition/runtime.js';
+
 const {
   mockComputeCategoryCounts,
   mockCreateBlockchainsViewState,
@@ -48,6 +50,23 @@ vi.mock('../../view/index.js', () => ({
 
 import { registerBlockchainsViewCommand } from '../blockchains-view.js';
 import { registerBlockchainsCommand } from '../blockchains.js';
+
+function createAppRuntime(blockchains: string[] = ['bitcoin', 'solana']): CliAppRuntime {
+  return {
+    adapterRegistry: createRegistry(blockchains),
+    blockchainExplorersConfig: {},
+    dataDir: '/tmp/exitbook-blockchains',
+    priceProviderConfig: {
+      coingecko: {
+        apiKey: undefined,
+        useProApi: false,
+      },
+      cryptocompare: {
+        apiKey: undefined,
+      },
+    },
+  };
+}
 
 function createRegistry(blockchains: string[] = ['bitcoin', 'solana']): AdapterRegistry {
   return {
@@ -96,7 +115,7 @@ describe('registerBlockchainsCommand', () => {
   it('registers the blockchains namespace with the view subcommand', () => {
     const program = new Command();
 
-    registerBlockchainsCommand(program, createRegistry());
+    registerBlockchainsCommand(program, createAppRuntime());
 
     const blockchainsCommand = program.commands.find((command) => command.name() === 'blockchains');
     expect(blockchainsCommand).toBeDefined();
@@ -124,7 +143,7 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createRegistry());
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime());
 
     await program.parseAsync(['blockchains', 'view', '--category', 'utxo', '--json'], { from: 'user' });
 
@@ -174,7 +193,7 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createRegistry(['solana']));
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['solana']));
 
     await program.parseAsync(['blockchains', 'view', '--requires-api-key'], { from: 'user' });
 
@@ -220,7 +239,7 @@ describe('registerBlockchainsViewCommand', () => {
   it('routes invalid category errors through the JSON CLI error path', async () => {
     const program = new Command();
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createRegistry());
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime());
 
     await expect(
       program.parseAsync(['blockchains', 'view', '--category', 'invalid', '--json'], { from: 'user' })

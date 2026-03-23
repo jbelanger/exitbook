@@ -1,7 +1,8 @@
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { composeReprocessHandler } from '../../../composition/ingestion.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -9,7 +10,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import { createReprocessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
+import type { ProcessResultWithMetrics } from './reprocess-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -34,17 +35,17 @@ interface ReprocessCommandResult {
   };
 }
 
-export function registerReprocessCommand(program: Command, registry: AdapterRegistry): void {
+export function registerReprocessCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('reprocess')
     .description('Clear all derived data and reprocess from raw data')
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
-    .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, registry));
+    .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, appRuntime));
 }
 
-async function executeReprocessCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
@@ -60,19 +61,18 @@ async function executeReprocessCommand(rawOptions: unknown, registry: AdapterReg
 
   const options = validationResult.data;
   if (options.json) {
-    await executeReprocessJSON(options, registry);
+    await executeReprocessJSON(options, appRuntime);
   } else {
-    await executeReprocessTUI(options, registry);
+    await executeReprocessTUI(options, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeReprocessJSON(options: ProcessCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createReprocessHandler(ctx, database, registry);
+      const handlerResult = await composeReprocessHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -97,11 +97,10 @@ async function executeReprocessJSON(options: ProcessCommandOptions, registry: Ad
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executeReprocessTUI(options: ProcessCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeReprocessTUI(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createReprocessHandler(ctx, database, registry);
+      const handlerResult = await composeReprocessHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

@@ -10,7 +10,7 @@ import { buildPricingPorts, type DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { IPriceProviderRuntime, PriceProviderConfig } from '@exitbook/price-providers';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -25,7 +25,7 @@ const logger = getLogger('PricesEnrichHandler');
  * Tier 2 handler for `prices enrich`.
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
-class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
+export class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
   constructor(
     private readonly pipeline: PriceEnrichmentPipeline,
     private readonly priceRuntime: IPriceProviderRuntime,
@@ -84,7 +84,7 @@ class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, 
 export async function createPricesEnrichHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { isJsonMode: boolean }
+  options: { isJsonMode: boolean; priceProviderConfig?: PriceProviderConfig | undefined }
 ): Promise<Result<PricesEnrichHandler, Error>> {
   const store = buildPricingPorts(database);
   const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
@@ -95,7 +95,11 @@ export async function createPricesEnrichHandler(
 
   if (options.isJsonMode) {
     const instrumentation = new InstrumentationCollector();
-    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({
+      dataDir: ctx.dataDir,
+      instrumentation,
+      providers: options.priceProviderConfig,
+    });
     if (priceRuntimeResult.isErr()) {
       return err(priceRuntimeResult.error);
     }
@@ -114,7 +118,12 @@ export async function createPricesEnrichHandler(
   const instrumentation = new InstrumentationCollector();
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-  const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: ctx.dataDir, instrumentation, eventBus });
+  const priceRuntimeResult = await openCliPriceProviderRuntime({
+    dataDir: ctx.dataDir,
+    instrumentation,
+    eventBus,
+    providers: options.priceProviderConfig,
+  });
   if (priceRuntimeResult.isErr()) {
     controller.fail(priceRuntimeResult.error.message);
     await controller.stop();

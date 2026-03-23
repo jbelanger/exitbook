@@ -1,7 +1,9 @@
-import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
+import type { ImportParams } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import { composeImportHandler } from '../../../composition/ingestion.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -11,7 +13,7 @@ import { unwrapResult } from '../../shared/result-utils.js';
 import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import { createImportHandler, type ImportExecuteResult } from './import-handler.js';
+import type { ImportExecuteResult } from './import-handler.js';
 import { buildImportParams } from './import-utils.js';
 
 /**
@@ -56,7 +58,7 @@ interface ImportCommandResult {
   };
 }
 
-export function registerImportCommand(program: Command, registry: AdapterRegistry): void {
+export function registerImportCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
@@ -75,10 +77,10 @@ export function registerImportCommand(program: Command, registry: AdapterRegistr
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
-    .action((rawOptions: unknown) => executeImportCommand(rawOptions, registry));
+    .action((rawOptions: unknown) => executeImportCommand(rawOptions, appRuntime));
 }
 
-async function executeImportCommand(rawOptions: unknown, registry: AdapterRegistry): Promise<void> {
+async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
@@ -94,25 +96,24 @@ async function executeImportCommand(rawOptions: unknown, registry: AdapterRegist
 
   const options = validationResult.data;
   if (options.json) {
-    await executeImportJSON(options, registry);
+    await executeImportJSON(options, appRuntime);
   } else {
-    await executeImportTUI(options, registry);
+    await executeImportTUI(options, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executeImportJSON(options: ImportCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createImportHandler(ctx, database, registry);
+      const handlerResult = await composeImportHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
       const handler = handlerResult.value;
 
-      const params = unwrapResult(buildImportParams(options, registry));
+      const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
       const result = await handler.execute(params);
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -132,11 +133,10 @@ async function executeImportJSON(options: ImportCommandOptions, registry: Adapte
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executeImportTUI(options: ImportCommandOptions, registry: AdapterRegistry): Promise<void> {
+async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createImportHandler(ctx, database, registry);
+      const handlerResult = await composeImportHandler(appRuntime, ctx);
       if (handlerResult.isErr()) {
         displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
@@ -144,7 +144,7 @@ async function executeImportTUI(options: ImportCommandOptions, registry: Adapter
 
       ctx.onAbort(() => handler.abort());
 
-      const params = unwrapResult(buildImportParams(options, registry));
+      const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
 
       const sourceName = 'blockchain' in params ? params.blockchain : params.exchange;
 

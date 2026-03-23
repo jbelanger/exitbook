@@ -10,6 +10,8 @@
 import type { PricesEnrichOptions } from '@exitbook/accounting';
 import type { Command } from 'commander';
 
+import { composePricesEnrichHandler } from '../../../composition/accounting.js';
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -17,12 +19,10 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { PricesEnrichCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import { createPricesEnrichHandler } from './prices-enrich-handler.js';
-
 /**
  * Register the prices enrich subcommand
  */
-export function registerPricesEnrichCommand(pricesCommand: Command): void {
+export function registerPricesEnrichCommand(pricesCommand: Command, appRuntime: CliAppRuntime): void {
   pricesCommand
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
@@ -32,7 +32,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command): void {
     .option('--derive-only', 'Only run trade prices stage')
     .option('--fetch-only', 'Only run market prices stage')
     .option('--json', 'Output results in JSON format')
-    .action(executePricesEnrichCommand);
+    .action((rawOptions: unknown) => executePricesEnrichCommand(rawOptions, appRuntime));
 }
 
 /**
@@ -42,7 +42,7 @@ function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
 }
 
-async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
+async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const isJson = isJsonMode(rawOptions);
 
   const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
@@ -65,19 +65,18 @@ async function executePricesEnrichCommand(rawOptions: unknown): Promise<void> {
   };
 
   if (options.json) {
-    await executePricesEnrichJSON(params);
+    await executePricesEnrichJSON(params, appRuntime);
   } else {
-    await executePricesEnrichTUI(params);
+    await executePricesEnrichTUI(params, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executePricesEnrichJSON(params: PricesEnrichOptions): Promise<void> {
+async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createPricesEnrichHandler(ctx, database, { isJsonMode: true });
+      const handlerResult = await composePricesEnrichHandler(appRuntime, ctx, { isJsonMode: true });
       if (handlerResult.isErr()) {
         displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -102,11 +101,10 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions): Promise<voi
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executePricesEnrichTUI(params: PricesEnrichOptions): Promise<void> {
+async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const handlerResult = await createPricesEnrichHandler(ctx, database, { isJsonMode: false });
+      const handlerResult = await composePricesEnrichHandler(appRuntime, ctx, { isJsonMode: false });
       if (handlerResult.isErr()) {
         displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

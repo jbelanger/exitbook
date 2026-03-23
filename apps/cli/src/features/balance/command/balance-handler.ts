@@ -1,3 +1,4 @@
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import type {
   Account,
   AccountType,
@@ -749,14 +750,17 @@ export class BalanceHandler {
 export async function createBalanceHandler(
   ctx: CommandContext,
   database: DataContext,
-  options: { needsWorkflow: boolean }
+  options: { explorerConfig?: BlockchainExplorersConfig | undefined; needsWorkflow: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {
     if (!options.needsWorkflow) {
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const providerRuntimeResult = await openCliBlockchainProviderRuntime({ dataDir: ctx.dataDir });
+    const providerRuntimeResult = await openCliBlockchainProviderRuntime({
+      dataDir: ctx.dataDir,
+      explorerConfig: options.explorerConfig,
+    });
     if (providerRuntimeResult.isErr()) {
       return err(providerRuntimeResult.error);
     }

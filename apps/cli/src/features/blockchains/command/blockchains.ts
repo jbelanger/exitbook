@@ -1,5 +1,6 @@
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { Command } from 'commander';
+
+import type { CliAppRuntime } from '../../../composition/runtime.js';
 
 import { registerBlockchainsViewCommand } from './blockchains-view.js';
 
@@ -9,10 +10,10 @@ import { registerBlockchainsViewCommand } from './blockchains-view.js';
  * Structure:
  *   blockchains view               - View blockchains with filters
  */
-export function registerBlockchainsCommand(program: Command, registry: AdapterRegistry): void {
+export function registerBlockchainsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const blockchains = program
     .command('blockchains')
     .description('Browse supported blockchains and provider configuration');
 
-  registerBlockchainsViewCommand(blockchains, registry);
+  registerBlockchainsViewCommand(blockchains, appRuntime);
 }

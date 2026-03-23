@@ -1,5 +1,7 @@
 import type { Command } from 'commander';
 
+import type { CliAppRuntime } from '../../../composition/runtime.js';
+
 import { registerPricesEnrichCommand } from './prices-enrich.js';
 import { registerPricesSetFxCommand } from './prices-set-fx.js';
 import { registerPricesSetCommand } from './prices-set.js';
@@ -14,11 +16,11 @@ import { registerPricesViewCommand } from './prices-view.js';
  *   prices set                  - Manually set price for an asset
  *   prices set-fx               - Manually set FX rate between currencies
  */
-export function registerPricesCommand(program: Command): void {
+export function registerPricesCommand(program: Command, appRuntime: CliAppRuntime): void {
   const prices = program.command('prices').description('Manage cryptocurrency prices (view, enrich, set, set-fx)');
 
   registerPricesViewCommand(prices);
-  registerPricesEnrichCommand(prices);
+  registerPricesEnrichCommand(prices, appRuntime);
   registerPricesSetCommand(prices);
   registerPricesSetFxCommand(prices);
 }
