@@ -5,12 +5,12 @@ import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
+import { adaptResultCleanup, type CommandScope } from '../../runtime/command-scope.js';
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-import { adaptResultCleanup, type CommandContext } from './command-runtime.js';
 
 const logger = getLogger('ingestion-infrastructure');
 
@@ -30,7 +30,7 @@ interface IngestionInfrastructure {
  * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
  */
 export async function createIngestionInfrastructure(
-  ctx: CommandContext,
+  ctx: CommandScope,
   database: DataContext
 ): Promise<IngestionInfrastructure> {
   const appRuntime = ctx.requireAppRuntime();

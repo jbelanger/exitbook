@@ -49,7 +49,7 @@ vi.mock('@exitbook/data', () => ({
   }),
 }));
 
-vi.mock('../../../shared/command-runtime.js', () => ({
+vi.mock('../../../../runtime/command-scope.js', () => ({
   renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));

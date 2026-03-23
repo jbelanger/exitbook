@@ -9,10 +9,10 @@ import { buildLinkingPorts, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
+import type { CommandScope } from '../../../runtime/command-scope.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { ensureConsumerInputsReady } from '../../shared/consumer-input-prereqs.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import { LinksRunMonitor } from '../view/links-run-components.jsx';
 
 const logger = getLogger('LinksRunHandler');
@@ -78,7 +78,7 @@ export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, 
  * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
 export async function createLinksRunHandler(
-  ctx: CommandContext,
+  ctx: CommandScope,
   options: { isJsonMode: boolean }
 ): Promise<Result<LinksRunHandler, Error>> {
   const database = await ctx.database();

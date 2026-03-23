@@ -17,12 +17,12 @@ import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/inges
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
+import { adaptResultCleanup, type CommandScope } from '../../../runtime/command-scope.js';
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import {
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
   formatBalanceSnapshotFreshnessMessage,
 } from '../../shared/balance-snapshot-freshness-message.js';
-import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { StoredSnapshotAssetItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
 import {
@@ -746,7 +746,7 @@ export class BalanceHandler {
 }
 
 export async function createBalanceHandler(
-  ctx: CommandContext,
+  ctx: CommandScope,
   options: { needsWorkflow: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {

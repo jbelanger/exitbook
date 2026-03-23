@@ -23,12 +23,12 @@ import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
+import type { CommandScope } from '../../../runtime/command-scope.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { ensureConsumerInputsReady } from '../../shared/consumer-input-prereqs.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
-import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
 
 import {
@@ -633,7 +633,7 @@ export class PortfolioHandler {
  * Factory runs prereqs and registers ctx.onCleanup() -- command files NEVER do.
  */
 export async function createPortfolioHandler(
-  ctx: CommandContext,
+  ctx: CommandScope,
   options: {
     asOf: Date;
     isJsonMode: boolean;

@@ -4,11 +4,11 @@ import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
+import type { CommandScope } from '../../../runtime/command-scope.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
+import { resetProjections } from '../../shared/consumer-input-prereqs.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
-import { resetProjections } from '../../shared/projection-runtime.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;
@@ -93,7 +93,7 @@ export class ReprocessHandler implements InfrastructureHandler<ReprocessHandlerP
   }
 }
 
-export async function createReprocessHandler(ctx: CommandContext): Promise<Result<ReprocessHandler, Error>> {
+export async function createReprocessHandler(ctx: CommandScope): Promise<Result<ReprocessHandler, Error>> {
   try {
     const database = await ctx.database();
     const infra = await createIngestionInfrastructure(ctx, database);

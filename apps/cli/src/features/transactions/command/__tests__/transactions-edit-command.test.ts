@@ -36,7 +36,7 @@ vi.mock('@exitbook/data', () => ({
   readTransactionNoteOverrides: vi.fn(),
 }));
 
-vi.mock('../../../shared/command-runtime.js', () => ({
+vi.mock('../../../../runtime/command-scope.js', () => ({
   runCommand: mockRunCommand,
   renderApp: vi.fn(),
 }));

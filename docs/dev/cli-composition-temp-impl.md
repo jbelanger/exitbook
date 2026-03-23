@@ -22,7 +22,7 @@ The target end state is smaller:
 - one per-command scope
 - command files that only parse, dispatch, and render
 - feature runner functions that execute work against the command scope
-- explicit prereq functions instead of a generic projection-runtime registry
+- explicit prereq functions instead of a generic consumer-prereq registry
 
 This is not a minimum-change plan. It assumes a larger refactor is acceptable if
 it produces a smaller and simpler steady state.
@@ -114,7 +114,7 @@ Non-responsibilities:
 
 ### 2. Command scope
 
-The current `CommandContext` should evolve into the actual per-command scope.
+The CLI should keep `CommandScope` as the actual per-command scope boundary.
 
 Preferred end-state location:
 
@@ -190,7 +190,7 @@ That should be the exception, not the default architecture.
 
 ### 4. Explicit prereq functions
 
-The current `projection-runtime.ts` shape is too abstract for what it does.
+The current `consumer-input-prereqs.ts` shape is still too abstract for what it does.
 
 Preferred end-state:
 
@@ -218,9 +218,9 @@ export async function ensureConsumerInputs(
 
 This is less code than:
 
-- `ProjectionRuntime`
-- `ProjectionRuntimeDeps`
-- `buildProjectionRuntimeRegistry()`
+- `ConsumerInputPrereq`
+- `ConsumerInputPrereqDeps`
+- `buildConsumerInputPrereqRegistry()`
 - generic rebuild/runtime registries
 
 It is also much easier to reason about.
@@ -401,7 +401,7 @@ This design is achieved when:
 - each command invocation has one command scope
 - feature execution uses one scope argument instead of `ctx + db + registry`
 - command-scoped provider runtimes are shared within the scope
-- `projection-runtime.ts` has been replaced by explicit prereq functions
+- `consumer-input-prereqs.ts` has been replaced by explicit prereq functions
 - the composition-wrapper layer is gone
 - the tiered handler model is no longer the documented CLI contract
 
@@ -421,5 +421,5 @@ Names to avoid:
 
 - `composition/*` for thin pass-through wrappers
 - `handler-contracts` as the primary wiring model
-- `projection-runtime` for a file that really means prereq orchestration
+- `consumer-input-prereqs` once the file no longer uses generic prereq registries
 - vague buckets such as `shared`, `utils`, and `helpers`

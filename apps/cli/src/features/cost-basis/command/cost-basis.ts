@@ -5,8 +5,8 @@ import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 import { CostBasisCommandOptionsSchema } from '../../shared/schemas.js';

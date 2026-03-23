@@ -3,9 +3,9 @@ import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { BalanceRefreshCommandOptionsSchema } from '../../shared/schemas.js';

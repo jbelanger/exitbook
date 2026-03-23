@@ -6,7 +6,7 @@ import * as dataModule from '@exitbook/data';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommandContext, renderApp, runCommand } from '../command-runtime.js';
+import { CommandScope, renderApp, runCommand } from '../command-scope.js';
 
 // Hoisted so they're accessible inside vi.mock factory
 const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as
 let mockClose: ReturnType<typeof vi.fn>;
 let mockDataContext: DataContext;
 
-describe('CommandContext', () => {
+describe('CommandScope', () => {
   beforeEach(() => {
     mockClose = vi.fn().mockResolvedValue(ok(undefined));
     mockDataContext = { close: mockClose } as unknown as DataContext;
@@ -49,7 +49,7 @@ describe('CommandContext', () => {
 
   describe('database()', () => {
     it('should lazily initialize database on first call', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       const db = await ctx.database();
 
       expect(db).toBe(mockDataContext);
@@ -57,7 +57,7 @@ describe('CommandContext', () => {
     });
 
     it('should return same instance on subsequent calls', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       const db1 = await ctx.database();
       const db2 = await ctx.database();
 
@@ -66,7 +66,7 @@ describe('CommandContext', () => {
     });
 
     it('should throw if called after closeDatabase()', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.database();
       await ctx.closeDatabase();
 
@@ -76,7 +76,7 @@ describe('CommandContext', () => {
 
   describe('closeDatabase()', () => {
     it('should close database and prevent dispose from closing again', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.database();
       await ctx.closeDatabase();
       await ctx.dispose();
@@ -86,7 +86,7 @@ describe('CommandContext', () => {
     });
 
     it('should be no-op if database was never opened', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.closeDatabase();
 
       expect(mockClose).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe('CommandContext', () => {
 
   describe('onCleanup()', () => {
     it('should run cleanup functions in LIFO order', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       const order: number[] = [];
 
       ctx.onCleanup(async () => {
@@ -114,7 +114,7 @@ describe('CommandContext', () => {
     });
 
     it('should continue running cleanup even if one throws, then propagate error', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       const order: number[] = [];
 
       ctx.onCleanup(async () => {
@@ -134,7 +134,7 @@ describe('CommandContext', () => {
     });
 
     it('should throw AggregateError when multiple cleanup functions fail', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
 
       ctx.onCleanup(async () => {
         throw new Error('first failure');
@@ -149,7 +149,7 @@ describe('CommandContext', () => {
 
   describe('dispose()', () => {
     it('should close database if still open', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.database();
       await ctx.dispose();
 
@@ -157,7 +157,7 @@ describe('CommandContext', () => {
     });
 
     it('should be idempotent', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       const cleanupFn = vi.fn(async () => {
         /* empty */
       });
@@ -172,7 +172,7 @@ describe('CommandContext', () => {
     });
 
     it('should not close database if never opened', async () => {
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.dispose();
 
       expect(mockClose).not.toHaveBeenCalled();
@@ -181,7 +181,7 @@ describe('CommandContext', () => {
     it('should throw when database close fails', async () => {
       mockClose.mockResolvedValue(err(new Error('close failed')));
 
-      const ctx = new CommandContext();
+      const ctx = new CommandScope();
       await ctx.database();
 
       await expect(ctx.dispose()).rejects.toThrow('close failed');

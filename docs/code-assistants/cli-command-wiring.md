@@ -134,5 +134,5 @@ Avoid introducing new code that depends on:
 - `createFooHandler(ctx, database, registry)`
 - `composeFooHandler(appRuntime, ctx, ...)`
 - tiered handler taxonomies
-- generic `projection-runtime` registries
+- generic consumer-prereq registries
 - command files manually calling `ctx.database()` for infrastructure-heavy flows

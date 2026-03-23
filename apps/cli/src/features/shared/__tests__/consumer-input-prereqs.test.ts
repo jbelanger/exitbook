@@ -64,9 +64,9 @@ vi.mock('../cli-price-provider-runtime.js', () => ({
   openCliPriceProviderRuntime: mockOpenCliPriceProviderRuntime,
 }));
 
-import { ensureConsumerInputsReady, resetProjections } from '../projection-runtime.js';
+import { ensureConsumerInputsReady, resetProjections } from '../consumer-input-prereqs.js';
 
-describe('projection-runtime', () => {
+describe('consumer-input-prereqs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

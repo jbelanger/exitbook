@@ -574,7 +574,7 @@ This is the highest-risk phase because prereq rebuilds sit underneath multiple t
 
 Current hotspot to replace:
 
-- `apps/cli/src/features/shared/projection-runtime.ts`
+- `apps/cli/src/features/shared/consumer-input-prereqs.ts`
 
 Required change:
 
@@ -593,7 +593,7 @@ Recommended sub-plan:
 
 1. Introduce a prereq monitor contract that accepts `presentationMode` instead of `isJsonMode`.
 2. Implement three monitor variants: Ink, line-oriented text-progress, and silent JSON-safe.
-3. Replace the current `ProjectionRuntime` registry shape with explicit command-scope prereq functions.
+3. Replace the current `ConsumerInputPrereq` registry shape with explicit command-scope prereq functions.
 4. Migrate one command with projection prereqs first, preferably `cost-basis`, and verify each mode separately.
 5. Only then fan the change out to `portfolio` and any other prereq-driven commands.
 

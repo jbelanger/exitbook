@@ -2,8 +2,8 @@ import type { AccountRepository } from '@exitbook/data';
 import type { Command } from 'commander';
 import React from 'react';
 
+import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { handleCancellation, promptConfirm } from '../../shared/prompts.js';

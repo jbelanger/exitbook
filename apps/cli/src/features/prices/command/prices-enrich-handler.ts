@@ -12,9 +12,9 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import type { CommandScope } from '../../../runtime/command-scope.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
@@ -81,7 +81,7 @@ export class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOp
  * Factory registers ctx.onCleanup() -- command files NEVER do.
  */
 export async function createPricesEnrichHandler(
-  ctx: CommandContext,
+  ctx: CommandScope,
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
   const database = await ctx.database();

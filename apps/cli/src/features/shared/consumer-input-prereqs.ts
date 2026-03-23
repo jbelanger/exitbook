@@ -38,6 +38,7 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
+import type { CommandScope } from '../../runtime/command-scope.js';
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
 import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
@@ -45,25 +46,24 @@ import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
 import { openCliPriceProviderRuntime } from './cli-price-provider-runtime.js';
-import type { CommandContext } from './command-runtime.js';
 
-const logger = getLogger('projection-runtime');
+const logger = getLogger('consumer-input-prereqs');
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface ProjectionFreshnessResult {
+interface PrereqFreshnessResult {
   status: ProjectionStatus;
   reason: string | undefined;
 }
 
-interface ProjectionRuntime {
-  checkFreshness(): Promise<Result<ProjectionFreshnessResult, Error>>;
+interface ConsumerInputPrereq {
+  checkFreshness(): Promise<Result<PrereqFreshnessResult, Error>>;
   rebuild(): Promise<Result<void, Error>>;
 }
 
-interface ProjectionRuntimeDeps {
+interface ConsumerInputPrereqDeps {
   db: DataContext;
   registry: AdapterRegistry;
   dataDir: string;
@@ -90,22 +90,24 @@ interface EnsureConsumerInputsReadyOptions {
 type GlobalProjectionId = Exclude<ProjectionId, 'balances'>;
 
 // ---------------------------------------------------------------------------
-// Projection runtime factory
+// Consumer prereq registry
 // ---------------------------------------------------------------------------
 
-function buildProjectionRuntimeRegistry(deps: ProjectionRuntimeDeps): Record<GlobalProjectionId, ProjectionRuntime> {
+function buildConsumerInputPrereqRegistry(
+  deps: ConsumerInputPrereqDeps
+): Record<GlobalProjectionId, ConsumerInputPrereq> {
   return {
-    'processed-transactions': buildProcessedTransactionsRuntime(deps),
-    'asset-review': buildAssetReviewRuntime(deps),
-    links: buildLinksRuntime(deps),
+    'processed-transactions': buildProcessedTransactionsPrereq(deps),
+    'asset-review': buildAssetReviewPrereq(deps),
+    links: buildLinksPrereq(deps),
   };
 }
 
 // ---------------------------------------------------------------------------
-// processed-transactions runtime
+// processed-transactions prereq
 // ---------------------------------------------------------------------------
 
-function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
+function buildProcessedTransactionsPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
   const { db, registry, isJsonMode, dataDir, blockchainExplorersConfig } = deps;
 
   return {
@@ -168,7 +170,7 @@ function buildProcessedTransactionsRuntime(deps: ProjectionRuntimeDeps): Project
   };
 }
 
-function buildAssetReviewRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
+function buildAssetReviewPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
   const { db, dataDir } = deps;
 
   return {
@@ -183,10 +185,10 @@ function buildAssetReviewRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime
 }
 
 // ---------------------------------------------------------------------------
-// links runtime
+// links prereq
 // ---------------------------------------------------------------------------
 
-function buildLinksRuntime(deps: ProjectionRuntimeDeps): ProjectionRuntime {
+function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
   const { db, dataDir, isJsonMode, setAbort } = deps;
 
   return {
@@ -330,12 +332,12 @@ async function resetSingleProjection(
  * After projection readiness, checks price coverage for consumers that need it.
  */
 export async function ensureConsumerInputsReady(
-  ctx: CommandContext,
+  ctx: CommandScope,
   target: ConsumerTarget,
   options: EnsureConsumerInputsReadyOptions
 ): Promise<Result<void, Error>> {
   const appRuntime = ctx.requireAppRuntime();
-  const deps: ProjectionRuntimeDeps = {
+  const deps: ConsumerInputPrereqDeps = {
     db: await ctx.database(),
     registry: appRuntime.adapterRegistry,
     dataDir: ctx.dataDir,
@@ -346,7 +348,7 @@ export async function ensureConsumerInputsReady(
   };
   const plan = buildConsumerProjectionPlan(target);
 
-  const registry = buildProjectionRuntimeRegistry(deps);
+  const registry = buildConsumerInputPrereqRegistry(deps);
 
   for (const projectionId of plan) {
     const freshness = await registry[projectionId].checkFreshness();
@@ -397,7 +399,7 @@ function buildConsumerProjectionPlan(target: ConsumerTarget): GlobalProjectionId
 // ---------------------------------------------------------------------------
 
 async function ensureTransactionPricesReady(
-  deps: ProjectionRuntimeDeps,
+  deps: ConsumerInputPrereqDeps,
   config: PricePrereqConfig,
   target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>,
   accountingExclusionPolicy?: AccountingExclusionPolicy

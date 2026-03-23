@@ -4,8 +4,8 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import { renderApp } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { renderApp } from '../../shared/command-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';

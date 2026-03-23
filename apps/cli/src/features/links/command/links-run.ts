@@ -7,9 +7,9 @@ import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { runCommand } from '../../../runtime/command-scope.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
 import { displayCliError } from '../../shared/cli-error.js';
-import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../../shared/schemas.js';

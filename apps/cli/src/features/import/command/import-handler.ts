@@ -7,8 +7,8 @@ import { ImportWorkflow, isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
+import type { CommandScope } from '../../../runtime/command-scope.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import type { CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
 
@@ -106,7 +106,7 @@ export class ImportHandler implements InfrastructureHandler<
   }
 }
 
-export async function createImportHandler(ctx: CommandContext): Promise<Result<ImportHandler, Error>> {
+export async function createImportHandler(ctx: CommandScope): Promise<Result<ImportHandler, Error>> {
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;

@@ -3,8 +3,8 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
+import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { LinksConfirmCommandOptionsSchema } from '../../shared/schemas.js';
