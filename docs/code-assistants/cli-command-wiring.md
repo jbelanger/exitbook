@@ -1,41 +1,138 @@
 # CLI Command Wiring
 
-Every feature in `apps/cli/src/features/` follows a two-tier wiring pattern.
+The preferred end-state CLI wiring model is:
 
-## File layout
+- one immutable app runtime
+- one per-command scope
+- command files that parse/render only
+- feature runner functions that execute against the scope
 
+Do not design new CLI code around tiered handler categories.
+
+## Core Model
+
+### App runtime
+
+The app runtime is created once at startup and holds immutable host config:
+
+- data directory / DB path
+- adapter registry
+- normalized provider config
+- optional explorer config
+
+It does not own live command resources.
+
+### Command scope
+
+Each command invocation gets one command scope.
+
+The scope owns:
+
+- lazy DB access
+- lazy shared provider runtimes for that command
+- abort registration
+- cleanup registration
+- disposal ordering
+
+This is the resource ownership boundary for the CLI.
+
+### Feature runner functions
+
+Command files should call feature runner functions with the scope:
+
+```ts
+await runCommand(appRuntime, async (scope) => {
+  const result = await runImport(scope, params);
+  if (result.isErr()) throw result.error;
+});
 ```
-<feature>.ts          — Commander registration, option parsing, JSON/TUI dispatch
-<feature>-handler.ts  — Handler class: execute(), optional abort(), optional factory
+
+Prefer plain functions:
+
+- `runImport(scope, params)`
+- `runReprocess(scope, params)`
+- `runCostBasis(scope, params, options)`
+- `runPortfolio(scope, params)`
+
+Only use a stateful abortable object when streaming state is real and cannot be
+expressed clearly as a plain function.
+
+## File Layout
+
+Preferred shape:
+
+```text
+runtime/
+  app-runtime.ts
+  command-scope.ts
+  consumer-prereqs.ts
+  reset-projections.ts
+
+features/<feature>/command/
+  <feature>.ts         - Commander registration, option parsing, JSON/TUI dispatch, rendering
+  run-<feature>.ts     - feature execution against CommandScope
 ```
 
-## Tier 1 — DB-only handlers
+Existing `*-handler.ts` files may remain during migration, but they are not the
+desired long-term wiring pattern.
 
-Simple handlers that only need a database connection.
+## Rules
 
-Examples: `CostBasisHandler`, `PortfolioHandler`, `ViewPricesHandler`
+Command files should:
 
-```typescript
-const handler = new FooHandler(await ctx.database());
-await handler.execute(options);
-```
+- validate CLI flags
+- choose presentation mode
+- call a feature runner function
+- format output or render TUI
 
-- Constructor accepts `database: KyselyDB` (or derived query objects)
-- Instantiated inline — no factory needed
-- No cleanup registration needed
+Command files should not:
 
-## Tier 2 — Infrastructure handlers
+- assemble registries
+- open databases directly
+- open provider runtimes directly
+- spread host config manually
+- perform prereq orchestration inline
 
-Handlers that need provider managers, event buses, token metadata, etc.
+Feature runner functions should:
 
-Examples: `ImportHandler`, `ProcessHandler`, `BalanceHandler`
+- receive `scope` as the single host/runtime argument
+- call explicit prereq helpers when needed
+- obtain command-scoped resources from the scope
+- use local `try/finally` only for short-lived local resources
 
-```typescript
-const handler = await createFooHandler(ctx, database, registry);
-await handler.execute(options);
-```
+## Prereqs
 
-- Created via `createFooHandler(ctx, database, registry?)` factory defined in the handler file
-- Factory registers `ctx.onCleanup` internally — command files never wire cleanup manually
-- Handler exposes `abort(): void` — registered via `ctx.onAbort(() => handler.abort())` in TUI mode only
-- Shared infrastructure (tokenMetadata + providerManager + EventBus + IngestionMonitor) is created via `createIngestionInfrastructure()` in `features/shared/ingestion-infrastructure.ts`
+Do not hide prereq orchestration behind a generic runtime registry.
+
+Prefer explicit functions such as:
+
+- `ensureProcessedTransactions(scope)`
+- `ensureAssetReview(scope)`
+- `ensureLinks(scope)`
+- `ensurePriceCoverage(scope, window, policy)`
+- `ensureConsumerInputs(scope, target, options)`
+
+## Cleanup
+
+Command-scoped resources:
+
+- live for the duration of the command
+- are owned by the command scope
+- are disposed once, by the scope
+
+Local resources:
+
+- are created and consumed inside one function
+- use local `try/finally`
+
+The code should make that distinction obvious.
+
+## Anti-Patterns
+
+Avoid introducing new code that depends on:
+
+- `createFooHandler(ctx, database, registry)`
+- `composeFooHandler(appRuntime, ctx, ...)`
+- tiered handler taxonomies
+- generic `projection-runtime` registries
+- command files manually calling `ctx.database()` for infrastructure-heavy flows

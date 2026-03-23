@@ -481,21 +481,33 @@ Examples:
 
 ## Composition guidance
 
-Each app should expose a clear composition root, for example:
+Each app should expose a clear app runtime and a clear request/command scope.
 
-- `apps/cli/src/composition/accounts.ts`
-- `apps/cli/src/composition/ingestion.ts`
-- `apps/cli/src/composition/accounting.ts`
-- `apps/cli/src/composition/runtime.ts`
+For the CLI, the preferred shape is:
 
-Composition files may:
+- one immutable app runtime, for example `apps/cli/src/runtime/app-runtime.ts`
+- one per-command scope, for example `apps/cli/src/runtime/command-scope.ts`
+- explicit feature runner functions under feature command directories
+- explicit prereq helpers, for example `apps/cli/src/runtime/consumer-prereqs.ts`
 
-- create DB contexts
-- build adapter implementations
-- instantiate feature services
-- return assembled modules to handlers
+The important rule is ownership, not a `composition/` directory.
 
-Command handlers and route handlers should consume assembled modules, not construct dependencies ad hoc.
+App-layer code may:
+
+- normalize host config
+- derive filesystem and DB paths
+- construct registries once
+- lazily open command-scoped resources
+- instantiate feature runners and prereq helpers
+
+App-layer code should not:
+
+- add thin pass-through wrapper layers that only forward `ctx + db + registry`
+- mix business workflow policy into generic composition helpers
+- hide command-scoped cleanup in multiple unrelated layers
+
+Command handlers and route handlers should consume one scope argument, not construct dependencies ad hoc from
+separately threaded host values.
 
 ---
 
@@ -548,20 +560,19 @@ Before merging new package-level code, verify:
 
 ## Current state versus target
 
-This contract describes the target architecture. The current codebase has not yet been migrated. Key gaps:
+This contract describes the target architecture. Some earlier migration steps have already happened, but key gaps remain:
 
-- **No `foundation` package exists.** What this contract calls `foundation` currently lives in `core` (`result/`, `money/`, `cursor/`, `identity/`). Migration: extract these modules from `core` into a new `foundation` package.
-- **No `accounts` feature package exists.** Account-related code currently lives in `core/src/account/`. Migration: extract into a dedicated feature package when account-specific workflows emerge.
-- **No composition root directory exists.** Composition is currently scattered across CLI command handlers. Migration: centralize into `apps/cli/src/composition/`.
-- **Provider packages currently depend on `core`.** `blockchain-providers` and `price-providers` import `Currency`, `Result`, `CursorState`, and other types from `core`. Migration: once `foundation` exists, update these imports to point to `foundation`.
-- **Infrastructure packages are not yet classified.** `logger`, `http`, `resilience`, `sqlite`, `events`, `observability` exist but are not governed by explicit rules. This contract now classifies them.
+- **The CLI app layer still lacks a clean command-scope model.** App config, command lifecycle, prereq orchestration, and feature execution are still spread across command files, shared runtime helpers, and handler factories. Migration: converge on one immutable app runtime plus one per-command scope.
+- **Some account-oriented behavior is still host-local.** Dedicated package boundaries may still need to emerge as account-specific workflows grow.
+- **Some CLI wiring still reflects older handler/factory conventions.** Migration: remove multi-argument `ctx + db + registry` assembly shapes in favor of one scope argument.
+- **Infrastructure classification is still tightening.** `logger`, `http`, `resilience`, `sqlite`, `events`, and `observability` are classified here, but code structure may still lag behind the contract in places.
 
 ### Migration order
 
-1. Create `foundation` — extract `result/`, `money/`, `cursor/`, `identity/` from `core`
-2. Update provider and infrastructure package imports from `core` to `foundation`
-3. Enforce the hard dependency rules
-4. Centralize composition into `apps/cli/src/composition/`
+1. Enforce the hard dependency rules consistently across packages
+2. Finish converging the CLI on app runtime + command scope
+3. Replace multi-argument handler/factory assembly with scope-based feature runners
+4. Remove legacy CLI wiring layers that duplicate ownership
 
 ---
 

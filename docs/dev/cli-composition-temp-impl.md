@@ -1,111 +1,99 @@
 ---
 status: draft
-last_updated: 2026-03-22
+last_updated: 2026-03-23
 ---
 
-# CLI Composition Temporary Implementation Plan
+# CLI Command Scope End-State Design
 
 ## Summary
 
-This document proposes a temporary app-layer implementation for centralizing CLI composition into
-`apps/cli/src/composition/` without bundling it to the remaining architecture cleanup elsewhere in the repo.
+This document replaces the earlier temporary plan that centered the CLI around
+`apps/cli/src/composition/*` wrapper modules.
 
-Goals:
+That plan improved startup wiring, but it does not reach the actual goal:
 
-- give the CLI one clear app composition root
-- stop command files from assembling databases, provider runtimes, and handler factories ad hoc
-- keep delivery concerns in the CLI while leaving business logic in feature packages
-- reduce the current spread of composition code across `index.ts`, command files, handler factories, and `features/shared/*`
+- dumb-easy reasoning
+- minimum end-state code
+- one obvious owner for command-scoped resources
 
-Non-goals for this pass:
+The target end state is smaller:
 
-- do not introduce a DI container
-- do not bundle this work to unrelated package-boundary cleanup elsewhere in the repo
-- do not fully redesign feature workflows
-- do not move business policy into the app layer
+- one immutable app runtime
+- one per-command scope
+- command files that only parse, dispatch, and render
+- feature runner functions that execute work against the command scope
+- explicit prereq functions instead of a generic projection-runtime registry
 
-This is a temporary implementation plan. It is intentionally incremental.
+This is not a minimum-change plan. It assumes a larger refactor is acceptable if
+it produces a smaller and simpler steady state.
 
-## Why This Exists
+## Design Principles
 
-The architecture contract already says:
+### 1. One owner per lifetime
 
-- app packages own composition
-- composition should be centralized per app
-- handlers should consume assembled modules rather than constructing dependencies ad hoc
+The CLI has three real lifetimes:
 
-The CLI is not there yet.
+- app lifetime
+- command lifetime
+- local execution lifetime inside a single function
 
-Current composition is spread across:
+Each lifetime should have one clear owner.
 
-- `apps/cli/src/index.ts`
-- command files such as `apps/cli/src/features/import/command/import.ts`
-- handler factories such as `createImportHandler()` and `createPortfolioHandler()`
-- app-internal runtime helpers under `apps/cli/src/features/shared/`
+### 2. Prefer fewer abstractions over generic abstractions
 
-Current pain points:
+The goal is not a more flexible wiring system.
 
-- command files repeatedly call `ctx.database()`
-- command files sometimes run prereqs directly, for example `ensureConsumerInputsReady()`
-- command files sometimes register abort handlers directly
-- provider runtime opening is scattered across commands, handlers, and shared helpers
-- `features/shared/` is acting as a misc bucket instead of a clear boundary
+The goal is code that is obvious on first read.
 
-## Temporary Decision
+That means:
 
-For the first pass, composition files should own app-layer assembly for the infrastructure-heavy CLI commands.
+- plain objects over containers
+- plain functions over classes when state is not needed
+- explicit prereq functions over generic runtime registries
+- deleting wrapper layers when they only forward arguments
 
-They may call the current handler factories where that avoids churn, but they should not add a second generic wrapper
-interface on top of handlers.
+### 3. Delivery code should not assemble infrastructure ad hoc
 
-That means we are not forcing a full redesign of:
+Command files should not:
 
-- `createImportHandler()`
-- `createPortfolioHandler()`
-- `createPricesEnrichHandler()`
+- open databases
+- construct registries
+- read provider config
+- open provider runtimes
+- decide how cleanup is registered
 
-The first win is structural:
+They should:
 
-- command files stop assembling dependencies directly
-- `apps/cli/src/composition/` becomes the only app-layer wiring entry point
+- parse flags
+- choose JSON vs TUI
+- call a feature runner
+- format output
 
-At the same time, this pass should tackle the current `projection-runtime.ts` split early, because that file is where
-the most problematic mixing still lives.
+### 4. Command-scoped resources belong to the command scope
 
-## Target Layout
+Anything that should live for the duration of one command belongs to the
+command scope:
 
-```text
-apps/cli/src/
-  composition/
-    runtime.ts
-    ingestion.ts
-    accounting.ts
-    links.ts
-    balances.ts
-```
+- database connection
+- command abort handling
+- command cleanup stack
+- lazily opened provider runtimes shared within that command
 
-Notes:
+Anything shorter-lived should use local `try/finally`.
 
-- keep the composition directory flat for now
-- avoid adding `shared/`, `utils/`, or `helpers/` under `composition/`
-- group by capability, not by technical layer
-- these are CLI assembly modules grouped by capability; they are intentionally outside the feature packages because
-  they are app-layer wiring, not feature-owned business logic
-
-## Composition Contracts
+## The End-State Model
 
 ### 1. App runtime
 
-Create `apps/cli/src/composition/runtime.ts`.
-
-It should export:
+Keep one immutable startup object:
 
 ```ts
 export interface CliAppRuntime {
   dataDir: string;
+  databasePath: string;
   adapterRegistry: AdapterRegistry;
-  priceProviderConfig: CliPriceProviderConfig;
-  blockchainExplorersConfig: BlockchainExplorersConfig;
+  priceProviderConfig: PriceProviderConfig;
+  blockchainExplorersConfig: BlockchainExplorersConfig | undefined;
 }
 
 export function createCliAppRuntime(): Result<CliAppRuntime, Error>;
@@ -113,170 +101,186 @@ export function createCliAppRuntime(): Result<CliAppRuntime, Error>;
 
 Responsibilities:
 
-- resolve `dataDir` once
+- normalize CLI host config once
 - construct `AdapterRegistry` once
-- normalize price-provider config from env once
-- load blockchain explorer config once
-- pass explicit config to composition functions
+- derive filesystem paths once
+- load optional explorer config once
+
+Non-responsibilities:
+
+- do not hold live DB connections
+- do not hold live provider runtimes
+- do not own cleanup
+
+### 2. Command scope
+
+The current `CommandContext` should evolve into the actual per-command scope.
+
+Preferred end-state location:
+
+- `apps/cli/src/runtime/command-scope.ts`
+
+Possible contract:
+
+```ts
+export class CommandScope {
+  constructor(readonly app: CliAppRuntime);
+
+  database(): Promise<DataContext>;
+  blockchainRuntime(): Promise<Result<OpenedCliBlockchainProviderRuntime, Error>>;
+  priceRuntime(options?: OpenedPriceRuntimeOptions): Promise<Result<IPriceProviderRuntime, Error>>;
+
+  onCleanup(fn: () => Promise<void>): void;
+  onAbort(fn: () => void): void;
+  closeDatabase(): Promise<void>;
+  dispose(): Promise<void>;
+}
+
+export async function runCommand<T>(
+  app: CliAppRuntime,
+  fn: (scope: CommandScope) => Promise<T>
+): Promise<T>;
+```
+
+Responsibilities:
+
+- lazy DB lifecycle
+- lazy shared provider-runtime lifecycle for the command
+- abort registration
+- cleanup stack
+- disposal ordering
 
 Important:
 
-- `index.ts` should create this once at startup
-- `register*Command()` functions should receive `CliAppRuntime`, not a raw `AdapterRegistry`
+- one command scope per command invocation
+- command-scoped resources are shared within the scope
+- cleanup happens once, in one place
 
-### 2. Command lifecycle stays outside `composition/`
+### 3. Feature runner functions
 
-The current command lifecycle file is:
+The default execution shape should be a function, not a handler class.
 
-- `apps/cli/src/features/shared/command-runtime.ts`
-
-This pass should keep that responsibility out of `apps/cli/src/composition/`.
-
-It owns command infrastructure:
-
-- `CommandContext`
-- `runCommand`
-- `renderApp`
-- `adaptResultCleanup`
-
-That is not capability composition.
-
-If we rename or move it later, it should move to a sibling app-level location, for example:
+Preferred examples:
 
 ```ts
-apps / cli / src / command - runtime.ts;
+export async function runImport(scope: CommandScope, params: ImportParams): Promise<Result<ImportResult, Error>>;
+
+export async function runCostBasis(
+  scope: CommandScope,
+  params: ValidatedCostBasisConfig,
+  options?: { refresh?: boolean | undefined }
+): Promise<Result<CostBasisWorkflowResult, Error>>;
 ```
 
-This file owns:
+Stateful abortable objects should only exist when genuinely needed, for example:
 
-- per-command DB lifecycle
-- cleanup stack
-- abort registration
-- disposal
-- Ink app render lifecycle
+- long-running streaming workflows
+- event-relay-driven TUI flows
 
-It must not own business workflow decisions.
-
-### 3. Composition functions return existing handlers or assembled values
-
-Each composition file should return the existing handler directly, or inline factory logic and remove the factory if
-the factory is thin enough.
-
-Recommended shapes:
+If a command does need that, it should return a small explicit shape such as:
 
 ```ts
-export async function composeImportHandler(
-  app: CliAppRuntime,
-  ctx: CommandContext,
-  options: { mode: 'json' | 'tui' }
-): Promise<Result<ImportHandler, Error>>;
+interface AbortableRun<TResult> {
+  abort(): void;
+  run(): Promise<Result<TResult, Error>>;
+}
 ```
 
-Example:
+That should be the exception, not the default architecture.
+
+### 4. Explicit prereq functions
+
+The current `projection-runtime.ts` shape is too abstract for what it does.
+
+Preferred end-state:
+
+- `apps/cli/src/runtime/consumer-prereqs.ts`
+- `apps/cli/src/runtime/reset-projections.ts`
+
+Replace generic runtime-registry abstractions with plain functions:
 
 ```ts
-export async function composePortfolioHandler(
-  app: CliAppRuntime,
-  ctx: CommandContext,
-  options: { mode: 'json' | 'tui' }
-): Promise<Result<PortfolioHandler, Error>>;
+export async function ensureProcessedTransactions(scope: CommandScope): Promise<Result<void, Error>>;
+export async function ensureAssetReview(scope: CommandScope): Promise<Result<void, Error>>;
+export async function ensureLinks(scope: CommandScope): Promise<Result<void, Error>>;
+export async function ensurePriceCoverage(
+  scope: CommandScope,
+  window: PriceWindow,
+  policy?: AccountingExclusionPolicy
+): Promise<Result<void, Error>>;
+
+export async function ensureConsumerInputs(
+  scope: CommandScope,
+  target: ConsumerTarget,
+  options?: EnsureConsumerInputsOptions
+): Promise<Result<void, Error>>;
 ```
 
-Command files should consume the returned handler and keep using:
+This is less code than:
 
-- `handler.execute(params)`
-- `handler.abort()` when that contract exists
+- `ProjectionRuntime`
+- `ProjectionRuntimeDeps`
+- `buildProjectionRuntimeRegistry()`
+- generic rebuild/runtime registries
 
-Command files should not:
+It is also much easier to reason about.
 
-- call `ctx.database()` directly for the infrastructure-heavy commands covered by this plan
-- call `create*Handler()` directly
-- call `ensureConsumerInputsReady()` directly
-- open provider runtimes directly
+## What This Design Deletes
 
-## Responsibility Split
+### Delete app-layer wrapper modules
 
-### Composition files may do
+The end state should delete:
 
-- get a database from the command runtime
-- build adapters and runtimes
-- call existing handler factories
-- register cleanup with the command runtime
-- wire abort handling
-- pass explicit host config into provider packages
-
-### Command files may do
-
-- register Commander commands
-- parse and validate flags
-- choose JSON vs TUI mode
-- call composition functions
-- format CLI output
-- render TUI components
-
-### Feature packages and handlers continue to do
-
-- business logic
-- feature workflows
-- feature-specific orchestration
-- domain validation
-- policy decisions
-
-## File-By-File Plan
-
-### Step 1. Add the composition root
-
-Create:
-
-- `apps/cli/src/composition/runtime.ts`
 - `apps/cli/src/composition/ingestion.ts`
 - `apps/cli/src/composition/accounting.ts`
 - `apps/cli/src/composition/links.ts`
 - `apps/cli/src/composition/balances.ts`
 
-Do not add a generic `read-models.ts` bucket in this pass.
+Keep only a runtime file, ideally moved to:
 
-Focus only on the commands with real infrastructure assembly.
+- `apps/cli/src/runtime/app-runtime.ts`
 
-### Step 2. Split `projection-runtime.ts` before building more wrappers
+### Delete the tiered handler model as the CLI contract
 
-The current file:
+The CLI should no longer be defined as:
 
-- `apps/cli/src/features/shared/projection-runtime.ts`
+- Tier 1 DB-only handlers
+- Tier 2 infrastructure handlers
+- Tier 3 inline commands
 
-still mixes too many responsibilities:
+That taxonomy adds explanation overhead without improving the code.
 
-- projection freshness checks
-- projection rebuild execution
-- price coverage prereqs
-- TUI monitor wiring
-- console output
-- consumer-specific policy
+The simpler rule is:
 
-Before composition expands, shrink this file into narrower pieces.
+- command files call feature runner functions against a command scope
+- use stateful execution objects only when streaming state is real
 
-Minimum split for this pass:
+### Delete the `ctx, database, registry` factory signature pattern
 
-- extract projection reset helpers into a dedicated file
-- extract price coverage prereq logic into a dedicated file
-- extract TUI monitor wiring for links/prices into explicit CLI delivery helpers instead of keeping it hidden inside a
-  generic projection runtime
-- keep consumer-specific policy visible and isolated instead of burying it in a catch-all runtime file
+These signatures are not the end state:
 
-The exact file names can be decided during implementation, but the important rule is:
+- `createImportHandler(ctx, database, registry)`
+- `createReprocessHandler(ctx, database, registry)`
+- `createCostBasisHandler(ctx, database, options)`
+- `createPortfolioHandler(ctx, database, options)`
 
-- do not keep growing `projection-runtime.ts`
-- do not move it into `composition/` unchanged
+The end state is:
 
-### Step 3. Move startup wiring into `runtime.ts`
+- `runImport(scope, params)`
+- `runReprocess(scope, params)`
+- `runCostBasis(scope, params, options)`
+- `runPortfolio(scope, params)`
 
-Update `apps/cli/src/index.ts`:
+or, when stateful execution is required:
 
-- keep logger initialization in `index.ts`
-- replace direct `AdapterRegistry` construction with `createCliAppRuntime()`
-- pass `appRuntime` to all `register*Command()` functions
+- `createImportRun(scope, options)`
+- `createBalanceRefreshRun(scope, options)`
 
-Target shape:
+The key rule is one scope argument, not a bag of separately threaded host deps.
+
+## Command File Shape
+
+End-state command files should look like this:
 
 ```ts
 const appRuntimeResult = createCliAppRuntime();
@@ -285,219 +289,137 @@ if (appRuntimeResult.isErr()) throw appRuntimeResult.error;
 const appRuntime = appRuntimeResult.value;
 
 registerImportCommand(program, appRuntime);
-registerReprocessCommand(program, appRuntime);
-registerLinksCommand(program, appRuntime);
 ```
 
-### Step 4. Add first-pass composition modules
-
-#### `apps/cli/src/composition/ingestion.ts`
-
-Own:
-
-- `composeImportHandler()`
-- `composeReprocessHandler()`
-
-Implementation details:
-
-- obtain `db` from `ctx.database()`
-- call existing `createImportHandler()` / `createReprocessHandler()`
-- return the existing handler directly
-
-#### `apps/cli/src/composition/accounting.ts`
-
-Own:
-
-- `composeCostBasisHandler()`
-- `composePortfolioHandler()`
-- `composePricesEnrichHandler()`
-
-Implementation details:
-
-- obtain `db` from `ctx.database()`
-- call existing `createCostBasisHandler()`
-- call existing `createPortfolioHandler()`
-- call existing `createPricesEnrichHandler()`
-- return the existing handler directly
-
-#### `apps/cli/src/composition/links.ts`
-
-Own:
-
-- `composeLinksRunHandler()`
-
-Implementation details:
-
-- after the `projection-runtime.ts` split, this composition file should call the narrowed prereq assembly surface
-- then call `createLinksRunHandler()`
-- return the existing handler directly
-
-The important change is that `links-run.ts` stops doing app assembly itself.
-
-#### `apps/cli/src/composition/balances.ts`
-
-Own:
-
-- `composeBalanceViewHandler()`
-- `composeBalanceRefreshHandler()`
-
-Implementation details:
-
-- wrap `createBalanceHandler()`
-- keep provider runtime cleanup and abort hidden from command files
-
-### Step 5. Convert command files
-
-First batch:
-
-- `apps/cli/src/features/import/command/import.ts`
-- `apps/cli/src/features/reprocess/command/reprocess.ts`
-- `apps/cli/src/features/cost-basis/command/cost-basis.ts`
-- `apps/cli/src/features/cost-basis/command/cost-basis-export.ts`
-- `apps/cli/src/features/portfolio/command/portfolio.ts`
-- `apps/cli/src/features/prices/command/prices-enrich.ts`
-- `apps/cli/src/features/links/command/links-run.ts`
-- `apps/cli/src/features/balance/command/balance-view.ts`
-- `apps/cli/src/features/balance/command/balance-refresh.ts`
-
-Each converted command should follow this pattern:
-
-1. validate CLI flags
-2. call `runCommand()`
-3. call the relevant `compose*Handler()`
-4. optionally register `ctx.onAbort(() => handler.abort())`
-5. call `handler.execute(params)`
-6. format output
-
-What should disappear from command files:
-
-- `const database = await ctx.database()`
-- direct calls to `create*Handler()`
-- direct calls to `ensureConsumerInputsReady()`
-- direct calls to provider runtime openers
-
-### Step 6. Cleanup after migration
-
-Once the first batch is migrated:
-
-- convert old handler factory exports to internal-only where possible
-- shrink `features/shared/`
-- decide which files should stay feature-owned versus app-owned
-
-## Example Before And After
-
-### Before
+And inside a command:
 
 ```ts
-await runCommand(async (ctx) => {
-  const database = await ctx.database();
-  const handlerResult = await createImportHandler(ctx, database, registry);
-  if (handlerResult.isErr()) throw handlerResult.error;
-
-  const handler = handlerResult.value;
-  ctx.onAbort(() => handler.abort());
-
-  const result = await handler.execute(params);
+await runCommand(appRuntime, async (scope) => {
+  const result = await runImport(scope, params);
   if (result.isErr()) throw result.error;
+
+  outputSuccess('import', result.value);
 });
 ```
 
-### After
+Command files should not:
 
-```ts
-await runCommand(async (ctx) => {
-  const handlerResult = await composeImportHandler(app, ctx, { mode: 'tui' });
-  if (handlerResult.isErr()) throw handlerResult.error;
+- call `ctx.database()` directly for infrastructure-heavy commands
+- spread provider config manually
+- call raw runtime openers
+- perform prereq orchestration
 
-  const handler = handlerResult.value;
-  ctx.onAbort(() => handler.abort());
+## Cleanup Rules
 
-  const result = await handler.execute(params);
-  if (result.isErr()) throw result.error;
-});
+### Command-scoped resources
+
+Anything shared for the duration of the command belongs in the command scope and
+should be cleaned up by scope disposal.
+
+Examples:
+
+- database
+- shared blockchain provider runtime
+- shared price provider runtime
+
+### Local resources
+
+Anything created and consumed entirely inside one function should use local
+`try/finally`.
+
+Examples:
+
+- one-off temporary presenters
+- one-shot helper runtimes used only inside a short function
+
+### The important split
+
+The code should never make the reader guess whether cleanup is:
+
+- command-scoped and hidden in a random factory
+- local and handled inline
+
+That split must be obvious from the API.
+
+## Suggested File Layout
+
+```text
+apps/cli/src/
+  runtime/
+    app-runtime.ts
+    command-scope.ts
+    consumer-prereqs.ts
+    reset-projections.ts
+  features/
+    import/command/
+      import.ts
+      run-import.ts
+    reprocess/command/
+      reprocess.ts
+      run-reprocess.ts
+    cost-basis/command/
+      cost-basis.ts
+      run-cost-basis.ts
+    portfolio/command/
+      portfolio.ts
+      run-portfolio.ts
+    prices/command/
+      prices-enrich.ts
+      run-prices-enrich.ts
+    links/command/
+      links-run.ts
+      run-links.ts
+    balance/command/
+      balance-view.ts
+      view-balance-snapshots.ts
+      balance-refresh.ts
+      run-balance-refresh.ts
 ```
 
-The second version is still explicit, but the command file is no longer assembling the app graph.
+Notes:
 
-## Guardrails
+- the exact filenames can vary
+- the important thing is `scope + feature runner`, not the suffix
+- existing `*-handler.ts` files may remain temporarily during migration, but
+  they are not the desired end-state contract
 
-### Do not introduce a DI container
+## Concrete Corrections Implied By This Design
 
-The app graph is still small enough that explicit typed composition functions are clearer and cheaper than a container.
+These are not optional polish items. They fall directly out of the target model.
 
-### Do not move business policy into composition
+- remove duplicate price-provider env/config building
+- stop treating `balance view` and `balance refresh` as the same assembled path
+- move `links` prereq orchestration out of app wrapper code
+- stop documenting the CLI in terms of handler tiers
+- stop requiring tests to call different construction paths than production code
 
-Composition should assemble modules and wire lifecycle.
+## Exit Criteria
 
-It should not decide:
+This design is achieved when:
 
-- fallback pricing policy
-- portfolio-specific tolerance rules
-- linking thresholds
-- accounting semantics
-
-### Do not move `projection-runtime.ts` into `composition/` unchanged
-
-`apps/cli/src/features/shared/projection-runtime.ts` currently mixes:
-
-- assembly
-- workflow execution
-- UI monitor wiring
-- console output
-- consumer-specific policy
-
-That file needs a focused split.
-That split is part of this pass, not a deferred cleanup item.
-
-Temporary rule:
-
-- composition files may call it
-- composition files should not absorb its mixed responsibilities wholesale
-
-### Do not let command files import provider packages directly
-
-Command files should stay at the delivery layer.
-
-If a command needs provider-backed infrastructure, it should receive an assembled handler or other assembled value from
-`apps/cli/src/composition/`.
-
-## Exit Criteria For This Temporary Pass
-
-This pass is done when:
-
-- `apps/cli/src/composition/` exists and is the clear CLI composition root
-- `apps/cli/src/index.ts` passes one `CliAppRuntime` into command registration
-- first-pass infrastructure-heavy commands no longer call `ctx.database()` directly
-- first-pass infrastructure-heavy commands no longer call `create*Handler()` directly
-- first-pass infrastructure-heavy commands no longer call `ensureConsumerInputsReady()` directly
-- command files no longer open provider runtimes directly
-
-It is acceptable if:
-
-- some DB-only commands remain inline for now
-- some handler factories still exist and are called from composition files
-- the command runtime stays in its current location for now
-
-## Second-Pass Work After This Temp Plan
-
-After the temporary pass is stable:
-
-1. reduce or eliminate `features/shared/` as a misc bucket
-2. decide case by case whether remaining handler factories should be kept or inlined
-3. push more explicit config normalization to the app runtime so provider helper functions stop reading env/cwd defaults internally
-4. decide whether `command-runtime.ts` should be renamed or moved to a clearer app-level home
+- the CLI has one immutable app runtime
+- each command invocation has one command scope
+- feature execution uses one scope argument instead of `ctx + db + registry`
+- command-scoped provider runtimes are shared within the scope
+- `projection-runtime.ts` has been replaced by explicit prereq functions
+- the composition-wrapper layer is gone
+- the tiered handler model is no longer the documented CLI contract
 
 ## Naming Notes
 
-Recommended naming changes:
+Preferred names:
 
-- `createIngestionInfrastructure` -> `openIngestionCommandRuntime`
-- `createImportHandler` stays temporarily, but the app-layer entry point should be `composeImportHandler`
-- `createPortfolioHandler` stays temporarily, but the app-layer entry point should be `composePortfolioHandler`
+- `app-runtime.ts`
+- `command-scope.ts`
+- `consumer-prereqs.ts`
+- `reset-projections.ts`
+- `run-import.ts`
+- `run-cost-basis.ts`
+- `run-portfolio.ts`
 
-Names to avoid in new code:
+Names to avoid:
 
-- `shared`
-- `utils`
-- `helpers`
-- `runtime` without a capability qualifier
+- `composition/*` for thin pass-through wrappers
+- `handler-contracts` as the primary wiring model
+- `projection-runtime` for a file that really means prereq orchestration
+- vague buckets such as `shared`, `utils`, and `helpers`

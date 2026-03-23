@@ -912,8 +912,8 @@ Notes:
 
 1. Parse + validate CLI options at boundary (Zod schema, including method/jurisdiction compatibility)
 2. Capture `asOf = options.asOf ?? new Date()` once — used everywhere
-3. Init DB + price provider manager
-4. Run `ensureLinks()` then `ensurePrices()` (reuse from `cost-basis-prereqs.ts`; in TUI mode these may mount their own monitor screens before portfolio renders)
+3. Enter command scope, then lazily open DB + shared price runtime from the scope
+4. Run explicit prereq functions such as `ensureConsumerInputs(scope, 'portfolio', ...)`; in TUI mode these may mount their own monitor screens before portfolio renders
 5. Fetch all transactions → `calculateBalances()` → per-asset holdings keyed by assetId
 6. Filter to non-zero holdings
 7. Fetch spot prices in USD for each held asset via `PriceProviderManager.fetchPrice()` with `timestamp: asOf`
@@ -921,12 +921,12 @@ Notes:
 9. Run cost basis calculation: `CostBasisHandler.execute()` with synthetic config (`startDate: new Date(0)`, `endDate: asOf`, `taxYear: asOf.getFullYear()`, `currency: 'USD'`) → extract open lots (lots with `remainingQuantity > 0`) grouped by assetId
 10. `buildPortfolioPositions()` — merge holdings + spot prices + open lots → view items
 11. Render TUI (or output JSON)
-12. On quit: destroy price manager, close DB (always — success and error paths)
+12. On quit: command-scope disposal closes the shared price runtime and DB (always — success and error paths)
 
 ### Lifecycle/Cleanup
 
-- `PriceProviderManager.destroy()` and `database.close()` called in `finally` block on all paths
-- Use `ctx.onCleanup()` pattern from `CommandContext` (same as cost-basis)
+- command-scope disposal owns shared DB + price-runtime cleanup
+- use local `try/finally` only for resources that are not shared across the command
 
 ### Account Breakdown
 

@@ -523,7 +523,8 @@ The existing `EventDrivenController<TEvent>` in `ui/shared/event-driven-controll
 
 ### Phase 3: Workflow Commands
 
-Refactor these commands away from `{ isJsonMode: boolean }` factories:
+Refactor these commands away from `{ isJsonMode: boolean }` factories and
+multi-argument handler constructors:
 
 - `apps/cli/src/features/import/command/import.ts`
 - `apps/cli/src/features/import/command/import-handler.ts`
@@ -551,10 +552,12 @@ The current `executeXxxJSON` / `executeXxxTUI` dual-function pattern sometimes c
 Pseudo-code shape after migration:
 
 ```ts
-const mode = resolvePresentationMode(commandSpec, rawOptions);
-const presenter = createWorkflowPresenter(mode, deps);
-const handler = await createWorkflowHandler(ctx, db, { presenter });
-await handler.execute(params);
+await runCommand(appRuntime, async (scope) => {
+  const mode = resolvePresentationMode(commandSpec, rawOptions);
+  const presenter = createWorkflowPresenter(mode, deps);
+  const result = await runWorkflow(scope, params, { presenter });
+  if (result.isErr()) throw result.error;
+});
 ```
 
 Exit criteria:
@@ -569,13 +572,14 @@ Exit criteria:
 
 This is the highest-risk phase because prereq rebuilds sit underneath multiple top-level commands and can easily regress output-mode consistency. Do not start this phase until Phase 3 workflow presenters and command-level presentation resolution are stable.
 
-Update:
+Current hotspot to replace:
 
 - `apps/cli/src/features/shared/projection-runtime.ts`
 
 Required change:
 
 - replace `isJsonMode` with `presentationMode`
+- move prereq orchestration toward explicit command-scope functions rather than a generic runtime registry
 - allow prereq rebuilds to use either Ink monitor or text-progress monitor
 - preserve a silent machine path for JSON
 
@@ -587,15 +591,16 @@ This is critical for:
 
 Recommended sub-plan:
 
-1. Introduce a projection monitor contract that accepts `presentationMode` instead of `isJsonMode`.
+1. Introduce a prereq monitor contract that accepts `presentationMode` instead of `isJsonMode`.
 2. Implement three monitor variants: Ink, line-oriented text-progress, and silent JSON-safe.
-3. Migrate one command with projection prereqs first, preferably `cost-basis`, and verify each mode separately.
-4. Only then fan the change out to `portfolio` and any other prereq-driven commands.
+3. Replace the current `ProjectionRuntime` registry shape with explicit command-scope prereq functions.
+4. Migrate one command with projection prereqs first, preferably `cost-basis`, and verify each mode separately.
+5. Only then fan the change out to `portfolio` and any other prereq-driven commands.
 
 The projection monitor contract should follow this shape:
 
 ```ts
-interface ProjectionMonitor {
+interface PrereqMonitor {
   notifyRebuildStarted(projection: string): void;
   notifyRebuildProgress(projection: string, event: unknown): void;
   notifyRebuildCompleted(projection: string): void;
@@ -603,7 +608,8 @@ interface ProjectionMonitor {
 }
 ```
 
-The three variants (Ink, text-progress, silent/JSON) implement this interface. The projection runtime receives a `ProjectionMonitor` instead of `isJsonMode: boolean`.
+The three variants (Ink, text-progress, silent/JSON) implement this interface.
+The prereq layer receives a `PrereqMonitor` instead of `isJsonMode: boolean`.
 
 ### Phase 5: Remaining Commands and Cleanup
 
