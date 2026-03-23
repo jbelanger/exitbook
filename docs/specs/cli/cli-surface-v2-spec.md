@@ -501,7 +501,7 @@ Also provide shared option helpers for `--json`, `--text`, and `--tui`, includin
 
 Then retire or narrow:
 
-- `apps/cli/src/features/shared/utils.ts`
+- `apps/cli/src/features/shared/json-mode.ts`
 
 `isJsonMode()` may remain only as a low-level compatibility shim during migration, but it must no longer be the primary decision point.
 

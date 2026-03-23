@@ -6,7 +6,8 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { TransactionsExportCommandOptionsSchema } from '../../shared/schemas.js';
+
+import { TransactionsExportCommandOptionsSchema } from './transactions-option-schemas.js';
 
 /**
  * JSON output shape for transactions export.

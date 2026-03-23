@@ -7,12 +7,12 @@ import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { AssetsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
 import { createAssetsViewState } from '../view/assets-view-state.js';
 
 import { AssetsHandler, type AssetViewItem } from './assets-handler.js';
+import { AssetsViewCommandOptionsSchema } from './assets-option-schemas.js';
 
 type AssetsViewCommandOptions = z.infer<typeof AssetsViewCommandOptionsSchema>;
 

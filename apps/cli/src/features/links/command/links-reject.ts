@@ -7,10 +7,10 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { LinksRejectCommandOptionsSchema } from '../../shared/schemas.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../view/index.js';
 
+import { LinksRejectCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
 
 /**

@@ -11,10 +11,10 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { LinksRunCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 
+import { LinksRunCommandOptionsSchema } from './links-option-schemas.js';
 import { createLinksRunHandler } from './links-run-handler.js';
 
 /**

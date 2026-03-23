@@ -10,6 +10,7 @@ import {
   StandardFxRateProvider,
   type CostBasisDependencyWatermark,
   validateCostBasisInput,
+  validateMethodJurisdictionCombination,
   type ValidatedCostBasisConfig,
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
@@ -728,14 +729,12 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
   }
   const jurisdiction = params.jurisdiction as PortfolioJurisdiction;
 
-  if (jurisdiction === 'CA' && method !== 'average-cost') {
-    return err(
-      new Error(`Canada (CA) portfolio cost basis currently supports only average-cost (ACB). Received '${method}'.`)
-    );
-  }
-
-  if (method === 'average-cost' && jurisdiction !== 'CA') {
-    return err(new Error('Average Cost (ACB) is only supported for Canada (CA).'));
+  const methodJurisdictionResult = validateMethodJurisdictionCombination(
+    method as ValidatedCostBasisConfig['method'],
+    jurisdiction as ValidatedCostBasisConfig['jurisdiction']
+  );
+  if (methodJurisdictionResult.isErr()) {
+    return err(methodJurisdictionResult.error);
   }
 
   const supportedDisplayCurrencies: PortfolioDisplayCurrency[] = ['USD', 'CAD', 'EUR', 'GBP'];

@@ -1,0 +1,45 @@
+import { z } from 'zod';
+
+import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
+
+export const LinksViewCommandOptionsSchema = z
+  .object({
+    status: z.enum(['suggested', 'confirmed', 'rejected', 'gaps']).optional(),
+    minConfidence: z.number().min(0).max(1).optional(),
+    maxConfidence: z.number().min(0).max(1).optional(),
+    verbose: z.boolean().optional(),
+    json: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.minConfidence !== undefined && data.maxConfidence !== undefined) {
+        return data.minConfidence <= data.maxConfidence;
+      }
+      return true;
+    },
+    {
+      message: 'min-confidence must be less than or equal to max-confidence',
+    }
+  );
+
+export const LinksRunCommandOptionsSchema = z
+  .object({
+    minConfidence: z.number().min(0).max(1).optional(),
+    autoConfirmThreshold: z.number().min(0).max(1).optional(),
+    json: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.autoConfirmThreshold !== undefined && data.minConfidence !== undefined) {
+        return data.autoConfirmThreshold >= data.minConfidence;
+      }
+      return true;
+    },
+    {
+      message: 'auto-confirm-threshold must be greater than or equal to min-confidence',
+    }
+  );
+
+export const LinksConfirmCommandOptionsSchema = JsonFlagSchema;
+
+export const LinksRejectCommandOptionsSchema = JsonFlagSchema;

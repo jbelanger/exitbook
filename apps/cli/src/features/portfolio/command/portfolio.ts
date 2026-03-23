@@ -6,14 +6,14 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { PortfolioCommandOptionsSchema } from '../../shared/schemas.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
-import { isJsonMode } from '../../shared/utils.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-types.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
 import { createPortfolioHandler } from './portfolio-handler.js';
+import { PortfolioCommandOptionsSchema } from './portfolio-option-schemas.js';
 import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
 type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;

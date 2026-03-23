@@ -6,9 +6,9 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { TransactionsEditNoteCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { TransactionsEditHandler, type TransactionNoteEditResult } from './transactions-edit-handler.js';
+import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
 
 const TransactionIdArgumentSchema = z.coerce.number().int().positive();
 

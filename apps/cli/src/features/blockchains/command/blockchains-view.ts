@@ -8,9 +8,9 @@ import { renderApp } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { BlockchainsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from '../view/index.js';
 
+import { BlockchainsViewCommandOptionsSchema } from './blockchains-option-schemas.js';
 import type { BlockchainCategory } from './blockchains-view-utils.js';
 import {
   buildBlockchainCatalogItem,

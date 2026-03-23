@@ -8,12 +8,12 @@ import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { ProvidersBenchmarkCommandOptionsSchema } from '../../shared/schemas.js';
 import { BenchmarkApp } from '../view/benchmark-components.jsx';
 import { createBenchmarkState } from '../view/benchmark-state.js';
 
 import { createProviderBenchmarkHandler } from './providers-benchmark-handler.js';
 import { buildConfigOverride } from './providers-benchmark-utils.js';
+import { ProvidersBenchmarkCommandOptionsSchema } from './providers-option-schemas.js';
 
 /**
  * Command options (validated at CLI boundary).

@@ -8,8 +8,8 @@ import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provid
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { PricesSetCommandOptionsSchema } from '../../shared/schemas.js';
 
+import { PricesSetCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 
 /**

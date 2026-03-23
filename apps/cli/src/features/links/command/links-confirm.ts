@@ -7,11 +7,11 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { LinksConfirmCommandOptionsSchema } from '../../shared/schemas.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../view/index.js';
 
 import { LinksConfirmHandler } from './links-confirm-handler.js';
+import { LinksConfirmCommandOptionsSchema } from './links-option-schemas.js';
 
 /**
  * Result data for links confirm command (JSON mode).

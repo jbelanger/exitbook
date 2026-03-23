@@ -20,12 +20,12 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { unwrapResult } from '../../shared/result-utils.js';
-import { CostBasisExportCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 
 import { createCostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import { CostBasisExportCommandOptionsSchema } from './cost-basis-option-schemas.js';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
 
 interface CostBasisExportCommandResult {

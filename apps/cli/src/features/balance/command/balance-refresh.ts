@@ -7,9 +7,8 @@ import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { BalanceRefreshCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
   type AccountVerificationItem,
@@ -21,6 +20,7 @@ import {
 import { sortAssetsByStatus, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
 
 import { createBalanceHandler } from './balance-handler.js';
+import { BalanceRefreshCommandOptionsSchema } from './balance-option-schemas.js';
 import { buildCliExchangeCredentials } from './balance-utils.js';
 
 type BalanceRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsSchema>;

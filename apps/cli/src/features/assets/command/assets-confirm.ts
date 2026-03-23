@@ -5,9 +5,9 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { AssetsConfirmCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { AssetsHandler, type AssetReviewOverrideResult } from './assets-handler.js';
+import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
 
 export function registerAssetsConfirmCommand(assetsCommand: Command): void {
   assetsCommand

@@ -14,11 +14,11 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { PricesEnrichCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 
 import { createPricesEnrichHandler } from './prices-enrich-handler.js';
+import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
 
 /**
  * Register the prices enrich subcommand

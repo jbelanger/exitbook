@@ -8,12 +8,12 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { TransactionsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../../shared/view-utils.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import type { ExportCallbackResult, OnExport } from '../view/index.js';
 
+import { TransactionsViewCommandOptionsSchema } from './transactions-option-schemas.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import { generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';

@@ -6,14 +6,14 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 import { unwrapResult } from '../../shared/result-utils.js';
-import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 
 import type { ImportExecuteResult } from './import-handler.js';
 import { createImportHandler } from './import-handler.js';
+import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import { buildImportParams } from './import-utils.js';
 
 /**

@@ -9,9 +9,9 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { ProvidersViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from '../view/index.js';
 
+import { ProvidersViewCommandOptionsSchema } from './providers-option-schemas.js';
 import { ProvidersViewHandler } from './providers-view-handler.js';
 import { validateHealthFilter, type HealthFilter } from './providers-view-utils.js';
 

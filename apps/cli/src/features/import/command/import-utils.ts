@@ -6,7 +6,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import type { z } from 'zod';
 
-import type { ImportCommandOptionsSchema } from '../../shared/schemas.js';
+import type { ImportCommandOptionsSchema } from './import-option-schemas.js';
 
 /**
  * CLI options validated by Zod at CLI boundary

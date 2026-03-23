@@ -9,8 +9,8 @@ import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provid
 import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { PricesSetFxCommandOptionsSchema } from '../../shared/schemas.js';
 
+import { PricesSetFxCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
 
 /**

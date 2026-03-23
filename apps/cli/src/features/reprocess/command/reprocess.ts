@@ -5,11 +5,11 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { ProcessCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 
 import { createReprocessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
+import { ProcessCommandOptionsSchema } from './reprocess-option-schemas.js';
 
 /**
  * Process command options validated by Zod at CLI boundary

@@ -6,14 +6,14 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
+import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { BalanceViewCommandOptionsSchema } from '../../shared/schemas.js';
-import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
 import { createBalanceHandler } from './balance-handler.js';
+import { BalanceViewCommandOptionsSchema } from './balance-option-schemas.js';
 
 type BalanceViewCommandOptions = z.infer<typeof BalanceViewCommandOptionsSchema>;
 

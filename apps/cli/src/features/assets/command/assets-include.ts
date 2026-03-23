@@ -5,9 +5,9 @@ import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { AssetsIncludeCommandOptionsSchema } from '../../shared/schemas.js';
 
 import { AssetsHandler, type AssetOverrideResult } from './assets-handler.js';
+import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
 
 export function registerAssetsIncludeCommand(assetsCommand: Command): void {
   assetsCommand

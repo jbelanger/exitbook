@@ -9,13 +9,13 @@ import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { LinksViewCommandOptionsSchema } from '../../shared/schemas.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
 import { LinksViewApp, createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../view/index.js';
 
 import { LinksConfirmHandler } from './links-confirm-handler.js';
 import type { LinkGapIssue } from './links-gap-utils.js';
 import { analyzeLinkGaps } from './links-gap-utils.js';
+import { LinksViewCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
 import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';

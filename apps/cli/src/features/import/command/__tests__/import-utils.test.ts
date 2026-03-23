@@ -3,7 +3,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ImportCommandOptionsSchema } from '../../../shared/schemas.js';
+import { ImportCommandOptionsSchema } from '../import-option-schemas.js';
 import { buildImportParams, type ImportCommandOptions } from '../import-utils.js';
 
 function createTestRegistry(): AdapterRegistry {

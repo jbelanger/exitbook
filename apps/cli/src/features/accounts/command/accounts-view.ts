@@ -7,7 +7,6 @@ import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { AccountsViewCommandOptionsSchema } from '../../shared/schemas.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
@@ -15,6 +14,7 @@ import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
 import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
 
+import { AccountsViewCommandOptionsSchema } from './accounts-option-schemas.js';
 import { toAccountViewItem } from './accounts-view-utils.js';
 
 type ViewAccountsParams = AccountQueryParams;

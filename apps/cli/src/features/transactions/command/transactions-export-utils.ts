@@ -6,7 +6,7 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok, resultDo } from '@exitbook/foundation';
 import type { z } from 'zod';
 
-import type { ExportCommandOptionsSchema } from '../../shared/schemas.js';
+import type { ExportCommandOptionsSchema } from './transactions-option-schemas.js';
 
 /**
  * Export command options validated by Zod at CLI boundary

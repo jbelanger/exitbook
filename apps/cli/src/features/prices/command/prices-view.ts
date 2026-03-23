@@ -8,11 +8,11 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { PricesViewCommandOptionsSchema } from '../../shared/schemas.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
 import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../view/index.js';
 
+import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 import { PricesViewHandler } from './prices-view-handler.js';
 import type {

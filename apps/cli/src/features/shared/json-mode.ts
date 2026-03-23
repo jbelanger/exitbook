@@ -1,5 +1,5 @@
 /**
- * Shared CLI utilities.
+ * CLI output mode helpers.
  */
 
 /**
