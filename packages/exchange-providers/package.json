@@ -25,7 +25,7 @@
     "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
-    "ccxt": "^4.5.43",
+    "ccxt": "^4.5.44",
     "jose": "^6.2.2",
     "zod": "^4.3.6"
   },
