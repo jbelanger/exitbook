@@ -7,11 +7,10 @@ import type {
   CanadaDisplayCostBasisReport,
   CanadaTaxInputContext,
   CanadaTaxReport,
-  HistoricalAssetPriceRequest,
-  IHistoricalAssetPriceSource,
 } from '@exitbook/accounting';
 import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime, PriceQuery } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import type {
@@ -39,14 +38,14 @@ interface AccountMetadata {
  */
 export async function fetchSpotPrices(
   assetSymbols: Map<string, Currency>, // assetId -> Currency object
-  historicalAssetPriceSource: IHistoricalAssetPriceSource,
+  priceRuntime: IPriceProviderRuntime,
   asOf: Date
 ): Promise<Map<string, SpotPriceResult>> {
   const results = new Map<string, SpotPriceResult>();
 
   // Build queries (always fetch in USD first)
   const usdCurrency = 'USD' as Currency;
-  const queries: { assetId: string; query: HistoricalAssetPriceRequest }[] = [];
+  const queries: { assetId: string; query: PriceQuery }[] = [];
 
   for (const [assetId, assetSymbol] of assetSymbols.entries()) {
     queries.push({
@@ -60,7 +59,7 @@ export async function fetchSpotPrices(
   }
 
   // Fetch all prices with Promise.allSettled
-  const settled = await Promise.allSettled(queries.map(({ query }) => historicalAssetPriceSource.fetchPrice(query)));
+  const settled = await Promise.allSettled(queries.map(({ query }) => priceRuntime.fetchPrice(query)));
 
   for (let i = 0; i < settled.length; i++) {
     const { assetId } = queries[i]!;

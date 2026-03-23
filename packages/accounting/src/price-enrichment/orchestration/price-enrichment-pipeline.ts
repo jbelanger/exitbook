@@ -18,13 +18,13 @@ import { err, ok, resultTryAsync } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
-import type { IHistoricalAssetPriceSource } from '../../ports/historical-asset-price-source.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import type { PricesFetchResult } from '../enrichment/price-fetch-utils.js';
 import { determineEnrichmentStages } from '../enrichment/price-fetch-utils.js';
-import type { PriceEvent } from '../shared/price-events.js';
+import type { PricingEvent } from '../shared/price-events.js';
 import type { IFxRateProvider } from '../shared/types.js';
 
 import { PriceFetchService } from './price-fetch-service.js';
@@ -32,8 +32,8 @@ import { PriceInferenceService } from './price-inference-service.js';
 import type { NormalizeResult } from './price-normalization-service.js';
 import { PriceNormalizationService } from './price-normalization-service.js';
 
-type StageCompletedResult = Extract<PriceEvent, { type: 'stage.completed' }>['result'];
-type StageName = Extract<PriceEvent, { type: 'stage.started' }>['stage'];
+type StageCompletedResult = Extract<PricingEvent, { type: 'stage.completed' }>['result'];
+type StageName = Extract<PricingEvent, { type: 'stage.started' }>['stage'];
 
 /**
  * Options for the price enrichment pipeline
@@ -103,7 +103,7 @@ export class PriceEnrichmentPipeline {
 
   constructor(
     private readonly store: IPricingPersistence,
-    private readonly eventBus?: EventBus<PriceEvent>,
+    private readonly eventBus?: EventBus<PricingEvent>,
     instrumentation?: InstrumentationCollector,
     private readonly accountingExclusionPolicy?: AccountingExclusionPolicy,
     inferenceService?: PriceInferenceService,
@@ -120,12 +120,12 @@ export class PriceEnrichmentPipeline {
    * Execute the enrichment pipeline.
    *
    * @param options - Pipeline options
-   * @param historicalAssetPriceSource - Historical asset price source for external price lookups
+   * @param priceRuntime - Price provider runtime for external price lookups
    * @param fxRateProvider - FX rate provider for normalization stage
    */
   async execute(
     options: PricesEnrichOptions,
-    historicalAssetPriceSource: IHistoricalAssetPriceSource,
+    priceRuntime: IPriceProviderRuntime,
     fxRateProvider: IFxRateProvider
   ): Promise<Result<PricesEnrichResult, Error>> {
     return resultTryAsync(
@@ -182,11 +182,7 @@ export class PriceEnrichmentPipeline {
           result.fetch = yield* await self.runStage(
             'Stage 3: Fetching missing prices from external providers',
             'marketPrices',
-            () =>
-              self.fetchService.fetchPrices(
-                { asset: options.asset, onMissing: options.onMissing },
-                historicalAssetPriceSource
-              ),
+            () => self.fetchService.fetchPrices({ asset: options.asset, onMissing: options.onMissing }, priceRuntime),
             (value) => ({
               stage: 'marketPrices' as const,
               pricesFetched: value.stats.pricesFetched,

@@ -1,11 +1,10 @@
 import path from 'node:path';
 
-import type { EventBus } from '@exitbook/events';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import type { PriceProviderEvent } from '../contracts/events.js';
+import type { PriceProviderEventSink } from '../contracts/events.js';
 import type { ManualFxRateEntry, ManualPriceEntry } from '../contracts/manual-prices.js';
 import type { PriceData, PriceQuery, ProviderManagerConfig } from '../contracts/types.js';
 import { ManualPriceService } from '../price-cache/manual/service.js';
@@ -44,7 +43,7 @@ export interface PriceProviderRuntimeBehaviorOptions {
 
 export interface PriceProviderRuntimeOptions {
   dataDir: string;
-  eventBus?: EventBus<PriceProviderEvent> | undefined;
+  eventBus?: PriceProviderEventSink | undefined;
   instrumentation?: InstrumentationCollector | undefined;
   behavior?: PriceProviderRuntimeBehaviorOptions | undefined;
   providers?: PriceProviderConfig | undefined;

@@ -17,6 +17,6 @@ export {
   type ToggleablePriceProviderConfig,
 } from './runtime/create-price-provider-runtime.js';
 export { readPriceCacheFreshness } from './price-cache/freshness.js';
-export type { PriceProviderEvent } from './contracts/events.js';
+export type { PriceProviderEvent, PriceProviderEventSink } from './contracts/events.js';
 export type { ManualPriceEntry, ManualFxRateEntry } from './contracts/manual-prices.js';
 export { CoinNotFoundError, PriceDataUnavailableError } from './contracts/errors.js';

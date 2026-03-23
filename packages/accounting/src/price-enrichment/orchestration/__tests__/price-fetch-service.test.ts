@@ -2,12 +2,12 @@
 import { type Currency, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { ok } from '@exitbook/core';
 import type { InstrumentationCollector } from '@exitbook/observability';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import { createAccountingExclusionPolicy } from '../../../cost-basis/standard/validation/accounting-exclusion-policy.js';
-import type { IHistoricalAssetPriceSource } from '../../../ports/historical-asset-price-source.js';
 import type { IPricingPersistence } from '../../../ports/pricing-persistence.js';
 import { PriceFetchService } from '../price-fetch-service.js';
 
@@ -55,8 +55,9 @@ function createMockStore(transactions: Transaction[]): {
   };
 }
 
-function createMockHistoricalAssetPriceSource(): IHistoricalAssetPriceSource {
+function createMockPriceRuntime(): IPriceProviderRuntime {
   return {
+    cleanup: vi.fn().mockResolvedValue(ok(undefined)),
     fetchPrice: vi.fn().mockResolvedValue(
       ok({
         currency: 'USD' as Currency,
@@ -68,7 +69,9 @@ function createMockHistoricalAssetPriceSource(): IHistoricalAssetPriceSource {
         timestamp: new Date('2024-01-01T10:00:00.000Z'),
       })
     ),
-  };
+    setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+    setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+  } as unknown as IPriceProviderRuntime;
 }
 
 function createInstrumentation(): InstrumentationCollector {
@@ -101,7 +104,7 @@ describe('PriceFetchService', () => {
     });
 
     const { store } = createMockStore([tx]);
-    const historicalAssetPriceSource = createMockHistoricalAssetPriceSource();
+    const priceRuntime = createMockPriceRuntime();
     const service = new PriceFetchService(
       store,
       createInstrumentation(),
@@ -109,10 +112,10 @@ describe('PriceFetchService', () => {
       createAccountingExclusionPolicy(['blockchain:ethereum:0xscam'])
     );
 
-    const result = await service.fetchPrices({}, historicalAssetPriceSource);
+    const result = await service.fetchPrices({}, priceRuntime);
 
     expect(result.isOk()).toBe(true);
-    expect(historicalAssetPriceSource.fetchPrice).not.toHaveBeenCalled();
+    expect(priceRuntime.fetchPrice).not.toHaveBeenCalled();
     expect(store.saveTransactionPrices).not.toHaveBeenCalled();
 
     if (result.isOk()) {
@@ -143,7 +146,7 @@ describe('PriceFetchService', () => {
     });
 
     const { store, getUpdatedTx } = createMockStore([tx]);
-    const historicalAssetPriceSource = createMockHistoricalAssetPriceSource();
+    const priceRuntime = createMockPriceRuntime();
     const service = new PriceFetchService(
       store,
       createInstrumentation(),
@@ -151,10 +154,10 @@ describe('PriceFetchService', () => {
       createAccountingExclusionPolicy([excludedAssetId])
     );
 
-    const result = await service.fetchPrices({}, historicalAssetPriceSource);
+    const result = await service.fetchPrices({}, priceRuntime);
 
     expect(result.isOk()).toBe(true);
-    expect(historicalAssetPriceSource.fetchPrice).toHaveBeenCalledTimes(1);
+    expect(priceRuntime.fetchPrice).toHaveBeenCalledTimes(1);
 
     const updatedTx = getUpdatedTx(tx.id);
     const includedMovement = updatedTx?.movements.inflows?.find((movement) => movement.assetId === includedAssetId);

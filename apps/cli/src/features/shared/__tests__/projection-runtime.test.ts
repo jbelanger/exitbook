@@ -87,7 +87,6 @@ describe('projection-runtime', () => {
     mockOpenCliPriceProviderRuntime.mockResolvedValue(
       ok({
         fetchPrice,
-        historicalAssetPriceSource: { fetchPrice },
         cleanup: vi.fn().mockResolvedValue(ok(undefined)),
         setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
         setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),

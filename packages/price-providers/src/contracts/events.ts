@@ -13,3 +13,7 @@ export type PriceProviderEvent =
       providerCount: number;
       type: 'providers.ready';
     };
+
+export interface PriceProviderEventSink {
+  emit(event: PriceProviderEvent): void;
+}

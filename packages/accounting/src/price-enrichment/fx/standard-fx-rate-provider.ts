@@ -1,30 +1,30 @@
 /**
- * Standard FX rate provider using a historical asset price source
+ * Standard FX rate provider backed by the shared price provider runtime.
  *
  * This implementation fetches FX rates from external providers (ECB, Bank of Canada)
- * using the host-composed historical price source.
+ * using the host-composed runtime.
  */
 
 import type { Currency } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/core';
 import type { Result } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { IHistoricalAssetPriceSource } from '../../ports/historical-asset-price-source.js';
 import type { FxRateData, IFxRateProvider } from '../shared/types.js';
 
 /**
- * Standard implementation that delegates to a historical asset price source.
+ * Standard implementation that delegates to the shared price runtime.
  */
 export class StandardFxRateProvider implements IFxRateProvider {
-  constructor(private readonly historicalAssetPriceSource: IHistoricalAssetPriceSource) {}
+  constructor(private readonly priceRuntime: IPriceProviderRuntime) {}
 
   async getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
-    // Fetch FX rate from the host-composed price source.
+    // Fetch FX rate from the host-composed price runtime.
     // The source may still be backed by PriceProviderManager, which scores candidates
     // per request (asset support, health, granularity).
     // so EUR typically hits ECB first, CAD hits Bank of Canada, with Frankfurter as fallback.
-    const fxRateResult = await this.historicalAssetPriceSource.fetchPrice({
+    const fxRateResult = await this.priceRuntime.fetchPrice({
       assetSymbol: sourceCurrency,
       currency: 'USD' as Currency,
       timestamp,
@@ -48,7 +48,7 @@ export class StandardFxRateProvider implements IFxRateProvider {
   async getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>> {
     // To get USD → target, we fetch target → USD and invert the rate
     // Example: CAD → USD = 0.74, so USD → CAD = 1/0.74 = 1.35
-    const fxRateResult = await this.historicalAssetPriceSource.fetchPrice({
+    const fxRateResult = await this.priceRuntime.fetchPrice({
       assetSymbol: targetCurrency,
       currency: 'USD' as Currency,
       timestamp,

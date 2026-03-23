@@ -1,38 +1,40 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 /**
  * Tests for StandardFxRateProvider
  *
- * Verifies that the provider correctly delegates to a historical asset price source
+ * Verifies that the provider correctly delegates to the shared price runtime
  * and handles rate inversion for getRateFromUSD
  */
 
 import { type Currency, parseDecimal } from '@exitbook/core';
 import { err, ok } from '@exitbook/core';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IHistoricalAssetPriceSource } from '../../../ports/historical-asset-price-source.js';
 import { StandardFxRateProvider } from '../standard-fx-rate-provider.js';
 
 describe('StandardFxRateProvider', () => {
-  let mockHistoricalAssetPriceSource: IHistoricalAssetPriceSource;
+  let mockPriceRuntime: IPriceProviderRuntime;
   let provider: StandardFxRateProvider;
 
   beforeEach(() => {
-    mockHistoricalAssetPriceSource = {
+    mockPriceRuntime = {
       fetchPrice: vi.fn(),
-    };
+      cleanup: vi.fn(),
+      setManualFxRate: vi.fn(),
+      setManualPrice: vi.fn(),
+    } as unknown as IPriceProviderRuntime;
 
-    provider = new StandardFxRateProvider(mockHistoricalAssetPriceSource);
+    provider = new StandardFxRateProvider(mockPriceRuntime);
   });
 
   describe('getRateToUSD', () => {
-    it('fetches EUR → USD rate from the historical asset price source', async () => {
+    it('fetches EUR → USD rate from the shared price runtime', async () => {
       const mockRate = parseDecimal('1.08');
       const mockFetchedAt = new Date('2023-01-15T10:00:00Z');
       const timestamp = new Date('2023-01-15T10:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'EUR' as Currency,
           timestamp,
@@ -53,19 +55,19 @@ describe('StandardFxRateProvider', () => {
         expect(result.value.fetchedAt).toEqual(mockFetchedAt);
       }
 
-      expect(mockHistoricalAssetPriceSource.fetchPrice).toHaveBeenCalledWith({
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledWith({
         assetSymbol: 'EUR' as Currency,
         currency: 'USD' as Currency,
         timestamp: new Date('2023-01-15T10:00:00Z'),
       });
     });
 
-    it('fetches CAD → USD rate from the historical asset price source', async () => {
+    it('fetches CAD → USD rate from the shared price runtime', async () => {
       const mockRate = parseDecimal('0.74');
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'CAD' as Currency,
           timestamp,
@@ -88,7 +90,7 @@ describe('StandardFxRateProvider', () => {
     });
 
     it('returns error when price manager fails', async () => {
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(err(new Error('Provider unavailable')));
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(err(new Error('Provider unavailable')));
 
       const result = await provider.getRateToUSD('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
 
@@ -107,7 +109,7 @@ describe('StandardFxRateProvider', () => {
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'CAD' as Currency,
           timestamp,
@@ -131,7 +133,7 @@ describe('StandardFxRateProvider', () => {
       }
 
       // Should fetch CAD → USD and then invert
-      expect(mockHistoricalAssetPriceSource.fetchPrice).toHaveBeenCalledWith({
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledWith({
         assetSymbol: 'CAD' as Currency,
         currency: 'USD' as Currency,
         timestamp: new Date('2023-06-20T00:00:00Z'),
@@ -144,7 +146,7 @@ describe('StandardFxRateProvider', () => {
       const mockFetchedAt = new Date('2023-01-15T10:00:00Z');
       const timestamp = new Date('2023-01-15T10:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'EUR' as Currency,
           timestamp,
@@ -168,9 +170,7 @@ describe('StandardFxRateProvider', () => {
     });
 
     it('returns error when price manager fails', async () => {
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
-        err(new Error('No providers available'))
-      );
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(err(new Error('No providers available')));
 
       const result = await provider.getRateFromUSD('CAD' as Currency, new Date('2023-06-20T00:00:00Z'));
 
@@ -186,7 +186,7 @@ describe('StandardFxRateProvider', () => {
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'CAD' as Currency,
           timestamp,
@@ -213,7 +213,7 @@ describe('StandardFxRateProvider', () => {
       const mockFetchedAt = new Date('2023-06-20T00:00:00Z');
       const timestamp = new Date('2023-06-20T00:00:00Z');
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: 'CAD' as Currency,
           timestamp,
@@ -246,7 +246,7 @@ describe('StandardFxRateProvider', () => {
       const timestamp = new Date('2023-06-20T00:00:00Z');
       const cad = 'CAD' as Currency;
 
-      vi.spyOn(mockHistoricalAssetPriceSource, 'fetchPrice').mockResolvedValue(
+      vi.spyOn(mockPriceRuntime, 'fetchPrice').mockResolvedValue(
         ok({
           assetSymbol: cad,
           timestamp,

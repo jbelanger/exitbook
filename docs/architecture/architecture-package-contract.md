@@ -159,7 +159,7 @@ A feature package owns a business capability, its use-cases, and the ports it co
 - `CreateAccount`
 - `ProcessingPorts`
 - `CostBasisContextReader`
-- `HistoricalAssetPriceSource`
+- `IFxRateProvider`
 
 #### Must not contain
 

@@ -149,10 +149,6 @@ export type {
   ICostBasisArtifactStore,
   ICostBasisContextReader,
   ICostBasisDependencyWatermarkReader,
-  HistoricalAssetPrice,
-  HistoricalAssetPriceGranularity,
-  HistoricalAssetPriceRequest,
-  IHistoricalAssetPriceSource,
 } from './ports/index.js';
 
 // Linking orchestrator
@@ -180,7 +176,7 @@ export {
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
 
-export type { PriceEvent } from './price-enrichment/shared/price-events.js';
+export type { PricingEvent } from './price-enrichment/shared/price-events.js';
 export {
   validateAssetFilter,
   extractAssetsNeedingPrices,

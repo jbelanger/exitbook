@@ -1,13 +1,11 @@
+import type { PriceProviderEvent } from '@exitbook/price-providers';
+
 /**
- * Events emitted by price enrichment operations.
- * Used for CLI progress display and UI decoupling.
+ * Events emitted during pricing workflows.
+ * Includes provider lifecycle events and price enrichment stage events.
  */
 
-export type PriceEvent =
-  // Provider lifecycle events (mirrored from @exitbook/price-providers to avoid cross-package coupling)
-  | { type: 'providers.initializing' }
-  | { providerCount: number; type: 'providers.ready'; }
-  // Stage lifecycle events
+export type PricingStageEvent =
   | {
       /**
        * Emitted when an enrichment stage begins.
@@ -56,3 +54,5 @@ export type PriceEvent =
       total: number;
       type: 'stage.progress';
     };
+
+export type PricingEvent = PriceProviderEvent | PricingStageEvent;

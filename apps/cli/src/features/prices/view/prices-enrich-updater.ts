@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 
-import type { PriceEvent } from '@exitbook/accounting';
+import type { PricingEvent } from '@exitbook/accounting';
 import type { RequestMetric } from '@exitbook/observability';
 
 import { createProviderStats } from '../../../ui/shared/index.js';
@@ -16,7 +16,7 @@ const RATE_WINDOW_MS = 5000;
 type PricesEnrichAction =
   | { apiCalls: ApiCallStats; type: 'refresh' }
   | { errorMessage: string; type: 'fail' }
-  | { event: PriceEvent; type: 'event' }
+  | { event: PricingEvent; type: 'event' }
   | { type: 'abort' }
   | { type: 'complete' };
 
@@ -55,7 +55,7 @@ export function pricesEnrichReducer(state: PricesEnrichState, action: PricesEnri
   }
 }
 
-function applyEvent(state: PricesEnrichState, event: PriceEvent): PricesEnrichState {
+function applyEvent(state: PricesEnrichState, event: PricingEvent): PricesEnrichState {
   switch (event.type) {
     case 'providers.initializing':
       return { ...state, providerInit: { status: 'active', startedAt: performance.now() } };
@@ -78,7 +78,7 @@ function applyEvent(state: PricesEnrichState, event: PriceEvent): PricesEnrichSt
 
 function applyStageStarted(
   state: PricesEnrichState,
-  stage: (PriceEvent & { type: 'stage.started' })['stage']
+  stage: (PricingEvent & { type: 'stage.started' })['stage']
 ): PricesEnrichState {
   const now = performance.now();
 
@@ -121,7 +121,7 @@ function applyStageStarted(
 
 function applyStageCompleted(
   state: PricesEnrichState,
-  result: (PriceEvent & { type: 'stage.completed' })['result']
+  result: (PricingEvent & { type: 'stage.completed' })['result']
 ): PricesEnrichState {
   const now = performance.now();
 
@@ -182,7 +182,7 @@ function applyStageCompleted(
   }
 }
 
-function applyStageFailed(state: PricesEnrichState, event: PriceEvent & { type: 'stage.failed' }): PricesEnrichState {
+function applyStageFailed(state: PricesEnrichState, event: PricingEvent & { type: 'stage.failed' }): PricesEnrichState {
   const now = performance.now();
   const base: PricesEnrichState = {
     ...state,
@@ -212,7 +212,7 @@ function applyStageFailed(state: PricesEnrichState, event: PriceEvent & { type: 
 
 function applyStageProgress(
   state: PricesEnrichState,
-  event: PriceEvent & { type: 'stage.progress' }
+  event: PricingEvent & { type: 'stage.progress' }
 ): PricesEnrichState {
   if (!state.marketPrices) return state;
   return {

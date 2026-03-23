@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 
-import type { PriceEvent } from '@exitbook/accounting';
+import type { PricingEvent } from '@exitbook/accounting';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
@@ -22,7 +22,7 @@ const REFRESH_INTERVAL_MS = 250;
 // --- Hook ---
 
 function usePricesEnrichState(
-  relay: EventRelay<PriceEvent>,
+  relay: EventRelay<PricingEvent>,
   lifecycle: LifecycleBridge,
   instrumentation: InstrumentationCollector
 ): PricesEnrichState {
@@ -35,7 +35,7 @@ function usePricesEnrichState(
     lifecycle.onFail = (errorMessage: string) => dispatch({ type: 'fail', errorMessage });
     lifecycle.onComplete = () => dispatch({ type: 'complete' });
 
-    const disconnect = relay.connect((event: PriceEvent) => {
+    const disconnect = relay.connect((event: PricingEvent) => {
       dispatch({ type: 'event', event });
     });
 
@@ -66,7 +66,7 @@ function usePricesEnrichState(
 interface PricesEnrichMonitorProps {
   instrumentation: InstrumentationCollector;
   lifecycle: LifecycleBridge;
-  relay: EventRelay<PriceEvent>;
+  relay: EventRelay<PricingEvent>;
 }
 
 export const PricesEnrichMonitor: FC<PricesEnrichMonitorProps> = ({ relay, lifecycle, instrumentation }) => {

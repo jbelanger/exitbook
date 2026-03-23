@@ -5,7 +5,6 @@
 import {
   CostBasisWorkflow,
   type AccountingExclusionPolicy,
-  type IHistoricalAssetPriceSource,
   persistCostBasisFailureSnapshot,
   runCanadaCostBasisCalculation,
   StandardFxRateProvider,
@@ -22,6 +21,7 @@ import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -96,11 +96,11 @@ export class PortfolioHandler {
   fxRateProvider: StandardFxRateProvider;
   constructor(
     private readonly db: DataContext,
-    private readonly historicalAssetPriceSource: IHistoricalAssetPriceSource,
+    private readonly priceRuntime: IPriceProviderRuntime,
     private readonly dataDir: string,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
   ) {
-    this.fxRateProvider = new StandardFxRateProvider(this.historicalAssetPriceSource);
+    this.fxRateProvider = new StandardFxRateProvider(this.priceRuntime);
   }
 
   /**
@@ -188,14 +188,14 @@ export class PortfolioHandler {
         }
       }
 
-      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, this.historicalAssetPriceSource, asOf);
+      const fetchedSpotPrices = await fetchSpotPrices(symbolsToPrice, this.priceRuntime, asOf);
       const spotPrices = new Map<string, SpotPriceResult>([...invalidSymbolPrices, ...fetchedSpotPrices]);
 
       const warnings: string[] = [...fiatFlowWarnings];
       let fxRate: Decimal | undefined;
       let effectiveDisplayCurrency = displayCurrency;
       if (displayCurrency !== 'USD') {
-        const fxResult = await this.historicalAssetPriceSource.fetchPrice({
+        const fxResult = await this.priceRuntime.fetchPrice({
           assetSymbol: displayCurrency,
           timestamp: asOf,
           currency: 'USD' as Currency,
@@ -680,14 +680,7 @@ export async function createPortfolioHandler(
   ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
   prereqAbort = undefined;
-  return ok(
-    new PortfolioHandler(
-      database,
-      priceRuntime.historicalAssetPriceSource,
-      dataDir,
-      accountingExclusionPolicyResult.value
-    )
-  );
+  return ok(new PortfolioHandler(database, priceRuntime, dataDir, accountingExclusionPolicyResult.value));
 }
 
 function emptyPortfolioResult(

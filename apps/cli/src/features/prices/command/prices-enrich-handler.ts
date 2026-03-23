@@ -1,7 +1,7 @@
 import {
   PriceEnrichmentPipeline,
+  type PricingEvent,
   StandardFxRateProvider,
-  type PriceEvent,
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
@@ -10,6 +10,7 @@ import { buildPricingPorts, type DataContext } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -27,8 +28,8 @@ const logger = getLogger('PricesEnrichHandler');
 class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
   constructor(
     private readonly pipeline: PriceEnrichmentPipeline,
-    private readonly historicalAssetPriceSource: import('@exitbook/accounting').IHistoricalAssetPriceSource,
-    private readonly controller: EventDrivenController<PriceEvent> | undefined
+    private readonly priceRuntime: IPriceProviderRuntime,
+    private readonly controller: EventDrivenController<PricingEvent> | undefined
   ) {}
 
   async execute(params: PricesEnrichOptions): Promise<Result<PricesEnrichResult, Error>> {
@@ -37,8 +38,8 @@ class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, 
         await this.controller.start();
       }
 
-      const fxRateProvider = new StandardFxRateProvider(this.historicalAssetPriceSource);
-      const result = await this.pipeline.execute(params, this.historicalAssetPriceSource, fxRateProvider);
+      const fxRateProvider = new StandardFxRateProvider(this.priceRuntime);
+      const result = await this.pipeline.execute(params, this.priceRuntime, fxRateProvider);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -102,10 +103,10 @@ export async function createPricesEnrichHandler(
     ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
     const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
-    return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, undefined));
+    return ok(new PricesEnrichHandler(pipeline, priceRuntime, undefined));
   }
 
-  const eventBus = new EventBus<PriceEvent>({
+  const eventBus = new EventBus<PricingEvent>({
     onError: (busErr) => {
       logger.error({ err: busErr }, 'EventBus error');
     },
@@ -123,5 +124,5 @@ export async function createPricesEnrichHandler(
   ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
 
   const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-  return ok(new PricesEnrichHandler(pipeline, priceRuntime.historicalAssetPriceSource, controller));
+  return ok(new PricesEnrichHandler(pipeline, priceRuntime, controller));
 }

@@ -4,10 +4,10 @@ import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingExclusionPolicy } from '../../cost-basis/standard/validation/accounting-exclusion-policy.js';
-import type { IHistoricalAssetPriceSource } from '../../ports/historical-asset-price-source.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import {
   enrichFeesWithPricesByAssetId,
@@ -20,7 +20,7 @@ import {
   initializeStats,
   validateAssetFilter,
 } from '../enrichment/price-fetch-utils.js';
-import type { PriceEvent } from '../shared/price-events.js';
+import type { PricingEvent } from '../shared/price-events.js';
 
 const logger = getLogger('PriceFetchService');
 
@@ -48,7 +48,7 @@ export class PriceFetchService {
   constructor(
     private readonly store: IPricingPersistence,
     private readonly instrumentation: InstrumentationCollector,
-    private readonly eventBus?: EventBus<PriceEvent>,
+    private readonly eventBus?: EventBus<PricingEvent>,
     private readonly accountingExclusionPolicy?: AccountingExclusionPolicy
   ) {}
 
@@ -56,11 +56,11 @@ export class PriceFetchService {
    * Fetch prices for transactions.
    *
    * @param options - Fetch options
-   * @param historicalAssetPriceSource - Historical asset price source for external price lookups
+   * @param priceRuntime - Price provider runtime for external price lookups
    */
   async fetchPrices(
     options: PriceFetchOptions,
-    historicalAssetPriceSource: IHistoricalAssetPriceSource
+    priceRuntime: IPriceProviderRuntime
   ): Promise<Result<PricesFetchResult, Error>> {
     const errors: string[] = [];
 
@@ -154,7 +154,7 @@ export class PriceFetchService {
           continue;
         }
 
-        const priceResult = await historicalAssetPriceSource.fetchPrice(queryResult.value);
+        const priceResult = await priceRuntime.fetchPrice(queryResult.value);
 
         if (priceResult.isErr()) {
           logger.warn(`Failed to fetch price for ${assetSymbol} in transaction ${tx.id}: ${priceResult.error.message}`);

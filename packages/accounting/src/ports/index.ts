@@ -14,11 +14,5 @@ export type {
 export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence.js';
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';
-export type {
-  HistoricalAssetPrice,
-  HistoricalAssetPriceGranularity,
-  HistoricalAssetPriceRequest,
-  IHistoricalAssetPriceSource,
-} from './historical-asset-price-source.js';
 export type { IPricingPersistence, PricingContext } from './pricing-persistence.js';
 export type { IPriceCoverageData } from './transaction-price-coverage.js';

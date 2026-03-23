@@ -3,6 +3,7 @@ import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '
 import { err, ok, type Currency, type Transaction } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -148,7 +149,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
 describe('PortfolioHandler', () => {
   let handler: PortfolioHandler;
   let mockDb: DataContext;
-  let mockHistoricalAssetPriceSource: { fetchPrice: Mock };
+  let mockPriceRuntime: IPriceProviderRuntime;
   let transactionRepo: { findAll: Mock };
   let accountRepo: { findAll: Mock };
   const tx = createTransaction();
@@ -165,7 +166,7 @@ describe('PortfolioHandler', () => {
       accounts: accountRepo,
     } as unknown as DataContext;
 
-    mockHistoricalAssetPriceSource = {
+    mockPriceRuntime = {
       fetchPrice: vi.fn().mockResolvedValue(
         ok({
           assetSymbol: 'BTC' as Currency,
@@ -176,6 +177,9 @@ describe('PortfolioHandler', () => {
           fetchedAt: new Date('2025-01-01T00:00:00.000Z'),
         })
       ),
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
     vi.mocked(calculateBalances).mockReturnValue({
@@ -337,7 +341,7 @@ describe('PortfolioHandler', () => {
 
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    handler = new PortfolioHandler(mockDb, mockHistoricalAssetPriceSource as never, '/tmp/test-data');
+    handler = new PortfolioHandler(mockDb, mockPriceRuntime, '/tmp/test-data');
   });
 
   it('routes CA portfolio calculations through the Canada path instead of the standard workflow', async () => {
@@ -483,7 +487,7 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    handler = new PortfolioHandler(mockDb, mockHistoricalAssetPriceSource as never, '/tmp/test-data', {
+    handler = new PortfolioHandler(mockDb, mockPriceRuntime, '/tmp/test-data', {
       excludedAssetIds: new Set(['blockchain:base:0xspam']),
     });
 

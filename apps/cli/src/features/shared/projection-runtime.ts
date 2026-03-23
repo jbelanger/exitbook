@@ -3,9 +3,9 @@ import {
   checkTransactionPriceCoverage,
   LinkingOrchestrator,
   PriceEnrichmentPipeline,
+  type PricingEvent,
   StandardFxRateProvider,
   type LinkingEvent,
-  type PriceEvent,
 } from '@exitbook/accounting';
 import {
   type ProjectionId,
@@ -395,8 +395,8 @@ async function ensureTransactionPricesReady(
     const priceRuntime = priceRuntimeResult.value;
     try {
       const pipeline = new PriceEnrichmentPipeline(store, undefined, undefined, accountingExclusionPolicy);
-      const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
-      const result = await pipeline.execute({}, priceRuntime.historicalAssetPriceSource, fxRateProvider);
+      const fxRateProvider = new StandardFxRateProvider(priceRuntime);
+      const result = await pipeline.execute({}, priceRuntime, fxRateProvider);
       if (result.isErr()) return err(result.error);
       const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
       if (postCoverageResult.isErr()) return err(postCoverageResult.error);
@@ -413,7 +413,7 @@ async function ensureTransactionPricesReady(
   console.log('\nPrices missing for requested date range, running enrichment...\n');
 
   // TUI mode: mount PricesEnrichMonitor
-  const eventBus = new EventBus<PriceEvent>({
+  const eventBus = new EventBus<PricingEvent>({
     onError: (error) => {
       logger.error({ error }, 'EventBus error during price enrichment');
     },
@@ -444,8 +444,8 @@ async function ensureTransactionPricesReady(
     await controller.start();
 
     const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-    const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
-    const result = await pipeline.execute({}, priceRuntime.historicalAssetPriceSource, fxRateProvider);
+    const fxRateProvider = new StandardFxRateProvider(priceRuntime);
+    const result = await pipeline.execute({}, priceRuntime, fxRateProvider);
 
     if (result.isErr()) {
       controller.fail(result.error.message);

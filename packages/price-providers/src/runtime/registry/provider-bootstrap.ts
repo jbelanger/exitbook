@@ -1,10 +1,9 @@
-import type { EventBus } from '@exitbook/events';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import type { PriceProviderEvent } from '../../contracts/events.js';
+import type { PriceProviderEventSink } from '../../contracts/events.js';
 import type { IPriceProvider } from '../../contracts/types.js';
 import { initPriceCachePersistence } from '../../price-cache/persistence/runtime.js';
 
@@ -42,7 +41,7 @@ export interface ProviderFactoryConfig {
     enabled?: boolean | undefined;
   };
   /** Optional event bus for provider lifecycle events */
-  eventBus?: EventBus<PriceProviderEvent> | undefined;
+  eventBus?: PriceProviderEventSink | undefined;
   frankfurter?: {
     enabled?: boolean | undefined;
   };

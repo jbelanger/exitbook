@@ -101,7 +101,7 @@ export class CostBasisHandler {
     const priceRuntime = priceRuntimeResult.value;
     const executionResult = await (async (): Promise<Result<PreparedCostBasisArtifactResult, Error>> => {
       try {
-        const fxRateProvider = new StandardFxRateProvider(priceRuntime.historicalAssetPriceSource);
+        const fxRateProvider = new StandardFxRateProvider(priceRuntime);
         const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
         const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 

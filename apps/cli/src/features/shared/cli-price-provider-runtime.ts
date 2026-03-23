@@ -1,28 +1,20 @@
-import type { IHistoricalAssetPriceSource, PriceEvent } from '@exitbook/accounting';
+import type { PricingEvent } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
-import {
-  createPriceProviderRuntime,
-  type PriceProviderEvent,
-  type IPriceProviderRuntime,
-} from '@exitbook/price-providers';
+import { createPriceProviderRuntime, type IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import { getDataDir } from './data-dir.js';
 
 export interface CliPriceProviderRuntimeOptions {
   dataDir?: string | undefined;
-  eventBus?: EventBus<PriceEvent> | undefined;
+  eventBus?: EventBus<PricingEvent> | undefined;
   instrumentation?: InstrumentationCollector | undefined;
-}
-
-export interface OpenedCliPriceProviderRuntime extends IPriceProviderRuntime {
-  historicalAssetPriceSource: IHistoricalAssetPriceSource;
 }
 
 export async function openCliPriceProviderRuntime(
   options?: CliPriceProviderRuntimeOptions
-): Promise<Result<OpenedCliPriceProviderRuntime, Error>> {
+): Promise<Result<IPriceProviderRuntime, Error>> {
   const runtimeResult = await createPriceProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
     providers: {
@@ -35,23 +27,18 @@ export async function openCliPriceProviderRuntime(
       },
     },
     instrumentation: options?.instrumentation,
-    // PriceEvent is a superset of PriceProviderEvent; cast is safe because the
-    // price-providers package only ever calls bus.emit(PriceProviderEvent)
-    eventBus: options?.eventBus as EventBus<PriceProviderEvent> | undefined,
+    eventBus: options?.eventBus,
   });
   if (runtimeResult.isErr()) {
     return err(runtimeResult.error);
   }
 
-  return ok({
-    ...runtimeResult.value,
-    historicalAssetPriceSource: runtimeResult.value as IHistoricalAssetPriceSource,
-  });
+  return ok(runtimeResult.value);
 }
 
 export async function withCliPriceProviderRuntime<T>(
   options: CliPriceProviderRuntimeOptions | undefined,
-  operation: (runtime: OpenedCliPriceProviderRuntime) => Promise<T>
+  operation: (runtime: IPriceProviderRuntime) => Promise<T>
 ): Promise<Result<T, Error>> {
   const runtimeResult = await openCliPriceProviderRuntime(options);
   if (runtimeResult.isErr()) {
@@ -87,7 +74,7 @@ export async function withCliPriceProviderRuntime<T>(
 
 export async function withCliPriceProviderRuntimeResult<T>(
   options: CliPriceProviderRuntimeOptions | undefined,
-  operation: (runtime: OpenedCliPriceProviderRuntime) => Promise<Result<T, Error>>
+  operation: (runtime: IPriceProviderRuntime) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return withCliPriceProviderRuntime(options, async (runtime) => {
     const operationResult = await operation(runtime);
