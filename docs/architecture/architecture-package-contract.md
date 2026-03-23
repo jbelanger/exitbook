@@ -488,7 +488,7 @@ For the CLI, the preferred shape is:
 - one immutable app runtime, for example `apps/cli/src/runtime/app-runtime.ts`
 - one per-command scope, for example `apps/cli/src/runtime/command-scope.ts`
 - explicit feature runner functions under feature command directories
-- explicit prereq helpers, for example `apps/cli/src/runtime/consumer-prereqs.ts`
+- explicit prereq helpers, currently `apps/cli/src/features/shared/consumer-input-prereqs.ts`
 
 The important rule is ownership, not a `composition/` directory.
 

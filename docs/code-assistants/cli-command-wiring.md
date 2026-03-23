@@ -65,12 +65,14 @@ Preferred shape:
 runtime/
   app-runtime.ts
   command-scope.ts
-  consumer-prereqs.ts
-  reset-projections.ts
 
 features/<feature>/command/
   <feature>.ts         - Commander registration, option parsing, JSON/TUI dispatch, rendering
   run-<feature>.ts     - feature execution against CommandScope
+
+features/shared/
+  consumer-input-prereqs.ts   - explicit CLI prereq orchestration only
+  asset-review-projection-runtime.ts
 ```
 
 Existing `*-handler.ts` files may remain during migration, but they are not the
@@ -106,11 +108,17 @@ Do not hide prereq orchestration behind a generic runtime registry.
 
 Prefer explicit functions such as:
 
-- `ensureProcessedTransactions(scope)`
-- `ensureAssetReview(scope)`
-- `ensureLinks(scope)`
+- `ensureProcessedTransactionsReady(scope, options)`
+- `ensureAssetReviewReady(scope)`
+- `ensureLinksReady(scope, options)`
 - `ensurePriceCoverage(scope, window, policy)`
 - `ensureConsumerInputs(scope, target, options)`
+
+The current CLI file for this is:
+
+- `apps/cli/src/features/shared/consumer-input-prereqs.ts`
+
+Keep that file flat and explicit. Do not reintroduce a registry or strategy map for prereq execution.
 
 ## Cleanup
 

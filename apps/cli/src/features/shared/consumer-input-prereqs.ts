@@ -7,14 +7,12 @@ import {
   StandardFxRateProvider,
   type LinkingEvent,
 } from '@exitbook/accounting';
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import {
   type ProjectionId,
   type ProjectionStatus,
   err,
   ok,
   parseDecimal,
-  rebuildPlan,
   resetPlan,
   type Result,
 } from '@exitbook/core';
@@ -33,10 +31,9 @@ import {
   type DataContext,
 } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
+import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
-import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import type { CommandScope } from '../../runtime/command-scope.js';
 import { createEventDrivenController } from '../../ui/shared/index.js';
@@ -58,72 +55,63 @@ interface PrereqFreshnessResult {
   reason: string | undefined;
 }
 
-interface ConsumerInputPrereq {
-  checkFreshness(): Promise<Result<PrereqFreshnessResult, Error>>;
-  rebuild(): Promise<Result<void, Error>>;
-}
-
-interface ConsumerInputPrereqDeps {
-  db: DataContext;
-  registry: AdapterRegistry;
-  dataDir: string;
-  isJsonMode: boolean;
-  blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
-  priceProviderConfig?: PriceProviderConfig | undefined;
-  setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
-}
-
 type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
+type RebuildablePrereqId = Exclude<ProjectionId, 'balances'>;
 
 interface PricePrereqConfig {
   startDate: Date;
   endDate: Date;
 }
 
-interface EnsureConsumerInputsReadyOptions {
-  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+interface PrereqExecutionOptions {
   isJsonMode: boolean;
-  priceConfig?: PricePrereqConfig | undefined;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
 }
 
-type GlobalProjectionId = Exclude<ProjectionId, 'balances'>;
-
-// ---------------------------------------------------------------------------
-// Consumer prereq registry
-// ---------------------------------------------------------------------------
-
-function buildConsumerInputPrereqRegistry(
-  deps: ConsumerInputPrereqDeps
-): Record<GlobalProjectionId, ConsumerInputPrereq> {
-  return {
-    'processed-transactions': buildProcessedTransactionsPrereq(deps),
-    'asset-review': buildAssetReviewPrereq(deps),
-    links: buildLinksPrereq(deps),
-  };
+interface EnsureConsumerInputsReadyOptions extends PrereqExecutionOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  priceConfig?: PricePrereqConfig | undefined;
 }
 
-// ---------------------------------------------------------------------------
-// processed-transactions prereq
-// ---------------------------------------------------------------------------
+async function rebuildIfStale(
+  projectionId: RebuildablePrereqId,
+  checkFreshness: () => Promise<Result<PrereqFreshnessResult, Error>>,
+  rebuild: (freshness: PrereqFreshnessResult) => Promise<Result<void, Error>>
+): Promise<Result<void, Error>> {
+  const freshnessResult = await checkFreshness();
+  if (freshnessResult.isErr()) {
+    return err(freshnessResult.error);
+  }
 
-function buildProcessedTransactionsPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
-  const { db, registry, isJsonMode, dataDir, blockchainExplorersConfig } = deps;
+  if (freshnessResult.value.status === 'fresh') {
+    return ok(undefined);
+  }
 
-  return {
-    checkFreshness() {
-      return buildProcessedTransactionsFreshnessPorts(db).checkFreshness();
-    },
+  logger.info(
+    { projectionId, status: freshnessResult.value.status, reason: freshnessResult.value.reason },
+    'Projection is stale, rebuilding'
+  );
 
-    async rebuild() {
-      if (!isJsonMode) {
-        const freshnessResult = await buildProcessedTransactionsFreshnessPorts(db).checkFreshness();
-        const reason = freshnessResult.isOk() ? freshnessResult.value.reason : 'unknown';
-        console.log(`\nDerived data is stale (${reason}), reprocessing...\n`);
+  return rebuild(freshnessResult.value);
+}
+
+export async function ensureProcessedTransactionsReady(
+  scope: CommandScope,
+  options: PrereqExecutionOptions
+): Promise<Result<void, Error>> {
+  const db = await scope.database();
+  const appRuntime = scope.requireAppRuntime();
+
+  return rebuildIfStale(
+    'processed-transactions',
+    () => buildProcessedTransactionsFreshnessPorts(db).checkFreshness(),
+    async (freshness) => {
+      if (!options.isJsonMode) {
+        console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
       }
 
       return withCliBlockchainProviderRuntimeResult(
-        { dataDir, explorerConfig: blockchainExplorersConfig },
+        { dataDir: scope.dataDir, explorerConfig: appRuntime.blockchainExplorersConfig },
         async (providerRuntime) => {
           const eventBus = new EventBus<IngestionEvent>({
             onError: (error) => {
@@ -131,14 +119,18 @@ function buildProcessedTransactionsPrereq(deps: ConsumerInputPrereqDeps): Consum
             },
           });
 
-          const overrideStore = new OverrideStore(dataDir);
+          const overrideStore = new OverrideStore(scope.dataDir);
           const ports = buildProcessingPorts(db, {
-            rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, dataDir),
+            rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, scope.dataDir),
             overrideStore,
           });
-          const processingWorkflow = new ProcessingWorkflow(ports, providerRuntime, eventBus, registry);
+          const processingWorkflow = new ProcessingWorkflow(
+            ports,
+            providerRuntime,
+            eventBus,
+            appRuntime.adapterRegistry
+          );
 
-          // 1. Plan: resolve accounts and guard incomplete imports
           const planResult = await processingWorkflow.prepareReprocess({});
           if (planResult.isErr()) return err(planResult.error);
 
@@ -149,11 +141,9 @@ function buildProcessedTransactionsPrereq(deps: ConsumerInputPrereqDeps): Consum
 
           const { accountIds } = planResult.value;
 
-          // 2. Reset projections in graph order (downstream first)
           const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
           if (resetResult.isErr()) return err(resetResult.error);
 
-          // 3. Process raw data
           const processResult = await processingWorkflow.processImportedSessions(accountIds);
           if (processResult.isErr()) return err(processResult.error);
 
@@ -166,44 +156,38 @@ function buildProcessedTransactionsPrereq(deps: ConsumerInputPrereqDeps): Consum
           return ok(undefined);
         }
       );
-    },
-  };
+    }
+  );
 }
 
-function buildAssetReviewPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
-  const { db, dataDir } = deps;
+export async function ensureAssetReviewReady(scope: CommandScope): Promise<Result<void, Error>> {
+  const db = await scope.database();
 
-  return {
-    checkFreshness() {
-      return buildAssetReviewFreshnessPorts(db).checkFreshness();
-    },
-
-    async rebuild() {
-      return rebuildAssetReviewProjection(db, dataDir);
-    },
-  };
+  return rebuildIfStale(
+    'asset-review',
+    () => buildAssetReviewFreshnessPorts(db).checkFreshness(),
+    async () => rebuildAssetReviewProjection(db, scope.dataDir)
+  );
 }
 
-// ---------------------------------------------------------------------------
-// links prereq
-// ---------------------------------------------------------------------------
+export async function ensureLinksReady(
+  scope: CommandScope,
+  options: PrereqExecutionOptions
+): Promise<Result<void, Error>> {
+  const db = await scope.database();
 
-function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
-  const { db, dataDir, isJsonMode, setAbort } = deps;
-
-  return {
-    checkFreshness() {
-      return buildLinksFreshnessPorts(db).checkFreshness();
-    },
-
-    async rebuild() {
-      const overrideStore = new OverrideStore(dataDir);
+  return rebuildIfStale(
+    'links',
+    () => buildLinksFreshnessPorts(db).checkFreshness(),
+    async () => {
+      const overrideStore = new OverrideStore(scope.dataDir);
 
       let overrides: import('@exitbook/core').OverrideEvent[] = [];
       if (overrideStore.exists()) {
         const overridesResult = await overrideStore.readByScopes(['link', 'unlink']);
-        if (overridesResult.isErr())
+        if (overridesResult.isErr()) {
           return err(new Error(`Failed to read override events: ${overridesResult.error.message}`));
+        }
         overrides = overridesResult.value;
       }
 
@@ -214,7 +198,7 @@ function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
 
       const store = buildLinkingPorts(db);
 
-      if (isJsonMode) {
+      if (options.isJsonMode) {
         const orchestrator = new LinkingOrchestrator(store);
         const result = await orchestrator.execute(params, overrides);
         if (result.isErr()) return err(result.error);
@@ -224,7 +208,6 @@ function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
 
       console.log('\nTransaction links are stale, running linking...\n');
 
-      // TUI mode: mount LinksRunMonitor
       const eventBus = new EventBus<LinkingEvent>({
         onError: (error) => {
           logger.error({ error }, 'EventBus error during linking');
@@ -238,7 +221,7 @@ function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
         });
       };
 
-      setAbort?.(abort);
+      options.setAbort?.(abort);
       try {
         await controller.start();
 
@@ -257,13 +240,13 @@ function buildLinksPrereq(deps: ConsumerInputPrereqDeps): ConsumerInputPrereq {
         controller.fail(caughtError.message);
         return err(caughtError);
       } finally {
-        setAbort?.(undefined);
+        options.setAbort?.(undefined);
         await controller.stop().catch((cleanupErr) => {
           logger.warn({ cleanupErr }, 'Failed to stop links controller during cleanup');
         });
       }
-    },
-  };
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -332,66 +315,43 @@ async function resetSingleProjection(
  * After projection readiness, checks price coverage for consumers that need it.
  */
 export async function ensureConsumerInputsReady(
-  ctx: CommandScope,
+  scope: CommandScope,
   target: ConsumerTarget,
   options: EnsureConsumerInputsReadyOptions
 ): Promise<Result<void, Error>> {
-  const appRuntime = ctx.requireAppRuntime();
-  const deps: ConsumerInputPrereqDeps = {
-    db: await ctx.database(),
-    registry: appRuntime.adapterRegistry,
-    dataDir: ctx.dataDir,
-    isJsonMode: options.isJsonMode,
-    blockchainExplorersConfig: appRuntime.blockchainExplorersConfig,
-    priceProviderConfig: appRuntime.priceProviderConfig,
-    setAbort: options.setAbort,
-  };
-  const plan = buildConsumerProjectionPlan(target);
-
-  const registry = buildConsumerInputPrereqRegistry(deps);
-
-  for (const projectionId of plan) {
-    const freshness = await registry[projectionId].checkFreshness();
-    if (freshness.isErr()) return err(freshness.error);
-
-    if (freshness.value.status !== 'fresh') {
-      logger.info(
-        { projectionId, status: freshness.value.status, reason: freshness.value.reason },
-        'Projection is stale, rebuilding'
-      );
-
-      const rebuild = await registry[projectionId].rebuild();
-      if (rebuild.isErr()) return err(rebuild.error);
-    }
+  const processedTransactionsResult = await ensureProcessedTransactionsReady(scope, options);
+  if (processedTransactionsResult.isErr()) {
+    return err(processedTransactionsResult.error);
   }
 
-  // Price coverage prereq (not a projection)
+  if (target === 'links-run') {
+    return ok(undefined);
+  }
+
+  const assetReviewResult = await ensureAssetReviewReady(scope);
+  if (assetReviewResult.isErr()) {
+    return err(assetReviewResult.error);
+  }
+
+  const linksResult = await ensureLinksReady(scope, options);
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
   if ((target === 'cost-basis' || target === 'portfolio') && options.priceConfig) {
     const pricesResult = await ensureTransactionPricesReady(
-      deps,
+      scope,
+      options,
       options.priceConfig,
       target,
       options.accountingExclusionPolicy
     );
-    if (pricesResult.isErr()) return err(pricesResult.error);
+    if (pricesResult.isErr()) {
+      return err(pricesResult.error);
+    }
   }
 
   return ok(undefined);
-}
-
-function buildConsumerProjectionPlan(target: ConsumerTarget): GlobalProjectionId[] {
-  if (target === 'links-run') {
-    return ['processed-transactions'];
-  }
-
-  return [
-    ...new Set<GlobalProjectionId>([
-      ...rebuildPlan('asset-review'),
-      'asset-review',
-      ...rebuildPlan('links'),
-      'links',
-    ] as GlobalProjectionId[]),
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -399,12 +359,15 @@ function buildConsumerProjectionPlan(target: ConsumerTarget): GlobalProjectionId
 // ---------------------------------------------------------------------------
 
 async function ensureTransactionPricesReady(
-  deps: ConsumerInputPrereqDeps,
+  scope: CommandScope,
+  options: PrereqExecutionOptions,
   config: PricePrereqConfig,
   target: Extract<ConsumerTarget, 'cost-basis' | 'portfolio'>,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
-  const { db, isJsonMode, setAbort } = deps;
+  const db = await scope.database();
+  const { isJsonMode, setAbort } = options;
+  const appRuntime = scope.requireAppRuntime();
 
   const data = buildPriceCoverageDataPorts(db);
   const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);
@@ -422,8 +385,8 @@ async function ensureTransactionPricesReady(
 
   if (isJsonMode) {
     const priceRuntimeResult = await openCliPriceProviderRuntime({
-      dataDir: deps.dataDir,
-      providers: deps.priceProviderConfig,
+      dataDir: scope.dataDir,
+      providers: appRuntime.priceProviderConfig,
     });
     if (priceRuntimeResult.isErr()) return err(priceRuntimeResult.error);
     const priceRuntime = priceRuntimeResult.value;
@@ -456,10 +419,10 @@ async function ensureTransactionPricesReady(
   const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
   const priceRuntimeResult = await openCliPriceProviderRuntime({
-    dataDir: deps.dataDir,
+    dataDir: scope.dataDir,
     instrumentation,
     eventBus,
-    providers: deps.priceProviderConfig,
+    providers: appRuntime.priceProviderConfig,
   });
   if (priceRuntimeResult.isErr()) {
     controller.fail(priceRuntimeResult.error.message);

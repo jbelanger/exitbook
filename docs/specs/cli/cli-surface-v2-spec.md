@@ -579,7 +579,7 @@ Current hotspot to replace:
 Required change:
 
 - replace `isJsonMode` with `presentationMode`
-- move prereq orchestration toward explicit command-scope functions rather than a generic runtime registry
+- keep prereq orchestration as explicit command-scope functions rather than a generic runtime registry
 - allow prereq rebuilds to use either Ink monitor or text-progress monitor
 - preserve a silent machine path for JSON
 
@@ -593,7 +593,7 @@ Recommended sub-plan:
 
 1. Introduce a prereq monitor contract that accepts `presentationMode` instead of `isJsonMode`.
 2. Implement three monitor variants: Ink, line-oriented text-progress, and silent JSON-safe.
-3. Replace the current `ConsumerInputPrereq` registry shape with explicit command-scope prereq functions.
+3. Keep prereq execution as explicit command-scope functions such as `ensureProcessedTransactionsReady`, `ensureAssetReviewReady`, and `ensureLinksReady`. Do not add a registry/strategy layer back.
 4. Migrate one command with projection prereqs first, preferably `cost-basis`, and verify each mode separately.
 5. Only then fan the change out to `portfolio` and any other prereq-driven commands.
 
