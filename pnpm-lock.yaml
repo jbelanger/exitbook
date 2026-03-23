@@ -463,8 +463,8 @@ importers:
         specifier: ^12.8.0
         version: 12.8.0
       kysely:
-        specifier: ^0.28.12
-        version: 0.28.12
+        specifier: ^0.28.14
+        version: 0.28.14
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
@@ -2472,8 +2472,8 @@ packages:
       '@types/node': '>=18'
       typescript: '>=5.0.4 <7'
 
-  kysely@0.28.12:
-    resolution: {integrity: sha512-kWiueDWXhbCchgiotwXkwdxZE/6h56IHAeFWg4euUfW0YsmO9sxbAxzx1KLLv2lox15EfuuxHQvgJ1qIfZuHGw==}
+  kysely@0.28.14:
+    resolution: {integrity: sha512-SU3lgh0rPvq7upc6vvdVrCsSMUG1h3ChvHVOY7wJ2fw4C9QEB7X3d5eyYEyULUX7UQtxZJtZXGuT6U2US72UYA==}
     engines: {node: '>=20.0.0'}
 
   levn@0.4.1:
@@ -5246,7 +5246,7 @@ snapshots:
       yaml: 2.8.2
       zod: 4.3.6
 
-  kysely@0.28.12: {}
+  kysely@0.28.14: {}
 
   levn@0.4.1:
     dependencies:
