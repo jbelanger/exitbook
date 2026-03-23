@@ -2,13 +2,13 @@ import type {
   AssetReviewSummary,
   BalanceSnapshot,
   BalanceSnapshotAsset,
-  Currency,
   OverrideEvent,
   Transaction,
 } from '@exitbook/core';
-import { err, ok, parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext, OverrideStore } from '@exitbook/data';
+import type { Currency } from '@exitbook/foundation';
+import { err, ok, parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';

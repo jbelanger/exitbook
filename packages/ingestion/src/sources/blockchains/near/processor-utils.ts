@@ -5,8 +5,9 @@ import {
   type NearBalanceChangeCause,
   type NearActionType,
 } from '@exitbook/blockchain-providers/near';
-import { parseDecimal, type Currency, type OperationClassification } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { OperationClassification } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 

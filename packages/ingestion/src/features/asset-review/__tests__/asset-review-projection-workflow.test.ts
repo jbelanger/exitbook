@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- ok for tests */
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AssetReviewProjectionPorts } from '../../../ports/asset-review-projection-ports.js';

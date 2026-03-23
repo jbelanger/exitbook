@@ -1,5 +1,5 @@
 import type { LinkStatus } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { getDefaultReviewer, validateLinkStatusForConfirm, validateLinkStatusForReject } from '../links-utils.js';

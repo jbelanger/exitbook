@@ -3,7 +3,7 @@
  */
 
 import type { OperationCategory } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { CsvFormat, ExportFormat } from '../command/transactions-export-utils.js';
 

@@ -1,5 +1,5 @@
-import { ok, err, type Result } from '@exitbook/core';
-import { assertOk, assertErr } from '@exitbook/core/test-utils';
+import { ok, err, type Result } from '@exitbook/foundation';
+import { assertOk, assertErr } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../data-context.js';

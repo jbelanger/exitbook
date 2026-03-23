@@ -1,5 +1,5 @@
 import { type CardanoTransaction } from '@exitbook/blockchain-providers/cardano';
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { describe, expect, test } from 'vitest';
 
 import {

@@ -1,5 +1,6 @@
-import { err, ok, type AssetReviewSummary, type Result } from '@exitbook/core';
+import type { AssetReviewSummary } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 export function readAssetReviewProjectionSummaries(
   db: DataContext,

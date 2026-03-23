@@ -1,14 +1,8 @@
 import { ProviderError, type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import {
-  buildBlockchainNativeAssetId,
-  maskAddress,
-  parseDecimal,
-  type Currency,
-  type OperationClassification,
-  type TransactionDraft,
-} from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { OperationClassification, TransactionDraft } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, maskAddress, parseDecimal, type Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import type { MovementWithContext } from '../../../features/scam-detection/scam-detection-service.interface.js';

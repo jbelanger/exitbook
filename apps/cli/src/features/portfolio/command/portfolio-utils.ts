@@ -8,7 +8,8 @@ import type {
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '@exitbook/accounting';
-import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime, PriceQuery } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';

@@ -4,7 +4,7 @@ import {
   isCardanoXpub,
   type CardanoWalletAddress,
 } from '@exitbook/blockchain-providers/cardano';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/blockchain-adapter.js';
 

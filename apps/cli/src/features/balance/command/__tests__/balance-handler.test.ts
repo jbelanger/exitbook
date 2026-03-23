@@ -1,7 +1,7 @@
 import type { Account, BalanceSnapshot, BalanceSnapshotAsset } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BalanceHandler } from '../balance-handler.js';

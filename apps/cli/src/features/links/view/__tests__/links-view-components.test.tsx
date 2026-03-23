@@ -2,7 +2,8 @@
  * Tests for links view components
  */
 
-import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';

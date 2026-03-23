@@ -1,5 +1,5 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 
 import { createLink, createTransaction } from '../../../linking/shared/test-utils.js';
 import type { CostBasisContext } from '../../../ports/cost-basis-persistence.js';

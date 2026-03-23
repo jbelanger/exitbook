@@ -1,4 +1,5 @@
-import { resultDoAsync, type ProjectionStatus, type Result } from '@exitbook/core';
+import type { ProjectionStatus } from '@exitbook/core';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 

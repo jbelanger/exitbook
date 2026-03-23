@@ -1,5 +1,5 @@
 import { isValidSS58Address } from '@exitbook/blockchain-providers/substrate';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 // Substrate SS58 addresses are case-sensitive — preserve original casing.
 export function normalizeSubstrateAddress(address: string, chainName: string): Result<string, Error> {

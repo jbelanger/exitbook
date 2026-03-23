@@ -1,7 +1,7 @@
 // Shared types and utilities for view commands
 
 import type { AssetMovementDraft, Transaction, TransactionDraft } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 /**
  * Common filter options across view subcommands.

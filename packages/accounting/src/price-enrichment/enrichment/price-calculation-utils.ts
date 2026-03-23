@@ -1,5 +1,5 @@
 import type { AssetMovementDraft, PriceAtTxTime } from '@exitbook/core';
-import { isFiat, parseDecimal } from '@exitbook/core';
+import { isFiat, parseDecimal } from '@exitbook/foundation';
 
 /**
  * Detected trade pattern with both sides of the trade

@@ -2,8 +2,8 @@ import {
   createAssetReviewProviderSupport,
   findLatestTokenMetadataRefreshAt,
 } from '@exitbook/blockchain-providers/asset-review';
-import type { Result } from '@exitbook/core';
 import { buildAssetReviewRuntimePorts, type DataContext } from '@exitbook/data';
+import type { Result } from '@exitbook/foundation';
 import { createAssetReviewProjectionRuntime } from '@exitbook/ingestion';
 
 function createRuntime(db: DataContext, dataDir: string) {

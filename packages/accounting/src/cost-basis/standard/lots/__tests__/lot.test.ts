@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, test } from 'vitest';
 
 import { createAcquisitionLot } from '../lot.js';

@@ -1,7 +1,7 @@
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/core';
 import type { OperationClassification, TransactionNote } from '@exitbook/core';
-import { type Result, err, ok } from '@exitbook/core';
+import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/foundation';
+import { type Result, err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 

@@ -1,4 +1,5 @@
-import { parseDecimal, type MatchCriteria } from '@exitbook/core';
+import type { MatchCriteria } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createLinkableMovement } from '../../shared/test-utils.js';

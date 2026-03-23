@@ -1,6 +1,6 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi } from 'vitest';
 
 import { SolanaProcessor } from '../processor.js';

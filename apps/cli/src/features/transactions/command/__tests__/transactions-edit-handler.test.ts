@@ -1,7 +1,8 @@
-import type { CreateOverrideEventOptions, Currency, OverrideEvent, Transaction } from '@exitbook/core';
-import { ok, parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { CreateOverrideEventOptions, OverrideEvent, Transaction } from '@exitbook/core';
 import type { DataContext, OverrideStore } from '@exitbook/data';
+import type { Currency } from '@exitbook/foundation';
+import { ok, parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';

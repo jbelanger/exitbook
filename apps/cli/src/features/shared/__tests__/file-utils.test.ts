@@ -6,7 +6,7 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { writeFilesAtomically } from '../file-utils.js';

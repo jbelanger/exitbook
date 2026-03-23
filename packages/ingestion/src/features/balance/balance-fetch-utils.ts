@@ -1,15 +1,15 @@
 import { type IBlockchainProviderRuntime, type RawBalanceData } from '@exitbook/blockchain-providers';
 import type { SourceType } from '@exitbook/core';
+import type { IExchangeClient } from '@exitbook/exchange-providers';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   buildExchangeAssetId,
   parseDecimal,
   wrapError,
-} from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
-import type { IExchangeClient } from '@exitbook/exchange-providers';
+} from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { BalancePartialFailure } from './balance-utils.js';

@@ -1,5 +1,6 @@
-import { err, type Result, type TransactionLink, type Transaction } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { TransactionLink, Transaction } from '@exitbook/core';
+import { err, type Result } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 

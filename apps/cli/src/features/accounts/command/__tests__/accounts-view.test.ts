@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

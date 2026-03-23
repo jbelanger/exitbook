@@ -1,4 +1,5 @@
-import type { Result, TransactionDraft } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * Port for persisting processed transactions.

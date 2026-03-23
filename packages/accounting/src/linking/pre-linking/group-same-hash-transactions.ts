@@ -1,5 +1,5 @@
 import type { Transaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { normalizeTransactionHash } from '../strategies/exact-hash-utils.js';

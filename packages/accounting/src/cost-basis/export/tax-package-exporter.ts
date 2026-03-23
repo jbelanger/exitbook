@@ -1,4 +1,4 @@
-import { err, ok, sha256Hex, type Result } from '@exitbook/core';
+import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 
 import { buildCostBasisFilingFacts } from '../filing-facts/filing-facts-builder.js';
 import type { CostBasisFilingFacts } from '../filing-facts/filing-facts-types.js';

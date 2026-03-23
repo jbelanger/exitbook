@@ -1,5 +1,5 @@
 import { canonicalizeBitcoinAddress, type BitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 export function normalizeBitcoinAddress(address: string, config: BitcoinChainConfig): Result<string, Error> {
   const normalized = canonicalizeBitcoinAddress(address);

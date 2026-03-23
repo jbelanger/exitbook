@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { IAccountLookup } from './account-lookup.js';
 import type { IImportSessionLookup } from './import-session-guard.js';

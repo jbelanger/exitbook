@@ -1,5 +1,5 @@
-import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type {
   ConfirmedExchangeTransactionDraft,

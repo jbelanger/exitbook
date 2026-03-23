@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { RawTransaction } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Selectable } from '@exitbook/sqlite';
 import { sql } from '@exitbook/sqlite';
 

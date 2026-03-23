@@ -1,4 +1,4 @@
-import { ok, type Result, wrapError } from '@exitbook/core';
+import { ok, type Result, wrapError } from '@exitbook/foundation';
 
 import type { CanadaCostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 

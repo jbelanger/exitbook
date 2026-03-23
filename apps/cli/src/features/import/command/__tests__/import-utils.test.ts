@@ -1,5 +1,5 @@
-import { ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { AdapterRegistry } from '@exitbook/ingestion';
 import { describe, expect, it, vi } from 'vitest';
 

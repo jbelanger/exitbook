@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
-import { assertErr } from '@exitbook/core/test-utils';
+import { assertErr } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';

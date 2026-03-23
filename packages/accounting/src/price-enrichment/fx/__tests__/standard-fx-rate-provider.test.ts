@@ -5,8 +5,8 @@
  * and handles rate inversion for getRateFromUSD
  */
 
-import { type Currency, parseDecimal } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

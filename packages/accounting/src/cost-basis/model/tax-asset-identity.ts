@@ -1,5 +1,5 @@
-import type { Currency } from '@exitbook/core';
-import { err, isFiat, ok, parseAssetId, type Result } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { err, isFiat, ok, parseAssetId, type Result } from '@exitbook/foundation';
 
 import type { TaxAssetIdentityPolicy } from './types.js';
 

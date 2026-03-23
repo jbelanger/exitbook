@@ -1,5 +1,5 @@
 import { type BitcoinChainConfig } from '@exitbook/blockchain-providers/bitcoin';
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { describe, expect, test } from 'vitest';
 
 import { normalizeBitcoinAddress } from '../address-utils.js';

@@ -1,4 +1,5 @@
-import type { Currency, Result, Transaction, TransactionLink } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
+import type { Currency, Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 /**

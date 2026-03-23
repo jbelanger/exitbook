@@ -1,12 +1,5 @@
-import {
-  err,
-  ok,
-  parseDecimal,
-  type NewTransactionLink,
-  type Result,
-  type SameHashExternalSourceAllocation,
-  type TransactionLinkMetadata,
-} from '@exitbook/core';
+import type { NewTransactionLink, SameHashExternalSourceAllocation, TransactionLinkMetadata } from '@exitbook/core';
+import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { createTransactionLink } from '../matching/link-construction.js';

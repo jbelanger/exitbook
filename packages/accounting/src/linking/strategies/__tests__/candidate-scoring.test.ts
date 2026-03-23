@@ -1,4 +1,4 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { LinkableMovement } from '../../matching/linkable-movement.js';

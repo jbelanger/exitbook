@@ -1,4 +1,4 @@
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { createTransactionLink } from '../../../../linking/matching/link-construction.js';

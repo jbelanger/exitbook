@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 

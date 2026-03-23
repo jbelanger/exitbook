@@ -1,5 +1,5 @@
 import { type TokenMetadataRecord } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 

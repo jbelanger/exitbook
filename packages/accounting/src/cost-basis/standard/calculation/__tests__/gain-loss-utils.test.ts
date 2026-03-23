@@ -5,8 +5,8 @@
  * according to the "Functional Core, Imperative Shell" pattern
  */
 
-import { type Currency } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { Currency } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { createDisposal, createLot } from '../../../../__tests__/test-utils.js';

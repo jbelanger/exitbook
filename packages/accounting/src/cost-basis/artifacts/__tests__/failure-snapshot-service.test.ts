@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ICostBasisFailureSnapshotStore } from '../../../ports/cost-basis-persistence.js';

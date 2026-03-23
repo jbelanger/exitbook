@@ -8,13 +8,9 @@ import type {
   PriceAtTxTime,
   Transaction,
 } from '@exitbook/core';
-import {
-  buildAssetMovementCanonicalMaterial,
-  buildFeeMovementCanonicalMaterial,
-  type Currency,
-  parseDecimal,
-} from '@exitbook/core';
+import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial } from '@exitbook/core';
 import { seedAssetMovementFingerprint, seedFeeMovementFingerprint, seedTxFingerprint } from '@exitbook/core/test-utils';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 export { seedTxFingerprint } from '@exitbook/core/test-utils';
 
 import type { AcquisitionLot, LotDisposal } from '../cost-basis/model/types.js';

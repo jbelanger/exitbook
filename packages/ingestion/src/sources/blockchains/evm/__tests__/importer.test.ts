@@ -1,6 +1,6 @@
 import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import { type EvmChainConfig } from '@exitbook/blockchain-providers/evm';
-import { err, ok, type Currency, type PaginationCursor } from '@exitbook/core';
+import { err, ok, type Currency, type PaginationCursor } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';

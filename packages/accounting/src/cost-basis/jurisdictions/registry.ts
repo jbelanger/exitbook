@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 

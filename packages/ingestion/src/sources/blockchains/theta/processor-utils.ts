@@ -1,6 +1,6 @@
 import { type ThetaChainConfig } from '@exitbook/blockchain-providers/theta';
 import type { OperationClassification } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 import {

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CostBasisContext } from '../../ports/cost-basis-persistence.js';
 import { collectCanadaTaxPackageSourceCoverage } from '../jurisdictions/canada/export/canada-tax-package-source-coverage.js';

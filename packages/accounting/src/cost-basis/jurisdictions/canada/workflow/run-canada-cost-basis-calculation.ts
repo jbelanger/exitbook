@@ -1,13 +1,5 @@
-import {
-  err,
-  ok,
-  randomUUID,
-  type AssetReviewSummary,
-  type Currency,
-  type Result,
-  type Transaction,
-  type TransactionLink,
-} from '@exitbook/core';
+import type { AssetReviewSummary, Transaction, TransactionLink } from '@exitbook/core';
+import { err, ok, randomUUID, type Currency, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';

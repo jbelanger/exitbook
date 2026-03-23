@@ -1,6 +1,6 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import type { PaginationCursor } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { PaginationCursor } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { vi, type Mocked } from 'vitest';
 
 /**

@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, test } from 'vitest';
 
 import { CanadaRules } from '../rules.js';

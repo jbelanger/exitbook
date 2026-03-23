@@ -1,7 +1,9 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import type { Account, AccountType, CursorState, ExchangeCredentials } from '@exitbook/core';
-import { AccountSchema, CursorStateSchema, ExchangeCredentialsSchema } from '@exitbook/core';
-import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/core';
+import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
+import { AccountSchema, ExchangeCredentialsSchema } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import { CursorStateSchema } from '@exitbook/foundation';
+import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/foundation';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
 

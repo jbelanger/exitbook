@@ -1,6 +1,6 @@
 import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
-import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
+import { err, ok } from '@exitbook/foundation';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 

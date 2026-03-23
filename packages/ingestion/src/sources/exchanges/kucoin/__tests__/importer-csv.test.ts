@@ -1,7 +1,7 @@
 import type { Dirent } from 'node:fs';
 import fs from 'node:fs/promises';
 
-import { type Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { assertOk, consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';

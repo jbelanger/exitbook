@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { Result } from '@exitbook/core';
 import { DataContext } from '@exitbook/data';
+import type { Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { render } from 'ink';

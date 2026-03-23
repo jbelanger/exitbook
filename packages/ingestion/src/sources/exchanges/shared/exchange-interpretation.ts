@@ -1,4 +1,5 @@
-import type { Currency, OperationClassification, TransactionNote, TransactionStatus } from '@exitbook/core';
+import type { OperationClassification, TransactionNote, TransactionStatus } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 
 import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnostic.js';
 

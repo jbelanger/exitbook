@@ -1,5 +1,6 @@
-import type { Currency, Transaction } from '@exitbook/core';
-import { ok, parseDecimal } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok, parseDecimal } from '@exitbook/foundation';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const {

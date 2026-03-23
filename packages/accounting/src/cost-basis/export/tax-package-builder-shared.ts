@@ -1,5 +1,5 @@
 import type { Account, Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';

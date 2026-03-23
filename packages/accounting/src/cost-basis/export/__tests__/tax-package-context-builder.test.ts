@@ -1,4 +1,5 @@
-import { parseDecimal, type Account, type Currency } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createLink, createTransaction } from '../../../linking/shared/test-utils.js';

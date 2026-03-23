@@ -1,6 +1,6 @@
 import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { vi } from 'vitest';
 
 import type { AccountQueryPorts } from '../account-query-ports.js';

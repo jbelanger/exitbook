@@ -4,9 +4,10 @@ import {
   type LinkingRunParams,
   type LinkingRunResult,
 } from '@exitbook/accounting';
-import { err, ok, wrapError, type OverrideEvent, type Result } from '@exitbook/core';
+import type { OverrideEvent } from '@exitbook/core';
 import { buildLinkingPorts, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';

@@ -1,6 +1,6 @@
-import { err, ok } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data';
 import type { DataContext } from '@exitbook/data';
+import { err, ok } from '@exitbook/foundation';
 
 import type { AccountQueryPorts } from './account-query-ports.js';
 

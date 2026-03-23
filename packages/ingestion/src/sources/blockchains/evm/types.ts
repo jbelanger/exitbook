@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 
 /**
  * EVM movement object (inflow/outflow/primary)

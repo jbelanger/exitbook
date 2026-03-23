@@ -1,7 +1,8 @@
 // Pure business logic for price fetch operations
 
-import { isFiat, parseCurrency, type Currency, type Transaction } from '@exitbook/core';
-import { err, ok, resultDo, type Result } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
+import { err, ok, resultDo, type Result } from '@exitbook/foundation';
 import type { MetricsSummary } from '@exitbook/observability';
 import type { PriceQuery } from '@exitbook/price-providers';
 

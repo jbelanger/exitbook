@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * Port for NEAR-specific multi-stream batch correlation.

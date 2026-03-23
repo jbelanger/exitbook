@@ -2,10 +2,10 @@ import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-import { wrapError, randomUUID } from '@exitbook/core';
 import { OverrideEventSchema, type OverrideEvent, type Scope } from '@exitbook/core';
 import type { CreateOverrideEventOptions } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { wrapError, randomUUID } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger, type Logger } from '@exitbook/logger';
 import type { Selectable } from '@exitbook/sqlite';
 

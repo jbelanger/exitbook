@@ -1,4 +1,5 @@
-import { err, ok, type OverrideEvent, type Result, type TransactionMaterializationScope } from '@exitbook/core';
+import type { OverrideEvent, TransactionMaterializationScope } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { TransactionRepository } from '../repositories/transaction-repository.js';
 

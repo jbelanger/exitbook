@@ -5,7 +5,8 @@
  * using the Union-Find algorithm according to the "Functional Core, Imperative Shell" pattern
  */
 
-import { type Currency, type Transaction, type TransactionLink, parseDecimal } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';

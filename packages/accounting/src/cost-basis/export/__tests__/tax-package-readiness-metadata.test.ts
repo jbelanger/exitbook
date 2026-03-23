@@ -1,5 +1,5 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';

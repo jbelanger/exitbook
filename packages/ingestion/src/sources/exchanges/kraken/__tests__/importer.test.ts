@@ -1,5 +1,6 @@
-import type { CursorState, RawTransactionInput } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { RawTransactionInput } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 vi.mock('@exitbook/exchange-providers', () => ({

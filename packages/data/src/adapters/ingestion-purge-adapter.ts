@@ -1,4 +1,4 @@
-import { resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { IIngestionDataPurge } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';

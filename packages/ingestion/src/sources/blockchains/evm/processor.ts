@@ -1,7 +1,8 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmChainConfig, type EvmTransaction, EvmTransactionSchema } from '@exitbook/blockchain-providers/evm';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, type TransactionDraft } from '@exitbook/core';
-import { err, type Result } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId } from '@exitbook/foundation';
+import { err, type Result } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';

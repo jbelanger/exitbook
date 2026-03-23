@@ -1,6 +1,6 @@
 import { type TokenMetadataRecord, type TokenReferenceLookupResult } from '@exitbook/blockchain-providers';
 import type { AssetReviewEvidence, AssetReviewSummary, TransactionNote, Transaction } from '@exitbook/core';
-import { buildBlockchainTokenAssetId, err, ok, parseAssetId, sha256Hex, type Result } from '@exitbook/core';
+import { buildBlockchainTokenAssetId, err, ok, parseAssetId, sha256Hex, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('asset-review-service');

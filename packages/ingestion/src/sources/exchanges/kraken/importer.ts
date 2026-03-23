@@ -1,5 +1,5 @@
-import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger, type Logger } from '@exitbook/logger';
 
 import type { IImporter, ImportBatchResult, StreamingImportParams } from '../../../shared/types/importers.js';

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null required by db */
 
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';

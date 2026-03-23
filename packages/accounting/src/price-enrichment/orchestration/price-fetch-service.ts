@@ -1,7 +1,8 @@
-import { type Currency, type PriceAtTxTime } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { PriceAtTxTime } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import type { Currency } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';

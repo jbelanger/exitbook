@@ -5,9 +5,9 @@ import {
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
-import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildPricingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';

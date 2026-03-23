@@ -1,5 +1,6 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { ok, err, type Result, type ProjectionId, type ProjectionStatus } from '@exitbook/core';
+import type { ProjectionId, ProjectionStatus } from '@exitbook/core';
+import { ok, err, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 

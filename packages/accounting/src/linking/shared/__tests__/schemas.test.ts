@@ -1,10 +1,5 @@
-import {
-  LinkStatusSchema,
-  LinkTypeSchema,
-  MatchCriteriaSchema,
-  parseDecimal,
-  TransactionLinkSchema,
-} from '@exitbook/core';
+import { LinkStatusSchema, LinkTypeSchema, MatchCriteriaSchema, TransactionLinkSchema } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 

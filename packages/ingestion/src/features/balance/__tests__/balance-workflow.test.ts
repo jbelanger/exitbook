@@ -7,18 +7,14 @@ import type {
   Account,
   BalanceSnapshot,
   BalanceSnapshotAsset,
-  Currency,
   ImportSession,
   Transaction,
   TransactionDraft,
 } from '@exitbook/core';
-import {
-  buildAssetMovementCanonicalMaterial,
-  buildFeeMovementCanonicalMaterial,
-  parseDecimal,
-  sha256Hex,
-} from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal, sha256Hex } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BalancePorts } from '../../../ports/balance-ports.js';

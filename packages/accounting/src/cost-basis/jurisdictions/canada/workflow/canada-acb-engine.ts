@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { err, ok, parseDecimal } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { sortCanadaEvents } from '../tax/canada-tax-event-ordering.js';

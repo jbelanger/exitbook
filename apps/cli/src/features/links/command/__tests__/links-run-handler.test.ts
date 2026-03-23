@@ -1,8 +1,8 @@
 import type { LinkingRunResult, LinkingRunParams } from '@exitbook/accounting';
-import { parseDecimal } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
-import { assertErr } from '@exitbook/core/test-utils';
 import type { OverrideStore } from '@exitbook/data';
+import { parseDecimal } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { LinksRunHandler } from '../links-run-handler.js';

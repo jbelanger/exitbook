@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * Provides batches of raw transaction data for processing.

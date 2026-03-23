@@ -2,7 +2,7 @@
 // All functions are pure - no side effects
 
 import type { ExchangeCredentials } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry, ImportParams } from '@exitbook/ingestion';
 import type { z } from 'zod';
 

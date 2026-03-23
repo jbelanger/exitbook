@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed for db row fixtures */
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';

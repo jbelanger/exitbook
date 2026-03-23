@@ -1,5 +1,6 @@
-import type { Account, Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 // ---------------------------------------------------------------------------
 // Shared balance-scope types

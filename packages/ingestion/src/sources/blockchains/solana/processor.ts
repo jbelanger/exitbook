@@ -1,13 +1,13 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers/solana';
+import type { TransactionDraft } from '@exitbook/core';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
   type Currency,
-  type TransactionDraft,
-} from '@exitbook/core';
-import { type Result, err, ok } from '@exitbook/core';
+} from '@exitbook/foundation';
+import { type Result, err, ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';

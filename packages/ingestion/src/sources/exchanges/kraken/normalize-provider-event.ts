@@ -1,6 +1,6 @@
-import { parseCurrency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
 import { normalizeKrakenAsset, type KrakenLedgerEntry } from '@exitbook/exchange-providers/kraken';
+import { parseCurrency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';

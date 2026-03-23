@@ -1,4 +1,5 @@
-import type { AssetMovement, Currency, FeeMovement, Transaction } from '@exitbook/core';
+import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 export interface ScopedFeeMovement extends FeeMovement {

@@ -1,7 +1,7 @@
 import type { ImportSession } from '@exitbook/core';
-import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildImportPorts } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
 import { ImportWorkflow, isUtxoAdapter } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';

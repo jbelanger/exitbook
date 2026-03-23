@@ -1,8 +1,9 @@
-import type { Currency, Transaction, TransactionLink } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
 import { seedAssetMovementFingerprint } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { vi, type Mock } from 'vitest';
 

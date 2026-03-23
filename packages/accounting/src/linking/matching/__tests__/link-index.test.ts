@@ -1,4 +1,5 @@
-import { parseDecimal, type TransactionLink } from '@exitbook/core';
+import type { TransactionLink } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createLink } from '../../shared/test-utils.js';

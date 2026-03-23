@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { resultDoAsync } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { resultDoAsync } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { KyselyDB } from './database.js';

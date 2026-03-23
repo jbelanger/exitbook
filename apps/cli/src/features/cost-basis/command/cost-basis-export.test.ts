@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import type { TaxPackageManifest } from '@exitbook/accounting';
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {

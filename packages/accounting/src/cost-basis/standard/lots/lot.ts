@@ -1,4 +1,4 @@
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot } from '../../model/types.js';

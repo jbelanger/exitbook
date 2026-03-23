@@ -1,5 +1,5 @@
-import { err, ok, type Result } from '@exitbook/core';
 import type { TransactionLink, Transaction } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CostBasisContext } from '../../ports/cost-basis-persistence.js';
 

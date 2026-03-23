@@ -1,8 +1,9 @@
-import { computeResolvedLinkFingerprint, parseDecimal } from '@exitbook/core';
+import { computeResolvedLinkFingerprint } from '@exitbook/core';
 import type { OverrideEvent } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { EventBus } from '@exitbook/events';
+import { parseDecimal } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ILinkingPersistence, LinksSaveResult } from '../../../ports/index.js';

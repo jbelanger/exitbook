@@ -1,4 +1,4 @@
-import { resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';
@@ -16,7 +16,7 @@ export function buildProcessingPorts(
   db: DataContext,
   options: {
     overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
-    rebuildAssetReviewProjection: () => Promise<import('@exitbook/core').Result<void, Error>>;
+    rebuildAssetReviewProjection: () => Promise<import('@exitbook/foundation').Result<void, Error>>;
   }
 ): ProcessingPorts {
   return {

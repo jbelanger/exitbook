@@ -7,9 +7,9 @@ import type {
   ImportSession,
   Transaction,
 } from '@exitbook/core';
-import { parseAssetId, parseDecimal, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
+import { parseAssetId, parseDecimal, wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 

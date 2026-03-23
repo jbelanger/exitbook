@@ -1,4 +1,4 @@
-import { err, ok, parseDecimal, type Result } from '@exitbook/core';
+import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot } from '../../model/schemas.js';

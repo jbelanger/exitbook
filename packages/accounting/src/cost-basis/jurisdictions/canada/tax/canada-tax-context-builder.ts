@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type {

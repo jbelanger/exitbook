@@ -1,6 +1,6 @@
 import { type CosmosChainConfig } from '@exitbook/blockchain-providers/cosmos';
 import { type EvmChainConfig } from '@exitbook/blockchain-providers/evm';
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 
 /**
  * Test addresses for Bitcoin blockchain tests

@@ -1,6 +1,6 @@
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
 import { DataContext, type OverrideStore } from '@exitbook/data';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import { TransferProposalReviewService } from './transfer-proposal-review-service.js';
 

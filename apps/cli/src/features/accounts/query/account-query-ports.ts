@@ -1,12 +1,5 @@
-import type {
-  Account,
-  AccountType,
-  BalanceSnapshot,
-  ImportSession,
-  ProjectionStatus,
-  Result,
-  User,
-} from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus, User } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 interface AccountFindAllFilters {
   accountType?: AccountType | undefined;

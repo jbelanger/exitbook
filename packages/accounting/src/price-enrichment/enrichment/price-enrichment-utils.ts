@@ -10,7 +10,7 @@
  */
 
 import type { AssetMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
-import { isFiat, isFiatOrStablecoin, parseDecimal } from '@exitbook/core';
+import { isFiat, isFiatOrStablecoin, parseDecimal } from '@exitbook/foundation';
 
 import type { LinkedTransactionGroup } from '../shared/types.js';
 

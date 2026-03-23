@@ -1,4 +1,5 @@
-import { err, ok, randomUUID, type Result, type TransactionLink, wrapError } from '@exitbook/core';
+import type { TransactionLink } from '@exitbook/core';
+import { err, ok, randomUUID, type Result, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 

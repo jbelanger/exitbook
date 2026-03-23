@@ -1,4 +1,4 @@
-import { err, ok, wrapError, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 // Command registration for view transactions subcommand
 import type { Command } from 'commander';
 import React from 'react';

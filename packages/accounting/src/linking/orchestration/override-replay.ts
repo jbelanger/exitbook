@@ -1,6 +1,7 @@
-import { computeResolvedLinkFingerprint, wrapError } from '@exitbook/core';
+import { computeResolvedLinkFingerprint } from '@exitbook/core';
 import type { LinkOverridePayload, OverrideEvent, OverrideLinkType, UnlinkOverridePayload } from '@exitbook/core';
-import { ok, type Result } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import { ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('OverrideReplay');

@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import { ok } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
+import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi } from 'vitest';
 
 import type { IngestionEvent } from '../../../../events.js';

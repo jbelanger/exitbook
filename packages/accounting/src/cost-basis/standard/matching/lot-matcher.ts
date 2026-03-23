@@ -1,5 +1,5 @@
-import { isFiat, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { isFiat, wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';

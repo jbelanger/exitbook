@@ -1,6 +1,7 @@
 import { type IBlockchainProviderRuntime, type TokenMetadataRecord } from '@exitbook/blockchain-providers';
 import type { TransactionDraft } from '@exitbook/core';
-import { TransactionDraftSchema, type Result, err, ok } from '@exitbook/core';
+import { TransactionDraftSchema } from '@exitbook/core';
+import { type Result, err, ok } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';

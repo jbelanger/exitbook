@@ -1,4 +1,4 @@
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

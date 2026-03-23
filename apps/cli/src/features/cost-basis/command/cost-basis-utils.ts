@@ -1,5 +1,5 @@
 import { buildCostBasisInput, type ValidatedCostBasisConfig } from '@exitbook/accounting';
-import { err, type Result } from '@exitbook/core';
+import { err, type Result } from '@exitbook/foundation';
 
 /**
  * CLI options for cost-basis command

@@ -1,10 +1,6 @@
-import {
-  parseDecimal,
-  type NewTransactionLink,
-  type TransactionLinkMetadata,
-  type TransactionLinkScoreBreakdownEntry,
-} from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { NewTransactionLink, TransactionLinkMetadata, TransactionLinkScoreBreakdownEntry } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { PotentialMatch } from '../shared/types.js';

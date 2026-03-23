@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- DB column values require null */
-import { assertOk } from '@exitbook/core/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../../data-context.js';

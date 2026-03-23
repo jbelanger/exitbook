@@ -1,4 +1,5 @@
-import { assertOk } from '@exitbook/core/test-utils';
+import { ok } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataContext } from '../../data-context.js';
@@ -84,7 +85,6 @@ describe('buildImportPorts', () => {
       const result = await ports.withTransaction(async (txPorts) => {
         const user = assertOk(await txPorts.users.findOrCreateDefault());
         expect(user.id).toBe(1);
-        const { ok } = await import('@exitbook/core');
         return ok(undefined);
       });
 

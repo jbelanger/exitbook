@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createLink } from '../test-utils.js';

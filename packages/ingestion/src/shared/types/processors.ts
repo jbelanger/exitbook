@@ -1,4 +1,5 @@
-import { type TransactionDraft, type Result } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 export interface BatchProcessSummary {
   errors: string[];

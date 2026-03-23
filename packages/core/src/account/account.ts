@@ -1,6 +1,5 @@
+import { CursorStateSchema } from '@exitbook/foundation';
 import { z } from 'zod';
-
-import { CursorStateSchema } from '../cursor/cursor.js';
 
 /**
  * Account type schema - blockchain or exchange variants

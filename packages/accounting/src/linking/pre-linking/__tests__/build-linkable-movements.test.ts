@@ -1,6 +1,6 @@
-import type { Currency } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 

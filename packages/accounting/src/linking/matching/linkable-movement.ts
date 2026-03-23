@@ -1,4 +1,5 @@
-import { CurrencySchema, DateSchema, DecimalSchema, SourceTypeSchema } from '@exitbook/core';
+import { SourceTypeSchema } from '@exitbook/core';
+import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 /**

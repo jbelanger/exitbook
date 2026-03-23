@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 export interface ImportSessionStatus {
   accountId: number;

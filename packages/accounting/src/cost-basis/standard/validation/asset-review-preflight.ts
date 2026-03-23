@@ -1,5 +1,5 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 

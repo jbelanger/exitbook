@@ -1,5 +1,6 @@
-import type { AssetMovementDraft, FeeMovementDraft, Currency, PriceAtTxTime, AssetMovement } from '@exitbook/core';
-import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, PriceAtTxTime, AssetMovement } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';

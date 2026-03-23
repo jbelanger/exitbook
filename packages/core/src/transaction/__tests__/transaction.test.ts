@@ -1,6 +1,6 @@
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { parseDecimal } from '../../money/decimal-utils.js';
 import {
   AssetMovementDraftSchema,
   FeeMovementDraftSchema,

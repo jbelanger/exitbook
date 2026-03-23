@@ -5,8 +5,8 @@ import {
   type IBlockchainProviderRuntime,
   type ProviderEvent,
 } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import { getDataDir } from './data-dir.js';

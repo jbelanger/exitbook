@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { StandardCostBasisFilingFacts } from '../filing-facts/filing-facts-types.js';
 

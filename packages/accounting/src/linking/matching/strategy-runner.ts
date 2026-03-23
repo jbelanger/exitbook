@@ -1,4 +1,5 @@
-import { ok, type NewTransactionLink, type Result } from '@exitbook/core';
+import type { NewTransactionLink } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/scoped-transaction-types.js';

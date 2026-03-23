@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime, type TransactionWithRawData } from '@exitbook/blockchain-providers';
 import { type CosmosChainConfig, type CosmosTransaction } from '@exitbook/blockchain-providers/cosmos';
-import type { CursorState } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger, type Logger } from '@exitbook/logger';
 
 import type { IImporter, StreamingImportParams, ImportBatchResult } from '../../../shared/types/importers.js';

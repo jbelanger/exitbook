@@ -1,4 +1,5 @@
-import { err, ok, randomUUID, type AssetMovementDraft, type Result, type Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
 import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';

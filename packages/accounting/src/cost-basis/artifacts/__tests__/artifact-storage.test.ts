@@ -1,5 +1,6 @@
-import type { Currency, Transaction } from '@exitbook/core';
-import { ok, parseDecimal } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';

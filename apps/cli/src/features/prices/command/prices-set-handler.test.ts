@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 

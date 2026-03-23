@@ -1,6 +1,8 @@
-import type { Currency, OverrideEvent } from '@exitbook/core';
-import { computeResolvedLinkFingerprint, parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { OverrideEvent } from '@exitbook/core';
+import { computeResolvedLinkFingerprint } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import { ok, resultDoAsync, type Result } from '@exitbook/core';
+import { ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 

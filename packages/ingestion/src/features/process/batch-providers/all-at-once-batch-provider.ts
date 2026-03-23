@@ -1,5 +1,5 @@
 import type { RawTransaction } from '@exitbook/core';
-import { ok, type Result } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/foundation';
 
 import type { IProcessingBatchSource } from '../../../ports/processing-batch-source.js';
 

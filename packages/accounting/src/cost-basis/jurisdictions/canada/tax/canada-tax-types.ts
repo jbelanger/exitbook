@@ -1,4 +1,5 @@
-import type { Currency, PriceAtTxTime } from '@exitbook/core';
+import type { PriceAtTxTime } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';

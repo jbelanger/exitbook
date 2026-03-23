@@ -1,8 +1,7 @@
+import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
-import { CurrencySchema, DecimalSchema } from '../money/money.js';
 import { OverrideLinkTypeSchema } from '../override/override.js';
-import { DateSchema } from '../utils/primitives.js';
 
 export const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),

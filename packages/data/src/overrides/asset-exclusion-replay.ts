@@ -1,4 +1,5 @@
-import { err, ok, type OverrideEvent, type Result } from '@exitbook/core';
+import type { OverrideEvent } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { OverrideStore } from './override-store.js';
 

@@ -1,6 +1,7 @@
-import type { Currency, FeeMovementDraft, Transaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { FeeMovementDraft, Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 

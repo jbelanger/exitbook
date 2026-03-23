@@ -1,6 +1,6 @@
 import type { TransactionStatus } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
 import type { RawCoinbaseLedgerEntry } from '@exitbook/exchange-providers/coinbase';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('coinbase-utils');

@@ -1,5 +1,5 @@
-import { ok, sha256Hex } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { ok, sha256Hex } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { exportTaxPackage } from '../tax-package-exporter.js';

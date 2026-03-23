@@ -1,5 +1,5 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { assertNoScopedAssetsRequireReview, collectBlockingAssetReviewSummaries } from '../asset-review-preflight.js';

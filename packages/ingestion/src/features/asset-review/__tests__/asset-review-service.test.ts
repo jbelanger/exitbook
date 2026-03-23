@@ -1,12 +1,9 @@
-import type { Currency, FeeMovement, Transaction } from '@exitbook/core';
-import {
-  buildAssetMovementCanonicalMaterial,
-  buildFeeMovementCanonicalMaterial,
-  parseDecimal,
-  sha256Hex,
-} from '@exitbook/core';
-import { ok } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { FeeMovement, Transaction } from '@exitbook/core';
+import { buildAssetMovementCanonicalMaterial, buildFeeMovementCanonicalMaterial } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal, sha256Hex } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildAssetReviewSummaries } from '../asset-review-service.js';

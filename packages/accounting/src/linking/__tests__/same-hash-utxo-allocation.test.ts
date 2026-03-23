@@ -1,5 +1,5 @@
-import { parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { allocateSameHashUtxoAmountInTxOrder, planSameHashUtxoSourceCapacities } from '../same-hash-utxo-allocation.js';

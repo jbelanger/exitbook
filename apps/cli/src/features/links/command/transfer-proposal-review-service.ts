@@ -1,7 +1,8 @@
 import { buildCostBasisScopedTransactions, validateTransferProposalConfirmability } from '@exitbook/accounting';
-import type { Result, TransactionLink } from '@exitbook/core';
-import { err, ok, wrapError } from '@exitbook/core';
+import type { TransactionLink } from '@exitbook/core';
 import type { DataContext, OverrideStore } from '@exitbook/data';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { resolveTransferProposal } from '../transfer-proposals.js';

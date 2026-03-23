@@ -14,7 +14,7 @@
  * stateful abortable execution object during the migration to the simpler
  * command-scope model.
  */
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /** Shape for stateful abortable executions that still need an object. */
 export interface InfrastructureHandler<TParams, TResult> {

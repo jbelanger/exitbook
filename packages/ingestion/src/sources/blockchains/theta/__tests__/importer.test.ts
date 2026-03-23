@@ -1,6 +1,6 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { THETA_CHAINS } from '@exitbook/blockchain-providers/theta';
-import { err, ok, type PaginationCursor } from '@exitbook/core';
+import { err, ok, type PaginationCursor } from '@exitbook/foundation';
 import { beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';

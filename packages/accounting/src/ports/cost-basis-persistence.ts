@@ -1,6 +1,6 @@
 import type { Account, TransactionLink, Transaction } from '@exitbook/core';
 import type { ProjectionStatus } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * All data needed to run a cost basis calculation.

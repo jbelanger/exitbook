@@ -1,5 +1,6 @@
 import type { AssetMovement, TransactionLink } from '@exitbook/core';
-import { err, isPartialMatchLinkMetadata, ok, type Result } from '@exitbook/core';
+import { isPartialMatchLinkMetadata } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingScopedTransaction } from './scoped-transaction-types.js';

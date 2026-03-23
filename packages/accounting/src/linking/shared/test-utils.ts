@@ -1,4 +1,5 @@
-import { type Currency, type Transaction, parseDecimal, type TransactionLink } from '@exitbook/core';
+import type { Transaction, TransactionLink } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import { materializeTestTransaction, seedTxFingerprint } from '../../__tests__/test-utils.js';

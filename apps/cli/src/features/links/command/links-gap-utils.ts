@@ -1,6 +1,7 @@
 // Types and utilities for link gap analysis
 
-import { parseDecimal, type Account, type Transaction, type TransactionLink } from '@exitbook/core';
+import type { Account, Transaction, TransactionLink } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;

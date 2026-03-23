@@ -1,11 +1,5 @@
-import type {
-  Account,
-  BalanceSnapshot,
-  BalanceSnapshotAsset,
-  ImportSession,
-  Result,
-  Transaction,
-} from '@exitbook/core';
+import type { Account, BalanceSnapshot, BalanceSnapshotAsset, ImportSession, Transaction } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 export interface IBalanceAccountLookup {
   findById(id: number): Promise<Result<Account | undefined, Error>>;

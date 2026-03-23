@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import { type CosmosTransaction } from '@exitbook/blockchain-providers/cosmos';
 import { type CosmosChainConfig } from '@exitbook/blockchain-providers/cosmos';
-import { err, ok, type Currency } from '@exitbook/core';
+import { err, ok, type Currency } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {

@@ -1,5 +1,5 @@
 import type { TransactionLink, Transaction } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * All data needed for the price derivation stage.

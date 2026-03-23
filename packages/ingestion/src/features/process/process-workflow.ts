@@ -1,8 +1,10 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import { getErrorMessage, type RawTransaction } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
-import type { Result, TransactionDraft } from '@exitbook/core';
+import type { RawTransaction } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import { getErrorMessage } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 

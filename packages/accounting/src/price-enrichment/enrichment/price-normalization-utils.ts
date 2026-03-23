@@ -9,10 +9,11 @@
  * Following "Functional Core, Imperative Shell" pattern from CLAUDE.md
  */
 
-import type { AssetMovementDraft, Currency, PriceAtTxTime, Transaction } from '@exitbook/core';
-import { isFiat, parseDecimal } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { AssetMovementDraft, PriceAtTxTime, Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { isFiat, parseDecimal } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 /**

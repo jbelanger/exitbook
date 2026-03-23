@@ -1,4 +1,5 @@
-import { cascadeInvalidation, resultDoAsync, type ProjectionId, type Result } from '@exitbook/core';
+import { cascadeInvalidation, type ProjectionId } from '@exitbook/core';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 

@@ -1,4 +1,5 @@
-import { parseDecimal, type TransactionDraft } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type { ConfirmedExchangeTransactionDraft } from './exchange-interpretation.js';
 

@@ -6,7 +6,7 @@ import {
   type NearTokenTransfer,
   type NearTransaction,
 } from '@exitbook/blockchain-providers/near';
-import { ok } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
 import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';

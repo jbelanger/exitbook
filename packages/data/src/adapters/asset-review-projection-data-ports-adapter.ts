@@ -1,4 +1,5 @@
-import { err, type AssetReviewSummary } from '@exitbook/core';
+import type { AssetReviewSummary } from '@exitbook/core';
+import { err } from '@exitbook/foundation';
 import type { IAssetReviewProjectionDataSource, IAssetReviewProjectionStore } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';

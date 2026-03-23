@@ -1,6 +1,6 @@
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { DataContext } from '@exitbook/data';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 

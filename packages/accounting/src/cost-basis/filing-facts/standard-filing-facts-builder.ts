@@ -1,4 +1,4 @@
-import { err, ok, type Result, wrapError } from '@exitbook/core';
+import { err, ok, type Result, wrapError } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { resolveCostBasisJurisdictionRules } from '../jurisdictions/registry.js';

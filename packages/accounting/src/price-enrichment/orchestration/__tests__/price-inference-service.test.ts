@@ -1,5 +1,6 @@
-import type { Currency, TransactionDraft, TransactionLink, Transaction } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { TransactionDraft, TransactionLink, Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

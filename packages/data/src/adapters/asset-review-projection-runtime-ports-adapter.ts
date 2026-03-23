@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { AssetReviewProjectionRuntimePorts } from '@exitbook/ingestion/ports';
 
 import type { DataContext } from '../data-context.js';

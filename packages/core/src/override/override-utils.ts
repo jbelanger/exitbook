@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '../result/index.js';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { ResolvedLinkIdentity } from './override.js';
 

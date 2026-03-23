@@ -1,7 +1,6 @@
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import type { Currency } from '../../money/currency.js';
-import { parseDecimal } from '../../money/decimal-utils.js';
 import { computePrimaryMovement } from '../movement-utils.js';
 import type { AssetMovementDraft } from '../movement.js';
 

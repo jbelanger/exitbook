@@ -2,10 +2,10 @@ import path from 'node:path';
 
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent, ImportEvent } from '../../events.js';

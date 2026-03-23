@@ -1,7 +1,7 @@
 // Pure utility functions for link operations (Functional Core)
 
 import type { LinkStatus } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 /**
  * Returns the default reviewer identifier for CLI operations.

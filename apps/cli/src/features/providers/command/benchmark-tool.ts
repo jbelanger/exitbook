@@ -6,7 +6,7 @@
  * (e.g. bypassing the provider's rate limiter during benchmarking).
  */
 
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import type { RateLimitConfig } from '@exitbook/http';
 import { RateLimitError } from '@exitbook/http';
 import type { Logger } from '@exitbook/logger';

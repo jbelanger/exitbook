@@ -1,10 +1,10 @@
-import { resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 
 export function buildAssetReviewResetPorts(db: DataContext): {
-  countResetImpact(accountIds?: number[]): Promise<import('@exitbook/core').Result<{ assets: number }, Error>>;
-  reset(accountIds?: number[]): Promise<import('@exitbook/core').Result<{ assets: number }, Error>>;
+  countResetImpact(accountIds?: number[]): Promise<import('@exitbook/foundation').Result<{ assets: number }, Error>>;
+  reset(accountIds?: number[]): Promise<import('@exitbook/foundation').Result<{ assets: number }, Error>>;
 } {
   return {
     async countResetImpact(accountIds) {

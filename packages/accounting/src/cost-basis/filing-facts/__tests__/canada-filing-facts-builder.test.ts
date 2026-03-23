@@ -1,5 +1,5 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildCanadaCostBasisFilingFacts } from '../canada-filing-facts-builder.js';

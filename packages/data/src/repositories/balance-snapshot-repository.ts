@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { BalanceSnapshot, BalanceSnapshotAsset } from '@exitbook/core';
-import { err, ok, wrapError, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 

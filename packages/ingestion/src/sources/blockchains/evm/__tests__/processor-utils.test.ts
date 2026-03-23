@@ -1,5 +1,5 @@
 import { type EvmChainConfig, type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import type { Currency } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { AddressContext } from '../../../../shared/types/processors.js';

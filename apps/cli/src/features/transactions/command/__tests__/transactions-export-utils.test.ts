@@ -1,6 +1,7 @@
-import type { Currency, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, it, expect } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';

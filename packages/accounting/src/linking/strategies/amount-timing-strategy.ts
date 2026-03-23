@@ -1,4 +1,5 @@
-import { ok, type NewTransactionLink, type Result } from '@exitbook/core';
+import type { NewTransactionLink } from '@exitbook/core';
+import { ok, type Result } from '@exitbook/foundation';
 
 import { createTransactionLink } from '../matching/link-construction.js';
 import { allocateMatches } from '../matching/match-allocation.js';

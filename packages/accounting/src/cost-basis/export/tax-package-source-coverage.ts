@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { TaxPackageSourceContext } from './tax-package-build-context.js';
 import { requireConfirmedLink, requireTransactionWithAccount } from './tax-package-source-context.js';

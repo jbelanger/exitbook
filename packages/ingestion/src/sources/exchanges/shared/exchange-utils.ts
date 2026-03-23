@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 export function getDirectionHint(amount: string): 'credit' | 'debit' | 'unknown' {
   const value = parseDecimal(amount);

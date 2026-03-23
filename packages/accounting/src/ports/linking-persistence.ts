@@ -1,5 +1,5 @@
 import type { NewTransactionLink, Transaction } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * Result of replacing links in persistence.

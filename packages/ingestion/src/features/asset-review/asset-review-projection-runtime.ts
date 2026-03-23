@@ -1,5 +1,5 @@
-import type { Result } from '@exitbook/core';
-import { err, ok, pickLatestDate } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, pickLatestDate } from '@exitbook/foundation';
 
 import type { AssetReviewProjectionRuntimePorts } from '../../ports/asset-review-projection-ports.js';
 

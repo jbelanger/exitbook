@@ -6,13 +6,13 @@ import type {
   ExchangeCredentials,
   Transaction,
 } from '@exitbook/core';
-import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/core';
 import {
   buildBalancePorts,
   buildBalancesFreshnessPorts,
   resolveBalanceScopeAccountId,
   type DataContext,
 } from '@exitbook/data';
+import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';

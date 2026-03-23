@@ -18,6 +18,7 @@
   "dependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/events": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",
     "@exitbook/price-providers": "workspace:*",

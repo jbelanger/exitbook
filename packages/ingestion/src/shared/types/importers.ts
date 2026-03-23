@@ -1,5 +1,6 @@
-import type { AccountType, CursorState, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { AccountType, ExchangeCredentials, RawTransactionInput } from '@exitbook/core';
+import type { CursorState } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 
 /**
  * Canonical import parameters - single source of truth for all import operations.

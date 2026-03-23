@@ -1,6 +1,6 @@
 import { type TokenMetadataRecord } from '@exitbook/blockchain-providers';
-import { parseDecimal } from '@exitbook/core';
 import { EventBus } from '@exitbook/events';
+import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { IngestionEvent } from '../../../events.js';

@@ -1,6 +1,6 @@
 import { type XrpBalanceChange, type XrpTransaction } from '@exitbook/blockchain-providers/xrp';
-import { parseDecimal } from '@exitbook/core';
-import { type Result, err, ok } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
+import { type Result, err, ok } from '@exitbook/foundation';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

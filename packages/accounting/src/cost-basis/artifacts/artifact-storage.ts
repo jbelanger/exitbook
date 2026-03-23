@@ -1,5 +1,5 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
-import { err, ok, randomUUID, type Result } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { z } from 'zod';
 

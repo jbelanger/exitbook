@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type -- for clarity */
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { CostBasisJurisdiction, CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';

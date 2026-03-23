@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { AssetReviewEvidence, AssetReviewSummary } from '@exitbook/core';
-import { err, ok, wrapError, type Result } from '@exitbook/core';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { AssetReviewEvidenceTable, AssetReviewStateTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';

@@ -1,7 +1,8 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
-import type { Account, CursorState } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { Account } from '@exitbook/core';
 import { type DatabaseSchema } from '@exitbook/data';
+import type { CursorState } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Kysely } from '@exitbook/sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

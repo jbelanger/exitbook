@@ -1,5 +1,6 @@
-import type { Result, TransactionDraft } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
 import { computeTxFingerprint as computeCanonicalTxFingerprint } from '@exitbook/core/identity';
+import type { Result } from '@exitbook/foundation';
 
 type FingerprintTransactionInput = Pick<TransactionDraft, 'blockchain' | 'identityMaterial' | 'source' | 'sourceType'>;
 

@@ -4,7 +4,7 @@ import {
   ProviderError,
 } from '@exitbook/blockchain-providers';
 import { getXrpChainConfig } from '@exitbook/blockchain-providers/xrp';
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { consumeImportStream, type ProviderManagerMock } from '../../../../shared/test-utils/importer-test-utils.js';

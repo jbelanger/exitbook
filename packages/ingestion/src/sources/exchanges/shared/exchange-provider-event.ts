@@ -1,4 +1,5 @@
-import type { Currency, TransactionStatus } from '@exitbook/core';
+import type { TransactionStatus } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 
 export interface ExchangeProviderEvent {
   providerEventId: string;

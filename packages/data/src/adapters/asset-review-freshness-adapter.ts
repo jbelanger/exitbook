@@ -1,10 +1,10 @@
-import { resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 
 export function buildAssetReviewFreshnessPorts(db: DataContext): {
   checkFreshness(): Promise<
-    import('@exitbook/core').Result<
+    import('@exitbook/foundation').Result<
       { reason: string | undefined; status: import('@exitbook/core').ProjectionStatus },
       Error
     >

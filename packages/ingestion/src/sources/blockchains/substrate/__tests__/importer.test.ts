@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
 import { type SubstrateChainConfig } from '@exitbook/blockchain-providers/substrate';
-import type { Currency, PaginationCursor } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Currency, PaginationCursor } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
 import { consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';

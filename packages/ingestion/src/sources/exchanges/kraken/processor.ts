@@ -1,5 +1,6 @@
-import { err, ok, type Result, type TransactionDraft } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
 import type { KrakenLedgerEntry } from '@exitbook/exchange-providers/kraken';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { z } from 'zod';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';

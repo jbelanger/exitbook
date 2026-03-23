@@ -1,8 +1,8 @@
 // Pure utility functions for providers-benchmark command
 // All functions are pure - no side effects
 
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 /**
  * CLI options structure for providers-benchmark command.

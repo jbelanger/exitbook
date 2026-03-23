@@ -5,15 +5,14 @@ import {
   type NearTokenTransfer,
   NearStreamEventSchema,
 } from '@exitbook/blockchain-providers/near';
+import type { OperationClassification, TransactionDraft } from '@exitbook/core';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
   parseDecimal,
   type Currency,
-  type OperationClassification,
-  type TransactionDraft,
-} from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+} from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';

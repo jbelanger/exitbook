@@ -6,7 +6,7 @@
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { ok, randomHex, wrapError, type Result } from '@exitbook/core';
+import { ok, randomHex, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('file-utils');

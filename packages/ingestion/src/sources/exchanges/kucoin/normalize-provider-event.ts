@@ -1,5 +1,5 @@
-import type { Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { ExchangeProviderEvent } from '../shared/index.js';
 

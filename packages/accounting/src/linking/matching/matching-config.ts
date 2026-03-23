@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type { MatchingConfig } from '../shared/types.js';
 

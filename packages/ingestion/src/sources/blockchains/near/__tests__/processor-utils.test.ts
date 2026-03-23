@@ -6,8 +6,8 @@ import {
   type NearTransaction,
   type NearReceiptAction,
 } from '@exitbook/blockchain-providers/near';
-import { parseDecimal, type Currency } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, test } from 'vitest';
 
 import {

@@ -1,10 +1,10 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
 import { THETA_CHAINS } from '@exitbook/blockchain-providers/theta';
-import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, type Currency } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, type Currency } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, test, vi } from 'vitest';
 
-import { assertOk } from '../../../../../../core/src/__tests__/test-utils.js';
 import { ThetaProcessor } from '../processor.js';
 
 const THETA_CONFIG = (() => {

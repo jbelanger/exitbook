@@ -3,8 +3,8 @@ import {
   type BlockchainProviderDescriptor,
   type ProviderStatsSnapshot,
 } from '@exitbook/blockchain-providers';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import { providerToSummary } from '../../blockchains/command/blockchains-view-utils.js';
 import type {

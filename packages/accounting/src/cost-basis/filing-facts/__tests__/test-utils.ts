@@ -1,4 +1,4 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 
 import type { CostBasisWorkflowResult } from '../../workflow/workflow-result-types.js';
 

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { TaxPackageSourceCoverageRequest } from '../../../export/tax-package-source-coverage.js';
 import type { CanadaCostBasisWorkflowResult } from '../../../workflow/workflow-result-types.js';

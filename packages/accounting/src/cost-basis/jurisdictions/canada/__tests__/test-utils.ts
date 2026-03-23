@@ -1,6 +1,7 @@
-import type { Currency, TransactionLink, Transaction } from '@exitbook/core';
-import { err, ok, parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { TransactionLink, Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { err, ok, parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { vi } from 'vitest';
 

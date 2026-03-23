@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '@exitbook/accounting';
-import { err, ok, type Currency, type Transaction } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
+import { err, ok, type Currency } from '@exitbook/foundation';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';

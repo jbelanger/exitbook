@@ -1,6 +1,6 @@
 import type { LinksResetImpact } from '@exitbook/accounting/ports';
 import type { Account } from '@exitbook/core';
-import { err, ok, resetPlan, wrapError, type Result } from '@exitbook/core';
+import { resetPlan } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import {
   buildCostBasisResetPorts,
@@ -8,6 +8,7 @@ import {
   buildLinksResetPorts,
   buildProcessedTransactionsResetPorts,
 } from '@exitbook/data';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IngestionPurgeImpact } from '@exitbook/ingestion';
 import type { ProcessedTransactionsResetImpact } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';

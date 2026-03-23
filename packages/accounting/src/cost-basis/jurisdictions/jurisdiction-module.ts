@@ -1,5 +1,5 @@
 import type { Transaction } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
 import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';

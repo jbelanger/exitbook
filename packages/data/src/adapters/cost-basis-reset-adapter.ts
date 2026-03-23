@@ -1,10 +1,10 @@
-import { resultDoAsync } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 
 export function buildCostBasisResetPorts(db: DataContext): {
-  countResetImpact(): Promise<import('@exitbook/core').Result<{ snapshots: number }, Error>>;
-  reset(): Promise<import('@exitbook/core').Result<{ snapshots: number }, Error>>;
+  countResetImpact(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
+  reset(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
 } {
   return {
     async countResetImpact() {

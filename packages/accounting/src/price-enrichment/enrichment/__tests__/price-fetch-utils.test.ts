@@ -1,4 +1,4 @@
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createTransactionFromMovements } from '../../../__tests__/test-utils.js';

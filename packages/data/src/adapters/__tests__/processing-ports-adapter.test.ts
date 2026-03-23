@@ -1,5 +1,5 @@
-import { ok } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { ok } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DataContext } from '../../data-context.js';

@@ -30,6 +30,7 @@
     "@exitbook/data": "workspace:*",
     "@exitbook/events": "workspace:*",
     "@exitbook/exchange-providers": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",

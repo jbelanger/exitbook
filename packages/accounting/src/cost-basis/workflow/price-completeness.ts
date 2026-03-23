@@ -1,11 +1,6 @@
-import {
-  isFiat,
-  parseCurrency,
-  type AssetMovementDraft,
-  type FeeMovementDraft,
-  type Transaction,
-} from '@exitbook/core';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, Transaction } from '@exitbook/core';
+import { isFiat, parseCurrency } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';

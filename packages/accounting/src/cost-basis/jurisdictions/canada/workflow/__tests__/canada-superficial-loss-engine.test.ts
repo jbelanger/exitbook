@@ -1,5 +1,5 @@
-import { parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
-import { err, ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
 import * as dataModule from '@exitbook/data';
+import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

@@ -1,12 +1,8 @@
 import { type SubstrateChainConfig, type SubstrateTransaction } from '@exitbook/blockchain-providers/substrate';
 import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers/substrate';
-import {
-  fromBaseUnitsToDecimalString,
-  parseDecimal,
-  type Currency,
-  type OperationClassification,
-} from '@exitbook/core';
-import { type Result, err, ok } from '@exitbook/core';
+import type { OperationClassification } from '@exitbook/core';
+import { fromBaseUnitsToDecimalString, parseDecimal, type Currency } from '@exitbook/foundation';
+import { type Result, err, ok } from '@exitbook/foundation';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
 

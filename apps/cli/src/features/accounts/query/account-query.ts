@@ -1,5 +1,5 @@
 import type { Account, BalanceSnapshot } from '@exitbook/core';
-import { err, ok, type Result, wrapError } from '@exitbook/core';
+import { err, ok, type Result, wrapError } from '@exitbook/foundation';
 import { resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 

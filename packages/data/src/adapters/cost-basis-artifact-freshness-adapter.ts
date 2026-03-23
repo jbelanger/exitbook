@@ -1,5 +1,5 @@
 import type { CostBasisDependencyWatermark, ICostBasisDependencyWatermarkReader } from '@exitbook/accounting/ports';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { DataContext } from '../data-context.js';
 

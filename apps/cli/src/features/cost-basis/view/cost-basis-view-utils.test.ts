@@ -4,7 +4,7 @@ import type {
   ConvertedLotDisposal,
   StandardCostBasisFilingFacts,
 } from '@exitbook/accounting';
-import { parseDecimal, type Currency } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import {

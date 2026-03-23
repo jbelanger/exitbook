@@ -1,6 +1,7 @@
-import type { Currency, Transaction } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction } from '../../../../__tests__/test-utils.js';

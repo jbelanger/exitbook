@@ -1,6 +1,6 @@
-import { err, ok } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
 import type { EventBus } from '@exitbook/events';
+import { err, ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PricingEvent } from '../../shared/price-events.js';

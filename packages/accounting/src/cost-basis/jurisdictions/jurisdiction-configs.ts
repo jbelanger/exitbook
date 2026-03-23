@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CostBasisConfig, FiatCurrency } from '../model/cost-basis-config.js';
 import type { CostBasisMethodSupport, JurisdictionConfig } from '../model/types.js';

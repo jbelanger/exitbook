@@ -1,4 +1,5 @@
-import { err, ok, type Result, type TransactionLink } from '@exitbook/core';
+import type { TransactionLink } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import {

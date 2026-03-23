@@ -1,5 +1,6 @@
-import { ok, type OverrideEvent } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { OverrideEvent } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { readTransactionNoteOverrides, replayTransactionNoteOverrides } from '../transaction-note-replay.js';

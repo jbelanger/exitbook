@@ -3,8 +3,9 @@ import {
   type BitcoinTransaction,
   BitcoinTransactionSchema,
 } from '@exitbook/blockchain-providers/bitcoin';
-import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency, type TransactionDraft } from '@exitbook/core';
-import { type Result, err } from '@exitbook/core';
+import type { TransactionDraft } from '@exitbook/core';
+import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency } from '@exitbook/foundation';
+import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';

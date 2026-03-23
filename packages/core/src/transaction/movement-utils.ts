@@ -1,6 +1,5 @@
+import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
-
-import { parseDecimal } from '../money/decimal-utils.js';
 
 import type { AssetMovementDraft, MovementDirection } from './movement.js';
 

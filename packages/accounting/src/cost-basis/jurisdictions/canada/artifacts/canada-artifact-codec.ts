@@ -1,5 +1,5 @@
-import { parseDecimal, type Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db nulls */
 import type { CostBasisFailureConsumer, CostBasisFailureSnapshotRecord } from '@exitbook/accounting/ports';
-import { err, ok, type Result } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 

@@ -1,4 +1,5 @@
-import type { ProjectionStatus, Result } from '@exitbook/core';
+import type { ProjectionStatus } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 export interface LinksFreshnessResult {
   status: ProjectionStatus;

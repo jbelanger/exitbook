@@ -1,5 +1,5 @@
-import { err, ok, wrapError, type Result } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';

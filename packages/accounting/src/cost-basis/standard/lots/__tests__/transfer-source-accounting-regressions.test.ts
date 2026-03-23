@@ -1,5 +1,5 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 

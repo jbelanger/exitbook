@@ -1,5 +1,5 @@
-import { type Currency, parseDecimal } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import type { AcquisitionLot } from '../../../model/schemas.js';

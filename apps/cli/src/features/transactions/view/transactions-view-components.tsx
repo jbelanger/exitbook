@@ -2,7 +2,7 @@
  * Transactions view TUI components
  */
 
-import { isFiat, type Currency } from '@exitbook/core';
+import { isFiat, type Currency } from '@exitbook/foundation';
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import { useMemo, useReducer, type FC, type ReactElement } from 'react';

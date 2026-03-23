@@ -1,13 +1,7 @@
 import type { FeeMovementDraft, TransactionLink } from '@exitbook/core';
-import {
-  err,
-  type Currency,
-  parseDecimal,
-  type AssetMovementDraft,
-  type Result,
-  type Transaction,
-} from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import { err, type Currency, parseDecimal, type Result } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';

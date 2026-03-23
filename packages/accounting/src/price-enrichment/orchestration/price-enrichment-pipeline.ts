@@ -13,9 +13,9 @@
  * - Derive (2nd pass) calculates ratios and propagates prices using fetched/normalized data
  */
 
-import type { Result } from '@exitbook/core';
-import { err, ok, resultTryAsync } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, resultTryAsync } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector, type MetricsSummary } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';

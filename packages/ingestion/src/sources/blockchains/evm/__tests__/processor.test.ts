@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmChainConfig, type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import type { Currency } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi } from 'vitest';
 
 import { EvmProcessor } from '../processor.js';

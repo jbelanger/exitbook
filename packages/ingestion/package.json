@@ -28,6 +28,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/events": "workspace:*",
     "@exitbook/exchange-providers": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "csv-parse": "^6.2.1",
     "decimal.js": "^10.6.0",

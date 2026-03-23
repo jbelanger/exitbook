@@ -4,7 +4,8 @@ import type {
   CanadaTaxInputContext,
   CanadaTaxReport,
 } from '@exitbook/accounting';
-import type { Currency, Transaction } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 

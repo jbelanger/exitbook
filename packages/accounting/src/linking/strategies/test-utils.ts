@@ -1,4 +1,5 @@
-import { type Currency, parseDecimal, type Transaction } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 
 import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import { createLinkableMovement } from '../shared/test-utils.js';

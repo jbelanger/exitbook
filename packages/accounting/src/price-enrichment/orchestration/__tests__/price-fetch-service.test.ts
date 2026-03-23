@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import { type Currency, type Transaction, type TransactionDraft } from '@exitbook/core';
-import { ok } from '@exitbook/core';
+import type { Transaction, TransactionDraft } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';

@@ -1,4 +1,5 @@
-import type { AssetReviewSummary, ProjectionStatus, Result, Transaction } from '@exitbook/core';
+import type { AssetReviewSummary, ProjectionStatus, Transaction } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { AssetReviewDecisionInput } from '../features/asset-review/asset-review-service.js';
 

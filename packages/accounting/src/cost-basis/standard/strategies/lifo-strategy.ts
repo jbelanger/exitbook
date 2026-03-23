@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 
 import type { AcquisitionLot, LotDisposal } from '../../model/schemas.js';
 

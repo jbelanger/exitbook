@@ -1,5 +1,5 @@
-import { ok } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
+import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import { calculateTotalDeletionItems, createClearHandler, flattenPreview } from './clear-handler.js';

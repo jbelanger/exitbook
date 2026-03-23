@@ -1,4 +1,5 @@
-import { DecimalSchema, LinkTypeSchema, MatchCriteriaSchema, UnitIntervalDecimalSchema } from '@exitbook/core';
+import { LinkTypeSchema, MatchCriteriaSchema, UnitIntervalDecimalSchema } from '@exitbook/core';
+import { DecimalSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { LinkableMovementSchema } from '../matching/linkable-movement.js';

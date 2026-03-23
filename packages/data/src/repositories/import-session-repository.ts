@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- null required for db */
 import type { ImportSession, ImportSessionStatus } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 
 import type { ImportSessionsTable } from '../database-schema.js';

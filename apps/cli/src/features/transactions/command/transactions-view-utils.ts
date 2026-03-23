@@ -1,8 +1,9 @@
 // Utilities and types for view transactions command
 
 import type { AssetMovementDraft, FeeMovementDraft, Transaction } from '@exitbook/core';
-import { computePrimaryMovement, isFiat, type Currency } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { computePrimaryMovement } from '@exitbook/core';
+import { isFiat, type Currency } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
 import { parseDate } from '../../shared/view-utils.js';
 import type { CommonViewFilters } from '../../shared/view-utils.js';

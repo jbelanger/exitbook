@@ -94,6 +94,9 @@ importers:
       '@exitbook/exchange-providers':
         specifier: workspace:*
         version: link:../../packages/exchange-providers
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../../packages/foundation
       '@exitbook/http':
         specifier: workspace:*
         version: link:../../packages/http
@@ -167,6 +170,9 @@ importers:
       '@exitbook/events':
         specifier: workspace:*
         version: link:../events
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger
@@ -244,9 +250,9 @@ importers:
 
   packages/core:
     dependencies:
-      '@noble/hashes':
-        specifier: ^2.0.1
-        version: 2.0.1
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -269,6 +275,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
       '@exitbook/ingestion':
         specifier: workspace:*
         version: link:../ingestion
@@ -372,6 +381,9 @@ importers:
       '@exitbook/exchange-providers':
         specifier: workspace:*
         version: link:../exchange-providers
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
       '@exitbook/logger':
         specifier: workspace:*
         version: link:../logger

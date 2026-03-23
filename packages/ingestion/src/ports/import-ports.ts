@@ -1,4 +1,5 @@
-import type { Account, AccountType, CursorState, ImportSession, RawTransactionInput, Result } from '@exitbook/core';
+import type { Account, AccountType, ImportSession, RawTransactionInput } from '@exitbook/core';
+import type { CursorState, Result } from '@exitbook/foundation';
 
 import type { FindOrCreateAccountParams } from './import-account-store.js';
 

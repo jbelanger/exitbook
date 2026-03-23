@@ -12,7 +12,7 @@ import {
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting';
-import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/core';
+import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';

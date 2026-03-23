@@ -3,7 +3,7 @@
  */
 
 import type { Account, AccountType, BalanceSnapshot, ExchangeCredentials } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import { getExchangeCredentialsFromEnv } from '../command/balance-utils.js';

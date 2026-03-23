@@ -2,7 +2,7 @@
  * Tests for getStrategyForMethod factory function
  */
 
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { FifoStrategy } from '../fifo-strategy.js';

@@ -7,8 +7,8 @@
  * 3. provider prices (lowest priority)
  */
 
-import { type Currency, parseDecimal } from '@exitbook/core';
 import type { AssetMovementDraft, PriceAtTxTime } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { enrichMovementsWithPrices } from '../movement-enrichment-utils.js';

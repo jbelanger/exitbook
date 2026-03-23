@@ -5,9 +5,9 @@
  * Uses historical FX rates at transaction time (not current rates) for accuracy.
  */
 
-import type { Currency } from '@exitbook/core';
-import { parseDecimal, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { parseDecimal, wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 

@@ -1,7 +1,5 @@
+import { err, getErrorMessage, ok, type Result, sha256Hex } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
-
-import { err, ok, type Result } from '../result/index.js';
-import { getErrorMessage, sha256Hex } from '../utils/index.js';
 
 // Wrap the raw sha256Hex in Result for fingerprint use
 function sha256Result(material: string): Result<string, Error> {

@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
-import {
-  type Currency,
-  type PriceAtTxTime,
-  type Transaction,
-  type TransactionDraft,
-  parseDecimal,
-} from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { PriceAtTxTime, Transaction, TransactionDraft } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

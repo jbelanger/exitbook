@@ -2,8 +2,8 @@
 // All functions are pure - no side effects
 
 import type { FeeMovementDraft, PriceAtTxTime, Transaction, TransactionLink } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok, resultDo } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok, resultDo } from '@exitbook/foundation';
 import type { z } from 'zod';
 
 import type { ExportCommandOptionsSchema } from '../../shared/schemas.js';

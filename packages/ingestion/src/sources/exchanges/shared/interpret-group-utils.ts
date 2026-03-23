@@ -1,4 +1,4 @@
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 
 import type { ExchangeCorrelationGroup } from './exchange-correlation-group.js';
 import type { ExchangeFeeDraft, ExchangeMovementDraft } from './exchange-interpretation.js';

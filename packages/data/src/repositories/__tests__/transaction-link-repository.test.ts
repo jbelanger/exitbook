@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/no-null -- null needed by db */
-import { type Currency, type NewTransactionLink, parseDecimal } from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { NewTransactionLink } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';

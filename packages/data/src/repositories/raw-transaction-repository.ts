@@ -1,7 +1,8 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
 import type { ProcessingStatus, RawTransaction, RawTransactionInput } from '@exitbook/core';
-import { RawTransactionInputSchema, wrapError } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/core';
+import { RawTransactionInputSchema } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Selectable } from '@exitbook/sqlite';
 
 import type { RawTransactionTable } from '../database-schema.js';

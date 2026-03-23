@@ -1,5 +1,5 @@
 import type { LinkType, MatchCriteria, SourceType } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/core';
+import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';

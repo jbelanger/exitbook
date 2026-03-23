@@ -3,9 +3,9 @@
  * Tests for CostBasisReportGenerator
  */
 
-import { ok, type Currency } from '@exitbook/core';
-import { err } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import { ok, type Currency } from '@exitbook/foundation';
+import { err } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 

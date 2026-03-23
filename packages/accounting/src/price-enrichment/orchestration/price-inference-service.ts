@@ -1,7 +1,7 @@
 import type { Transaction } from '@exitbook/core';
-import { wrapError } from '@exitbook/core';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import { wrapError } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';

@@ -1,12 +1,6 @@
-import {
-  ok,
-  parseDecimal,
-  type AssetReviewSummary,
-  type Currency,
-  type ProjectionStatus,
-  type Transaction,
-} from '@exitbook/core';
-import { assertOk } from '@exitbook/core/test-utils';
+import type { AssetReviewSummary, ProjectionStatus, Transaction } from '@exitbook/core';
+import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AssetReviewProjectionRuntimePorts } from '../../../ports/asset-review-projection-ports.js';

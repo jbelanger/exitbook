@@ -1,5 +1,5 @@
 import { type IBlockchainProviderRuntime, ProviderError } from '@exitbook/blockchain-providers';
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {

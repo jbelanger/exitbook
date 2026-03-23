@@ -1,3 +1,5 @@
+import { parseDecimal } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,11 +8,9 @@ import {
   computeAccountFingerprint,
   computeMovementFingerprint,
   computeTxFingerprint,
-  parseDecimal,
 } from '../index.js';
 
 import {
-  assertOk,
   seedAssetMovementFingerprint,
   seedFeeMovementFingerprint,
   seedMovementFingerprint,

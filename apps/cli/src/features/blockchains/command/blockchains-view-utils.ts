@@ -1,6 +1,6 @@
 import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
-import type { Result } from '@exitbook/core';
-import { err, ok } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
 import type { BlockchainViewItem, ProviderViewItem } from '../view/blockchains-view-state.js';

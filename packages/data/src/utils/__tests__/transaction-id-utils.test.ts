@@ -1,5 +1,6 @@
-import type { Currency, TransactionDraft } from '@exitbook/core';
-import { assertErr, assertOk } from '@exitbook/core/test-utils';
+import type { TransactionDraft } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 

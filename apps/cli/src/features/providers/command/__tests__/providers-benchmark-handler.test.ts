@@ -3,7 +3,7 @@ import {
   openBlockchainProviderBenchmarkSession,
   type BlockchainProviderBenchmarkSession,
 } from '@exitbook/blockchain-providers/benchmark';
-import { err, ok } from '@exitbook/core';
+import { err, ok } from '@exitbook/foundation';
 import type { RateLimitConfig } from '@exitbook/http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

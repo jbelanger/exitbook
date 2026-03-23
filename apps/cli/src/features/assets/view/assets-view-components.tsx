@@ -1,4 +1,4 @@
-import { parseAssetId } from '@exitbook/core';
+import { parseAssetId } from '@exitbook/foundation';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
