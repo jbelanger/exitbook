@@ -45,6 +45,7 @@ import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
 import { openCliPriceProviderRuntime } from './cli-price-provider-runtime.js';
+import type { CommandContext } from './command-runtime.js';
 
 const logger = getLogger('projection-runtime');
 
@@ -77,6 +78,13 @@ type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
 interface PricePrereqConfig {
   startDate: Date;
   endDate: Date;
+}
+
+interface EnsureConsumerInputsReadyOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  isJsonMode: boolean;
+  priceConfig?: PricePrereqConfig | undefined;
+  setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
 }
 
 type GlobalProjectionId = Exclude<ProjectionId, 'balances'>;
@@ -322,11 +330,20 @@ async function resetSingleProjection(
  * After projection readiness, checks price coverage for consumers that need it.
  */
 export async function ensureConsumerInputsReady(
+  ctx: CommandContext,
   target: ConsumerTarget,
-  deps: ProjectionRuntimeDeps,
-  priceConfig?: PricePrereqConfig,
-  accountingExclusionPolicy?: AccountingExclusionPolicy
+  options: EnsureConsumerInputsReadyOptions
 ): Promise<Result<void, Error>> {
+  const appRuntime = ctx.requireAppRuntime();
+  const deps: ProjectionRuntimeDeps = {
+    db: await ctx.database(),
+    registry: appRuntime.adapterRegistry,
+    dataDir: ctx.dataDir,
+    isJsonMode: options.isJsonMode,
+    blockchainExplorersConfig: appRuntime.blockchainExplorersConfig,
+    priceProviderConfig: appRuntime.priceProviderConfig,
+    setAbort: options.setAbort,
+  };
   const plan = buildConsumerProjectionPlan(target);
 
   const registry = buildProjectionRuntimeRegistry(deps);
@@ -347,8 +364,13 @@ export async function ensureConsumerInputsReady(
   }
 
   // Price coverage prereq (not a projection)
-  if ((target === 'cost-basis' || target === 'portfolio') && priceConfig) {
-    const pricesResult = await ensureTransactionPricesReady(deps, priceConfig, target, accountingExclusionPolicy);
+  if ((target === 'cost-basis' || target === 'portfolio') && options.priceConfig) {
+    const pricesResult = await ensureTransactionPricesReady(
+      deps,
+      options.priceConfig,
+      target,
+      options.accountingExclusionPolicy
+    );
     if (pricesResult.isErr()) return err(pricesResult.error);
   }
 

@@ -1,7 +1,5 @@
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import type { ImportSession } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
 import { buildImportPorts } from '@exitbook/data';
 import type { EventBus } from '@exitbook/events';
 import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
@@ -108,16 +106,11 @@ export class ImportHandler implements InfrastructureHandler<
   }
 }
 
-export async function createImportHandler(
-  ctx: CommandContext,
-  database: DataContext,
-  registry: AdapterRegistry,
-  options?: { explorerConfig?: BlockchainExplorersConfig | undefined }
-): Promise<Result<ImportHandler, Error>> {
+export async function createImportHandler(ctx: CommandContext): Promise<Result<ImportHandler, Error>> {
   try {
-    const infra = await createIngestionInfrastructure(ctx, database, registry, {
-      explorerConfig: options?.explorerConfig,
-    });
+    const database = await ctx.database();
+    const registry = ctx.requireAppRuntime().adapterRegistry;
+    const infra = await createIngestionInfrastructure(ctx, database);
 
     const importPorts = buildImportPorts(database);
     const importWorkflow = new ImportWorkflow(

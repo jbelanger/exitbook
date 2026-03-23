@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
-import type { CliAppRuntime } from '../../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { registerBalanceCommand } from '../balance.js';
 
 const appRuntime = {

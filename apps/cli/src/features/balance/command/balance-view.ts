@@ -2,8 +2,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { composeBalanceViewHandler } from '../../../composition/balances.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -13,6 +12,8 @@ import { isJsonMode } from '../../shared/utils.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
+
+import { createBalanceHandler } from './balance-handler.js';
 
 type BalanceViewCommandOptions = z.infer<typeof BalanceViewCommandOptionsSchema>;
 
@@ -62,8 +63,8 @@ async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliApp
 
 async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeBalanceViewHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -121,8 +122,8 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
 
 async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeBalanceViewHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

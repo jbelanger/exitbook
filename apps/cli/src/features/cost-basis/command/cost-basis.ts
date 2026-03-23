@@ -4,8 +4,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { composeCostBasisHandler } from '../../../composition/accounting.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -18,7 +17,7 @@ import { createCostBasisAssetState, createCostBasisTimelineState } from '../view
 import { buildPresentationModel } from '../view/cost-basis-view-utils.js';
 
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
-import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import { createCostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { outputCostBasisJSON } from './cost-basis-json.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
@@ -77,8 +76,8 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
   try {
     const params = unwrapResult(buildCostBasisInputFromFlags(options));
 
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, { isJsonMode: true, params });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: true, params });
 
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -107,7 +106,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
 
 async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
+    await runCommand(appRuntime, async (ctx) => {
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: ValidatedCostBasisConfig;
       const defaultMethodResult = options.jurisdiction
@@ -129,7 +128,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
       }
 
       // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
-      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, { isJsonMode: false, params });
+      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: false, params });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

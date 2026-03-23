@@ -2,7 +2,7 @@ import { err, ok } from '@exitbook/core';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CliAppRuntime } from '../../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const { mockCreateBalanceHandler, mockCtx, mockDisplayCliError, mockOutputSuccess, mockRunCommand } = vi.hoisted(
   () => ({
@@ -72,8 +72,12 @@ function createAccount(overrides: {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCtx.database.mockResolvedValue({});
-  mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
-    await fn(mockCtx);
+  mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
+    const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
+    await fn?.(mockCtx);
+    if (!fn) {
+      throw new Error('fn is not a function');
+    }
   });
   mockDisplayCliError.mockImplementation(
     (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {

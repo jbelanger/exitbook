@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CliAppRuntime } from '../../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockComputeCategoryCounts,
@@ -56,6 +56,7 @@ function createAppRuntime(blockchains: string[] = ['bitcoin', 'solana']): CliApp
     adapterRegistry: createRegistry(blockchains),
     blockchainExplorersConfig: {},
     dataDir: '/tmp/exitbook-blockchains',
+    databasePath: '/tmp/exitbook-blockchains/transactions.db',
     priceProviderConfig: {
       coingecko: {
         apiKey: undefined,

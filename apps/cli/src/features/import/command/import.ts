@@ -2,8 +2,7 @@ import type { ImportParams } from '@exitbook/ingestion';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { composeImportHandler } from '../../../composition/ingestion.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -14,6 +13,7 @@ import { ImportCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
 import type { ImportExecuteResult } from './import-handler.js';
+import { createImportHandler } from './import-handler.js';
 import { buildImportParams } from './import-utils.js';
 
 /**
@@ -106,8 +106,8 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
 
 async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeImportHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createImportHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -135,8 +135,8 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
 
 async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeImportHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createImportHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

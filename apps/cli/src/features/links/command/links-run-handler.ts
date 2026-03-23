@@ -5,13 +5,14 @@ import {
   type LinkingRunResult,
 } from '@exitbook/accounting';
 import { err, ok, wrapError, type OverrideEvent, type Result } from '@exitbook/core';
-import { buildLinkingPorts, type DataContext, OverrideStore } from '@exitbook/data';
+import { buildLinkingPorts, OverrideStore } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import type { CommandContext } from '../../shared/command-runtime.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
+import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import { LinksRunMonitor } from '../view/links-run-components.jsx';
 
 const logger = getLogger('LinksRunHandler');
@@ -76,17 +77,24 @@ export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, 
  *
  * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
-export function createLinksRunHandler(
+export async function createLinksRunHandler(
   ctx: CommandContext,
-  database: DataContext,
   options: { isJsonMode: boolean }
-): LinksRunHandler {
+): Promise<Result<LinksRunHandler, Error>> {
+  const database = await ctx.database();
+  const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
+    isJsonMode: options.isJsonMode,
+  });
+  if (readyResult.isErr()) {
+    return err(readyResult.error);
+  }
+
   const overrideStore = new OverrideStore(ctx.dataDir);
   const store = buildLinkingPorts(database);
 
   if (options.isJsonMode) {
     const orchestrator = new LinkingOrchestrator(store);
-    return new LinksRunHandler(orchestrator, overrideStore, undefined);
+    return ok(new LinksRunHandler(orchestrator, overrideStore, undefined));
   }
 
   const eventBus = new EventBus<LinkingEvent>({
@@ -97,7 +105,7 @@ export function createLinksRunHandler(
   const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
   const orchestrator = new LinkingOrchestrator(store, eventBus);
 
-  return new LinksRunHandler(orchestrator, overrideStore, controller);
+  return ok(new LinksRunHandler(orchestrator, overrideStore, controller));
 }
 
 /**

@@ -2,8 +2,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { composeBalanceRefreshHandler } from '../../../composition/balances.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
@@ -21,6 +20,7 @@ import {
 } from '../view/balance-view-state.js';
 import { sortAssetsByStatus, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
 
+import { createBalanceHandler } from './balance-handler.js';
 import { buildCliExchangeCredentials } from './balance-utils.js';
 
 type BalanceRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsSchema>;
@@ -79,8 +79,8 @@ async function executeBalanceRefreshJSON(
   appRuntime: CliAppRuntime
 ): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-refresh', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -178,8 +178,8 @@ async function executeBalanceRefreshSingleTUI(
   if (accountId === undefined) return;
 
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
@@ -225,8 +225,8 @@ async function executeBalanceRefreshAllTUI(
   appRuntime: CliAppRuntime
 ): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeBalanceRefreshHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

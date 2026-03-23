@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';

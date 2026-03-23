@@ -125,19 +125,25 @@ describe('projection-runtime', () => {
       .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }))
       .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }));
 
-    const result = await ensureConsumerInputsReady(
-      'cost-basis',
-      {
-        db: {} as never,
-        registry: {} as never,
+    const ctx = {
+      dataDir: '/tmp',
+      database: vi.fn().mockResolvedValue({}),
+      requireAppRuntime: vi.fn().mockReturnValue({
+        adapterRegistry: {},
+        blockchainExplorersConfig: undefined,
         dataDir: '/tmp',
-        isJsonMode: true,
-      },
-      {
+        databasePath: '/tmp/transactions.db',
+        priceProviderConfig: {},
+      }),
+    };
+
+    const result = await ensureConsumerInputsReady(ctx as never, 'cost-basis', {
+      isJsonMode: true,
+      priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
         endDate: new Date('2025-12-31T23:59:59.999Z'),
-      }
-    );
+      },
+    });
 
     expect(assertErr(result).message).toContain('Price coverage remains incomplete after enrichment');
     expect(mockPipelineExecute).toHaveBeenCalledOnce();
@@ -149,19 +155,25 @@ describe('projection-runtime', () => {
       .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }))
       .mockResolvedValueOnce(ok({ complete: false, reason: '1 of 1 transactions missing prices' }));
 
-    const result = await ensureConsumerInputsReady(
-      'portfolio',
-      {
-        db: {} as never,
-        registry: {} as never,
+    const ctx = {
+      dataDir: '/tmp',
+      database: vi.fn().mockResolvedValue({}),
+      requireAppRuntime: vi.fn().mockReturnValue({
+        adapterRegistry: {},
+        blockchainExplorersConfig: undefined,
         dataDir: '/tmp',
-        isJsonMode: true,
-      },
-      {
+        databasePath: '/tmp/transactions.db',
+        priceProviderConfig: {},
+      }),
+    };
+
+    const result = await ensureConsumerInputsReady(ctx as never, 'portfolio', {
+      isJsonMode: true,
+      priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
         endDate: new Date('2025-12-31T23:59:59.999Z'),
-      }
-    );
+      },
+    });
 
     assertOk(result);
     expect(mockPipelineExecute).toHaveBeenCalledOnce();

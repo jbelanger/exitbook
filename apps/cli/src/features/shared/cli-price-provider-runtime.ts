@@ -8,6 +8,8 @@ import {
   type PriceProviderConfig,
 } from '@exitbook/price-providers';
 
+import { buildPriceProviderConfigFromEnv } from '../../runtime/app-runtime.js';
+
 import { getDataDir } from './data-dir.js';
 
 export interface CliPriceProviderRuntimeOptions {
@@ -17,24 +19,12 @@ export interface CliPriceProviderRuntimeOptions {
   providers?: PriceProviderConfig | undefined;
 }
 
-function buildDefaultPriceProviderConfig(): PriceProviderConfig {
-  return {
-    coingecko: {
-      apiKey: process.env['COINGECKO_API_KEY'],
-      useProApi: process.env['COINGECKO_USE_PRO_API'] === 'true',
-    },
-    cryptocompare: {
-      apiKey: process.env['CRYPTOCOMPARE_API_KEY'],
-    },
-  };
-}
-
 export async function openCliPriceProviderRuntime(
   options?: CliPriceProviderRuntimeOptions
 ): Promise<Result<IPriceProviderRuntime, Error>> {
   const runtimeResult = await createPriceProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
-    providers: options?.providers ?? buildDefaultPriceProviderConfig(),
+    providers: options?.providers ?? buildPriceProviderConfigFromEnv(),
     instrumentation: options?.instrumentation,
     eventBus: options?.eventBus,
   });

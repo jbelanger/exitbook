@@ -2,8 +2,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { composePortfolioHandler } from '../../../composition/accounting.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { renderApp, runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -14,6 +13,7 @@ import { isJsonMode } from '../../shared/utils.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-types.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
+import { createPortfolioHandler } from './portfolio-handler.js';
 import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
 type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
@@ -67,8 +67,8 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
   try {
     const normalized = normalizeOptions(options);
 
-    await runCommand(async (ctx) => {
-      const handlerResult = await composePortfolioHandler(appRuntime, ctx, {
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createPortfolioHandler(ctx, {
         isJsonMode: true,
         asOf: normalized.asOf,
       });
@@ -123,8 +123,8 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
   try {
     const normalized = normalizeOptions(options);
 
-    await runCommand(async (ctx) => {
-      const handlerResult = await composePortfolioHandler(appRuntime, ctx, {
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createPortfolioHandler(ctx, {
         isJsonMode: false,
         asOf: normalized.asOf,
       });

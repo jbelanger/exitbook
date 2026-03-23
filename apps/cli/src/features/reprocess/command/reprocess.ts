@@ -1,8 +1,7 @@
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { composeReprocessHandler } from '../../../composition/ingestion.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -10,7 +9,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { ProcessCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import type { ProcessResultWithMetrics } from './reprocess-handler.js';
+import { createReprocessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
 
 /**
  * Process command options validated by Zod at CLI boundary
@@ -71,8 +70,8 @@ async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRu
 
 async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeReprocessHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createReprocessHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -99,8 +98,8 @@ async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: 
 
 async function executeReprocessTUI(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeReprocessHandler(appRuntime, ctx);
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createReprocessHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

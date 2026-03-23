@@ -8,7 +8,6 @@ import {
   type ValidatedCostBasisConfig,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting';
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { err, ok, type AssetReviewSummary, type Result } from '@exitbook/core';
 import {
   buildCostBasisArtifactStore,
@@ -16,7 +15,6 @@ import {
   buildCostBasisPorts,
   type DataContext,
 } from '@exitbook/data';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
@@ -50,7 +48,8 @@ export class CostBasisHandler {
   constructor(
     private readonly db: DataContext,
     private readonly dataDir: string,
-    private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() }
+    private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() },
+    private readonly priceProviderConfig?: PriceProviderConfig | undefined
   ) {}
 
   async execute(
@@ -95,7 +94,10 @@ export class CostBasisHandler {
     const contextReader = buildCostBasisPorts(this.db);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
-    const priceRuntimeResult = await openCliPriceProviderRuntime({ dataDir: this.dataDir });
+    const priceRuntimeResult = await openCliPriceProviderRuntime({
+      dataDir: this.dataDir,
+      providers: this.priceProviderConfig,
+    });
     if (priceRuntimeResult.isErr()) {
       return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
     }
@@ -185,15 +187,12 @@ export class CostBasisHandler {
  */
 export async function createCostBasisHandler(
   ctx: CommandContext,
-  database: DataContext,
   options: {
-    blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
     isJsonMode: boolean;
     params: ValidatedCostBasisConfig;
-    priceProviderConfig?: PriceProviderConfig | undefined;
-    registry: AdapterRegistry;
   }
 ): Promise<Result<CostBasisHandler, Error>> {
+  const database = await ctx.database();
   let prereqAbort: (() => void) | undefined;
   if (!options.isJsonMode) {
     ctx.onAbort(() => {
@@ -210,26 +209,25 @@ export async function createCostBasisHandler(
   const priceConfig =
     params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
 
-  const readyResult = await ensureConsumerInputsReady(
-    'cost-basis',
-    {
-      db: database,
-      registry: options.registry,
-      dataDir: ctx.dataDir,
-      isJsonMode: options.isJsonMode,
-      blockchainExplorersConfig: options.blockchainExplorersConfig,
-      priceProviderConfig: options.priceProviderConfig,
-      setAbort: (abort) => {
-        prereqAbort = abort;
-      },
-    },
+  const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
+    isJsonMode: options.isJsonMode,
     priceConfig,
-    accountingExclusionPolicyResult.value
-  );
+    accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+    setAbort: (abort) => {
+      prereqAbort = abort;
+    },
+  });
   if (readyResult.isErr()) {
     return err(readyResult.error);
   }
 
   prereqAbort = undefined;
-  return ok(new CostBasisHandler(database, ctx.dataDir, accountingExclusionPolicyResult.value));
+  return ok(
+    new CostBasisHandler(
+      database,
+      ctx.dataDir,
+      accountingExclusionPolicyResult.value,
+      ctx.requireAppRuntime().priceProviderConfig
+    )
+  );
 }

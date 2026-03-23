@@ -10,14 +10,15 @@
 import type { PricesEnrichOptions } from '@exitbook/accounting';
 import type { Command } from 'commander';
 
-import { composePricesEnrichHandler } from '../../../composition/accounting.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { PricesEnrichCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
+
+import { createPricesEnrichHandler } from './prices-enrich-handler.js';
 
 /**
  * Register the prices enrich subcommand
@@ -75,8 +76,8 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
 
 async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composePricesEnrichHandler(appRuntime, ctx, { isJsonMode: true });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createPricesEnrichHandler(ctx, { isJsonMode: true });
       if (handlerResult.isErr()) {
         displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -103,8 +104,8 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: 
 
 async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composePricesEnrichHandler(appRuntime, ctx, { isJsonMode: false });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createPricesEnrichHandler(ctx, { isJsonMode: false });
       if (handlerResult.isErr()) {
         displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

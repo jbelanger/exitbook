@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { err, ok, type Result } from '@exitbook/core';
 import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion';
@@ -7,12 +9,13 @@ import { getDataDir } from '../features/shared/data-dir.js';
 
 export interface CliAppRuntime {
   dataDir: string;
+  databasePath: string;
   adapterRegistry: AdapterRegistry;
   priceProviderConfig: PriceProviderConfig;
   blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
 }
 
-function buildPriceProviderConfigFromEnv(): PriceProviderConfig {
+export function buildPriceProviderConfigFromEnv(): PriceProviderConfig {
   return {
     coingecko: {
       apiKey: process.env['COINGECKO_API_KEY'],
@@ -30,8 +33,11 @@ export function createCliAppRuntime(): Result<CliAppRuntime, Error> {
     return err(explorerConfigResult.error);
   }
 
+  const dataDir = getDataDir();
+
   return ok({
-    dataDir: getDataDir(),
+    dataDir,
+    databasePath: path.join(dataDir, 'transactions.db'),
     adapterRegistry: new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters),
     priceProviderConfig: buildPriceProviderConfigFromEnv(),
     blockchainExplorersConfig: explorerConfigResult.value,

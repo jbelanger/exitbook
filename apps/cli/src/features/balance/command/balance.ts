@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerBalanceRefreshCommand } from './balance-refresh.js';
 import { registerBalanceViewCommand } from './balance-view.js';

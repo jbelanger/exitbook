@@ -1,10 +1,20 @@
 import path from 'node:path';
 
+import type { Result } from '@exitbook/core';
 import { DataContext } from '@exitbook/data';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { render } from 'ink';
 import type React from 'react';
 
+import type { CliAppRuntime } from '../../runtime/app-runtime.js';
+
+import {
+  openCliBlockchainProviderRuntime,
+  type CliBlockchainProviderRuntimeOptions,
+  type OpenedCliBlockchainProviderRuntime,
+} from './blockchain-provider-runtime.js';
+import { openCliPriceProviderRuntime, type CliPriceProviderRuntimeOptions } from './cli-price-provider-runtime.js';
 import { getDataDir } from './data-dir.js';
 
 const logger = getLogger('command-runtime');
@@ -20,11 +30,13 @@ interface ResultCleanupOutcome {
  * - `database()` — lazy init; auto-closed in dispose
  * - `closeDatabase()` — early close for snapshot TUI pattern
  * - `onCleanup()` — LIFO stack, runs during dispose
+ * - `openPriceProviderRuntime()` / `openBlockchainProviderRuntime()` — command-scoped runtime setup
  * - `onAbort()` — SIGINT: fn() sync → await dispose → exit(130)
  * - `dispose()` — remove SIGINT, run stack, close DB. Idempotent. Throws on cleanup failures.
  */
 export class CommandContext {
   exitCode = 0;
+  readonly app?: CliAppRuntime | undefined;
   readonly dataDir: string;
 
   private _database?: DataContext | undefined;
@@ -33,8 +45,17 @@ export class CommandContext {
   private cleanupStack: (() => Promise<void>)[] = [];
   private sigintHandler: (() => void) | undefined;
 
-  constructor() {
-    this.dataDir = getDataDir();
+  constructor(app?: CliAppRuntime) {
+    this.app = app;
+    this.dataDir = app?.dataDir ?? getDataDir();
+  }
+
+  requireAppRuntime(): CliAppRuntime {
+    if (!this.app) {
+      throw new Error('CLI app runtime is required for this command. Pass appRuntime into runCommand().');
+    }
+
+    return this.app;
   }
 
   /**
@@ -46,7 +67,8 @@ export class CommandContext {
       throw new Error('Database already closed');
     }
     if (!this._database) {
-      const initResult = await DataContext.initialize(path.join(this.dataDir, 'transactions.db'));
+      const databasePath = this.app?.databasePath ?? path.join(this.dataDir, 'transactions.db');
+      const initResult = await DataContext.initialize(databasePath);
       if (initResult.isErr()) {
         throw initResult.error;
       }
@@ -74,6 +96,46 @@ export class CommandContext {
    */
   onCleanup(fn: () => Promise<void>): void {
     this.cleanupStack.push(fn);
+  }
+
+  async openBlockchainProviderRuntime(
+    options?: CliBlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+  ): Promise<Result<OpenedCliBlockchainProviderRuntime, Error>> {
+    const runtimeResult = await openCliBlockchainProviderRuntime({
+      dataDir: this.dataDir,
+      explorerConfig: options?.explorerConfig ?? this.app?.blockchainExplorersConfig,
+      instrumentation: options?.instrumentation,
+      eventBus: options?.eventBus,
+    });
+    if (runtimeResult.isErr()) {
+      return runtimeResult;
+    }
+
+    if (options?.registerCleanup !== false) {
+      this.onCleanup(adaptResultCleanup(runtimeResult.value.cleanup));
+    }
+
+    return runtimeResult;
+  }
+
+  async openPriceProviderRuntime(
+    options?: CliPriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+  ): Promise<Result<IPriceProviderRuntime, Error>> {
+    const runtimeResult = await openCliPriceProviderRuntime({
+      dataDir: this.dataDir,
+      providers: options?.providers ?? this.app?.priceProviderConfig,
+      instrumentation: options?.instrumentation,
+      eventBus: options?.eventBus,
+    });
+    if (runtimeResult.isErr()) {
+      return runtimeResult;
+    }
+
+    if (options?.registerCleanup !== false) {
+      this.onCleanup(adaptResultCleanup(runtimeResult.value.cleanup));
+    }
+
+    return runtimeResult;
   }
 
   /**
@@ -181,8 +243,19 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
  * Dispose always runs. If both fn and dispose fail, the fn error takes priority
  * (dispose error is logged). If only dispose fails, that error propagates.
  */
-export async function runCommand(fn: (ctx: CommandContext) => Promise<void>): Promise<void> {
-  const ctx = new CommandContext();
+export async function runCommand(appRuntime: CliAppRuntime, fn: (ctx: CommandContext) => Promise<void>): Promise<void>;
+export async function runCommand(fn: (ctx: CommandContext) => Promise<void>): Promise<void>;
+export async function runCommand(
+  appRuntimeOrFn: CliAppRuntime | ((ctx: CommandContext) => Promise<void>),
+  maybeFn?: (ctx: CommandContext) => Promise<void>
+): Promise<void> {
+  const appRuntime = typeof appRuntimeOrFn === 'function' ? undefined : appRuntimeOrFn;
+  const fn = typeof appRuntimeOrFn === 'function' ? appRuntimeOrFn : maybeFn;
+  if (!fn) {
+    throw new Error('runCommand() requires a command function');
+  }
+
+  const ctx = new CommandContext(appRuntime);
   let fnError: unknown;
 
   try {

@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerLinksConfirmCommand } from './links-confirm.js';
 import { registerLinksRejectCommand } from './links-reject.js';

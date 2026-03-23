@@ -6,8 +6,7 @@ import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import { composeLinksRunHandler } from '../../../composition/links.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
@@ -15,6 +14,8 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
+
+import { createLinksRunHandler } from './links-run-handler.js';
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -156,8 +157,8 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
   const params = buildLinksRunParamsFromFlags(options);
 
   try {
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeLinksRunHandler(appRuntime, ctx, { isJsonMode: true });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createLinksRunHandler(ctx, { isJsonMode: true });
       if (handlerResult.isErr()) {
         displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -196,8 +197,8 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
       params = buildLinksRunParamsFromFlags(options);
     }
 
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeLinksRunHandler(appRuntime, ctx, { isJsonMode: false });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createLinksRunHandler(ctx, { isJsonMode: false });
       if (handlerResult.isErr()) {
         displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

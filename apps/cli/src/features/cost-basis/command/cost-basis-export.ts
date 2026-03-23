@@ -15,8 +15,7 @@ import {
 import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/core';
 import type { Command } from 'commander';
 
-import { composeCostBasisHandler } from '../../../composition/accounting.js';
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { runCommand } from '../../shared/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -26,7 +25,7 @@ import { unwrapResult } from '../../shared/result-utils.js';
 import { CostBasisExportCommandOptionsSchema } from '../../shared/schemas.js';
 import { isJsonMode } from '../../shared/utils.js';
 
-import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import { createCostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
 
 interface CostBasisExportCommandResult {
@@ -110,11 +109,8 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
     const outputDir = resolveCostBasisExportOutputDir(options.output, buildDefaultOutputDir(params));
     await mkdir(outputDir, { recursive: true });
 
-    await runCommand(async (ctx) => {
-      const handlerResult = await composeCostBasisHandler(appRuntime, ctx, {
-        isJsonMode: isJson,
-        params,
-      });
+    await runCommand(appRuntime, async (ctx) => {
+      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: isJson, params });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }

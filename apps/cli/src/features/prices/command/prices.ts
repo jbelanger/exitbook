@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 
-import type { CliAppRuntime } from '../../../composition/runtime.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerPricesEnrichCommand } from './prices-enrich.js';
 import { registerPricesSetFxCommand } from './prices-set-fx.js';

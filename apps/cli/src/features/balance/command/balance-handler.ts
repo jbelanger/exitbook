@@ -1,4 +1,3 @@
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import type {
   Account,
   AccountType,
@@ -23,7 +22,6 @@ import {
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
   formatBalanceSnapshotFreshnessMessage,
 } from '../../shared/balance-snapshot-freshness-message.js';
-import { openCliBlockchainProviderRuntime } from '../../shared/blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
 import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 import type { StoredSnapshotAssetItem, AssetComparisonItem, BalanceEvent } from '../view/balance-view-state.js';
@@ -749,18 +747,15 @@ export class BalanceHandler {
 
 export async function createBalanceHandler(
   ctx: CommandContext,
-  database: DataContext,
-  options: { explorerConfig?: BlockchainExplorersConfig | undefined; needsWorkflow: boolean }
+  options: { needsWorkflow: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {
+    const database = await ctx.database();
     if (!options.needsWorkflow) {
       return ok(new BalanceHandler(database, undefined));
     }
 
-    const providerRuntimeResult = await openCliBlockchainProviderRuntime({
-      dataDir: ctx.dataDir,
-      explorerConfig: options.explorerConfig,
-    });
+    const providerRuntimeResult = await ctx.openBlockchainProviderRuntime({ registerCleanup: false });
     if (providerRuntimeResult.isErr()) {
       return err(providerRuntimeResult.error);
     }

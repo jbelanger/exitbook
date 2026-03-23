@@ -1,7 +1,7 @@
-import { type BlockchainExplorersConfig, type ProviderEvent } from '@exitbook/blockchain-providers';
+import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import { OverrideStore, type DataContext, buildProcessingPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
-import { type AdapterRegistry, type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
+import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
@@ -10,7 +10,6 @@ import { IngestionMonitor } from '../import/view/ingestion-monitor-view-componen
 
 import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
 import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-import { openCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandContext } from './command-runtime.js';
 
 const logger = getLogger('ingestion-infrastructure');
@@ -32,10 +31,9 @@ interface IngestionInfrastructure {
  */
 export async function createIngestionInfrastructure(
   ctx: CommandContext,
-  database: DataContext,
-  registry: AdapterRegistry,
-  options?: { explorerConfig?: BlockchainExplorersConfig | undefined }
+  database: DataContext
 ): Promise<IngestionInfrastructure> {
+  const appRuntime = ctx.requireAppRuntime();
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
     onError: (err) => {
@@ -43,11 +41,10 @@ export async function createIngestionInfrastructure(
     },
   });
 
-  const providerRuntimeResult = await openCliBlockchainProviderRuntime({
-    dataDir: ctx.dataDir,
+  const providerRuntimeResult = await ctx.openBlockchainProviderRuntime({
     instrumentation,
     eventBus: eventBus as EventBus<ProviderEvent>,
-    explorerConfig: options?.explorerConfig,
+    registerCleanup: false,
   });
   if (providerRuntimeResult.isErr()) {
     throw providerRuntimeResult.error;
@@ -65,7 +62,7 @@ export async function createIngestionInfrastructure(
       ports,
       providerRuntime,
       eventBus as EventBus<IngestionEvent>,
-      registry
+      appRuntime.adapterRegistry
     );
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {

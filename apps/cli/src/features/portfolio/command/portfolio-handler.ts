@@ -14,22 +14,19 @@ import {
   type ICostBasisContextReader,
   type FiatCurrency as AccountingFiatCurrency,
 } from '@exitbook/accounting';
-import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { parseCurrency, type AssetReviewSummary, type Currency, type Transaction } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data';
 import { type DataContext } from '@exitbook/data';
 import { calculateBalances } from '@exitbook/ingestion';
-import type { AdapterRegistry } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
-import type { IPriceProviderRuntime, PriceProviderConfig } from '@exitbook/price-providers';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
-import { adaptResultCleanup, type CommandContext } from '../../shared/command-runtime.js';
+import type { CommandContext } from '../../shared/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/projection-runtime.js';
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from '../shared/portfolio-types.js';
@@ -637,15 +634,12 @@ export class PortfolioHandler {
  */
 export async function createPortfolioHandler(
   ctx: CommandContext,
-  database: DataContext,
   options: {
     asOf: Date;
-    blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
     isJsonMode: boolean;
-    priceProviderConfig?: PriceProviderConfig | undefined;
-    registry: AdapterRegistry;
   }
 ): Promise<Result<PortfolioHandler, Error>> {
+  const database = await ctx.database();
   const dataDir = ctx.dataDir;
   const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir);
   if (accountingExclusionPolicyResult.isErr()) {
@@ -659,38 +653,25 @@ export async function createPortfolioHandler(
     });
   }
 
-  const readyResult = await ensureConsumerInputsReady(
-    'portfolio',
-    {
-      db: database,
-      registry: options.registry,
-      dataDir,
-      isJsonMode: options.isJsonMode,
-      blockchainExplorersConfig: options.blockchainExplorersConfig,
-      priceProviderConfig: options.priceProviderConfig,
-      setAbort: (abort) => {
-        prereqAbort = abort;
-      },
+  const readyResult = await ensureConsumerInputsReady(ctx, 'portfolio', {
+    isJsonMode: options.isJsonMode,
+    priceConfig: { startDate: new Date(0), endDate: options.asOf },
+    accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+    setAbort: (abort) => {
+      prereqAbort = abort;
     },
-    { startDate: new Date(0), endDate: options.asOf },
-    accountingExclusionPolicyResult.value
-  );
+  });
   if (readyResult.isErr()) {
     return err(readyResult.error);
   }
 
   // Open shared price runtime for spot prices + FX
-  const priceRuntimeResult = await openCliPriceProviderRuntime({
-    dataDir,
-    providers: options.priceProviderConfig,
-  });
+  const priceRuntimeResult = await ctx.openPriceProviderRuntime();
   if (priceRuntimeResult.isErr()) {
     return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
   }
 
   const priceRuntime = priceRuntimeResult.value;
-  ctx.onCleanup(adaptResultCleanup(priceRuntime.cleanup));
-
   prereqAbort = undefined;
   return ok(new PortfolioHandler(database, priceRuntime, dataDir, accountingExclusionPolicyResult.value));
 }

@@ -34,7 +34,6 @@ initLogger({
 // flush() is synchronous (BufferedSink.drain → appendFileSync), safe in 'exit' handler
 process.on('exit', () => flushLoggers());
 
-import { createCliAppRuntime } from './composition/runtime.js';
 import { registerAccountsCommand } from './features/accounts/command/accounts.js';
 import { registerAssetsCommand } from './features/assets/command/assets.js';
 import { registerBalanceCommand } from './features/balance/command/balance.js';
@@ -48,6 +47,7 @@ import { registerPricesCommand } from './features/prices/command/prices.js';
 import { registerProvidersCommand } from './features/providers/command/providers.js';
 import { registerReprocessCommand } from './features/reprocess/command/reprocess.js';
 import { registerTransactionsCommand } from './features/transactions/command/transactions.js';
+import { createCliAppRuntime } from './runtime/app-runtime.js';
 
 const logger = getLogger('CLI');
 const program = new Command();
