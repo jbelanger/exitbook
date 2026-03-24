@@ -40,7 +40,7 @@ export function clearViewReducer(state: ClearViewState, action: ClearViewAction)
     const nav = reduceListNavigation(
       { selectedIndex: state.selectedIndex, scrollOffset: state.scrollOffset },
       action,
-      6 // 3 processed + 3 raw categories
+      9 // 6 processed + 3 raw categories
     );
     return { ...state, ...nav };
   }

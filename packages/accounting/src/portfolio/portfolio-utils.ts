@@ -2,17 +2,18 @@
  * Portfolio utility functions (pure).
  */
 
-import type {
-  AcquisitionLot,
-  CanadaDisplayCostBasisReport,
-  CanadaTaxInputContext,
-  CanadaTaxReport,
-} from '@exitbook/accounting';
 import type { Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime, PriceQuery } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
+
+import type {
+  CanadaDisplayCostBasisReport,
+  CanadaTaxInputContext,
+  CanadaTaxReport,
+} from '../cost-basis/jurisdictions/canada/tax/canada-tax-types.js';
+import type { AcquisitionLot } from '../cost-basis/model/types.js';
 
 import type {
   AccountBreakdownItem,
@@ -21,7 +22,7 @@ import type {
   PortfolioTransactionItem,
   SortMode,
   SpotPriceResult,
-} from '../shared/portfolio-types.js';
+} from './portfolio-types.js';
 
 const logger = getLogger('portfolio-utils');
 const USD_CURRENCY = 'USD' as Currency;

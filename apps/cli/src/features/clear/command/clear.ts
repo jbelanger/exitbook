@@ -203,6 +203,10 @@ async function executeClearNonTui(options: {
           console.error('\nThis will clear:');
           if (flat.transactions > 0) console.error(`  • ${flat.transactions} transactions`);
           if (flat.links > 0) console.error(`  • ${flat.links} transaction links`);
+          if (flat.assetReviewStates > 0) console.error(`  • ${flat.assetReviewStates} asset review states`);
+          if (flat.balanceSnapshots > 0) console.error(`  • ${flat.balanceSnapshots} balance snapshots`);
+          if (flat.balanceSnapshotAssets > 0)
+            console.error(`  • ${flat.balanceSnapshotAssets} balance snapshot assets`);
           if (flat.costBasisSnapshots > 0) console.error(`  • ${flat.costBasisSnapshots} cost-basis snapshots`);
 
           if (includeRaw) {
@@ -263,6 +267,10 @@ function handleClearSuccess(clearResult: ClearResult, spinner: SpinnerWrapper | 
   const parts: string[] = [];
   if (flat.transactions > 0) parts.push(`${flat.transactions} transactions`);
   if (flat.links > 0) parts.push(`${flat.links} links`);
+  if (flat.assetReviewStates > 0) parts.push(`${flat.assetReviewStates} asset review states`);
+  if (flat.balanceSnapshots > 0) parts.push(`${flat.balanceSnapshots} balance snapshots`);
+  if (flat.balanceSnapshotAssets > 0) parts.push(`${flat.balanceSnapshotAssets} balance snapshot assets`);
+  if (flat.costBasisSnapshots > 0) parts.push(`${flat.costBasisSnapshots} cost-basis snapshots`);
   if (flat.accounts > 0) parts.push(`${flat.accounts} accounts`);
   if (flat.sessions > 0) parts.push(`${flat.sessions} sessions`);
   if (flat.rawData > 0) parts.push(`${flat.rawData} raw items`);

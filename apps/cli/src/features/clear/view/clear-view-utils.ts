@@ -9,6 +9,9 @@ export function getCategoryDescription(key: string): string {
   const descriptions: Record<string, string> = {
     transactions: 'Processed transaction records with movements, fees, metadata',
     links: 'Transfer link matches between outflows and inflows',
+    assetReviewStates: 'Derived asset-review summaries used by accounting and portfolio flows',
+    balanceSnapshots: 'Stored balance scope snapshots used for balance view and verification',
+    balanceSnapshotAssets: 'Per-asset rows stored under each balance snapshot scope',
     costBasisSnapshots: 'Stored latest cost-basis artifacts for reusable tax calculations',
     lots: 'Cost basis tracking lots for tax calculations',
     disposals: 'Records of acquisition lot disposals',

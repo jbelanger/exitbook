@@ -2,6 +2,8 @@
  * Portfolio view controller — reducer and keyboard handler.
  */
 
+import { sortPositions } from '@exitbook/accounting';
+
 import {
   dispatchListNavigationKeys,
   isListNavigationAction,
@@ -9,7 +11,6 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
-import { sortPositions } from '../command/portfolio-utils.js';
 
 import { getPortfolioAssetsVisibleRows, getPortfolioHistoryVisibleRows } from './portfolio-view-components.jsx';
 import type { PortfolioAction, PortfolioState } from './portfolio-view-state.js';

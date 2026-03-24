@@ -1,29 +1,26 @@
-import type {
-  AcquisitionLot,
-  CanadaDisplayCostBasisReport,
-  CanadaTaxInputContext,
-  CanadaTaxReport,
+import {
+  aggregatePositionsByAssetSymbol,
+  buildAssetIdsBySymbol,
+  buildCanadaPortfolioPositions,
+  buildPortfolioPositions,
+  buildTransactionItems,
+  computeNetFiatInUsd,
+  computeTotalRealizedGainLossAllTime,
+  computeUnrealizedPnL,
+  computeWeightedAvgCost,
+  convertSpotPricesToDisplayCurrency,
+  filterTransactionsForAsset,
+  filterTransactionsForAssets,
+  sortPositions,
+  type AcquisitionLot,
+  type CanadaDisplayCostBasisReport,
+  type CanadaTaxInputContext,
+  type CanadaTaxReport,
 } from '@exitbook/accounting';
 import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
-
-import {
-  aggregatePositionsByAssetSymbol,
-  buildPortfolioPositions,
-  buildCanadaPortfolioPositions,
-  buildAssetIdsBySymbol,
-  buildTransactionItems,
-  convertSpotPricesToDisplayCurrency,
-  computeNetFiatInUsd,
-  computeTotalRealizedGainLossAllTime,
-  filterTransactionsForAssets,
-  computeUnrealizedPnL,
-  computeWeightedAvgCost,
-  filterTransactionsForAsset,
-  sortPositions,
-} from '../portfolio-utils.ts';
 
 function createLot(params: {
   assetId?: string | undefined;

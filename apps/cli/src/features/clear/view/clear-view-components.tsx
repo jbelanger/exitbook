@@ -15,7 +15,7 @@ import {
   getSelectionCursor,
   StatusIcon,
 } from '../../../ui/shared/index.js';
-import type { ClearHandler, ClearParams, FlatDeletionPreview } from '../command/clear-handler.js';
+import { flattenPreview, type ClearHandler, type ClearParams } from '../command/clear-handler.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
 import {
@@ -60,15 +60,7 @@ export const ClearViewApp: FC<{
       includeRaw: state.includeRaw,
     });
     if (result.isOk()) {
-      const flat: FlatDeletionPreview = {
-        transactions: result.value.deleted.processedTransactions.transactions,
-        links: result.value.deleted.links.links,
-        costBasisSnapshots: result.value.deleted.costBasisSnapshots.snapshots,
-        accounts: result.value.deleted.purge?.accounts ?? 0,
-        sessions: result.value.deleted.purge?.sessions ?? 0,
-        rawData: result.value.deleted.purge?.rawData ?? 0,
-      };
-      dispatch({ type: 'EXECUTION_COMPLETE', result: flat });
+      dispatch({ type: 'EXECUTION_COMPLETE', result: flattenPreview(result.value.deleted) });
     } else {
       dispatch({ type: 'EXECUTION_FAILED', error: result.error });
     }
@@ -485,6 +477,13 @@ const CompleteDetail: FC<{ state: ClearViewState }> = ({ state }) => {
   const parts: string[] = [];
   if (state.result.transactions > 0) parts.push(`${formatCount(state.result.transactions)} transactions`);
   if (state.result.links > 0) parts.push(`${formatCount(state.result.links)} links`);
+  if (state.result.assetReviewStates > 0)
+    parts.push(`${formatCount(state.result.assetReviewStates)} asset review states`);
+  if (state.result.balanceSnapshots > 0) parts.push(`${formatCount(state.result.balanceSnapshots)} balance snapshots`);
+  if (state.result.balanceSnapshotAssets > 0)
+    parts.push(`${formatCount(state.result.balanceSnapshotAssets)} balance snapshot assets`);
+  if (state.result.costBasisSnapshots > 0)
+    parts.push(`${formatCount(state.result.costBasisSnapshots)} cost-basis snapshots`);
   if (state.result.accounts > 0) parts.push(`${formatCount(state.result.accounts)} accounts`);
   if (state.result.sessions > 0) parts.push(`${formatCount(state.result.sessions)} sessions`);
   if (state.result.rawData > 0) parts.push(`${formatCount(state.result.rawData)} raw items`);

@@ -1,3 +1,9 @@
+import {
+  buildAssetIdsBySymbol,
+  buildTransactionItems,
+  filterTransactionsForAssets,
+  type PortfolioTransactionItem,
+} from '@exitbook/accounting';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -9,12 +15,10 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
-import type { PortfolioTransactionItem } from '../shared/portfolio-types.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
 import { createPortfolioHandler } from './portfolio-handler.js';
 import { PortfolioCommandOptionsSchema } from './portfolio-option-schemas.js';
-import { buildAssetIdsBySymbol, buildTransactionItems, filterTransactionsForAssets } from './portfolio-utils.js';
 
 type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
 

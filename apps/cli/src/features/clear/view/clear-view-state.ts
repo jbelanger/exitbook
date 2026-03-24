@@ -59,6 +59,9 @@ export function calculateTotalToDelete(state: ClearViewState): number {
   return (
     preview.transactions +
     preview.links +
+    preview.assetReviewStates +
+    preview.balanceSnapshots +
+    preview.balanceSnapshotAssets +
     preview.costBasisSnapshots +
     (state.includeRaw ? preview.accounts + preview.sessions + preview.rawData : 0)
   );
@@ -85,6 +88,27 @@ export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
       count: preview.links,
       group: 'processed',
       status: preview.links > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'assetReviewStates',
+      label: 'Asset review states',
+      count: preview.assetReviewStates,
+      group: 'processed',
+      status: preview.assetReviewStates > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'balanceSnapshots',
+      label: 'Balance snapshots',
+      count: preview.balanceSnapshots,
+      group: 'processed',
+      status: preview.balanceSnapshots > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'balanceSnapshotAssets',
+      label: 'Balance snapshot assets',
+      count: preview.balanceSnapshotAssets,
+      group: 'processed',
+      status: preview.balanceSnapshotAssets > 0 ? 'will-delete' : 'empty',
     },
     {
       key: 'costBasisSnapshots',
@@ -162,6 +186,27 @@ export function buildResultCategoryItems(result: FlatDeletionPreview): ClearCate
       count: result.links,
       group: 'processed',
       status: result.links > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'assetReviewStates',
+      label: 'Asset review states',
+      count: result.assetReviewStates,
+      group: 'processed',
+      status: result.assetReviewStates > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'balanceSnapshots',
+      label: 'Balance snapshots',
+      count: result.balanceSnapshots,
+      group: 'processed',
+      status: result.balanceSnapshots > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'balanceSnapshotAssets',
+      label: 'Balance snapshot assets',
+      count: result.balanceSnapshotAssets,
+      group: 'processed',
+      status: result.balanceSnapshotAssets > 0 ? 'will-delete' : 'empty',
     },
     {
       key: 'costBasisSnapshots',

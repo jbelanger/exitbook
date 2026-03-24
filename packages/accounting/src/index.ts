@@ -149,7 +149,11 @@ export type {
   ICostBasisArtifactStore,
   ICostBasisContextReader,
   ICostBasisDependencyWatermarkReader,
+  ICostBasisFailureSnapshotStore,
+  IPortfolioDependencyReader,
+  IPortfolioHoldingsCalculator,
 } from './ports/index.js';
+export type { PortfolioHoldingsCalculation } from './ports/index.js';
 
 // Linking orchestrator
 export { LinkingOrchestrator } from './linking/orchestration/linking-orchestrator.js';
@@ -236,3 +240,34 @@ export type {
   CanadaSuperficialLossDispositionAdjustment,
   CanadaSuperficialLossEngineResult,
 } from './cost-basis/jurisdictions/canada/workflow/canada-superficial-loss-types.js';
+
+// Portfolio
+export { PortfolioHandler } from './portfolio/portfolio-handler.js';
+export type { PortfolioHandlerDeps, PortfolioHandlerParams, PortfolioResult } from './portfolio/portfolio-handler.js';
+export type {
+  AccountBreakdownItem,
+  OpenLotItem,
+  PortfolioPositionItem,
+  PortfolioTransactionItem,
+  SortMode,
+  SpotPriceResult,
+} from './portfolio/portfolio-types.js';
+export {
+  aggregatePositionsByAssetSymbol,
+  buildAccountAssetBalances,
+  buildAssetIdsBySymbol,
+  buildCanadaPortfolioPositions,
+  buildClosedPositionsByAssetId,
+  buildPortfolioPositions,
+  buildTransactionItems,
+  computeNetFiatInUsd,
+  computeTotalRealizedGainLossAllTime,
+  computeUnrealizedPnL,
+  computeWeightedAvgCost,
+  convertSpotPricesToDisplayCurrency,
+  fetchSpotPrices,
+  filterTransactionsForAsset,
+  filterTransactionsForAssets,
+  sortPositions,
+} from './portfolio/portfolio-utils.js';
+export type { RealizedGainLossDisplayContext } from './portfolio/portfolio-utils.js';

@@ -1,78 +1,53 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
-import { persistCostBasisFailureSnapshot, runCanadaCostBasisCalculation } from '@exitbook/accounting';
+import {
+  persistCostBasisFailureSnapshot,
+  PortfolioHandler,
+  runCanadaCostBasisCalculation,
+  type ICostBasisContextReader,
+  type ICostBasisFailureSnapshotStore,
+  type IPortfolioDependencyReader,
+  type IPortfolioHoldingsCalculator,
+} from '@exitbook/accounting';
 import type { Transaction } from '@exitbook/core';
-import { buildCostBasisPorts, type DataContext } from '@exitbook/data';
 import { err, ok, type Currency } from '@exitbook/foundation';
-import { calculateBalances } from '@exitbook/ingestion';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-
-import { ensureAssetReviewProjectionFresh } from '../../../shared/asset-review-projection-runtime.js';
-import { readAssetReviewProjectionSummaries } from '../../../shared/asset-review-projection-store.js';
-import { PortfolioHandler } from '../portfolio-handler.ts';
 
 const { mockCostBasisWorkflowExecute } = vi.hoisted(() => ({
   mockCostBasisWorkflowExecute: vi.fn(),
 }));
 
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual('@exitbook/accounting');
-  return {
-    ...actual,
-    CostBasisWorkflow: vi.fn().mockImplementation(function () {
-      return {
-        execute: mockCostBasisWorkflowExecute,
-      };
-    }),
-    persistCostBasisFailureSnapshot: vi.fn(),
-    StandardFxRateProvider: vi.fn().mockImplementation(function () {
-      return {
-        getRateToUSD: vi.fn(),
-        getRateFromUSD: vi.fn(),
-      };
-    }),
+vi.mock('../../../../../../../packages/accounting/src/cost-basis/workflow/cost-basis-workflow.ts', () => ({
+  CostBasisWorkflow: vi.fn().mockImplementation(function () {
+    return {
+      execute: mockCostBasisWorkflowExecute,
+    };
+  }),
+}));
+
+vi.mock('../../../../../../../packages/accounting/src/cost-basis/artifacts/failure-snapshot-service.ts', () => ({
+  persistCostBasisFailureSnapshot: vi.fn(),
+}));
+
+vi.mock('../../../../../../../packages/accounting/src/price-enrichment/fx/standard-fx-rate-provider.ts', () => ({
+  StandardFxRateProvider: vi.fn().mockImplementation(function () {
+    return {
+      getRateToUSD: vi.fn(),
+      getRateFromUSD: vi.fn(),
+    };
+  }),
+}));
+
+vi.mock(
+  '../../../../../../../packages/accounting/src/cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.ts',
+  () => ({
     runCanadaCostBasisCalculation: vi.fn(),
-  };
-});
-
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual('@exitbook/data');
-  return {
-    ...actual,
-    buildCostBasisPorts: vi.fn(),
-  };
-});
-
-vi.mock('@exitbook/ingestion', async () => {
-  const actual = await vi.importActual('@exitbook/ingestion');
-  return {
-    ...actual,
-    calculateBalances: vi.fn(),
-  };
-});
+  })
+);
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
-
-vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
-  ensureAssetReviewProjectionFresh: vi.fn(),
-}));
-
-vi.mock('../../../shared/asset-review-projection-store.js', () => ({
-  readAssetReviewProjectionSummaries: vi.fn(),
-}));
-
-vi.mock('../../../shared/cost-basis-dependency-watermark-runtime.js', () => ({
-  readCostBasisDependencyWatermark: vi.fn().mockResolvedValue(
-    ok({
-      links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
-      assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
-      pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
-      exclusionFingerprint: 'excluded-assets:none',
-    })
-  ),
 }));
 
 function createTransaction(): Transaction {
@@ -149,23 +124,47 @@ function createExcludedAssetTradeTransaction(): Transaction {
 
 describe('PortfolioHandler', () => {
   let handler: PortfolioHandler;
-  let mockDb: DataContext;
   let mockPriceRuntime: IPriceProviderRuntime;
-  let transactionRepo: { findAll: Mock };
-  let accountRepo: { findAll: Mock };
+  let mockCostBasisStore: ICostBasisContextReader;
+  let mockDependencyReader: IPortfolioDependencyReader;
+  let mockFailureSnapshotStore: ICostBasisFailureSnapshotStore;
+  let mockHoldingsCalculator: IPortfolioHoldingsCalculator;
+  let loadCostBasisContext: Mock;
+  let readAssetReviewSummaries: Mock;
+  let readDependencyWatermark: Mock;
+  let calculateHoldings: Mock;
   const tx = createTransaction();
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    transactionRepo = { findAll: vi.fn().mockResolvedValue(ok([tx])) };
-    accountRepo = {
-      findAll: vi.fn().mockResolvedValue(ok([{ id: 1, sourceName: 'kraken', accountType: 'exchange-api' as const }])),
+    loadCostBasisContext = vi.fn().mockResolvedValue(
+      ok({
+        confirmedLinks: [],
+        transactions: [tx],
+        accounts: [{ id: 1, sourceName: 'kraken', accountType: 'exchange-api' as const }],
+      })
+    );
+    mockCostBasisStore = {
+      loadCostBasisContext,
+    } as unknown as ICostBasisContextReader;
+
+    readAssetReviewSummaries = vi.fn().mockResolvedValue(ok(new Map()));
+    readDependencyWatermark = vi.fn().mockResolvedValue(
+      ok({
+        links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+        assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
+        pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
+        exclusionFingerprint: 'excluded-assets:none',
+      })
+    );
+    mockDependencyReader = {
+      readAssetReviewSummaries,
+      readDependencyWatermark,
     };
-    mockDb = {
-      transactions: transactionRepo,
-      accounts: accountRepo,
-    } as unknown as DataContext;
+    mockFailureSnapshotStore = {
+      replaceLatest: vi.fn().mockResolvedValue(ok(undefined)),
+    };
 
     mockPriceRuntime = {
       fetchPrice: vi.fn().mockResolvedValue(
@@ -183,17 +182,13 @@ describe('PortfolioHandler', () => {
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
-    vi.mocked(calculateBalances).mockReturnValue({
+    calculateHoldings = vi.fn().mockReturnValue({
       balances: { 'exchange:kraken:btc': new Decimal('1') },
       assetMetadata: { 'exchange:kraken:btc': 'BTC' },
     });
-
-    vi.mocked(buildCostBasisPorts).mockReturnValue({
-      loadCostBasisContext: vi.fn().mockResolvedValue(ok({ confirmedLinks: [], accounts: [], transactions: [] })),
-    } as never);
-
-    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
-    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
+    mockHoldingsCalculator = {
+      calculateHoldings,
+    };
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
     );
@@ -340,9 +335,13 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
-
-    handler = new PortfolioHandler(mockDb, mockPriceRuntime, '/tmp/test-data');
+    handler = new PortfolioHandler({
+      costBasisStore: mockCostBasisStore,
+      dependencyReader: mockDependencyReader,
+      failureSnapshotStore: mockFailureSnapshotStore,
+      holdingsCalculator: mockHoldingsCalculator,
+      priceRuntime: mockPriceRuntime,
+    });
   });
 
   it('routes CA portfolio calculations through the Canada path instead of the standard workflow', async () => {
@@ -400,7 +399,7 @@ describe('PortfolioHandler', () => {
     });
 
     expect(result.isErr()).toBe(true);
-    expect(transactionRepo.findAll).not.toHaveBeenCalled();
+    expect(loadCostBasisContext).not.toHaveBeenCalled();
     expect(runCanadaCostBasisCalculation).not.toHaveBeenCalled();
     expect(mockCostBasisWorkflowExecute).not.toHaveBeenCalled();
   });
@@ -461,9 +460,15 @@ describe('PortfolioHandler', () => {
 
   it('omits transactions touching excluded assets from portfolio balances, cost basis, and returned transactions', async () => {
     const excludedTradeTx = createExcludedAssetTradeTransaction();
-    transactionRepo.findAll.mockResolvedValue(ok([tx, excludedTradeTx]));
+    loadCostBasisContext.mockResolvedValue(
+      ok({
+        confirmedLinks: [],
+        transactions: [tx, excludedTradeTx],
+        accounts: [{ id: 1, sourceName: 'kraken', accountType: 'exchange-api' as const }],
+      })
+    );
 
-    vi.mocked(calculateBalances).mockImplementation((transactions) => {
+    calculateHoldings.mockImplementation((transactions) => {
       expect(transactions).toEqual([tx]);
       return {
         balances: { 'exchange:kraken:btc': new Decimal('1') },
@@ -488,8 +493,13 @@ describe('PortfolioHandler', () => {
       } as never)
     );
 
-    handler = new PortfolioHandler(mockDb, mockPriceRuntime, '/tmp/test-data', {
-      excludedAssetIds: new Set(['blockchain:base:0xspam']),
+    handler = new PortfolioHandler({
+      accountingExclusionPolicy: { excludedAssetIds: new Set(['blockchain:base:0xspam']) },
+      costBasisStore: mockCostBasisStore,
+      dependencyReader: mockDependencyReader,
+      failureSnapshotStore: mockFailureSnapshotStore,
+      holdingsCalculator: mockHoldingsCalculator,
+      priceRuntime: mockPriceRuntime,
     });
 
     const result = await handler.execute({

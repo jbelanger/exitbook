@@ -1,17 +1,15 @@
-import type { LinksResetImpact } from '@exitbook/accounting/ports';
 import type { Account } from '@exitbook/core';
-import { resetPlan } from '@exitbook/core';
 import type { DataContext } from '@exitbook/data';
-import {
-  buildCostBasisResetPorts,
-  buildIngestionPurgePorts,
-  buildLinksResetPorts,
-  buildProcessedTransactionsResetPorts,
-} from '@exitbook/data';
+import { buildCostBasisResetPorts, buildIngestionPurgePorts } from '@exitbook/data';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IngestionPurgeImpact } from '@exitbook/ingestion';
-import type { ProcessedTransactionsResetImpact } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
+
+import {
+  countProjectionResetImpact,
+  resetProjections,
+  type ProjectionResetImpact,
+} from '../../shared/consumer-input-prereqs.js';
 
 const logger = getLogger('ClearHandler');
 
@@ -26,8 +24,10 @@ export interface ClearParams {
 }
 
 export interface DeletionPreview {
-  links: LinksResetImpact;
-  processedTransactions: ProcessedTransactionsResetImpact;
+  assetReview: ProjectionResetImpact['assetReview'];
+  balances: ProjectionResetImpact['balances'];
+  links: ProjectionResetImpact['links'];
+  processedTransactions: ProjectionResetImpact['processedTransactions'];
   costBasisSnapshots: { snapshots: number };
   purge: IngestionPurgeImpact | undefined;
 }
@@ -40,6 +40,9 @@ export interface ClearResult {
 export interface FlatDeletionPreview {
   transactions: number;
   links: number;
+  assetReviewStates: number;
+  balanceSnapshots: number;
+  balanceSnapshotAssets: number;
   costBasisSnapshots: number;
   accounts: number;
   sessions: number;
@@ -50,6 +53,9 @@ export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
   return {
     transactions: preview.processedTransactions.transactions,
     links: preview.links.links,
+    assetReviewStates: preview.assetReview.assets,
+    balanceSnapshots: preview.balances.scopes,
+    balanceSnapshotAssets: preview.balances.assetRows,
     costBasisSnapshots: preview.costBasisSnapshots.snapshots,
     accounts: preview.purge?.accounts ?? 0,
     sessions: preview.purge?.sessions ?? 0,
@@ -58,7 +64,17 @@ export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
 }
 
 export function calculateTotalDeletionItems(flat: FlatDeletionPreview): number {
-  return flat.transactions + flat.links + flat.costBasisSnapshots + flat.accounts + flat.sessions + flat.rawData;
+  return (
+    flat.transactions +
+    flat.links +
+    flat.assetReviewStates +
+    flat.balanceSnapshots +
+    flat.balanceSnapshotAssets +
+    flat.costBasisSnapshots +
+    flat.accounts +
+    flat.sessions +
+    flat.rawData
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -137,17 +153,14 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       if (accountIdsResult.isErr()) return wrapError(accountIdsResult.error, 'Failed to resolve accounts');
       const accountIds = accountIdsResult.value;
 
-      const linksReset = buildLinksResetPorts(db);
-      const ptReset = buildProcessedTransactionsResetPorts(db);
       const costBasisReset = buildCostBasisResetPorts(db);
-
-      const [linksResult, ptResult, costBasisResult] = await Promise.all([
-        linksReset.countResetImpact(accountIds),
-        ptReset.countResetImpact(accountIds),
+      const [projectionImpactResult, costBasisResult] = await Promise.all([
+        countProjectionResetImpact(db, 'processed-transactions', accountIds),
         costBasisReset.countResetImpact(),
       ]);
-      if (linksResult.isErr()) return wrapError(linksResult.error, 'Failed to count links impact');
-      if (ptResult.isErr()) return wrapError(ptResult.error, 'Failed to count processed-transactions impact');
+      if (projectionImpactResult.isErr()) {
+        return wrapError(projectionImpactResult.error, 'Failed to count projection reset impact');
+      }
       if (costBasisResult.isErr())
         return wrapError(costBasisResult.error, 'Failed to count cost-basis snapshot impact');
 
@@ -160,8 +173,10 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       }
 
       return ok({
-        links: linksResult.value,
-        processedTransactions: ptResult.value,
+        assetReview: projectionImpactResult.value.assetReview,
+        balances: projectionImpactResult.value.balances,
+        links: projectionImpactResult.value.links,
+        processedTransactions: projectionImpactResult.value.processedTransactions,
         costBasisSnapshots: costBasisResult.value,
         purge,
       });
@@ -184,21 +199,9 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       // the transaction-scoped context so their internal executeInTransaction
       // calls become no-ops (isTransactionScoped short-circuit).
       return db.executeInTransaction(async (txDb) => {
-        // Reset projections in graph order (downstream first)
-        const plan = resetPlan('processed-transactions');
-        let linksImpact: LinksResetImpact = { links: 0 };
-        let ptImpact: ProcessedTransactionsResetImpact = { transactions: 0 };
-
-        for (const projectionId of plan) {
-          if (projectionId === 'links') {
-            const result = await buildLinksResetPorts(txDb).reset(accountIds);
-            if (result.isErr()) return wrapError(result.error, 'Failed to reset links');
-            linksImpact = result.value;
-          } else if (projectionId === 'processed-transactions') {
-            const result = await buildProcessedTransactionsResetPorts(txDb).reset(accountIds);
-            if (result.isErr()) return wrapError(result.error, 'Failed to reset processed-transactions');
-            ptImpact = result.value;
-          }
+        const projectionResetResult = await resetProjections(txDb, 'processed-transactions', accountIds);
+        if (projectionResetResult.isErr()) {
+          return wrapError(projectionResetResult.error, 'Failed to reset projections');
         }
 
         // Cost-basis latest snapshots are derived artifacts outside the projection graph.
@@ -217,8 +220,10 @@ export function createClearHandler(deps: ClearHandlerDeps) {
         }
 
         const deleted: DeletionPreview = {
-          links: linksImpact,
-          processedTransactions: ptImpact,
+          assetReview: projectionResetResult.value.assetReview,
+          balances: projectionResetResult.value.balances,
+          links: projectionResetResult.value.links,
+          processedTransactions: projectionResetResult.value.processedTransactions,
           costBasisSnapshots: costBasisResetResult.value,
           purge,
         };
