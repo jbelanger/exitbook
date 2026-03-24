@@ -1,11 +1,11 @@
-# Result Type (`@exitbook/core`)
+# Result Type (`@exitbook/foundation`)
 
-Custom `Result<T, E>`. Located in `packages/core/src/result/`.
+Custom `Result<T, E>`. Re-exported from `@exitbook/foundation` and implemented under `packages/foundation/src/result/`.
 
 ## Construction
 
 ```typescript
-import { ok, err, type Result } from '@exitbook/core';
+import { ok, err, type Result } from '@exitbook/foundation';
 
 const success = ok(42); // Result<number, never>
 const failure = err('not found'); // Result<never, Error> — string auto-wrapped in Error

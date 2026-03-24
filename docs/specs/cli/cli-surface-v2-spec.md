@@ -574,7 +574,10 @@ This is the highest-risk phase because prereq rebuilds sit underneath multiple t
 
 Current hotspot to replace:
 
-- `apps/cli/src/features/shared/consumer-input-prereqs.ts`
+- `apps/cli/src/features/shared/consumer-input-readiness.ts`
+- `apps/cli/src/features/shared/projection-readiness.ts`
+- `apps/cli/src/features/shared/projection-reset.ts`
+- `apps/cli/src/features/shared/price-readiness.ts`
 
 Required change:
 

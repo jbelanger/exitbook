@@ -71,7 +71,10 @@ features/<feature>/command/
   run-<feature>.ts     - feature execution against CommandScope
 
 features/shared/
-  consumer-input-prereqs.ts   - explicit CLI prereq orchestration only
+  consumer-input-readiness.ts
+  projection-readiness.ts
+  projection-reset.ts
+  price-readiness.ts
   asset-review-projection-runtime.ts
 ```
 
@@ -114,11 +117,14 @@ Prefer explicit functions such as:
 - `ensurePriceCoverage(scope, window, policy)`
 - `ensureConsumerInputs(scope, target, options)`
 
-The current CLI file for this is:
+The current CLI files for this are:
 
-- `apps/cli/src/features/shared/consumer-input-prereqs.ts`
+- `apps/cli/src/features/shared/consumer-input-readiness.ts`
+- `apps/cli/src/features/shared/projection-readiness.ts`
+- `apps/cli/src/features/shared/projection-reset.ts`
+- `apps/cli/src/features/shared/price-readiness.ts`
 
-Keep that file flat and explicit. Do not reintroduce a registry or strategy map for prereq execution.
+Keep those modules flat and explicit. Do not reintroduce a registry or strategy map for prereq execution.
 
 ## Cleanup
 
