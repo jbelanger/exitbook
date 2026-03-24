@@ -59,27 +59,3 @@ export interface PortfolioPositionItem {
   // Per-account breakdown
   accountBreakdown: AccountBreakdownItem[];
 }
-
-export interface PortfolioTransactionItem {
-  id: number;
-  datetime: string; // ISO 8601
-  operationCategory: string;
-  operationType: string;
-  sourceName: string;
-
-  // Movement of the drilled asset (signed quantity)
-  assetAmount: string;
-  assetDirection: 'in' | 'out';
-
-  // Fiat value at transaction time (undefined if no price data)
-  fiatValue?: string | undefined;
-
-  // Transfer context (undefined for non-transfers)
-  transferPeer?: string | undefined; // e.g., "solana blockchain" or "kraken"
-  transferDirection?: 'to' | 'from' | undefined;
-
-  // All movements (for detail panel)
-  inflows: { amount: string; assetSymbol: string }[];
-  outflows: { amount: string; assetSymbol: string }[];
-  fees: { amount: string; assetSymbol: string }[];
-}

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { calculateTotalDeletionItems, createClearHandler, flattenPreview } from './clear-handler.js';
 
-vi.mock('../../shared/consumer-input-prereqs.js', () => ({
+vi.mock('../../shared/projection-reset.js', () => ({
   countProjectionResetImpact: vi.fn().mockResolvedValue(
     ok({
       processedTransactions: { transactions: 5 },

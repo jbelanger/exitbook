@@ -22,7 +22,7 @@ import type { CommandScope } from '../../../runtime/command-scope.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-prereqs.js';
+import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };

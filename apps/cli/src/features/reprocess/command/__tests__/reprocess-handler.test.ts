@@ -15,7 +15,7 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-vi.mock('../../../shared/consumer-input-prereqs.js', () => ({
+vi.mock('../../../shared/projection-reset.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 

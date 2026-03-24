@@ -6,9 +6,9 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import { resetProjections } from '../../shared/consumer-input-prereqs.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
+import { resetProjections } from '../../shared/projection-reset.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;

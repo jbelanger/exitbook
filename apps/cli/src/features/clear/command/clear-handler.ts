@@ -9,7 +9,7 @@ import {
   countProjectionResetImpact,
   resetProjections,
   type ProjectionResetImpact,
-} from '../../shared/consumer-input-prereqs.js';
+} from '../../shared/projection-reset.js';
 
 const logger = getLogger('ClearHandler');
 

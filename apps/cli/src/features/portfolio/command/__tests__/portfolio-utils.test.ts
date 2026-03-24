@@ -1,16 +1,12 @@
 import {
   aggregatePositionsByAssetSymbol,
-  buildAssetIdsBySymbol,
   buildCanadaPortfolioPositions,
   buildPortfolioPositions,
-  buildTransactionItems,
   computeNetFiatInUsd,
   computeTotalRealizedGainLossAllTime,
   computeUnrealizedPnL,
   computeWeightedAvgCost,
   convertSpotPricesToDisplayCurrency,
-  filterTransactionsForAsset,
-  filterTransactionsForAssets,
   sortPositions,
   type AcquisitionLot,
   type CanadaDisplayCostBasisReport,
@@ -21,6 +17,13 @@ import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
+
+import {
+  buildAssetIdsBySymbol,
+  buildTransactionItems,
+  filterTransactionsForAsset,
+  filterTransactionsForAssets,
+} from '../../shared/portfolio-history-utils.js';
 
 function createLot(params: {
   assetId?: string | undefined;

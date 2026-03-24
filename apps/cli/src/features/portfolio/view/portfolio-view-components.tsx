@@ -2,7 +2,7 @@
  * Portfolio view TUI components.
  */
 
-import type { PortfolioPositionItem, PortfolioTransactionItem } from '@exitbook/accounting';
+import type { PortfolioPositionItem } from '@exitbook/accounting';
 import { Decimal } from 'decimal.js';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';
@@ -17,6 +17,7 @@ import {
   getSelectionCursor,
 } from '../../../ui/shared/index.js';
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
+import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 
 import { portfolioViewReducer, handlePortfolioKeyboardInput } from './portfolio-view-controller.js';
 import {

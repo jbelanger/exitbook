@@ -10,7 +10,7 @@ import { calculateBalances } from '@exitbook/ingestion';
 import type { CommandScope } from '../../../runtime/command-scope.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-prereqs.js';
+import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 export { PortfolioHandler } from '@exitbook/accounting';

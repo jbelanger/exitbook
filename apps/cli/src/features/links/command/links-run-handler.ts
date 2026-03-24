@@ -12,7 +12,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-prereqs.js';
+import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 import { LinksRunMonitor } from '../view/links-run-components.jsx';
 

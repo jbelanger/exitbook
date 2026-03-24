@@ -1,9 +1,3 @@
-import {
-  buildAssetIdsBySymbol,
-  buildTransactionItems,
-  filterTransactionsForAssets,
-  type PortfolioTransactionItem,
-} from '@exitbook/accounting';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -15,6 +9,12 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
+import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
+import {
+  buildAssetIdsBySymbol,
+  buildTransactionItems,
+  filterTransactionsForAssets,
+} from '../shared/portfolio-history-utils.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
 import { createPortfolioHandler } from './portfolio-handler.js';

@@ -248,26 +248,21 @@ export type {
   AccountBreakdownItem,
   OpenLotItem,
   PortfolioPositionItem,
-  PortfolioTransactionItem,
   SortMode,
   SpotPriceResult,
 } from './portfolio/portfolio-types.js';
 export {
   aggregatePositionsByAssetSymbol,
   buildAccountAssetBalances,
-  buildAssetIdsBySymbol,
   buildCanadaPortfolioPositions,
   buildClosedPositionsByAssetId,
   buildPortfolioPositions,
-  buildTransactionItems,
   computeNetFiatInUsd,
   computeTotalRealizedGainLossAllTime,
   computeUnrealizedPnL,
   computeWeightedAvgCost,
   convertSpotPricesToDisplayCurrency,
   fetchSpotPrices,
-  filterTransactionsForAsset,
-  filterTransactionsForAssets,
   sortPositions,
 } from './portfolio/portfolio-utils.js';
 export type { RealizedGainLossDisplayContext } from './portfolio/portfolio-utils.js';
