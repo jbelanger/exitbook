@@ -524,8 +524,12 @@ export class KucoinCsvImporter implements IImporter {
     const expectedHeaders = CSV_FILE_TYPES;
 
     try {
-      const fileType = await validateCsvHeaders(filePath, expectedHeaders);
-      return fileType;
+      const fileTypeResult = await validateCsvHeaders(filePath, expectedHeaders);
+      if (fileTypeResult.isErr()) {
+        this.logger.error(`Failed to validate CSV headers for ${filePath}: ${fileTypeResult.error.message}`);
+        return 'unknown';
+      }
+      return fileTypeResult.value;
     } catch (error) {
       this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);
       return 'unknown';

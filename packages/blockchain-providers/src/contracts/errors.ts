@@ -21,7 +21,12 @@ export type NormalizationError = NormalizationSkip | NormalizationErrorFault;
 export class ProviderError extends Error {
   constructor(
     message: string,
-    public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND' | 'NO_COMPATIBLE_PROVIDERS',
+    public readonly code:
+      | 'NO_PROVIDERS'
+      | 'ALL_PROVIDERS_FAILED'
+      | 'PROVIDER_NOT_FOUND'
+      | 'NO_COMPATIBLE_PROVIDERS'
+      | 'PROVIDER_REGISTRATION_FAILED',
     public readonly details?:
       | { blockchain?: string | undefined; lastError?: string | undefined; operation?: string | undefined }
       | undefined

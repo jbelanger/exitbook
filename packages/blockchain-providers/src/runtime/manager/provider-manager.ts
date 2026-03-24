@@ -8,6 +8,7 @@ import { TtlCache } from '@exitbook/resilience/cache';
 import { CircuitBreakerRegistry, type CircuitStatus } from '@exitbook/resilience/circuit-breaker';
 
 import type { BlockchainExplorersConfig } from '../../catalog/explorer-config.js';
+import { ProviderError } from '../../contracts/errors.js';
 import type {
   AddressInfoData,
   BlockchainBalanceQueryOptions,
@@ -160,7 +161,11 @@ export class BlockchainProviderManager {
     options?: BlockchainTransactionStreamOptions,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<FailoverStreamingExecutionResult<T>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      yield err(providerSetupResult.error);
+      return;
+    }
 
     yield* this.engine.executeStreamingImpl<T>(
       blockchain,
@@ -179,7 +184,10 @@ export class BlockchainProviderManager {
     address: string,
     options?: BlockchainBalanceQueryOptions
   ): Promise<Result<FailoverExecutionResult<RawBalanceData>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
 
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressBalances',
@@ -193,7 +201,10 @@ export class BlockchainProviderManager {
     address: string,
     options?: BlockchainBalanceQueryOptions
   ): Promise<Result<FailoverExecutionResult<RawBalanceData[]>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
 
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressTokenBalances',
@@ -207,7 +218,10 @@ export class BlockchainProviderManager {
     contractAddresses: string[],
     options?: BlockchainProviderSelectionOptions
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
 
     if (this.tokenMetadataCache) {
       return this.tokenMetadataCache.getBatch(blockchain, contractAddresses);
@@ -251,7 +265,10 @@ export class BlockchainProviderManager {
     address: string,
     options?: BlockchainProviderSelectionOptions
   ): Promise<Result<FailoverExecutionResult<boolean>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
 
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'hasAddressTransactions',
@@ -265,7 +282,10 @@ export class BlockchainProviderManager {
     address: string,
     options?: BlockchainProviderSelectionOptions
   ): Promise<Result<FailoverExecutionResult<AddressInfoData>, Error>> {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
 
     return this.engine.executeOneShotImpl(blockchain, {
       type: 'getAddressInfo',
@@ -315,7 +335,10 @@ export class BlockchainProviderManager {
    * Get registered providers for a blockchain
    */
   getProviders(blockchain: string, options?: BlockchainProviderSelectionOptions): IBlockchainProvider[] {
-    this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      throw providerSetupResult.error;
+    }
     return this.providers.get(blockchain) ?? [];
   }
 
@@ -364,13 +387,16 @@ export class BlockchainProviderManager {
    * Falls back to all registered providers when no configuration exists.
    * Idempotent: skips if providers are already registered (unless preferred provider changed).
    */
-  private ensureProvidersRegistered(blockchain: string, preferredProvider?: string): IBlockchainProvider[] {
+  private ensureProvidersRegistered(
+    blockchain: string,
+    preferredProvider?: string
+  ): Result<IBlockchainProvider[], ProviderError> {
     const existingProviders = this.providers.get(blockchain);
 
     if (existingProviders && existingProviders.length > 0) {
       if (!preferredProvider) {
         logger.debug(`Providers already registered for ${blockchain}; skipping auto-registration`);
-        return existingProviders;
+        return ok(existingProviders);
       }
 
       const preferredAlreadyRegistered =
@@ -379,7 +405,7 @@ export class BlockchainProviderManager {
         logger.debug(
           `Preferred provider '${preferredProvider}' already registered for ${blockchain}; skipping auto-registration`
         );
-        return existingProviders;
+        return ok(existingProviders);
       }
 
       logger.info(
@@ -398,10 +424,18 @@ export class BlockchainProviderManager {
         this.registerProviders(blockchain, result.providers);
       }
 
-      return result.providers;
+      return ok(result.providers);
     } catch (error) {
-      logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${getErrorMessage(error)}`);
-      return [];
+      const providerError = new ProviderError(
+        `Failed to auto-register providers for ${blockchain}: ${getErrorMessage(error)}`,
+        'PROVIDER_REGISTRATION_FAILED',
+        {
+          blockchain,
+          lastError: getErrorMessage(error),
+        }
+      );
+      logger.error(providerError.message);
+      return err(providerError);
     }
   }
 

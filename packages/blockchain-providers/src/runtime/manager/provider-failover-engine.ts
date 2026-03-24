@@ -45,7 +45,7 @@ export class ProviderFailoverEngine {
     private readonly responseCache: TtlCache,
     private readonly preferredProviders: Map<string, string>,
     private readonly eventBus: EventBus<ProviderEvent> | undefined,
-    private readonly autoRegisterFromConfig: (blockchain: string) => void
+    private readonly autoRegisterFromConfig: (blockchain: string) => Result<IBlockchainProvider[], Error>
   ) {}
 
   async *executeStreamingImpl<T>(
@@ -56,7 +56,23 @@ export class ProviderFailoverEngine {
     // Auto-register providers for this blockchain if not already registered
     const existingProviders = this.providers.get(blockchain);
     if (!existingProviders || existingProviders.length === 0) {
-      this.autoRegisterFromConfig(blockchain);
+      const autoRegisterResult = this.autoRegisterFromConfig(blockchain);
+      if (autoRegisterResult.isErr()) {
+        yield err(
+          autoRegisterResult.error instanceof ProviderError
+            ? autoRegisterResult.error
+            : new ProviderError(
+                `Failed to auto-register providers for ${blockchain} (${operation.type}): ${getErrorMessage(autoRegisterResult.error)}`,
+                'PROVIDER_REGISTRATION_FAILED',
+                {
+                  blockchain,
+                  operation: operation.type,
+                  lastError: getErrorMessage(autoRegisterResult.error),
+                }
+              )
+        );
+        return;
+      }
     }
 
     const providers = this.getProvidersInOrder(blockchain, operation);
@@ -242,7 +258,22 @@ export class ProviderFailoverEngine {
     // Auto-register providers for this blockchain if not already registered
     const existingProviders = this.providers.get(blockchain);
     if (!existingProviders || existingProviders.length === 0) {
-      this.autoRegisterFromConfig(blockchain);
+      const autoRegisterResult = this.autoRegisterFromConfig(blockchain);
+      if (autoRegisterResult.isErr()) {
+        return err(
+          autoRegisterResult.error instanceof ProviderError
+            ? autoRegisterResult.error
+            : new ProviderError(
+                `Failed to auto-register providers for ${blockchain} (${operation.type}): ${getErrorMessage(autoRegisterResult.error)}`,
+                'PROVIDER_REGISTRATION_FAILED',
+                {
+                  blockchain,
+                  operation: operation.type,
+                  lastError: getErrorMessage(autoRegisterResult.error),
+                }
+              )
+        );
+      }
     }
 
     if (operation.getCacheKey) {

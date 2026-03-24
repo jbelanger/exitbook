@@ -22,7 +22,7 @@ import type { SubstrateFundFlow, SubstrateMovement } from './types.js';
  */
 export function expandSourceContext(address: string): Result<Record<string, unknown>, Error> {
   if (!address) {
-    return err('Missing address for Substrate session context enrichment');
+    return err(new Error('Missing address for Substrate session context enrichment'));
   }
 
   const uniqueDerivedAddresses = Array.from(new Set(derivePolkadotAddressVariants(address)));

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { getCsvHeaders, parseCsvFile, validateCsvHeaders } from '../csv-parser-utils.js';
@@ -29,7 +30,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('Name,Age,City');
+      expect(assertOk(result)).toBe('Name,Age,City');
     });
 
     it('should remove BOM from CSV headers', async () => {
@@ -39,7 +40,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('Name,Age,City');
+      expect(assertOk(result)).toBe('Name,Age,City');
     });
 
     it('should trim whitespace from headers', async () => {
@@ -49,7 +50,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('Name,Age,City');
+      expect(assertOk(result)).toBe('Name,Age,City');
     });
 
     it('should return empty string for empty file', async () => {
@@ -58,7 +59,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('');
+      expect(assertOk(result)).toBe('');
     });
 
     it('should return empty string for file with only newlines', async () => {
@@ -67,7 +68,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('');
+      expect(assertOk(result)).toBe('');
     });
 
     it('should return empty string when file does not exist', async () => {
@@ -75,7 +76,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('');
+      expect(assertErr(result).message).toContain('ENOENT');
     });
 
     it('should handle single line file without newline', async () => {
@@ -84,7 +85,7 @@ describe('csv-parser-utils', () => {
 
       const result = await getCsvHeaders(csvPath);
 
-      expect(result).toBe('Name,Age,City');
+      expect(assertOk(result)).toBe('Name,Age,City');
     });
   });
 
@@ -235,7 +236,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_data');
+      expect(assertOk(result)).toBe('user_data');
     });
 
     it('should match headers case-insensitively', async () => {
@@ -249,7 +250,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_data');
+      expect(assertOk(result)).toBe('user_data');
     });
 
     it('should remove BOM before matching headers', async () => {
@@ -263,7 +264,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_data');
+      expect(assertOk(result)).toBe('user_data');
     });
 
     it('should trim whitespace from headers before matching', async () => {
@@ -277,7 +278,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_data');
+      expect(assertOk(result)).toBe('user_data');
     });
 
     it('should return unknown for non-matching headers', async () => {
@@ -291,7 +292,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('unknown');
+      expect(assertOk(result)).toBe('unknown');
     });
 
     it('should return unknown for empty file', async () => {
@@ -304,7 +305,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('unknown');
+      expect(assertOk(result)).toBe('unknown');
     });
 
     it('should return unknown when file does not exist', async () => {
@@ -316,7 +317,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('unknown');
+      expect(assertErr(result).message).toContain('ENOENT');
     });
 
     it('should match first header when multiple headers defined', async () => {
@@ -332,7 +333,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_contacts');
+      expect(assertOk(result)).toBe('user_contacts');
     });
 
     it('should handle headers with special characters', async () => {
@@ -346,7 +347,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('order_data');
+      expect(assertOk(result)).toBe('order_data');
     });
 
     it('should handle mixed case in both header and expected headers', async () => {
@@ -360,7 +361,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('user_data');
+      expect(assertOk(result)).toBe('user_data');
     });
 
     it('should return unknown for file with only newlines', async () => {
@@ -373,7 +374,7 @@ describe('csv-parser-utils', () => {
 
       const result = await validateCsvHeaders(csvPath, expectedHeaders);
 
-      expect(result).toBe('unknown');
+      expect(assertOk(result)).toBe('unknown');
     });
   });
 });

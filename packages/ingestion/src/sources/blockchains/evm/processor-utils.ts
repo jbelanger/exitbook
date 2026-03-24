@@ -341,7 +341,7 @@ export function analyzeEvmFundFlow(
   chainConfig: AccountBasedNativeCurrencyConfig
 ): Result<EvmFundFlow, Error> {
   if (txGroup.length === 0) {
-    return err('Empty transaction group');
+    return err(new Error('Empty transaction group'));
   }
 
   // Address is already normalized by blockchain-specific schemas
