@@ -27,20 +27,19 @@ import type {
 } from '../ports/index.js';
 import { UsdConversionRateProvider } from '../price-enrichment/fx/usd-conversion-rate-provider.js';
 
-import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
   aggregatePositionsByAssetSymbol,
   buildAccountAssetBalances,
   buildCanadaPortfolioPositions,
   buildClosedPositionsByAssetId,
   buildPortfolioPositions,
-  convertSpotPricesToDisplayCurrency,
   computeNetFiatInUsd,
   computeTotalRealizedGainLossAllTime,
-  fetchSpotPrices,
   sortPositions,
   type RealizedGainLossDisplayContext,
-} from './portfolio-utils.js';
+} from './portfolio-position-building.js';
+import { convertSpotPricesToDisplayCurrency, fetchSpotPrices } from './portfolio-pricing.js';
+import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 
 const logger = getLogger('PortfolioHandler');
 

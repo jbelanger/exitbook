@@ -14,15 +14,11 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import { formatTimeAgo } from '../command/providers-view-utils.js';
+import type { HealthStatus, ProviderBlockchainItem, ProviderViewItem } from '../providers-view-model.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
-import type {
-  HealthStatus,
-  ProviderBlockchainItem,
-  ProviderViewItem,
-  ProvidersViewState,
-} from './providers-view-state.js';
+import { formatTimeAgo } from './providers-view-formatting.js';
+import type { ProvidersViewState } from './providers-view-state.js';
 
 const PROVIDER_DETAIL_LINES = 9;
 

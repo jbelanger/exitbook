@@ -10,8 +10,8 @@ import { writeFilesAtomically } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../../shared/view-utils.js';
+import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
-import type { ExportCallbackResult, OnExport } from '../view/index.js';
 
 import { TransactionsViewCommandOptionsSchema } from './transactions-option-schemas.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
@@ -21,9 +21,7 @@ import { generateDefaultPath, toTransactionViewItem } from './transactions-view-
 /**
  * Result data for view transactions command (JSON mode).
  */
-type ViewTransactionsCommandResult = ViewCommandResult<
-  import('../view/transactions-view-state.js').TransactionViewItem[]
->;
+type ViewTransactionsCommandResult = ViewCommandResult<TransactionViewItem[]>;
 
 /**
  * Register the transactions view subcommand.
@@ -266,7 +264,7 @@ function parseSinceToUnixSeconds(since: string | undefined): Result<number | und
  * Handle successful view transactions (JSON mode).
  */
 function handleViewTransactionsJSON(
-  viewItems: import('../view/transactions-view-state.js').TransactionViewItem[],
+  viewItems: TransactionViewItem[],
   params: ViewTransactionsParams,
   totalCount: number
 ): void {

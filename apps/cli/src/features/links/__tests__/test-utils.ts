@@ -8,8 +8,8 @@ import { Decimal } from 'decimal.js';
 import { vi, type Mock } from 'vitest';
 
 import { createPersistedTransaction } from '../../shared/__tests__/transaction-test-utils.js';
-import type { LinkGapAnalysis } from '../command/links-gap-utils.ts';
-import type { LinkWithTransactions } from '../view/links-view-state.js';
+import type { LinkGapAnalysis } from '../links-gap-model.js';
+import type { LinkWithTransactions } from '../links-view-model.js';
 
 /**
  * Create a mock transaction link with sensible defaults

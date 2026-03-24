@@ -1,7 +1,5 @@
-import type { AccountSummary, SessionSummary } from '../query/account-query.js';
-import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../view/accounts-view-state.js';
-
-// ─── TUI Transformation Utilities ───────────────────────────────────────────
+import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from './accounts-view-model.js';
+import type { AccountSummary, SessionSummary } from './query/account-query.js';
 
 export function toAccountViewItem(account: AccountSummary, sessions?: Map<number, SessionSummary[]>): AccountViewItem {
   const childAccounts: ChildAccountViewItem[] | undefined = account.childAccounts?.map((child) => ({
@@ -13,11 +11,11 @@ export function toAccountViewItem(account: AccountSummary, sessions?: Map<number
   }));
 
   const accountSessions = sessions?.get(account.id);
-  const sessionViewItems: SessionViewItem[] | undefined = accountSessions?.map((s) => ({
-    id: s.id,
-    status: s.status,
-    startedAt: s.startedAt,
-    completedAt: s.completedAt,
+  const sessionViewItems: SessionViewItem[] | undefined = accountSessions?.map((session) => ({
+    id: session.id,
+    status: session.status,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt,
   }));
 
   return {

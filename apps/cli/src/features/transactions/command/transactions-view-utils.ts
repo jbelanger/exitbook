@@ -7,14 +7,13 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import { parseDate } from '../../shared/view-utils.js';
 import type { CommonViewFilters } from '../../shared/view-utils.js';
+import type { ExportFormat } from '../transactions-export-model.js';
 import type {
   FeeDisplayItem,
   MovementDisplayItem,
   TransactionViewItem,
   TransactionsViewFilters,
-} from '../view/transactions-view-state.js';
-
-import type { ExportFormat } from './transactions-export-utils.js';
+} from '../transactions-view-model.js';
 
 /**
  * Parameters for view transactions command.

@@ -3,18 +3,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildProviderViewItems,
+  checkApiKeyStatus,
   computeAggregateStats,
   computeHealthStatus,
-  checkApiKeyStatus,
   detectConfigSource,
   detectConfigSourceForBlockchain,
   filterProviders,
-  formatTimeAgo,
+  groupProvidersByName,
   sortProviders,
   validateHealthFilter,
-  groupProvidersByName,
 } from '../../command/providers-view-utils.js';
-import type { ProviderViewItem } from '../providers-view-state.js';
+import type { ProviderViewItem } from '../../providers-view-model.js';
+import { formatTimeAgo } from '../providers-view-formatting.js';
 
 // --- Test Helpers ---
 

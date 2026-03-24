@@ -21,7 +21,8 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type { LinkGapAssetSummary, LinkGapIssue } from '../command/links-gap-utils.js';
+import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-model.js';
+import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 
 import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
@@ -31,13 +32,7 @@ import {
   LINK_DETAIL_LINES,
   LINKS_CHROME_LINES,
 } from './links-view-layout.js';
-import type {
-  LinkWithTransactions,
-  TransferProposalWithTransactions,
-  LinksViewGapsState,
-  LinksViewLinksState,
-  LinksViewState,
-} from './links-view-state.js';
+import type { LinksViewGapsState, LinksViewLinksState, LinksViewState } from './links-view-state.js';
 const GAP_ROW_ASSET_SYMBOL_MAX_WIDTH = 18;
 const GAP_SUMMARY_ASSET_SYMBOL_MAX_WIDTH = 14;
 const MAX_MULTI_LEG_DETAIL_ROWS = 3;

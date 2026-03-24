@@ -1,6 +1,7 @@
 import { type BlockchainProviderDescriptor, type ProviderOperationType } from '@exitbook/blockchain-providers';
 import { describe, expect, it } from 'vitest';
 
+import { toBlockchainViewItem } from '../../blockchain-view-projection.js';
 import type { BlockchainCatalogItem } from '../../command/blockchains-view-utils.js';
 import {
   buildBlockchainCatalogItem,
@@ -10,7 +11,6 @@ import {
   getBlockchainLayer,
   providerToSummary,
   sortBlockchains,
-  toBlockchainViewItem,
   validateCategory,
 } from '../../command/blockchains-view-utils.js';
 

@@ -24,20 +24,22 @@ import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import {
-  classifyOperation,
-  compareBalanceChanges,
   consolidateByAsset,
-  correlateTransactionData,
-  deriveBalanceChangeDeltasFromAbsolutes,
   extractReceiptFees,
   extractTokenTransferFlows,
   extractFlows,
-  groupNearEventsByTransaction,
   isFeeOnlyFromOutflows,
   isFeeOnlyTransaction,
-  validateTransactionGroup,
   type Movement,
-} from './processor-utils.js';
+} from './near-fund-flow-extraction.js';
+import { classifyOperation } from './near-operation-classification.js';
+import {
+  compareBalanceChanges,
+  correlateTransactionData,
+  deriveBalanceChangeDeltasFromAbsolutes,
+  groupNearEventsByTransaction,
+  validateTransactionGroup,
+} from './near-transaction-correlation.js';
 import type { NearCorrelatedTransaction } from './types.js';
 
 /**

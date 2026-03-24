@@ -119,7 +119,7 @@ function createTransaction(params: {
   } as unknown as Transaction;
 }
 
-describe('portfolio-utils', () => {
+describe('portfolio position building', () => {
   it('computes weighted average cost and unrealized pnl from open lots', () => {
     const lots = [
       createLot({

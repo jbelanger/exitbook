@@ -10,7 +10,7 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
-import type { CsvFormat, ExportFormat } from '../command/transactions-export-utils.js';
+import type { CsvFormat, ExportFormat } from '../transactions-export-model.js';
 
 import { CHROME_LINES } from './transactions-view-components.jsx';
 import type { TransactionsViewState } from './transactions-view-state.js';

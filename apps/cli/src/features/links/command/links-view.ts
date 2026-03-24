@@ -10,10 +10,11 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
-import { LinksViewApp, createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../view/index.js';
+import type { LinkGapIssue } from '../links-gap-model.js';
+import type { LinkWithTransactions } from '../links-view-model.js';
+import { LinksViewApp, createGapsViewState, createLinksViewState } from '../view/index.js';
 
 import { LinksConfirmHandler } from './links-confirm-handler.js';
-import type { LinkGapIssue } from './links-gap-utils.js';
 import { analyzeLinkGaps } from './links-gap-utils.js';
 import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksRejectHandler } from './links-reject-handler.js';

@@ -10,17 +10,14 @@ import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, test } from 'vitest';
 
+import { consolidateByAsset, extractReceiptFees, extractFlows, type Movement } from '../near-fund-flow-extraction.js';
+import { classifyOperation } from '../near-operation-classification.js';
 import {
-  classifyOperation,
-  consolidateByAsset,
   correlateTransactionData,
   deriveBalanceChangeDeltasFromAbsolutes,
-  extractReceiptFees,
-  extractFlows,
   groupNearEventsByTransaction,
-  type Movement,
   validateTransactionGroup,
-} from '../processor-utils.js';
+} from '../near-transaction-correlation.js';
 import type { NearReceipt, NearTransactionBundle } from '../types.js';
 
 // Test data factories

@@ -8,9 +8,10 @@ import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkGapAnalysis } from '../../command/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../../links-gap-model.js';
+import type { LinkWithTransactions } from '../../links-view-model.js';
 import { LinksViewApp } from '../links-view-components.jsx';
-import { createGapsViewState, createLinksViewState, type LinkWithTransactions } from '../links-view-state.js';
+import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
 
 describe('LinksViewApp - links mode', () => {
   const mockOnQuit = () => {

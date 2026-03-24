@@ -3,120 +3,14 @@
  */
 
 import type { OperationCategory } from '@exitbook/core';
-import type { Result } from '@exitbook/foundation';
 
-import type { CsvFormat, ExportFormat } from '../command/transactions-export-utils.js';
-
-/**
- * Per-movement display item (inflow or outflow)
- */
-export interface MovementDisplayItem {
-  assetSymbol: string;
-  amount: string;
-  priceAtTxTime?: { price: string; source: string } | undefined;
-}
-
-/**
- * Per-fee display item
- */
-export interface FeeDisplayItem {
-  assetSymbol: string;
-  amount: string;
-  scope: string;
-  settlement: string;
-  priceAtTxTime?: { price: string; source: string } | undefined;
-}
-
-/**
- * Per-transaction display item
- */
-export interface TransactionViewItem {
-  // Identity
-  id: number;
-  source: string;
-  sourceType: 'exchange' | 'blockchain';
-  txFingerprint: string;
-  datetime: string;
-
-  // Operation
-  operationCategory: string;
-  operationType: string;
-
-  // Primary movement (for list row)
-  primaryAsset: string | undefined;
-  primaryAmount: string | undefined;
-  primaryDirection: 'in' | 'out' | undefined;
-
-  // All movements (for detail panel)
-  inflows: MovementDisplayItem[];
-  outflows: MovementDisplayItem[];
-  fees: FeeDisplayItem[];
-
-  // Price status
-  priceStatus: 'all' | 'partial' | 'none' | 'not-needed';
-
-  // Blockchain metadata
-  blockchain:
-    | {
-        blockHeight?: number | undefined;
-        isConfirmed: boolean;
-        name: string;
-        transactionHash: string;
-      }
-    | undefined;
-
-  // Addresses
-  from: string | undefined;
-  to: string | undefined;
-
-  // Notes
-  notes: { message: string; severity?: string | undefined; type: string }[];
-
-  // Flags
-  excludedFromAccounting: boolean;
-  isSpam: boolean;
-}
-
-/**
- * Category counts for header
- */
-export interface CategoryCounts {
-  trade: number;
-  transfer: number;
-  staking: number;
-  other: number;
-}
-
-/**
- * Active filters (read-only, applied from CLI args)
- */
-export interface TransactionsViewFilters {
-  sourceFilter?: string | undefined;
-  assetFilter?: string | undefined;
-  operationTypeFilter?: string | undefined;
-  noPriceFilter?: boolean | undefined;
-}
+import type { ExportFormat } from '../transactions-export-model.js';
+import type { CategoryCounts, TransactionViewItem, TransactionsViewFilters } from '../transactions-view-model.js';
 
 /**
  * TUI phase: controls which panel is shown and which keys are active.
  */
 export type TransactionsViewPhase = 'browse' | 'export-format' | 'exporting' | 'export-complete' | 'export-error';
-
-/**
- * Export callback result returned from the entry-point onExport callback.
- */
-export interface ExportCallbackResult {
-  outputPaths: string[];
-  transactionCount: number;
-}
-
-/**
- * Callback signature passed from the entry point into the component.
- */
-export type OnExport = (
-  format: ExportFormat,
-  csvFormat: CsvFormat | undefined
-) => Promise<Result<ExportCallbackResult, Error>>;
 
 /**
  * Export panel state (discriminated by phase).

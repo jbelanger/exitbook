@@ -10,7 +10,7 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
-import type { AssetBreakdownEntry, MissingPriceMovement } from '../command/prices-view-utils.js';
+import type { AssetBreakdownEntry, MissingPriceMovement } from '../prices-view-model.js';
 
 import { getCoverageChromeLines, getMissingChromeLines } from './prices-view-components.jsx';
 import { missingRowKey, type PricesViewCoverageState, type PricesViewState } from './prices-view-state.js';

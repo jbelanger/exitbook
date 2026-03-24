@@ -1,8 +1,9 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
+import type { AccountViewItem } from '../../accounts-view-model.js';
 import { AccountsViewApp } from '../accounts-view-components.jsx';
-import { createAccountsViewState, type AccountViewItem } from '../accounts-view-state.js';
+import { createAccountsViewState } from '../accounts-view-state.js';
 
 const mockOnQuit = () => {
   /* empty */

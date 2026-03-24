@@ -14,9 +14,10 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
+import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-model.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
-import type { BlockchainViewItem, BlockchainsViewState, ProviderViewItem } from './blockchains-view-state.js';
+import type { BlockchainsViewState } from './blockchains-view-state.js';
 
 const BLOCKCHAINS_DETAIL_LINES = 8;
 

@@ -14,8 +14,8 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../command/prices-view-utils.js';
-import { formatCoveragePercentage } from '../command/prices-view-utils.js';
+import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-model.js';
+import { formatCoveragePercentage } from '../prices-view-model.js';
 
 import { handlePricesKeyboardInput, pricesViewReducer } from './prices-view-controller.js';
 import type { PricesViewCoverageState, PricesViewMissingState, PricesViewState } from './prices-view-state.js';

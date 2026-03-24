@@ -12,7 +12,7 @@ import type {
   ProviderAggregateStats,
   ProviderBlockchainItem,
   ProviderViewItem,
-} from '../view/providers-view-state.js';
+} from '../providers-view-model.js';
 
 /**
  * Valid health filter values.
@@ -60,21 +60,13 @@ export function groupProvidersByName(
   return providerMap;
 }
 
-/**
- * Shorten operation names for display (reuses logic from blockchains view).
- */
 function shortenCapabilities(providerInfo: BlockchainProviderDescriptor): string[] {
-  const summary = providerToSummary(providerInfo);
-  return summary.capabilities;
+  return providerToSummary(providerInfo).capabilities;
 }
 
-/**
- * Get rate limit string from provider info.
- */
 function getRateLimit(providerInfo: BlockchainProviderDescriptor): string | undefined {
   if (providerInfo.defaultConfig?.rateLimit) {
-    const rl = providerInfo.defaultConfig.rateLimit;
-    return `${rl.requestsPerSecond}/sec`;
+    return `${providerInfo.defaultConfig.rateLimit.requestsPerSecond}/sec`;
   }
   return undefined;
 }
@@ -132,9 +124,6 @@ export function computeHealthStatus(perBlockchainStats: { errorRate: number; isH
   return worstStatus;
 }
 
-/**
- * Check if an API key environment variable is set.
- */
 export function checkApiKeyStatus(envVar: string | undefined): boolean | undefined {
   if (!envVar) return undefined;
   return !!process.env[envVar];
@@ -178,9 +167,6 @@ export function detectConfigSource(
   return 'default';
 }
 
-/**
- * Find the worst (most recent) error across all blockchain stats for a provider.
- */
 function findLastError(statsRows: ProviderStatsSnapshot[]): { lastError: string; lastErrorTime: number } | undefined {
   let worstError: { lastError: string; lastErrorTime: number } | undefined;
 
@@ -195,9 +181,6 @@ function findLastError(statsRows: ProviderStatsSnapshot[]): { lastError: string;
   return worstError;
 }
 
-/**
- * Merge registry metadata, stats, and config into ProviderViewItem[].
- */
 export function buildProviderViewItems(
   providerMap: Map<string, ProviderBlockchainEntry[]>,
   allStatsRows: ProviderStatsSnapshot[],
@@ -371,26 +354,4 @@ export function sortProviders(items: ProviderViewItem[]): ProviderViewItem[] {
     // Alphabetical fallback
     return a.name.localeCompare(b.name);
   });
-}
-
-/**
- * Format an epoch ms timestamp to a relative time string.
- */
-export function formatTimeAgo(epochMs: number): string {
-  const now = Date.now();
-  const diffMs = now - epochMs;
-
-  if (diffMs < 0) return 'just now';
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return 'just now';
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${hours === 1 ? 'hr' : 'hrs'} ago`;
-
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
 }

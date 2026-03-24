@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
+import { toAccountViewItem } from '../../account-view-projection.js';
 import type { AccountSummary, SessionSummary } from '../../query/account-query.js';
-import { toAccountViewItem } from '../accounts-view-utils.js';
 import { registerAccountsCommand } from '../accounts.js';
 
 function createAccountSummary(overrides: Partial<AccountSummary> = {}): AccountSummary {

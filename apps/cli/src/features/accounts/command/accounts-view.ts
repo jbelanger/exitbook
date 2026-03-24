@@ -9,13 +9,14 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
+import { toAccountViewItem } from '../account-view-projection.js';
+import type { AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
-import { type AccountViewItem, computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
+import { computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
 
 import { AccountsViewCommandOptionsSchema } from './accounts-option-schemas.js';
-import { toAccountViewItem } from './accounts-view-utils.js';
 
 type ViewAccountsParams = AccountQueryParams;
 

@@ -4,8 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { TransactionViewItem } from '../../transactions-view-model.js';
 import { handleTransactionsKeyboardInput, transactionsViewReducer } from '../transactions-view-controller.js';
-import { createTransactionsViewState, type TransactionViewItem } from '../transactions-view-state.js';
+import { createTransactionsViewState } from '../transactions-view-state.js';
 
 describe('transactionsViewReducer', () => {
   it('navigates up and wraps to bottom', () => {

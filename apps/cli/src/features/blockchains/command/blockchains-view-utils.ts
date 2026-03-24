@@ -4,7 +4,6 @@ import { err, ok } from '@exitbook/foundation';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
 import { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
-import type { BlockchainViewItem, ProviderViewItem } from '../view/blockchains-view-state.js';
 
 export { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 
@@ -155,48 +154,4 @@ export function sortBlockchains(blockchains: BlockchainCatalogItem[]): Blockchai
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
-}
-
-/**
- * Transform a BlockchainCatalogItem into a BlockchainViewItem for TUI display.
- * Checks env vars to determine API key configuration status.
- */
-export function toBlockchainViewItem(blockchain: BlockchainCatalogItem): BlockchainViewItem {
-  const providers: ProviderViewItem[] = blockchain.providers.map((p) => {
-    const apiKeyConfigured = p.requiresApiKey && p.apiKeyEnvVar ? !!process.env[p.apiKeyEnvVar] : undefined;
-
-    return {
-      name: p.name,
-      displayName: p.displayName,
-      requiresApiKey: p.requiresApiKey,
-      apiKeyEnvVar: p.apiKeyEnvVar,
-      apiKeyConfigured,
-      capabilities: p.capabilities,
-      rateLimit: p.rateLimit,
-    };
-  });
-
-  // Compute key status
-  const providersRequiringKey = providers.filter((p) => p.requiresApiKey);
-  let keyStatus: BlockchainViewItem['keyStatus'];
-  let missingKeyCount = 0;
-
-  if (providersRequiringKey.length === 0) {
-    keyStatus = 'none-needed';
-  } else {
-    missingKeyCount = providersRequiringKey.filter((p) => p.apiKeyConfigured === false).length;
-    keyStatus = missingKeyCount === 0 ? 'all-configured' : 'some-missing';
-  }
-
-  return {
-    name: blockchain.name,
-    displayName: blockchain.displayName,
-    category: blockchain.category,
-    layer: blockchain.layer,
-    providers,
-    providerCount: blockchain.providerCount,
-    keyStatus,
-    missingKeyCount,
-    exampleAddress: blockchain.exampleAddress,
-  };
 }

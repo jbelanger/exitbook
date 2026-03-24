@@ -6,6 +6,8 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok, resultDo } from '@exitbook/foundation';
 import type { z } from 'zod';
 
+import type { CsvFormat } from '../transactions-export-model.js';
+
 import type { ExportCommandOptionsSchema } from './transactions-option-schemas.js';
 
 /**
@@ -45,15 +47,6 @@ export interface ExportHandlerParams {
   /** Filter to transactions missing price data */
   noPrice?: boolean | undefined;
 }
-
-/**
- * Supported export formats.
- */
-export const EXPORT_FORMATS = ['csv', 'json'] as const;
-export type ExportFormat = (typeof EXPORT_FORMATS)[number];
-
-export const CSV_FORMATS = ['normalized', 'simple'] as const;
-export type CsvFormat = (typeof CSV_FORMATS)[number];
 
 /**
  * Parse since date string to Unix timestamp (milliseconds).

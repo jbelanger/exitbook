@@ -3,41 +3,14 @@
  */
 
 import type { LinkStatus } from '@exitbook/core';
-import type { Transaction, TransactionLink } from '@exitbook/core';
 
-import type { LinkGapAnalysis } from '../command/links-gap-utils.js';
+import type { LinkGapAnalysis } from '../links-gap-model.js';
+import type { LinkStatusCounts, LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
-
-/**
- * Link with associated transaction data for display
- */
-export interface LinkWithTransactions {
-  link: TransactionLink;
-  sourceTransaction: Transaction | undefined;
-  targetTransaction: Transaction | undefined;
-}
-
-export interface TransferProposalWithTransactions {
-  legs: LinkWithTransactions[];
-  proposalKey: string;
-  representativeLeg: LinkWithTransactions;
-  representativeLink: TransactionLink;
-  status: LinkStatus;
-  transferProposalKey?: string | undefined;
-}
 
 interface LinksViewProposalFilters {
   maxConfidence?: number | undefined;
   minConfidence?: number | undefined;
-}
-
-/**
- * Status counts for header
- */
-export interface LinkStatusCounts {
-  confirmed: number;
-  suggested: number;
-  rejected: number;
 }
 
 /**

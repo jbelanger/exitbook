@@ -10,17 +10,17 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
-import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../view/index.js';
-
-import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
-import { PricesSetHandler } from './prices-set-handler.js';
-import { PricesViewHandler } from './prices-view-handler.js';
 import type {
   AssetBreakdownEntry,
   PriceCoverageInfo,
   ViewPricesParams,
   ViewPricesResult,
-} from './prices-view-utils.js';
+} from '../prices-view-model.js';
+import { PricesViewApp, createCoverageViewState, createMissingViewState } from '../view/index.js';
+
+import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
+import { PricesSetHandler } from './prices-set-handler.js';
+import { PricesViewHandler } from './prices-view-handler.js';
 
 /**
  * Result data for view prices command (JSON mode).

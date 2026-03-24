@@ -7,7 +7,6 @@ import type { Result } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
 
 import { getAllMovements } from '../../shared/view-utils.js';
-
 import type {
   AssetBreakdownEntry,
   MissingPriceMovement,
@@ -15,7 +14,7 @@ import type {
   PriceCoverageInfo,
   ViewPricesParams,
   ViewPricesResult,
-} from './prices-view-utils.js';
+} from '../prices-view-model.js';
 
 /**
  * Result of executeMissing.

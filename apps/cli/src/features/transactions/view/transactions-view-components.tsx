@@ -16,22 +16,20 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
+import type {
+  CategoryCounts,
+  FeeDisplayItem,
+  MovementDisplayItem,
+  OnExport,
+  TransactionViewItem,
+} from '../transactions-view-model.js';
 
 import {
   FORMAT_OPTIONS,
   handleTransactionsKeyboardInput,
   transactionsViewReducer,
 } from './transactions-view-controller.js';
-import type {
-  CategoryCounts,
-  ExportPanelState,
-  FeeDisplayItem,
-  MovementDisplayItem,
-  OnExport,
-  TransactionViewItem,
-  TransactionsViewPhase,
-  TransactionsViewState,
-} from './transactions-view-state.js';
+import type { ExportPanelState, TransactionsViewPhase, TransactionsViewState } from './transactions-view-state.js';
 
 const TRANSACTION_DETAIL_LINES = 9;
 

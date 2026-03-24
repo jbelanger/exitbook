@@ -260,8 +260,7 @@ export {
   computeTotalRealizedGainLossAllTime,
   computeUnrealizedPnL,
   computeWeightedAvgCost,
-  convertSpotPricesToDisplayCurrency,
-  fetchSpotPrices,
   sortPositions,
-} from './portfolio/portfolio-utils.js';
-export type { RealizedGainLossDisplayContext } from './portfolio/portfolio-utils.js';
+} from './portfolio/portfolio-position-building.js';
+export type { RealizedGainLossDisplayContext } from './portfolio/portfolio-position-building.js';
+export { convertSpotPricesToDisplayCurrency, fetchSpotPrices } from './portfolio/portfolio-pricing.js';

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatCoveragePercentage,
-  formatPriceCoverageForDisplay,
-  formatPriceCoverageListForDisplay,
-  type PriceCoverageInfo,
-  type ViewPricesResult,
-} from '../prices-view-utils.ts';
+import { formatCoveragePercentage, type PriceCoverageInfo, type ViewPricesResult } from '../../prices-view-model.js';
+import { formatPriceCoverageForDisplay, formatPriceCoverageListForDisplay } from '../prices-view-utils.ts';
 
 describe('formatCoveragePercentage', () => {
   it('should format 0% correctly', () => {
