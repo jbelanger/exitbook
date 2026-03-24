@@ -12,70 +12,64 @@ import type { CommandScope } from '../../../runtime/command-scope.js';
 import { createCliLinkingRuntime, readCliLinkOverrides } from '../../../runtime/linking-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
-import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 
-const logger = getLogger('LinksRunHandler');
+const logger = getLogger('LinksRunRunner');
 
-/**
- * Tier 2 handler for `links run`.
- * Factory owns cleanup; command file never calls ctx.onCleanup().
- */
-export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, LinkingRunResult> {
-  constructor(
-    private readonly orchestrator: LinkingOrchestrator,
-    private readonly overrideStore: OverrideStore,
-    private readonly controller: EventDrivenController<LinkingEvent> | undefined
-  ) {}
+export interface LinksRunRuntime {
+  orchestrator: LinkingOrchestrator;
+  overrideStore: OverrideStore;
+  controller?: EventDrivenController<LinkingEvent> | undefined;
+}
 
-  async execute(params: LinkingRunParams): Promise<Result<LinkingRunResult, Error>> {
-    try {
-      const overrides = await readCliLinkOverrides(this.overrideStore);
-      if (overrides.isErr()) return err(overrides.error);
-
-      if (this.controller) {
-        await this.controller.start();
-      }
-
-      const result = await this.orchestrator.execute(params, overrides.value);
-
-      if (result.isErr()) {
-        if (this.controller) {
-          this.controller.fail(result.error.message);
-          await this.controller.stop();
-        }
-        return err(result.error);
-      }
-
-      if (this.controller) {
-        this.controller.complete();
-        await this.controller.stop();
-      }
-
-      return ok(result.value);
-    } catch (error) {
-      return wrapError(error, 'Failed to run links operation');
+export async function executeLinksRunWithRuntime(
+  runtime: LinksRunRuntime,
+  params: LinkingRunParams
+): Promise<Result<LinkingRunResult, Error>> {
+  try {
+    const overrides = await readCliLinkOverrides(runtime.overrideStore);
+    if (overrides.isErr()) {
+      return err(overrides.error);
     }
-  }
 
-  abort(): void {
-    if (this.controller) {
-      this.controller.abort();
-      void this.controller.stop().catch((e) => {
-        logger.warn({ e }, 'Failed to stop controller on abort');
-      });
+    if (runtime.controller) {
+      await runtime.controller.start();
     }
+
+    const result = await runtime.orchestrator.execute(params, overrides.value);
+
+    if (result.isErr()) {
+      if (runtime.controller) {
+        runtime.controller.fail(result.error.message);
+        await runtime.controller.stop();
+      }
+      return err(result.error);
+    }
+
+    if (runtime.controller) {
+      runtime.controller.complete();
+      await runtime.controller.stop();
+    }
+
+    return ok(result.value);
+  } catch (error) {
+    return wrapError(error, 'Failed to run links operation');
   }
 }
 
-/**
- * Create a LinksRunHandler with appropriate infrastructure.
- *
- * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
- */
-export async function createLinksRunHandler(
+export function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
+  if (runtime.controller) {
+    runtime.controller.abort();
+    void runtime.controller.stop().catch((error) => {
+      logger.warn({ error }, 'Failed to stop controller on abort');
+    });
+  }
+}
+
+export async function runLinks(
   ctx: CommandScope,
-  options: { isJsonMode: boolean }
-): Promise<Result<LinksRunHandler, Error>> {
+  options: { isJsonMode: boolean },
+  params: LinkingRunParams
+): Promise<Result<LinkingRunResult, Error>> {
   try {
     const database = await ctx.database();
     const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
@@ -95,8 +89,14 @@ export async function createLinksRunHandler(
     }
 
     const runtime = runtimeResult.value;
-    return ok(new LinksRunHandler(runtime.orchestrator, runtime.overrideStore, runtime.controller));
+    const linksRuntime: LinksRunRuntime = {
+      orchestrator: runtime.orchestrator,
+      overrideStore: runtime.overrideStore,
+      controller: runtime.controller,
+    };
+    ctx.onAbort(() => abortLinksRunRuntime(linksRuntime));
+    return executeLinksRunWithRuntime(linksRuntime, params);
   } catch (error) {
-    return wrapError(error, 'Failed to create links run handler');
+    return wrapError(error, 'Failed to run links operation');
   }
 }

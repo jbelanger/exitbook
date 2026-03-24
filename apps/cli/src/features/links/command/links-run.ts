@@ -15,7 +15,7 @@ import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { LinksRunCommandOptionsSchema } from './links-option-schemas.js';
-import { createLinksRunHandler } from './links-run-handler.js';
+import { runLinks } from './links-run-handler.js';
 
 /**
  * Command options validated by Zod at CLI boundary
@@ -158,13 +158,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
 
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createLinksRunHandler(ctx, { isJsonMode: true });
-      if (handlerResult.isErr()) {
-        displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-      const handler = handlerResult.value;
-
-      const result = await handler.execute(params);
+      const result = await runLinks(ctx, { isJsonMode: true }, params);
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -198,15 +192,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
     }
 
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createLinksRunHandler(ctx, { isJsonMode: false });
-      if (handlerResult.isErr()) {
-        displayCliError('links-run', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      const handler = handlerResult.value;
-
-      ctx.onAbort(() => handler.abort());
-
-      const result = await handler.execute(params);
+      const result = await runLinks(ctx, { isJsonMode: false }, params);
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

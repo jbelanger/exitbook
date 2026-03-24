@@ -17,7 +17,7 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { createPricesEnrichHandler } from './prices-enrich-handler.js';
+import { runPricesEnrich } from './prices-enrich-handler.js';
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
 
 /**
@@ -77,13 +77,7 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
 async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createPricesEnrichHandler(ctx, { isJsonMode: true });
-      if (handlerResult.isErr()) {
-        displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-      const handler = handlerResult.value;
-
-      const result = await handler.execute(params);
+      const result = await runPricesEnrich(ctx, { isJsonMode: true }, params);
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -105,15 +99,7 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: 
 async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createPricesEnrichHandler(ctx, { isJsonMode: false });
-      if (handlerResult.isErr()) {
-        displayCliError('prices-enrich', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      const handler = handlerResult.value;
-
-      ctx.onAbort(() => handler.abort());
-
-      const result = await handler.execute(params);
+      const result = await runPricesEnrich(ctx, { isJsonMode: false }, params);
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

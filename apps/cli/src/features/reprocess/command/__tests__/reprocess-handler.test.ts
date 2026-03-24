@@ -4,7 +4,11 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
-import { ReprocessHandler } from '../reprocess-handler.js';
+import {
+  abortReprocessRuntime,
+  executeReprocessWithRuntime,
+  type ReprocessExecutionRuntime,
+} from '../reprocess-handler.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
@@ -19,12 +23,12 @@ vi.mock('../../../shared/projection-reset.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 
-describe('ReprocessHandler', () => {
+describe('reprocess runner helpers', () => {
   let mockDatabase: DataContext;
   let mockProcessingWorkflow: { prepareReprocess: Mock; processImportedSessions: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
-  let handler: ReprocessHandler;
+  let runtime: ReprocessExecutionRuntime;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,19 +50,19 @@ describe('ReprocessHandler', () => {
       getSummary: vi.fn().mockReturnValue({ totalRequests: 0 }),
     };
 
-    handler = new ReprocessHandler(
-      mockDatabase,
-      mockProcessingWorkflow as unknown as ProcessingWorkflow,
-      mockIngestionMonitor as never,
-      mockInstrumentation as never
-    );
+    runtime = {
+      database: mockDatabase,
+      processingWorkflow: mockProcessingWorkflow as unknown as ProcessingWorkflow,
+      ingestionMonitor: mockIngestionMonitor as never,
+      instrumentation: mockInstrumentation as never,
+    };
   });
 
   test('should return result with metrics on success', async () => {
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [1, 2] }));
     mockProcessingWorkflow.processImportedSessions.mockResolvedValue(ok({ processed: 5, errors: [], failed: 0 }));
 
-    const result = await handler.execute({});
+    const result = await executeReprocessWithRuntime(runtime, {});
 
     const summary = assertOk(result);
     expect(summary.processed).toBe(5);
@@ -71,7 +75,7 @@ describe('ReprocessHandler', () => {
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [123] }));
     mockProcessingWorkflow.processImportedSessions.mockResolvedValue(ok({ processed: 3, errors: [], failed: 0 }));
 
-    await handler.execute({ accountId: 123 });
+    await executeReprocessWithRuntime(runtime, { accountId: 123 });
 
     expect(mockProcessingWorkflow.prepareReprocess).toHaveBeenCalledWith({ accountId: 123 });
   });
@@ -79,7 +83,7 @@ describe('ReprocessHandler', () => {
   test('should return processed: 0 when plan is empty', async () => {
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok(undefined));
 
-    const result = await handler.execute({});
+    const result = await executeReprocessWithRuntime(runtime, {});
 
     const summary = assertOk(result);
     expect(summary.processed).toBe(0);
@@ -91,7 +95,7 @@ describe('ReprocessHandler', () => {
     const error = new Error('Incomplete import');
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(err(error));
 
-    const result = await handler.execute({});
+    const result = await executeReprocessWithRuntime(runtime, {});
 
     expect(assertErr(result)).toBe(error);
     expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Incomplete import');
@@ -103,7 +107,7 @@ describe('ReprocessHandler', () => {
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [1] }));
     mockProcessingWorkflow.processImportedSessions.mockResolvedValue(err(error));
 
-    const result = await handler.execute({});
+    const result = await executeReprocessWithRuntime(runtime, {});
 
     expect(assertErr(result)).toBe(error);
     expect(mockIngestionMonitor.fail).toHaveBeenCalledWith('Processing failed');
@@ -120,7 +124,7 @@ describe('ReprocessHandler', () => {
       })
     );
 
-    const result = await handler.execute({});
+    const result = await executeReprocessWithRuntime(runtime, {});
 
     const error = assertErr(result);
     expect(error.message).toContain('Reprocess failed: 1 account(s) failed during processing.');
@@ -130,7 +134,7 @@ describe('ReprocessHandler', () => {
   });
 
   test('should delegate abort to monitor', () => {
-    handler.abort();
+    abortReprocessRuntime(runtime);
 
     expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();
   });

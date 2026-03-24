@@ -4,7 +4,7 @@ import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/in
 import { isUtxoAdapter } from '@exitbook/ingestion';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { ImportHandler } from '../import-handler.js';
+import { abortImportRuntime, executeImportWithRuntime, type ImportExecutionRuntime } from '../import-handler.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
@@ -39,12 +39,12 @@ const makeSession = (
   ...overrides,
 });
 
-describe('ImportHandler', () => {
+describe('import runner helpers', () => {
   let mockImportWorkflow: { abort: Mock; execute: Mock };
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
-  let handler: ImportHandler;
+  let runtime: ImportExecutionRuntime;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,12 +69,12 @@ describe('ImportHandler', () => {
       getSummary: vi.fn().mockReturnValue({ totalRequests: 0 }),
     };
 
-    handler = new ImportHandler(
-      mockImportWorkflow as unknown as ImportWorkflow,
-      mockRegistry as unknown as AdapterRegistry,
-      mockIngestionMonitor as never,
-      mockInstrumentation as never
-    );
+    runtime = {
+      importWorkflow: mockImportWorkflow as unknown as ImportWorkflow,
+      registry: mockRegistry as unknown as AdapterRegistry,
+      ingestionMonitor: mockIngestionMonitor as never,
+      instrumentation: mockInstrumentation as never,
+    };
   });
 
   describe('execute — import stage', () => {
@@ -87,7 +87,7 @@ describe('ImportHandler', () => {
         address: 'bc1qtest',
       };
 
-      const result = await handler.execute(params);
+      const result = await executeImportWithRuntime(runtime, params);
 
       const importResult = assertOk(result);
       expect(importResult.sessions).toEqual([session]);
@@ -104,7 +104,7 @@ describe('ImportHandler', () => {
         csvDir: './data/kraken',
       };
 
-      const result = await handler.execute(params);
+      const result = await executeImportWithRuntime(runtime, params);
 
       const importResult = assertOk(result);
       expect(importResult.sessions).toEqual([session]);
@@ -124,7 +124,7 @@ describe('ImportHandler', () => {
         },
       };
 
-      const result = await handler.execute(params);
+      const result = await executeImportWithRuntime(runtime, params);
 
       const importResult = assertOk(result);
       expect(importResult.sessions).toEqual([session]);
@@ -134,7 +134,7 @@ describe('ImportHandler', () => {
     it('should fail when import sessions are not completed', async () => {
       mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [makeSession({ status: 'failed' })] }));
 
-      const result = await handler.execute({
+      const result = await executeImportWithRuntime(runtime, {
         blockchain: 'bitcoin',
         address: 'bc1qtest',
       });
@@ -149,7 +149,7 @@ describe('ImportHandler', () => {
       const importError = new Error('Import failed: network timeout');
       mockImportWorkflow.execute.mockResolvedValue(err(importError));
 
-      const result = await handler.execute({
+      const result = await executeImportWithRuntime(runtime, {
         blockchain: 'bitcoin',
         address: 'bc1qtest',
       });
@@ -169,7 +169,7 @@ describe('ImportHandler', () => {
 
       const onSingleAddressWarning = vi.fn().mockResolvedValue(false); // User declines
 
-      const result = await handler.execute({
+      const result = await executeImportWithRuntime(runtime, {
         blockchain: 'bitcoin',
         address: 'bc1qtest',
         onSingleAddressWarning,
@@ -191,7 +191,7 @@ describe('ImportHandler', () => {
 
       const onSingleAddressWarning = vi.fn().mockResolvedValue(true);
 
-      const result = await handler.execute({
+      const result = await executeImportWithRuntime(runtime, {
         blockchain: 'bitcoin',
         address: 'bc1qtest',
         onSingleAddressWarning,
@@ -211,7 +211,7 @@ describe('ImportHandler', () => {
 
       const onSingleAddressWarning = vi.fn();
 
-      const result = await handler.execute({
+      const result = await executeImportWithRuntime(runtime, {
         blockchain: 'bitcoin',
         address: 'xpub6C...',
         onSingleAddressWarning,
@@ -224,7 +224,7 @@ describe('ImportHandler', () => {
 
   describe('abort', () => {
     it('should delegate abort to ImportWorkflow and monitor', () => {
-      handler.abort();
+      abortImportRuntime(runtime);
 
       expect(mockImportWorkflow.abort).toHaveBeenCalledOnce();
       expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();

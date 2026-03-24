@@ -8,7 +8,7 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { createReprocessHandler, type ProcessResultWithMetrics } from './reprocess-handler.js';
+import { runReprocess, type ProcessResultWithMetrics } from './reprocess-handler.js';
 import { ProcessCommandOptionsSchema } from './reprocess-option-schemas.js';
 
 /**
@@ -71,13 +71,7 @@ async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRu
 async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createReprocessHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-      const handler = handlerResult.value;
-
-      const result = await handler.execute({ accountId: options.accountId });
+      const result = await runReprocess(ctx, { accountId: options.accountId });
       if (result.isErr()) {
         displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -99,15 +93,7 @@ async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: 
 async function executeReprocessTUI(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createReprocessHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('reprocess', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      const handler = handlerResult.value;
-
-      ctx.onAbort(() => handler.abort());
-
-      const result = await handler.execute({ accountId: options.accountId });
+      const result = await runReprocess(ctx, { accountId: options.accountId });
       if (result.isErr()) {
         displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

@@ -12,7 +12,7 @@ import { promptConfirm } from '../../shared/prompts.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 
 import type { ImportExecuteResult } from './import-handler.js';
-import { createImportHandler } from './import-handler.js';
+import { runImport } from './import-handler.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import { buildImportParams } from './import-utils.js';
 
@@ -107,14 +107,8 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
 async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createImportHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-      const handler = handlerResult.value;
-
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
-      const result = await handler.execute(params);
+      const result = await runImport(ctx, params);
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -136,19 +130,11 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
 async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createImportHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('import', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      const handler = handlerResult.value;
-
-      ctx.onAbort(() => handler.abort());
-
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
 
       const sourceName = 'blockchain' in params ? params.blockchain : params.exchange;
 
-      const result = await handler.execute({
+      const result = await runImport(ctx, {
         ...params,
         onSingleAddressWarning: async () => {
           process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');

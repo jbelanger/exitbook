@@ -5,13 +5,13 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { LinksRunHandler } from '../links-run-handler.js';
+import { executeLinksRunWithRuntime, type LinksRunRuntime } from '../links-run-handler.js';
 
-describe('LinksRunHandler', () => {
+describe('links run runner helpers', () => {
   let mockOrchestrator: { execute: Mock };
   let mockOverrideStore: { exists: Mock; readByScopes: Mock };
   let mockController: { abort: Mock; complete: Mock; fail: Mock; start: Mock; stop: Mock };
-  let handler: LinksRunHandler;
+  let runtime: LinksRunRuntime;
 
   const params: LinkingRunParams = {
     minConfidenceScore: parseDecimal('0.7'),
@@ -38,18 +38,18 @@ describe('LinksRunHandler', () => {
       stop: vi.fn().mockResolvedValue(undefined),
     };
 
-    handler = new LinksRunHandler(
-      mockOrchestrator as never,
-      mockOverrideStore as unknown as OverrideStore,
-      mockController as never
-    );
+    runtime = {
+      orchestrator: mockOrchestrator as never,
+      overrideStore: mockOverrideStore as unknown as OverrideStore,
+      controller: mockController as never,
+    };
   });
 
   it('should not start the controller when reading overrides fails', async () => {
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('Overrides file is invalid')));
 
-    const result = await handler.execute(params);
+    const result = await executeLinksRunWithRuntime(runtime, params);
 
     const error = assertErr(result);
     expect(error.message).toContain('Overrides file is invalid');
@@ -90,7 +90,7 @@ describe('LinksRunHandler', () => {
     );
     mockOrchestrator.execute.mockResolvedValue(ok(linkingResult));
 
-    const result = await handler.execute(params);
+    const result = await executeLinksRunWithRuntime(runtime, params);
 
     expect(result.isOk()).toBe(true);
     expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(['link', 'unlink']);

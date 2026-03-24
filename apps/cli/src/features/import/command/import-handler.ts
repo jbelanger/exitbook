@@ -10,118 +10,119 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 import type { CommandScope } from '../../../runtime/command-scope.js';
 import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
 
 export interface ImportExecuteResult {
   sessions: ImportSession[];
   runStats: MetricsSummary;
 }
 
-/**
- * CLI import handler — thin shell over ImportWorkflow.
- * Adds CLI-specific concerns: xpub single-address warning, TUI monitor lifecycle, instrumentation.
- */
-export class ImportHandler implements InfrastructureHandler<
-  ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined },
-  ImportExecuteResult
-> {
-  private readonly logger = getLogger('ImportHandler');
-
-  constructor(
-    private importWorkflow: ImportWorkflow,
-    private registry: AdapterRegistry,
-    private ingestionMonitor: EventDrivenController<CliEvent>,
-    private instrumentation: InstrumentationCollector
-  ) {}
-
-  async execute(
-    params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
-  ): Promise<Result<ImportExecuteResult, Error>> {
-    // CLI-specific: warn about single-address UTXO imports before delegating
-    if ('blockchain' in params && params.address) {
-      const warningResult = await this.checkSingleAddressWarning(params);
-      if (warningResult.isErr()) {
-        this.ingestionMonitor.fail(warningResult.error.message);
-        await this.ingestionMonitor.stop();
-        return err(warningResult.error);
-      }
-    }
-
-    const importResult = await this.importWorkflow.execute(params);
-    if (importResult.isErr()) {
-      this.ingestionMonitor.fail(importResult.error.message);
-      await this.ingestionMonitor.stop();
-      return err(importResult.error);
-    }
-
-    const { sessions } = importResult.value;
-
-    // Validate all sessions completed
-    const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
-    if (incompleteSessions.length > 0) {
-      const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
-      const error = new Error(
-        `Import did not complete for account(s): ${accountStatuses.join(', ')}. ` +
-          `Processing is blocked until all imports complete successfully.`
-      );
-      this.ingestionMonitor.fail(error.message);
-      await this.ingestionMonitor.stop();
-      return err(error);
-    }
-
-    await this.ingestionMonitor.stop();
-    return ok({
-      sessions,
-      runStats: this.instrumentation.getSummary(),
-    });
-  }
-
-  abort(): void {
-    this.importWorkflow.abort();
-    this.ingestionMonitor.abort();
-    void this.ingestionMonitor.stop().catch((e) => {
-      this.logger.warn({ e }, 'Failed to stop ingestion monitor on abort');
-    });
-  }
-
-  private async checkSingleAddressWarning(
-    params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
-  ): Promise<Result<void, Error>> {
-    if (!('blockchain' in params) || !params.onSingleAddressWarning) return ok(undefined);
-
-    const adapterResult = this.registry.getBlockchain(params.blockchain.toLowerCase());
-    if (adapterResult.isErr()) return ok(undefined); // let ImportWorkflow handle the error
-
-    if (isUtxoAdapter(adapterResult.value)) {
-      const isXpub = adapterResult.value.isExtendedPublicKey(params.address);
-      if (!isXpub) {
-        const shouldContinue = await params.onSingleAddressWarning();
-        if (!shouldContinue) {
-          return err(new Error('Import cancelled by user'));
-        }
-      }
-    }
-
-    return ok(undefined);
-  }
+export interface ImportExecutionRuntime {
+  importWorkflow: ImportWorkflow;
+  registry: AdapterRegistry;
+  ingestionMonitor: EventDrivenController<CliEvent>;
+  instrumentation: InstrumentationCollector;
 }
 
-export async function createImportHandler(ctx: CommandScope): Promise<Result<ImportHandler, Error>> {
+const logger = getLogger('ImportRunner');
+
+export async function executeImportWithRuntime(
+  runtime: ImportExecutionRuntime,
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
+): Promise<Result<ImportExecuteResult, Error>> {
+  if ('blockchain' in params && params.address) {
+    const warningResult = await checkSingleAddressWarning(runtime, params);
+    if (warningResult.isErr()) {
+      runtime.ingestionMonitor.fail(warningResult.error.message);
+      await runtime.ingestionMonitor.stop();
+      return err(warningResult.error);
+    }
+  }
+
+  const importResult = await runtime.importWorkflow.execute(params);
+  if (importResult.isErr()) {
+    runtime.ingestionMonitor.fail(importResult.error.message);
+    await runtime.ingestionMonitor.stop();
+    return err(importResult.error);
+  }
+
+  const { sessions } = importResult.value;
+  const incompleteSessions = sessions.filter((session) => session.status !== 'completed');
+  if (incompleteSessions.length > 0) {
+    const accountStatuses = incompleteSessions.map((session) => `${session.accountId}(${session.status})`);
+    const error = new Error(
+      `Import did not complete for account(s): ${accountStatuses.join(', ')}. ` +
+        `Processing is blocked until all imports complete successfully.`
+    );
+    runtime.ingestionMonitor.fail(error.message);
+    await runtime.ingestionMonitor.stop();
+    return err(error);
+  }
+
+  await runtime.ingestionMonitor.stop();
+  return ok({
+    sessions,
+    runStats: runtime.instrumentation.getSummary(),
+  });
+}
+
+export function abortImportRuntime(runtime: ImportExecutionRuntime): void {
+  runtime.importWorkflow.abort();
+  runtime.ingestionMonitor.abort();
+  void runtime.ingestionMonitor.stop().catch((error) => {
+    logger.warn({ error }, 'Failed to stop ingestion monitor on abort');
+  });
+}
+
+export async function runImport(
+  ctx: CommandScope,
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
+): Promise<Result<ImportExecuteResult, Error>> {
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;
     const infra = await createIngestionRuntime(ctx, database);
-
     const importPorts = buildImportPorts(database);
-    const importWorkflow = new ImportWorkflow(
-      importPorts,
-      infra.blockchainProviderRuntime,
+    const runtime: ImportExecutionRuntime = {
+      importWorkflow: new ImportWorkflow(
+        importPorts,
+        infra.blockchainProviderRuntime,
+        registry,
+        infra.eventBus as EventBus<IngestionEvent>
+      ),
       registry,
-      infra.eventBus as EventBus<IngestionEvent>
-    );
+      ingestionMonitor: infra.ingestionMonitor,
+      instrumentation: infra.instrumentation,
+    };
 
-    return ok(new ImportHandler(importWorkflow, registry, infra.ingestionMonitor, infra.instrumentation));
+    ctx.onAbort(() => abortImportRuntime(runtime));
+    return executeImportWithRuntime(runtime, params);
   } catch (error) {
-    return wrapError(error, 'Failed to create import handler');
+    return wrapError(error, 'Failed to run import');
   }
+}
+
+async function checkSingleAddressWarning(
+  runtime: ImportExecutionRuntime,
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
+): Promise<Result<void, Error>> {
+  if (!('blockchain' in params) || !params.onSingleAddressWarning) {
+    return ok(undefined);
+  }
+
+  const adapterResult = runtime.registry.getBlockchain(params.blockchain.toLowerCase());
+  if (adapterResult.isErr()) {
+    return ok(undefined);
+  }
+
+  if (isUtxoAdapter(adapterResult.value)) {
+    const isXpub = adapterResult.value.isExtendedPublicKey(params.address);
+    if (!isXpub) {
+      const shouldContinue = await params.onSingleAddressWarning();
+      if (!shouldContinue) {
+        return err(new Error('Import cancelled by user'));
+      }
+    }
+  }
+
+  return ok(undefined);
 }
