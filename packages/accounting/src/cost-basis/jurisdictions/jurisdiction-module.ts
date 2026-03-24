@@ -1,8 +1,8 @@
 import type { Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import type { JurisdictionConfig } from '../model/types.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflowExecutionOptions, CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -13,7 +13,7 @@ export interface RunCostBasisJurisdictionWorkflowInput {
   config: ValidatedCostBasisConfig;
   transactions: Transaction[];
   store: ICostBasisContextReader;
-  fxRateProvider?: IFxRateProvider | undefined;
+  priceRuntime?: IPriceProviderRuntime | undefined;
   options: CostBasisWorkflowExecutionOptions;
 }
 

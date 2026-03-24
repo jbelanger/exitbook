@@ -3,7 +3,7 @@ import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildTransaction, createCanadaFxProvider, createConfirmedTransferLink } from '../../__tests__/test-utils.js';
+import { buildTransaction, createCanadaPriceRuntime, createConfirmedTransferLink } from '../../__tests__/test-utils.js';
 import { createAccountingExclusionPolicy } from '../../../../standard/validation/accounting-exclusion-policy.js';
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 
@@ -29,7 +29,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
 
 describe('runCanadaAcbWorkflow', () => {
   it('fails closed when same-chain blockchain tokens share a symbol across multiple asset IDs', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
 
     const first = buildTransaction({
       id: 1,
@@ -98,7 +98,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('allows reviewed same-symbol ambiguity once the conflicting contract is excluded', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
 
     const first = buildTransaction({
       id: 3,
@@ -165,7 +165,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('blocks included assets that still need review on the Canada workflow path', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const reviewRequired = buildTransaction({
       id: 10,
       datetime: '2024-01-01T12:00:00Z',
@@ -194,7 +194,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('does not block excluded assets that still need review on the Canada workflow path', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const safeAcquisition = buildTransaction({
       id: 11,
       datetime: '2024-01-01T12:00:00Z',
@@ -242,7 +242,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('does not block warning-only review summaries on the Canada workflow path', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const warningOnly = buildTransaction({
       id: 13,
       datetime: '2024-01-03T12:00:00Z',
@@ -284,7 +284,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
 
     const acquisition = buildTransaction({
       id: 1,
@@ -391,7 +391,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('handles fee-bearing acquisitions end to end', async () => {
-    const fxProvider = createCanadaFxProvider({ usdToCad: '1.4' });
+    const fxProvider = createCanadaPriceRuntime({ usdToCad: '1.4' });
 
     const acquisition = buildTransaction({
       id: 11,
@@ -445,7 +445,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('preserves basis through same-hash fee-only internal carryovers', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
 
     const acquisition = buildTransaction({
       id: 21,
@@ -559,7 +559,7 @@ describe('runCanadaAcbWorkflow', () => {
   });
 
   it('drops fully excluded assets before building the Canada tax input context', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
 
     const excludedAcquisition = buildTransaction({
       id: 90,

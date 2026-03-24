@@ -14,8 +14,8 @@ import { USRules } from './us/rules.js';
 async function runCanadaJurisdictionWorkflow(
   input: RunCostBasisJurisdictionWorkflowInput
 ): Promise<Result<CostBasisWorkflowResult, Error>> {
-  if (!input.fxRateProvider) {
-    return err(new Error('FX rate provider required for Canada tax valuation'));
+  if (!input.priceRuntime) {
+    return err(new Error('Price provider runtime required for Canada tax valuation'));
   }
 
   const contextResult = await input.store.loadCostBasisContext();
@@ -27,7 +27,7 @@ async function runCanadaJurisdictionWorkflow(
     input: input.config,
     transactions: input.transactions,
     confirmedLinks: contextResult.value.confirmedLinks,
-    fxRateProvider: input.fxRateProvider,
+    priceRuntime: input.priceRuntime,
     accountingExclusionPolicy: input.options.accountingExclusionPolicy,
     assetReviewSummaries: input.options.assetReviewSummaries,
     missingPricePolicy: 'error',

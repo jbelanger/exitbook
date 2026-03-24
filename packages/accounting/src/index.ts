@@ -195,7 +195,6 @@ export type {
   PricesEnrichOptions,
   PricesEnrichResult,
 } from './price-enrichment/orchestration/price-enrichment-pipeline.js';
-export { StandardFxRateProvider } from './price-enrichment/fx/standard-fx-rate-provider.js';
 export { buildCanadaTaxInputContext } from './cost-basis/jurisdictions/canada/tax/canada-tax-context-builder.js';
 export { runCanadaAcbWorkflow } from './cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.js';
 export type {

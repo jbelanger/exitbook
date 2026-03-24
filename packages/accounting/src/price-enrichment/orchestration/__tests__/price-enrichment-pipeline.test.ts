@@ -31,11 +31,6 @@ const mockStore = {
   saveTransactionPrices: vi.fn(),
 };
 
-const mockFxProvider = {
-  getRateToUSD: vi.fn(),
-  getRateFromUSD: vi.fn(),
-};
-
 const mockPriceRuntime = {} as Parameters<PriceEnrichmentPipeline['execute']>[1];
 
 function createEventBus(): EventBus<PricingEvent> & { emit: Mock; events: PricingEvent[] } {
@@ -92,7 +87,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({}, mockPriceRuntime));
 
       expect(result.derive).toEqual({ transactionsUpdated: 5 });
       expect(result.normalize).toBeDefined();
@@ -112,7 +107,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({ deriveOnly: true }, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({ deriveOnly: true }, mockPriceRuntime));
 
       expect(result.derive).toBeDefined();
       expect(result.normalize).toBeUndefined();
@@ -130,7 +125,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({ normalizeOnly: true }, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({ normalizeOnly: true }, mockPriceRuntime));
 
       expect(result.derive).toBeUndefined();
       expect(result.normalize).toBeDefined();
@@ -147,7 +142,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({ fetchOnly: true }, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({ fetchOnly: true }, mockPriceRuntime));
 
       expect(result.derive).toBeUndefined();
       expect(result.normalize).toBeUndefined();
@@ -164,7 +159,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      assertOk(await pipeline.execute({ deriveOnly: true }, mockPriceRuntime, mockFxProvider));
+      assertOk(await pipeline.execute({ deriveOnly: true }, mockPriceRuntime));
 
       // Only 1 call — no rederive pass
       expect(mockDerivePrices).toHaveBeenCalledTimes(1);
@@ -183,7 +178,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockFetchService
       );
 
-      assertOk(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      assertOk(await pipeline.execute({}, mockPriceRuntime));
 
       const startedEvents = bus.events.filter((e) => e.type === 'stage.started');
       const completedEvents = bus.events.filter((e) => e.type === 'stage.completed');
@@ -204,7 +199,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockFetchService
       );
 
-      assertErr(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      assertErr(await pipeline.execute({}, mockPriceRuntime));
 
       const failedEvents = bus.events.filter((e) => e.type === 'stage.failed');
       expect(failedEvents).toHaveLength(1);
@@ -228,7 +223,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockFetchService
       );
 
-      const error = assertErr(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const error = assertErr(await pipeline.execute({}, mockPriceRuntime));
 
       expect(error.message).toBe('derive failed');
       expect(mockNormalize).not.toHaveBeenCalled();
@@ -245,7 +240,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockFetchService
       );
 
-      const error = assertErr(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const error = assertErr(await pipeline.execute({}, mockPriceRuntime));
 
       expect(error.message).toBe('normalize failed');
       expect(mockFetchPrices).not.toHaveBeenCalled();
@@ -262,7 +257,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockFetchService
       );
 
-      const error = assertErr(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const error = assertErr(await pipeline.execute({}, mockPriceRuntime));
 
       expect(error.message).toBe('fetch failed');
     });
@@ -287,7 +282,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const error = assertErr(await pipeline.execute({ onMissing: 'fail' }, mockPriceRuntime, mockFxProvider));
+      const error = assertErr(await pipeline.execute({ onMissing: 'fail' }, mockPriceRuntime));
 
       expect(error.message).toContain('FX rate conversion failure');
       expect(error.name).toBe('NormalizeAbortError');
@@ -312,7 +307,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({}, mockPriceRuntime));
 
       expect(result.normalize?.failures).toBe(2);
       expect(mockFetchPrices).toHaveBeenCalledTimes(1);
@@ -329,7 +324,7 @@ describe('PriceEnrichmentPipeline', () => {
         mockInferenceService,
         mockFetchService
       );
-      const result = assertOk(await pipeline.execute({}, mockPriceRuntime, mockFxProvider));
+      const result = assertOk(await pipeline.execute({}, mockPriceRuntime));
 
       expect(result.runStats).toBeDefined();
     });

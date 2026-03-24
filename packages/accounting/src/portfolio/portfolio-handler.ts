@@ -25,7 +25,7 @@ import type {
   IPortfolioDependencyReader,
   IPortfolioHoldingsCalculator,
 } from '../ports/index.js';
-import { StandardFxRateProvider } from '../price-enrichment/fx/standard-fx-rate-provider.js';
+import { UsdConversionRateProvider } from '../price-enrichment/fx/usd-conversion-rate-provider.js';
 
 import type { AccountBreakdownItem, PortfolioPositionItem, SpotPriceResult } from './portfolio-types.js';
 import {
@@ -97,11 +97,11 @@ export interface PortfolioHandlerDeps {
  * Portfolio Handler - Encapsulates all portfolio calculation business logic.
  */
 export class PortfolioHandler {
-  readonly fxRateProvider: StandardFxRateProvider;
+  readonly usdConversionRateProvider: UsdConversionRateProvider;
   private readonly accountingExclusionPolicy: AccountingExclusionPolicy;
 
   constructor(private readonly deps: PortfolioHandlerDeps) {
-    this.fxRateProvider = new StandardFxRateProvider(deps.priceRuntime);
+    this.usdConversionRateProvider = new UsdConversionRateProvider(deps.priceRuntime);
     this.accountingExclusionPolicy = deps.accountingExclusionPolicy ?? { excludedAssetIds: new Set<string>() };
   }
 
@@ -282,7 +282,7 @@ export class PortfolioHandler {
         realizedGainLossByAssetId = canadaPortfolioResult.value.realizedGainLossByPortfolioKey;
         realizedGainLossDisplayContext = { sourceCurrency: 'display' };
       } else {
-        const workflow = new CostBasisWorkflow(this.deps.costBasisStore, this.fxRateProvider);
+        const workflow = new CostBasisWorkflow(this.deps.costBasisStore, this.deps.priceRuntime);
         const workflowResult = await workflow.execute(costBasisParams, portfolioTransactions, {
           accountingExclusionPolicy: this.accountingExclusionPolicy,
           assetReviewSummaries,
@@ -517,7 +517,7 @@ export class PortfolioHandler {
       input: params.costBasisParams,
       transactions: params.transactionsUpToAsOf,
       confirmedLinks: params.confirmedLinks,
-      fxRateProvider: this.fxRateProvider,
+      priceRuntime: this.deps.priceRuntime,
       accountingExclusionPolicy: this.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
       missingPricePolicy: 'exclude',

@@ -1,8 +1,8 @@
 import type { AssetReviewSummary, TransactionLink, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
@@ -32,7 +32,7 @@ export interface CanadaAcbWorkflowOptions {
 export async function runCanadaAcbWorkflow(
   transactions: Transaction[],
   confirmedLinks: TransactionLink[],
-  fxProvider: IFxRateProvider,
+  priceRuntime: IPriceProviderRuntime,
   options?: CanadaAcbWorkflowOptions
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   const canadaConfig = getJurisdictionConfig('CA');
@@ -67,7 +67,7 @@ export async function runCanadaAcbWorkflow(
     scopedTransactions: exclusionApplied.scopedBuildResult.transactions,
     validatedTransfers: validatedLinksResult.value,
     feeOnlyInternalCarryovers: exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
-    fxProvider,
+    priceRuntime,
     identityConfig: {
       relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
       taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,

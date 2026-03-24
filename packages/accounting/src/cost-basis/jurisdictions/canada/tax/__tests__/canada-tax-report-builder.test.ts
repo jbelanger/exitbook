@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createCanadaFeeAdjustmentEvent,
-  createCanadaFxProvider,
+  createCanadaPriceRuntime,
   createCanadaAcquisitionEvent,
   createCanadaDispositionEvent,
   createCanadaInputContext,
@@ -112,7 +112,7 @@ describe('canada-tax-report-builder', () => {
       await buildCanadaDisplayCostBasisReport({
         taxReport,
         displayCurrency: 'USD' as Currency,
-        fxProvider: createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }),
+        priceRuntime: createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } }),
       })
     );
 

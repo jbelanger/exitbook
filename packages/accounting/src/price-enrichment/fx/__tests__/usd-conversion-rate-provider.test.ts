@@ -1,5 +1,5 @@
 /**
- * Tests for StandardFxRateProvider
+ * Tests for UsdConversionRateProvider
  *
  * Verifies that the provider correctly delegates to the shared price runtime
  * and handles rate inversion for getRateFromUSD
@@ -11,11 +11,11 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { StandardFxRateProvider } from '../standard-fx-rate-provider.js';
+import { UsdConversionRateProvider } from '../usd-conversion-rate-provider.js';
 
-describe('StandardFxRateProvider', () => {
+describe('UsdConversionRateProvider', () => {
   let mockPriceRuntime: IPriceProviderRuntime;
-  let provider: StandardFxRateProvider;
+  let provider: UsdConversionRateProvider;
 
   beforeEach(() => {
     mockPriceRuntime = {
@@ -25,7 +25,7 @@ describe('StandardFxRateProvider', () => {
       setManualPrice: vi.fn(),
     } as unknown as IPriceProviderRuntime;
 
-    provider = new StandardFxRateProvider(mockPriceRuntime);
+    provider = new UsdConversionRateProvider(mockPriceRuntime);
   });
 
   describe('getRateToUSD', () => {

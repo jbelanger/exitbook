@@ -25,7 +25,6 @@ import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import type { PricesFetchResult } from '../enrichment/price-fetch-utils.js';
 import { determineEnrichmentStages } from '../enrichment/price-fetch-utils.js';
 import type { PricingEvent } from '../shared/price-events.js';
-import type { IFxRateProvider } from '../shared/types.js';
 
 import { PriceFetchService } from './price-fetch-service.js';
 import { PriceInferenceService } from './price-inference-service.js';
@@ -121,12 +120,10 @@ export class PriceEnrichmentPipeline {
    *
    * @param options - Pipeline options
    * @param priceRuntime - Price provider runtime for external price lookups
-   * @param fxRateProvider - FX rate provider for normalization stage
    */
   async execute(
     options: PricesEnrichOptions,
-    priceRuntime: IPriceProviderRuntime,
-    fxRateProvider: IFxRateProvider
+    priceRuntime: IPriceProviderRuntime
   ): Promise<Result<PricesEnrichResult, Error>> {
     return resultTryAsync(
       async function* (self) {
@@ -151,7 +148,7 @@ export class PriceEnrichmentPipeline {
 
         // Stage 2: Normalize (FX conversion: CAD/EUR → USD)
         if (stages.normalize) {
-          const normalizeService = new PriceNormalizationService(self.store, fxRateProvider);
+          const normalizeService = new PriceNormalizationService(self.store, priceRuntime);
           result.normalize = yield* await self.runStage(
             'Stage 2: Normalizing non-USD fiat prices to USD',
             'fxRates',

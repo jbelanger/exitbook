@@ -4,10 +4,10 @@ import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import type { IFxRateProvider } from '../../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { buildValuedFee } from '../canada-tax-fee-utils.js';
 
-function createFxProvider(fromUSD?: Record<string, string>): IFxRateProvider {
+function createFxProvider(fromUSD?: Record<string, string>): UsdConversionRateProviderLike {
   return {
     getRateToUSD: async () => err(new Error('not implemented')),
     getRateFromUSD: async (currency: Currency) => {
@@ -32,9 +32,9 @@ describe('buildValuedFee', () => {
       assetId: 'fiat:cad',
       assetSymbol: 'CAD' as Currency,
     };
-    const fxProvider = createFxProvider();
+    const usdConversionRateProvider = createFxProvider();
 
-    const result = assertOk(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
+    const result = assertOk(await buildValuedFee({ fee, timestamp, usdConversionRateProvider, identityConfig }));
 
     expect(result.feeAssetSymbol).toBe('CAD');
     expect(result.feeQuantity.toFixed()).toBe('10');
@@ -55,9 +55,9 @@ describe('buildValuedFee', () => {
       assetSymbol: 'BTC' as Currency,
       priceAtTxTime,
     };
-    const fxProvider = createFxProvider({ CAD: '1.36' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.36' });
 
-    const result = assertOk(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
+    const result = assertOk(await buildValuedFee({ fee, timestamp, usdConversionRateProvider, identityConfig }));
 
     expect(result.feeAssetIdentityKey).toBe('btc');
     expect(result.feeAssetSymbol).toBe('BTC');
@@ -70,9 +70,9 @@ describe('buildValuedFee', () => {
       assetId: 'exchange:kraken:btc',
       assetSymbol: 'BTC' as Currency,
     };
-    const fxProvider = createFxProvider();
+    const usdConversionRateProvider = createFxProvider();
 
-    const result = assertErr(await buildValuedFee({ fee, timestamp, fxProvider, identityConfig }));
+    const result = assertErr(await buildValuedFee({ fee, timestamp, usdConversionRateProvider, identityConfig }));
 
     expect(result.message).toContain('Missing priceAtTxTime');
     expect(result.message).toContain('BTC');

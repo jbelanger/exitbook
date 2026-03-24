@@ -1,8 +1,10 @@
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import { UsdConversionRateProvider } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import type { CanadaSuperficialLossEngineResult } from '../workflow/canada-superficial-loss-types.js';
 
 import { CANADA_CURRENT_CAPITAL_GAINS_INCLUSION_RATE } from './canada-policy.js';
@@ -395,7 +397,7 @@ export function buildCanadaTaxReport(params: {
 async function getCadToDisplayConversion(
   displayCurrency: Currency,
   timestamp: Date,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   cache: Map<string, CanadaDisplayFxConversion>
 ): Promise<Result<CanadaDisplayFxConversion, Error>> {
   // The current fiat providers resolve FX at calendar-date granularity, so one
@@ -423,7 +425,7 @@ async function getCadToDisplayConversion(
   let fxFetchedAt: Date;
 
   if (displayCurrency === 'USD') {
-    const cadToUsdResult = await fxProvider.getRateToUSD('CAD' as Currency, timestamp);
+    const cadToUsdResult = await usdConversionRateProvider.getRateToUSD('CAD' as Currency, timestamp);
     if (cadToUsdResult.isErr()) {
       return err(cadToUsdResult.error);
     }
@@ -432,12 +434,12 @@ async function getCadToDisplayConversion(
     fxSource = cadToUsdResult.value.source;
     fxFetchedAt = cadToUsdResult.value.fetchedAt;
   } else {
-    const cadToUsdResult = await fxProvider.getRateToUSD('CAD' as Currency, timestamp);
+    const cadToUsdResult = await usdConversionRateProvider.getRateToUSD('CAD' as Currency, timestamp);
     if (cadToUsdResult.isErr()) {
       return err(cadToUsdResult.error);
     }
 
-    const usdToDisplayResult = await fxProvider.getRateFromUSD(displayCurrency, timestamp);
+    const usdToDisplayResult = await usdConversionRateProvider.getRateFromUSD(displayCurrency, timestamp);
     if (usdToDisplayResult.isErr()) {
       return err(usdToDisplayResult.error);
     }
@@ -463,9 +465,10 @@ async function getCadToDisplayConversion(
 
 export async function buildCanadaDisplayCostBasisReport(params: {
   displayCurrency: Currency;
-  fxProvider: IFxRateProvider;
+  priceRuntime: IPriceProviderRuntime;
   taxReport: CanadaTaxReport;
 }): Promise<Result<CanadaDisplayCostBasisReport, Error>> {
+  const usdConversionRateProvider = new UsdConversionRateProvider(params.priceRuntime);
   const conversionCache = new Map<string, CanadaDisplayFxConversion>();
 
   const acquisitions: CanadaDisplayReportAcquisition[] = [];
@@ -473,7 +476,7 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversionResult = await getCadToDisplayConversion(
       params.displayCurrency,
       acquisition.acquiredAt,
-      params.fxProvider,
+      usdConversionRateProvider,
       conversionCache
     );
     if (conversionResult.isErr()) {
@@ -499,7 +502,7 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversionResult = await getCadToDisplayConversion(
       params.displayCurrency,
       disposition.disposedAt,
-      params.fxProvider,
+      usdConversionRateProvider,
       conversionCache
     );
     if (conversionResult.isErr()) {
@@ -533,7 +536,7 @@ export async function buildCanadaDisplayCostBasisReport(params: {
     const conversionResult = await getCadToDisplayConversion(
       params.displayCurrency,
       transfer.transferredAt,
-      params.fxProvider,
+      usdConversionRateProvider,
       conversionCache
     );
     if (conversionResult.isErr()) {

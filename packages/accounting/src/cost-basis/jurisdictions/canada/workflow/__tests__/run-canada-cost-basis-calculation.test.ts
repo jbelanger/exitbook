@@ -37,7 +37,7 @@ vi.mock('../../tax/canada-tax-report-builder.js', () => ({
 import {
   createCanadaAcquisitionEvent,
   createCanadaFeeAdjustmentEvent,
-  createCanadaFxProvider,
+  createCanadaPriceRuntime,
   createCanadaInputContext,
   materializeTestTransaction,
 } from '../../__tests__/test-utils.js';
@@ -214,7 +214,7 @@ describe('runCanadaCostBasisCalculation', () => {
       input: createBaseInput(),
       transactions: [pricedTransaction, unpricedTransaction],
       confirmedLinks: [],
-      fxRateProvider: createCanadaFxProvider(),
+      priceRuntime: createCanadaPriceRuntime(),
       missingPricePolicy: 'error',
       poolSnapshotStrategy: 'report-end',
     });
@@ -249,7 +249,7 @@ describe('runCanadaCostBasisCalculation', () => {
       input: createBaseInput(),
       transactions: [pricedTransaction, unpricedTransaction],
       confirmedLinks: [],
-      fxRateProvider: createCanadaFxProvider(),
+      priceRuntime: createCanadaPriceRuntime(),
       missingPricePolicy: 'exclude',
       poolSnapshotStrategy: 'report-end',
     });
@@ -331,7 +331,7 @@ describe('runCanadaCostBasisCalculation', () => {
         }),
       ],
       confirmedLinks: [],
-      fxRateProvider: createCanadaFxProvider(),
+      priceRuntime: createCanadaPriceRuntime(),
       missingPricePolicy: 'error',
       poolSnapshotStrategy: 'report-end',
     });
@@ -415,7 +415,7 @@ describe('runCanadaCostBasisCalculation', () => {
         }),
       ],
       confirmedLinks: [],
-      fxRateProvider: createCanadaFxProvider(),
+      priceRuntime: createCanadaPriceRuntime(),
       missingPricePolicy: 'error',
       poolSnapshotStrategy: 'full-input-range',
     });

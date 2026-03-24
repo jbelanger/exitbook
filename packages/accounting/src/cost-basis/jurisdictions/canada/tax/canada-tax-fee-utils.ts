@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/foundation';
 import { err, isFiat, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 import type { ScopedFeeMovement } from '../../../standard/matching/scoped-transaction-types.js';
 
@@ -35,11 +35,11 @@ export async function buildValuedFee(params: {
     assetSymbol: Currency;
     priceAtTxTime?: PriceAtTxTime | undefined;
   };
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   timestamp: Date;
+  usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<CanadaValuedFee, Error>> {
-  const { fee, fxProvider, identityConfig, timestamp } = params;
+  const { fee, identityConfig, timestamp, usdConversionRateProvider } = params;
   if (!fee.priceAtTxTime && !isFiat(fee.assetSymbol)) {
     return err(new Error(`Missing priceAtTxTime for fee ${fee.assetSymbol} at ${timestamp.toISOString()}`));
   }
@@ -72,7 +72,7 @@ export async function buildValuedFee(params: {
     priceAtTxTime: fee.priceAtTxTime ?? createFiatIdentityPrice(fee.assetSymbol, timestamp),
     quantity: fee.amount,
     timestamp,
-    fxProvider,
+    usdConversionRateProvider,
   });
   if (valuationResult.isErr()) {
     return err(valuationResult.error);
@@ -91,7 +91,7 @@ export async function buildValuedFee(params: {
 export async function valueScopedFees(
   fees: ScopedFeeMovement[],
   timestamp: Date,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Promise<Result<CanadaValuedFee[], Error>> {
   const valuedFees: CanadaValuedFee[] = [];
@@ -105,7 +105,7 @@ export async function valueScopedFees(
         priceAtTxTime: fee.priceAtTxTime,
       },
       timestamp,
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig,
     });
     if (valuedFeeResult.isErr()) {
@@ -121,7 +121,7 @@ export async function valueScopedFees(
 export async function valueCollectedFiatFees(
   fees: CollectedFiatFee[],
   timestamp: Date,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Promise<Result<CanadaValuedFee[], Error>> {
   const valuedFees: CanadaValuedFee[] = [];
@@ -135,7 +135,7 @@ export async function valueCollectedFiatFees(
         priceAtTxTime: fee.priceAtTxTime,
       },
       timestamp,
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig,
     });
     if (valuedFeeResult.isErr()) {

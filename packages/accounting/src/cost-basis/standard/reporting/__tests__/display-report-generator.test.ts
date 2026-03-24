@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 /**
  * Tests for CostBasisReportGenerator
  */
@@ -6,10 +6,10 @@
 import { ok, type Currency } from '@exitbook/foundation';
 import { err } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { FxRateData, IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { CostBasisCalculation, LotDisposal, LotTransfer } from '../../../model/schemas.js';
 import { CostBasisReportGenerator } from '../display-report-generator.js';
 
@@ -94,30 +94,38 @@ describe('CostBasisReportGenerator', () => {
     },
   ];
 
-  function createMockFxProvider(rates: Record<string, Decimal>): IFxRateProvider {
+  function createMockFxProvider(
+    rates: Record<string, Decimal>
+  ): IPriceProviderRuntime & { getCallCount: () => number } {
     let callCount = 0;
 
     return {
-      getRateFromUSD: vi.fn().mockImplementation(async (_currency: Currency, timestamp: Date) => {
-        callCount++;
-        const dateKey = timestamp.toISOString().split('T')[0] ?? '';
-        const rate = rates[dateKey];
+      fetchPrice: vi
+        .fn()
+        .mockImplementation(async ({ assetSymbol, timestamp }: { assetSymbol: Currency; timestamp: Date }) => {
+          callCount++;
+          const dateKey = timestamp.toISOString().split('T')[0] ?? '';
+          const rate = rates[dateKey];
 
-        if (!rate) {
-          return err(new Error(`No rate for ${dateKey}`));
-        }
+          if (!rate) {
+            return err(new Error(`No rate for ${dateKey}`));
+          }
 
-        const fxData: FxRateData = {
-          rate,
-          source: 'test-provider',
-          fetchedAt: new Date(),
-        };
-
-        return ok(fxData);
-      }),
-      getRateToUSD: vi.fn(),
+          return ok({
+            assetSymbol,
+            timestamp,
+            currency: 'USD' as Currency,
+            price: new Decimal(1).div(rate),
+            source: 'test-provider',
+            fetchedAt: new Date(),
+            granularity: 'day' as const,
+          });
+        }),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
       getCallCount: () => callCount,
-    } as unknown as IFxRateProvider & { getCallCount: () => number };
+    } as unknown as IPriceProviderRuntime & { getCallCount: () => number };
   }
 
   describe('generateReport', () => {
@@ -151,7 +159,7 @@ describe('CostBasisReportGenerator', () => {
       expect(report.disposals[0]?.fxConversion.fxSource).toBe('identity');
 
       // Verify FX provider was NOT called
-      expect(fxProvider.getRateFromUSD).not.toHaveBeenCalled();
+      expect(fxProvider.fetchPrice).not.toHaveBeenCalled();
     });
 
     it('should convert disposals to CAD using historical rates', async () => {
@@ -246,11 +254,19 @@ describe('CostBasisReportGenerator', () => {
 
       // Verify FX provider was called only twice (once per unique date)
       // Even though we have 3 disposals, 2 are on the same date (2024-03-15)
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(2);
+      expect(fxProvider.fetchPrice).toHaveBeenCalledTimes(2);
 
       // Verify it was called with correct dates
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(String), new Date('2024-03-15'));
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledWith(expect.any(String), new Date('2024-06-20'));
+      expect(fxProvider.fetchPrice).toHaveBeenCalledWith({
+        assetSymbol: expect.any(String),
+        currency: 'USD',
+        timestamp: new Date('2024-03-15'),
+      });
+      expect(fxProvider.fetchPrice).toHaveBeenCalledWith({
+        assetSymbol: expect.any(String),
+        currency: 'USD',
+        timestamp: new Date('2024-06-20'),
+      });
     });
 
     it('should return error if FX rate is unavailable', async () => {
@@ -374,7 +390,7 @@ describe('CostBasisReportGenerator', () => {
       expect(transfer?.fxConversion.fxSource).toBe('test-provider');
 
       // Verify FX provider was called for all unique dates (4 total)
-      expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(4);
+      expect(fxProvider.fetchPrice).toHaveBeenCalledTimes(4);
     });
 
     it('should soft-fail on FX unavailability for lots and transfers', async () => {

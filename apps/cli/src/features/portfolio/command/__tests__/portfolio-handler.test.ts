@@ -30,8 +30,8 @@ vi.mock('../../../../../../../packages/accounting/src/cost-basis/artifacts/failu
   persistCostBasisFailureSnapshot: vi.fn(),
 }));
 
-vi.mock('../../../../../../../packages/accounting/src/price-enrichment/fx/standard-fx-rate-provider.ts', () => ({
-  StandardFxRateProvider: vi.fn().mockImplementation(function () {
+vi.mock('../../../../../../../packages/accounting/src/price-enrichment/fx/usd-conversion-rate-provider.ts', () => ({
+  UsdConversionRateProvider: vi.fn().mockImplementation(function () {
     return {
       getRateToUSD: vi.fn(),
       getRateFromUSD: vi.fn(),

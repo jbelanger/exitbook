@@ -1,13 +1,12 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { PriceAtTxTime, Transaction, TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { IPricingPersistence } from '../../../ports/pricing-persistence.js';
-import type { IFxRateProvider } from '../../shared/types.js';
 import { PriceNormalizationService } from '../price-normalization-service.js';
 
 // ── Fixtures ──
@@ -21,6 +20,18 @@ function makePrice(amount: string, currency: Currency): PriceAtTxTime {
     fetchedAt: new Date('2023-01-15T10:00:00.000Z'),
     granularity: 'exact' as const,
   };
+}
+
+function makeFetchedPrice(rate: string, assetSymbol: Currency, timestamp: Date, source: string) {
+  return ok({
+    assetSymbol,
+    timestamp,
+    currency: 'USD' as Currency,
+    price: parseDecimal(rate),
+    source,
+    fetchedAt: timestamp,
+    granularity: 'day' as const,
+  });
 }
 
 function makeTx(
@@ -59,18 +70,23 @@ function createMockStore(transactions: Transaction[]): IPricingPersistence {
   };
 }
 
-function createMockFxProvider(): IFxRateProvider {
-  return { getRateToUSD: vi.fn() } as unknown as IFxRateProvider;
+function createMockPriceRuntime(): IPriceProviderRuntime {
+  return {
+    fetchPrice: vi.fn(),
+    setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+    setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+  };
 }
 
 // ── Tests ──
 
 describe('PriceNormalizationService', () => {
-  let mockFxProvider: IFxRateProvider;
+  let mockPriceRuntime: IPriceProviderRuntime;
 
   beforeEach(() => {
     nextId = 1;
-    mockFxProvider = createMockFxProvider();
+    mockPriceRuntime = createMockPriceRuntime();
   });
 
   afterEach(() => {
@@ -78,7 +94,7 @@ describe('PriceNormalizationService', () => {
   });
 
   function createService(transactions: Transaction[]): PriceNormalizationService {
-    return new PriceNormalizationService(createMockStore(transactions), mockFxProvider);
+    return new PriceNormalizationService(createMockStore(transactions), mockPriceRuntime);
   }
 
   describe('normalize()', () => {
@@ -97,8 +113,8 @@ describe('PriceNormalizationService', () => {
         },
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+      vi.mocked(mockPriceRuntime.fetchPrice).mockResolvedValue(
+        makeFetchedPrice('1.08', 'EUR' as Currency, new Date('2023-01-15T10:00:00Z'), 'ecb')
       );
 
       const result = await createService([tx]).normalize();
@@ -110,7 +126,11 @@ describe('PriceNormalizationService', () => {
         expect(result.value.failures).toBe(0);
         expect(result.value.errors).toHaveLength(0);
       }
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledWith({
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
+        timestamp: new Date('2023-01-15T10:00:00Z'),
+      });
     });
 
     it('should skip USD prices (already normalized)', async () => {
@@ -135,7 +155,7 @@ describe('PriceNormalizationService', () => {
         expect(result.value.movementsSkipped).toBe(1);
         expect(result.value.failures).toBe(0);
       }
-      expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
+      expect(mockPriceRuntime.fetchPrice).not.toHaveBeenCalled();
     });
 
     it('should skip crypto prices (BTC priced in ETH)', async () => {
@@ -160,7 +180,7 @@ describe('PriceNormalizationService', () => {
         expect(result.value.movementsSkipped).toBe(1);
         expect(result.value.failures).toBe(0);
       }
-      expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
+      expect(mockPriceRuntime.fetchPrice).not.toHaveBeenCalled();
     });
 
     it('should handle FX rate fetch failures gracefully', async () => {
@@ -177,7 +197,7 @@ describe('PriceNormalizationService', () => {
         },
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(err(new Error('Provider unavailable')));
+      vi.mocked(mockPriceRuntime.fetchPrice).mockResolvedValue(err(new Error('Provider unavailable')));
 
       const result = await createService([tx]).normalize();
 
@@ -210,12 +230,10 @@ describe('PriceNormalizationService', () => {
         },
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD)
+      vi.mocked(mockPriceRuntime.fetchPrice)
+        .mockResolvedValueOnce(makeFetchedPrice('1.08', 'EUR' as Currency, new Date('2023-01-15T10:00:00Z'), 'ecb'))
         .mockResolvedValueOnce(
-          ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
-        )
-        .mockResolvedValueOnce(
-          ok({ rate: parseDecimal('0.74'), source: 'bank-of-canada', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+          makeFetchedPrice('0.74', 'CAD' as Currency, new Date('2023-01-15T10:00:00Z'), 'bank-of-canada')
         );
 
       const result = await createService([tx]).normalize();
@@ -225,9 +243,17 @@ describe('PriceNormalizationService', () => {
         expect(result.value.movementsNormalized).toBe(2);
         expect(result.value.failures).toBe(0);
       }
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledTimes(2);
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('EUR' as Currency, new Date('2023-01-15T10:00:00Z'));
-      expect(mockFxProvider.getRateToUSD).toHaveBeenCalledWith('CAD' as Currency, new Date('2023-01-15T10:00:00Z'));
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledTimes(2);
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledWith({
+        assetSymbol: 'EUR' as Currency,
+        currency: 'USD' as Currency,
+        timestamp: new Date('2023-01-15T10:00:00Z'),
+      });
+      expect(mockPriceRuntime.fetchPrice).toHaveBeenCalledWith({
+        assetSymbol: 'CAD' as Currency,
+        currency: 'USD' as Currency,
+        timestamp: new Date('2023-01-15T10:00:00Z'),
+      });
     });
 
     it('should normalize platform fees with non-USD fiat prices', async () => {
@@ -248,8 +274,8 @@ describe('PriceNormalizationService', () => {
         ],
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+      vi.mocked(mockPriceRuntime.fetchPrice).mockResolvedValue(
+        makeFetchedPrice('1.08', 'EUR' as Currency, new Date('2023-01-15T10:00:00Z'), 'ecb')
       );
 
       const result = await createService([tx]).normalize();
@@ -279,8 +305,8 @@ describe('PriceNormalizationService', () => {
         ],
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({ rate: parseDecimal('1.27'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+      vi.mocked(mockPriceRuntime.fetchPrice).mockResolvedValue(
+        makeFetchedPrice('1.27', 'GBP' as Currency, new Date('2023-01-15T10:00:00Z'), 'ecb')
       );
 
       const result = await createService([tx]).normalize();
@@ -310,7 +336,7 @@ describe('PriceNormalizationService', () => {
         expect(result.value.movementsSkipped).toBe(0);
         expect(result.value.failures).toBe(0);
       }
-      expect(mockFxProvider.getRateToUSD).not.toHaveBeenCalled();
+      expect(mockPriceRuntime.fetchPrice).not.toHaveBeenCalled();
     });
 
     it('should process multiple transactions correctly', async () => {
@@ -344,8 +370,8 @@ describe('PriceNormalizationService', () => {
         },
       });
 
-      vi.mocked(mockFxProvider.getRateToUSD).mockResolvedValue(
-        ok({ rate: parseDecimal('1.08'), source: 'ecb', fetchedAt: new Date('2023-01-15T10:00:00Z') })
+      vi.mocked(mockPriceRuntime.fetchPrice).mockResolvedValue(
+        makeFetchedPrice('1.08', 'EUR' as Currency, new Date('2023-01-15T10:00:00Z'), 'ecb')
       );
 
       const result = await createService([tx1, tx2]).normalize();

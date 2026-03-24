@@ -1,8 +1,8 @@
 import type { AssetReviewSummary, Transaction, TransactionLink } from '@exitbook/core';
 import { err, ok, randomUUID, type Currency, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
 import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../../../workflow/cost-basis-input.js';
 import { getCostBasisRebuildTransactions } from '../../../workflow/price-completeness.js';
@@ -20,7 +20,7 @@ export interface RunCanadaCostBasisCalculationParams {
   input: ValidatedCostBasisConfig;
   transactions: Transaction[];
   confirmedLinks: TransactionLink[];
-  fxRateProvider: IFxRateProvider;
+  priceRuntime: IPriceProviderRuntime;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   missingPricePolicy: 'error' | 'exclude';
@@ -67,7 +67,7 @@ export async function runCanadaCostBasisCalculation(
   const acbWorkflowResult = await runCanadaAcbWorkflow(
     priceCoverageResult.value.rebuildTransactions,
     params.confirmedLinks,
-    params.fxRateProvider,
+    params.priceRuntime,
     {
       accountingExclusionPolicy: params.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
@@ -119,7 +119,7 @@ export async function runCanadaCostBasisCalculation(
   const displayReportResult = await buildCanadaDisplayCostBasisReport({
     taxReport: taxReportResult.value,
     displayCurrency: params.input.currency as Currency,
-    fxProvider: params.fxRateProvider,
+    priceRuntime: params.priceRuntime,
   });
   if (displayReportResult.isErr()) {
     return err(displayReportResult.error);

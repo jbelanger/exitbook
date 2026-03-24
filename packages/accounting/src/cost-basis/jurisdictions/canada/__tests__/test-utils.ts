@@ -3,10 +3,11 @@ import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
@@ -26,7 +27,7 @@ import type {
 export function createCanadaFxProvider(options?: {
   fiatToUsd?: Record<string, string>;
   usdToCad?: string;
-}): IFxRateProvider {
+}): UsdConversionRateProviderLike {
   return {
     getRateFromUSD: vi.fn().mockImplementation(async (targetCurrency: Currency) => {
       if (targetCurrency !== 'CAD') {
@@ -51,6 +52,40 @@ export function createCanadaFxProvider(options?: {
         fetchedAt: new Date('2024-01-15T00:00:00Z'),
       });
     }),
+  };
+}
+
+export function createCanadaPriceRuntime(options?: {
+  fiatToUsd?: Record<string, string>;
+  usdToCad?: string;
+}): IPriceProviderRuntime {
+  const fetchPrice = vi.fn().mockImplementation(async ({ assetSymbol }: { assetSymbol: Currency }) => {
+    const configuredRate = options?.fiatToUsd?.[assetSymbol];
+
+    if (configuredRate) {
+      return ok({
+        price: parseDecimal(configuredRate),
+        source: 'test-fiat-usd',
+        fetchedAt: new Date('2024-01-15T00:00:00Z'),
+      });
+    }
+
+    if (assetSymbol === ('CAD' as Currency) && options?.usdToCad) {
+      return ok({
+        price: parseDecimal('1').div(parseDecimal(options.usdToCad)),
+        source: 'test-cad-usd',
+        fetchedAt: new Date('2024-01-15T00:00:00Z'),
+      });
+    }
+
+    return err(new Error(`Missing configured FX rate for ${assetSymbol}`));
+  });
+
+  return {
+    fetchPrice,
+    setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+    setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    cleanup: vi.fn().mockResolvedValue(ok(undefined)),
   };
 }
 
@@ -133,7 +168,7 @@ export function createConfirmedTransferLink(params: {
 export async function buildCanadaTestInputContext(
   transactions: Transaction[],
   confirmedLinks: TransactionLink[],
-  fxProvider: IFxRateProvider,
+  priceRuntime: IPriceProviderRuntime,
   options?: {
     relaxedTaxIdentitySymbols?: readonly string[] | undefined;
     taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
@@ -153,7 +188,7 @@ export async function buildCanadaTestInputContext(
     scopedTransactions: scoped.transactions,
     validatedTransfers: validatedLinks,
     feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
-    fxProvider,
+    priceRuntime,
     identityConfig: {
       taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
       relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,

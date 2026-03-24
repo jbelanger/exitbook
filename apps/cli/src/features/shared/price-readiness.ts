@@ -3,7 +3,6 @@ import {
   checkTransactionPriceCoverage,
   PriceEnrichmentPipeline,
   type PricingEvent,
-  StandardFxRateProvider,
 } from '@exitbook/accounting';
 import { buildPriceCoverageDataPorts } from '@exitbook/data';
 import { EventBus } from '@exitbook/events';
@@ -61,8 +60,7 @@ export async function ensureTransactionPricesReady(
     const priceRuntime = priceRuntimeResult.value;
     try {
       const pipeline = new PriceEnrichmentPipeline(store, undefined, undefined, accountingExclusionPolicy);
-      const fxRateProvider = new StandardFxRateProvider(priceRuntime);
-      const result = await pipeline.execute({}, priceRuntime, fxRateProvider);
+      const result = await pipeline.execute({}, priceRuntime);
       if (result.isErr()) return err(result.error);
       const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
       if (postCoverageResult.isErr()) return err(postCoverageResult.error);
@@ -110,8 +108,7 @@ export async function ensureTransactionPricesReady(
     await controller.start();
 
     const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-    const fxRateProvider = new StandardFxRateProvider(priceRuntime);
-    const result = await pipeline.execute({}, priceRuntime, fxRateProvider);
+    const result = await pipeline.execute({}, priceRuntime);
 
     if (result.isErr()) {
       controller.fail(result.error.message);

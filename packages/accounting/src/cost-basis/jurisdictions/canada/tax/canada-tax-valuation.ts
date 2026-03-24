@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/foundation';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 
 import type { CanadaTaxValuation } from './canada-tax-types.js';
 
@@ -12,12 +12,12 @@ export function normalizeDecimal(value: Decimal): Decimal {
 }
 
 export async function buildCanadaTaxValuation(params: {
-  fxProvider: IFxRateProvider;
   priceAtTxTime: PriceAtTxTime;
   quantity: Decimal;
   timestamp: Date;
+  usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<CanadaTaxValuation, Error>> {
-  const { fxProvider, priceAtTxTime, quantity, timestamp } = params;
+  const { priceAtTxTime, quantity, timestamp, usdConversionRateProvider } = params;
   const quotedPrice = priceAtTxTime.quotedPrice ?? priceAtTxTime.price;
 
   if (quotedPrice.currency === 'CAD') {
@@ -53,7 +53,7 @@ export async function buildCanadaTaxValuation(params: {
   }
 
   if (priceAtTxTime.price.currency === 'USD') {
-    const usdToCadResult = await fxProvider.getRateFromUSD('CAD' as Currency, timestamp);
+    const usdToCadResult = await usdConversionRateProvider.getRateFromUSD('CAD' as Currency, timestamp);
     if (usdToCadResult.isErr()) {
       return err(
         new Error(`Failed to convert USD price to CAD at ${timestamp.toISOString()}: ${usdToCadResult.error.message}`)
@@ -78,7 +78,7 @@ export async function buildCanadaTaxValuation(params: {
   }
 
   if (isFiat(priceAtTxTime.price.currency)) {
-    const toUsdResult = await fxProvider.getRateToUSD(priceAtTxTime.price.currency, timestamp);
+    const toUsdResult = await usdConversionRateProvider.getRateToUSD(priceAtTxTime.price.currency, timestamp);
     if (toUsdResult.isErr()) {
       return err(
         new Error(
@@ -88,7 +88,7 @@ export async function buildCanadaTaxValuation(params: {
       );
     }
 
-    const usdToCadResult = await fxProvider.getRateFromUSD('CAD' as Currency, timestamp);
+    const usdToCadResult = await usdConversionRateProvider.getRateFromUSD('CAD' as Currency, timestamp);
     if (usdToCadResult.isErr()) {
       return err(
         new Error(`Failed to convert USD price to CAD at ${timestamp.toISOString()}: ${usdToCadResult.error.message}`)

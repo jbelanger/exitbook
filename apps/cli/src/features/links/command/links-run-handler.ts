@@ -72,41 +72,41 @@ export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, 
 /**
  * Create a LinksRunHandler with appropriate infrastructure.
  *
- * Returns a bare value (not Result) because creation is infallible:
- * OverrideStore constructor only sets a file path, and EventBus
- * construction cannot throw. No Result wrapping needed.
- *
  * No cleanup registration needed -- LinkingOrchestrator has no persistent resources.
  */
 export async function createLinksRunHandler(
   ctx: CommandScope,
   options: { isJsonMode: boolean }
 ): Promise<Result<LinksRunHandler, Error>> {
-  const database = await ctx.database();
-  const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
-    isJsonMode: options.isJsonMode,
-  });
-  if (readyResult.isErr()) {
-    return err(readyResult.error);
+  try {
+    const database = await ctx.database();
+    const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
+      isJsonMode: options.isJsonMode,
+    });
+    if (readyResult.isErr()) {
+      return err(readyResult.error);
+    }
+
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const store = buildLinkingPorts(database);
+
+    if (options.isJsonMode) {
+      const orchestrator = new LinkingOrchestrator(store);
+      return ok(new LinksRunHandler(orchestrator, overrideStore, undefined));
+    }
+
+    const eventBus = new EventBus<LinkingEvent>({
+      onError: (busErr) => {
+        logger.error({ err: busErr }, 'EventBus error');
+      },
+    });
+    const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
+    const orchestrator = new LinkingOrchestrator(store, eventBus);
+
+    return ok(new LinksRunHandler(orchestrator, overrideStore, controller));
+  } catch (error) {
+    return wrapError(error, 'Failed to create links run handler');
   }
-
-  const overrideStore = new OverrideStore(ctx.dataDir);
-  const store = buildLinkingPorts(database);
-
-  if (options.isJsonMode) {
-    const orchestrator = new LinkingOrchestrator(store);
-    return ok(new LinksRunHandler(orchestrator, overrideStore, undefined));
-  }
-
-  const eventBus = new EventBus<LinkingEvent>({
-    onError: (busErr) => {
-      logger.error({ err: busErr }, 'EventBus error');
-    },
-  });
-  const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
-  const orchestrator = new LinkingOrchestrator(store, eventBus);
-
-  return ok(new LinksRunHandler(orchestrator, overrideStore, controller));
 }
 
 /**

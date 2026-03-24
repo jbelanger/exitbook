@@ -2,7 +2,6 @@ import {
   CostBasisArtifactService,
   CostBasisWorkflow,
   persistCostBasisFailureSnapshot,
-  StandardFxRateProvider,
   type CostBasisContext,
   type AccountingExclusionPolicy,
   type ValidatedCostBasisConfig,
@@ -106,8 +105,7 @@ export class CostBasisHandler {
     const priceRuntime = priceRuntimeResult.value;
     const executionResult = await (async (): Promise<Result<PreparedCostBasisArtifactResult, Error>> => {
       try {
-        const fxRateProvider = new StandardFxRateProvider(priceRuntime);
-        const workflow = new CostBasisWorkflow(contextReader, fxRateProvider);
+        const workflow = new CostBasisWorkflow(contextReader, priceRuntime);
         const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
         const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);

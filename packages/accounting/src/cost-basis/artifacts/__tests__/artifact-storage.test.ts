@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
-import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
+import { createCanadaPriceRuntime } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../../workflow/cost-basis-workflow.js';
 import { buildCostBasisSnapshotRecord, readCostBasisSnapshotArtifact } from '../artifact-storage.js';
 
@@ -204,7 +204,7 @@ describe('cost-basis-artifact-storage', () => {
 
     const workflow = new CostBasisWorkflow(
       createStore(transactions),
-      createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } })
+      createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } })
     );
     const result = await workflow.execute(
       {
@@ -294,7 +294,7 @@ describe('cost-basis-artifact-storage', () => {
 
     const workflow = new CostBasisWorkflow(
       createStore(transactions),
-      createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } })
+      createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } })
     );
     const result = await workflow.execute(
       {

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
-import { createCanadaFxProvider } from '../../jurisdictions/canada/__tests__/test-utils.js';
+import { createCanadaPriceRuntime } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../cost-basis-workflow.js';
 
 function createAcquisitionTransaction(params: {
@@ -247,7 +247,7 @@ describe('CostBasisWorkflow', () => {
       }),
     ];
 
-    const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
+    const workflow = new CostBasisWorkflow(createStore(), createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
         method: 'average-cost',
@@ -307,7 +307,7 @@ describe('CostBasisWorkflow', () => {
       }),
     ];
 
-    const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
+    const workflow = new CostBasisWorkflow(createStore(), createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
         method: 'average-cost',
@@ -388,7 +388,7 @@ describe('CostBasisWorkflow', () => {
       }),
     ];
 
-    const workflow = new CostBasisWorkflow(createStore(), createCanadaFxProvider({ fiatToUsd: { CAD: '0.75' } }));
+    const workflow = new CostBasisWorkflow(createStore(), createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } }));
     const result = await workflow.execute(
       {
         method: 'average-cost',

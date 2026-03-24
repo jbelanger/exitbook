@@ -3,7 +3,7 @@
  *
  * This is Stage 1 of the enrichment pipeline:
  * - Finds movements with non-USD fiat prices (EUR, CAD, GBP, etc.)
- * - Fetches historical FX rates via IFxRateProvider
+ * - Fetches historical USD conversion rates via the shared price runtime
  * - Converts prices to USD
  * - Populates FX metadata (fxRateToUSD, fxSource, fxTimestamp)
  *
@@ -23,12 +23,13 @@ import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import { normalizeTransactionMovements } from '../enrichment/price-normalization-utils.js';
 import type { TransactionNormalizationResult } from '../enrichment/price-normalization-utils.js';
 import { normalizePriceToUSD as normalizePriceToUSDUtil } from '../enrichment/price-normalization-utils.js';
-import type { IFxRateProvider } from '../shared/types.js';
+import { UsdConversionRateProvider } from '../fx/usd-conversion-rate-provider.js';
 
 const logger = getLogger('PriceNormalizationService');
 
@@ -53,10 +54,14 @@ export interface NormalizeResult {
  * Service for normalizing non-USD fiat prices to USD
  */
 export class PriceNormalizationService {
+  private readonly usdConversionRateProvider: UsdConversionRateProvider;
+
   constructor(
     private readonly store: IPricingPersistence,
-    private readonly fxRateProvider: IFxRateProvider
-  ) {}
+    priceRuntime: IPriceProviderRuntime
+  ) {
+    this.usdConversionRateProvider = new UsdConversionRateProvider(priceRuntime);
+  }
 
   /**
    * Normalize all non-USD fiat prices to USD
@@ -64,15 +69,12 @@ export class PriceNormalizationService {
    * Process:
    * 1. Find all transactions with movements that have prices
    * 2. For each movement with non-USD fiat price:
-   *    a. Fetch FX rate via injected FxRateProvider (EUR→USD at tx time)
+   *    a. Fetch FX rate via the shared price runtime (EUR→USD at tx time)
    *    b. Convert price.amount to USD
    *    c. Populate fxRateToUSD, fxSource, fxTimestamp metadata
    *    d. Update price.currency to 'USD'
    * 3. Skip crypto prices (they shouldn't exist yet, but log warning)
    * 4. Skip already-USD prices
-   *
-   * Note: Interactive behavior (manual FX entry) is handled by injecting
-   * InteractiveFxRateProvider instead of StandardFxRateProvider.
    *
    * @returns Result with normalization statistics
    */
@@ -176,7 +178,7 @@ export class PriceNormalizationService {
     // Create a bound version of normalizePriceToUSD that captures this service's context
     const normalizePriceFn = async (price: PriceAtTxTime, date: Date) => {
       const result = await normalizePriceToUSDUtil(price, date, (currency, timestamp) =>
-        this.fxRateProvider.getRateToUSD(currency, timestamp)
+        this.usdConversionRateProvider.getRateToUSD(currency, timestamp)
       );
 
       // Log successful normalization (imperative shell responsibility)

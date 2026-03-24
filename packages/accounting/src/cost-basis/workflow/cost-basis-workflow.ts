@@ -2,9 +2,9 @@ import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { ICostBasisContextReader } from '../../ports/cost-basis-persistence.js';
-import type { IFxRateProvider } from '../../price-enrichment/shared/types.js';
 import { getCostBasisJurisdictionModule } from '../jurisdictions/registry.js';
 import type { CostBasisReport } from '../model/report-types.js';
 import type { AcquisitionLot, CostBasisCalculation, LotDisposal, LotTransfer } from '../model/types.js';
@@ -34,7 +34,7 @@ const logger = getLogger('cost-basis.workflow');
 export class CostBasisWorkflow {
   constructor(
     private readonly store: ICostBasisContextReader,
-    private readonly fxRateProvider?: IFxRateProvider | undefined
+    private readonly priceRuntime?: IPriceProviderRuntime | undefined
   ) {}
 
   async execute(
@@ -65,7 +65,7 @@ export class CostBasisWorkflow {
         config,
         transactions: filteredResult.value,
         store: this.store,
-        fxRateProvider: this.fxRateProvider,
+        priceRuntime: this.priceRuntime,
         options,
       });
       if (workflowResult.isErr()) {
@@ -76,8 +76,8 @@ export class CostBasisWorkflow {
       return ok(workflowResult.value);
     }
 
-    if (config.currency !== 'USD' && !this.fxRateProvider) {
-      return err(new Error('FX rate provider required for non-USD currency conversion'));
+    if (config.currency !== 'USD' && !this.priceRuntime) {
+      return err(new Error('Price provider runtime required for non-USD currency conversion'));
     }
 
     const pipelineResult = await runCostBasisPipeline(filteredResult.value, config, this.store, {
@@ -170,7 +170,7 @@ export class CostBasisWorkflow {
   ): Promise<Result<CostBasisReport, Error>> {
     logger.info({ displayCurrency }, 'Generating report with currency conversion');
 
-    const reportGenerator = new CostBasisReportGenerator(this.fxRateProvider!);
+    const reportGenerator = new CostBasisReportGenerator(this.priceRuntime!);
 
     const reportResult = await reportGenerator.generateReport({
       calculation,

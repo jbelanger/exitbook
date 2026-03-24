@@ -9,9 +9,10 @@ import type { Currency } from '@exitbook/foundation';
 import { parseDecimal, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../../price-enrichment/shared/types.js';
+import { UsdConversionRateProvider } from '../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import type { IJurisdictionRules } from '../../jurisdictions/jurisdiction-rules.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type {
@@ -50,8 +51,11 @@ interface CostBasisReportInput {
  */
 export class CostBasisReportGenerator {
   private readonly logger = getLogger('CostBasisReportGenerator');
+  private readonly usdConversionRateProvider: UsdConversionRateProvider;
 
-  constructor(private readonly fxProvider: IFxRateProvider) {}
+  constructor(priceRuntime: IPriceProviderRuntime) {
+    this.usdConversionRateProvider = new UsdConversionRateProvider(priceRuntime);
+  }
 
   /**
    * Generate cost basis report with display currency conversion
@@ -225,7 +229,7 @@ export class CostBasisReportGenerator {
       // Fetch FX rate for this date
       this.logger.debug({ date: dateKey, displayCurrency }, 'Fetching FX rate');
 
-      const fxRateResult = await this.fxProvider.getRateFromUSD(displayCurrency, date);
+      const fxRateResult = await this.usdConversionRateProvider.getRateFromUSD(displayCurrency, date);
 
       if (fxRateResult.isErr()) {
         return err(

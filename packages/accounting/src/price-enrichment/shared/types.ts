@@ -1,5 +1,4 @@
 import type { Transaction, TransactionLink } from '@exitbook/core';
-import type { Currency, Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 /**
@@ -14,21 +13,6 @@ export interface FxRateData {
 
   /** When the rate was fetched or provided */
   fetchedAt: Date;
-}
-
-/**
- * Provider for FX rates used by price normalization and reporting.
- */
-export interface IFxRateProvider {
-  /**
-   * Get FX rate to convert from source currency to USD.
-   */
-  getRateToUSD(sourceCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
-
-  /**
-   * Get FX rate to convert from USD to target currency.
-   */
-  getRateFromUSD(targetCurrency: Currency, timestamp: Date): Promise<Result<FxRateData, Error>>;
 }
 
 /**

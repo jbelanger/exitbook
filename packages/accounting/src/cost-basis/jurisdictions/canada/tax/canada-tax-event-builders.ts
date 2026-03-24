@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/foundation';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { IFxRateProvider } from '../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fee-utils.js';
 import type {
@@ -182,7 +182,7 @@ async function buildMovementEvent(
   quantity: Decimal,
   kind: CanadaMovementEvent['kind'],
   eventId: string,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions,
   provenance: {
     linkId?: number | undefined;
@@ -208,7 +208,7 @@ async function buildMovementEvent(
     priceAtTxTime: movement.priceAtTxTime,
     quantity,
     timestamp: new Date(scopedTransaction.tx.datetime),
-    fxProvider,
+    usdConversionRateProvider,
   });
   if (valuationResult.isErr()) {
     return err(valuationResult.error);
@@ -264,7 +264,7 @@ async function projectTransferAwareMovementEvents(
   movement: AssetMovement,
   direction: 'inflow' | 'outflow',
   validatedLinks: ValidatedScopedTransferLink[],
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Promise<Result<CanadaMovementEvent[], Error>> {
   const sortedLinks = sortValidatedLinks(validatedLinks);
@@ -277,7 +277,7 @@ async function projectTransferAwareMovementEvents(
       movement.grossAmount,
       residualEventKind,
       `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig,
       {
         provenanceKind: 'scoped-movement',
@@ -315,7 +315,7 @@ async function projectTransferAwareMovementEvents(
       transferQuantity,
       transferEventKind,
       `link:${validatedLink.link.id}:${transferEventKind}`,
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig,
       {
         linkId: validatedLink.link.id,
@@ -340,7 +340,7 @@ async function projectTransferAwareMovementEvents(
       residualQuantityResult.value,
       residualEventKind,
       `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig,
       {
         provenanceKind: 'scoped-movement',
@@ -359,12 +359,12 @@ async function projectTransferAwareMovementEvents(
 }
 
 export async function projectCanadaMovementEvents(params: {
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   scopedTransactions: AccountingScopedTransaction[];
+  usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedScopedTransferSet;
 }): Promise<Result<CanadaMovementEvent[], Error>> {
-  const { fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
+  const { identityConfig, scopedTransactions, usdConversionRateProvider, validatedTransfers } = params;
   const events: CanadaMovementEvent[] = [];
 
   for (const scopedTransaction of scopedTransactions) {
@@ -374,7 +374,7 @@ export async function projectCanadaMovementEvents(params: {
         inflow,
         'inflow',
         validatedTransfers.byTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig
       );
       if (inflowEventsResult.isErr()) {
@@ -389,7 +389,7 @@ export async function projectCanadaMovementEvents(params: {
         outflow,
         'outflow',
         validatedTransfers.bySourceMovementFingerprint.get(outflow.movementFingerprint) ?? [],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig
       );
       if (outflowEventsResult.isErr()) {
@@ -467,7 +467,7 @@ async function buildSameAssetTransferFeeAdjustmentEvent(
   feeAmount: Decimal,
   feePriceAtTxTime: PriceAtTxTime | undefined,
   timestamp: Date,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions,
   provenance: {
     linkId?: number | undefined;
@@ -489,7 +489,7 @@ async function buildSameAssetTransferFeeAdjustmentEvent(
       priceAtTxTime: feePriceAtTxTime,
     },
     timestamp,
-    fxProvider,
+    usdConversionRateProvider,
     identityConfig,
   });
   if (valuedFeeResult.isErr()) {
@@ -532,7 +532,7 @@ async function buildSameAssetTransferFeeAdjustmentEventsForRef(
   totalFeeAmount: Decimal,
   feePriceAtTxTime: PriceAtTxTime | undefined,
   timestamp: Date,
-  fxProvider: IFxRateProvider,
+  usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions,
   eventIdPrefix: string
 ): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
@@ -578,7 +578,7 @@ async function buildSameAssetTransferFeeAdjustmentEventsForRef(
         feeAmount,
         feePriceAtTxTime,
         timestamp,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         {
           linkId: binding.linkId,
@@ -605,7 +605,7 @@ async function buildSameAssetTransferFeeAdjustmentEventsForRef(
     totalFeeAmount,
     feePriceAtTxTime,
     timestamp,
-    fxProvider,
+    usdConversionRateProvider,
     identityConfig,
     {
       relatedEventId: ref.movementFingerprint ? `movement:${ref.movementFingerprint}` : undefined,
@@ -647,11 +647,11 @@ function convertCarryoverTargetToTransferIn(
 export async function applyCarryoverSemantics(params: {
   events: CanadaTaxInputEvent[];
   feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   scopedTransactions: AccountingScopedTransaction[];
+  usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<CanadaTaxInputEvent[], Error>> {
-  const { events, feeOnlyInternalCarryovers, fxProvider, identityConfig, scopedTransactions } = params;
+  const { events, feeOnlyInternalCarryovers, identityConfig, scopedTransactions, usdConversionRateProvider } = params;
   const { byMovementFingerprint } = buildEventIndex(events);
   const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
   const finalizedEvents = [...events];
@@ -715,7 +715,7 @@ export async function applyCarryoverSemantics(params: {
       const valuedFeesResult = await valueCollectedFiatFees(
         fiatFeesResult.value,
         new Date(targetRef.scopedTransaction.tx.datetime),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig
       );
       if (valuedFeesResult.isErr()) {
@@ -788,15 +788,20 @@ function allocateCadAcrossEvents(
 
 export async function applyGenericFeeAdjustments(params: {
   events: CanadaTaxInputEvent[];
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   sameAssetTransferFeeEvents: CanadaFeeAdjustmentEvent[];
   scopedTransactions: AccountingScopedTransaction[];
+  usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<void, Error>> {
-  const { events, fxProvider, identityConfig, sameAssetTransferFeeEvents, scopedTransactions } = params;
+  const { events, identityConfig, sameAssetTransferFeeEvents, scopedTransactions, usdConversionRateProvider } = params;
   for (const scopedTransaction of scopedTransactions) {
     const timestamp = new Date(scopedTransaction.tx.datetime);
-    const valuedFeesResult = await valueScopedFees(scopedTransaction.fees, timestamp, fxProvider, identityConfig);
+    const valuedFeesResult = await valueScopedFees(
+      scopedTransaction.fees,
+      timestamp,
+      usdConversionRateProvider,
+      identityConfig
+    );
     if (valuedFeesResult.isErr()) {
       return err(valuedFeesResult.error);
     }
@@ -884,12 +889,12 @@ export async function applyGenericFeeAdjustments(params: {
 }
 
 export async function buildValidatedTransferTargetFeeAdjustments(params: {
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   scopedTransactions: AccountingScopedTransaction[];
+  usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedScopedTransferSet;
 }): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
-  const { fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
+  const { identityConfig, scopedTransactions, usdConversionRateProvider, validatedTransfers } = params;
   const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
   const events: CanadaFeeAdjustmentEvent[] = [];
 
@@ -917,7 +922,7 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
     const valuedFeesResult = await valueCollectedFiatFees(
       fiatFeesResult.value,
       new Date(targetRef.scopedTransaction.tx.datetime),
-      fxProvider,
+      usdConversionRateProvider,
       identityConfig
     );
     if (valuedFeesResult.isErr()) {
@@ -1056,12 +1061,18 @@ function buildSameAssetFeeSourceRefs(
 
 export async function buildSameAssetTransferFeeAdjustments(params: {
   feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
-  fxProvider: IFxRateProvider;
   identityConfig: CanadaTaxInputContextBuildOptions;
   scopedTransactions: AccountingScopedTransaction[];
+  usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedScopedTransferSet;
 }): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
-  const { feeOnlyInternalCarryovers, fxProvider, identityConfig, scopedTransactions, validatedTransfers } = params;
+  const {
+    feeOnlyInternalCarryovers,
+    identityConfig,
+    scopedTransactions,
+    usdConversionRateProvider,
+    validatedTransfers,
+  } = params;
   const refsResult = buildSameAssetFeeSourceRefs(
     scopedTransactions,
     validatedTransfers,
@@ -1123,7 +1134,7 @@ export async function buildSameAssetTransferFeeAdjustments(params: {
         allocatedFeeQuantity,
         cryptoFee.priceAtTxTime ?? ref.feePriceAtTxTime,
         new Date(transaction.tx.datetime),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         `tx:${transaction.tx.id}:${key}:${index}:same-asset-transfer-fee`
       );

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method -- acceptable in tests */
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -6,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCanadaTestInputContext,
   buildTransaction,
-  createCanadaFxProvider,
+  createCanadaPriceRuntime,
   createConfirmedTransferLink,
   materializeTestTransaction,
   noopLogger,
@@ -18,7 +17,7 @@ import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
   it('uses preserved quoted CAD price without fetching USD->CAD FX', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const transaction = buildTransaction({
       id: 1,
       datetime: '2024-01-15T12:00:00Z',
@@ -50,11 +49,11 @@ describe('buildCanadaTaxInputContext', () => {
     expect(context.inputEvents[0]?.valuation.unitValueCad.toFixed()).toBe('65000');
     expect(context.inputEvents[0]?.valuation.totalValueCad.toFixed()).toBe('65000');
     expect(context.inputEvents[0]?.valuation.valuationSource).toBe('quoted-price');
-    expect(fxProvider.getRateFromUSD).not.toHaveBeenCalled();
+    expect(fxProvider.fetchPrice).not.toHaveBeenCalled();
   });
 
   it('rolls acquisition fees into cost basis adjustments in CAD', async () => {
-    const fxProvider = createCanadaFxProvider({ usdToCad: '1.4' });
+    const fxProvider = createCanadaPriceRuntime({ usdToCad: '1.4' });
     const transaction = buildTransaction({
       id: 2,
       datetime: '2024-01-20T12:00:00Z',
@@ -91,11 +90,11 @@ describe('buildCanadaTaxInputContext', () => {
     expect(
       acquisition && 'costBasisAdjustmentCad' in acquisition ? acquisition.costBasisAdjustmentCad?.toFixed() : undefined
     ).toBe('14');
-    expect(fxProvider.getRateFromUSD).toHaveBeenCalledTimes(2);
+    expect(fxProvider.fetchPrice).toHaveBeenCalledTimes(2);
   });
 
   it('converts confirmed internal links into transfer events instead of acquisitions or dispositions', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const withdrawal = buildTransaction({
       id: 10,
       datetime: '2024-02-01T12:00:00Z',
@@ -164,7 +163,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('resolves fee identity and emits same-asset transfer fee adjustments', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const withdrawal = buildTransaction({
       id: 20,
       datetime: '2024-02-10T12:00:00Z',
@@ -246,7 +245,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('allocates same-asset network fees once across internal transfer and residual disposition shares', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const withdrawal = buildTransaction({
       id: 25,
       datetime: '2024-02-12T12:00:00Z',
@@ -350,7 +349,7 @@ describe('buildCanadaTaxInputContext', () => {
       scopedTransactions: scoped.transactions,
       validatedTransfers,
       feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
-      fxProvider,
+      priceRuntime: fxProvider,
       identityConfig: {
         taxAssetIdentityPolicy: canadaConfig.taxAssetIdentityPolicy,
         relaxedTaxIdentitySymbols: canadaConfig.relaxedTaxIdentitySymbols,
@@ -384,7 +383,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('emits link-scoped same-asset fee adjustments when one source movement fans out to multiple links', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const withdrawal = buildTransaction({
       id: 27,
       datetime: '2024-02-13T12:00:00Z',
@@ -518,7 +517,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
-    const fxProvider = createCanadaFxProvider();
+    const fxProvider = createCanadaPriceRuntime();
     const exchangeAcquisition = buildTransaction({
       id: 30,
       datetime: '2024-01-25T12:00:00Z',

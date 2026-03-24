@@ -1,7 +1,6 @@
 import {
   PriceEnrichmentPipeline,
   type PricingEvent,
-  StandardFxRateProvider,
   type PricesEnrichOptions,
   type PricesEnrichResult,
 } from '@exitbook/accounting';
@@ -37,8 +36,7 @@ export class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOp
         await this.controller.start();
       }
 
-      const fxRateProvider = new StandardFxRateProvider(this.priceRuntime);
-      const result = await this.pipeline.execute(params, this.priceRuntime, fxRateProvider);
+      const result = await this.pipeline.execute(params, this.priceRuntime);
 
       if (result.isErr()) {
         if (this.controller) {
@@ -84,45 +82,58 @@ export async function createPricesEnrichHandler(
   ctx: CommandScope,
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
-  const database = await ctx.database();
-  const store = buildPricingPorts(database);
-  const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
-  if (accountingExclusionPolicyResult.isErr()) {
-    return err(accountingExclusionPolicyResult.error);
-  }
-  const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
+  let controller: EventDrivenController<PricingEvent> | undefined;
 
-  if (options.isJsonMode) {
+  try {
+    const database = await ctx.database();
+    const store = buildPricingPorts(database);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+    if (accountingExclusionPolicyResult.isErr()) {
+      return err(accountingExclusionPolicyResult.error);
+    }
+    const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
+
+    if (options.isJsonMode) {
+      const instrumentation = new InstrumentationCollector();
+      const priceRuntimeResult = await ctx.openPriceProviderRuntime({ instrumentation });
+      if (priceRuntimeResult.isErr()) {
+        return err(priceRuntimeResult.error);
+      }
+      const priceRuntime = priceRuntimeResult.value;
+
+      const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
+      return ok(new PricesEnrichHandler(pipeline, priceRuntime, undefined));
+    }
+
+    const eventBus = new EventBus<PricingEvent>({
+      onError: (busErr) => {
+        logger.error({ err: busErr }, 'EventBus error');
+      },
+    });
     const instrumentation = new InstrumentationCollector();
-    const priceRuntimeResult = await ctx.openPriceProviderRuntime({ instrumentation });
+    controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
+
+    const priceRuntimeResult = await ctx.openPriceProviderRuntime({
+      instrumentation,
+      eventBus,
+    });
     if (priceRuntimeResult.isErr()) {
+      controller.fail(priceRuntimeResult.error.message);
+      await controller.stop();
       return err(priceRuntimeResult.error);
     }
     const priceRuntime = priceRuntimeResult.value;
 
-    const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
-    return ok(new PricesEnrichHandler(pipeline, priceRuntime, undefined));
+    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
+    return ok(new PricesEnrichHandler(pipeline, priceRuntime, controller));
+  } catch (error) {
+    if (controller) {
+      const message = error instanceof Error ? error.message : String(error);
+      controller.fail(message);
+      await controller.stop().catch((stopError) => {
+        logger.warn({ stopError }, 'Failed to stop prices controller after factory exception');
+      });
+    }
+    return wrapError(error, 'Failed to create prices enrich handler');
   }
-
-  const eventBus = new EventBus<PricingEvent>({
-    onError: (busErr) => {
-      logger.error({ err: busErr }, 'EventBus error');
-    },
-  });
-  const instrumentation = new InstrumentationCollector();
-  const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
-
-  const priceRuntimeResult = await ctx.openPriceProviderRuntime({
-    instrumentation,
-    eventBus,
-  });
-  if (priceRuntimeResult.isErr()) {
-    controller.fail(priceRuntimeResult.error.message);
-    await controller.stop();
-    return err(priceRuntimeResult.error);
-  }
-  const priceRuntime = priceRuntimeResult.value;
-
-  const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-  return ok(new PricesEnrichHandler(pipeline, priceRuntime, controller));
 }

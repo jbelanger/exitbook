@@ -5,7 +5,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createPriceAtTxTime } from '../../../../../__tests__/test-utils.js';
-import type { IFxRateProvider } from '../../../../../price-enrichment/shared/types.js';
+import type { UsdConversionRateProviderLike } from '../../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import type {
   AccountingScopedTransaction,
   FeeOnlyInternalCarryover,
@@ -28,7 +28,7 @@ import type { CanadaAcquisitionEvent, CanadaFeeAdjustmentEvent } from '../canada
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function createFxProvider(fromUSD?: Record<string, string>): IFxRateProvider {
+function createFxProvider(fromUSD?: Record<string, string>): UsdConversionRateProviderLike {
   return {
     getRateToUSD: async () => err(new Error('not implemented')),
     getRateFromUSD: async (currency: Currency) => {
@@ -130,13 +130,13 @@ describe('projectCanadaMovementEvents', () => {
       inflows: [{ assetSymbol: 'BTC', amount: '2', price: '50000' }],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -161,13 +161,13 @@ describe('projectCanadaMovementEvents', () => {
       outflows: [{ assetSymbol: 'ETH', amount: '5', price: '3000' }],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -186,13 +186,13 @@ describe('projectCanadaMovementEvents', () => {
       inflows: [{ assetSymbol: 'USD', amount: '1000', assetId: 'fiat:usd' }],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -207,13 +207,13 @@ describe('projectCanadaMovementEvents', () => {
       inflows: [{ assetSymbol: 'BTC', amount: '1' }], // no price
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const error = assertErr(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -284,13 +284,13 @@ describe('projectCanadaMovementEvents', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -373,13 +373,13 @@ describe('projectCanadaMovementEvents', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -402,13 +402,13 @@ describe('projectCanadaMovementEvents', () => {
       outflows: [{ assetSymbol: 'BTC', amount: '0.1', price: '30000' }],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -448,12 +448,12 @@ describe('applyCarryoverSemantics', () => {
     const sourceMovementFp = scopedSource.movements.outflows[0]!.movementFingerprint;
 
     // Project events first — target inflow produces an acquisition
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
     const projectedEvents = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scopedSource, scopedTarget],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -491,7 +491,7 @@ describe('applyCarryoverSemantics', () => {
         events: projectedEvents,
         scopedTransactions: [scopedSource, scopedTarget],
         feeOnlyInternalCarryovers: [carryover],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -515,12 +515,12 @@ describe('applyCarryoverSemantics', () => {
     const scopedTarget = buildScopedTransaction(targetTx);
 
     // Project: outflow produces a disposition, not acquisition
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
     const projectedEvents = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scopedTarget],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -565,7 +565,7 @@ describe('applyCarryoverSemantics', () => {
         events: projectedEvents,
         scopedTransactions: [scopedSource, scopedTarget],
         feeOnlyInternalCarryovers: [carryover],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -574,7 +574,7 @@ describe('applyCarryoverSemantics', () => {
   });
 
   it('returns error when carryover source transaction is not found', async () => {
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const carryover: FeeOnlyInternalCarryover = {
       assetId: 'exchange:test:btc',
@@ -605,7 +605,7 @@ describe('applyCarryoverSemantics', () => {
         events: [],
         scopedTransactions: [],
         feeOnlyInternalCarryovers: [carryover],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -620,7 +620,7 @@ describe('applyCarryoverSemantics', () => {
       outflows: [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
     });
     const scopedSource = buildScopedTransaction(sourceTx);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const carryover: FeeOnlyInternalCarryover = {
       assetId: 'exchange:test:btc',
@@ -651,7 +651,7 @@ describe('applyCarryoverSemantics', () => {
         events: [],
         scopedTransactions: [scopedSource],
         feeOnlyInternalCarryovers: [carryover],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -679,14 +679,14 @@ describe('applyGenericFeeAdjustments', () => {
       ],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     // Project events first
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -699,7 +699,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [],
       })
@@ -728,13 +728,13 @@ describe('applyGenericFeeAdjustments', () => {
       ],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.00' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.00' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -745,7 +745,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [],
       })
@@ -780,13 +780,13 @@ describe('applyGenericFeeAdjustments', () => {
       ],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -799,7 +799,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [],
       })
@@ -825,13 +825,13 @@ describe('applyGenericFeeAdjustments', () => {
       ],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -867,7 +867,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [reservedFeeEvent],
       })
@@ -886,13 +886,13 @@ describe('applyGenericFeeAdjustments', () => {
       inflows: [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.35' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -901,7 +901,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [],
       })
@@ -925,13 +925,13 @@ describe('applyGenericFeeAdjustments', () => {
       ],
     });
     const scoped = buildScopedTransaction(tx);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await projectCanadaMovementEvents({
         scopedTransactions: [scoped],
         validatedTransfers: emptyTransferSet(),
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -967,7 +967,7 @@ describe('applyGenericFeeAdjustments', () => {
       await applyGenericFeeAdjustments({
         events,
         scopedTransactions: [scoped],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
         sameAssetTransferFeeEvents: [overReservedFeeEvent],
       })
@@ -1042,13 +1042,13 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await buildValidatedTransferTargetFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -1116,13 +1116,13 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await buildValidatedTransferTargetFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -1174,13 +1174,13 @@ describe('buildValidatedTransferTargetFeeAdjustments', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const error = assertErr(
       await buildValidatedTransferTargetFeeAdjustments({
         scopedTransactions: [scopedDeposit],
         validatedTransfers: transfers,
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -1254,14 +1254,14 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
         feeOnlyInternalCarryovers: [],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -1329,14 +1329,14 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     };
 
     const transfers = makeTransferSet([link]);
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
         feeOnlyInternalCarryovers: [],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
@@ -1394,14 +1394,14 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
       ],
     };
 
-    const fxProvider = createFxProvider({ CAD: '1.40' });
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.40' });
 
     const events = assertOk(
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedSource, scopedTarget],
         validatedTransfers: emptyTransferSet(),
         feeOnlyInternalCarryovers: [carryover],
-        fxProvider,
+        usdConversionRateProvider,
         identityConfig,
       })
     );
