@@ -21,15 +21,14 @@ import type { NormalizedTransactionBase } from '../../contracts/normalized-trans
 import type { ProviderEvent } from '../../events.js';
 import { getProviderKey, type ProviderStatsStore } from '../../provider-stats/store.js';
 
-import { emitProviderTransition } from './provider-manager-events.js';
+import { canProviderResume, resolveCursorStateForProvider } from './provider-cursor-resumption.js';
 import {
-  canProviderResume,
-  createDeduplicationWindow,
   DEFAULT_DEDUP_WINDOW_SIZE,
+  createDeduplicationWindow,
   deduplicateTransactions,
-  resolveCursorStateForProvider,
-  selectProvidersForOperation,
-} from './provider-manager-utils.js';
+} from './provider-deduplication-window.js';
+import { emitProviderTransition } from './provider-manager-events.js';
+import { selectProvidersForOperation } from './provider-operation-selection.js';
 
 const logger = getLogger('ProviderFailoverEngine');
 

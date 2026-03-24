@@ -1,5 +1,5 @@
 /**
- * Unit tests for provider-manager-utils
+ * Unit tests for provider manager helper modules
  * Pure function tests without mocks
  */
 
@@ -10,19 +10,18 @@ import { createInitialHealth } from '@exitbook/resilience/provider-health';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../../contracts/index.js';
-import type { CursorResolutionConfig, DeduplicationWindow } from '../provider-manager-utils.js';
+import type { CursorResolutionConfig } from '../provider-cursor-resumption.js';
+import { canProviderResume, resolveCursorForResumption } from '../provider-cursor-resumption.js';
+import type { DeduplicationWindow } from '../provider-deduplication-window.js';
 import {
   addToDeduplicationWindow,
-  buildProviderNotFoundError,
-  canProviderResume,
   createDeduplicationWindow,
+  DEFAULT_DEDUP_WINDOW_SIZE,
   deduplicateTransactions,
   isInDeduplicationWindow,
-  resolveCursorForResumption,
-  selectProvidersForOperation,
-  supportsOperation,
-  validateProviderApiKey,
-} from '../provider-manager-utils.js';
+} from '../provider-deduplication-window.js';
+import { selectProvidersForOperation, supportsOperation } from '../provider-operation-selection.js';
+import { buildProviderNotFoundError, validateProviderApiKey } from '../provider-registration-support.js';
 
 const logger = getLogger('test');
 
@@ -54,7 +53,7 @@ function createMockProvider(
   } as IBlockchainProvider;
 }
 
-describe('provider-manager-utils', () => {
+describe('provider manager helpers', () => {
   describe('supportsOperation', () => {
     it('should return true for supported operation', () => {
       const capabilities = {
@@ -378,6 +377,10 @@ describe('provider-manager-utils', () => {
         expect(getActiveDedupQueue(window)).toEqual(['event-1', 'event-2']);
         expect(window.set.has('event-2')).toBe(true);
       });
+    });
+
+    it('should keep the default deduplication window size stable for streaming overlap', () => {
+      expect(DEFAULT_DEDUP_WINDOW_SIZE).toBe(1000);
     });
   });
 

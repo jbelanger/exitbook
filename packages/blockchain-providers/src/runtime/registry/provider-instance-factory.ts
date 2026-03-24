@@ -14,7 +14,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { BlockchainExplorersConfig, ProviderOverride } from '../../catalog/explorer-config.js';
 import type { IBlockchainProvider, ProviderCreateConfig, ProviderMetadata } from '../../contracts/index.js';
-import { buildProviderNotFoundError, validateProviderApiKey } from '../manager/provider-manager-utils.js';
+import { buildProviderNotFoundError, validateProviderApiKey } from '../manager/provider-registration-support.js';
 
 import type { ProviderRegistry } from './provider-registry.js';
 

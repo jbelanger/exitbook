@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { StreamingBatchResult, StreamingOperation, TransactionWithRawData } from '../../contracts/index.js';
 import type { NormalizedTransactionBase } from '../../contracts/normalized-transaction.js';
-import { createDeduplicationWindow, deduplicateTransactions } from '../manager/provider-manager-utils.js';
+import { createDeduplicationWindow, deduplicateTransactions } from '../manager/provider-deduplication-window.js';
 
 import { buildCursorState, createEmptyCompletionCursor } from './cursor-state.js';
 
