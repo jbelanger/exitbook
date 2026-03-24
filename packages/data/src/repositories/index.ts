@@ -5,7 +5,7 @@ export { BalanceSnapshotRepository } from './balance-snapshot-repository.js';
 export { CostBasisFailureSnapshotRepository } from './cost-basis-failure-snapshot-repository.js';
 export { CostBasisSnapshotRepository } from './cost-basis-snapshot-repository.js';
 export { ImportSessionRepository } from './import-session-repository.js';
-export { NearRawTransactionRepository } from './near-raw-data-repository.js';
+export { NearRawTransactionRepository } from './near-raw-transaction-repository.js';
 export { ProjectionStateRepository } from './projection-state-repository.js';
 export type { ProjectionStateRow } from './projection-state-repository.js';
 export { RawTransactionRepository } from './raw-transaction-repository.js';

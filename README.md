@@ -294,6 +294,7 @@ Developer-oriented project guidance lives in:
 
 - [Architecture notes for code assistants](./docs/code-assistants/architecture.md)
 - [CLI wiring guide](./docs/code-assistants/cli-command-wiring.md)
+- [Desloppify repo guide](./docs/code-assistants/desloppify.md)
 - [Result type guide](./docs/code-assistants/result-type.md)
 
 ## Contributing

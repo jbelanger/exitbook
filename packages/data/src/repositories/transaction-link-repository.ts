@@ -198,12 +198,12 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<TransactionLink | null, Error>> {
+  async findById(id: number): Promise<Result<TransactionLink | undefined, Error>> {
     try {
       const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
 
       if (!row) {
-        return ok(null);
+        return ok(undefined);
       }
 
       const result = toTransactionLink(row);

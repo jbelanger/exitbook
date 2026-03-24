@@ -42,12 +42,12 @@ describe('ProviderCatalogQueries', () => {
   });
 
   async function createProvider(name = 'coingecko', displayName = 'CoinGecko'): Promise<number> {
-    return okValue(await queries.upsertProvider(name, displayName)).id;
+    return okValue(await queries.getOrCreateProvider(name, displayName)).id;
   }
 
-  it('creates a provider and returns same id for duplicate upserts', async () => {
-    const first = okValue(await queries.upsertProvider('coingecko', 'CoinGecko'));
-    const second = okValue(await queries.upsertProvider('coingecko', 'CoinGecko'));
+  it('creates a provider and returns same id on repeated get-or-create calls', async () => {
+    const first = okValue(await queries.getOrCreateProvider('coingecko', 'CoinGecko'));
+    const second = okValue(await queries.getOrCreateProvider('coingecko', 'CoinGecko'));
 
     expect(first.id).toBe(second.id);
     expect(first.name).toBe('coingecko');

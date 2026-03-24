@@ -375,7 +375,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       return ok(this.providerIdCache);
     }
 
-    const result = await this.providerRepo.upsertProvider('coingecko', 'CoinGecko');
+    const result = await this.providerRepo.getOrCreateProvider('coingecko', 'CoinGecko');
     if (result.isErr()) {
       return err(result.error);
     }

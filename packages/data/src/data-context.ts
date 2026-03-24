@@ -10,7 +10,7 @@ import { BalanceSnapshotRepository } from './repositories/balance-snapshot-repos
 import { CostBasisFailureSnapshotRepository } from './repositories/cost-basis-failure-snapshot-repository.js';
 import { CostBasisSnapshotRepository } from './repositories/cost-basis-snapshot-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
-import { NearRawTransactionRepository } from './repositories/near-raw-data-repository.js';
+import { NearRawTransactionRepository } from './repositories/near-raw-transaction-repository.js';
 import { ProjectionStateRepository } from './repositories/projection-state-repository.js';
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';

@@ -115,6 +115,7 @@ Custom logger (`@exitbook/logger`) — not Pino. Use `getLogger('name')` with `t
 
 - `.env` in project root for API keys (loaded via `tsx --env-file-if-exists`)
 - Use `gh issue list/view/create` and load comments for context.
+- Desloppify repo notes: `docs/code-assistants/desloppify.md`
 
 ## Project Context
 

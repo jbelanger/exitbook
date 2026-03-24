@@ -44,9 +44,9 @@ export interface CoinMappingInput {
  */
 export function createProviderCatalogQueries(db: PricesDB) {
   /**
-   * Get or create a provider by name
+   * Get an existing provider by name or create it on first use.
    */
-  async function upsertProvider(name: string, displayName: string): Promise<Result<ProviderRecord, Error>> {
+  async function getOrCreateProvider(name: string, displayName: string): Promise<Result<ProviderRecord, Error>> {
     try {
       // Check if provider exists
       const existing = await db.selectFrom('providers').selectAll().where('name', '=', name).executeTakeFirst();
@@ -70,7 +70,7 @@ export function createProviderCatalogQueries(db: PricesDB) {
 
       return ok(result);
     } catch (error) {
-      return wrapError(error, `Failed to upsert provider`);
+      return wrapError(error, 'Failed to get or create provider');
     }
   }
 
@@ -212,7 +212,7 @@ export function createProviderCatalogQueries(db: PricesDB) {
   }
 
   return {
-    upsertProvider,
+    getOrCreateProvider,
     getProviderByName,
     updateProviderSync,
     upsertCoinMappings,
