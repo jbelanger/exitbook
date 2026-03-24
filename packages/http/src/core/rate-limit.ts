@@ -1,14 +1,6 @@
-// Pure rate limiting functions
-// All functions are pure - they take state and return new state without side effects
-
 import type { RateLimitState } from './types.js';
 
-/**
- * Refill tokens based on time passed since last refill
- * Uses token bucket algorithm
- */
 export const refillTokens = (state: RateLimitState, currentTime: number): RateLimitState => {
-  // Initialize lastRefill on first call
   if (state.lastRefill === 0) {
     return {
       ...state,
@@ -32,9 +24,6 @@ export const refillTokens = (state: RateLimitState, currentTime: number): RateLi
   };
 };
 
-/**
- * Count requests within a time window
- */
 export const getRequestCountInWindow = (
   requestTimestamps: readonly number[],
   currentTime: number,
@@ -44,11 +33,7 @@ export const getRequestCountInWindow = (
   return requestTimestamps.filter((ts) => ts >= windowStart).length;
 };
 
-/**
- * Check if request can be made in all configured time windows
- */
 export const canMakeRequestInAllWindows = (state: RateLimitState, currentTime: number): boolean => {
-  // Check per-second limit
   if (state.requestsPerSecond !== undefined) {
     const requestsInLastSecond = getRequestCountInWindow(state.requestTimestamps, currentTime, 1000);
     if (requestsInLastSecond >= state.requestsPerSecond) {
@@ -56,7 +41,6 @@ export const canMakeRequestInAllWindows = (state: RateLimitState, currentTime: n
     }
   }
 
-  // Check per-minute limit
   if (state.requestsPerMinute !== undefined) {
     const requestsInLastMinute = getRequestCountInWindow(state.requestTimestamps, currentTime, 60_000);
     if (requestsInLastMinute >= state.requestsPerMinute) {
@@ -64,7 +48,6 @@ export const canMakeRequestInAllWindows = (state: RateLimitState, currentTime: n
     }
   }
 
-  // Check per-hour limit
   if (state.requestsPerHour !== undefined) {
     const requestsInLastHour = getRequestCountInWindow(state.requestTimestamps, currentTime, 3_600_000);
     if (requestsInLastHour >= state.requestsPerHour) {
@@ -75,25 +58,16 @@ export const canMakeRequestInAllWindows = (state: RateLimitState, currentTime: n
   return true;
 };
 
-/**
- * Remove timestamps older than 1 hour to prevent memory growth
- */
 export const cleanOldTimestamps = (requestTimestamps: readonly number[], currentTime: number): number[] => {
   const oneHourAgo = currentTime - 3_600_000;
   return requestTimestamps.filter((ts) => ts >= oneHourAgo);
 };
 
-/**
- * Check if a request can be made immediately
- */
 export const shouldAllowRequest = (state: RateLimitState, currentTime: number): boolean => {
   const refilled = refillTokens(state, currentTime);
   return refilled.tokens >= 1 && canMakeRequestInAllWindows(refilled, currentTime);
 };
 
-/**
- * Calculate wait time for oldest request in a time window
- */
 const getWaitTimeForWindow = (
   requestTimestamps: readonly number[],
   currentTime: number,
@@ -106,7 +80,6 @@ const getWaitTimeForWindow = (
     return 0;
   }
 
-  // Find oldest request in window
   const windowStart = currentTime - windowMs;
   const oldestInWindow = requestTimestamps.find((ts) => ts >= windowStart);
 
@@ -114,38 +87,29 @@ const getWaitTimeForWindow = (
     return 0;
   }
 
-  // Wait until oldest request falls outside window (+ buffer)
   return oldestInWindow + windowMs - currentTime + 10;
 };
 
-/**
- * Calculate how long to wait before next request can be made
- * Returns 0 if request can be made immediately
- */
 export const calculateWaitTime = (state: RateLimitState, currentTime: number): number => {
   const refilled = refillTokens(state, currentTime);
   let maxWaitTime = 0;
 
-  // Check token bucket
   if (refilled.tokens < 1) {
     const missingTokens = 1 - refilled.tokens;
     const timeUntilNextToken = (missingTokens / state.requestsPerSecond) * 1000;
     maxWaitTime = Math.max(maxWaitTime, Math.ceil(timeUntilNextToken));
   }
 
-  // Check per-second window
   if (state.requestsPerSecond !== undefined) {
     const waitTime = getWaitTimeForWindow(refilled.requestTimestamps, currentTime, 1000, state.requestsPerSecond);
     maxWaitTime = Math.max(maxWaitTime, waitTime);
   }
 
-  // Check per-minute window
   if (state.requestsPerMinute !== undefined) {
     const waitTime = getWaitTimeForWindow(refilled.requestTimestamps, currentTime, 60_000, state.requestsPerMinute);
     maxWaitTime = Math.max(maxWaitTime, waitTime);
   }
 
-  // Check per-hour window
   if (state.requestsPerHour !== undefined) {
     const waitTime = getWaitTimeForWindow(refilled.requestTimestamps, currentTime, 3_600_000, state.requestsPerHour);
     maxWaitTime = Math.max(maxWaitTime, waitTime);
@@ -154,10 +118,6 @@ export const calculateWaitTime = (state: RateLimitState, currentTime: number): n
   return Math.ceil(maxWaitTime);
 };
 
-/**
- * Consume a token and record request timestamp
- * Returns new state with token consumed and timestamp added
- */
 export const consumeToken = (state: RateLimitState, currentTime: number): RateLimitState => {
   const refilled = refillTokens(state, currentTime);
   const cleaned = cleanOldTimestamps(refilled.requestTimestamps, currentTime);
@@ -169,9 +129,6 @@ export const consumeToken = (state: RateLimitState, currentTime: number): RateLi
   };
 };
 
-/**
- * Get current rate limit status (for monitoring/debugging)
- */
 export const getRateLimitStatus = (state: RateLimitState, currentTime: number) => {
   const refilled = refillTokens(state, currentTime);
 
