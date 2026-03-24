@@ -53,14 +53,6 @@ export interface TokenReferenceLookupResult {
   referenceStatus: AssetReferenceStatus;
 }
 
-export interface TokenReferenceResolver {
-  close(): Promise<void>;
-  resolveBatch(
-    blockchain: string,
-    tokenRefs: string[]
-  ): Promise<Result<Map<string, TokenReferenceLookupResult>, Error>>;
-}
-
 export interface CoinGeckoTokenReferenceResolverConfig {
   apiKey?: string | undefined;
   useProApi?: boolean | undefined;
@@ -77,7 +69,7 @@ export function createCoinGeckoTokenReferenceResolver(
     | 'saveReferencePlatformMapping'
   >,
   config: CoinGeckoTokenReferenceResolverConfig = {}
-): Result<TokenReferenceResolver, Error> {
+): Result<CoinGeckoTokenReferenceResolver, Error> {
   const apiKey = 'apiKey' in config ? config.apiKey : process.env['COINGECKO_API_KEY'];
   const useProApi = config.useProApi ?? process.env['COINGECKO_USE_PRO_API'] === 'true';
   const headerName = useProApi ? 'x-cg-pro-api-key' : 'x-cg-demo-api-key';
@@ -99,7 +91,7 @@ export function createCoinGeckoTokenReferenceResolver(
   }
 }
 
-class CoinGeckoTokenReferenceResolver implements TokenReferenceResolver {
+export class CoinGeckoTokenReferenceResolver {
   constructor(
     private readonly queries: Pick<
       TokenMetadataQueries,

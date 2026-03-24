@@ -12,7 +12,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { ensureAssetReviewProjectionFresh } from '../../../shared/asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from '../../../shared/asset-review-projection-runtime.js';
 import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
@@ -20,7 +20,7 @@ import {
 import { AssetsHandler } from '../assets-handler.js';
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
-  ensureAssetReviewProjectionFresh: vi.fn(),
+  createCliAssetReviewProjectionRuntime: vi.fn(),
 }));
 
 vi.mock('../../../shared/asset-review-projection-store.js', () => ({
@@ -210,9 +210,18 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
 }
 
 describe('AssetsHandler', () => {
+  const mockAssetReviewProjectionRuntime = {
+    ensureFresh: vi.fn(),
+    rebuild: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(ensureAssetReviewProjectionFresh).mockResolvedValue(ok(undefined));
+    mockAssetReviewProjectionRuntime.ensureFresh.mockResolvedValue(ok(undefined));
+    mockAssetReviewProjectionRuntime.rebuild.mockResolvedValue(ok(undefined));
+    vi.mocked(createCliAssetReviewProjectionRuntime).mockReturnValue(
+      mockAssetReviewProjectionRuntime as ReturnType<typeof createCliAssetReviewProjectionRuntime>
+    );
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
     vi.mocked(invalidateAssetReviewProjection).mockResolvedValue(ok(undefined));
   });

@@ -16,7 +16,7 @@ import {
 } from '@exitbook/data';
 import { type AssetReferenceStatus, parseDecimal, err, ok, wrapError, type Result } from '@exitbook/foundation';
 
-import { ensureAssetReviewProjectionFresh } from '../../shared/asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from '../../shared/asset-review-projection-runtime.js';
 import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
@@ -425,7 +425,7 @@ export class AssetsHandler {
   }
 
   private async readFreshReviewSummaries(assetIds?: string[]): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
-    const freshProjectionResult = await ensureAssetReviewProjectionFresh(this.db, this.dataDir);
+    const freshProjectionResult = await createCliAssetReviewProjectionRuntime(this.db, this.dataDir).ensureFresh();
     if (freshProjectionResult.isErr()) {
       return err(freshProjectionResult.error);
     }

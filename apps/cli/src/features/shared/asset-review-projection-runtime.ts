@@ -3,10 +3,9 @@ import {
   findLatestTokenMetadataRefreshAt,
 } from '@exitbook/blockchain-providers/asset-review';
 import { buildAssetReviewRuntimePorts, type DataContext } from '@exitbook/data';
-import type { Result } from '@exitbook/foundation';
-import { createAssetReviewProjectionRuntime } from '@exitbook/ingestion';
+import { createAssetReviewProjectionRuntime, type AssetReviewProjectionRuntime } from '@exitbook/ingestion';
 
-function createRuntime(db: DataContext, dataDir: string) {
+export function createCliAssetReviewProjectionRuntime(db: DataContext, dataDir: string): AssetReviewProjectionRuntime {
   return createAssetReviewProjectionRuntime({
     ports: buildAssetReviewRuntimePorts(db, dataDir),
     providerSupportFactory: {
@@ -16,12 +15,4 @@ function createRuntime(db: DataContext, dataDir: string) {
       findLatestTokenMetadataRefreshAt: () => findLatestTokenMetadataRefreshAt(dataDir),
     },
   });
-}
-
-export function ensureAssetReviewProjectionFresh(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
-  return createRuntime(db, dataDir).ensureFresh();
-}
-
-export function rebuildAssetReviewProjection(db: DataContext, dataDir: string): Promise<Result<void, Error>> {
-  return createRuntime(db, dataDir).rebuild();
 }

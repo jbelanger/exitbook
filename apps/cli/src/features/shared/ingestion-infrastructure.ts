@@ -9,7 +9,7 @@ import { adaptResultCleanup, type CommandScope } from '../../runtime/command-sco
 import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
 import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
 
-import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 
 const logger = getLogger('ingestion-infrastructure');
@@ -55,7 +55,7 @@ export async function createIngestionInfrastructure(
   try {
     const overrideStore = new OverrideStore(ctx.dataDir);
     const ports = buildProcessingPorts(database, {
-      rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(database, ctx.dataDir),
+      rebuildAssetReviewProjection: () => createCliAssetReviewProjectionRuntime(database, ctx.dataDir).rebuild(),
       overrideStore,
     });
     const processingWorkflow = new ProcessingWorkflow(

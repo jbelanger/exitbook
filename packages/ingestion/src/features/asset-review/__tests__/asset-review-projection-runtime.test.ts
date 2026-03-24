@@ -190,31 +190,24 @@ function createProviderSupport(providerState: {
   metadataByChainAndRef: Map<string, MockTokenMetadataRecord | undefined>;
 }): AssetReviewProviderSupport {
   return {
-    tokenMetadataReader: {
-      getByTokenRefs: async (blockchain, tokenRefs) =>
-        ok(
-          new Map(
-            tokenRefs.map((tokenRef) => [
-              tokenRef,
-              providerState.metadataByChainAndRef.get(`${blockchain}:${tokenRef}`),
-            ])
-          )
-        ),
-    },
-    referenceResolver: {
-      resolveBatch: async (_blockchain, tokenRefs) =>
-        ok(
-          new Map(
-            tokenRefs.map((tokenRef) => [
-              tokenRef,
-              {
-                provider: 'coingecko',
-                referenceStatus: 'unknown' as const,
-              },
-            ])
-          )
-        ),
-    },
+    getByTokenRefs: async (blockchain, tokenRefs) =>
+      ok(
+        new Map(
+          tokenRefs.map((tokenRef) => [tokenRef, providerState.metadataByChainAndRef.get(`${blockchain}:${tokenRef}`)])
+        )
+      ),
+    resolveBatch: async (_blockchain, tokenRefs) =>
+      ok(
+        new Map(
+          tokenRefs.map((tokenRef) => [
+            tokenRef,
+            {
+              provider: 'coingecko',
+              referenceStatus: 'unknown' as const,
+            },
+          ])
+        )
+      ),
     // eslint-disable-next-line @typescript-eslint/no-empty-function -- test no-op stub satisfies Promise<void> interface
     cleanup: async () => {},
   };

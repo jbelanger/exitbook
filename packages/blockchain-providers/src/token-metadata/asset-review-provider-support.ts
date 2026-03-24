@@ -13,18 +13,16 @@ import {
 } from './persistence/index.js';
 import { initTokenMetadataPersistence } from './persistence/runtime.js';
 import {
+  type CoinGeckoTokenReferenceResolver,
   createCoinGeckoTokenReferenceResolver,
   type CoinGeckoTokenReferenceResolverConfig,
-  type TokenReferenceResolver,
 } from './reference/index.js';
 
 const logger = getLogger('AssetReviewProviderSupport');
 
 export interface AssetReviewProviderSupport {
-  referenceResolver: TokenReferenceResolver;
-  tokenMetadataReader: {
-    getByTokenRefs: TokenMetadataQueries['getByContracts'];
-  };
+  getByTokenRefs: TokenMetadataQueries['getByContracts'];
+  resolveBatch: CoinGeckoTokenReferenceResolver['resolveBatch'];
   cleanup(): Promise<void>;
 }
 
@@ -52,10 +50,8 @@ export async function createAssetReviewProviderSupport(
   const referenceResolver = resolverResult.value;
 
   return ok({
-    tokenMetadataReader: {
-      getByTokenRefs: (blockchain, tokenRefs) => persistence.queries.getByContracts(blockchain, tokenRefs),
-    },
-    referenceResolver,
+    getByTokenRefs: (blockchain, tokenRefs) => persistence.queries.getByContracts(blockchain, tokenRefs),
+    resolveBatch: (blockchain, tokenRefs) => referenceResolver.resolveBatch(blockchain, tokenRefs),
     async cleanup() {
       await referenceResolver.close().catch((error: unknown) => {
         logger.warn({ error }, 'Failed to close token reference resolver');

@@ -7,8 +7,8 @@ import { AssetReviewProjectionWorkflow } from './asset-review-projection-workflo
 import type { AssetReviewReferenceResolver, AssetReviewTokenMetadataReader } from './asset-review-service.js';
 
 export interface AssetReviewProviderSupport {
-  referenceResolver?: AssetReviewReferenceResolver | undefined;
-  tokenMetadataReader?: AssetReviewTokenMetadataReader | undefined;
+  getByTokenRefs?: AssetReviewTokenMetadataReader['getByTokenRefs'] | undefined;
+  resolveBatch?: AssetReviewReferenceResolver['resolveBatch'] | undefined;
   cleanup(): Promise<void>;
 }
 
@@ -74,11 +74,17 @@ async function rebuildAssetReviewProjection(
 
   const providerSupport = providerSupportResult.value;
   const workflow = new AssetReviewProjectionWorkflow(options.ports);
+  const tokenMetadataReader = providerSupport.getByTokenRefs
+    ? (providerSupport as AssetReviewTokenMetadataReader)
+    : undefined;
+  const referenceResolver = providerSupport.resolveBatch
+    ? (providerSupport as AssetReviewReferenceResolver)
+    : undefined;
 
   try {
     return await workflow.rebuild({
-      tokenMetadataReader: providerSupport.tokenMetadataReader,
-      referenceResolver: providerSupport.referenceResolver,
+      tokenMetadataReader,
+      referenceResolver,
     });
   } finally {
     await providerSupport.cleanup();

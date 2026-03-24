@@ -17,7 +17,7 @@ import type { CommandScope } from '../../runtime/command-scope.js';
 import { createEventDrivenController } from '../../ui/shared/index.js';
 import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
 
-import { rebuildAssetReviewProjection } from './asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
 import { resetProjections } from './projection-reset.js';
 
@@ -83,7 +83,7 @@ export async function ensureProcessedTransactionsReady(
 
           const overrideStore = new OverrideStore(scope.dataDir);
           const ports = buildProcessingPorts(db, {
-            rebuildAssetReviewProjection: () => rebuildAssetReviewProjection(db, scope.dataDir),
+            rebuildAssetReviewProjection: () => createCliAssetReviewProjectionRuntime(db, scope.dataDir).rebuild(),
             overrideStore,
           });
           const processingWorkflow = new ProcessingWorkflow(
@@ -128,7 +128,7 @@ export async function ensureAssetReviewReady(scope: CommandScope): Promise<Resul
   return rebuildIfStale(
     'asset-review',
     () => buildAssetReviewFreshnessPorts(db).checkFreshness(),
-    async () => rebuildAssetReviewProjection(db, scope.dataDir)
+    async () => createCliAssetReviewProjectionRuntime(db, scope.dataDir).rebuild()
   );
 }
 
