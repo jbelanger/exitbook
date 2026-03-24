@@ -19,12 +19,20 @@ export type CliEvent = IngestionEvent | ProviderEvent;
 export interface IngestionRuntime {
   blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
   eventBus: EventBus<CliEvent>;
-  ingestionMonitor: EventDrivenController<CliEvent>;
+  ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
   instrumentation: InstrumentationCollector;
   processingWorkflow: ProcessingWorkflow;
 }
 
-export async function createIngestionRuntime(ctx: CommandScope, database: DataContext): Promise<IngestionRuntime> {
+export interface CreateIngestionRuntimeOptions {
+  presentation?: 'headless' | 'monitor' | undefined;
+}
+
+export async function createIngestionRuntime(
+  ctx: CommandScope,
+  database: DataContext,
+  options: CreateIngestionRuntimeOptions = {}
+): Promise<IngestionRuntime> {
   const appRuntime = ctx.requireAppRuntime();
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
@@ -53,19 +61,24 @@ export async function createIngestionRuntime(ctx: CommandScope, database: DataCo
       providerRuntime,
     });
 
-    const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
-      instrumentation,
-      providerRuntime,
-    });
-    await ingestionMonitor.start();
+    let ingestionMonitor: EventDrivenController<CliEvent> | undefined;
+    if ((options.presentation ?? 'monitor') === 'monitor') {
+      ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
+        instrumentation,
+        providerRuntime,
+      });
+      await ingestionMonitor.start();
+    }
 
     ctx.onCleanup(async () => {
       let stopError: Error | undefined;
 
-      try {
-        await ingestionMonitor.stop();
-      } catch (error) {
-        stopError = error instanceof Error ? error : new Error(String(error));
+      if (ingestionMonitor) {
+        try {
+          await ingestionMonitor.stop();
+        } catch (error) {
+          stopError = error instanceof Error ? error : new Error(String(error));
+        }
       }
 
       try {

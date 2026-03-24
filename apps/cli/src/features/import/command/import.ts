@@ -108,7 +108,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
   try {
     await runCommand(appRuntime, async (ctx) => {
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
-      const result = await runImport(ctx, params);
+      const result = await runImport(ctx, { isJsonMode: true }, params);
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -134,20 +134,26 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
 
       const sourceName = 'blockchain' in params ? params.blockchain : params.exchange;
 
-      const result = await runImport(ctx, {
-        ...params,
-        onSingleAddressWarning: async () => {
-          process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
-          process.stderr.write('Single address tracking has limitations:\n');
-          process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
-          process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
-          process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
-          process.stderr.write('For complete wallet tracking, use xpub instead:\n');
-          process.stderr.write(`  $ exitbook import --blockchain ${sourceName} --address xpub... [--xpub-gap 20]\n\n`);
-          process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
-          return await promptConfirm('Continue with single address import?', false);
-        },
-      });
+      const result = await runImport(
+        ctx,
+        { isJsonMode: false },
+        {
+          ...params,
+          onSingleAddressWarning: async () => {
+            process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
+            process.stderr.write('Single address tracking has limitations:\n');
+            process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
+            process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
+            process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
+            process.stderr.write('For complete wallet tracking, use xpub instead:\n');
+            process.stderr.write(
+              `  $ exitbook import --blockchain ${sourceName} --address xpub... [--xpub-gap 20]\n\n`
+            );
+            process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
+            return await promptConfirm('Continue with single address import?', false);
+          },
+        }
+      );
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

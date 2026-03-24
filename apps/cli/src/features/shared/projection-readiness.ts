@@ -4,17 +4,14 @@ import {
   buildProcessedTransactionsFreshnessPorts,
   buildLinksFreshnessPorts,
 } from '@exitbook/data/projections';
-import { EventBus } from '@exitbook/events';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
-import { type IngestionEvent } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 import type { CommandScope } from '../../runtime/command-scope.js';
+import { createIngestionRuntime } from '../../runtime/ingestion-runtime.js';
 import { createCliLinkingRuntime, readCliLinkOverrides } from '../../runtime/linking-runtime.js';
-import { createCliProcessingWorkflowRuntime } from '../../runtime/processing-workflow-runtime.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
-import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
 import { resetProjections } from './projection-reset.js';
 
 const logger = getLogger('projection-readiness');
@@ -58,7 +55,6 @@ export async function ensureProcessedTransactionsReady(
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
-  const appRuntime = scope.requireAppRuntime();
 
   return rebuildIfStale(
     'processed-transactions',
@@ -68,48 +64,30 @@ export async function ensureProcessedTransactionsReady(
         console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
       }
 
-      return withCliBlockchainProviderRuntimeResult(
-        { dataDir: scope.dataDir, explorerConfig: appRuntime.blockchainExplorersConfig },
-        async (providerRuntime) => {
-          const eventBus = new EventBus<IngestionEvent>({
-            onError: (error) => {
-              logger.error({ error }, 'EventBus error during reprocess');
-            },
-          });
+      const ingestionRuntime = await createIngestionRuntime(scope, db, { presentation: 'headless' });
+      const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({});
+      if (planResult.isErr()) return err(planResult.error);
 
-          const { processingWorkflow } = createCliProcessingWorkflowRuntime({
-            adapterRegistry: appRuntime.adapterRegistry,
-            dataDir: scope.dataDir,
-            database: db,
-            eventBus,
-            providerRuntime,
-          });
+      if (!planResult.value) {
+        logger.info('No raw data found to reprocess');
+        return ok(undefined);
+      }
 
-          const planResult = await processingWorkflow.prepareReprocess({});
-          if (planResult.isErr()) return err(planResult.error);
+      const { accountIds } = planResult.value;
 
-          if (!planResult.value) {
-            logger.info('No raw data found to reprocess');
-            return ok(undefined);
-          }
+      const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
+      if (resetResult.isErr()) return err(resetResult.error);
 
-          const { accountIds } = planResult.value;
+      const processResult = await ingestionRuntime.processingWorkflow.processImportedSessions(accountIds);
+      if (processResult.isErr()) return err(processResult.error);
 
-          const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
-          if (resetResult.isErr()) return err(resetResult.error);
+      logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
 
-          const processResult = await processingWorkflow.processImportedSessions(accountIds);
-          if (processResult.isErr()) return err(processResult.error);
+      if (processResult.value.errors.length > 0) {
+        logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
+      }
 
-          logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
-
-          if (processResult.value.errors.length > 0) {
-            logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
-          }
-
-          return ok(undefined);
-        }
-      );
+      return ok(undefined);
     }
   );
 }

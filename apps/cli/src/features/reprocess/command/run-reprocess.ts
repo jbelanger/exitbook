@@ -26,7 +26,7 @@ const logger = getLogger('ReprocessRunner');
 export interface ReprocessExecutionRuntime {
   database: DataContext;
   processingWorkflow: ProcessingWorkflow;
-  ingestionMonitor: EventDrivenController<CliEvent>;
+  ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
   instrumentation: InstrumentationCollector;
 }
 
@@ -36,29 +36,29 @@ export async function executeReprocessWithRuntime(
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   const planResult = await runtime.processingWorkflow.prepareReprocess(params);
   if (planResult.isErr()) {
-    runtime.ingestionMonitor.fail(planResult.error.message);
-    await runtime.ingestionMonitor.stop();
+    runtime.ingestionMonitor?.fail(planResult.error.message);
+    await runtime.ingestionMonitor?.stop();
     return err(planResult.error);
   }
 
   const plan = planResult.value;
   if (!plan) {
-    await runtime.ingestionMonitor.stop();
+    await runtime.ingestionMonitor?.stop();
     return ok({ processed: 0, errors: [], failed: 0, runStats: runtime.instrumentation.getSummary() });
   }
 
   const resetResult = await resetProjections(runtime.database, 'processed-transactions', plan.accountIds);
   if (resetResult.isErr()) {
-    runtime.ingestionMonitor.fail(resetResult.error.message);
-    await runtime.ingestionMonitor.stop();
+    runtime.ingestionMonitor?.fail(resetResult.error.message);
+    await runtime.ingestionMonitor?.stop();
     return err(resetResult.error);
   }
   logger.info('Reset projections for reprocess');
 
   const result = await runtime.processingWorkflow.processImportedSessions(plan.accountIds);
   if (result.isErr()) {
-    runtime.ingestionMonitor.fail(result.error.message);
-    await runtime.ingestionMonitor.stop();
+    runtime.ingestionMonitor?.fail(result.error.message);
+    await runtime.ingestionMonitor?.stop();
     return err(result.error);
   }
 
@@ -68,12 +68,12 @@ export async function executeReprocessWithRuntime(
       `Reprocess failed: ${result.value.failed} account(s) failed during processing. ` +
       (firstErrors.length > 0 ? `First errors: ${firstErrors}` : 'See logs for details.');
 
-    runtime.ingestionMonitor.fail(errorMessage);
-    await runtime.ingestionMonitor.stop();
+    runtime.ingestionMonitor?.fail(errorMessage);
+    await runtime.ingestionMonitor?.stop();
     return err(new Error(errorMessage));
   }
 
-  await runtime.ingestionMonitor.stop();
+  await runtime.ingestionMonitor?.stop();
   return ok({
     processed: result.value.processed,
     errors: result.value.errors,
@@ -83,6 +83,10 @@ export async function executeReprocessWithRuntime(
 }
 
 export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void {
+  if (!runtime.ingestionMonitor) {
+    return;
+  }
+
   runtime.ingestionMonitor.abort();
   void runtime.ingestionMonitor.stop().catch((error) => {
     logger.warn({ error }, 'Failed to stop ingestion monitor on abort');
@@ -91,11 +95,14 @@ export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void 
 
 export async function runReprocess(
   ctx: CommandScope,
+  options: { isJsonMode: boolean },
   params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
-    const infra = await createIngestionRuntime(ctx, database);
+    const infra = await createIngestionRuntime(ctx, database, {
+      presentation: options.isJsonMode ? 'headless' : 'monitor',
+    });
     const runtime: ReprocessExecutionRuntime = {
       database,
       processingWorkflow: infra.processingWorkflow,
@@ -103,7 +110,9 @@ export async function runReprocess(
       instrumentation: infra.instrumentation,
     };
 
-    ctx.onAbort(() => abortReprocessRuntime(runtime));
+    ctx.onAbort(() => {
+      abortReprocessRuntime(runtime);
+    });
     return executeReprocessWithRuntime(runtime, params);
   } catch (error) {
     return wrapError(error, 'Failed to run reprocess');

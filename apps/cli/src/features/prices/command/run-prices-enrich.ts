@@ -2,7 +2,7 @@ import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/acc
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CommandScope } from '../../../runtime/command-scope.js';
+import { adaptResultCleanup, type CommandScope } from '../../../runtime/command-scope.js';
 import {
   createCliPriceEnrichmentRuntime,
   type CliPriceEnrichmentRuntime,
@@ -11,16 +11,32 @@ import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion
 
 const logger = getLogger('PricesEnrichRunner');
 
-export async function executePricesEnrichRuntime(
+export interface ExecutePricesEnrichRuntimeOptions<TSuccess = PricesEnrichResult> {
+  afterSuccess?:
+    | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
+    | undefined;
+  params: PricesEnrichOptions;
+}
+
+interface WithPricesEnrichRuntimeOptions {
+  accountingExclusionPolicy?: import('@exitbook/accounting').AccountingExclusionPolicy | undefined;
+  database: Awaited<ReturnType<CommandScope['database']>>;
+  isJsonMode: boolean;
+  onAbortRegistered?: ((abort: () => void) => void) | undefined;
+  onAbortReleased?: (() => void) | undefined;
+  scope: CommandScope;
+}
+
+export async function executePricesEnrichRuntime<TSuccess = PricesEnrichResult>(
   runtime: CliPriceEnrichmentRuntime,
-  params: PricesEnrichOptions
-): Promise<Result<PricesEnrichResult, Error>> {
+  options: ExecutePricesEnrichRuntimeOptions<TSuccess>
+): Promise<Result<TSuccess, Error>> {
   try {
     if (runtime.controller) {
       await runtime.controller.start();
     }
 
-    const result = await runtime.pipeline.execute(params, runtime.priceRuntime);
+    const result = await runtime.pipeline.execute(options.params, runtime.priceRuntime);
 
     if (result.isErr()) {
       if (runtime.controller) {
@@ -30,12 +46,23 @@ export async function executePricesEnrichRuntime(
       return err(result.error);
     }
 
+    const successResult = options.afterSuccess
+      ? await options.afterSuccess(result.value, runtime)
+      : ok(result.value as TSuccess);
+    if (successResult.isErr()) {
+      if (runtime.controller) {
+        runtime.controller.fail(successResult.error.message);
+        await runtime.controller.stop();
+      }
+      return err(successResult.error);
+    }
+
     if (runtime.controller) {
       runtime.controller.complete();
       await runtime.controller.stop();
     }
 
-    return ok(result.value);
+    return ok(successResult.value);
   } catch (error) {
     if (runtime.controller) {
       const message = error instanceof Error ? error.message : String(error);
@@ -57,6 +84,36 @@ export function abortPricesEnrichRuntime(runtime: CliPriceEnrichmentRuntime): vo
   }
 }
 
+export async function withPricesEnrichRuntime<T>(
+  options: WithPricesEnrichRuntimeOptions,
+  operation: (runtime: CliPriceEnrichmentRuntime) => Promise<Result<T, Error>>
+): Promise<Result<T, Error>> {
+  const runtimeResult = await createCliPriceEnrichmentRuntime({
+    accountingExclusionPolicy: options.accountingExclusionPolicy,
+    database: options.database,
+    isJsonMode: options.isJsonMode,
+    registerCleanup: false,
+    scope: options.scope,
+  });
+  if (runtimeResult.isErr()) {
+    return err(runtimeResult.error);
+  }
+
+  const runtime = runtimeResult.value;
+  const cleanupPriceRuntime = adaptResultCleanup(runtime.priceRuntime.cleanup);
+
+  options.onAbortRegistered?.(() => abortPricesEnrichRuntime(runtime));
+
+  try {
+    return await operation(runtime);
+  } finally {
+    options.onAbortReleased?.();
+    await cleanupPriceRuntime().catch((cleanupError) => {
+      logger.warn({ cleanupError }, 'Failed to clean up price runtime after price enrichment operation');
+    });
+  }
+}
+
 export async function runPricesEnrich(
   ctx: CommandScope,
   options: { isJsonMode: boolean },
@@ -68,20 +125,19 @@ export async function runPricesEnrich(
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
-    const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
-    const runtimeResult = await createCliPriceEnrichmentRuntime({
-      accountingExclusionPolicy,
-      database,
-      isJsonMode: options.isJsonMode,
-      scope: ctx,
-    });
-    if (runtimeResult.isErr()) {
-      return err(runtimeResult.error);
-    }
-
-    const runtime = runtimeResult.value;
-    ctx.onAbort(() => abortPricesEnrichRuntime(runtime));
-    return executePricesEnrichRuntime(runtime, params);
+    return withPricesEnrichRuntime(
+      {
+        accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+        database,
+        isJsonMode: options.isJsonMode,
+        onAbortRegistered: (abort) => ctx.onAbort(abort),
+        scope: ctx,
+      },
+      (runtime) =>
+        executePricesEnrichRuntime(runtime, {
+          params,
+        })
+    );
   } catch (error) {
     return wrapError(error, 'Failed to run prices enrich');
   }

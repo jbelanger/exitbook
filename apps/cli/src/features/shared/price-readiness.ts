@@ -3,8 +3,8 @@ import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import { adaptResultCleanup, type CommandScope } from '../../runtime/command-scope.js';
-import { createCliPriceEnrichmentRuntime } from '../../runtime/price-enrichment-runtime.js';
+import type { CommandScope } from '../../runtime/command-scope.js';
+import { executePricesEnrichRuntime, withPricesEnrichRuntime } from '../prices/command/run-prices-enrich.js';
 
 import type { PrereqExecutionOptions } from './projection-readiness.js';
 
@@ -42,67 +42,37 @@ export async function ensureTransactionPricesReady(
     console.log('\nPrices missing for requested date range, running enrichment...\n');
   }
 
-  const priceEnrichmentRuntimeResult = await createCliPriceEnrichmentRuntime({
-    accountingExclusionPolicy,
-    database: db,
-    isJsonMode,
-    registerCleanup: false,
-    scope,
-  });
-  if (priceEnrichmentRuntimeResult.isErr()) return err(priceEnrichmentRuntimeResult.error);
+  return withPricesEnrichRuntime(
+    {
+      accountingExclusionPolicy,
+      database: db,
+      isJsonMode,
+      onAbortRegistered: (abort) => setAbort?.(abort),
+      onAbortReleased: () => setAbort?.(undefined),
+      scope,
+    },
+    (runtime) =>
+      executePricesEnrichRuntime(runtime, {
+        params: {},
+        afterSuccess: async () => {
+          const postCoverageResult = await verifyTransactionPriceCoverage(
+            data,
+            config,
+            target,
+            accountingExclusionPolicy
+          );
+          if (postCoverageResult.isErr()) {
+            return err(postCoverageResult.error);
+          }
 
-  const priceEnrichmentRuntime = priceEnrichmentRuntimeResult.value;
-  const controller = priceEnrichmentRuntime.controller;
-  const cleanupPriceRuntime = adaptResultCleanup(priceEnrichmentRuntime.priceRuntime.cleanup);
+          if (isJsonMode) {
+            logger.info('Price enrichment completed (JSON mode)');
+          }
 
-  const abort = () => {
-    if (!controller) {
-      return;
-    }
-
-    controller.abort();
-    void controller.stop().catch((cleanupErr) => {
-      logger.warn({ cleanupErr }, 'Failed to stop prices controller on abort');
-    });
-  };
-
-  setAbort?.(abort);
-  try {
-    if (controller) {
-      await controller.start();
-    }
-
-    const result = await priceEnrichmentRuntime.pipeline.execute({}, priceEnrichmentRuntime.priceRuntime);
-
-    if (result.isErr()) {
-      controller?.fail(result.error.message);
-      return err(result.error);
-    }
-
-    const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
-    if (postCoverageResult.isErr()) {
-      controller?.fail(postCoverageResult.error.message);
-      return err(postCoverageResult.error);
-    }
-
-    controller?.complete();
-    if (isJsonMode) {
-      logger.info('Price enrichment completed (JSON mode)');
-    }
-    return ok(undefined);
-  } catch (error) {
-    const caughtError = error instanceof Error ? error : new Error(String(error));
-    controller?.fail(caughtError.message);
-    return err(caughtError);
-  } finally {
-    setAbort?.(undefined);
-    await controller?.stop().catch((cleanupErr) => {
-      logger.warn({ cleanupErr }, 'Failed to stop prices controller during cleanup');
-    });
-    await cleanupPriceRuntime().catch((cleanupError) => {
-      logger.warn({ cleanupError }, 'Failed to clean up price runtime after enrichment');
-    });
-  }
+          return ok(undefined);
+        },
+      })
+  );
 }
 
 async function verifyTransactionPriceCoverage(
