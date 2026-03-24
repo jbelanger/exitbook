@@ -281,13 +281,10 @@ export class ProviderFailoverEngine {
       if (circuit) circuitMapForBlockchain.set(provider.name, circuit);
     }
 
-    const scoredProviders = selectProvidersForOperation(
-      candidates,
-      healthMapForBlockchain,
-      circuitMapForBlockchain,
+    const scoredProviders = selectProvidersForOperation(candidates, healthMapForBlockchain, circuitMapForBlockchain, {
       operation,
-      now
-    );
+      now,
+    });
 
     // Check if a preferred provider was specified for this blockchain
     const preferredProviderName = this.preferredProviders.get(blockchain);

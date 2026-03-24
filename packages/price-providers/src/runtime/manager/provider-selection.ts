@@ -110,17 +110,19 @@ export interface ProviderSelectionQuery {
   isFiat?: boolean | undefined;
 }
 
+export interface SelectedPriceProvider {
+  health: ProviderHealth;
+  metadata: ProviderMetadata;
+  provider: IPriceProvider;
+  score: number;
+}
+
 export function selectProvidersForOperation(
   providers: IPriceProvider[],
   healthMap: Map<string, ProviderHealth>,
   circuitMap: ReadonlyMap<string, CircuitState>,
   query: ProviderSelectionQuery
-): {
-  health: ProviderHealth;
-  metadata: ProviderMetadata;
-  provider: IPriceProvider;
-  score: number;
-}[] {
+): SelectedPriceProvider[] {
   const { operationType, now, timestamp, assetSymbol, isFiat } = query;
 
   // Build a metadata cache to avoid calling getMetadata() twice per provider

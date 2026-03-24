@@ -4,7 +4,7 @@ import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const LinksViewCommandOptionsSchema = z
   .object({
-    status: z.enum(['suggested', 'confirmed', 'rejected', 'gaps']).optional(),
+    status: z.enum(['suggested', 'confirmed', 'rejected']).optional(),
     minConfidence: z.number().min(0).max(1).optional(),
     maxConfidence: z.number().min(0).max(1).optional(),
     verbose: z.boolean().optional(),
@@ -43,3 +43,5 @@ export const LinksRunCommandOptionsSchema = z
 export const LinksConfirmCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksRejectCommandOptionsSchema = JsonFlagSchema;
+
+export const LinksGapsCommandOptionsSchema = JsonFlagSchema;

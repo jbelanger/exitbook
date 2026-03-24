@@ -15,7 +15,7 @@ import { LinksViewApp, createGapsViewState, createLinksViewState, type LinkWithT
 import { LinksConfirmHandler } from './links-confirm-handler.js';
 import type { LinkGapIssue } from './links-gap-utils.js';
 import { analyzeLinkGaps } from './links-gap-utils.js';
-import { LinksViewCommandOptionsSchema } from './links-option-schemas.js';
+import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
 import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';
@@ -70,7 +70,6 @@ Examples:
   $ exitbook links view                                # View all transaction links
   $ exitbook links view --status suggested             # View AI-suggested links
   $ exitbook links view --status confirmed             # View user-confirmed links
-  $ exitbook links view --status gaps                  # View coverage gap analysis
   $ exitbook links view --min-confidence 0.8           # View high-confidence links only
   $ exitbook links view --min-confidence 0.3 --max-confidence 0.7  # Medium confidence range
   $ exitbook links view --verbose                      # Include full transaction details
@@ -80,13 +79,12 @@ Common Usage:
   - Validate high-confidence automated matches before confirming
   - Investigate low-confidence matches that need manual review
   - Audit confirmed links for accuracy
-  - Identify uncovered inflows and unmatched outflows (gaps mode)
+  - Inspect link gap coverage separately with \`exitbook links gaps\`
 
 Status Values:
   suggested   - Automatically detected by the system
   confirmed   - User-verified as correct
   rejected    - User-verified as incorrect
-  gaps        - Coverage gap analysis (read-only)
 
 Confidence Scores:
   1.0  - Exact match (timestamp + amount + asset)
@@ -95,13 +93,31 @@ Confidence Scores:
   <0.3 - Low confidence, needs manual review
 `
     )
-    .option('--status <status>', 'Filter by status (suggested, confirmed, rejected, gaps)')
+    .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
     .option('--verbose', 'Include full transaction details (asset, amount, addresses)')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksViewCommand(rawOptions);
+    });
+}
+
+export function registerLinksGapsCommand(linksCommand: Command): void {
+  linksCommand
+    .command('gaps')
+    .description('View transaction-link coverage gap analysis')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links gaps         # View uncovered inflows and unmatched outflows
+  $ exitbook links gaps --json  # Output gap analysis as JSON
+`
+    )
+    .option('--json', 'Output results in JSON format')
+    .action(async (rawOptions: unknown) => {
+      await executeLinksGapsCommand(rawOptions);
     });
 }
 
@@ -122,7 +138,6 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 
   const options = parseResult.data;
   const isJsonMode = options.json ?? false;
-  const isGapsMode = options.status === 'gaps';
 
   // Build params from validated options
   const params: LinksViewParams = {
@@ -134,21 +149,31 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 
   // JSON mode uses structured output functions
   if (isJsonMode) {
-    if (isGapsMode) {
-      await executeGapsViewJSON();
-    } else {
-      await executeLinksViewJSON(params);
-    }
-
+    await executeLinksViewJSON(params);
     return;
   }
 
-  // Text mode uses Ink for everything (loading, data, errors)
-  if (isGapsMode) {
-    await executeGapsViewTUI();
-  } else {
-    await executeLinksViewTUI(params);
+  await executeLinksViewTUI(params);
+}
+
+async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
+  const parseResult = LinksGapsCommandOptionsSchema.safeParse(rawOptions);
+  if (!parseResult.success) {
+    displayCliError(
+      'links-gaps',
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
+      ExitCodes.INVALID_ARGS,
+      'text'
+    );
   }
+
+  const options = parseResult.data;
+  if (options.json ?? false) {
+    await executeGapsViewJSON();
+    return;
+  }
+
+  await executeGapsViewTUI();
 }
 
 /**
@@ -279,7 +304,7 @@ async function executeGapsViewTUI(): Promise<void> {
     });
   } catch (error) {
     displayCliError(
-      'links-view',
+      'links-gaps',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
       'text'
@@ -297,7 +322,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
       const linkRepo = database.transactionLinks;
       const txRepo = database.transactions;
 
-      const linksResult = await linkRepo.findAll(params.status as LinkStatus);
+      const linksResult = await linkRepo.findAll(params.status);
       if (linksResult.isErr()) {
         displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -351,19 +376,19 @@ async function executeGapsViewJSON(): Promise<void> {
 
       const transactionsResult = await txRepo.findAll();
       if (transactionsResult.isErr()) {
-        displayCliError('links-view', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        displayCliError('links-gaps', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
       const linksResult = await linkRepo.findAll();
       if (linksResult.isErr()) {
-        displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        displayCliError('links-gaps', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
       const accountsResult = await accountRepo.findAll();
       if (accountsResult.isErr()) {
-        displayCliError('links-view', accountsResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        displayCliError('links-gaps', accountsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
@@ -388,11 +413,11 @@ async function executeGapsViewJSON(): Promise<void> {
         },
       };
 
-      outputSuccess('links-view', resultData);
+      outputSuccess('links-gaps', resultData);
     });
   } catch (error) {
     displayCliError(
-      'links-view',
+      'links-gaps',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
       'json'

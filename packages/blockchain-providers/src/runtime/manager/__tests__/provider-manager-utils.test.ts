@@ -139,13 +139,10 @@ describe('provider-manager-utils', () => {
         ['provider-3', createInitialCircuitState()],
       ]);
 
-      const result = selectProvidersForOperation(
-        [provider1, provider2, provider3],
-        healthMap,
-        circuitMap,
-        { type: 'getAddressTransactions', address: '0x123' },
-        Date.now()
-      );
+      const result = selectProvidersForOperation([provider1, provider2, provider3], healthMap, circuitMap, {
+        operation: { type: 'getAddressTransactions', address: '0x123' },
+        now: Date.now(),
+      });
 
       expect(result).toHaveLength(3);
       expect(result[0]!.provider.name).toBe('provider-2'); // Fastest (bonus)
@@ -166,13 +163,10 @@ describe('provider-manager-utils', () => {
         ['provider-2', createInitialCircuitState()],
       ]);
 
-      const result = selectProvidersForOperation(
-        [provider1, provider2],
-        healthMap,
-        circuitMap,
-        { type: 'getAddressTransactions', address: '0x123' },
-        Date.now()
-      );
+      const result = selectProvidersForOperation([provider1, provider2], healthMap, circuitMap, {
+        operation: { type: 'getAddressTransactions', address: '0x123' },
+        now: Date.now(),
+      });
 
       expect(result).toHaveLength(1);
       expect(result[0]!.provider.name).toBe('provider-1');
@@ -189,13 +183,10 @@ describe('provider-manager-utils', () => {
         ['provider-2', createInitialCircuitState()],
       ]);
 
-      const result = selectProvidersForOperation(
-        [provider1, provider2],
-        healthMap,
-        circuitMap,
-        { type: 'getAddressTransactions', address: '0x123' },
-        Date.now()
-      );
+      const result = selectProvidersForOperation([provider1, provider2], healthMap, circuitMap, {
+        operation: { type: 'getAddressTransactions', address: '0x123' },
+        now: Date.now(),
+      });
 
       expect(result).toHaveLength(1);
       expect(result[0]!.provider.name).toBe('provider-1');

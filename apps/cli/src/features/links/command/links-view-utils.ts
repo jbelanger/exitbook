@@ -10,7 +10,7 @@ import type { CommonViewFilters } from '../../shared/view-utils.js';
  * Parameters for links view command.
  */
 export interface LinksViewParams extends CommonViewFilters {
-  status?: LinkStatus | 'gaps' | undefined;
+  status?: LinkStatus | undefined;
   minConfidence?: number | undefined;
   maxConfidence?: number | undefined;
   verbose?: boolean | undefined;

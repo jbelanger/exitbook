@@ -48,19 +48,25 @@ export function supportsOperation(capabilities: ProviderCapabilities, operation:
  * Select and order providers based on scores and capabilities
  * Pure function - no side effects, deterministic ordering
  */
-export function selectProvidersForOperation(
-  providers: IBlockchainProvider[],
-  healthMap: Map<string, ProviderHealth>,
-  circuitMap: Map<string, CircuitState>,
-  operation: ProviderOperation,
-  now: number
-): {
+export interface ProviderSelectionQuery {
+  operation: ProviderOperation;
+  now: number;
+}
+
+export interface SelectedBlockchainProvider {
   health: ProviderHealth;
   provider: IBlockchainProvider;
   score: number;
-}[] {
-  return selectProviders(providers, healthMap, circuitMap, now, {
-    filter: (p) => supportsOperation(p.capabilities, operation),
+}
+
+export function selectProvidersForOperation(
+  providers: IBlockchainProvider[],
+  healthMap: ReadonlyMap<string, ProviderHealth>,
+  circuitMap: ReadonlyMap<string, CircuitState>,
+  query: ProviderSelectionQuery
+): SelectedBlockchainProvider[] {
+  return selectProviders(providers, healthMap, circuitMap, query.now, {
+    filter: (p) => supportsOperation(p.capabilities, query.operation),
     bonusScore: (p) => {
       const rps = p.rateLimit.requestsPerSecond;
       if (rps <= 0.5) return -40;
