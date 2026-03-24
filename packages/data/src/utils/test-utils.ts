@@ -1,4 +1,4 @@
-import { DataContext } from '../data-context.js';
+import { DataSession } from '../data-session.js';
 import type { KyselyDB } from '../database.js';
 import { createDatabase, runMigrations } from '../database.js';
 
@@ -22,9 +22,9 @@ export async function createTestDatabase(): Promise<KyselyDB> {
 }
 
 /**
- * Create an in-memory DataContext with migrations applied. For use in tests only.
+ * Create an in-memory DataSession with migrations applied. For use in tests only.
  */
-export async function createTestDataContext(): Promise<DataContext> {
+export async function createTestDataSession(): Promise<DataSession> {
   const db = await createTestDatabase();
-  return new DataContext(db);
+  return new DataSession(db);
 }

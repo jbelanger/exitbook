@@ -1,6 +1,6 @@
 import type { Transaction, TransactionLink } from '@exitbook/core';
 import { seedAssetMovementFingerprint } from '@exitbook/core/test-utils';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
@@ -364,27 +364,27 @@ export function createMockOverrideStore(): {
 }
 
 /**
- * Create a mock DataContext with transaction and links repositories
+ * Create a mock DataSession with transaction and links repositories
  */
 export function createMockDataContext(
   overrides: {
     transactionLinks?: ReturnType<typeof createMockLinkRepository>;
     transactions?: ReturnType<typeof createMockTransactionRepository>;
   } = {}
-): DataContext {
+): DataSession {
   const transactionLinks = overrides.transactionLinks ?? createMockLinkRepository();
   const transactions = overrides.transactions ?? createMockTransactionRepository();
 
   return {
     transactionLinks,
     transactions,
-    executeInTransaction: vi.fn(async (fn: (tx: DataContext) => Promise<unknown>) =>
+    executeInTransaction: vi.fn(async (fn: (tx: DataSession) => Promise<unknown>) =>
       fn({
         transactionLinks,
         transactions,
-      } as unknown as DataContext)
+      } as unknown as DataSession)
     ),
-  } as unknown as DataContext;
+  } as unknown as DataSession;
 }
 
 /**

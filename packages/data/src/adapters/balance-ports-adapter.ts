@@ -1,15 +1,15 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import type { BalancePorts } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { toBalanceScopeKey } from './balance-scope-utils.js';
 
 /**
- * Bridges DataContext repositories to ingestion's BalancePorts.
+ * Bridges DataSession repositories to ingestion's BalancePorts.
  * This is the only place where the concrete data layer meets the balance workflow's ports.
  */
-export function buildBalancePorts(db: DataContext): BalancePorts {
+export function buildBalancePorts(db: DataSession): BalancePorts {
   return {
     accountLookup: {
       findById: (id) => db.accounts.findByIdOptional(id),

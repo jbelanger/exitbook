@@ -1,5 +1,5 @@
 import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -88,7 +88,7 @@ describe('CostBasisHandler', () => {
           })
         ),
       },
-    } as unknown as DataContext;
+    } as unknown as DataSession;
 
     const fetchPrice = vi.fn();
     mockPriceRuntime = {
@@ -152,7 +152,7 @@ describe('CostBasisHandler', () => {
         projectionState: {
           get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
         },
-      } as unknown as DataContext;
+      } as unknown as DataSession;
       handler = new CostBasisHandler(failingDb, '/tmp/test-data');
 
       const result = await handler.execute(validParams);

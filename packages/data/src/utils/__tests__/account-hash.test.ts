@@ -1,7 +1,7 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DataContext } from '../../data-context.js';
+import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
 import { computeAccountHash } from '../account-hash.js';
@@ -9,11 +9,11 @@ import { createTestDatabase } from '../test-utils.js';
 
 describe('computeAccountHash', () => {
   let db: KyselyDB;
-  let ctx: DataContext;
+  let ctx: DataSession;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    ctx = new DataContext(db);
+    ctx = new DataSession(db);
     await seedUser(db);
   });
 

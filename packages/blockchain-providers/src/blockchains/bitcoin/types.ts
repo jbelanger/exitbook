@@ -1,6 +1,6 @@
 import type { HDKey } from '@scure/bip32';
 
-export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
+export type BitcoinWalletAddressKind = 'xpub' | 'ypub' | 'zpub' | 'address';
 export type BipStandard = 'bip44' | 'bip49' | 'bip84';
 export type AddressType = 'legacy' | 'segwit' | 'bech32';
 
@@ -11,7 +11,7 @@ export interface BitcoinWalletAddress {
   bipStandard?: BipStandard | undefined; // Detected BIP standard
   derivationPath?: string | undefined; // Derivation path used
   derivedAddresses?: string[] | undefined; // Internal derived addresses (if xpub)
-  type: XpubType; // Type of address
+  kind: BitcoinWalletAddressKind; // Wallet-address kind (xpub/ypub/zpub/single address)
 }
 
 export interface SmartDetectionResult {

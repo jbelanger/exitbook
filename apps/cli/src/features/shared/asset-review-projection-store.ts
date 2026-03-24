@@ -1,9 +1,9 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 export function readAssetReviewProjectionSummaries(
-  db: DataContext,
+  db: DataSession,
   assetIds?: string[]
 ): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
   if (assetIds && assetIds.length === 0) {
@@ -23,6 +23,6 @@ export function readAssetReviewProjectionSummaries(
   });
 }
 
-export function invalidateAssetReviewProjection(db: DataContext, reason: string): Promise<Result<void, Error>> {
+export function invalidateAssetReviewProjection(db: DataSession, reason: string): Promise<Result<void, Error>> {
   return db.projectionState.markStale('asset-review', reason);
 }

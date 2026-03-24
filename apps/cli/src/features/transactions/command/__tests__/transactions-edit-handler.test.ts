@@ -1,6 +1,6 @@
 import type { CreateOverrideEventOptions, OverrideEvent, Transaction } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
 import type { OverrideStore } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
 import { ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
@@ -88,7 +88,7 @@ describe('TransactionsEditHandler', () => {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionNoteOverrides,
       },
-    } as unknown as Pick<DataContext, 'transactions'>;
+    } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
@@ -131,7 +131,7 @@ describe('TransactionsEditHandler', () => {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionNoteOverrides,
       },
-    } as unknown as Pick<DataContext, 'transactions'>;
+    } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore([
       createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet'),
     ]);
@@ -160,7 +160,7 @@ describe('TransactionsEditHandler', () => {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionNoteOverrides,
       },
-    } as unknown as Pick<DataContext, 'transactions'>;
+    } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore([
       createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet'),
     ]);
@@ -200,7 +200,7 @@ describe('TransactionsEditHandler', () => {
         findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionNoteOverrides,
       },
-    } as unknown as Pick<DataContext, 'transactions'>;
+    } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
@@ -223,7 +223,7 @@ describe('TransactionsEditHandler', () => {
         findById: vi.fn().mockResolvedValue(ok(undefined)),
         materializeTransactionNoteOverrides: vi.fn(),
       },
-    } as unknown as Pick<DataContext, 'transactions'>;
+    } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);

@@ -1,15 +1,15 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { ImportPorts } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
- * Bridges DataContext repositories to ingestion's ImportPorts.
+ * Bridges DataSession repositories to ingestion's ImportPorts.
  * Mirrors the pattern established by buildProcessingPorts.
  */
-export function buildImportPorts(db: DataContext): ImportPorts {
+export function buildImportPorts(db: DataSession): ImportPorts {
   return {
     users: {
       findOrCreateDefault: () => db.users.findOrCreateDefault(),

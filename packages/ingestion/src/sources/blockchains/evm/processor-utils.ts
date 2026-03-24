@@ -71,25 +71,28 @@ export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMov
  *
  * Returns a zero-amount native currency movement if no non-zero movements are found.
  */
-export function selectPrimaryEvmMovement(movements: EvmMovement[], nativeCurrency: Currency): EvmMovement | null {
-  // Find largest non-zero movement
-  const largestMovement = movements
-    .sort((a, b) => {
-      try {
-        return parseDecimal(b.amount).comparedTo(parseDecimal(a.amount));
-      } catch (error) {
-        logger.warn({ error, itemA: a, itemB: b }, 'Failed to parse amount during sort comparison, treating as equal');
-        return 0;
+export function selectPrimaryEvmMovement(movements: EvmMovement[], nativeCurrency: Currency): EvmMovement {
+  let largestMovement: EvmMovement | undefined;
+  let largestAmount: Decimal | undefined;
+
+  for (const movement of movements) {
+    try {
+      const amount = parseDecimal(movement.amount || '0');
+      if (amount.isZero()) {
+        continue;
       }
-    })
-    .find((movement) => {
-      try {
-        return !parseDecimal(movement.amount || '0').isZero();
-      } catch (error) {
-        logger.warn({ error, movement }, 'Failed to parse amount during filter, excluding movement');
-        return false;
+
+      if (largestAmount === undefined || amount.greaterThan(largestAmount)) {
+        largestMovement = movement;
+        largestAmount = amount;
       }
-    });
+    } catch (error) {
+      logger.warn(
+        { error, movement },
+        'Failed to parse amount while selecting primary EVM movement, excluding movement'
+      );
+    }
+  }
 
   // Fallback to native currency with zero amount if no non-zero movements found
   return largestMovement ?? { asset: nativeCurrency, amount: '0' };

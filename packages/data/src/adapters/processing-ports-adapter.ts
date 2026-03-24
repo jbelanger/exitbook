@@ -1,7 +1,7 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
 import { materializeStoredTransactionNoteOverrides } from '../overrides/transaction-note-replay.js';
 import { computeAccountHash } from '../utils/account-hash.js';
@@ -9,11 +9,11 @@ import { computeAccountHash } from '../utils/account-hash.js';
 import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
- * Bridges DataContext repositories to ingestion's ProcessingPorts.
+ * Bridges DataSession repositories to ingestion's ProcessingPorts.
  * This is the only place where the concrete data layer meets the ingestion hexagon's ports.
  */
 export function buildProcessingPorts(
-  db: DataContext,
+  db: DataSession,
   options: {
     overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
     rebuildAssetReviewProjection: () => Promise<import('@exitbook/foundation').Result<void, Error>>;
@@ -37,15 +37,15 @@ export function buildProcessingPorts(
     },
 
     nearBatchSource: {
-      fetchPendingAnchorHashes: (accountId, limit) => db.nearRawData.findPendingAnchorHashes(accountId, limit),
+      fetchPendingAnchorHashes: (accountId, limit) => db.nearRawTransactions.findPendingAnchorHashes(accountId, limit),
 
-      fetchPendingByHashes: (accountId, hashes) => db.nearRawData.findPendingByHashes(accountId, hashes),
+      fetchPendingByHashes: (accountId, hashes) => db.nearRawTransactions.findPendingByHashes(accountId, hashes),
 
       fetchPendingByReceiptIds: (accountId, receiptIds) =>
-        db.nearRawData.findPendingByReceiptIds(accountId, receiptIds),
+        db.nearRawTransactions.findPendingByReceiptIds(accountId, receiptIds),
 
       findProcessedBalanceChanges: (accountId, affectedAccountIds, beforeTimestamp) =>
-        db.nearRawData.findProcessedBalanceChangesByAccounts(accountId, affectedAccountIds, beforeTimestamp),
+        db.nearRawTransactions.findProcessedBalanceChangesByAccounts(accountId, affectedAccountIds, beforeTimestamp),
     },
 
     transactionSink: {

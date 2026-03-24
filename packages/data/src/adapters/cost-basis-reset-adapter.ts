@@ -1,8 +1,8 @@
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
-export function buildCostBasisResetPorts(db: DataContext): {
+export function buildCostBasisResetPorts(db: DataSession): {
   countResetImpact(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
   reset(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
 } {

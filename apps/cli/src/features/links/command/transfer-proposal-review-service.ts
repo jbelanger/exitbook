@@ -1,7 +1,7 @@
 import { buildCostBasisScopedTransactions, validateTransferProposalConfirmability } from '@exitbook/accounting';
 import type { TransactionLink } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
 import type { OverrideStore } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import type { Result } from '@exitbook/foundation';
 import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -31,7 +31,7 @@ interface TransferProposalReviewResult {
 
 export class TransferProposalReviewService {
   constructor(
-    private readonly db: DataContext,
+    private readonly db: DataSession,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 

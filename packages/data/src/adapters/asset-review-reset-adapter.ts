@@ -1,8 +1,8 @@
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
-export function buildAssetReviewResetPorts(db: DataContext): {
+export function buildAssetReviewResetPorts(db: DataSession): {
   countResetImpact(accountIds?: number[]): Promise<import('@exitbook/foundation').Result<{ assets: number }, Error>>;
   reset(accountIds?: number[]): Promise<import('@exitbook/foundation').Result<{ assets: number }, Error>>;
 } {

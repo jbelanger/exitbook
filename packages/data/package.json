@@ -9,7 +9,7 @@
     ".": "./src/index.ts",
     "./accounting": "./src/accounting.ts",
     "./balances": "./src/balances.ts",
-    "./context": "./src/context.ts",
+    "./session": "./src/data-session.ts",
     "./ingestion": "./src/ingestion.ts",
     "./overrides": "./src/overrides.ts",
     "./projections": "./src/projections.ts",

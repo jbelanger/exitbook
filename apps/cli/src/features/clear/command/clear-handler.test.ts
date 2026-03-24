@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -28,7 +28,7 @@ describe('clear-handler', () => {
       users: { findOrCreateDefault: vi.fn() },
       accounts: { findAll: vi.fn() },
       executeInTransaction: vi.fn(),
-    } as unknown as DataContext;
+    } as unknown as DataSession;
 
     const handler = createClearHandler({ db });
 

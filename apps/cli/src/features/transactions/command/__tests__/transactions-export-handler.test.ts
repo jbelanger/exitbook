@@ -1,5 +1,5 @@
 import type { Transaction } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
@@ -33,7 +33,7 @@ describe('TransactionsExportHandler', () => {
     const mockDb = {
       transactions: mockTransactionRepository,
       transactionLinks: mockTransactionLinkQueries,
-    } as unknown as DataContext;
+    } as unknown as DataSession;
 
     handler = new TransactionsExportHandler(mockDb);
   });

@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { DataContext } from '@exitbook/data/context';
+import { DataSession } from '@exitbook/data/session';
 import type { Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
@@ -42,7 +42,7 @@ export class CommandScope {
   readonly app?: CliAppRuntime | undefined;
   readonly dataDir: string;
 
-  private _database?: DataContext | undefined;
+  private _database?: DataSession | undefined;
   private _databaseClosed = false;
   private _disposed = false;
   private cleanupStack: (() => Promise<void>)[] = [];
@@ -65,13 +65,13 @@ export class CommandScope {
    * Lazy-initialize and return the database connection.
    * Throws if called after closeDatabase().
    */
-  async database(): Promise<DataContext> {
+  async database(): Promise<DataSession> {
     if (this._databaseClosed) {
       throw new Error('Database already closed');
     }
     if (!this._database) {
       const databasePath = this.app?.databasePath ?? path.join(this.dataDir, 'transactions.db');
-      const initResult = await DataContext.initialize(databasePath);
+      const initResult = await DataSession.initialize(databasePath);
       if (initResult.isErr()) {
         throw initResult.error;
       }

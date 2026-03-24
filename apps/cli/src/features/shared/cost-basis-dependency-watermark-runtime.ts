@@ -4,12 +4,12 @@ import {
   type CostBasisDependencyWatermark,
 } from '@exitbook/accounting';
 import { buildCostBasisArtifactFreshnessPorts } from '@exitbook/data/accounting';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, type Result } from '@exitbook/foundation';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
 
 export async function readCostBasisDependencyWatermark(
-  db: DataContext,
+  db: DataSession,
   dataDir: string,
   accountingExclusionPolicy: AccountingExclusionPolicy
 ): Promise<Result<CostBasisDependencyWatermark, Error>> {

@@ -1,8 +1,8 @@
 import { LinkingOrchestrator, type LinkingEvent } from '@exitbook/accounting';
 import type { OverrideEvent } from '@exitbook/core';
 import { buildLinkingPorts } from '@exitbook/data/accounting';
-import type { DataContext } from '@exitbook/data/context';
 import { OverrideStore } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -20,7 +20,7 @@ export interface CliLinkingRuntime {
 
 export interface CreateCliLinkingRuntimeOptions {
   dataDir: string;
-  database: DataContext;
+  database: DataSession;
   isJsonMode: boolean;
 }
 

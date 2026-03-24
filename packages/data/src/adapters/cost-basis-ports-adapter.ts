@@ -1,13 +1,13 @@
 import type { ICostBasisContextReader } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext repositories to accounting's ICostBasisContextReader port.
+ * Bridges DataSession repositories to accounting's ICostBasisContextReader port.
  * Mirrors the pattern established by buildLinkingPorts and buildPricingPorts.
  */
-export function buildCostBasisPorts(db: DataContext): ICostBasisContextReader {
+export function buildCostBasisPorts(db: DataSession): ICostBasisContextReader {
   return {
     loadCostBasisContext: () =>
       resultDoAsync(async function* () {

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
-import type { DataContext } from '@exitbook/data/context';
-import * as dataModule from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
+import * as dataModule from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,12 +14,12 @@ const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
   mockInkRender: vi.fn(),
 }));
 
-// Mock the DataContext class — replace with object exposing mocked static method
+// Mock the DataSession class — replace with object exposing mocked static method
 vi.mock('@exitbook/data/context', async () => {
   const actual = await vi.importActual('@exitbook/data/context');
   return {
     ...actual,
-    DataContext: {
+    DataSession: {
       initialize: mockInitialize,
     },
   };
@@ -34,12 +34,12 @@ const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as
 
 // Module-level close mock so it's accessible across both describe blocks
 let mockClose: ReturnType<typeof vi.fn>;
-let mockDataContext: DataContext;
+let mockDataContext: DataSession;
 
 describe('CommandScope', () => {
   beforeEach(() => {
     mockClose = vi.fn().mockResolvedValue(ok(undefined));
-    mockDataContext = { close: mockClose } as unknown as DataContext;
+    mockDataContext = { close: mockClose } as unknown as DataSession;
     mockInitialize.mockResolvedValue(ok(mockDataContext));
   });
 
@@ -53,7 +53,7 @@ describe('CommandScope', () => {
       const db = await ctx.database();
 
       expect(db).toBe(mockDataContext);
-      expect(dataModule.DataContext.initialize).toHaveBeenCalledOnce();
+      expect(dataModule.DataSession.initialize).toHaveBeenCalledOnce();
     });
 
     it('should return same instance on subsequent calls', async () => {
@@ -62,7 +62,7 @@ describe('CommandScope', () => {
       const db2 = await ctx.database();
 
       expect(db1).toBe(db2);
-      expect(dataModule.DataContext.initialize).toHaveBeenCalledOnce();
+      expect(dataModule.DataSession.initialize).toHaveBeenCalledOnce();
     });
 
     it('should throw if called after closeDatabase()', async () => {
@@ -219,7 +219,7 @@ describe('renderApp', () => {
 describe('runCommand', () => {
   beforeEach(() => {
     mockClose = vi.fn().mockResolvedValue(ok(undefined));
-    mockDataContext = { close: mockClose } as unknown as DataContext;
+    mockDataContext = { close: mockClose } as unknown as DataSession;
     mockInitialize.mockResolvedValue(ok(mockDataContext));
   });
 
@@ -228,7 +228,7 @@ describe('runCommand', () => {
   });
 
   it('should run function and dispose context', async () => {
-    let dbRef: DataContext | undefined;
+    let dbRef: DataSession | undefined;
 
     await runCommand(async (ctx) => {
       dbRef = await ctx.database();

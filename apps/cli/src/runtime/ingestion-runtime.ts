@@ -1,5 +1,5 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
 import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -30,7 +30,7 @@ export interface CreateIngestionRuntimeOptions {
 
 export async function createIngestionRuntime(
   ctx: CommandScope,
-  database: DataContext,
+  database: DataSession,
   options: CreateIngestionRuntimeOptions = {}
 ): Promise<IngestionRuntime> {
   const appRuntime = ctx.requireAppRuntime();

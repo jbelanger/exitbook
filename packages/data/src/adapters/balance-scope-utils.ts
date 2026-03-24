@@ -5,13 +5,13 @@ import {
   type IBalanceScopeAccountLookup,
 } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 export function toBalanceScopeKey(scopeAccountId: number): string {
   return `balance:${scopeAccountId}`;
 }
 
-export async function resolveBalanceScopeAccountId(db: DataContext, accountId: number): Promise<Result<number, Error>> {
+export async function resolveBalanceScopeAccountId(db: DataSession, accountId: number): Promise<Result<number, Error>> {
   const requestedAccountResult = await loadRequestedAccount(db, accountId);
   if (requestedAccountResult.isErr()) {
     return err(requestedAccountResult.error);
@@ -21,7 +21,7 @@ export async function resolveBalanceScopeAccountId(db: DataContext, accountId: n
 }
 
 export async function resolveBalanceScopeAccountIds(
-  db: DataContext,
+  db: DataSession,
   accountIds?: number[]
 ): Promise<Result<number[] | undefined, Error>> {
   if (!accountIds) {
@@ -51,7 +51,7 @@ export async function resolveBalanceScopeAccountIds(
   return ok([...scopeIds]);
 }
 
-function createBalanceScopeLookup(db: DataContext): IBalanceScopeAccountLookup<BalanceScopeAccount> {
+function createBalanceScopeLookup(db: DataSession): IBalanceScopeAccountLookup<BalanceScopeAccount> {
   return {
     findById(id) {
       return db.accounts.findByIdOptional(id);
@@ -59,7 +59,7 @@ function createBalanceScopeLookup(db: DataContext): IBalanceScopeAccountLookup<B
   };
 }
 
-async function loadRequestedAccount(db: DataContext, accountId: number): Promise<Result<BalanceScopeAccount, Error>> {
+async function loadRequestedAccount(db: DataSession, accountId: number): Promise<Result<BalanceScopeAccount, Error>> {
   const accountResult = await db.accounts.findById(accountId);
   if (accountResult.isErr()) {
     return err(accountResult.error);

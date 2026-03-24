@@ -2,18 +2,18 @@ import { ok, err, type Result } from '@exitbook/foundation';
 import { assertOk, assertErr } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DataContext } from '../data-context.js';
+import { DataSession } from '../data-session.js';
 import type { KyselyDB } from '../database.js';
 import { seedUser } from '../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../utils/test-utils.js';
 
-describe('DataContext', () => {
+describe('DataSession', () => {
   let db: KyselyDB;
-  let ctx: DataContext;
+  let ctx: DataSession;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    ctx = new DataContext(db);
+    ctx = new DataSession(db);
     await seedUser(db);
   });
 
@@ -29,7 +29,7 @@ describe('DataContext', () => {
     expect(ctx.rawTransactions).toBeDefined();
     expect(ctx.importSessions).toBeDefined();
     expect(ctx.users).toBeDefined();
-    expect(ctx.nearRawData).toBeDefined();
+    expect(ctx.nearRawTransactions).toBeDefined();
     expect(ctx.projectionState).toBeDefined();
   });
 

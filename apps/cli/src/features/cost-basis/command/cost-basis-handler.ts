@@ -13,7 +13,7 @@ import {
   buildCostBasisFailureSnapshotStore,
   buildCostBasisPorts,
 } from '@exitbook/data/accounting';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
@@ -46,7 +46,7 @@ interface PreparedCostBasisArtifactResult {
  */
 export class CostBasisHandler {
   constructor(
-    private readonly db: DataContext,
+    private readonly db: DataSession,
     private readonly dataDir: string,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() },
     private readonly priceProviderConfig?: PriceProviderConfig | undefined

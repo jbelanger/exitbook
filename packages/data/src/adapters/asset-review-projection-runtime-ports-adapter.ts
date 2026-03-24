@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { AssetReviewProjectionRuntimePorts } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 import { readAssetReviewDecisions } from '../overrides/asset-review-replay.js';
 import { OverrideStore } from '../overrides/override-store.js';
 
@@ -10,7 +10,7 @@ import { buildAssetReviewProjectionDataPorts } from './asset-review-projection-d
 
 const ASSET_REVIEW_OVERRIDE_SCOPES = ['asset-review-confirm', 'asset-review-clear'] as const;
 
-export function buildAssetReviewRuntimePorts(db: DataContext, dataDir: string): AssetReviewProjectionRuntimePorts {
+export function buildAssetReviewRuntimePorts(db: DataSession, dataDir: string): AssetReviewProjectionRuntimePorts {
   const overrideStore = new OverrideStore(dataDir);
   const projectionPorts = buildAssetReviewProjectionDataPorts(db);
   const freshnessPorts = buildAssetReviewFreshnessPorts(db);

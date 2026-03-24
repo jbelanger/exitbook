@@ -1,11 +1,11 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { IProcessedTransactionsFreshness } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 import { computeAccountHash } from '../utils/account-hash.js';
 
 /**
- * Bridges DataContext to ingestion's IProcessedTransactionsFreshness port.
+ * Bridges DataSession to ingestion's IProcessedTransactionsFreshness port.
  *
  * Detects staleness via:
  * - No projection state row (never processed)
@@ -13,7 +13,7 @@ import { computeAccountHash } from '../utils/account-hash.js';
  * - New import completed since last build
  * - Projection state explicitly marked stale/failed/building
  */
-export function buildProcessedTransactionsFreshnessPorts(db: DataContext): IProcessedTransactionsFreshness {
+export function buildProcessedTransactionsFreshnessPorts(db: DataSession): IProcessedTransactionsFreshness {
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {

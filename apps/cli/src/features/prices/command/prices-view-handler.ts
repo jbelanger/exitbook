@@ -1,7 +1,7 @@
 // Handler for view prices command
 
 import type { Transaction } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
@@ -29,7 +29,7 @@ interface MissingPricesResult {
  * Handler for viewing price coverage.
  */
 export class PricesViewHandler {
-  constructor(private readonly db: DataContext) {}
+  constructor(private readonly db: DataSession) {}
 
   /**
    * Execute the view prices command (coverage mode).

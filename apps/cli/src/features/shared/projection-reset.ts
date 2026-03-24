@@ -1,11 +1,11 @@
 import { type ProjectionId, resetPlan } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
 import {
   buildAssetReviewResetPorts,
   buildBalancesResetPorts,
   buildLinksResetPorts,
   buildProcessedTransactionsResetPorts,
 } from '@exitbook/data/projections';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 export interface ProjectionResetImpact {
@@ -16,7 +16,7 @@ export interface ProjectionResetImpact {
 }
 
 export async function countProjectionResetImpact(
-  db: DataContext,
+  db: DataSession,
   target: ProjectionId,
   accountIds?: number[]
 ): Promise<Result<ProjectionResetImpact, Error>> {
@@ -33,7 +33,7 @@ export async function countProjectionResetImpact(
 }
 
 export async function resetProjections(
-  db: DataContext,
+  db: DataSession,
   target: ProjectionId,
   accountIds?: number[]
 ): Promise<Result<ProjectionResetImpact, Error>> {
@@ -52,7 +52,7 @@ export async function resetProjections(
 }
 
 function countSingleProjection(
-  db: DataContext,
+  db: DataSession,
   projectionId: ProjectionId,
   accountIds?: number[]
 ): Promise<Result<ProjectionResetImpact[ProjectionIdToImpactKey<typeof projectionId>], Error>> {
@@ -77,7 +77,7 @@ function countSingleProjection(
 }
 
 function resetSingleProjection(
-  db: DataContext,
+  db: DataSession,
   projectionId: ProjectionId,
   accountIds?: number[]
 ): Promise<Result<ProjectionResetImpact[ProjectionIdToImpactKey<typeof projectionId>], Error>> {

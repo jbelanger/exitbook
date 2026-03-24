@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
@@ -24,7 +24,7 @@ vi.mock('../../../shared/projection-reset.js', () => ({
 }));
 
 describe('reprocess runner helpers', () => {
-  let mockDatabase: DataContext;
+  let mockDatabase: DataSession;
   let mockProcessingWorkflow: { prepareReprocess: Mock; processImportedSessions: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
   let mockInstrumentation: { getSummary: Mock };
@@ -33,7 +33,7 @@ describe('reprocess runner helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockDatabase = {} as DataContext;
+    mockDatabase = {} as DataSession;
 
     mockProcessingWorkflow = {
       prepareReprocess: vi.fn().mockResolvedValue(ok({ accountIds: [1] })),

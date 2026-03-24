@@ -1,5 +1,5 @@
 import type { Account, ExchangeCredentials } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -20,14 +20,14 @@ const logger = getLogger('BalanceVerificationRunner');
 interface BalanceVerificationRunnerDeps {
   assetDetailsBuilder: BalanceAssetDetailsBuilder;
   balanceOperation: BalanceWorkflow | undefined;
-  db: DataContext;
+  db: DataSession;
 }
 
 export class BalanceVerificationRunner {
   private abortController: AbortController | undefined;
   private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
   private readonly balanceOperation: BalanceWorkflow | undefined;
-  private readonly db: DataContext;
+  private readonly db: DataSession;
   private streamPromise: Promise<void> | undefined;
 
   constructor(deps: BalanceVerificationRunnerDeps) {

@@ -1,6 +1,6 @@
 import type { Account, BalanceSnapshot } from '@exitbook/core';
 import { buildBalancesFreshnessPorts, resolveBalanceScopeAccountId } from '@exitbook/data/balances';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { BalanceWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -18,13 +18,13 @@ const logger = getLogger('BalanceStoredSnapshotReader');
 interface BalanceStoredSnapshotReaderDeps {
   assetDetailsBuilder: BalanceAssetDetailsBuilder;
   balanceOperation: BalanceWorkflow | undefined;
-  db: DataContext;
+  db: DataSession;
 }
 
 export class BalanceStoredSnapshotReader {
   private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
   private readonly balanceOperation: BalanceWorkflow | undefined;
-  private readonly db: DataContext;
+  private readonly db: DataSession;
 
   constructor(deps: BalanceStoredSnapshotReaderDeps) {
     this.assetDetailsBuilder = deps.assetDetailsBuilder;

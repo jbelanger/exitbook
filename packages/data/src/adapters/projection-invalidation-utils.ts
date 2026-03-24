@@ -1,11 +1,11 @@
 import { cascadeInvalidation, type ProjectionId } from '@exitbook/core';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from './balance-scope-utils.js';
 
-async function resolveExistingBalanceScopeIds(db: DataContext): Promise<Result<number[], Error>> {
+async function resolveExistingBalanceScopeIds(db: DataSession): Promise<Result<number[], Error>> {
   return resultDoAsync(async function* () {
     const snapshots = yield* await db.balanceSnapshots.findSnapshots();
     return snapshots.map((snapshot) => snapshot.scopeAccountId);
@@ -14,7 +14,7 @@ async function resolveExistingBalanceScopeIds(db: DataContext): Promise<Result<n
 
 export async function markDownstreamProjectionsStale(params: {
   accountIds?: number[] | undefined;
-  db: DataContext;
+  db: DataSession;
   from: ProjectionId;
   reason: string;
 }): Promise<Result<void, Error>> {

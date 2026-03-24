@@ -1,18 +1,18 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
- * Bridges DataContext to ingestion's IProcessedTransactionsReset port.
+ * Bridges DataSession to ingestion's IProcessedTransactionsReset port.
  *
  * Owns:
  * - transactions (processing output)
  * - raw processing status reset back to pending
  */
-export function buildProcessedTransactionsResetPorts(db: DataContext): IProcessedTransactionsReset {
+export function buildProcessedTransactionsResetPorts(db: DataSession): IProcessedTransactionsReset {
   return {
     async countResetImpact(accountIds) {
       return resultDoAsync(async function* () {

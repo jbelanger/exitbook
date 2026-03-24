@@ -1,11 +1,11 @@
 import type { ProjectionStatus } from '@exitbook/core';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { toBalanceScopeKey } from './balance-scope-utils.js';
 
-export function buildBalancesFreshnessPorts(db: DataContext): {
+export function buildBalancesFreshnessPorts(db: DataSession): {
   checkFreshness(
     scopeAccountId: number
   ): Promise<Result<{ reason: string | undefined; status: ProjectionStatus }, Error>>;

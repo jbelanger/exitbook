@@ -1,13 +1,13 @@
 import type { ILinkingPersistence } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext repositories to accounting's ILinkingPersistence port.
+ * Bridges DataSession repositories to accounting's ILinkingPersistence port.
  * Mirrors the pattern established by buildProcessingPorts and buildImportPorts.
  */
-export function buildLinkingPorts(db: DataContext): ILinkingPersistence {
+export function buildLinkingPorts(db: DataSession): ILinkingPersistence {
   return {
     loadTransactions: () => db.transactions.findAll(),
 

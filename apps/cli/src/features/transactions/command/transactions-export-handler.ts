@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
@@ -38,7 +38,7 @@ interface ExportOutput {
  * Reusable by both CLI command and other contexts.
  */
 export class TransactionsExportHandler {
-  constructor(private readonly db: DataContext) {}
+  constructor(private readonly db: DataSession) {}
 
   /**
    * Execute the export operation.

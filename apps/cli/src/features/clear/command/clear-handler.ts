@@ -1,7 +1,7 @@
 import type { Account } from '@exitbook/core';
 import { buildCostBasisResetPorts } from '@exitbook/data/accounting';
-import type { DataContext } from '@exitbook/data/context';
 import { buildIngestionPurgePorts } from '@exitbook/data/ingestion';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IngestionPurgeImpact } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -104,7 +104,7 @@ function describeFilters(params: ClearParams): string {
 // ---------------------------------------------------------------------------
 
 interface ClearHandlerDeps {
-  db: DataContext;
+  db: DataSession;
 }
 
 /**

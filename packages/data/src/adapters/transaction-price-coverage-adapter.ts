@@ -1,14 +1,14 @@
 import type { IPriceCoverageData } from '@exitbook/accounting/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext to accounting's IPriceCoverageData port.
+ * Bridges DataSession to accounting's IPriceCoverageData port.
  *
  * Only supplies transaction data — coverage decision logic
  * lives in accounting (checkTransactionPriceCoverage).
  */
-export function buildPriceCoverageDataPorts(db: DataContext): IPriceCoverageData {
+export function buildPriceCoverageDataPorts(db: DataSession): IPriceCoverageData {
   return {
     loadTransactions() {
       return db.transactions.findAll();

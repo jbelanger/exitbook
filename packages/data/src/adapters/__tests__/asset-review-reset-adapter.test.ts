@@ -1,18 +1,18 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DataContext } from '../../data-context.js';
+import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { buildAssetReviewResetPorts } from '../asset-review-reset-adapter.js';
 
 describe('buildAssetReviewResetPorts', () => {
   let db: KyselyDB;
-  let ctx: DataContext;
+  let ctx: DataSession;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    ctx = new DataContext(db);
+    ctx = new DataSession(db);
   });
 
   afterEach(async () => {

@@ -1,6 +1,6 @@
 import { PriceEnrichmentPipeline, type AccountingExclusionPolicy, type PricingEvent } from '@exitbook/accounting';
 import { buildPricingPorts } from '@exitbook/data/accounting';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -23,7 +23,7 @@ export interface CliPriceEnrichmentRuntime {
 
 export interface CreateCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
-  database: DataContext;
+  database: DataSession;
   isJsonMode: boolean;
   registerCleanup?: boolean | undefined;
   scope: CommandScope;

@@ -1,6 +1,6 @@
-import type { DataContext } from '@exitbook/data/context';
 import { buildProcessingPorts } from '@exitbook/data/ingestion';
 import { OverrideStore } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
 import { ProcessingWorkflow, type AdapterRegistry, type IngestionEvent } from '@exitbook/ingestion';
 
@@ -14,7 +14,7 @@ export interface CliProcessingWorkflowRuntime {
 export interface CreateCliProcessingWorkflowRuntimeOptions {
   adapterRegistry: AdapterRegistry;
   dataDir: string;
-  database: DataContext;
+  database: DataSession;
   eventBus: EventBus<IngestionEvent>;
   providerRuntime: OpenedCliBlockchainProviderRuntime;
 }

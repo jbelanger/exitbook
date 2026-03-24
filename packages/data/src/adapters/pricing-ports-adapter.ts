@@ -1,13 +1,13 @@
 import type { IPricingPersistence } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext repositories to accounting's IPricingPersistence port.
+ * Bridges DataSession repositories to accounting's IPricingPersistence port.
  * Mirrors the pattern established by buildLinkingPorts.
  */
-export function buildPricingPorts(db: DataContext): IPricingPersistence {
+export function buildPricingPorts(db: DataSession): IPricingPersistence {
   return {
     loadPricingContext: () =>
       resultDoAsync(async function* () {

@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
@@ -24,7 +24,7 @@ interface ReprocessParams {
 const logger = getLogger('ReprocessRunner');
 
 export interface ReprocessExecutionRuntime {
-  database: DataContext;
+  database: DataSession;
   processingWorkflow: ProcessingWorkflow;
   ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
   instrumentation: InstrumentationCollector;

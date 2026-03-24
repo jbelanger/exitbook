@@ -1,5 +1,5 @@
-import { DataContext } from '@exitbook/data/context';
 import type { OverrideStore } from '@exitbook/data/overrides';
+import { DataSession } from '@exitbook/data/session';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
@@ -38,7 +38,7 @@ interface LinksRejectResult {
 export class LinksRejectHandler {
   private readonly reviewService: TransferProposalReviewService;
 
-  constructor(db: DataContext, overrideStore?: OverrideStore) {
+  constructor(db: DataSession, overrideStore?: OverrideStore) {
     this.reviewService = new TransferProposalReviewService(db, overrideStore);
   }
 

@@ -1,14 +1,14 @@
 import type { CreateOverrideEventOptions } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
 import {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,
   type OverrideStore,
 } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type TransactionEditQueryDatabase = Pick<DataContext, 'transactions'>;
+type TransactionEditQueryDatabase = Pick<DataSession, 'transactions'>;
 
 interface TransactionIdentity {
   source: string;

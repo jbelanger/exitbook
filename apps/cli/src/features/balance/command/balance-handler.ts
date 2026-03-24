@@ -1,6 +1,6 @@
 import type { ExchangeCredentials } from '@exitbook/core';
 import { buildBalancePorts } from '@exitbook/data/balances';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion';
 
@@ -22,7 +22,7 @@ export class BalanceHandler {
   private readonly snapshotReader: BalanceStoredSnapshotReader;
   private readonly verificationRunner: BalanceVerificationRunner;
 
-  constructor(db: DataContext, balanceOperation: BalanceWorkflow | undefined) {
+  constructor(db: DataSession, balanceOperation: BalanceWorkflow | undefined) {
     const assetDetailsBuilder = new BalanceAssetDetailsBuilder(db);
     this.snapshotReader = new BalanceStoredSnapshotReader({
       db,

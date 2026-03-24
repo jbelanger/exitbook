@@ -7,13 +7,13 @@ import type {
   CreateOverrideEventOptions,
 } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
-import { DataContext } from '@exitbook/data/context';
 import {
   readAssetReviewDecisions,
   readExcludedAssetIds,
   type AssetReviewDecision,
   type OverrideStore,
 } from '@exitbook/data/overrides';
+import { DataSession } from '@exitbook/data/session';
 import { type AssetReferenceStatus, parseDecimal, err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import { createCliAssetReviewProjectionRuntime } from '../../shared/asset-review-projection-runtime.js';
@@ -27,7 +27,7 @@ import { requiresAssetReviewAction } from '../asset-view-filter.js';
 import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from './assets-utils.js';
 
 type AssetOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type AssetQueryDatabase = DataContext;
+type AssetQueryDatabase = DataSession;
 
 interface AssetSelectionParams {
   assetId?: string | undefined;

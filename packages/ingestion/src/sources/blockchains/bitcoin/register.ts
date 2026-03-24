@@ -34,7 +34,7 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
     ): Promise<Result<DerivedAddress[], Error>> => {
       const walletAddress: BitcoinWalletAddress = {
         address: xpub,
-        type: 'xpub',
+        kind: 'xpub',
       };
 
       const initResult = await initializeBitcoinXpubWallet(walletAddress, blockchain, providerRuntime, gap ?? 20);

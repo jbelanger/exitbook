@@ -3,7 +3,7 @@ import {
   type IPortfolioDependencyReader,
   type IPortfolioHoldingsCalculator,
 } from '@exitbook/accounting';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { calculateBalances } from '@exitbook/ingestion';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
@@ -21,7 +21,7 @@ export interface CliPortfolioRuntime {
 
 export interface CreateCliPortfolioRuntimeOptions {
   accountingExclusionPolicy: AccountingExclusionPolicy;
-  database: DataContext;
+  database: DataSession;
   scope: CommandScope;
 }
 

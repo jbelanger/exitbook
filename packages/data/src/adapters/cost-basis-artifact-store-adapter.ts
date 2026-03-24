@@ -1,8 +1,8 @@
 import type { ICostBasisArtifactStore } from '@exitbook/accounting/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
-export function buildCostBasisArtifactStore(db: DataContext): ICostBasisArtifactStore {
+export function buildCostBasisArtifactStore(db: DataSession): ICostBasisArtifactStore {
   return {
     findLatest: (scopeKey) => db.costBasisSnapshots.findLatest(scopeKey),
     replaceLatest: (snapshot) => db.costBasisSnapshots.replaceLatest(snapshot),

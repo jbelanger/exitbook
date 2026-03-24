@@ -1,7 +1,7 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DataContext } from '../../data-context.js';
+import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
@@ -9,11 +9,11 @@ import { buildProcessedTransactionsResetPorts } from '../processed-transactions-
 
 describe('buildProcessedTransactionsResetPorts', () => {
   let db: KyselyDB;
-  let ctx: DataContext;
+  let ctx: DataSession;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    ctx = new DataContext(db);
+    ctx = new DataSession(db);
     await seedUser(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedImportSession(db, 1, 1);

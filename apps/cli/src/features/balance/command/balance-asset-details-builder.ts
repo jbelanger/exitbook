@@ -1,5 +1,5 @@
 import type { Account, BalanceSnapshotAsset, Transaction } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
 import type { BalanceVerificationResult } from '@exitbook/ingestion';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
@@ -12,7 +12,7 @@ import { buildAssetDiagnostics, buildStoredSnapshotAssetItem, sortAssetsByStatus
 const logger = getLogger('BalanceAssetDetailsBuilder');
 
 export class BalanceAssetDetailsBuilder {
-  constructor(private readonly db: DataContext) {}
+  constructor(private readonly db: DataSession) {}
 
   async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<StoredSnapshotAssetItem[], Error>> {
     const snapshotAssets = await this.loadStoredSnapshotAssets(scopeAccount.id);

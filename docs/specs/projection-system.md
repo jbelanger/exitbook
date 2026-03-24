@@ -166,7 +166,7 @@ interface ProjectionStateRepository {
 }
 ```
 
-Exposed via `DataContext` as `projectionState`.
+Exposed via `DataSession` as `projectionState`.
 
 ## Behavioral Rules
 

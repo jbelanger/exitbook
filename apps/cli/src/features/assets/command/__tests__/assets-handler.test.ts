@@ -5,8 +5,8 @@ import type {
   OverrideEvent,
   Transaction,
 } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
 import type { OverrideStore } from '@exitbook/data/overrides';
+import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
@@ -239,7 +239,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -280,7 +280,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -305,7 +305,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -345,7 +345,7 @@ describe('AssetsHandler', () => {
     });
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -370,7 +370,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('overrides are invalid')));
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -413,7 +413,7 @@ describe('AssetsHandler', () => {
     );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -442,7 +442,7 @@ describe('AssetsHandler', () => {
     });
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -482,7 +482,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -506,7 +506,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -527,7 +527,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -548,7 +548,7 @@ describe('AssetsHandler', () => {
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -614,7 +614,7 @@ describe('AssetsHandler', () => {
     );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -661,7 +661,7 @@ describe('AssetsHandler', () => {
     );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -707,7 +707,7 @@ describe('AssetsHandler', () => {
       );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );
@@ -772,7 +772,7 @@ describe('AssetsHandler', () => {
       );
 
     const handler = new AssetsHandler(
-      mockDb as unknown as DataContext,
+      mockDb as unknown as DataSession,
       mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
       '/tmp/test-data'
     );

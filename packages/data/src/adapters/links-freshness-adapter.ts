@@ -1,17 +1,17 @@
 import type { ILinksFreshness } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext to accounting's ILinksFreshness port.
+ * Bridges DataSession to accounting's ILinksFreshness port.
  *
  * Detects staleness via:
  * - Projection state explicitly marked stale/failed/building
  * - No links exist but transactions do (timestamp comparison)
  * - Newest transaction is newer than newest link
  */
-export function buildLinksFreshnessPorts(db: DataContext): ILinksFreshness {
+export function buildLinksFreshnessPorts(db: DataSession): ILinksFreshness {
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {

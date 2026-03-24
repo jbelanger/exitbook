@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { BlockchainProviderManager } from '../../../runtime/manager/provider-manager.js';
 import type { BitcoinWalletAddress } from '../types.js';
 import {
+  classifyBitcoinWalletAddress,
   canonicalizeBitcoinAddress,
   deriveBitcoinAddressesFromXpub,
-  getBitcoinAddressType,
   isBitcoinXpub,
   performBitcoinAddressGapScanning,
   satoshisToBtcString,
@@ -57,12 +57,12 @@ describe('Bitcoin Utils', () => {
     });
   });
 
-  describe('getBitcoinAddressType', () => {
+  describe('classifyBitcoinWalletAddress', () => {
     it('should return correct types', () => {
-      expect(getBitcoinAddressType('xpub...')).toBe('xpub');
-      expect(getBitcoinAddressType('ypub...')).toBe('ypub');
-      expect(getBitcoinAddressType('zpub...')).toBe('zpub');
-      expect(getBitcoinAddressType('bc1q...')).toBe('address');
+      expect(classifyBitcoinWalletAddress('xpub...')).toBe('xpub');
+      expect(classifyBitcoinWalletAddress('ypub...')).toBe('ypub');
+      expect(classifyBitcoinWalletAddress('zpub...')).toBe('zpub');
+      expect(classifyBitcoinWalletAddress('bc1q...')).toBe('address');
     });
   });
 
@@ -110,7 +110,7 @@ describe('Bitcoin Utils', () => {
     it('should stop after gap limit', async () => {
       const walletAddress: BitcoinWalletAddress = {
         address: 'xpub...',
-        type: 'xpub',
+        kind: 'xpub',
         derivedAddresses: ['addr1', 'addr2', 'addr3', 'addr4', 'addr5'],
       };
 

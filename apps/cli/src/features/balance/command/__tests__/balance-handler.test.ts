@@ -1,5 +1,5 @@
 import type { Account, BalanceSnapshot, BalanceSnapshotAsset } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -117,7 +117,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       snapshotAssets: [createSnapshotAsset(childAccount.id, 'blockchain:bitcoin:native', 'BTC')],
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: childAccount.id });
     const error = assertErr(result);
 
@@ -194,7 +194,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       }),
     };
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, balanceOperation as never);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, balanceOperation as never);
     const result = await handler.viewStoredSnapshots({ accountId: childAccount.id });
     const value = assertOk(result);
 
@@ -220,7 +220,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       staleScopes: new Map([[account.id, 'upstream-rebuilt:processed-transactions']]),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: account.id });
     const error = assertErr(result);
 
@@ -238,7 +238,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       staleScopes: new Map([[account.id, 'upstream-reset:processed-transactions']]),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: account.id });
     const error = assertErr(result);
 
@@ -257,7 +257,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       snapshotAssets: [createSnapshotAsset(rootAccount.id, 'blockchain:bitcoin:native', 'BTC')],
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: grandchildAccount.id });
     const value = assertOk(result);
 
@@ -286,7 +286,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       transactionError: new Error('transactions unavailable'),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: account.id });
     const error = assertErr(result);
 
@@ -302,7 +302,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       childAccountError: new Error('child lookup failed'),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, undefined);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined);
     const result = await handler.viewStoredSnapshots({ accountId: account.id });
     const error = assertErr(result);
 
@@ -352,7 +352,7 @@ describe('BalanceHandler.refreshAllScopes', () => {
       ),
     };
 
-    const handler = new BalanceHandler(mockDb as unknown as DataContext, balanceOperation as never);
+    const handler = new BalanceHandler(mockDb as unknown as DataSession, balanceOperation as never);
     const result = await handler.refreshAllScopes();
     const value = assertOk(result);
 

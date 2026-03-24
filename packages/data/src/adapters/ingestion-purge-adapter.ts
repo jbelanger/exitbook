@@ -1,16 +1,16 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { IIngestionDataPurge } from '@exitbook/ingestion/ports';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext repositories to ingestion's IIngestionDataPurge port.
+ * Bridges DataSession repositories to ingestion's IIngestionDataPurge port.
  * Deletes raw data, import sessions, and accounts. Requires re-import.
  *
  * Callers must ensure derived data (accounting + ingestion reset) is already
  * cleared before calling purge — otherwise FK constraints will fail.
  */
-export function buildIngestionPurgePorts(db: DataContext): IIngestionDataPurge {
+export function buildIngestionPurgePorts(db: DataSession): IIngestionDataPurge {
   return {
     async countPurgeImpact(accountIds) {
       return resultDoAsync(async function* () {

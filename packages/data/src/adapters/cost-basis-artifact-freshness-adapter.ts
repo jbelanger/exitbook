@@ -1,10 +1,10 @@
 import type { CostBasisDependencyWatermark, ICostBasisDependencyWatermarkReader } from '@exitbook/accounting/ports';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 export function buildCostBasisArtifactFreshnessPorts(
-  db: DataContext,
+  db: DataSession,
   options?: { pricesLastMutatedAt?: Date | undefined }
 ): ICostBasisDependencyWatermarkReader {
   return {

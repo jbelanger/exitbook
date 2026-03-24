@@ -18,13 +18,13 @@ import { TransactionRepository } from './repositories/transaction-repository.js'
 import { UserRepository } from './repositories/user-repository.js';
 import { withControlledTransaction } from './utils/db-utils.js';
 
-const logger = getLogger('data-context');
+const logger = getLogger('data-session');
 
-export class DataContext {
-  static async initialize(dbPath: string): Promise<Result<DataContext, Error>> {
+export class DataSession {
+  static async initialize(dbPath: string): Promise<Result<DataSession, Error>> {
     return resultDoAsync(async function* () {
       const connection = yield* await initializeDatabase(dbPath);
-      return new DataContext(connection);
+      return new DataSession(connection);
     });
   }
 
@@ -38,7 +38,7 @@ export class DataContext {
   readonly rawTransactions: RawTransactionRepository;
   readonly importSessions: ImportSessionRepository;
   readonly users: UserRepository;
-  readonly nearRawData: NearRawTransactionRepository;
+  readonly nearRawTransactions: NearRawTransactionRepository;
   readonly projectionState: ProjectionStateRepository;
 
   private readonly connection: KyselyDB;
@@ -57,21 +57,21 @@ export class DataContext {
     this.rawTransactions = new RawTransactionRepository(connection);
     this.importSessions = new ImportSessionRepository(connection);
     this.users = new UserRepository(connection);
-    this.nearRawData = new NearRawTransactionRepository(connection);
+    this.nearRawTransactions = new NearRawTransactionRepository(connection);
     this.projectionState = new ProjectionStateRepository(connection);
   }
 
   /**
    * Execute a callback inside a single DB transaction (Unit of Work).
-   * The callback receives a transaction-scoped DataContext whose repos
+   * The callback receives a transaction-scoped DataSession whose repos
    * are all bound to the same transaction. Commits on ok(), rolls back on err() or throw.
    *
-   * If this DataContext is already transaction-scoped (created by an outer
+   * If this DataSession is already transaction-scoped (created by an outer
    * executeInTransaction), the callback runs directly on this context — no
    * nested transaction is opened. This lets port methods that internally use
    * executeInTransaction participate in a caller's transaction transparently.
    */
-  async executeInTransaction<T>(fn: (tx: DataContext) => Promise<Result<T, Error>>): Promise<Result<T, Error>> {
+  async executeInTransaction<T>(fn: (tx: DataSession) => Promise<Result<T, Error>>): Promise<Result<T, Error>> {
     if (this.isTransactionScoped) {
       return fn(this);
     }
@@ -80,7 +80,7 @@ export class DataContext {
       this.connection,
       logger,
       async (trx) => {
-        const txContext = new DataContext(trx, true);
+        const txContext = new DataSession(trx, true);
         return fn(txContext);
       },
       'Transaction failed'

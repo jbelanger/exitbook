@@ -2,13 +2,13 @@ import {
   createAssetReviewProviderSupport,
   findLatestTokenMetadataRefreshAt,
 } from '@exitbook/blockchain-providers/asset-review';
-import type { DataContext } from '@exitbook/data/context';
 import { buildAssetReviewRuntimePorts } from '@exitbook/data/projections';
+import type { DataSession } from '@exitbook/data/session';
 import { createAssetReviewProjectionRuntime, type AssetReviewProjectionRuntime } from '@exitbook/ingestion';
 
 import { buildPriceProviderConfigFromEnv } from '../../runtime/app-runtime.js';
 
-export function createCliAssetReviewProjectionRuntime(db: DataContext, dataDir: string): AssetReviewProjectionRuntime {
+export function createCliAssetReviewProjectionRuntime(db: DataSession, dataDir: string): AssetReviewProjectionRuntime {
   const coinGeckoConfig = buildPriceProviderConfigFromEnv().coingecko;
 
   return createAssetReviewProjectionRuntime({

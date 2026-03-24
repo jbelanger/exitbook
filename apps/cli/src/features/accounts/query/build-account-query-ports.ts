@@ -1,10 +1,10 @@
 import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
-import type { DataContext } from '@exitbook/data/context';
+import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 
 import type { AccountQueryPorts } from './account-query-ports.js';
 
-export function buildAccountQueryPorts(db: DataContext): AccountQueryPorts {
+export function buildAccountQueryPorts(db: DataSession): AccountQueryPorts {
   const balancesFreshness = buildBalancesFreshnessPorts(db);
 
   return {

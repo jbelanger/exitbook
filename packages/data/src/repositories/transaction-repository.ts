@@ -651,7 +651,7 @@ export class TransactionRepository extends BaseRepository {
   /**
    * Save a single transaction with its movements.
    * Transaction-agnostic: executes directly on this.db.
-   * Callers that need atomicity should use DataContext.executeInTransaction().
+   * Callers that need atomicity should use DataSession.executeInTransaction().
    */
   async create(transaction: TransactionDraft, accountId: number): Promise<Result<number, Error>> {
     const accountFingerprintResult = await loadAccountFingerprint(this.db, accountId);
@@ -707,7 +707,7 @@ export class TransactionRepository extends BaseRepository {
   /**
    * Save a batch of transactions with their movements.
    * Transaction-agnostic: executes directly on this.db.
-   * Callers that need atomicity should use DataContext.executeInTransaction().
+   * Callers that need atomicity should use DataSession.executeInTransaction().
    */
   async createBatch(
     transactions: TransactionDraft[],
@@ -924,7 +924,7 @@ export class TransactionRepository extends BaseRepository {
   /**
    * Update movements with enriched price data.
    * Transaction-agnostic: executes directly on this.db.
-   * Callers that need atomicity should use DataContext.executeInTransaction().
+   * Callers that need atomicity should use DataSession.executeInTransaction().
    */
   async updateMovementsWithPrices(transaction: Transaction): Promise<Result<void, Error>> {
     const validationResult = validatePriceDataForPersistence(

@@ -9,7 +9,13 @@ import type { IBlockchainProviderRuntime } from '../../contracts/provider-runtim
 import { generateUniqueTransactionEventId } from '../../normalization/event-id.js';
 
 import { getNetworkForChain } from './network-registry.js';
-import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
+import type {
+  AddressType,
+  BipStandard,
+  BitcoinWalletAddress,
+  BitcoinWalletAddressKind,
+  SmartDetectionResult,
+} from './types.js';
 
 const logger = getLogger('BitcoinUtils');
 
@@ -129,20 +135,20 @@ export async function deriveBitcoinAddressesFromXpub(
     type: string;
   }[] = [];
 
-  const xpubType = getBitcoinAddressType(xpub);
-  if (xpubType === 'address') {
+  const walletAddressKind = classifyBitcoinWalletAddress(xpub);
+  if (walletAddressKind === 'address') {
     throw new Error('Invalid xpub format');
   }
 
   try {
-    const versions = BIP32_VERSIONS[xpubType];
+    const versions = BIP32_VERSIONS[walletAddressKind];
     const node = HDKey.fromExtendedKey(xpub, versions);
     const network = bitcoin.networks.bitcoin; // Default to mainnet
 
     let addressType: AddressType;
-    if (xpubType === 'xpub') {
+    if (walletAddressKind === 'xpub') {
       addressType = 'legacy';
-    } else if (xpubType === 'ypub') {
+    } else if (walletAddressKind === 'ypub') {
       addressType = 'segwit';
     } else {
       addressType = 'bech32';
@@ -201,9 +207,9 @@ export function getAddressGenerator(type: AddressType, network: bitcoin.Network)
 }
 
 /**
- * Get xpub type from address string
+ * Classify a wallet input as an extended public key prefix or a single address.
  */
-export function getBitcoinAddressType(address: string): XpubType {
+export function classifyBitcoinWalletAddress(address: string): BitcoinWalletAddressKind {
   if (address.startsWith('xpub')) return 'xpub';
   if (address.startsWith('ypub')) return 'ypub';
   if (address.startsWith('zpub')) return 'zpub';

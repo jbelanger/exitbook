@@ -1,17 +1,17 @@
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from './balance-scope-utils.js';
 
-async function countAssetRows(db: DataContext, scopeAccountIds?: number[]): Promise<Result<number, Error>> {
+async function countAssetRows(db: DataSession, scopeAccountIds?: number[]): Promise<Result<number, Error>> {
   return resultDoAsync(async function* () {
     const assets = yield* await db.balanceSnapshots.findAssetsByScope(scopeAccountIds);
     return assets.length;
   });
 }
 
-export function buildBalancesResetPorts(db: DataContext): {
+export function buildBalancesResetPorts(db: DataSession): {
   countResetImpact(accountIds?: number[]): Promise<Result<{ assetRows: number; scopes: number }, Error>>;
   reset(accountIds?: number[]): Promise<Result<{ assetRows: number; scopes: number }, Error>>;
 } {

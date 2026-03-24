@@ -1,7 +1,7 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DataContext } from '../../data-context.js';
+import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
@@ -10,11 +10,11 @@ import { buildAssetReviewFreshnessPorts } from '../asset-review-freshness-adapte
 
 describe('buildAssetReviewFreshnessPorts', () => {
   let db: KyselyDB;
-  let ctx: DataContext;
+  let ctx: DataSession;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    ctx = new DataContext(db);
+    ctx = new DataSession(db);
   });
 
   afterEach(async () => {

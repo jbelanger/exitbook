@@ -1,14 +1,14 @@
 import type { ILinksReset } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
-import type { DataContext } from '../data-context.js';
+import type { DataSession } from '../data-session.js';
 
 /**
- * Bridges DataContext to accounting's ILinksReset port.
+ * Bridges DataSession to accounting's ILinksReset port.
  *
  * Owns only transaction_links.
  */
-export function buildLinksResetPorts(db: DataContext): ILinksReset {
+export function buildLinksResetPorts(db: DataSession): ILinksReset {
   return {
     async countResetImpact(accountIds) {
       return resultDoAsync(async function* () {
