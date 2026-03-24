@@ -527,13 +527,13 @@ Refactor these commands away from `{ isJsonMode: boolean }` factories and
 multi-argument handler constructors:
 
 - `apps/cli/src/features/import/command/import.ts`
-- `apps/cli/src/features/import/command/import-handler.ts`
+- `apps/cli/src/features/import/command/run-import.ts`
 - `apps/cli/src/features/reprocess/command/reprocess.ts`
-- `apps/cli/src/features/reprocess/command/reprocess-handler.ts`
+- `apps/cli/src/features/reprocess/command/run-reprocess.ts`
 - `apps/cli/src/features/links/command/links-run.ts`
-- `apps/cli/src/features/links/command/links-run-handler.ts`
+- `apps/cli/src/features/links/command/run-links.ts`
 - `apps/cli/src/features/prices/command/prices-enrich.ts`
-- `apps/cli/src/features/prices/command/prices-enrich-handler.ts`
+- `apps/cli/src/features/prices/command/run-prices-enrich.ts`
 - `apps/cli/src/features/providers/command/providers-benchmark.ts`
 - `apps/cli/src/features/providers/command/providers-benchmark-handler.ts`
 - `apps/cli/src/features/balance/command/balance-refresh.ts`

@@ -8,7 +8,7 @@ import {
   abortReprocessRuntime,
   executeReprocessWithRuntime,
   type ReprocessExecutionRuntime,
-} from '../reprocess-handler.js';
+} from '../run-reprocess.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({

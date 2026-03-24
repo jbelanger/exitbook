@@ -8,8 +8,8 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { runReprocess, type ProcessResultWithMetrics } from './reprocess-handler.js';
 import { ProcessCommandOptionsSchema } from './reprocess-option-schemas.js';
+import { runReprocess, type ProcessResultWithMetrics } from './run-reprocess.js';
 
 /**
  * Process command options validated by Zod at CLI boundary

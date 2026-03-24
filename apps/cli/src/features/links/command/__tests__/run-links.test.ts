@@ -5,7 +5,7 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { executeLinksRunWithRuntime, type LinksRunRuntime } from '../links-run-handler.js';
+import { executeLinksRunWithRuntime, type LinksRunRuntime } from '../run-links.js';
 
 describe('links run runner helpers', () => {
   let mockOrchestrator: { execute: Mock };

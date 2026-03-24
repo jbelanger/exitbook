@@ -11,10 +11,10 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 
-import type { ImportExecuteResult } from './import-handler.js';
-import { runImport } from './import-handler.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import { buildImportParams } from './import-utils.js';
+import type { ImportExecuteResult } from './run-import.js';
+import { runImport } from './run-import.js';
 
 /**
  * Import command options validated by Zod at CLI boundary

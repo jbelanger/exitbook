@@ -17,8 +17,8 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { runPricesEnrich } from './prices-enrich-handler.js';
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
+import { runPricesEnrich } from './run-prices-enrich.js';
 
 /**
  * Register the prices enrich subcommand

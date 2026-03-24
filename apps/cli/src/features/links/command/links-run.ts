@@ -15,7 +15,7 @@ import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { LinksRunCommandOptionsSchema } from './links-option-schemas.js';
-import { runLinks } from './links-run-handler.js';
+import { runLinks } from './run-links.js';
 
 /**
  * Command options validated by Zod at CLI boundary

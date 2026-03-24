@@ -16,12 +16,12 @@ export interface ProcessResultWithMetrics {
   runStats: MetricsSummary;
 }
 
-interface ReprocessHandlerParams {
+interface ReprocessParams {
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
 }
 
-const logger = getLogger('ReprocessHandler');
+const logger = getLogger('ReprocessRunner');
 
 export interface ReprocessExecutionRuntime {
   database: DataContext;
@@ -32,7 +32,7 @@ export interface ReprocessExecutionRuntime {
 
 export async function executeReprocessWithRuntime(
   runtime: ReprocessExecutionRuntime,
-  params: ReprocessHandlerParams
+  params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   const planResult = await runtime.processingWorkflow.prepareReprocess(params);
   if (planResult.isErr()) {
@@ -91,7 +91,7 @@ export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void 
 
 export async function runReprocess(
   ctx: CommandScope,
-  params: ReprocessHandlerParams
+  params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
