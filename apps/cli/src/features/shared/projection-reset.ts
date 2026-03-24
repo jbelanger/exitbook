@@ -51,7 +51,7 @@ export async function resetProjections(
   });
 }
 
-async function countSingleProjection(
+function countSingleProjection(
   db: DataContext,
   projectionId: ProjectionId,
   accountIds?: number[]
@@ -76,7 +76,7 @@ async function countSingleProjection(
   }
 }
 
-async function resetSingleProjection(
+function resetSingleProjection(
   db: DataContext,
   projectionId: ProjectionId,
   accountIds?: number[]

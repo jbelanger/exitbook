@@ -70,8 +70,8 @@ export function createCoinGeckoTokenReferenceResolver(
   >,
   config: CoinGeckoTokenReferenceResolverConfig = {}
 ): Result<CoinGeckoTokenReferenceResolver, Error> {
-  const apiKey = 'apiKey' in config ? config.apiKey : process.env['COINGECKO_API_KEY'];
-  const useProApi = config.useProApi ?? process.env['COINGECKO_USE_PRO_API'] === 'true';
+  const apiKey = config.apiKey;
+  const useProApi = config.useProApi ?? false;
   const headerName = useProApi ? 'x-cg-pro-api-key' : 'x-cg-demo-api-key';
 
   try {

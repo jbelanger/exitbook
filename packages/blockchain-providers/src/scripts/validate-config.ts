@@ -4,6 +4,8 @@
  * Enhanced with automatic fixes and detailed suggestions
  */
 
+import path from 'node:path';
+
 import { getErrorMessage } from '@exitbook/foundation';
 
 import { loadExplorerConfig } from '../catalog/load-explorer-config.js';
@@ -16,13 +18,22 @@ interface ConfigValidationOptions {
   verbose?: boolean | undefined;
 }
 
+function resolveExplorerConfigPath(): string {
+  const configuredPath = process.env['BLOCKCHAIN_EXPLORERS_CONFIG'];
+  if (configuredPath) {
+    return path.resolve(process.cwd(), configuredPath);
+  }
+
+  return path.join(process.cwd(), 'config/blockchain-explorers.json');
+}
+
 function validateConfiguration(options: ConfigValidationOptions = {}): void {
   const { fix = false } = options;
   console.log('🔍 Validating Blockchain Configuration\n');
 
   try {
     // Load the configuration
-    const config = loadExplorerConfig();
+    const config = loadExplorerConfig(resolveExplorerConfigPath());
 
     if (!config) {
       console.log('✅ No configuration file found - using registry-based auto-discovery!\n');

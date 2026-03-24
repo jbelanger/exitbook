@@ -1,4 +1,4 @@
-import { loadBlockchainExplorerConfig } from '@exitbook/blockchain-providers';
+import type { BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import {
   openBlockchainProviderBenchmarkSession,
   type BenchmarkableBlockchainProvider,
@@ -29,6 +29,8 @@ interface SetupResult {
 export class ProviderBenchmarkHandler {
   private benchmarkSession: BlockchainProviderBenchmarkSession | undefined;
 
+  constructor(private readonly explorerConfig?: BlockchainExplorersConfig | undefined) {}
+
   /**
    * Setup phase: validate parameters and initialize provider.
    * Returns setup result for TUI mode.
@@ -42,14 +44,9 @@ export class ProviderBenchmarkHandler {
 
     const params = paramsResult.value;
 
-    const explorerConfigResult = loadBlockchainExplorerConfig();
-    if (explorerConfigResult.isErr()) {
-      return err(explorerConfigResult.error);
-    }
-
     const sessionResult = await openBlockchainProviderBenchmarkSession({
       blockchain: params.blockchain,
-      explorerConfig: explorerConfigResult.value,
+      explorerConfig: this.explorerConfig,
       providerName: params.provider,
     });
     if (sessionResult.isErr()) {
@@ -146,7 +143,7 @@ export class ProviderBenchmarkHandler {
 export function createProviderBenchmarkHandler(
   ctx: import('../../../runtime/command-scope.js').CommandScope
 ): Result<ProviderBenchmarkHandler, Error> {
-  const handler = new ProviderBenchmarkHandler();
+  const handler = new ProviderBenchmarkHandler(ctx.requireAppRuntime().blockchainExplorersConfig);
   ctx.onCleanup(async () => handler.destroy());
   return ok(handler);
 }

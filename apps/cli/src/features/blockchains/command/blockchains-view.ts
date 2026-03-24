@@ -87,14 +87,14 @@ async function executeBlockchainsViewCommand(rawOptions: unknown, appRuntime: Cl
 /**
  * Load and prepare blockchain data with filters applied.
  */
-async function loadBlockchainCatalogData(
+function loadBlockchainCatalogData(
   options: CommandOptions,
   appRuntime: CliAppRuntime
-): Promise<{
+): {
   allProviders: BlockchainProviderDescriptor[];
   blockchains: ReturnType<typeof buildBlockchainCatalogItem>[];
   validatedCategory: BlockchainCategory | undefined;
-} | null> {
+} | null {
   // Validate category filter if provided
   let validatedCategory: BlockchainCategory | undefined;
   if (options.category) {
@@ -132,7 +132,7 @@ async function loadBlockchainCatalogData(
  * Execute blockchains view in TUI mode
  */
 async function executeBlockchainsViewTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  const data = await loadBlockchainCatalogData(options, appRuntime);
+  const data = loadBlockchainCatalogData(options, appRuntime);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;
@@ -163,7 +163,7 @@ async function executeBlockchainsViewTUI(options: CommandOptions, appRuntime: Cl
  * Execute blockchains view in JSON mode
  */
 async function executeBlockchainsViewJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  const data = await loadBlockchainCatalogData(options, appRuntime);
+  const data = loadBlockchainCatalogData(options, appRuntime);
   if (!data) return;
 
   const { blockchains, allProviders, validatedCategory } = data;

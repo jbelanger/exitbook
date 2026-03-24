@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -23,7 +24,7 @@ type CommandOptions = z.infer<typeof ProvidersBenchmarkCommandOptionsSchema>;
 /**
  * Register the providers benchmark subcommand.
  */
-export function registerProvidersBenchmarkCommand(providersCommand: Command): void {
+export function registerProvidersBenchmarkCommand(providersCommand: Command, appRuntime: CliAppRuntime): void {
   providersCommand
     .command('benchmark')
     .description('Benchmark API rate limits for a blockchain provider')
@@ -52,14 +53,14 @@ Common Usage:
     .option('--skip-burst', 'Skip burst limit testing (only test sustained rates)', false)
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeProvidersBenchmarkCommand(rawOptions);
+      await executeProvidersBenchmarkCommand(rawOptions, appRuntime);
     });
 }
 
 /**
  * Execute the providers benchmark command.
  */
-async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<void> {
+async function executeProvidersBenchmarkCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   // Validate options at CLI boundary
   const parseResult = ProvidersBenchmarkCommandOptionsSchema.safeParse(rawOptions);
   if (!parseResult.success) {
@@ -75,18 +76,18 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown): Promise<vo
   const isJsonMode = options.json ?? false;
 
   if (isJsonMode) {
-    await executeProvidersBenchmarkJSON(options);
+    await executeProvidersBenchmarkJSON(options, appRuntime);
   } else {
-    await executeProvidersBenchmarkTUI(options);
+    await executeProvidersBenchmarkTUI(options, appRuntime);
   }
 }
 
 /**
  * Execute providers benchmark in JSON mode
  */
-async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<void> {
+async function executeProvidersBenchmarkJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
+    await runCommand(appRuntime, async (ctx) => {
       const handlerResult = createProviderBenchmarkHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -126,9 +127,9 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions): Promise<v
 /**
  * Execute providers benchmark in TUI mode
  */
-async function executeProvidersBenchmarkTUI(options: CommandOptions): Promise<void> {
+async function executeProvidersBenchmarkTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
-    await runCommand(async (ctx) => {
+    await runCommand(appRuntime, async (ctx) => {
       const handlerResult = createProviderBenchmarkHandler(ctx);
       if (handlerResult.isErr()) {
         displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');

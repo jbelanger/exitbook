@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 
 import { getErrorMessage } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
@@ -10,18 +9,16 @@ import { BlockchainExplorersConfigSchema, type BlockchainExplorersConfig } from 
 export type { BlockchainExplorersConfig } from './explorer-config.js';
 
 /**
- * Load blockchain explorer configuration.
- * Returns undefined if the configuration file doesn't exist (optional config).
+ * Load blockchain explorer configuration from an explicit file path.
+ * Returns undefined if no path is provided or the file doesn't exist.
  */
 export function loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
-  const finalPath = configPath
-    ? path.resolve(process.cwd(), configPath)
-    : process.env['BLOCKCHAIN_EXPLORERS_CONFIG']
-      ? path.resolve(process.cwd(), process.env['BLOCKCHAIN_EXPLORERS_CONFIG'])
-      : path.join(process.cwd(), 'config/blockchain-explorers.json');
+  if (!configPath) {
+    return undefined;
+  }
 
   try {
-    const configData = fs.readFileSync(finalPath, 'utf-8');
+    const configData = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(configData) as unknown;
     return BlockchainExplorersConfigSchema.parse(parsed);
   } catch (error) {
@@ -29,7 +26,7 @@ export function loadExplorerConfig(configPath?: string): BlockchainExplorersConf
       // File doesn't exist - this is OK, we'll use registry defaults
       return undefined;
     }
-    throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`, {
+    throw new Error(`Failed to load blockchain explorer configuration from ${configPath}: ${getErrorMessage(error)}`, {
       cause: error,
     });
   }

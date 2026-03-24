@@ -1,6 +1,5 @@
 import {
   createBlockchainProviderRuntime,
-  loadBlockchainExplorerConfig,
   type BlockchainExplorersConfig,
   type IBlockchainProviderRuntime,
   type ProviderEvent,
@@ -23,19 +22,9 @@ export type OpenedCliBlockchainProviderRuntime = IBlockchainProviderRuntime;
 export async function openCliBlockchainProviderRuntime(
   options?: CliBlockchainProviderRuntimeOptions
 ): Promise<Result<OpenedCliBlockchainProviderRuntime, Error>> {
-  let explorerConfig = options?.explorerConfig;
-  if (explorerConfig === undefined) {
-    const explorerConfigResult = loadBlockchainExplorerConfig();
-    if (explorerConfigResult.isErr()) {
-      return err(explorerConfigResult.error);
-    }
-
-    explorerConfig = explorerConfigResult.value;
-  }
-
   const runtimeResult = await createBlockchainProviderRuntime({
     dataDir: options?.dataDir ?? getDataDir(),
-    explorerConfig,
+    explorerConfig: options?.explorerConfig,
     instrumentation: options?.instrumentation,
     eventBus: options?.eventBus,
   });

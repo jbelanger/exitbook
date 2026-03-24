@@ -1,7 +1,7 @@
 import {
   listBlockchainProviders,
-  loadBlockchainExplorerConfig,
   loadBlockchainProviderHealthStats,
+  type BlockchainExplorersConfig,
 } from '@exitbook/blockchain-providers';
 
 import type { ProviderViewItem } from '../view/index.js';
@@ -25,14 +25,12 @@ interface ProvidersViewParams {
  * Loads provider data from registry + stats DB; testable with mock registry.
  */
 export class ProvidersViewHandler {
-  constructor(private readonly dataDir: string) {}
+  constructor(
+    private readonly dataDir: string,
+    private readonly explorerConfig?: BlockchainExplorersConfig | undefined
+  ) {}
 
   async execute(params: ProvidersViewParams): Promise<ProviderViewItem[]> {
-    const explorerConfigResult = loadBlockchainExplorerConfig();
-    if (explorerConfigResult.isErr()) {
-      throw explorerConfigResult.error;
-    }
-
     const providerStatsResult = await loadBlockchainProviderHealthStats(this.dataDir);
     if (providerStatsResult.isErr()) {
       throw providerStatsResult.error;
@@ -40,7 +38,7 @@ export class ProvidersViewHandler {
 
     const providerMap = groupProvidersByName(listBlockchainProviders());
 
-    let items = buildProviderViewItems(providerMap, providerStatsResult.value, explorerConfigResult.value);
+    let items = buildProviderViewItems(providerMap, providerStatsResult.value, this.explorerConfig);
 
     items = filterProviders(items, {
       blockchain: params.blockchain,

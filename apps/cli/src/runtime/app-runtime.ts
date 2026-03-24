@@ -27,8 +27,17 @@ export function buildPriceProviderConfigFromEnv(): PriceProviderConfig {
   };
 }
 
+function resolveCliBlockchainExplorerConfigPath(): string {
+  const configuredPath = process.env['BLOCKCHAIN_EXPLORERS_CONFIG'];
+  if (configuredPath) {
+    return path.resolve(process.cwd(), configuredPath);
+  }
+
+  return path.join(process.cwd(), 'config/blockchain-explorers.json');
+}
+
 export function createCliAppRuntime(): Result<CliAppRuntime, Error> {
-  const explorerConfigResult = loadBlockchainExplorerConfig();
+  const explorerConfigResult = loadBlockchainExplorerConfig(resolveCliBlockchainExplorerConfigPath());
   if (explorerConfigResult.isErr()) {
     return err(explorerConfigResult.error);
   }

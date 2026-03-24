@@ -226,15 +226,17 @@ export abstract class BaseApiClient implements IBlockchainProvider {
   }
 
   private getApiKey(): string {
+    if (this.config.apiKey && this.config.apiKey !== 'YourApiKeyToken') {
+      return this.config.apiKey;
+    }
+
     // If no API key support at all (not required and no env var specified), return empty
     if (!this.metadata.requiresApiKey && !this.metadata.apiKeyEnvVar) {
       return '';
     }
 
-    const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
-    const apiKey = process.env[envVar];
-
-    if (!apiKey || apiKey === 'YourApiKeyToken') {
+    if (!this.config.apiKey || this.config.apiKey === 'YourApiKeyToken') {
+      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
       if (this.metadata.requiresApiKey) {
         const error = this.createMissingApiKeyError(envVar);
         this.logger.warn(error.message);
@@ -244,7 +246,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
       return '';
     }
 
-    return apiKey;
+    return this.config.apiKey;
   }
 
   private createMissingApiKeyError(envVar?: string): Error {

@@ -208,8 +208,9 @@ export class ProviderInstanceFactory {
         return ok(undefined);
       }
 
+      const apiKey = this.resolveApiKey(metadata);
       if (metadata.requiresApiKey) {
-        const validation = validateProviderApiKey(metadata);
+        const validation = validateProviderApiKey(metadata, apiKey);
         if (!validation.available) {
           logger.warn(
             `No API key found for ${metadata.displayName}. Set environment variable: ${validation.envVar}. Skipping provider.`
@@ -219,7 +220,7 @@ export class ProviderInstanceFactory {
       }
 
       const baseUrl = this.resolveBaseUrl(metadata, blockchain);
-      const config = this.buildConfig(metadata, blockchain, baseUrl, priority, override);
+      const config = this.buildConfig(metadata, blockchain, baseUrl, priority, override, apiKey);
       const provider = this.registry.createProvider(blockchain, providerName, config);
 
       logger.debug(
@@ -254,11 +255,13 @@ export class ProviderInstanceFactory {
     blockchain: string,
     baseUrl: string,
     priority: number,
-    override?: ProviderOverride
+    override: ProviderOverride | undefined,
+    apiKey?: string
   ): ProviderCreateConfig {
     const overrideRateLimit = override?.rateLimit;
 
     return {
+      apiKey,
       baseUrl,
       blockchain,
       displayName: metadata.displayName,
@@ -277,6 +280,12 @@ export class ProviderInstanceFactory {
       retries: override?.retries ?? metadata.defaultConfig.retries,
       timeout: override?.timeout ?? metadata.defaultConfig.timeout,
     };
+  }
+
+  private resolveApiKey(metadata: Pick<ProviderMetadata, 'apiKeyEnvVar' | 'name'>): string | undefined {
+    const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+    const apiKey = process.env[envVar];
+    return apiKey && apiKey !== 'YourApiKeyToken' ? apiKey : undefined;
   }
 
   private validatePreferredProvider(

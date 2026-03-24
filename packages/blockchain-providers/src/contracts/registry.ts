@@ -8,6 +8,7 @@ import type { IBlockchainProvider, ProviderCapabilities } from './provider.js';
  * Built from metadata + runtime overrides
  */
 export interface ProviderConfig {
+  apiKey?: string | undefined;
   baseUrl: string;
   blockchain: string;
   displayName: string;

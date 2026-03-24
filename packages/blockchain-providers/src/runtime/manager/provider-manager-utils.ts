@@ -331,11 +331,12 @@ interface ApiKeyValidationResult {
  * Pure function - checks env vars and returns validation result
  */
 export function validateProviderApiKey(
-  metadata: Pick<ProviderMetadata, 'apiKeyEnvVar' | 'displayName' | 'name' | 'requiresApiKey'>
+  metadata: Pick<ProviderMetadata, 'apiKeyEnvVar' | 'displayName' | 'name' | 'requiresApiKey'>,
+  apiKey?: string
 ): ApiKeyValidationResult {
   const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
-  const apiKey = process.env[envVar];
-  const available = Boolean(apiKey && apiKey !== 'YourApiKeyToken');
+  const resolvedApiKey = apiKey ?? process.env[envVar];
+  const available = Boolean(resolvedApiKey && resolvedApiKey !== 'YourApiKeyToken');
 
   return {
     available,

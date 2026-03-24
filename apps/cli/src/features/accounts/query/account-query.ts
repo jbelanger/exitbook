@@ -225,7 +225,7 @@ export class AccountQuery {
     });
   }
 
-  private async fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
+  private fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
     return this.ports.importSessions.countByAccount(accounts.map((account) => account.id));
   }
 

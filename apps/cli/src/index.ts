@@ -72,7 +72,7 @@ async function main() {
   registerCostBasisCommand(program, appRuntime);
   registerBalanceCommand(program, appRuntime);
   registerBlockchainsCommand(program, appRuntime);
-  registerProvidersCommand(program);
+  registerProvidersCommand(program, appRuntime);
   registerPortfolioCommand(program, appRuntime);
 
   await program.parseAsync();

@@ -7,6 +7,12 @@ import type {
   ProviderMetadata,
 } from '../../contracts/index.js';
 
+function resolveMetadataApiKey(metadata: ProviderMetadata): string | undefined {
+  const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+  const apiKey = process.env[envVar];
+  return apiKey && apiKey !== 'YourApiKeyToken' ? apiKey : undefined;
+}
+
 function toProviderInfo(metadata: ProviderMetadata): ProviderInfo {
   return {
     blockchain: metadata.blockchain,
@@ -167,6 +173,7 @@ export class ProviderRegistry {
     }
 
     return {
+      apiKey: resolveMetadataApiKey(metadata),
       baseUrl,
       blockchain,
       displayName: metadata.displayName,
