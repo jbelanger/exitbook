@@ -1,6 +1,6 @@
 import type { Transaction, TransactionLink } from '@exitbook/core';
 import { seedAssetMovementFingerprint } from '@exitbook/core/test-utils';
-import type { DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';

@@ -65,7 +65,7 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
   try {
     const spinner = createSpinner('Confirming link...', options.json ?? false);
 
-    const { OverrideStore } = await import('@exitbook/data');
+    const { OverrideStore } = await import('@exitbook/data/overrides');
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();

@@ -1,21 +1,17 @@
-import { LinkingOrchestrator, type LinkingEvent } from '@exitbook/accounting';
-import { type OverrideEvent, type ProjectionId, type ProjectionStatus } from '@exitbook/core';
+import { type ProjectionId, type ProjectionStatus } from '@exitbook/core';
 import {
   buildAssetReviewFreshnessPorts,
-  buildLinkingPorts,
-  buildLinksFreshnessPorts,
   buildProcessedTransactionsFreshnessPorts,
-  buildProcessingPorts,
-  OverrideStore,
-} from '@exitbook/data';
+  buildLinksFreshnessPorts,
+} from '@exitbook/data/projections';
 import { EventBus } from '@exitbook/events';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
-import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
+import { type IngestionEvent } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 
 import type { CommandScope } from '../../runtime/command-scope.js';
-import { createEventDrivenController } from '../../ui/shared/index.js';
-import { LinksRunMonitor } from '../links/view/links-run-components.jsx';
+import { createCliLinkingRuntime, readCliLinkOverrides } from '../../runtime/linking-runtime.js';
+import { createCliProcessingWorkflowRuntime } from '../../runtime/processing-workflow-runtime.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import { withCliBlockchainProviderRuntimeResult } from './blockchain-provider-runtime.js';
@@ -81,17 +77,13 @@ export async function ensureProcessedTransactionsReady(
             },
           });
 
-          const overrideStore = new OverrideStore(scope.dataDir);
-          const ports = buildProcessingPorts(db, {
-            rebuildAssetReviewProjection: () => createCliAssetReviewProjectionRuntime(db, scope.dataDir).rebuild(),
-            overrideStore,
-          });
-          const processingWorkflow = new ProcessingWorkflow(
-            ports,
-            providerRuntime,
+          const { processingWorkflow } = createCliProcessingWorkflowRuntime({
+            adapterRegistry: appRuntime.adapterRegistry,
+            dataDir: scope.dataDir,
+            database: db,
             eventBus,
-            appRuntime.adapterRegistry
-          );
+            providerRuntime,
+          });
 
           const planResult = await processingWorkflow.prepareReprocess({});
           if (planResult.isErr()) return err(planResult.error);
@@ -142,40 +134,38 @@ export async function ensureLinksReady(
     'links',
     () => buildLinksFreshnessPorts(db).checkFreshness(),
     async () => {
-      const overrideStore = new OverrideStore(scope.dataDir);
-
-      let overrides: OverrideEvent[] = [];
-      if (overrideStore.exists()) {
-        const overridesResult = await overrideStore.readByScopes(['link', 'unlink']);
-        if (overridesResult.isErr()) {
-          return err(new Error(`Failed to read override events: ${overridesResult.error.message}`));
-        }
-        overrides = overridesResult.value;
-      }
-
       const params = {
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
       };
 
-      const store = buildLinkingPorts(db);
+      const linkingRuntimeResult = createCliLinkingRuntime({
+        dataDir: scope.dataDir,
+        database: db,
+        isJsonMode: options.isJsonMode,
+      });
+      if (linkingRuntimeResult.isErr()) {
+        return err(linkingRuntimeResult.error);
+      }
+
+      const linkingRuntime = linkingRuntimeResult.value;
+      const overridesResult = await readCliLinkOverrides(linkingRuntime.overrideStore);
+      if (overridesResult.isErr()) {
+        return err(overridesResult.error);
+      }
 
       if (options.isJsonMode) {
-        const orchestrator = new LinkingOrchestrator(store);
-        const result = await orchestrator.execute(params, overrides);
+        const result = await linkingRuntime.orchestrator.execute(params, overridesResult.value);
         if (result.isErr()) return err(result.error);
         logger.info('Linking completed (JSON mode)');
         return ok(undefined);
       }
 
       console.log('\nTransaction links are stale, running linking...\n');
-
-      const eventBus = new EventBus<LinkingEvent>({
-        onError: (error) => {
-          logger.error({ error }, 'EventBus error during linking');
-        },
-      });
-      const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
+      const controller = linkingRuntime.controller;
+      if (!controller) {
+        return err(new Error('Links controller was not created for interactive linking'));
+      }
       const abort = () => {
         controller.abort();
         void controller.stop().catch((cleanupErr) => {
@@ -187,8 +177,7 @@ export async function ensureLinksReady(
       try {
         await controller.start();
 
-        const orchestrator = new LinkingOrchestrator(store, eventBus);
-        const result = await orchestrator.execute(params, overrides);
+        const result = await linkingRuntime.orchestrator.execute(params, overridesResult.value);
 
         if (result.isErr()) {
           controller.fail(result.error.message);

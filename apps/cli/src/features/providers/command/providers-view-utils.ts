@@ -6,7 +6,7 @@ import {
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
-import { providerToSummary } from '../../blockchains/command/blockchains-view-utils.js';
+import { providerToSummary } from '../../shared/provider-summary.js';
 import type {
   HealthStatus,
   ProviderAggregateStats,

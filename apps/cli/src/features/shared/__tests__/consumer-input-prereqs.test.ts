@@ -30,21 +30,20 @@ const {
   mockPipelineExecute: vi.fn(),
 }));
 
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual('@exitbook/data');
-  return {
-    ...actual,
-    buildAssetReviewFreshnessPorts: mockBuildAssetReviewFreshnessPorts,
-    buildAssetReviewResetPorts: mockBuildAssetReviewResetPorts,
-    buildBalancesResetPorts: mockBuildBalancesResetPorts,
-    buildLinksFreshnessPorts: mockBuildLinksFreshnessPorts,
-    buildLinksResetPorts: mockBuildLinksResetPorts,
-    buildPriceCoverageDataPorts: mockBuildPriceCoverageDataPorts,
-    buildPricingPorts: mockBuildPricingPorts,
-    buildProcessedTransactionsFreshnessPorts: mockBuildProcessedTransactionsFreshnessPorts,
-    buildProcessedTransactionsResetPorts: mockBuildProcessedTransactionsResetPorts,
-  };
-});
+vi.mock('@exitbook/data/accounting', () => ({
+  buildPriceCoverageDataPorts: mockBuildPriceCoverageDataPorts,
+  buildPricingPorts: mockBuildPricingPorts,
+}));
+
+vi.mock('@exitbook/data/projections', () => ({
+  buildAssetReviewFreshnessPorts: mockBuildAssetReviewFreshnessPorts,
+  buildAssetReviewResetPorts: mockBuildAssetReviewResetPorts,
+  buildBalancesResetPorts: mockBuildBalancesResetPorts,
+  buildLinksFreshnessPorts: mockBuildLinksFreshnessPorts,
+  buildLinksResetPorts: mockBuildLinksResetPorts,
+  buildProcessedTransactionsFreshnessPorts: mockBuildProcessedTransactionsFreshnessPorts,
+  buildProcessedTransactionsResetPorts: mockBuildProcessedTransactionsResetPorts,
+}));
 
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');

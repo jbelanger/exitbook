@@ -1,4 +1,4 @@
-import type { OverrideStore } from '@exitbook/data';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

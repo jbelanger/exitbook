@@ -1,6 +1,7 @@
 import { buildCostBasisScopedTransactions, validateTransferProposalConfirmability } from '@exitbook/accounting';
 import type { TransactionLink } from '@exitbook/core';
-import type { DataContext, OverrideStore } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import type { Result } from '@exitbook/foundation';
 import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';

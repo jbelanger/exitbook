@@ -1,5 +1,5 @@
 import type { ImportSession } from '@exitbook/core';
-import { buildImportPorts } from '@exitbook/data';
+import { buildImportPorts } from '@exitbook/data/ingestion';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
@@ -8,9 +8,9 @@ import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
+import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
 
 export interface ImportExecuteResult {
   sessions: ImportSession[];
@@ -110,7 +110,7 @@ export async function createImportHandler(ctx: CommandScope): Promise<Result<Imp
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;
-    const infra = await createIngestionInfrastructure(ctx, database);
+    const infra = await createIngestionRuntime(ctx, database);
 
     const importPorts = buildImportPorts(database);
     const importWorkflow = new ImportWorkflow(

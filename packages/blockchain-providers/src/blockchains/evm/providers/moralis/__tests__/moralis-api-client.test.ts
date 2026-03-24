@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { err, ok } from '@exitbook/foundation';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OneShotOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
@@ -45,15 +45,26 @@ describe('MoralisApiClient', () => {
   const providerRegistry = createProviderRegistry();
   let client: MoralisApiClient;
   let mockGet: MockHttpClient['get'];
+  const originalMoralisApiKey = process.env['MORALIS_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
+    process.env['MORALIS_API_KEY'] = 'test-moralis-api-key';
 
     const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
     client = new MoralisApiClient(config);
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
+  });
+
+  afterAll(() => {
+    if (originalMoralisApiKey === undefined) {
+      delete process.env['MORALIS_API_KEY'];
+      return;
+    }
+
+    process.env['MORALIS_API_KEY'] = originalMoralisApiKey;
   });
 
   describe('metadata', () => {

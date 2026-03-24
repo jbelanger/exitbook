@@ -1,43 +1,35 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
-import { OverrideStore, type DataContext, buildProcessingPorts } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { EventBus } from '@exitbook/events';
 import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
-import { adaptResultCleanup, type CommandScope } from '../../runtime/command-scope.js';
-import { createEventDrivenController, type EventDrivenController } from '../../ui/shared/index.js';
-import { IngestionMonitor } from '../import/view/ingestion-monitor-view-components.jsx';
+import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view-components.jsx';
+import type { OpenedCliBlockchainProviderRuntime } from '../features/shared/blockchain-provider-runtime.js';
+import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
-import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
-import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
+import { adaptResultCleanup, type CommandScope } from './command-scope.js';
+import { createCliProcessingWorkflowRuntime } from './processing-workflow-runtime.js';
 
-const logger = getLogger('ingestion-infrastructure');
+const logger = getLogger('ingestion-runtime');
 
 export type CliEvent = IngestionEvent | ProviderEvent;
 
-interface IngestionInfrastructure {
-  processingWorkflow: ProcessingWorkflow;
+export interface IngestionRuntime {
   blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
-  instrumentation: InstrumentationCollector;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor: EventDrivenController<CliEvent>;
+  instrumentation: InstrumentationCollector;
+  processingWorkflow: ProcessingWorkflow;
 }
 
-/**
- * Create shared ingestion infrastructure (blockchain provider runtime +
- * ProcessingWorkflow + IngestionMonitor).
- * Registers cleanup with ctx internally — callers do NOT need ctx.onCleanup.
- */
-export async function createIngestionInfrastructure(
-  ctx: CommandScope,
-  database: DataContext
-): Promise<IngestionInfrastructure> {
+export async function createIngestionRuntime(ctx: CommandScope, database: DataContext): Promise<IngestionRuntime> {
   const appRuntime = ctx.requireAppRuntime();
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
-    onError: (err) => {
-      logger.error({ err }, 'EventBus error');
+    onError: (error) => {
+      logger.error({ error }, 'EventBus error');
     },
   });
 
@@ -53,17 +45,13 @@ export async function createIngestionInfrastructure(
   const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
 
   try {
-    const overrideStore = new OverrideStore(ctx.dataDir);
-    const ports = buildProcessingPorts(database, {
-      rebuildAssetReviewProjection: () => createCliAssetReviewProjectionRuntime(database, ctx.dataDir).rebuild(),
-      overrideStore,
-    });
-    const processingWorkflow = new ProcessingWorkflow(
-      ports,
+    const { processingWorkflow } = createCliProcessingWorkflowRuntime({
+      adapterRegistry: appRuntime.adapterRegistry,
+      dataDir: ctx.dataDir,
+      database,
+      eventBus: eventBus as EventBus<IngestionEvent>,
       providerRuntime,
-      eventBus as EventBus<IngestionEvent>,
-      appRuntime.adapterRegistry
-    );
+    });
 
     const ingestionMonitor = createEventDrivenController(eventBus, IngestionMonitor, {
       instrumentation,
@@ -71,7 +59,6 @@ export async function createIngestionInfrastructure(
     });
     await ingestionMonitor.start();
 
-    // LIFO: monitor stops first, then the blockchain provider runtime.
     ctx.onCleanup(async () => {
       let stopError: Error | undefined;
 
@@ -101,11 +88,11 @@ export async function createIngestionInfrastructure(
     });
 
     return {
-      processingWorkflow,
       blockchainProviderRuntime: providerRuntime,
-      instrumentation,
       eventBus,
       ingestionMonitor,
+      instrumentation,
+      processingWorkflow,
     };
   } catch (error) {
     await cleanupBlockchainProviderRuntime().catch((cleanupError: unknown) => {

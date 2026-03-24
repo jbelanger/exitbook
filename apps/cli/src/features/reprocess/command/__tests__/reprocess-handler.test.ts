@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';

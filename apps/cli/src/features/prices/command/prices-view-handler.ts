@@ -1,7 +1,7 @@
 // Handler for view prices command
 
 import type { Transaction } from '@exitbook/core';
-import { type DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';

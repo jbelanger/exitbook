@@ -1,5 +1,5 @@
 import type { Transaction } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { err, type Result } from '@exitbook/foundation';
 
 import { applyTransactionFilters, type ViewTransactionsParams } from './transactions-view-utils.js';

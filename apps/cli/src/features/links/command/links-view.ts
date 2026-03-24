@@ -180,7 +180,7 @@ async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
  * Execute links view in TUI mode (text mode, no JSON)
  */
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
-  const { OverrideStore } = await import('@exitbook/data');
+  const { OverrideStore } = await import('@exitbook/data/overrides');
 
   try {
     await runCommand(async (ctx) => {

@@ -6,7 +6,7 @@ const { mockBuildBalancesFreshnessPorts, mockCheckFreshness } = vi.hoisted(() =>
   mockCheckFreshness: vi.fn(),
 }));
 
-vi.mock('@exitbook/data', () => ({
+vi.mock('@exitbook/data/balances', () => ({
   buildBalancesFreshnessPorts: mockBuildBalancesFreshnessPorts,
 }));
 

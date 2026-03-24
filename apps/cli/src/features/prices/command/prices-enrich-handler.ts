@@ -1,21 +1,14 @@
-import {
-  PriceEnrichmentPipeline,
-  type PricingEvent,
-  type PricesEnrichOptions,
-  type PricesEnrichResult,
-} from '@exitbook/accounting';
-import { buildPricingPorts } from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
+import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
-import { InstrumentationCollector } from '@exitbook/observability';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
-import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
+import {
+  createCliPriceEnrichmentRuntime,
+  type CliPriceEnrichmentRuntime,
+} from '../../../runtime/price-enrichment-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
 const logger = getLogger('PricesEnrichHandler');
 
@@ -24,39 +17,35 @@ const logger = getLogger('PricesEnrichHandler');
  * Factory owns cleanup; command file never calls ctx.onCleanup().
  */
 export class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOptions, PricesEnrichResult> {
-  constructor(
-    private readonly pipeline: PriceEnrichmentPipeline,
-    private readonly priceRuntime: IPriceProviderRuntime,
-    private readonly controller: EventDrivenController<PricingEvent> | undefined
-  ) {}
+  constructor(private readonly runtime: CliPriceEnrichmentRuntime) {}
 
   async execute(params: PricesEnrichOptions): Promise<Result<PricesEnrichResult, Error>> {
     try {
-      if (this.controller) {
-        await this.controller.start();
+      if (this.runtime.controller) {
+        await this.runtime.controller.start();
       }
 
-      const result = await this.pipeline.execute(params, this.priceRuntime);
+      const result = await this.runtime.pipeline.execute(params, this.runtime.priceRuntime);
 
       if (result.isErr()) {
-        if (this.controller) {
-          this.controller.fail(result.error.message);
-          await this.controller.stop();
+        if (this.runtime.controller) {
+          this.runtime.controller.fail(result.error.message);
+          await this.runtime.controller.stop();
         }
         return err(result.error);
       }
 
-      if (this.controller) {
-        this.controller.complete();
-        await this.controller.stop();
+      if (this.runtime.controller) {
+        this.runtime.controller.complete();
+        await this.runtime.controller.stop();
       }
 
       return ok(result.value);
     } catch (error) {
-      if (this.controller) {
+      if (this.runtime.controller) {
         const message = error instanceof Error ? error.message : String(error);
-        this.controller.fail(message);
-        await this.controller.stop().catch((e) => {
+        this.runtime.controller.fail(message);
+        await this.runtime.controller.stop().catch((e) => {
           logger.warn({ e }, 'Failed to stop controller after exception');
         });
       }
@@ -65,9 +54,9 @@ export class PricesEnrichHandler implements InfrastructureHandler<PricesEnrichOp
   }
 
   abort(): void {
-    if (this.controller) {
-      this.controller.abort();
-      void this.controller.stop().catch((e) => {
+    if (this.runtime.controller) {
+      this.runtime.controller.abort();
+      void this.runtime.controller.stop().catch((e) => {
         logger.warn({ e }, 'Failed to stop controller on abort');
       });
     }
@@ -82,58 +71,25 @@ export async function createPricesEnrichHandler(
   ctx: CommandScope,
   options: { isJsonMode: boolean }
 ): Promise<Result<PricesEnrichHandler, Error>> {
-  let controller: EventDrivenController<PricingEvent> | undefined;
-
   try {
     const database = await ctx.database();
-    const store = buildPricingPorts(database);
     const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
     const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
-
-    if (options.isJsonMode) {
-      const instrumentation = new InstrumentationCollector();
-      const priceRuntimeResult = await ctx.openPriceProviderRuntime({ instrumentation });
-      if (priceRuntimeResult.isErr()) {
-        return err(priceRuntimeResult.error);
-      }
-      const priceRuntime = priceRuntimeResult.value;
-
-      const pipeline = new PriceEnrichmentPipeline(store, undefined, instrumentation, accountingExclusionPolicy);
-      return ok(new PricesEnrichHandler(pipeline, priceRuntime, undefined));
+    const runtimeResult = await createCliPriceEnrichmentRuntime({
+      accountingExclusionPolicy,
+      database,
+      isJsonMode: options.isJsonMode,
+      scope: ctx,
+    });
+    if (runtimeResult.isErr()) {
+      return err(runtimeResult.error);
     }
 
-    const eventBus = new EventBus<PricingEvent>({
-      onError: (busErr) => {
-        logger.error({ err: busErr }, 'EventBus error');
-      },
-    });
-    const instrumentation = new InstrumentationCollector();
-    controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
-
-    const priceRuntimeResult = await ctx.openPriceProviderRuntime({
-      instrumentation,
-      eventBus,
-    });
-    if (priceRuntimeResult.isErr()) {
-      controller.fail(priceRuntimeResult.error.message);
-      await controller.stop();
-      return err(priceRuntimeResult.error);
-    }
-    const priceRuntime = priceRuntimeResult.value;
-
-    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-    return ok(new PricesEnrichHandler(pipeline, priceRuntime, controller));
+    return ok(new PricesEnrichHandler(runtimeResult.value));
   } catch (error) {
-    if (controller) {
-      const message = error instanceof Error ? error.message : String(error);
-      controller.fail(message);
-      await controller.stop().catch((stopError) => {
-        logger.warn({ stopError }, 'Failed to stop prices controller after factory exception');
-      });
-    }
     return wrapError(error, 'Failed to create prices enrich handler');
   }
 }

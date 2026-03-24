@@ -1,11 +1,11 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
 import type { Account } from '@exitbook/core';
-import { type DatabaseSchema } from '@exitbook/data';
 import type { CursorState } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Kysely } from '@exitbook/sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { DatabaseSchema } from '../../database-schema.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { AccountRepository } from '../account-repository.js';
 

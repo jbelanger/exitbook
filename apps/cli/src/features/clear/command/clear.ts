@@ -1,4 +1,4 @@
-import type { AccountRepository } from '@exitbook/data';
+import type { Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
@@ -25,6 +25,10 @@ import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
  */
 interface ClearCommandResult {
   deleted: FlatDeletionPreview;
+}
+
+interface ClearAccountLookup {
+  findById(accountId: number): Promise<Result<{ sourceName: string } | undefined, Error>>;
 }
 
 /**
@@ -140,7 +144,7 @@ async function executeClearTUI(options: {
 async function buildScopeLabel(
   accountId: number | undefined,
   source: string | undefined,
-  accountRepo: AccountRepository
+  accountRepo: ClearAccountLookup
 ): Promise<string> {
   if (accountId) {
     const accountResult = await accountRepo.findById(accountId);

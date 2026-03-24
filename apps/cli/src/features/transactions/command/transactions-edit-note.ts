@@ -1,4 +1,4 @@
-import { OverrideStore } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 import { z } from 'zod';
 

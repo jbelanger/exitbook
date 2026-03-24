@@ -1,13 +1,13 @@
-import type { DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
+import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { createIngestionInfrastructure, type CliEvent } from '../../shared/ingestion-infrastructure.js';
 import { resetProjections } from '../../shared/projection-reset.js';
 
 export interface ProcessResultWithMetrics {
@@ -96,7 +96,7 @@ export class ReprocessHandler implements InfrastructureHandler<ReprocessHandlerP
 export async function createReprocessHandler(ctx: CommandScope): Promise<Result<ReprocessHandler, Error>> {
   try {
     const database = await ctx.database();
-    const infra = await createIngestionInfrastructure(ctx, database);
+    const infra = await createIngestionRuntime(ctx, database);
 
     return ok(new ReprocessHandler(database, infra.processingWorkflow, infra.ingestionMonitor, infra.instrumentation));
   } catch (error) {

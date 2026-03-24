@@ -3,7 +3,10 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
+import { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 import type { BlockchainViewItem, ProviderViewItem } from '../view/blockchains-view-state.js';
+
+export { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 
 /**
  * Blockchain categories for filtering.
@@ -24,18 +27,6 @@ export interface BlockchainCatalogItem {
   requiresApiKey: boolean;
   hasNoApiKeyProvider: boolean;
   exampleAddress: string;
-}
-
-/**
- * Provider summary information.
- */
-export interface ProviderSummary {
-  name: string;
-  displayName: string;
-  requiresApiKey: boolean;
-  apiKeyEnvVar?: string | undefined;
-  capabilities: string[];
-  rateLimit?: string | undefined;
 }
 
 /**
@@ -79,43 +70,6 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
   if (hint.includes('Layer 2')) return '2';
 
   return undefined;
-}
-
-/**
- * Convert provider info to summary.
- * Always includes rate limit (TUI detail panel always shows full info).
- */
-export function providerToSummary(provider: BlockchainProviderDescriptor): ProviderSummary {
-  // Shorten operation names for display
-  const capabilities = Array.from(
-    new Set(
-      provider.capabilities.supportedOperations.map((op) => {
-        if (op.includes('Balance')) return 'balance';
-        if (op.includes('Transaction')) return 'txs';
-        if (op.includes('Withdrawal')) return 'withdrawals';
-        if (op.includes('Token')) return 'tokens';
-        return op;
-      })
-    )
-  );
-
-  const summary: ProviderSummary = {
-    name: provider.name,
-    displayName: provider.displayName,
-    requiresApiKey: provider.requiresApiKey,
-    capabilities,
-  };
-
-  if (provider.defaultConfig?.rateLimit) {
-    const rl = provider.defaultConfig.rateLimit;
-    summary.rateLimit = `${rl.requestsPerSecond}/sec`;
-  }
-
-  if (provider.requiresApiKey && provider.apiKeyEnvVar) {
-    summary.apiKeyEnvVar = provider.apiKeyEnvVar;
-  }
-
-  return summary;
 }
 
 /**

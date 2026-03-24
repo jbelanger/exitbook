@@ -3,7 +3,8 @@ import {
   type AccountingExclusionPolicy,
   type CostBasisDependencyWatermark,
 } from '@exitbook/accounting';
-import { buildCostBasisArtifactFreshnessPorts, type DataContext } from '@exitbook/data';
+import { buildCostBasisArtifactFreshnessPorts } from '@exitbook/data/accounting';
+import type { DataContext } from '@exitbook/data/context';
 import { err, type Result } from '@exitbook/foundation';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
 

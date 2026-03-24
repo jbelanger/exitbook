@@ -1,5 +1,5 @@
 import { createAccountingExclusionPolicy, type AccountingExclusionPolicy } from '@exitbook/accounting';
-import { OverrideStore, readExcludedAssetIds } from '@exitbook/data';
+import { OverrideStore, readExcludedAssetIds } from '@exitbook/data/overrides';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 export async function loadAccountingExclusionPolicy(

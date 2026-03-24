@@ -1,5 +1,5 @@
 // Command registration for view prices subcommand
-import { OverrideStore } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 import React from 'react';
 

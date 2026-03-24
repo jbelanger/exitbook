@@ -52,7 +52,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   try {
-    const { OverrideStore } = await import('@exitbook/data');
+    const { OverrideStore } = await import('@exitbook/data/overrides');
     const dataDir = getDataDir();
     const overrideStore = new OverrideStore(dataDir);
     const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {

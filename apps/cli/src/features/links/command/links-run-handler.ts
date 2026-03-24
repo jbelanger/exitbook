@@ -4,17 +4,15 @@ import {
   type LinkingRunParams,
   type LinkingRunResult,
 } from '@exitbook/accounting';
-import type { OverrideEvent } from '@exitbook/core';
-import { buildLinkingPorts, OverrideStore } from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CommandScope } from '../../../runtime/command-scope.js';
-import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
+import { createCliLinkingRuntime, readCliLinkOverrides } from '../../../runtime/linking-runtime.js';
+import type { EventDrivenController } from '../../../ui/shared/index.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import type { InfrastructureHandler } from '../../shared/handler-contracts.js';
-import { LinksRunMonitor } from '../view/links-run-components.jsx';
 
 const logger = getLogger('LinksRunHandler');
 
@@ -31,7 +29,7 @@ export class LinksRunHandler implements InfrastructureHandler<LinkingRunParams, 
 
   async execute(params: LinkingRunParams): Promise<Result<LinkingRunResult, Error>> {
     try {
-      const overrides = await readLinkOverrides(this.overrideStore);
+      const overrides = await readCliLinkOverrides(this.overrideStore);
       if (overrides.isErr()) return err(overrides.error);
 
       if (this.controller) {
@@ -87,36 +85,18 @@ export async function createLinksRunHandler(
       return err(readyResult.error);
     }
 
-    const overrideStore = new OverrideStore(ctx.dataDir);
-    const store = buildLinkingPorts(database);
-
-    if (options.isJsonMode) {
-      const orchestrator = new LinkingOrchestrator(store);
-      return ok(new LinksRunHandler(orchestrator, overrideStore, undefined));
+    const runtimeResult = createCliLinkingRuntime({
+      dataDir: ctx.dataDir,
+      database,
+      isJsonMode: options.isJsonMode,
+    });
+    if (runtimeResult.isErr()) {
+      return err(runtimeResult.error);
     }
 
-    const eventBus = new EventBus<LinkingEvent>({
-      onError: (busErr) => {
-        logger.error({ err: busErr }, 'EventBus error');
-      },
-    });
-    const controller = createEventDrivenController(eventBus, LinksRunMonitor, {});
-    const orchestrator = new LinkingOrchestrator(store, eventBus);
-
-    return ok(new LinksRunHandler(orchestrator, overrideStore, controller));
+    const runtime = runtimeResult.value;
+    return ok(new LinksRunHandler(runtime.orchestrator, runtime.overrideStore, runtime.controller));
   } catch (error) {
     return wrapError(error, 'Failed to create links run handler');
   }
-}
-
-/**
- * Read link/unlink override events from the override store.
- */
-async function readLinkOverrides(overrideStore: OverrideStore): Promise<Result<OverrideEvent[], Error>> {
-  if (!overrideStore.exists()) return ok([]);
-
-  const result = await overrideStore.readByScopes(['link', 'unlink']);
-  if (result.isErr()) return err(new Error(`Failed to read override events: ${result.error.message}`));
-
-  return ok(result.value);
 }

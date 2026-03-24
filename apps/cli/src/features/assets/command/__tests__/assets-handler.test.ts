@@ -5,7 +5,8 @@ import type {
   OverrideEvent,
   Transaction,
 } from '@exitbook/core';
-import type { DataContext, OverrideStore } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';

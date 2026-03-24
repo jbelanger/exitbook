@@ -1,7 +1,7 @@
 // Prices set-fx command - manually set FX rate
 // Allows bulk preparation of manual FX rates without interrupting enrichment
 
-import { OverrideStore } from '@exitbook/data';
+import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
 import { displayCliError } from '../../shared/cli-error.js';

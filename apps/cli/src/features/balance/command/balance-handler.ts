@@ -6,12 +6,8 @@ import type {
   ExchangeCredentials,
   Transaction,
 } from '@exitbook/core';
-import {
-  buildBalancePorts,
-  buildBalancesFreshnessPorts,
-  resolveBalanceScopeAccountId,
-  type DataContext,
-} from '@exitbook/data';
+import { buildBalancePorts, buildBalancesFreshnessPorts, resolveBalanceScopeAccountId } from '@exitbook/data/balances';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow, type BalanceVerificationResult } from '@exitbook/ingestion';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';

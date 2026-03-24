@@ -2,10 +2,15 @@
 // Resolves transaction fingerprints and delegates to OverrideStore.
 
 import { computeResolvedLinkFingerprint, type CreateOverrideEventOptions, type TransactionLink } from '@exitbook/core';
-import { type OverrideStore, type TransactionRepository } from '@exitbook/data';
+import type { OverrideStore } from '@exitbook/data/overrides';
+import type { Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('LinkOverrideUtils');
+
+interface TransactionFingerprintReader {
+  findById(transactionId: number): Promise<Result<{ txFingerprint: string } | undefined, Error>>;
+}
 
 /**
  * Write a link_override (confirm) event to the override store.
@@ -13,7 +18,7 @@ const logger = getLogger('LinkOverrideUtils');
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeLinkOverrideEvent(
-  txRepo: TransactionRepository,
+  txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   link: TransactionLink
 ): Promise<void> {
@@ -51,7 +56,7 @@ export async function writeLinkOverrideEvent(
  * Logs warnings on failure but never throws — the DB update already succeeded.
  */
 export async function writeUnlinkOverrideEvent(
-  txRepo: TransactionRepository,
+  txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   link: TransactionLink
 ): Promise<void> {
@@ -77,7 +82,7 @@ export async function writeUnlinkOverrideEvent(
  * Returns undefined if any step fails (with warnings logged).
  */
 async function resolveFingerprints(
-  txRepo: TransactionRepository,
+  txRepo: TransactionFingerprintReader,
   link: TransactionLink
 ): Promise<{ resolvedLinkFp: string; sourceFp: string; targetFp: string } | undefined> {
   try {

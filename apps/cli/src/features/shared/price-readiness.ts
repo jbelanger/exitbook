@@ -1,20 +1,11 @@
-import {
-  type AccountingExclusionPolicy,
-  checkTransactionPriceCoverage,
-  PriceEnrichmentPipeline,
-  type PricingEvent,
-} from '@exitbook/accounting';
-import { buildPriceCoverageDataPorts } from '@exitbook/data';
-import { EventBus } from '@exitbook/events';
+import { type AccountingExclusionPolicy, checkTransactionPriceCoverage } from '@exitbook/accounting';
+import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
-import { InstrumentationCollector } from '@exitbook/observability';
 
-import type { CommandScope } from '../../runtime/command-scope.js';
-import { createEventDrivenController } from '../../ui/shared/index.js';
-import { PricesEnrichMonitor } from '../prices/view/prices-enrich-components.jsx';
+import { adaptResultCleanup, type CommandScope } from '../../runtime/command-scope.js';
+import { createCliPriceEnrichmentRuntime } from '../../runtime/price-enrichment-runtime.js';
 
-import { openCliPriceProviderRuntime } from './cli-price-provider-runtime.js';
 import type { PrereqExecutionOptions } from './projection-readiness.js';
 
 const logger = getLogger('price-readiness');
@@ -35,7 +26,6 @@ export async function ensureTransactionPricesReady(
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
   const { isJsonMode, setAbort } = options;
-  const appRuntime = scope.requireAppRuntime();
 
   const data = buildPriceCoverageDataPorts(db);
   const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);
@@ -48,55 +38,28 @@ export async function ensureTransactionPricesReady(
 
   logger.info({ reason: coverageResult.value.reason }, 'Price coverage incomplete, running enrichment');
 
-  const { buildPricingPorts } = await import('@exitbook/data');
-  const store = buildPricingPorts(db);
-
-  if (isJsonMode) {
-    const priceRuntimeResult = await openCliPriceProviderRuntime({
-      dataDir: scope.dataDir,
-      providers: appRuntime.priceProviderConfig,
-    });
-    if (priceRuntimeResult.isErr()) return err(priceRuntimeResult.error);
-    const priceRuntime = priceRuntimeResult.value;
-    try {
-      const pipeline = new PriceEnrichmentPipeline(store, undefined, undefined, accountingExclusionPolicy);
-      const result = await pipeline.execute({}, priceRuntime);
-      if (result.isErr()) return err(result.error);
-      const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
-      if (postCoverageResult.isErr()) return err(postCoverageResult.error);
-      logger.info('Price enrichment completed (JSON mode)');
-      return ok(undefined);
-    } finally {
-      const cleanupResult = await priceRuntime.cleanup();
-      if (cleanupResult.isErr()) {
-        logger.warn({ error: cleanupResult.error }, 'Failed to clean up price runtime after JSON enrichment');
-      }
-    }
+  if (!isJsonMode) {
+    console.log('\nPrices missing for requested date range, running enrichment...\n');
   }
 
-  console.log('\nPrices missing for requested date range, running enrichment...\n');
-
-  const eventBus = new EventBus<PricingEvent>({
-    onError: (error) => {
-      logger.error({ error }, 'EventBus error during price enrichment');
-    },
+  const priceEnrichmentRuntimeResult = await createCliPriceEnrichmentRuntime({
+    accountingExclusionPolicy,
+    database: db,
+    isJsonMode,
+    registerCleanup: false,
+    scope,
   });
-  const instrumentation = new InstrumentationCollector();
-  const controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
+  if (priceEnrichmentRuntimeResult.isErr()) return err(priceEnrichmentRuntimeResult.error);
 
-  const priceRuntimeResult = await openCliPriceProviderRuntime({
-    dataDir: scope.dataDir,
-    instrumentation,
-    eventBus,
-    providers: appRuntime.priceProviderConfig,
-  });
-  if (priceRuntimeResult.isErr()) {
-    controller.fail(priceRuntimeResult.error.message);
-    await controller.stop();
-    return err(priceRuntimeResult.error);
-  }
-  const priceRuntime = priceRuntimeResult.value;
+  const priceEnrichmentRuntime = priceEnrichmentRuntimeResult.value;
+  const controller = priceEnrichmentRuntime.controller;
+  const cleanupPriceRuntime = adaptResultCleanup(priceEnrichmentRuntime.priceRuntime.cleanup);
+
   const abort = () => {
+    if (!controller) {
+      return;
+    }
+
     controller.abort();
     void controller.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop prices controller on abort');
@@ -105,37 +68,40 @@ export async function ensureTransactionPricesReady(
 
   setAbort?.(abort);
   try {
-    await controller.start();
+    if (controller) {
+      await controller.start();
+    }
 
-    const pipeline = new PriceEnrichmentPipeline(store, eventBus, instrumentation, accountingExclusionPolicy);
-    const result = await pipeline.execute({}, priceRuntime);
+    const result = await priceEnrichmentRuntime.pipeline.execute({}, priceEnrichmentRuntime.priceRuntime);
 
     if (result.isErr()) {
-      controller.fail(result.error.message);
+      controller?.fail(result.error.message);
       return err(result.error);
     }
 
     const postCoverageResult = await verifyTransactionPriceCoverage(data, config, target, accountingExclusionPolicy);
     if (postCoverageResult.isErr()) {
-      controller.fail(postCoverageResult.error.message);
+      controller?.fail(postCoverageResult.error.message);
       return err(postCoverageResult.error);
     }
 
-    controller.complete();
+    controller?.complete();
+    if (isJsonMode) {
+      logger.info('Price enrichment completed (JSON mode)');
+    }
     return ok(undefined);
   } catch (error) {
     const caughtError = error instanceof Error ? error : new Error(String(error));
-    controller.fail(caughtError.message);
+    controller?.fail(caughtError.message);
     return err(caughtError);
   } finally {
     setAbort?.(undefined);
-    await controller.stop().catch((cleanupErr) => {
+    await controller?.stop().catch((cleanupErr) => {
       logger.warn({ cleanupErr }, 'Failed to stop prices controller during cleanup');
     });
-    const cleanupResult = await priceRuntime.cleanup();
-    if (cleanupResult.isErr()) {
-      logger.warn({ error: cleanupResult.error }, 'Failed to clean up price runtime after TUI enrichment');
-    }
+    await cleanupPriceRuntime().catch((cleanupError) => {
+      logger.warn({ cleanupError }, 'Failed to clean up price runtime after enrichment');
+    });
   }
 }
 

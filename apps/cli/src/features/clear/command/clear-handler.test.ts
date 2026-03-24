@@ -1,4 +1,4 @@
-import type { DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 

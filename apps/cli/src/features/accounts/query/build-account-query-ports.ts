@@ -1,5 +1,5 @@
-import { buildBalancesFreshnessPorts } from '@exitbook/data';
-import type { DataContext } from '@exitbook/data';
+import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok } from '@exitbook/foundation';
 
 import type { AccountQueryPorts } from './account-query-ports.js';

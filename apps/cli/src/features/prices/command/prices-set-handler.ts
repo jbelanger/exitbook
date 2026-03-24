@@ -1,7 +1,7 @@
 // Handler for prices set command
 // Uses a price runtime facade to save manual price entries.
 
-import type { OverrideStore } from '@exitbook/data';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';

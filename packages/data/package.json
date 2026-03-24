@@ -7,6 +7,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./accounting": "./src/accounting.ts",
+    "./balances": "./src/balances.ts",
+    "./context": "./src/context.ts",
+    "./ingestion": "./src/ingestion.ts",
+    "./overrides": "./src/overrides.ts",
+    "./projections": "./src/projections.ts",
     "./test-utils": "./src/utils/test-utils.ts"
   },
   "main": "src/index.ts",

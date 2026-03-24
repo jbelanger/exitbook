@@ -1,4 +1,4 @@
-import { type DataContext } from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 

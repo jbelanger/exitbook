@@ -1,6 +1,7 @@
 import type { Account } from '@exitbook/core';
-import type { DataContext } from '@exitbook/data';
-import { buildCostBasisResetPorts, buildIngestionPurgePorts } from '@exitbook/data';
+import { buildCostBasisResetPorts } from '@exitbook/data/accounting';
+import type { DataContext } from '@exitbook/data/context';
+import { buildIngestionPurgePorts } from '@exitbook/data/ingestion';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IngestionPurgeImpact } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';

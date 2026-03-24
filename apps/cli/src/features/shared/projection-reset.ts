@@ -1,11 +1,11 @@
 import { type ProjectionId, resetPlan } from '@exitbook/core';
+import type { DataContext } from '@exitbook/data/context';
 import {
   buildAssetReviewResetPorts,
   buildBalancesResetPorts,
   buildLinksResetPorts,
   buildProcessedTransactionsResetPorts,
-  type DataContext,
-} from '@exitbook/data';
+} from '@exitbook/data/projections';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 export interface ProjectionResetImpact {

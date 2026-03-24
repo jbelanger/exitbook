@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
-import type { DataContext } from '@exitbook/data';
-import * as dataModule from '@exitbook/data';
+import type { DataContext } from '@exitbook/data/context';
+import * as dataModule from '@exitbook/data/context';
 import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,8 +15,8 @@ const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
 }));
 
 // Mock the DataContext class — replace with object exposing mocked static method
-vi.mock('@exitbook/data', async () => {
-  const actual = await vi.importActual('@exitbook/data');
+vi.mock('@exitbook/data/context', async () => {
+  const actual = await vi.importActual('@exitbook/data/context');
   return {
     ...actual,
     DataContext: {

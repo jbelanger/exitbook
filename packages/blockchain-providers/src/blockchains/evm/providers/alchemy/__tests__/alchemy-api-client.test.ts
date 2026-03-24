@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { err, ok } from '@exitbook/foundation';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OneShotOperation } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
@@ -69,10 +69,12 @@ describe('AlchemyApiClient', () => {
   const providerRegistry = createProviderRegistry();
   let client: AlchemyApiClient;
   let mockPost: MockHttpClient['post'];
+  const originalAlchemyApiKey = process.env['ALCHEMY_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
+    process.env['ALCHEMY_API_KEY'] = 'test-alchemy-api-key';
 
     const config = providerRegistry.createDefaultConfig('ethereum', 'alchemy');
     client = new AlchemyApiClient(config);
@@ -80,6 +82,15 @@ describe('AlchemyApiClient', () => {
     // portfolioClient is a separate HttpClient instance — inject mock separately
     Object.defineProperty(client, 'portfolioClient', { configurable: true, value: mockHttp, writable: true });
     mockPost = mockHttp.post;
+  });
+
+  afterAll(() => {
+    if (originalAlchemyApiKey === undefined) {
+      delete process.env['ALCHEMY_API_KEY'];
+      return;
+    }
+
+    process.env['ALCHEMY_API_KEY'] = originalAlchemyApiKey;
   });
 
   describe('metadata', () => {

@@ -1,4 +1,5 @@
-import { DataContext, type OverrideStore } from '@exitbook/data';
+import { DataContext } from '@exitbook/data/context';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 

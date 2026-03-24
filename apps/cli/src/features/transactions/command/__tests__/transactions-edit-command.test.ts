@@ -28,7 +28,7 @@ const {
   mockTransactionsEditHandlerConstructor: vi.fn(),
 }));
 
-vi.mock('@exitbook/data', () => ({
+vi.mock('@exitbook/data/overrides', () => ({
   OverrideStore: vi.fn().mockImplementation(function MockOverrideStore(...args: unknown[]) {
     mockOverrideStoreConstructor(...args);
     return mockOverrideStoreInstance;

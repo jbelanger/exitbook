@@ -1,5 +1,5 @@
 import type { LinkingRunResult, LinkingRunParams } from '@exitbook/accounting';
-import type { OverrideStore } from '@exitbook/data';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import { parseDecimal } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';

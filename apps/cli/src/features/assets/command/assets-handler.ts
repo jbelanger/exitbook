@@ -6,14 +6,14 @@ import type {
   Transaction,
   CreateOverrideEventOptions,
 } from '@exitbook/core';
+import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
+import { DataContext } from '@exitbook/data/context';
 import {
-  buildBalancesFreshnessPorts,
-  DataContext,
   readAssetReviewDecisions,
   readExcludedAssetIds,
   type AssetReviewDecision,
   type OverrideStore,
-} from '@exitbook/data';
+} from '@exitbook/data/overrides';
 import { type AssetReferenceStatus, parseDecimal, err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import { createCliAssetReviewProjectionRuntime } from '../../shared/asset-review-projection-runtime.js';

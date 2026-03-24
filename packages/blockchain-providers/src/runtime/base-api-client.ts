@@ -220,11 +220,8 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   // Common validation helper
   protected validateApiKey(): void {
-    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
-      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
-      throw new Error(
-        `Valid API key required for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`
-      );
+    if (this.metadata.requiresApiKey && !this.apiKey) {
+      throw this.createMissingApiKeyError();
     }
   }
 
@@ -238,16 +235,23 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     const apiKey = process.env[envVar];
 
     if (!apiKey || apiKey === 'YourApiKeyToken') {
-      // Only warn/return placeholder if API key is required
       if (this.metadata.requiresApiKey) {
-        this.logger.warn(`No API key found for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`);
-        return 'YourApiKeyToken';
+        const error = this.createMissingApiKeyError(envVar);
+        this.logger.warn(error.message);
+        throw error;
       }
       // For optional API keys, silently return empty string
       return '';
     }
 
     return apiKey;
+  }
+
+  private createMissingApiKeyError(envVar?: string): Error {
+    const resolvedEnvVar = envVar || this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+    return new Error(
+      `Valid API key required for ${this.metadata.displayName}. Set environment variable: ${resolvedEnvVar}`
+    );
   }
 
   private async runHealthCheck(client: HttpClient): Promise<Result<boolean, Error>> {

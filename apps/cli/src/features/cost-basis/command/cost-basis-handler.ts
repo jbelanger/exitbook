@@ -12,8 +12,8 @@ import {
   buildCostBasisArtifactStore,
   buildCostBasisFailureSnapshotStore,
   buildCostBasisPorts,
-  type DataContext,
-} from '@exitbook/data';
+} from '@exitbook/data/accounting';
+import type { DataContext } from '@exitbook/data/context';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
