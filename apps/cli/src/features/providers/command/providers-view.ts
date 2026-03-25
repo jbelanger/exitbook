@@ -7,8 +7,10 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
+import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from '../view/index.js';
 
 import { ProvidersViewCommandOptionsSchema } from './providers-option-schemas.js';
@@ -56,31 +58,17 @@ Common Usage:
  * Execute the providers view command.
  */
 async function executeProvidersViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  // Validate options at CLI boundary
-  const parseResult = ProvidersViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'providers-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
-
-  // Validate health filter if provided
+  const { format, options } = parseCliCommandOptions('providers-view', rawOptions, ProvidersViewCommandOptionsSchema);
   let validatedHealth: HealthFilter | undefined;
   if (options.health) {
     const healthResult = validateHealthFilter(options.health);
     if (healthResult.isErr()) {
-      displayCliError('providers-view', healthResult.error, ExitCodes.INVALID_ARGS, isJsonMode ? 'json' : 'text');
+      displayCliError('providers-view', healthResult.error, ExitCodes.INVALID_ARGS, format);
     }
     validatedHealth = healthResult.value;
   }
 
-  if (isJsonMode) {
+  if (format === 'json') {
     await executeProvidersViewJSON(options, validatedHealth, appRuntime);
   } else {
     await executeProvidersViewTUI(options, validatedHealth, appRuntime);
@@ -113,7 +101,7 @@ async function executeProvidersViewTUI(
   validatedHealth: HealthFilter | undefined,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('providers-view', 'text', async () => {
     const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, appRuntime);
 
     const initialState = createProvidersViewState(
@@ -132,14 +120,7 @@ async function executeProvidersViewTUI(
         onQuit: unmount,
       })
     );
-  } catch (error) {
-    displayCliError(
-      'providers-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
@@ -150,16 +131,9 @@ async function executeProvidersViewJSON(
   validatedHealth: HealthFilter | undefined,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('providers-view', 'json', async () => {
     const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, appRuntime);
 
-    // Build filters record
-    const filters: Record<string, unknown> = {};
-    if (options.blockchain) filters['blockchain'] = options.blockchain;
-    if (validatedHealth) filters['health'] = validatedHealth;
-    if (options.missingApiKey) filters['missingApiKey'] = true;
-
-    // Build JSON-friendly provider data
     const jsonProviders = viewItems.map((p) => ({
       name: p.name,
       displayName: p.displayName,
@@ -206,17 +180,14 @@ async function executeProvidersViewJSON(
         total: viewItems.length,
         byHealth: healthCounts,
         requireApiKey: viewItems.filter((p) => p.requiresApiKey).length,
-        filters,
+        filters: buildDefinedFilters({
+          blockchain: options.blockchain,
+          health: validatedHealth,
+          missingApiKey: options.missingApiKey ? true : undefined,
+        }),
       },
     };
 
     outputSuccess('providers-view', resultData);
-  } catch (error) {
-    displayCliError(
-      'providers-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }

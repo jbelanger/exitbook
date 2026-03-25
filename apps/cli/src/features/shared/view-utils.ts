@@ -58,6 +58,11 @@ export function buildViewMeta(
   };
 }
 
+export function buildDefinedFilters(filters: Record<string, unknown>): Record<string, unknown> | undefined {
+  const definedFilters = Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined));
+  return Object.keys(definedFilters).length > 0 ? definedFilters : undefined;
+}
+
 /**
  * Get all movements (inflows and outflows) from a transaction's movements.
  * Handles optional arrays with null coalescing.

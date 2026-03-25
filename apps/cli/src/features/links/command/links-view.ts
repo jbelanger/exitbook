@@ -7,9 +7,10 @@ import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
-import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
+import { buildDefinedFilters, buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
 import type { LinkGapIssue } from '../links-gap-model.js';
 import type { LinkWithTransactions } from '../links-view-model.js';
 import { LinksViewApp, createGapsViewState, createLinksViewState } from '../view/index.js';
@@ -126,21 +127,7 @@ Examples:
  * Execute the links view command.
  */
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
-  // Validate options at CLI boundary
-  const parseResult = LinksViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'links-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
-
-  // Build params from validated options
+  const { format, options } = parseCliCommandOptions('links-view', rawOptions, LinksViewCommandOptionsSchema);
   const params: LinksViewParams = {
     status: options.status,
     minConfidence: options.minConfidence,
@@ -148,8 +135,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     verbose: options.verbose,
   };
 
-  // JSON mode uses structured output functions
-  if (isJsonMode) {
+  if (format === 'json') {
     await executeLinksViewJSON(params);
     return;
   }
@@ -158,18 +144,8 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 }
 
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
-  const parseResult = LinksGapsCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'links-gaps',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  if (options.json ?? false) {
+  const { format } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
+  if (format === 'json') {
     await executeGapsViewJSON();
     return;
   }
@@ -183,7 +159,7 @@ async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
 async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
   const { OverrideStore } = await import('@exitbook/data/overrides');
 
-  try {
+  await withCliCommandErrorHandling('links-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const linkRepo = database.transactionLinks;
@@ -246,21 +222,14 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
         })
       );
     });
-  } catch (error) {
-    displayCliError(
-      'links-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
  * Execute gaps view in TUI mode (read-only)
  */
 async function executeGapsViewTUI(): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('links-gaps', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const txRepo = database.transactions;
@@ -303,21 +272,14 @@ async function executeGapsViewTUI(): Promise<void> {
         })
       );
     });
-  } catch (error) {
-    displayCliError(
-      'links-gaps',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
  * Execute links view in JSON mode
  */
 async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('links-view', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const linkRepo = database.transactionLinks;
@@ -354,21 +316,14 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
 
       handleLinksViewJSON(result, params);
     });
-  } catch (error) {
-    displayCliError(
-      'links-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }
 
 /**
  * Execute gaps view in JSON mode
  */
 async function executeGapsViewJSON(): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('links-gaps', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const txRepo = database.transactions;
@@ -416,14 +371,7 @@ async function executeGapsViewJSON(): Promise<void> {
 
       outputSuccess('links-gaps', resultData);
     });
-  } catch (error) {
-    displayCliError(
-      'links-gaps',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }
 
 /**
@@ -432,15 +380,19 @@ async function executeGapsViewJSON(): Promise<void> {
 function handleLinksViewJSON(result: LinksViewResult, params: LinksViewParams): void {
   const { links, count } = result;
 
-  // Prepare result data for JSON mode
-  const filters: Record<string, unknown> = {};
-  if (params.status) filters['status'] = params.status;
-  if (params.minConfidence !== undefined) filters['min_confidence'] = params.minConfidence;
-  if (params.maxConfidence !== undefined) filters['max_confidence'] = params.maxConfidence;
-
   const resultData: LinksViewCommandResult = {
     data: links,
-    meta: buildViewMeta(count, 0, count, count, filters),
+    meta: buildViewMeta(
+      count,
+      0,
+      count,
+      count,
+      buildDefinedFilters({
+        status: params.status,
+        min_confidence: params.minConfidence,
+        max_confidence: params.maxConfidence,
+      })
+    ),
   };
 
   outputSuccess('links-view', resultData);

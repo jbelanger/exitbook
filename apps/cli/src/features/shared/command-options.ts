@@ -44,3 +44,20 @@ export function parseCliCommandOptions<T>(
     options: parseResult.data,
   };
 }
+
+function toCliError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+export async function withCliCommandErrorHandling(
+  command: string,
+  format: CliOutputFormat,
+  action: () => Promise<void>,
+  exitCode: ExitCode = ExitCodes.GENERAL_ERROR
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    displayCliError(command, toCliError(error), exitCode, format);
+  }
+}

@@ -5,10 +5,11 @@ import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildViewMeta } from '../../shared/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import { toAccountViewItem } from '../account-view-projection.js';
 import type { AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
@@ -66,21 +67,7 @@ Account Types:
  * Execute the view accounts command.
  */
 async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
-  // Validate options at CLI boundary
-  const parseResult = AccountsViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'accounts-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
-
-  // Build params from options
+  const { format, options } = parseCliCommandOptions('accounts-view', rawOptions, AccountsViewCommandOptionsSchema);
   const params: ViewAccountsParams = {
     accountId: options.accountId,
     source: options.source,
@@ -88,7 +75,7 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
     showSessions: options.showSessions,
   };
 
-  if (isJsonMode) {
+  if (format === 'json') {
     await executeAccountsViewJSON(params);
   } else {
     await executeAccountsViewTUI(params);
@@ -99,7 +86,7 @@ async function executeViewAccountsCommand(rawOptions: unknown): Promise<void> {
  * Execute accounts view in TUI mode
  */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('view-accounts', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
@@ -141,21 +128,14 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
         })
       );
     });
-  } catch (error) {
-    displayCliError(
-      'view-accounts',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
  * Execute accounts view in JSON mode
  */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('view-accounts', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
@@ -173,29 +153,24 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
       }
 
       const { accounts, count, sessions } = result.value;
-
-      // Transform to AccountViewItem format with nested sessions and children (same as TUI)
       const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
-
-      const filters: Record<string, unknown> = {
-        ...(params.accountId && { accountId: params.accountId }),
-        ...(params.source && { source: params.source }),
-        ...(params.accountType && { accountType: params.accountType }),
-      };
 
       const resultData: ViewAccountsCommandResult = {
         data: viewItems,
-        meta: buildViewMeta(count, 0, count, count, filters),
+        meta: buildViewMeta(
+          count,
+          0,
+          count,
+          count,
+          buildDefinedFilters({
+            accountId: params.accountId,
+            source: params.source,
+            accountType: params.accountType,
+          })
+        ),
       };
 
       outputSuccess('view-accounts', resultData);
     });
-  } catch (error) {
-    displayCliError(
-      'view-accounts',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }

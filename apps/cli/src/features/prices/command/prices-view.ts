@@ -6,10 +6,11 @@ import React from 'react';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildViewMeta } from '../../shared/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import type {
   AssetBreakdownEntry,
   PriceCoverageInfo,
@@ -65,19 +66,7 @@ Common Usage:
  * Execute the view prices command.
  */
 async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
-  // Validate options at CLI boundary
-  const parseResult = PricesViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'prices-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
+  const { format, options } = parseCliCommandOptions('prices-view', rawOptions, PricesViewCommandOptionsSchema);
   const isMissingMode = options.missingOnly ?? false;
 
   const params: ViewPricesParams = {
@@ -86,8 +75,7 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
     missingOnly: options.missingOnly,
   };
 
-  // JSON mode uses structured output functions
-  if (isJsonMode) {
+  if (format === 'json') {
     if (isMissingMode) {
       await executeMissingViewJSON(params);
     } else {
@@ -97,7 +85,6 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
     return;
   }
 
-  // TUI mode
   if (isMissingMode) {
     await executeMissingViewTUI(params);
   } else {
@@ -109,7 +96,7 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
  * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
  */
 async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('prices-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const handler = new PricesViewHandler(database);
@@ -135,7 +122,6 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
         params.source
       );
 
-      // Drill-down callback: load missing prices for a specific asset
       const handleLoadMissing = async (asset: string) => {
         const result = await handler.executeMissing({ ...params, asset });
         if (result.isErr()) throw result.error;
@@ -145,7 +131,6 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
       const priceRuntimeUseResult = await withCliPriceProviderRuntime(
         { dataDir: ctx.dataDir },
         async (priceRuntime) => {
-          // Set-price callback (used after drilling into missing mode)
           const overrideStore = new OverrideStore(ctx.dataDir);
           const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
@@ -169,21 +154,14 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
       }
     });
-  } catch (error) {
-    displayCliError(
-      'prices-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
  * Execute missing view in TUI mode (keeps DB open for set-price writes)
  */
 async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('prices-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
@@ -226,21 +204,14 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
       }
     });
-  } catch (error) {
-    displayCliError(
-      'prices-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  });
 }
 
 /**
  * Execute view prices in JSON mode
  */
 async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const handler = new PricesViewHandler(database);
@@ -254,26 +225,24 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
 
       const { coverage, summary } = result.value;
 
-      const filters: Record<string, unknown> = {};
-      if (params.asset) filters['asset'] = params.asset;
-      if (params.source) filters['source'] = params.source;
-      if (params.missingOnly) filters['missingOnly'] = params.missingOnly;
-
       const resultData: ViewPricesCommandResult = {
         data: { coverage, summary },
-        meta: buildViewMeta(coverage.length, 0, coverage.length, coverage.length, filters),
+        meta: buildViewMeta(
+          coverage.length,
+          0,
+          coverage.length,
+          coverage.length,
+          buildDefinedFilters({
+            asset: params.asset,
+            source: params.source,
+            missingOnly: params.missingOnly ? true : undefined,
+          })
+        ),
       };
 
       outputSuccess('view-prices', resultData);
     });
-  } catch (error) {
-    displayCliError(
-      'view-prices',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }
 
 /**
@@ -295,7 +264,7 @@ type MissingPricesCommandResult = ViewCommandResult<{
  * Execute missing prices in JSON mode
  */
 async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
-  try {
+  await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const handler = new PricesViewHandler(database);
@@ -309,11 +278,6 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
 
       const { movements, assetBreakdown } = result.value;
 
-      const filters: Record<string, unknown> = {};
-      if (params.asset) filters['asset'] = params.asset;
-      if (params.source) filters['source'] = params.source;
-      filters['missingOnly'] = true;
-
       const jsonMovements = movements.map((m) => ({
         transactionId: m.transactionId,
         source: m.source,
@@ -325,17 +289,20 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
 
       const resultData: MissingPricesCommandResult = {
         data: { movements: jsonMovements, assetBreakdown },
-        meta: buildViewMeta(movements.length, 0, movements.length, movements.length, filters),
+        meta: buildViewMeta(
+          movements.length,
+          0,
+          movements.length,
+          movements.length,
+          buildDefinedFilters({
+            asset: params.asset,
+            source: params.source,
+            missingOnly: true,
+          })
+        ),
       };
 
       outputSuccess('view-prices', resultData);
     });
-  } catch (error) {
-    displayCliError(
-      'view-prices',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+  });
 }
