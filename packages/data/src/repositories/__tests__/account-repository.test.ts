@@ -146,7 +146,7 @@ describe('AccountRepository', () => {
     });
   });
 
-  describe('findById', () => {
+  describe('getById', () => {
     it('finds an existing account', async () => {
       const created = assertOk(
         await repo.findOrCreate({
@@ -157,13 +157,13 @@ describe('AccountRepository', () => {
         })
       );
 
-      const found = assertOk(await repo.findById(created.id));
+      const found = assertOk(await repo.getById(created.id));
       expect(found.id).toBe(created.id);
       expect(found.sourceName).toBe('ethereum');
     });
 
     it('returns error for non-existent account', async () => {
-      const result = await repo.findById(999);
+      const result = await repo.getById(999);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('Account 999 not found');
@@ -188,7 +188,7 @@ describe('AccountRepository', () => {
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      const result = await repo.findById(inserted.id);
+      const result = await repo.getById(inserted.id);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('Schema validation failed');
@@ -213,7 +213,7 @@ describe('AccountRepository', () => {
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      const result = await repo.findById(inserted.id);
+      const result = await repo.getById(inserted.id);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('Schema validation failed');
@@ -221,9 +221,9 @@ describe('AccountRepository', () => {
     });
   });
 
-  describe('findByIdOptional', () => {
+  describe('findById', () => {
     it('returns undefined for a missing account', async () => {
-      const result = await repo.findByIdOptional(999);
+      const result = await repo.findById(999);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value).toBeUndefined();
@@ -399,7 +399,7 @@ describe('AccountRepository', () => {
 
     it('updates providerName', async () => {
       await repo.update(account.id, { providerName: 'mempool.space' });
-      const updated = assertOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.getById(account.id));
       expect(updated.providerName).toBe('mempool.space');
     });
 
@@ -415,22 +415,22 @@ describe('AccountRepository', () => {
       );
 
       await repo.update(exchange.id, { credentials: { apiKey: 'new_key', apiSecret: 'new_secret' } });
-      const updated = assertOk(await repo.findById(exchange.id));
+      const updated = assertOk(await repo.getById(exchange.id));
       expect(updated.credentials).toEqual({ apiKey: 'new_key', apiSecret: 'new_secret' });
     });
 
     it('sets updatedAt', async () => {
       await repo.update(account.id, { providerName: 'new_provider' });
-      const updated = assertOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.getById(account.id));
       expect(updated.updatedAt).toBeInstanceOf(Date);
     });
 
     it('treats undefined fields as no-op', async () => {
       await repo.update(account.id, { providerName: 'existing-provider' });
-      const before = assertOk(await repo.findById(account.id));
+      const before = assertOk(await repo.getById(account.id));
 
       await repo.update(account.id, { providerName: undefined });
-      const after = assertOk(await repo.findById(account.id));
+      const after = assertOk(await repo.getById(account.id));
 
       expect(after.providerName).toBe('existing-provider');
       expect(after.updatedAt?.toISOString()).toBe(before.updatedAt?.toISOString());
@@ -458,7 +458,7 @@ describe('AccountRepository', () => {
       };
 
       await repo.updateCursor(account.id, 'normal', cursor);
-      const updated = assertOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.getById(account.id));
       expect(updated.lastCursor).toEqual({ normal: cursor });
     });
 
@@ -474,7 +474,7 @@ describe('AccountRepository', () => {
         totalFetched: 150,
       });
 
-      const updated = assertOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.getById(account.id));
       expect(updated.lastCursor?.['normal']?.totalFetched).toBe(500);
       expect(updated.lastCursor?.['internal']?.totalFetched).toBe(150);
     });
@@ -491,7 +491,7 @@ describe('AccountRepository', () => {
         totalFetched: 1000,
       });
 
-      const updated = assertOk(await repo.findById(account.id));
+      const updated = assertOk(await repo.getById(account.id));
       expect(updated.lastCursor?.['normal']?.totalFetched).toBe(1000);
       expect(updated.lastCursor?.['normal']?.lastTransactionId).toBe('tx1000');
     });

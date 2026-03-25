@@ -9,7 +9,7 @@ export function buildAccountQueryPorts(db: DataSession): AccountQueryPorts {
 
   return {
     findOrCreateDefaultUser: () => db.users.findOrCreateDefault(),
-    findAccountById: (id) => db.accounts.findByIdOptional(id),
+    findAccountById: (id) => db.accounts.findById(id),
     findAccounts: (filters) => db.accounts.findAll(filters),
     countSessionsByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),
     findSessions: (filters) => db.importSessions.findAll(filters),
