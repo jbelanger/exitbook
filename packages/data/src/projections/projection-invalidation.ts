@@ -1,9 +1,8 @@
 import { cascadeInvalidation, type ProjectionId } from '@exitbook/core';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
+import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from '../balances/balance-scope.js';
 import type { DataSession } from '../data-session.js';
-
-import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from './balance-scope-utils.js';
 
 async function resolveExistingBalanceScopeIds(db: DataSession): Promise<Result<number[], Error>> {
   return resultDoAsync(async function* () {

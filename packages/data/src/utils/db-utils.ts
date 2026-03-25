@@ -102,11 +102,11 @@ export async function withControlledTransaction<T, TDB>(
 /**
  * Parse a JSON string without schema validation.
  */
-export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Error> {
+export function parseJson(value: unknown): Result<unknown, Error> {
   if (!value) return ok(undefined);
 
   try {
-    const parsed = typeof value === 'string' ? (JSON.parse(value) as T) : (value as T);
+    const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value;
     return ok(parsed);
   } catch (error) {
     return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
@@ -118,8 +118,8 @@ export function parseJson<T = unknown>(value: unknown): Result<T | undefined, Er
  */
 export function toRawTransaction(row: Selectable<RawTransactionTable>): Result<RawTransaction, Error> {
   return resultDo(function* () {
-    const providerData = yield* parseJson<unknown>(row.provider_data);
-    const normalizedData = yield* parseJson<unknown>(row.normalized_data);
+    const providerData = yield* parseJson(row.provider_data);
+    const normalizedData = yield* parseJson(row.normalized_data);
 
     if (!row.provider_name) {
       yield* err(new Error('Missing required provider_name field'));

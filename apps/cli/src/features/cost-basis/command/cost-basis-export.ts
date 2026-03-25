@@ -18,9 +18,9 @@ import type { Command } from 'commander';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 
@@ -78,19 +78,12 @@ Examples:
 }
 
 async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
-  const parseResult = CostBasisExportCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'cost-basis-export',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-    return;
-  }
-
-  const options = parseResult.data;
+  const { format, options } = parseCliCommandOptions(
+    'cost-basis-export',
+    rawOptions,
+    CostBasisExportCommandOptionsSchema
+  );
+  const isJson = format === 'json';
 
   try {
     const params = unwrapResult(buildCostBasisInputFromFlags(options));

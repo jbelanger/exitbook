@@ -4,7 +4,7 @@ import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { analyzeLinkGaps } from '../links-gap-utils.js';
+import { analyzeLinkGaps } from '../links-gap-analysis.js';
 
 describe('analyzeLinkGaps', () => {
   const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';

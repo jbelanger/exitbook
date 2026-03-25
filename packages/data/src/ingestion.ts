@@ -1,3 +1,3 @@
-export { buildImportPorts } from './adapters/import-ports-adapter.js';
-export { buildIngestionPurgePorts } from './adapters/ingestion-purge-adapter.js';
-export { buildProcessingPorts } from './adapters/processing-ports-adapter.js';
+export { buildImportPorts } from './ingestion/import-ports.js';
+export { buildIngestionPurgePorts } from './ingestion/ingestion-purge.js';
+export { buildProcessingPorts } from './ingestion/processing-ports.js';

@@ -13,8 +13,8 @@ import type { Command } from 'commander';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
@@ -44,19 +44,7 @@ function collect(value: string, previous: string[]): string[] {
 }
 
 async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
-
-  const parseResult = PricesEnrichCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'prices-enrich',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format, options } = parseCliCommandOptions('prices-enrich', rawOptions, PricesEnrichCommandOptionsSchema);
   const params: PricesEnrichOptions = {
     asset: options.asset,
     onMissing: options.onMissing,
@@ -65,7 +53,7 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
     fetchOnly: options.fetchOnly,
   };
 
-  if (options.json) {
+  if (format === 'json') {
     await executePricesEnrichJSON(params, appRuntime);
   } else {
     await executePricesEnrichTUI(params, appRuntime);

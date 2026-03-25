@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildProcessingPorts } from '../../ingestion/processing-ports.js';
 import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildProcessingPorts } from '../processing-ports-adapter.js';
 
 describe('buildProcessingPorts', () => {
   let db: KyselyDB;

@@ -7,8 +7,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
@@ -48,22 +48,9 @@ export function registerCostBasisCommand(program: Command, appRuntime: CliAppRun
 }
 
 async function executeCostBasisCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
+  const { format, options } = parseCliCommandOptions('cost-basis', rawOptions, CostBasisCommandOptionsSchema);
 
-  const parseResult = CostBasisCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'cost-basis',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-    return;
-  }
-
-  const options = parseResult.data;
-
-  if (options.json) {
+  if (format === 'json') {
     await executeCostBasisCalculateJSON(options, appRuntime);
   } else {
     await executeCostBasisCalculateTUI(options, appRuntime);

@@ -5,8 +5,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
@@ -45,22 +45,9 @@ export function registerPortfolioCommand(program: Command, appRuntime: CliAppRun
 }
 
 async function executePortfolioCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const jsonMode = isJsonMode(rawOptions);
+  const { format, options } = parseCliCommandOptions('portfolio', rawOptions, PortfolioCommandOptionsSchema);
 
-  const parseResult = PortfolioCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'portfolio',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      jsonMode ? 'json' : 'text'
-    );
-    return;
-  }
-
-  const options = parseResult.data;
-
-  if (options.json) {
+  if (format === 'json') {
     await executePortfolioJSON(options, appRuntime);
   } else {
     await executePortfolioTUI(options, appRuntime);

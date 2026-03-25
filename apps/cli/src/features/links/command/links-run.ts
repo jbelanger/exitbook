@@ -10,8 +10,8 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { LinksRunCommandOptionsSchema } from './links-option-schemas.js';
@@ -130,20 +130,8 @@ export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAp
 }
 
 async function executeLinksRunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
-
-  const parseResult = LinksRunCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'links-run',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
-  if (options.json) {
+  const { format, options } = parseCliCommandOptions('links-run', rawOptions, LinksRunCommandOptionsSchema);
+  if (format === 'json') {
     await executeLinksRunJSON(options, appRuntime);
   } else {
     await executeLinksRunTUI(options, appRuntime);

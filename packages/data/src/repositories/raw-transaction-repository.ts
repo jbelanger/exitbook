@@ -360,7 +360,7 @@ export class RawTransactionRepository extends BaseRepository {
         return;
       }
 
-      const existingNormalizedResult = parseJson<unknown>(existing.normalized_data);
+      const existingNormalizedResult = parseJson(existing.normalized_data);
       if (existingNormalizedResult.isErr()) {
         this.logger.warn(
           { accountId, eventId: item.eventId, error: existingNormalizedResult.error },

@@ -9,16 +9,20 @@ import { err, ok } from '@exitbook/foundation';
 
 import type { PricesDB } from '../../price-cache/persistence/database.js';
 
-interface ProviderRecord {
+interface ProviderRow {
   id: number;
   name: string;
   display_name: string;
   last_coin_list_sync: string | null;
   coin_list_count: number;
-  is_active: boolean;
+  is_active: boolean | number;
   metadata: string;
   created_at: string;
   updated_at: string | null;
+}
+
+interface ProviderRecord extends Omit<ProviderRow, 'is_active'> {
+  is_active: boolean;
 }
 
 interface CoinMappingRecord {
@@ -43,6 +47,13 @@ export interface CoinMappingInput {
  * Queries for managing provider catalog records and coin mappings.
  */
 export function createProviderCatalogQueries(db: PricesDB) {
+  function normalizeProviderRecord(row: ProviderRow): ProviderRecord {
+    return {
+      ...row,
+      is_active: row.is_active === true || row.is_active === 1,
+    };
+  }
+
   /**
    * Get an existing provider by name or create it on first use.
    */
@@ -52,7 +63,7 @@ export function createProviderCatalogQueries(db: PricesDB) {
       const existing = await db.selectFrom('providers').selectAll().where('name', '=', name).executeTakeFirst();
 
       if (existing) {
-        return ok(existing);
+        return ok(normalizeProviderRecord(existing as ProviderRow));
       }
 
       // Insert new provider
@@ -61,14 +72,14 @@ export function createProviderCatalogQueries(db: PricesDB) {
         .values({
           name,
           display_name: displayName,
-          is_active: 1 as unknown as boolean, // SQLite uses integers for booleans
+          is_active: true,
           metadata: '{}',
           created_at: new Date().toISOString(),
         })
         .returningAll()
         .executeTakeFirstOrThrow();
 
-      return ok(result);
+      return ok(normalizeProviderRecord(result as ProviderRow));
     } catch (error) {
       return wrapError(error, 'Failed to get or create provider');
     }
@@ -81,7 +92,7 @@ export function createProviderCatalogQueries(db: PricesDB) {
     try {
       const provider = await db.selectFrom('providers').selectAll().where('name', '=', name).executeTakeFirst();
 
-      return ok(provider);
+      return ok(provider ? normalizeProviderRecord(provider as ProviderRow) : undefined);
     } catch (error) {
       return wrapError(error, `Failed to get provider`);
     }

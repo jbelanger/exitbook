@@ -2,8 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { ImportPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
-
-import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
+import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 
 /**
  * Bridges DataSession repositories to ingestion's ImportPorts.

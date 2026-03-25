@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildImportPorts } from '../../ingestion/import-ports.js';
 import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildImportPorts } from '../import-ports-adapter.js';
 
 describe('buildImportPorts', () => {
   let db: KyselyDB;

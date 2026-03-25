@@ -3,7 +3,7 @@ import type { IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 
-import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
+import { markDownstreamProjectionsStale } from './projection-invalidation.js';
 
 /**
  * Bridges DataSession to ingestion's IProcessedTransactionsReset port.

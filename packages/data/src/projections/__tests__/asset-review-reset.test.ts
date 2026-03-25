@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildAssetReviewResetPorts } from '../../projections/asset-review-reset.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildAssetReviewResetPorts } from '../asset-review-reset-adapter.js';
 
 describe('buildAssetReviewResetPorts', () => {
   let db: KyselyDB;

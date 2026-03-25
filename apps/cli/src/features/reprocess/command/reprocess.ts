@@ -4,8 +4,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { ProcessCommandOptionsSchema } from './reprocess-option-schemas.js';
@@ -45,21 +45,8 @@ export function registerReprocessCommand(program: Command, appRuntime: CliAppRun
 }
 
 async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
-
-  const validationResult = ProcessCommandOptionsSchema.safeParse(rawOptions);
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0];
-    displayCliError(
-      'reprocess',
-      new Error(firstError?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-  }
-
-  const options = validationResult.data;
-  if (options.json) {
+  const { format, options } = parseCliCommandOptions('reprocess', rawOptions, ProcessCommandOptionsSchema);
+  if (format === 'json') {
     await executeReprocessJSON(options, appRuntime);
   } else {
     await executeReprocessTUI(options, appRuntime);

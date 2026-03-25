@@ -1,7 +1,7 @@
-export { buildBalancePorts } from './adapters/balance-ports-adapter.js';
-export { buildBalancesFreshnessPorts } from './adapters/balances-freshness-adapter.js';
+export { buildBalancePorts } from './balances/balance-ports.js';
+export { buildBalancesFreshnessPorts } from './balances/balances-freshness.js';
 export {
   resolveBalanceScopeAccountId,
   resolveBalanceScopeAccountIds,
   toBalanceScopeKey,
-} from './adapters/balance-scope-utils.js';
+} from './balances/balance-scope.js';

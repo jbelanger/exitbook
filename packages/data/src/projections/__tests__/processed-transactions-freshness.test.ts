@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildProcessedTransactionsFreshnessPorts } from '../../projections/processed-transactions-freshness.js';
 import { seedUser, seedAccount, seedImportSession } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildProcessedTransactionsFreshnessPorts } from '../processed-transactions-freshness-adapter.js';
 
 describe('buildProcessedTransactionsFreshnessPorts', () => {
   let db: KyselyDB;

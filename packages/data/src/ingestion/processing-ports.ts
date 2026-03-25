@@ -4,9 +4,8 @@ import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
 import { materializeStoredTransactionNoteOverrides } from '../overrides/transaction-note-replay.js';
+import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 import { computeAccountHash } from '../utils/account-hash.js';
-
-import { markDownstreamProjectionsStale } from './projection-invalidation-utils.js';
 
 /**
  * Bridges DataSession repositories to ingestion's ProcessingPorts.

@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 
-import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
@@ -28,14 +28,13 @@ export function registerClearCommand(program: Command): void {
  * Execute the clear command.
  */
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
-  const validationResult = ClearCommandOptionsSchema.safeParse(rawOptions);
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0];
-    displayCliError('clear', new Error(firstError?.message ?? 'Invalid options'), ExitCodes.GENERAL_ERROR, 'text');
-  }
-
-  const options = validationResult.data;
-  const useJsonMode = options.json ?? false;
+  const { format, options } = parseCliCommandOptions(
+    'clear',
+    rawOptions,
+    ClearCommandOptionsSchema,
+    ExitCodes.GENERAL_ERROR
+  );
+  const useJsonMode = format === 'json';
   const useConfirmBypass = options.confirm ?? false;
 
   if (!useJsonMode && !useConfirmBypass) {

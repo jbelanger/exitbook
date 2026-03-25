@@ -3,7 +3,7 @@ import type { BalancePorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 
-import { toBalanceScopeKey } from './balance-scope-utils.js';
+import { toBalanceScopeKey } from './balance-scope.js';
 
 /**
  * Bridges DataSession repositories to ingestion's BalancePorts.

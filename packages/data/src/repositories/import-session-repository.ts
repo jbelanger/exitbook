@@ -11,7 +11,7 @@ import { parseJson, serializeToJson } from '../utils/db-utils.js';
 import { BaseRepository } from './base-repository.js';
 
 function toImportSession(row: Selectable<ImportSessionsTable>): Result<ImportSession, Error> {
-  const errorDetailsResult = parseJson<unknown>(row.error_details);
+  const errorDetailsResult = parseJson(row.error_details);
   if (errorDetailsResult.isErr()) {
     return err(errorDetailsResult.error);
   }

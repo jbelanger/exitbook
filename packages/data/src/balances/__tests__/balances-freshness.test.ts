@@ -1,11 +1,11 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { buildBalancesFreshnessPorts } from '../../balances/balances-freshness.js';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildBalancesFreshnessPorts } from '../balances-freshness-adapter.js';
 
 describe('buildBalancesFreshnessPorts', () => {
   let db: KyselyDB;

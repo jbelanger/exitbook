@@ -5,8 +5,8 @@ import type { DataSession } from '../data-session.js';
 import { readAssetReviewDecisions } from '../overrides/asset-review-replay.js';
 import { OverrideStore } from '../overrides/override-store.js';
 
-import { buildAssetReviewFreshnessPorts } from './asset-review-freshness-adapter.js';
-import { buildAssetReviewProjectionDataPorts } from './asset-review-projection-data-ports-adapter.js';
+import { buildAssetReviewFreshnessPorts } from './asset-review-freshness.js';
+import { buildAssetReviewProjectionDataPorts } from './asset-review-projection-data-ports.js';
 
 const ASSET_REVIEW_OVERRIDE_SCOPES = ['asset-review-confirm', 'asset-review-clear'] as const;
 

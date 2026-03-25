@@ -5,8 +5,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 import { unwrapResult } from '../../shared/result-utils.js';
@@ -81,21 +81,9 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
 }
 
 async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
+  const { format, options } = parseCliCommandOptions('import', rawOptions, ImportCommandOptionsSchema);
 
-  const validationResult = ImportCommandOptionsSchema.safeParse(rawOptions);
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0];
-    displayCliError(
-      'import',
-      new Error(firstError?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-  }
-
-  const options = validationResult.data;
-  if (options.json) {
+  if (format === 'json') {
     await executeImportJSON(options, appRuntime);
   } else {
     await executeImportTUI(options, appRuntime);

@@ -3,7 +3,7 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
 
-import { toBalanceScopeKey } from './balance-scope-utils.js';
+import { toBalanceScopeKey } from './balance-scope.js';
 
 export function buildBalancesFreshnessPorts(db: DataSession): {
   checkFreshness(

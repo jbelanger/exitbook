@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildLinksFreshnessPorts } from '../../projections/links-freshness.js';
 import { seedAccount, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildLinksFreshnessPorts } from '../links-freshness-adapter.js';
 
 describe('buildLinksFreshnessPorts', () => {
   let db: KyselyDB;

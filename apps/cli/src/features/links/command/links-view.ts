@@ -15,7 +15,7 @@ import type { LinkWithTransactions } from '../links-view-model.js';
 import { LinksViewApp, createGapsViewState, createLinksViewState } from '../view/index.js';
 
 import { LinksConfirmHandler } from './links-confirm-handler.js';
-import { analyzeLinkGaps } from './links-gap-utils.js';
+import { analyzeLinkGaps } from './links-gap-analysis.js';
 import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksRejectHandler } from './links-reject-handler.js';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';

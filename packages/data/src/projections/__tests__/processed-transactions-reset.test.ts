@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
+import { buildProcessedTransactionsResetPorts } from '../../projections/processed-transactions-reset.js';
 import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { buildProcessedTransactionsResetPorts } from '../processed-transactions-reset-adapter.js';
 
 describe('buildProcessedTransactionsResetPorts', () => {
   let db: KyselyDB;

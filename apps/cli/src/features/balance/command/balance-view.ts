@@ -5,8 +5,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-scope.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { isJsonMode } from '../../shared/json-mode.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
@@ -42,19 +42,8 @@ Notes:
 }
 
 async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const isJson = isJsonMode(rawOptions);
-  const validationResult = BalanceViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!validationResult.success) {
-    displayCliError(
-      'balance-view',
-      new Error(validationResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJson ? 'json' : 'text'
-    );
-  }
-
-  const options = validationResult.data;
-  if (options.json) {
+  const { format, options } = parseCliCommandOptions('balance-view', rawOptions, BalanceViewCommandOptionsSchema);
+  if (format === 'json') {
     await executeBalanceViewJSON(options, appRuntime);
   } else {
     await executeBalanceViewTUI(options, appRuntime);
