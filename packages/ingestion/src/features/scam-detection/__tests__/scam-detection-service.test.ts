@@ -4,7 +4,7 @@ import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { IngestionEvent } from '../../../events.js';
-import type { MovementWithContext } from '../scam-detection-service.interface.js';
+import type { MovementWithContext } from '../contracts.js';
 import { ScamDetectionService } from '../scam-detection-service.js';
 
 describe('ScamDetectionService', () => {

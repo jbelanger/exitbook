@@ -1,2 +1,2 @@
-export * from './failover.js';
-export * from './types.js';
+export { executeWithFailover } from './failover.js';
+export type { FailoverAttempt, FailoverOptions, FailoverResult } from './types.js';

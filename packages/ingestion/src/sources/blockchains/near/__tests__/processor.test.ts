@@ -9,7 +9,7 @@ import {
 import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
-import type { IScamDetectionService } from '../../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService } from '../../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../../shared/types/processors.js';
 import { NearProcessor } from '../processor.js';
 

@@ -7,7 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';
 
 import type { ITransactionProcessor, AddressContext } from '../../shared/types/processors.js';
-import type { IScamDetectionService, MovementWithContext } from '../scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService, MovementWithContext } from '../scam-detection/contracts.js';
 
 /**
  * Base class providing common functionality for all processors.

@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/foundation';
 
-import type { IScamDetectionService } from '../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService } from '../../features/scam-detection/contracts.js';
 import type { INearBatchSource } from '../../ports/near-batch-source.js';
 
 import type { IImporter } from './importers.js';

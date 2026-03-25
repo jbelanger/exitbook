@@ -5,7 +5,7 @@ import { buildBlockchainNativeAssetId, maskAddress, parseDecimal, type Currency 
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
-import type { MovementWithContext } from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { MovementWithContext } from '../../../features/scam-detection/contracts.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 

@@ -12,7 +12,7 @@ import type { IngestionEvent } from '../../events.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
-import type { IScamDetectionService } from '../scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService } from '../scam-detection/contracts.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 
 import {

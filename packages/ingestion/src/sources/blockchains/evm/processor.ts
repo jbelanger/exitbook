@@ -5,7 +5,7 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId } from '@exit
 import { err, type Result } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 import { processCorrelatedTransactions } from '../shared/correlated-transaction-processor.js';

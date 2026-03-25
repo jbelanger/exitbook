@@ -3,7 +3,7 @@ import { ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { IProcessingBatchSource } from '../../../ports/processing-batch-source.js';
 
-import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
+import type { IRawDataBatchProvider } from './contracts.js';
 
 /**
  * Batch provider that loads data in hash-grouped batches.

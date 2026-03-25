@@ -5,7 +5,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
 
-import type { IScamDetectionService, MovementWithContext } from './scam-detection-service.interface.js';
+import type { IScamDetectionService, MovementWithContext } from './contracts.js';
 import { detectScamFromSymbol, detectScamToken } from './scam-detection-utils.js';
 
 const logger = getLogger('ScamDetectionService');

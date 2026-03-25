@@ -16,10 +16,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type {
-  IScamDetectionService,
-  MovementWithContext,
-} from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 

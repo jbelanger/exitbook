@@ -11,10 +11,7 @@ import { type Result, err, ok } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type {
-  IScamDetectionService,
-  MovementWithContext,
-} from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';

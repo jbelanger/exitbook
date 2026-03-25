@@ -3,7 +3,7 @@ import { ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 
-import type { IRawDataBatchProvider } from './raw-data-batch-provider.interface.js';
+import type { IRawDataBatchProvider } from './contracts.js';
 
 /**
  * NEAR-specific batch provider that handles multi-stream data correlation.

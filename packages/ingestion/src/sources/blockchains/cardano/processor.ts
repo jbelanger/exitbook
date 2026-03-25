@@ -4,10 +4,7 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDec
 import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type {
-  IScamDetectionService,
-  MovementWithContext,
-} from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';

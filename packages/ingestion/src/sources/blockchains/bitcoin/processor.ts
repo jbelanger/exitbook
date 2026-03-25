@@ -8,7 +8,7 @@ import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency } from '@
 import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/scam-detection-service.interface.js';
+import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
