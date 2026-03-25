@@ -27,7 +27,7 @@ import {
   extractFlows,
   isFeeOnlyFromOutflows,
   isFeeOnlyTransaction,
-  type Movement,
+  type NearFlowMovement,
 } from './near-fund-flow-extraction.js';
 import { classifyOperation } from './near-operation-classification.js';
 import {
@@ -302,9 +302,9 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
         }
       });
     });
-    const allInflows: Movement[] = [];
-    const allOutflows: Movement[] = [];
-    const allFees: Movement[] = [];
+    const allInflows: NearFlowMovement[] = [];
+    const allOutflows: NearFlowMovement[] = [];
+    const allFees: NearFlowMovement[] = [];
     let receiptFeeBurntTotal = parseDecimal('0');
 
     // Extract flows from all receipts
@@ -548,7 +548,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   /**
    * Build assetId for a NEAR movement
    */
-  private async buildNearAssetId(movement: Movement, transactionId: string): Promise<Result<string, Error>> {
+  private async buildNearAssetId(movement: NearFlowMovement, transactionId: string): Promise<Result<string, Error>> {
     // Native asset
     if (!movement.contractAddress) {
       const assetSymbol = movement.asset.trim().toUpperCase();

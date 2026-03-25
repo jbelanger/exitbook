@@ -166,18 +166,7 @@ export function buildPortfolioPositions(params: {
     });
   }
 
-  // Allocation percentages for priced, non-negative assets only.
-  const pricedPositions = positions.filter(
-    (p): p is PortfolioPositionItem & { currentValue: string } =>
-      p.priceStatus === 'ok' && !p.isNegative && p.currentValue !== undefined
-  );
-  const totalValue = pricedPositions.reduce((sum, p) => sum.plus(new Decimal(p.currentValue)), new Decimal(0));
-
-  if (totalValue.gt(0)) {
-    for (const position of pricedPositions) {
-      position.allocationPct = new Decimal(position.currentValue).div(totalValue).times(100).toFixed(1);
-    }
-  }
+  applyAllocationPercentages(positions);
 
   if (unpricedCount > 0) {
     warnings.push(

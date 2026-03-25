@@ -1,7 +1,7 @@
 import type { NearActionType } from '@exitbook/blockchain-providers/near';
 import type { OperationClassification } from '@exitbook/core';
 
-import type { Movement } from './near-fund-flow-extraction.js';
+import type { NearFlowMovement } from './near-fund-flow-extraction.js';
 import type { NearCorrelatedTransaction, NearReceipt } from './types.js';
 
 function getActionTypes(receipts: NearReceipt[]): NearActionType[] {
@@ -27,8 +27,8 @@ function analyzeBalanceChangeCauses(receipts: NearReceipt[]): {
 
 export function classifyOperation(
   correlated: NearCorrelatedTransaction,
-  allInflows: Movement[],
-  allOutflows: Movement[]
+  allInflows: NearFlowMovement[],
+  allOutflows: NearFlowMovement[]
 ): OperationClassification {
   const hasInflows = allInflows.length > 0;
   const hasOutflows = allOutflows.length > 0;

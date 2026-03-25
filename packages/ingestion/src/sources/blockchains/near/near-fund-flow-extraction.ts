@@ -19,7 +19,7 @@ function normalizeNearTokenAmount(rawAmount: Decimal | string, decimals: number)
   return new Decimal(rawAmount).dividedBy(new Decimal(10).pow(decimals));
 }
 
-export interface Movement {
+export interface NearFlowMovement {
   asset: Currency;
   amount: Decimal;
   contractAddress?: string | undefined;
@@ -28,7 +28,7 @@ export interface Movement {
 }
 
 interface FeeExtractionResult {
-  movements: Movement[];
+  movements: NearFlowMovement[];
   warning?: string | undefined;
   source?: 'receipt' | 'balance-change' | undefined;
 }
@@ -109,8 +109,8 @@ export function extractReceiptFees(receipt: NearReceipt, primaryAddress: string)
   return { movements: [] };
 }
 
-export function extractFlows(receipt: NearReceipt, primaryAddress: string): Movement[] {
-  const movements: Movement[] = [];
+export function extractFlows(receipt: NearReceipt, primaryAddress: string): NearFlowMovement[] {
+  const movements: NearFlowMovement[] = [];
 
   for (const activity of receipt.balanceChanges ?? []) {
     if (activity.affectedAccountId !== primaryAddress) {
@@ -149,8 +149,11 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Move
   return movements;
 }
 
-export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], primaryAddress: string): Movement[] {
-  const movements: Movement[] = [];
+export function extractTokenTransferFlows(
+  tokenTransfers: NearTokenTransfer[],
+  primaryAddress: string
+): NearFlowMovement[] {
+  const movements: NearFlowMovement[] = [];
 
   for (const transfer of tokenTransfers) {
     if (!transfer.deltaAmountYocto) {
@@ -177,8 +180,8 @@ export function extractTokenTransferFlows(tokenTransfers: NearTokenTransfer[], p
   return movements;
 }
 
-export function consolidateByAsset(movements: Movement[]): Map<string, Movement> {
-  const consolidated = new Map<string, Movement>();
+export function consolidateByAsset(movements: NearFlowMovement[]): Map<string, NearFlowMovement> {
+  const consolidated = new Map<string, NearFlowMovement>();
 
   for (const movement of movements) {
     const key = movement.contractAddress || movement.asset;
@@ -194,8 +197,8 @@ export function consolidateByAsset(movements: Movement[]): Map<string, Movement>
 }
 
 export function isFeeOnlyFromOutflows(
-  consolidatedInflows: Movement[],
-  consolidatedOutflows: Movement[],
+  consolidatedInflows: NearFlowMovement[],
+  consolidatedOutflows: NearFlowMovement[],
   hasTokenTransfers: boolean,
   hasActionDeposits: boolean
 ): boolean {
@@ -209,9 +212,9 @@ export function isFeeOnlyFromOutflows(
 }
 
 function isFeeOnlyFromFees(
-  consolidatedInflows: Movement[],
-  consolidatedOutflows: Movement[],
-  consolidatedFees: Movement[],
+  consolidatedInflows: NearFlowMovement[],
+  consolidatedOutflows: NearFlowMovement[],
+  consolidatedFees: NearFlowMovement[],
   hasTokenTransfers: boolean,
   hasActionDeposits: boolean
 ): boolean {
@@ -226,9 +229,9 @@ function isFeeOnlyFromFees(
 }
 
 export function isFeeOnlyTransaction(
-  consolidatedInflows: Movement[],
-  consolidatedOutflows: Movement[],
-  consolidatedFees: Movement[],
+  consolidatedInflows: NearFlowMovement[],
+  consolidatedOutflows: NearFlowMovement[],
+  consolidatedFees: NearFlowMovement[],
   hasTokenTransfers: boolean,
   hasActionDeposits: boolean
 ): boolean {

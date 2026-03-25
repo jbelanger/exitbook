@@ -10,7 +10,12 @@ import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, test } from 'vitest';
 
-import { consolidateByAsset, extractReceiptFees, extractFlows, type Movement } from '../near-fund-flow-extraction.js';
+import {
+  consolidateByAsset,
+  extractReceiptFees,
+  extractFlows,
+  type NearFlowMovement,
+} from '../near-fund-flow-extraction.js';
 import { classifyOperation } from '../near-operation-classification.js';
 import {
   correlateTransactionData,
@@ -879,7 +884,7 @@ describe('NEAR Processor Utils - extractFlows', () => {
 
 describe('NEAR Processor Utils - consolidateByAsset', () => {
   test('should consolidate same asset movements', () => {
-    const movements: Movement[] = [
+    const movements: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('1.5'),
@@ -903,7 +908,7 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
   });
 
   test('should keep different assets separate', () => {
-    const movements: Movement[] = [
+    const movements: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('1'),
@@ -927,7 +932,7 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
   });
 
   test('should use contract address as key for tokens', () => {
-    const movements: Movement[] = [
+    const movements: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('50'),
@@ -953,7 +958,7 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
   });
 
   test('should keep different contract addresses separate', () => {
-    const movements: Movement[] = [
+    const movements: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('50'),
@@ -983,7 +988,7 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
   });
 
   test('should preserve movement properties', () => {
-    const movements: Movement[] = [
+    const movements: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('50'),
@@ -1014,7 +1019,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify deposit (inflows only, no tokens)', () => {
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('5'),
@@ -1030,7 +1035,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify deposit with token transfers', () => {
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('100'),
@@ -1047,7 +1052,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify withdrawal (outflows only, no tokens)', () => {
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('3'),
@@ -1063,7 +1068,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify withdrawal with token transfers', () => {
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('50'),
@@ -1080,7 +1085,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify swap (both flows with tokens)', () => {
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'USDT' as Currency,
         amount: parseDecimal('100'),
@@ -1089,7 +1094,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
         flowType: 'token_transfer',
       },
     ];
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'USDC' as Currency,
         amount: parseDecimal('100'),
@@ -1106,7 +1111,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
   });
 
   test('should classify transfer (both flows, no tokens)', () => {
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('1'),
@@ -1114,7 +1119,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
         flowType: 'native',
       },
     ];
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('2'),
@@ -1155,7 +1160,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
       },
     ];
 
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('100'),
@@ -1184,7 +1189,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
       },
     ];
 
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('0.5'),
@@ -1213,7 +1218,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
       },
     ];
 
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('0.25'),
@@ -1258,7 +1263,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
       },
     ];
 
-    const outflows: Movement[] = [
+    const outflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('100'),
@@ -1287,7 +1292,7 @@ describe('NEAR Processor Utils - classifyOperation', () => {
       },
     ];
 
-    const inflows: Movement[] = [
+    const inflows: NearFlowMovement[] = [
       {
         asset: 'NEAR' as Currency,
         amount: parseDecimal('1'),
