@@ -1,3 +1,4 @@
+import type { Account } from '@exitbook/core';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/ingestion';
@@ -39,7 +40,18 @@ const makeSession = (
   ...overrides,
 });
 
+const makeAccount = (overrides: Partial<Account> = {}): Account => ({
+  id: 1,
+  profileId: 1,
+  accountType: 'blockchain',
+  platformKey: 'bitcoin',
+  identifier: 'bc1qtest',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  ...overrides,
+});
+
 describe('import runner helpers', () => {
+  let mockFindAccountById: Mock;
   let mockImportWorkflow: { abort: Mock; execute: Mock };
   let mockRegistry: { getBlockchain: Mock };
   let mockIngestionMonitor: { abort: Mock; fail: Mock; stop: Mock };
@@ -54,7 +66,9 @@ describe('import runner helpers', () => {
       abort: vi.fn(),
     };
 
-    // Registry returns Err for all lookups — xpub warning path is skipped
+    mockFindAccountById = vi.fn();
+
+    // Registry returns Err for all lookups — xpub warning path is skipped.
     mockRegistry = {
       getBlockchain: vi.fn().mockReturnValue({ isOk: () => false, isErr: () => true }),
     };
@@ -70,6 +84,7 @@ describe('import runner helpers', () => {
     };
 
     runtime = {
+      findAccountById: mockFindAccountById,
       importWorkflow: mockImportWorkflow as unknown as ImportWorkflow,
       registry: mockRegistry as unknown as AdapterRegistry,
       ingestionMonitor: mockIngestionMonitor as never,
@@ -78,13 +93,12 @@ describe('import runner helpers', () => {
   });
 
   describe('execute — import stage', () => {
-    it('should successfully import blockchain data', async () => {
+    it('should successfully import account data', async () => {
       const session = makeSession({ transactionsImported: 50 });
       mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
       const params: ImportParams = {
-        blockchain: 'bitcoin',
-        address: 'bc1qtest',
+        accountId: 1,
       };
 
       const result = await executeImportWithRuntime(runtime, params);
@@ -95,48 +109,11 @@ describe('import runner helpers', () => {
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
 
-    it('should successfully import exchange data from CSV', async () => {
-      const session = makeSession({ id: 456, accountId: 2, transactionsImported: 100 });
-      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
-
-      const params: ImportParams = {
-        exchange: 'kraken',
-        csvDir: './data/kraken',
-      };
-
-      const result = await executeImportWithRuntime(runtime, params);
-
-      const importResult = assertOk(result);
-      expect(importResult.sessions).toEqual([session]);
-      expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
-    });
-
-    it('should successfully import exchange data from API', async () => {
-      const session = makeSession({ id: 789, accountId: 3, transactionsImported: 75 });
-      mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
-
-      const params: ImportParams = {
-        exchange: 'kucoin',
-        credentials: {
-          apiKey: 'test-key',
-          apiSecret: 'test-secret',
-          apiPassphrase: 'test-passphrase',
-        },
-      };
-
-      const result = await executeImportWithRuntime(runtime, params);
-
-      const importResult = assertOk(result);
-      expect(importResult.sessions).toEqual([session]);
-      expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
-    });
-
     it('should fail when import sessions are not completed', async () => {
       mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [makeSession({ status: 'failed' })] }));
 
       const result = await executeImportWithRuntime(runtime, {
-        blockchain: 'bitcoin',
-        address: 'bc1qtest',
+        accountId: 1,
       });
 
       const error = assertErr(result);
@@ -150,8 +127,7 @@ describe('import runner helpers', () => {
       mockImportWorkflow.execute.mockResolvedValue(err(importError));
 
       const result = await executeImportWithRuntime(runtime, {
-        blockchain: 'bitcoin',
-        address: 'bc1qtest',
+        accountId: 1,
       });
 
       const error = assertErr(result);
@@ -162,16 +138,15 @@ describe('import runner helpers', () => {
 
   describe('execute — xpub single-address warning', () => {
     it('should show warning for UTXO single-address import and abort on decline', async () => {
-      // Registry returns a UTXO adapter
       const mockAdapter = { isExtendedPublicKey: vi.fn().mockReturnValue(false) };
       mockRegistry.getBlockchain.mockReturnValue(ok(mockAdapter));
+      mockFindAccountById.mockResolvedValue(ok(makeAccount()));
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
-      const onSingleAddressWarning = vi.fn().mockResolvedValue(false); // User declines
+      const onSingleAddressWarning = vi.fn().mockResolvedValue(false);
 
       const result = await executeImportWithRuntime(runtime, {
-        blockchain: 'bitcoin',
-        address: 'bc1qtest',
+        accountId: 1,
         onSingleAddressWarning,
       });
 
@@ -184,6 +159,7 @@ describe('import runner helpers', () => {
     it('should proceed when user accepts single-address warning', async () => {
       const mockAdapter = { isExtendedPublicKey: vi.fn().mockReturnValue(false) };
       mockRegistry.getBlockchain.mockReturnValue(ok(mockAdapter));
+      mockFindAccountById.mockResolvedValue(ok(makeAccount()));
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
       const session = makeSession();
@@ -192,8 +168,7 @@ describe('import runner helpers', () => {
       const onSingleAddressWarning = vi.fn().mockResolvedValue(true);
 
       const result = await executeImportWithRuntime(runtime, {
-        blockchain: 'bitcoin',
-        address: 'bc1qtest',
+        accountId: 1,
         onSingleAddressWarning,
       });
 
@@ -201,9 +176,10 @@ describe('import runner helpers', () => {
       expect(mockImportWorkflow.execute).toHaveBeenCalled();
     });
 
-    it('should skip warning for xpub addresses', async () => {
+    it('should skip warning for xpub accounts', async () => {
       const mockAdapter = { isExtendedPublicKey: vi.fn().mockReturnValue(true) };
       mockRegistry.getBlockchain.mockReturnValue(ok(mockAdapter));
+      mockFindAccountById.mockResolvedValue(ok(makeAccount({ identifier: 'xpub6C...' })));
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
       const session = makeSession();
@@ -212,13 +188,25 @@ describe('import runner helpers', () => {
       const onSingleAddressWarning = vi.fn();
 
       const result = await executeImportWithRuntime(runtime, {
-        blockchain: 'bitcoin',
-        address: 'xpub6C...',
+        accountId: 1,
         onSingleAddressWarning,
       });
 
       expect(result.isOk()).toBe(true);
       expect(onSingleAddressWarning).not.toHaveBeenCalled();
+    });
+
+    it('should fail when the requested account does not exist', async () => {
+      mockFindAccountById.mockResolvedValue(ok(undefined));
+
+      const result = await executeImportWithRuntime(runtime, {
+        accountId: 999,
+        onSingleAddressWarning: vi.fn(),
+      });
+
+      const error = assertErr(result);
+      expect(error.message).toContain('Account 999 not found');
+      expect(mockImportWorkflow.execute).not.toHaveBeenCalled();
     });
   });
 

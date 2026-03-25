@@ -1,4 +1,4 @@
-import type { ImportSession } from '@exitbook/core';
+import type { Account, ImportSession } from '@exitbook/core';
 import { buildImportPorts } from '@exitbook/data/ingestion';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
@@ -17,6 +17,7 @@ export interface ImportExecuteResult {
 }
 
 export interface ImportExecutionRuntime {
+  findAccountById: (accountId: number) => Promise<Result<Account | undefined, Error>>;
   importWorkflow: ImportWorkflow;
   registry: AdapterRegistry;
   ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
@@ -29,13 +30,11 @@ export async function executeImportWithRuntime(
   runtime: ImportExecutionRuntime,
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
 ): Promise<Result<ImportExecuteResult, Error>> {
-  if ('blockchain' in params && params.address) {
-    const warningResult = await checkSingleAddressWarning(runtime, params);
-    if (warningResult.isErr()) {
-      runtime.ingestionMonitor?.fail(warningResult.error.message);
-      await runtime.ingestionMonitor?.stop();
-      return err(warningResult.error);
-    }
+  const warningResult = await checkSingleAddressWarning(runtime, params);
+  if (warningResult.isErr()) {
+    runtime.ingestionMonitor?.fail(warningResult.error.message);
+    await runtime.ingestionMonitor?.stop();
+    return err(warningResult.error);
   }
 
   const importResult = await runtime.importWorkflow.execute(params);
@@ -90,6 +89,7 @@ export async function runImport(
     });
     const importPorts = buildImportPorts(database);
     const runtime: ImportExecutionRuntime = {
+      findAccountById: (accountId) => database.accounts.findById(accountId),
       importWorkflow: new ImportWorkflow(
         importPorts,
         infra.blockchainProviderRuntime,
@@ -114,17 +114,30 @@ async function checkSingleAddressWarning(
   runtime: ImportExecutionRuntime,
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
 ): Promise<Result<void, Error>> {
-  if (!('blockchain' in params) || !params.onSingleAddressWarning) {
+  if (!params.onSingleAddressWarning) {
     return ok(undefined);
   }
 
-  const adapterResult = runtime.registry.getBlockchain(params.blockchain.toLowerCase());
+  const accountResult = await runtime.findAccountById(params.accountId);
+  if (accountResult.isErr()) {
+    return err(accountResult.error);
+  }
+  if (!accountResult.value) {
+    return err(new Error(`Account ${params.accountId} not found`));
+  }
+
+  const account = accountResult.value;
+  if (account.accountType !== 'blockchain' || account.parentAccountId !== undefined) {
+    return ok(undefined);
+  }
+
+  const adapterResult = runtime.registry.getBlockchain(account.platformKey.toLowerCase());
   if (adapterResult.isErr()) {
     return ok(undefined);
   }
 
   if (isUtxoAdapter(adapterResult.value)) {
-    const isXpub = adapterResult.value.isExtendedPublicKey(params.address);
+    const isXpub = adapterResult.value.isExtendedPublicKey(account.identifier);
     if (!isXpub) {
       const shouldContinue = await params.onSingleAddressWarning();
       if (!shouldContinue) {

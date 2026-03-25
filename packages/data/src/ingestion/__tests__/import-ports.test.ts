@@ -80,15 +80,25 @@ describe('buildImportPorts', () => {
 
   describe('withTransaction', () => {
     it('executes callback in a transaction', async () => {
+      await seedAccount(db, 1, 'blockchain', 'bitcoin');
       const ports = buildImportPorts(ctx);
 
       const result = await ports.withTransaction(async (txPorts) => {
-        const user = assertOk(await txPorts.profiles.findOrCreateDefault());
-        expect(user.id).toBe(1);
-        return ok(undefined);
+        const account = assertOk(
+          await txPorts.accounts.create({
+            profileId: 1,
+            parentAccountId: 1,
+            accountType: 'blockchain',
+            platformKey: 'bitcoin',
+            identifier: 'bc1qchild',
+          })
+        );
+        return ok(account.id);
       });
 
-      expect(result.isOk()).toBe(true);
+      const accountId = assertOk(result);
+      const createdAccount = assertOk(await ctx.accounts.findById(accountId));
+      expect(createdAccount?.parentAccountId).toBe(1);
     });
   });
 });

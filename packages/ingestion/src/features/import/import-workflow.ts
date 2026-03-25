@@ -1,7 +1,5 @@
-import path from 'node:path';
-
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import type { Account, ExchangeCredentials, ImportSession } from '@exitbook/core';
+import type { Account, ImportSession } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
@@ -14,54 +12,19 @@ import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import { isUtxoAdapter, type UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import type { IImporter, StreamingImportParams } from '../../shared/types/importers.js';
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-export interface ImportBlockchainParams {
-  profileId?: number | undefined;
-  blockchain: string;
-  address: string;
-  providerName?: string | undefined;
-  xpubGap?: number | undefined;
+export interface ImportParams {
+  accountId: number;
 }
-
-export interface ImportExchangeApiParams {
-  profileId?: number | undefined;
-  exchange: string;
-  credentials: ExchangeCredentials;
-}
-
-export interface ImportExchangeCsvParams {
-  profileId?: number | undefined;
-  exchange: string;
-  csvDir: string;
-}
-
-export type ImportParams = ImportBlockchainParams | ImportExchangeApiParams | ImportExchangeCsvParams;
 
 export interface ImportResult {
   sessions: ImportSession[];
 }
 
-// Type guards
-function isBlockchainParams(p: ImportParams): p is ImportBlockchainParams {
-  return 'blockchain' in p;
-}
-
-function isExchangeApiParams(p: ImportParams): p is ImportExchangeApiParams {
-  return 'credentials' in p;
-}
-
-// ---------------------------------------------------------------------------
-// ImportWorkflow
-// ---------------------------------------------------------------------------
-
 const logger = getLogger('ImportWorkflow');
 
 /**
  * Owns the full import lifecycle:
- * ensure profile -> resolve account -> create/resume session ->
+ * load account -> create/resume session ->
  * drive IImporter.importStreaming() -> persist batches -> finalize session.
  *
  * Persistence accessed through ImportPorts — capability-owned contracts.
@@ -77,213 +40,82 @@ export class ImportWorkflow {
   ) {}
 
   async execute(params: ImportParams): Promise<Result<ImportResult, Error>> {
-    if (isBlockchainParams(params)) {
-      return this.executeBlockchain(params);
+    const accountResult = await this.loadAccount(params.accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
     }
-    if (isExchangeApiParams(params)) {
-      return this.executeExchangeApi(params);
-    }
-    return this.executeExchangeCsv(params);
+
+    return this.executeAccount(accountResult.value);
   }
 
   abort(): void {
     this.abortController.abort();
   }
 
-  // ---------------------------------------------------------------------------
-  // Source-specific entry points
-  // ---------------------------------------------------------------------------
-
-  private async executeBlockchain(params: ImportBlockchainParams): Promise<Result<ImportResult, Error>> {
-    logger.debug(`Starting blockchain import for ${params.blockchain} (${params.address.substring(0, 20)}...)`);
-
-    const profileIdResult = await this.resolveProfileId(params.profileId);
-    if (profileIdResult.isErr()) return err(profileIdResult.error);
-    const profileId = profileIdResult.value;
-
-    const normalizedBlockchain = params.blockchain.toLowerCase();
-    const adapterResult = this.registry.getBlockchain(normalizedBlockchain);
-    if (adapterResult.isErr()) return err(adapterResult.error);
-    const blockchainAdapter = adapterResult.value;
-
-    const normalizedAddressResult = blockchainAdapter.normalizeAddress(params.address);
-    if (normalizedAddressResult.isErr()) return err(normalizedAddressResult.error);
-    const normalizedAddress = normalizedAddressResult.value;
-
-    // xpub branch
-    if (isUtxoAdapter(blockchainAdapter) && blockchainAdapter.isExtendedPublicKey(normalizedAddress)) {
-      return this.importFromXpub(
-        profileId,
-        params.blockchain,
-        normalizedAddress,
-        blockchainAdapter,
-        params.providerName,
-        params.xpubGap
-      );
+  private async loadAccount(accountId: number): Promise<Result<Account, Error>> {
+    const accountResult = await this.ports.accounts.findById(accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    if (!accountResult.value) {
+      return err(new Error(`Account ${accountId} not found`));
     }
 
-    if (params.xpubGap !== undefined) {
-      logger.warn(
-        '--xpub-gap was provided but address is not an extended public key (xpub). The flag will be ignored.'
-      );
-    }
-
-    const accountResult = await this.ports.accounts.findOrCreate({
-      profileId,
-      accountType: 'blockchain',
-      platformKey: params.blockchain,
-      identifier: normalizedAddress,
-      providerName: params.providerName,
-      credentials: undefined,
-    });
-    if (accountResult.isErr()) return err(accountResult.error);
-    const account = accountResult.value;
-
-    logger.info(`Using account #${account.id} (blockchain) for import`);
-
-    const sessionResult = await this.importFromSource(account);
-    if (sessionResult.isErr()) return err(sessionResult.error);
-    return ok({ sessions: [sessionResult.value] });
+    return ok(accountResult.value);
   }
 
-  private async executeExchangeApi(params: ImportExchangeApiParams): Promise<Result<ImportResult, Error>> {
-    logger.debug(`Starting exchange API import for ${params.exchange}`);
+  private async executeAccount(account: Account): Promise<Result<ImportResult, Error>> {
+    logger.debug(
+      { accountId: account.id, accountType: account.accountType, platformKey: account.platformKey },
+      'Starting account import'
+    );
 
-    if (!params.credentials.apiKey) {
-      return err(new Error('API key is required for exchange API imports'));
-    }
-
-    const profileIdResult = await this.resolveProfileId(params.profileId);
-    if (profileIdResult.isErr()) return err(profileIdResult.error);
-    const profileId = profileIdResult.value;
-
-    const accountResult = await this.ports.accounts.findOrCreate({
-      profileId,
-      accountType: 'exchange-api',
-      platformKey: params.exchange,
-      identifier: params.credentials.apiKey,
-      providerName: undefined,
-      credentials: params.credentials,
-    });
-    if (accountResult.isErr()) return err(accountResult.error);
-    const account = accountResult.value;
-
-    logger.info(`Using account #${account.id} (exchange-api) for import`);
-
-    const sessionResult = await this.importFromSource(account);
-    if (sessionResult.isErr()) return err(sessionResult.error);
-    return ok({ sessions: [sessionResult.value] });
-  }
-
-  private async executeExchangeCsv(params: ImportExchangeCsvParams): Promise<Result<ImportResult, Error>> {
-    logger.debug(`Starting exchange CSV import for ${params.exchange} from ${params.csvDir}`);
-
-    if (!params.csvDir) {
-      return err(new Error('CSV directory is required for CSV imports'));
-    }
-
-    const normalizedPath = path.normalize(params.csvDir).replace(/[/\\]$/, '');
-
-    const profileIdResult = await this.resolveProfileId(params.profileId);
-    if (profileIdResult.isErr()) return err(profileIdResult.error);
-    const profileId = profileIdResult.value;
-
-    // Check for existing account with a different directory
-    const existingAccountsResult = await this.ports.accounts.findAll({
-      accountType: 'exchange-csv',
-      platformKey: params.exchange,
-      profileId,
-    });
-    if (existingAccountsResult.isErr()) return err(existingAccountsResult.error);
-
-    const existingAccounts = existingAccountsResult.value;
-    if (existingAccounts.length > 0) {
-      const existingAccount = existingAccounts[0]!;
-      const normalizedExistingPath = path.normalize(existingAccount.identifier).replace(/[/\\]+$/, '');
-
-      if (normalizedExistingPath !== normalizedPath) {
-        return err(
-          new Error(
-            `An account already exists for ${params.exchange} using directory '${existingAccount.identifier}'. ` +
-              `Please use the same directory (which can contain subdirectories) or delete the existing account first.`
-          )
-        );
+    if (account.accountType === 'blockchain' && account.parentAccountId === undefined) {
+      const adapterResult = this.registry.getBlockchain(account.platformKey.toLowerCase());
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
       }
 
-      logger.info(`Found existing account #${existingAccount.id}`);
-      const sessionResult = await this.importFromSource(existingAccount);
-      if (sessionResult.isErr()) return err(sessionResult.error);
-      return ok({ sessions: [sessionResult.value] });
+      const adapter = adapterResult.value;
+      if (isUtxoAdapter(adapter) && adapter.isExtendedPublicKey(account.identifier)) {
+        return this.importFromXpubAccount(account, adapter);
+      }
     }
 
-    const accountResult = await this.ports.accounts.findOrCreate({
-      profileId,
-      accountType: 'exchange-csv',
-      platformKey: params.exchange,
-      identifier: normalizedPath,
-      providerName: undefined,
-      credentials: undefined,
-    });
-    if (accountResult.isErr()) return err(accountResult.error);
-    const account = accountResult.value;
-
-    logger.info(`Created new account #${account.id} for import`);
-
     const sessionResult = await this.importFromSource(account);
-    if (sessionResult.isErr()) return err(sessionResult.error);
+    if (sessionResult.isErr()) {
+      return err(sessionResult.error);
+    }
+
     return ok({ sessions: [sessionResult.value] });
   }
 
-  private async resolveProfileId(profileId?: number  ): Promise<Result<number, Error>> {
-    if (profileId !== undefined) {
-      return ok(profileId);
-    }
-
-    const profileResult = await this.ports.profiles.findOrCreateDefault();
-    if (profileResult.isErr()) {
-      return err(profileResult.error);
-    }
-
-    return ok(profileResult.value.id);
-  }
-
-  // ---------------------------------------------------------------------------
-  // xpub import
-  // ---------------------------------------------------------------------------
-
-  private async importFromXpub(
-    profileId: number,
-    blockchain: string,
-    xpub: string,
-    blockchainAdapter: UtxoBlockchainAdapter,
-    providerName?: string,
-    xpubGap?: number
+  private async importFromXpubAccount(
+    parentAccount: Account,
+    blockchainAdapter: UtxoBlockchainAdapter
   ): Promise<Result<ImportResult, Error>> {
     const startTime = Date.now();
-    const requestedGap = xpubGap ?? 20;
+    const requestedGap = parentAccount.metadata?.xpub?.gapLimit ?? 20;
+    const blockchain = parentAccount.platformKey;
+    const xpub = parentAccount.identifier;
+    const providerName = parentAccount.providerName;
 
     logger.debug(`Processing xpub import for ${blockchain}`);
 
-    // 1. Create parent account
-    const parentAccountResult = await this.ports.accounts.findOrCreate({
-      profileId,
-      accountType: 'blockchain',
-      platformKey: blockchain,
-      identifier: xpub,
-      providerName,
-      credentials: undefined,
-    });
-    if (parentAccountResult.isErr()) return err(parentAccountResult.error);
-    const parentAccount = parentAccountResult.value;
-
     const existingChildrenResult = await this.ports.accounts.findAll({ parentAccountId: parentAccount.id });
-    const hasExistingChildren = existingChildrenResult.isOk() && existingChildrenResult.value.length > 0;
+    if (existingChildrenResult.isErr()) return err(existingChildrenResult.error);
+
+    const existingChildren = existingChildrenResult.value;
+    const existingChildrenByIdentifier = new Map(
+      existingChildren.map((childAccount) => [childAccount.identifier, childAccount])
+    );
+    const hasExistingChildren = existingChildren.length > 0;
     const hasExistingMetadata = parentAccount.metadata?.xpub !== undefined;
     const parentAlreadyExists = hasExistingChildren || hasExistingMetadata;
 
-    // 2. Check if we need to re-derive
     const existingMetadata = parentAccount.metadata?.xpub;
-    const shouldRederive = !hasExistingChildren || (existingMetadata && requestedGap > existingMetadata.gapLimit);
+    const shouldRederive =
+      !hasExistingChildren || existingMetadata === undefined || requestedGap > existingMetadata.gapLimit;
 
     let childAccounts: Account[];
     let newlyDerivedCount = 0;
@@ -333,7 +165,6 @@ export class ImportWorkflow {
         return ok({ sessions: [] });
       }
 
-      // Create child accounts
       childAccounts = [];
       for (const derived of derivedAddresses) {
         const normalizedResult = blockchainAdapter.normalizeAddress(derived.address);
@@ -342,28 +173,37 @@ export class ImportWorkflow {
           continue;
         }
 
-        const childResult = await this.ports.accounts.findOrCreate({
-          profileId,
+        const existingChild = existingChildrenByIdentifier.get(normalizedResult.value);
+        if (existingChild) {
+          childAccounts.push(existingChild);
+          continue;
+        }
+
+        const childResult = await this.ports.accounts.create({
+          profileId: parentAccount.profileId,
           parentAccountId: parentAccount.id,
           accountType: 'blockchain',
           platformKey: blockchain,
           identifier: normalizedResult.value,
           providerName,
-          credentials: undefined,
         });
         if (childResult.isErr()) return err(childResult.error);
+
+        existingChildrenByIdentifier.set(normalizedResult.value, childResult.value);
         childAccounts.push(childResult.value);
       }
 
       if (existingMetadata) {
         newlyDerivedCount = childAccounts.length - (existingMetadata.derivedCount ?? 0);
+      } else if (hasExistingChildren) {
+        newlyDerivedCount = childAccounts.length - existingChildren.length;
       }
 
       this.emit({
         type: 'xpub.derivation.completed',
         parentAccountId: parentAccount.id,
         derivedCount: childAccounts.length,
-        newCount: existingMetadata ? newlyDerivedCount : undefined,
+        newCount: existingMetadata || hasExistingChildren ? newlyDerivedCount : undefined,
         durationMs: derivationDuration,
       });
 
@@ -387,13 +227,10 @@ export class ImportWorkflow {
         `Derived ${childAccounts.length} addresses` + (newlyDerivedCount > 0 ? ` (${newlyDerivedCount} new)` : '')
       );
     } else {
-      const childrenResult = await this.ports.accounts.findAll({ parentAccountId: parentAccount.id });
-      if (childrenResult.isErr()) return err(childrenResult.error);
-      childAccounts = childrenResult.value;
+      childAccounts = existingChildren;
       logger.info(`Reusing ${childAccounts.length} existing child accounts`);
     }
 
-    // 3. Import each child
     this.emit({
       type: 'xpub.import.started',
       parentAccountId: parentAccount.id,

@@ -1,29 +1,29 @@
 import type { Account, AccountType, ImportSession, RawTransactionInput } from '@exitbook/core';
 import type { CursorState, Result } from '@exitbook/foundation';
 
-import type { FindOrCreateAccountParams } from './import-account-store.js';
-
-export type { FindOrCreateAccountParams } from './import-account-store.js';
-
 // ---------------------------------------------------------------------------
 // Individual port interfaces
 // ---------------------------------------------------------------------------
 
 type ImportSessionStatus = 'started' | 'completed' | 'failed' | 'cancelled';
 
-export interface IImportProfileLookup {
-  findOrCreateDefault(): Promise<Result<{ id: number }, Error>>;
-}
-
 export interface IImportAccountStore {
-  findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>>;
+  create(params: {
+    accountType: AccountType;
+    identifier: string;
+    parentAccountId: number;
+    platformKey: string;
+    profileId: number | undefined;
+    providerName?: string | undefined;
+  }): Promise<Result<Account, Error>>;
+  findById(accountId: number): Promise<Result<Account | undefined, Error>>;
   findAll(filters: {
     accountType?: AccountType | undefined;
     parentAccountId?: number | undefined;
     platformKey?: string | undefined;
     profileId?: number | undefined;
   }): Promise<Result<Account[], Error>>;
-  update(id: number, updates: { metadata?: Record<string, unknown> | undefined }): Promise<Result<void, Error>>;
+  update(id: number, updates: { metadata?: Account['metadata'] | undefined }): Promise<Result<void, Error>>;
   updateCursor(id: number, streamType: string, cursor: CursorState): Promise<Result<void, Error>>;
 }
 
@@ -70,7 +70,6 @@ export interface IImportRawTransactionSink {
  * Constructed in the composition root (CLI) and injected into ImportWorkflow.
  */
 export interface ImportPorts {
-  profiles: IImportProfileLookup;
   accounts: IImportAccountStore;
   importSessions: IImportSessionStore;
   rawTransactions: IImportRawTransactionSink;

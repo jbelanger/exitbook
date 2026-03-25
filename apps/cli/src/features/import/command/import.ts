@@ -1,58 +1,47 @@
-import type { ImportParams } from '@exitbook/ingestion';
+import type { Account, ImportSession } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
-import { unwrapResult } from '../../shared/result-utils.js';
 
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
-import { buildImportParams } from './import-utils.js';
 import type { ImportExecuteResult } from './run-import.js';
 import { runImport } from './run-import.js';
 
-/**
- * Import command options validated by Zod at CLI boundary
- */
 type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
-/**
- * Summary of a single import session
- */
 interface ImportSessionSummary {
-  id: number;
-  files?: number | undefined;
-  startedAt?: string | undefined;
+  accountId: number;
   completedAt?: string | undefined;
+  id: number;
+  startedAt?: string | undefined;
   status?: string | undefined;
 }
 
-/**
- * Import command result structure for JSON output
- */
 interface ImportCommandResult {
   status: 'success';
   import: {
-    accountId?: number | undefined;
+    account: {
+      accountType: Account['accountType'];
+      id: number;
+      name?: string | undefined;
+      platformKey: string;
+    };
     counts: {
       imported: number;
       skipped: number;
     };
     importSessions?: ImportSessionSummary[] | undefined;
-    input: {
-      address?: string | undefined;
-      blockchain?: string | undefined;
-      csvDir?: string | undefined;
-      exchange?: string | undefined;
-    };
     runStats?: import('@exitbook/observability').MetricsSummary | undefined;
-    source?: string | undefined;
   };
   meta: {
     timestamp: string;
@@ -62,23 +51,21 @@ interface ImportCommandResult {
 export function registerImportCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('import')
-    .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
-    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--csv-dir <path>', 'CSV directory for exchange sources')
-    .option('--address <address>', 'Wallet address for blockchain source')
-    .option('--provider <name>', 'Blockchain provider for blockchain sources')
+    .description('Sync raw data for an existing account')
+    .option('--account <name>', 'Named account to sync')
+    .option('--account-id <number>', 'Account ID to sync', parseInt)
     .option('--profile <name>', 'Use a specific profile instead of the active profile')
-    .option(
-      '--xpub-gap <number>',
-      'Address derivation limit for xpub/extended keys (default: 20 for Bitcoin, 10 for Cardano)',
-      parseInt
-    )
-    .option('--api-key <key>', 'API key for exchange API access')
-    .option('--api-secret <secret>', 'API secret for exchange API access')
-    .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook import --account kraken-main
+  $ exitbook import --account wallet-main --profile business
+  $ exitbook import --account-id 42 --json
+`
+    )
     .action((rawOptions: unknown) => executeImportCommand(rawOptions, appRuntime));
 }
 
@@ -92,8 +79,6 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
   }
 }
 
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
 async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
@@ -103,13 +88,17 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
-      const result = await runImport(ctx, { isJsonMode: true }, { ...params, profileId: profileResult.value.id });
+      const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
+      if (accountResult.isErr()) {
+        displayCliError('import', accountResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const result = await runImport(ctx, { isJsonMode: true }, { accountId: accountResult.value.id });
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      outputSuccess('import', buildImportResult(result.value, params));
+      outputSuccess('import', buildImportResult(result.value, accountResult.value));
     });
   } catch (error) {
     displayCliError(
@@ -121,8 +110,6 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
   }
 }
 
-// ─── TUI Mode ────────────────────────────────────────────────────────────────
-
 async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
@@ -132,26 +119,27 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
-
-      const platformKey = 'blockchain' in params ? params.blockchain : params.exchange;
+      const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
+      if (accountResult.isErr()) {
+        displayCliError('import', accountResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
 
       const result = await runImport(
         ctx,
         { isJsonMode: false },
         {
-          ...params,
-          profileId: profileResult.value.id,
+          accountId: accountResult.value.id,
           onSingleAddressWarning: async () => {
             process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
             process.stderr.write('Single address tracking has limitations:\n');
             process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
             process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
             process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
-            process.stderr.write('For complete wallet tracking, use xpub instead:\n');
+            process.stderr.write('For complete wallet tracking, create a separate xpub account instead:\n');
             process.stderr.write(
-              `  $ exitbook import --blockchain ${platformKey} --address xpub... [--xpub-gap 20]\n\n`
+              `  $ exitbook accounts add wallet-xpub --blockchain ${accountResult.value.platformKey} --address xpub... --xpub-gap 20\n`
             );
+            process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
             process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
             return await promptConfirm('Continue with single address import?', false);
           },
@@ -171,47 +159,75 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+async function resolveImportAccount(
+  database: Parameters<typeof buildCliAccountLifecycleService>[0],
+  profileId: number,
+  options: ImportCommandOptions
+): Promise<Result<Account, Error>> {
+  const accountService = buildCliAccountLifecycleService(database);
 
-function buildImportResult(importResult: ImportExecuteResult, params: ImportParams): ImportCommandResult {
-  const totalImported = importResult.sessions.reduce((sum, s) => sum + s.transactionsImported, 0);
-  const totalSkipped = importResult.sessions.reduce((sum, s) => sum + s.transactionsSkipped, 0);
-  const firstSession = importResult.sessions[0];
+  if (options.accountId !== undefined) {
+    const accountResult = await accountService.getById(options.accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    if (!accountResult.value) {
+      return err(new Error(`Account ${options.accountId} not found`));
+    }
+    if (accountResult.value.profileId !== profileId) {
+      return err(new Error(`Account ${options.accountId} does not belong to the selected profile`));
+    }
 
-  const isBlockchain = 'blockchain' in params;
-  const platformKey = isBlockchain ? params.blockchain : params.exchange;
+    return ok(accountResult.value);
+  }
 
-  const inputData = {
-    address: isBlockchain ? params.address : undefined,
-    csvDir: 'csvDir' in params ? params.csvDir : undefined,
-    ...(isBlockchain ? { blockchain: params.blockchain } : { exchange: params.exchange }),
-  };
+  const requestedAccountName = options.account?.trim() ?? '';
+  const accountResult = await accountService.getByName(profileId, requestedAccountName);
+  if (accountResult.isErr()) {
+    return err(accountResult.error);
+  }
+  if (!accountResult.value) {
+    return err(new Error(`Account '${requestedAccountName.toLowerCase()}' not found`));
+  }
 
-  const sessionSummaries =
-    importResult.sessions.length > 0
-      ? importResult.sessions.map((s) => ({
-          id: s.id,
-          startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : undefined,
-          completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
-          status: s.status,
-        }))
-      : undefined;
+  return ok(accountResult.value);
+}
+
+function buildImportResult(importResult: ImportExecuteResult, account: Account): ImportCommandResult {
+  const totalImported = importResult.sessions.reduce((sum, session) => sum + session.transactionsImported, 0);
+  const totalSkipped = importResult.sessions.reduce((sum, session) => sum + session.transactionsSkipped, 0);
 
   return {
     status: 'success',
     import: {
-      accountId: firstSession?.accountId,
-      source: platformKey,
-      input: inputData,
+      account: {
+        id: account.id,
+        name: account.name,
+        accountType: account.accountType,
+        platformKey: account.platformKey,
+      },
       counts: {
         imported: totalImported,
         skipped: totalSkipped,
       },
-      importSessions: sessionSummaries,
+      importSessions:
+        importResult.sessions.length > 0
+          ? importResult.sessions.map((session) => buildSessionSummary(session))
+          : undefined,
       runStats: importResult.runStats,
     },
     meta: {
       timestamp: new Date().toISOString(),
     },
+  };
+}
+
+function buildSessionSummary(session: ImportSession): ImportSessionSummary {
+  return {
+    id: session.id,
+    accountId: session.accountId,
+    startedAt: session.startedAt ? new Date(session.startedAt).toISOString() : undefined,
+    completedAt: session.completedAt ? new Date(session.completedAt).toISOString() : undefined,
+    status: session.status,
   };
 }

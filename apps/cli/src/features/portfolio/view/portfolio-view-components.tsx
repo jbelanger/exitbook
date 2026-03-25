@@ -338,8 +338,9 @@ const PortfolioAssetsEmptyState: FC<{ state: PortfolioAssetsState }> = ({ state 
         <Text> </Text>
         <Text>{'  '}No transactions found.</Text>
         <Text> </Text>
-        <Text>{'  '}Import data to create accounts:</Text>
-        <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+        <Text>{'  '}Add an account, then sync it:</Text>
+        <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
+        <Text dimColor>{'  '}exitbook import --account kucoin-main</Text>
         <Text> </Text>
         <Text dimColor>
           {'  '}as-of: {asOfDate}

@@ -26,11 +26,9 @@ export type {
 export type { ITransactionNoteProjection, ProcessingPorts } from './processing-ports.js';
 export type {
   ImportPorts,
-  IImportProfileLookup,
   IImportAccountStore,
   IImportSessionStore,
   IImportRawTransactionSink,
-  FindOrCreateAccountParams,
 } from './import-ports.js';
 export type {
   BalancePorts,
