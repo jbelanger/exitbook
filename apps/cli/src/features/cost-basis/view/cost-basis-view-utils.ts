@@ -413,7 +413,7 @@ export function buildSummaryTotalsFromAssetItems(
   };
 }
 
-export function sortAssetsByAbsGainLoss(assets: AssetCostBasisItem[]): AssetCostBasisItem[] {
+function sortAssetsByAbsGainLoss(assets: AssetCostBasisItem[]): AssetCostBasisItem[] {
   return [...assets].sort((a, b) => {
     const absA = Math.abs(parseFloat(a.totalGainLoss));
     const absB = Math.abs(parseFloat(b.totalGainLoss));

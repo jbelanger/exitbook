@@ -3,13 +3,16 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations, type Kysely } from '@exitbook/sqlite';
 
-import * as initialSchema from './migrations/001_initial_schema.js';
+import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
 import type { OverridesDatabaseSchema } from './schema.js';
 
 const logger = getLogger('OverridesDatabase');
 
 const migrations = {
-  '001_initial_schema': initialSchema,
+  '001_initial_schema': {
+    up: initialSchemaUp,
+    down: initialSchemaDown,
+  },
 };
 
 type OverridesDb = Kysely<OverridesDatabaseSchema>;

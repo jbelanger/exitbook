@@ -7,7 +7,6 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
-import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
@@ -23,37 +22,6 @@ import type {
   CanadaTransferInEvent,
   CanadaTransferOutEvent,
 } from '../tax/canada-tax-types.js';
-
-export function createCanadaFxProvider(options?: {
-  fiatToUsd?: Record<string, string>;
-  usdToCad?: string;
-}): UsdConversionRateProviderLike {
-  return {
-    getRateFromUSD: vi.fn().mockImplementation(async (targetCurrency: Currency) => {
-      if (targetCurrency !== 'CAD') {
-        return err(new Error(`Unexpected target currency ${targetCurrency}`));
-      }
-
-      return ok({
-        rate: parseDecimal(options?.usdToCad ?? '1.35'),
-        source: 'test-usd-cad',
-        fetchedAt: new Date('2024-01-15T00:00:00Z'),
-      });
-    }),
-    getRateToUSD: vi.fn().mockImplementation(async (sourceCurrency: Currency) => {
-      const configuredRate = options?.fiatToUsd?.[sourceCurrency];
-      if (!configuredRate) {
-        return err(new Error(`Missing configured FX rate for ${sourceCurrency}`));
-      }
-
-      return ok({
-        rate: parseDecimal(configuredRate),
-        source: 'test-fiat-usd',
-        fetchedAt: new Date('2024-01-15T00:00:00Z'),
-      });
-    }),
-  };
-}
 
 export function createCanadaPriceRuntime(options?: {
   fiatToUsd?: Record<string, string>;

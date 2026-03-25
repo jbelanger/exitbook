@@ -7,8 +7,6 @@ import { createCliPortfolioRuntime } from '../../../runtime/portfolio-runtime.js
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 
-export { PortfolioHandler } from '@exitbook/accounting';
-
 /**
  * Create a CLI-wired PortfolioHandler.
  * The CLI owns prerequisite orchestration, runtime setup, and adapter wiring.

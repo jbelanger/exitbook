@@ -11,7 +11,7 @@ import { getAvailableProviderNames, getPriceProviderFactory } from './provider-r
 
 const logger = getLogger('PriceProviderBootstrap');
 
-export interface InitializedPriceProviders {
+interface InitializedPriceProviders {
   providers: IPriceProvider[];
   cleanup: () => Promise<void>;
 }

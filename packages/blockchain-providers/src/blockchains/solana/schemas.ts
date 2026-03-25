@@ -29,7 +29,7 @@ export const SolanaAddressSchema = z.string().min(1, 'Solana address must not be
 /**
  * Schema for Solana token balance (uiTokenAmount)
  */
-export const SolanaTokenAmountSchema = z.object({
+const SolanaTokenAmountSchema = z.object({
   amount: z.string().min(1, 'Amount must not be empty'),
   decimals: z.number().min(0, 'Decimals must be non-negative'),
   uiAmount: z
@@ -78,7 +78,7 @@ export const SolanaAccountBalanceSchema = z.object({
 /**
  * Schema for Solana token account info
  */
-export const SolanaTokenAccountInfoSchema = z.object({
+const SolanaTokenAccountInfoSchema = z.object({
   mint: SolanaAddressSchema, // Token mint address
   owner: SolanaAddressSchema, // Token account owner
   tokenAmount: SolanaTokenAmountSchema,
@@ -87,7 +87,7 @@ export const SolanaTokenAccountInfoSchema = z.object({
 /**
  * Schema for Solana token account data
  */
-export const SolanaTokenAccountDataSchema = z.object({
+const SolanaTokenAccountDataSchema = z.object({
   parsed: z.object({
     info: SolanaTokenAccountInfoSchema,
     type: z.string().min(1, 'Type must not be empty'),
@@ -113,7 +113,7 @@ export const SolanaTokenAccountSchema = z.object({
 /**
  * Schema for Solana account change
  */
-export const SolanaAccountChangeSchema = z.object({
+const SolanaAccountChangeSchema = z.object({
   account: SolanaAddressSchema, // Account address
   owner: SolanaAddressSchema.optional(), // Account owner
   postBalance: DecimalStringSchema,
@@ -136,7 +136,7 @@ export const SolanaTokenChangeSchema = z.object({
 /**
  * Schema for Solana instruction
  */
-export const SolanaInstructionSchema = z.object({
+const SolanaInstructionSchema = z.object({
   accounts: z.array(SolanaAddressSchema).optional(), // Account addresses involved in instruction
   data: z.string().optional(),
   instructionType: z.string().optional(),
@@ -181,14 +181,9 @@ export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
 });
 
 // Type exports inferred from schemas (single source of truth)
-export type SolanaTokenAmount = z.infer<typeof SolanaTokenAmountSchema>;
 export type SolanaTokenBalance = z.infer<typeof SolanaTokenBalanceSchema>;
 export type SolanaSignature = z.infer<typeof SolanaSignatureSchema>;
 export type SolanaAccountBalance = z.infer<typeof SolanaAccountBalanceSchema>;
-export type SolanaTokenAccountInfo = z.infer<typeof SolanaTokenAccountInfoSchema>;
-export type SolanaTokenAccountData = z.infer<typeof SolanaTokenAccountDataSchema>;
 export type SolanaTokenAccount = z.infer<typeof SolanaTokenAccountSchema>;
-export type SolanaAccountChange = z.infer<typeof SolanaAccountChangeSchema>;
 export type SolanaTokenChange = z.infer<typeof SolanaTokenChangeSchema>;
-export type SolanaInstruction = z.infer<typeof SolanaInstructionSchema>;
 export type SolanaTransaction = z.infer<typeof SolanaTransactionSchema>;

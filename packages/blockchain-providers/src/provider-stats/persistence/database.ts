@@ -6,7 +6,7 @@ import type { Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations, type Kysely } from '@exitbook/sqlite';
 
-import * as initialSchema from './migrations/001_initial_schema.js';
+import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
 import type { ProviderStatsDatabase } from './schema.js';
 
 const logger = getLogger('ProviderStatsDatabase');
@@ -26,7 +26,12 @@ export function createProviderStatsDatabase(dbPath: string): Result<Kysely<Provi
  * Initialize provider stats database with migrations
  */
 export async function initializeProviderStatsDatabase(db: Kysely<ProviderStatsDatabase>): Promise<Result<void, Error>> {
-  const result = await runMigrations(db, { '001_initial_schema': initialSchema });
+  const result = await runMigrations(db, {
+    '001_initial_schema': {
+      up: initialSchemaUp,
+      down: initialSchemaDown,
+    },
+  });
   if (result.isOk()) {
     logger.debug('Provider stats database initialized successfully');
   }

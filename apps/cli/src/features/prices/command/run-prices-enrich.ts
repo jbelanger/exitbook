@@ -11,7 +11,7 @@ import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion
 
 const logger = getLogger('PricesEnrichRunner');
 
-export interface ExecutePricesEnrichRuntimeOptions<TSuccess = PricesEnrichResult> {
+interface ExecutePricesEnrichRuntimeOptions<TSuccess = PricesEnrichResult> {
   afterSuccess?:
     | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
     | undefined;
@@ -75,7 +75,7 @@ export async function executePricesEnrichRuntime<TSuccess = PricesEnrichResult>(
   }
 }
 
-export function abortPricesEnrichRuntime(runtime: CliPriceEnrichmentRuntime): void {
+function abortPricesEnrichRuntime(runtime: CliPriceEnrichmentRuntime): void {
   if (runtime.controller) {
     runtime.controller.abort();
     void runtime.controller.stop().catch((error) => {

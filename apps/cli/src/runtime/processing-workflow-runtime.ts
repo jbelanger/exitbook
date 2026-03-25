@@ -7,11 +7,11 @@ import { ProcessingWorkflow, type AdapterRegistry, type IngestionEvent } from '@
 import { createCliAssetReviewProjectionRuntime } from '../features/shared/asset-review-projection-runtime.js';
 import type { OpenedCliBlockchainProviderRuntime } from '../features/shared/blockchain-provider-runtime.js';
 
-export interface CliProcessingWorkflowRuntime {
+interface CliProcessingWorkflowRuntime {
   processingWorkflow: ProcessingWorkflow;
 }
 
-export interface CreateCliProcessingWorkflowRuntimeOptions {
+interface CreateCliProcessingWorkflowRuntimeOptions {
   adapterRegistry: AdapterRegistry;
   dataDir: string;
   database: DataSession;

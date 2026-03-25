@@ -12,7 +12,7 @@ const logger = getLogger('PriceProviderManagerBootstrap');
 /**
  * Combined configuration for provider manager creation.
  */
-export interface PriceProviderManagerFactoryConfig {
+interface PriceProviderManagerFactoryConfig {
   manager?: Partial<ProviderManagerConfig> | undefined;
   providers: ProviderFactoryConfig;
 }

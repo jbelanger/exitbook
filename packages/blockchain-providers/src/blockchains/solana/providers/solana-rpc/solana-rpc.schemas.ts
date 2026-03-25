@@ -89,6 +89,4 @@ export const SolanaRPCTokenAccountsJsonRpcResponseSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 
-// Type exports inferred from schemas
-export type SolanaRPCTransaction = z.infer<typeof _SolanaRPCTransactionSchema>;
 export type SolanaTokenAccountsResponse = z.infer<typeof SolanaTokenAccountsResponseSchema>;

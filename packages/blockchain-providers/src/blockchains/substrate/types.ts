@@ -1,2 +1,2 @@
 // Re-export types from schemas (single source of truth)
-export type { SubstrateEventData, SubstrateTransaction } from './schemas.js';
+export type { SubstrateTransaction } from './schemas.js';

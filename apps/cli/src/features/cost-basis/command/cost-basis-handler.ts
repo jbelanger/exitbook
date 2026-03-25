@@ -24,7 +24,7 @@ import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-run
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
-export type { ValidatedCostBasisConfig, CostBasisWorkflowResult };
+export type { ValidatedCostBasisConfig };
 
 interface CostBasisArtifactExecutionResult {
   artifact: CostBasisWorkflowResult;

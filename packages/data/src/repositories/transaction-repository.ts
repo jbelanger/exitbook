@@ -32,7 +32,7 @@ import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
-export interface TransactionQueryParams {
+interface TransactionQueryParams {
   sourceName?: string | undefined;
   since?: number | undefined;
   accountId?: number | undefined;
@@ -40,11 +40,11 @@ export interface TransactionQueryParams {
   includeExcluded?: boolean | undefined;
 }
 
-export interface FullTransactionQueryParams extends TransactionQueryParams {
+interface FullTransactionQueryParams extends TransactionQueryParams {
   projection?: 'full' | undefined;
 }
 
-export interface SummaryTransactionQueryParams extends TransactionQueryParams {
+interface SummaryTransactionQueryParams extends TransactionQueryParams {
   projection: 'summary';
 }
 
@@ -52,7 +52,7 @@ interface MaterializeTransactionNoteOverridesParams extends TransactionMateriali
   notesByFingerprint: ReadonlyMap<string, string>;
 }
 
-export interface TransactionSummary {
+interface TransactionSummary {
   id: number;
   accountId: number;
   txFingerprint: string;

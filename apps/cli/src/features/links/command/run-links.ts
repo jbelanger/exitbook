@@ -56,7 +56,7 @@ export async function executeLinksRunWithRuntime(
   }
 }
 
-export function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
+function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
   if (runtime.controller) {
     runtime.controller.abort();
     void runtime.controller.stop().catch((error) => {

@@ -1,1 +1,1 @@
-export type { ProviderHealth, ProviderHealthWithCircuit } from '@exitbook/resilience/provider-health';
+export type { ProviderHealth } from '@exitbook/resilience/provider-health';

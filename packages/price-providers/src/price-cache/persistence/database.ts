@@ -10,7 +10,7 @@ import { ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations, type Kysely } from '@exitbook/sqlite';
 
-import * as initialSchema from './migrations/001_initial_schema.js';
+import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
 import type { PricesDatabase } from './schema.js';
 
 const logger = getLogger('PricesDatabase');
@@ -30,7 +30,12 @@ export function createPricesDatabase(dbPath: string): Result<Kysely<PricesDataba
  * Initialize prices database with migrations
  */
 export async function initializePricesDatabase(db: Kysely<PricesDatabase>): Promise<Result<void, Error>> {
-  const result = await runMigrations(db, { '001_initial_schema': initialSchema });
+  const result = await runMigrations(db, {
+    '001_initial_schema': {
+      up: initialSchemaUp,
+      down: initialSchemaDown,
+    },
+  });
   if (result.isOk()) {
     logger.debug('Prices database initialized successfully');
   }

@@ -10,7 +10,7 @@ type AddressActivityProvider = Pick<IBlockchainProviderRuntime, 'hasAddressTrans
 /**
  * Configuration for BIP44-compliant gap scanning
  */
-export interface GapScanConfig {
+interface GapScanConfig {
   /** The blockchain identifier (e.g., 'bitcoin', 'cardano') */
   blockchain: string;
   /** Pre-derived addresses to scan, in interleaved order */
@@ -24,7 +24,7 @@ export interface GapScanConfig {
 /**
  * Result of BIP44 gap scanning
  */
-export interface GapScanResult {
+interface GapScanResult {
   /** Trimmed address set: all addresses up to highestUsedIndex + gapLimit */
   addresses: string[];
 }

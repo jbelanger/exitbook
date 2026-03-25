@@ -23,7 +23,7 @@ const logger = getLogger('ProviderInstanceFactory');
 /**
  * Runtime context injected during manager construction (instrumentation, event bus hooks).
  */
-export interface ProviderCreationContext {
+interface ProviderCreationContext {
   instrumentation?: InstrumentationCollector | undefined;
   buildHttpClientHooks?: ((blockchain: string, providerName: string) => HttpClientHooks) | undefined;
 }
@@ -31,7 +31,7 @@ export interface ProviderCreationContext {
 /**
  * Result of creating a set of providers for a blockchain
  */
-export interface ProviderSetResult {
+interface ProviderSetResult {
   providers: IBlockchainProvider[];
   preferredProviderName?: string | undefined;
 }

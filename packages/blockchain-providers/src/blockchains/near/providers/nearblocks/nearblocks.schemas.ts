@@ -23,14 +23,14 @@ export const NearBlocksActionSchema = z.object({
 /**
  * Schema for NearBlocks block info
  */
-export const NearBlocksBlockSchema = z.object({
+const NearBlocksBlockSchema = z.object({
   block_height: z.number(),
 });
 
 /**
  * Schema for NearBlocks receipt block info
  */
-export const NearBlocksReceiptBlockSchema = z.object({
+const NearBlocksReceiptBlockSchema = z.object({
   block_hash: z.string(),
   block_height: z.number(),
   block_timestamp: z.number(),
@@ -40,7 +40,7 @@ export const NearBlocksReceiptBlockSchema = z.object({
  * Schema for NearBlocks receipt outcome with full details
  * Numeric fields (gas_burnt, tokens_burnt) are converted to decimal strings for precision-safe storage
  */
-export const NearBlocksReceiptOutcomeSchema = z.object({
+const NearBlocksReceiptOutcomeSchema = z.object({
   executor_account_id: z.string().min(1, 'Executor account ID must not be empty'),
   gas_burnt: DecimalStringSchema,
   status: z.boolean(),
@@ -51,7 +51,7 @@ export const NearBlocksReceiptOutcomeSchema = z.object({
 /**
  * Schema for NearBlocks transaction outcome
  */
-export const NearBlocksOutcomeSchema = z.object({
+const NearBlocksOutcomeSchema = z.object({
   status: z.boolean(),
 });
 
@@ -89,7 +89,7 @@ export const NearBlocksTransactionsResponseSchema = z.object({
 /**
  * Schema for NearBlocks account data
  */
-export const NearBlocksAccountDataSchema = z.object({
+const NearBlocksAccountDataSchema = z.object({
   account_id: z.string().min(1, 'Account ID must not be empty'),
   amount: DecimalStringSchema,
   block_height: z.union([z.number(), z.string()]).nullish(),
@@ -123,7 +123,7 @@ export const NearBlocksAccountSchema = z.object({
 /**
  * Schema for NearBlocks activity direction enum
  */
-export const NearBlocksActivityDirectionSchema = z.enum(['INBOUND', 'OUTBOUND']);
+const NearBlocksActivityDirectionSchema = z.enum(['INBOUND', 'OUTBOUND']);
 
 /**
  * Schema for NearBlocks activity item
@@ -217,18 +217,7 @@ export const NearBlocksFtTransactionsResponseSchema = z.object({
 
 // Type exports
 export type NearBlocksAction = z.infer<typeof NearBlocksActionSchema>;
-export type NearBlocksBlock = z.infer<typeof NearBlocksBlockSchema>;
-export type NearBlocksReceiptBlock = z.infer<typeof NearBlocksReceiptBlockSchema>;
-export type NearBlocksReceiptOutcome = z.infer<typeof NearBlocksReceiptOutcomeSchema>;
-export type NearBlocksOutcome = z.infer<typeof NearBlocksOutcomeSchema>;
 export type NearBlocksTransaction = z.infer<typeof NearBlocksTransactionSchema>;
-export type NearBlocksTransactionsResponse = z.infer<typeof NearBlocksTransactionsResponseSchema>;
-export type NearBlocksAccountData = z.infer<typeof NearBlocksAccountDataSchema>;
-export type NearBlocksAccount = z.infer<typeof NearBlocksAccountSchema>;
-export type NearBlocksActivityDirection = z.infer<typeof NearBlocksActivityDirectionSchema>;
 export type NearBlocksActivity = z.infer<typeof NearBlocksActivitySchema>;
-export type NearBlocksActivitiesResponse = z.infer<typeof NearBlocksActivitiesResponseSchema>;
 export type NearBlocksReceipt = z.infer<typeof NearBlocksReceiptSchema>;
-export type NearBlocksReceiptsResponse = z.infer<typeof NearBlocksReceiptsResponseSchema>;
 export type NearBlocksFtTransaction = z.infer<typeof NearBlocksFtTransactionSchema>;
-export type NearBlocksFtTransactionsResponse = z.infer<typeof NearBlocksFtTransactionsResponseSchema>;

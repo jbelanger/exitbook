@@ -102,7 +102,7 @@ export function supportsAsset(metadata: ProviderMetadata, assetSymbol: string, i
  * Select and order providers based on scores and capabilities
  * Pure function - no side effects, deterministic ordering
  */
-export interface ProviderSelectionQuery {
+interface ProviderSelectionQuery {
   operationType: string;
   now: number;
   timestamp?: Date | undefined;
@@ -110,7 +110,7 @@ export interface ProviderSelectionQuery {
   isFiat?: boolean | undefined;
 }
 
-export interface SelectedPriceProvider {
+interface SelectedPriceProvider {
   health: ProviderHealth;
   metadata: ProviderMetadata;
   provider: IPriceProvider;

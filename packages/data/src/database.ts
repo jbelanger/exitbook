@@ -5,7 +5,7 @@ import { closeSqliteDatabase, createSqliteDatabase, runMigrations as runSqliteMi
 import type { Kysely } from '@exitbook/sqlite';
 
 import type { DatabaseSchema } from './database-schema.js';
-import * as initialSchema from './migrations/001_initial_schema.js';
+import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
 
 export type KyselyDB = Kysely<DatabaseSchema>;
 
@@ -13,7 +13,10 @@ const initLogger = getLogger('DatabaseInitialization');
 const migrationsLogger = getLogger('Migrations');
 
 const migrations = {
-  '001_initial_schema': initialSchema,
+  '001_initial_schema': {
+    up: initialSchemaUp,
+    down: initialSchemaDown,
+  },
 };
 
 export function createDatabase(dbPath: string): Result<KyselyDB, Error> {

@@ -11,9 +11,9 @@ import {
   type PrereqExecutionOptions,
 } from './projection-readiness.js';
 
-export type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
+type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
 
-export interface EnsureConsumerInputsReadyOptions extends PrereqExecutionOptions {
+interface EnsureConsumerInputsReadyOptions extends PrereqExecutionOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   priceConfig?: PricePrereqConfig | undefined;
 }

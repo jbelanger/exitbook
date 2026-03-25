@@ -21,7 +21,7 @@ export interface CliPriceEnrichmentRuntime {
   priceRuntime: IPriceProviderRuntime;
 }
 
-export interface CreateCliPriceEnrichmentRuntimeOptions {
+interface CreateCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: DataSession;
   isJsonMode: boolean;

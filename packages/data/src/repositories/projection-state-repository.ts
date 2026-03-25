@@ -8,7 +8,7 @@ import { BaseRepository } from './base-repository.js';
 
 const DEFAULT_SCOPE_KEY = '__global__';
 
-export interface ProjectionStateRow {
+interface ProjectionStateRow {
   projectionId: ProjectionId;
   scopeKey: string;
   status: ProjectionStatus;

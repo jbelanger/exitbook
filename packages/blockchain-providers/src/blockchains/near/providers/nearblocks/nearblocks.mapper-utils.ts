@@ -125,7 +125,7 @@ function parseNearBlocksTimestamp(timestamp: string | undefined | null): number 
 /**
  * Map NearBlocks action to native NEAR action
  */
-export function mapRawActionToNearAction(rawAction: NearBlocksAction): Result<NearReceiptAction, Error> {
+function mapRawActionToNearAction(rawAction: NearBlocksAction): Result<NearReceiptAction, Error> {
   const actionTypeResult = normalizeActionType(rawAction.action);
   if (actionTypeResult.isErr()) {
     return err(new Error(`Failed to map action: ${actionTypeResult.error.message}`));

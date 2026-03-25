@@ -13,13 +13,13 @@ import { readCostBasisDependencyWatermark } from '../features/shared/cost-basis-
 
 import type { CommandRuntime } from './command-runtime.js';
 
-export interface CliPortfolioRuntime {
+interface CliPortfolioRuntime {
   dependencyReader: IPortfolioDependencyReader;
   holdingsCalculator: IPortfolioHoldingsCalculator;
   priceRuntime: IPriceProviderRuntime;
 }
 
-export interface CreateCliPortfolioRuntimeOptions {
+interface CreateCliPortfolioRuntimeOptions {
   accountingExclusionPolicy: AccountingExclusionPolicy;
   database: DataSession;
   scope: CommandRuntime;

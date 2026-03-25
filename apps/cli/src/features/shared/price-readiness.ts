@@ -15,7 +15,7 @@ export interface PricePrereqConfig {
   endDate: Date;
 }
 
-export type PriceReadinessTarget = 'cost-basis' | 'portfolio';
+type PriceReadinessTarget = 'cost-basis' | 'portfolio';
 
 export async function ensureTransactionPricesReady(
   scope: CommandRuntime,

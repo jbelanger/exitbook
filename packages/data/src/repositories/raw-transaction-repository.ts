@@ -11,7 +11,7 @@ import { parseJson, toRawTransaction } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
-export interface RawTransactionQueryParams {
+interface RawTransactionQueryParams {
   accountId?: number | undefined;
   processingStatus?: ProcessingStatus | undefined;
   providerName?: string | undefined;

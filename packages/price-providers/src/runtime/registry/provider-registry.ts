@@ -17,7 +17,7 @@ export interface PriceProviderDescriptor {
   supportedAssetTypes: ('crypto' | 'fiat')[];
 }
 
-export type ProviderFactory = (
+type ProviderFactory = (
   db: PricesDB,
   config: unknown,
   instrumentation?: InstrumentationCollector
@@ -28,7 +28,7 @@ interface PriceProviderRegistration {
   descriptor: PriceProviderDescriptor;
 }
 
-export const PRICE_PROVIDER_REGISTRY = {
+const PRICE_PROVIDER_REGISTRY = {
   'bank-of-canada': {
     createProvider: (db: PricesDB, config: unknown, instrumentation?: InstrumentationCollector) =>
       createBankOfCanadaProvider(db, config, instrumentation),
@@ -91,7 +91,7 @@ export const PRICE_PROVIDER_REGISTRY = {
   },
 } as const satisfies Record<string, PriceProviderRegistration>;
 
-export type ProviderName = keyof typeof PRICE_PROVIDER_REGISTRY;
+type ProviderName = keyof typeof PRICE_PROVIDER_REGISTRY;
 
 export function getAvailableProviderNames(): ProviderName[] {
   return Object.keys(PRICE_PROVIDER_REGISTRY) as ProviderName[];

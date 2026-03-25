@@ -35,7 +35,7 @@ import { ProviderFailoverEngine } from './provider-failover-engine.js';
 
 const logger = getLogger('BlockchainProviderManager');
 
-export interface BlockchainProviderManagerOptions {
+interface BlockchainProviderManagerOptions {
   explorerConfig?: BlockchainExplorersConfig | undefined;
   statsStore?: ProviderStatsStoreOptions | undefined;
   instrumentation?: InstrumentationCollector | undefined;

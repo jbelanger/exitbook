@@ -12,13 +12,13 @@ import { createEventDrivenController, type EventDrivenController } from '../ui/s
 
 const logger = getLogger('cli-linking-runtime');
 
-export interface CliLinkingRuntime {
+interface CliLinkingRuntime {
   controller?: EventDrivenController<LinkingEvent> | undefined;
   orchestrator: LinkingOrchestrator;
   overrideStore: OverrideStore;
 }
 
-export interface CreateCliLinkingRuntimeOptions {
+interface CreateCliLinkingRuntimeOptions {
   dataDir: string;
   database: DataSession;
   isJsonMode: boolean;

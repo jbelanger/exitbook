@@ -34,12 +34,12 @@ export function supportsOperation(capabilities: ProviderCapabilities, operation:
  * Select and order providers based on scores and capabilities.
  * Pure function with deterministic ordering.
  */
-export interface ProviderSelectionQuery {
+interface ProviderSelectionQuery {
   operation: ProviderOperation;
   now: number;
 }
 
-export interface SelectedBlockchainProvider {
+interface SelectedBlockchainProvider {
   health: ProviderHealth;
   provider: IBlockchainProvider;
   score: number;

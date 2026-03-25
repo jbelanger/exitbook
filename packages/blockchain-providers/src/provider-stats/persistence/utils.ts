@@ -24,7 +24,7 @@ export interface ProviderStatsRow {
   total_failures: number;
 }
 
-export interface HydratedProviderStats {
+interface HydratedProviderStats {
   blockchain: string;
   providerName: string;
   health: ProviderHealth;

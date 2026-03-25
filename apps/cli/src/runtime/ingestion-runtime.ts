@@ -16,7 +16,7 @@ const logger = getLogger('ingestion-runtime');
 
 export type CliEvent = IngestionEvent | ProviderEvent;
 
-export interface IngestionRuntime {
+interface IngestionRuntime {
   blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
@@ -24,7 +24,7 @@ export interface IngestionRuntime {
   processingWorkflow: ProcessingWorkflow;
 }
 
-export interface CreateIngestionRuntimeOptions {
+interface CreateIngestionRuntimeOptions {
   presentation?: 'headless' | 'monitor' | undefined;
 }
 

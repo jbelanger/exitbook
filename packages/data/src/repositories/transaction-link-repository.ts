@@ -16,7 +16,7 @@ import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
-export type TransactionLinkRow = Selectable<TransactionLinksTable>;
+type TransactionLinkRow = Selectable<TransactionLinksTable>;
 
 function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Error> {
   const matchCriteriaResult = parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);

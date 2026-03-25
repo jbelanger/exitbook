@@ -20,7 +20,7 @@ interface AccountKeyParams {
   userId: number | undefined;
 }
 
-export interface FindOrCreateAccountParams {
+interface FindOrCreateAccountParams {
   userId: number | undefined;
   parentAccountId?: number | undefined;
   accountType: AccountType;
@@ -30,7 +30,7 @@ export interface FindOrCreateAccountParams {
   credentials?: ExchangeCredentials | undefined;
 }
 
-export interface UpdateAccountParams {
+interface UpdateAccountParams {
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
