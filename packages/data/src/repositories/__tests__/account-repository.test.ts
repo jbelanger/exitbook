@@ -311,7 +311,10 @@ describe('AccountRepository', () => {
     });
 
     it('does not include accounts from other profiles', async () => {
-      await db.insertInto('profiles').values({ id: 2, created_at: new Date().toISOString() }).execute();
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, name: 'secondary', created_at: new Date().toISOString() })
+        .execute();
       await repo.findOrCreate({
         profileId: 1,
         accountType: 'blockchain',

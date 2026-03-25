@@ -4,6 +4,7 @@ import {
   BlockchainFieldsSchema,
   CsvImportSchema,
   JsonFlagSchema,
+  ProfileFlagSchema,
   SourceSelectionSchema,
   VerboseFlagSchema,
 } from '../../shared/option-schema-primitives.js';
@@ -17,6 +18,7 @@ export const ImportCommandOptionsSchema = SourceSelectionSchema.extend(Blockchai
     }).shape
   )
   .extend(CsvImportSchema.shape)
+  .extend(ProfileFlagSchema.shape)
   .extend(JsonFlagSchema.shape)
   .extend(VerboseFlagSchema.shape)
   .superRefine((data, ctx) => {

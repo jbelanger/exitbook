@@ -4,6 +4,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -67,6 +68,7 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option(
       '--xpub-gap <number>',
       'Address derivation limit for xpub/extended keys (default: 20 for Bitcoin, 10 for Cardano)',
@@ -95,8 +97,14 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
 async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
-      const result = await runImport(ctx, { isJsonMode: true }, params);
+      const result = await runImport(ctx, { isJsonMode: true }, { ...params, profileId: profileResult.value.id });
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -118,6 +126,12 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
 async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
 
       const platformKey = 'blockchain' in params ? params.blockchain : params.exchange;
@@ -127,6 +141,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
         { isJsonMode: false },
         {
           ...params,
+          profileId: profileResult.value.id,
           onSingleAddressWarning: async () => {
             process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
             process.stderr.write('Single address tracking has limitations:\n');

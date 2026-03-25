@@ -64,9 +64,6 @@ type CheckBalanceFreshness = (
 ) => Promise<Result<{ reason?: string | undefined; status: ProjectionStatus }, Error>>;
 
 export function createMockPorts() {
-  const findOrCreateDefaultProfile = vi
-    .fn()
-    .mockResolvedValue(ok({ id: 1, createdAt: new Date('2025-01-01T00:00:00.000Z') }));
   const findAccounts = vi.fn<AccountFindAll>().mockResolvedValue(ok([]));
   const findAccountById = vi.fn<AccountFindById>();
   const countSessionsByAccount = vi.fn<CountByAccount>().mockImplementation((accountIds: number[]) => {
@@ -79,7 +76,6 @@ export function createMockPorts() {
     .mockResolvedValue(ok({ status: 'fresh', reason: undefined }));
 
   const ports: AccountQueryPorts = {
-    findOrCreateDefaultProfile,
     findAccounts,
     findAccountById,
     countSessionsByAccount,
@@ -90,7 +86,6 @@ export function createMockPorts() {
 
   return {
     ports,
-    findOrCreateDefaultProfile,
     findAccounts,
     findAccountById,
     countSessionsByAccount,

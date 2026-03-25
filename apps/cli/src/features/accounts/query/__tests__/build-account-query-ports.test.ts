@@ -14,9 +14,6 @@ import { buildAccountQueryPorts } from '../build-account-query-ports.js';
 
 function createMockDatabase() {
   return {
-    profiles: {
-      findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1 })),
-    },
     accounts: {
       findAll: vi.fn().mockResolvedValue(ok([])),
       findById: vi.fn().mockResolvedValue(ok(undefined)),
@@ -56,7 +53,6 @@ describe('buildAccountQueryPorts', () => {
 
     expect(mockBuildBalancesFreshnessPorts).toHaveBeenCalledWith(db);
 
-    await ports.findOrCreateDefaultProfile();
     await ports.findAccountById(1);
     await ports.findAccounts({ platformKey: 'kraken' });
     await ports.countSessionsByAccount([1, 2]);
@@ -68,7 +64,6 @@ describe('buildAccountQueryPorts', () => {
       return;
     }
 
-    expect(db.profiles.findOrCreateDefault).toHaveBeenCalledOnce();
     expect(db.accounts.findById).toHaveBeenCalledWith(1);
     expect(db.accounts.findAll).toHaveBeenCalledWith({ platformKey: 'kraken' });
     expect(db.importSessions.countByAccount).toHaveBeenCalledWith([1, 2]);

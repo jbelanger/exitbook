@@ -26,9 +26,9 @@ const logger = getLogger('AccountQuery');
 export class AccountQuery {
   constructor(private readonly ports: AccountQueryPorts) {}
 
-  async list(params?: AccountQueryParams): Promise<Result<AccountListResult, Error>> {
+  async list(params: AccountQueryParams): Promise<Result<AccountListResult, Error>> {
     try {
-      const resolvedParams = params ?? {};
+      const resolvedParams = params;
 
       const accountsResult = await this.fetchAccounts(resolvedParams);
       if (accountsResult.isErr()) {
@@ -97,14 +97,8 @@ export class AccountQuery {
     }
   }
 
-  async findById(id: number): Promise<Result<AccountSummary | undefined, Error>> {
+  async findById(id: number, profileId: number): Promise<Result<AccountSummary | undefined, Error>> {
     try {
-      const profileResult = await this.ports.findOrCreateDefaultProfile();
-      if (profileResult.isErr()) {
-        return err(profileResult.error);
-      }
-      const profile = profileResult.value;
-
       const accountResult = await this.ports.findAccountById(id);
       if (accountResult.isErr()) {
         return err(accountResult.error);
@@ -114,7 +108,7 @@ export class AccountQuery {
         return ok(undefined);
       }
 
-      if (account.profileId !== profile.id) {
+      if (account.profileId !== profileId) {
         return ok(undefined);
       }
 
@@ -190,12 +184,6 @@ export class AccountQuery {
   }
 
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
-    const profileResult = await this.ports.findOrCreateDefaultProfile();
-    if (profileResult.isErr()) {
-      return err(profileResult.error);
-    }
-    const profile = profileResult.value;
-
     if (params.accountId) {
       const accountResult = await this.ports.findAccountById(params.accountId);
       if (accountResult.isErr()) {
@@ -207,10 +195,10 @@ export class AccountQuery {
         return err(new Error(`Account ${params.accountId} not found`));
       }
 
-      if (account.profileId !== profile.id) {
+      if (account.profileId !== params.profileId) {
         return err(
           new Error(
-            `Account ${params.accountId} does not belong to the default profile (expected profileId=${profile.id}, found ${account.profileId ?? 'null'})`
+            `Account ${params.accountId} does not belong to profile ${params.profileId} (found ${account.profileId ?? 'null'})`
           )
         );
       }
@@ -221,7 +209,7 @@ export class AccountQuery {
     return this.ports.findAccounts({
       accountType: params.accountType,
       platformKey: params.source,
-      profileId: profile.id,
+      profileId: params.profileId,
     });
   }
 

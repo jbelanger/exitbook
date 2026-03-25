@@ -35,6 +35,8 @@ function createSnapshot(overrides: Partial<BalanceSnapshot> = {}): BalanceSnapsh
 }
 
 describe('AccountQuery', () => {
+  const profileId = 1;
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -76,7 +78,7 @@ describe('AccountQuery', () => {
       )
     );
 
-    const result = await query.list();
+    const result = await query.list({ profileId });
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(2);
@@ -114,7 +116,7 @@ describe('AccountQuery', () => {
     );
     vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map()));
 
-    const result = await query.list({ showSessions: true });
+    const result = await query.list({ profileId, showSessions: true });
     const value = assertOk(result);
 
     expect(ctx.countSessionsByAccount).not.toHaveBeenCalled();
@@ -133,9 +135,9 @@ describe('AccountQuery', () => {
 
     vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 7, profileId: 999 })));
 
-    const result = await query.list({ accountId: 7 });
+    const result = await query.list({ profileId, accountId: 7 });
 
-    expect(assertErr(result).message).toContain('does not belong to the default profile');
+    expect(assertErr(result).message).toContain('does not belong to profile 1');
   });
 
   it('returns an error when list is filtered to a missing account id', async () => {
@@ -144,7 +146,7 @@ describe('AccountQuery', () => {
 
     vi.mocked(ctx.findAccountById).mockResolvedValue(ok(undefined));
 
-    const result = await query.list({ accountId: 404 });
+    const result = await query.list({ profileId, accountId: 404 });
 
     expect(assertErr(result).message).toBe('Account 404 not found');
   });
@@ -163,7 +165,7 @@ describe('AccountQuery', () => {
     vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(ok(new Map([[8, 7]])));
     vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map([[2, createSnapshot({ scopeAccountId: 2 })]])));
 
-    const result = await query.list({ accountId: 8 });
+    const result = await query.list({ profileId, accountId: 8 });
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
@@ -189,7 +191,7 @@ describe('AccountQuery', () => {
     vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(ok(new Map([[account.id, 1]])));
     vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map()));
 
-    const result = await query.list();
+    const result = await query.list({ profileId });
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
@@ -223,7 +225,7 @@ describe('AccountQuery', () => {
       ok({ status: 'stale' as const, reason: 'upstream-reset:processed-transactions' })
     );
 
-    const result = await query.list({ accountId: grandchild.id });
+    const result = await query.list({ profileId, accountId: grandchild.id });
     const value = assertOk(result);
 
     expect(ctx.findBalanceSnapshots).toHaveBeenCalledWith([root.id]);
@@ -252,7 +254,7 @@ describe('AccountQuery', () => {
     });
     vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map([[1, createSnapshot({ scopeAccountId: 1 })]])));
 
-    const result = await query.findById(1);
+    const result = await query.findById(1, profileId);
     const account = assertOk(result);
 
     expect(account).toMatchObject({
@@ -267,13 +269,13 @@ describe('AccountQuery', () => {
     });
   });
 
-  it('returns undefined when findById resolves an account outside default user tenancy', async () => {
+  it('returns undefined when findById resolves an account outside the requested profile', async () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
     vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 9, profileId: 42 })));
 
-    const result = await query.findById(9);
+    const result = await query.findById(9, profileId);
 
     expect(assertOk(result)).toBeUndefined();
     expect(ctx.countSessionsByAccount).not.toHaveBeenCalled();
@@ -285,7 +287,7 @@ describe('AccountQuery', () => {
 
     vi.mocked(ctx.findAccountById).mockResolvedValue(ok(undefined));
 
-    const result = await query.findById(22);
+    const result = await query.findById(22, profileId);
 
     expect(assertOk(result)).toBeUndefined();
   });
@@ -296,7 +298,7 @@ describe('AccountQuery', () => {
 
     vi.mocked(ctx.findAccounts).mockRejectedValue(new Error('database unavailable'));
 
-    const result = await query.list();
+    const result = await query.list({ profileId });
 
     expect(assertErr(result).message).toBe('Failed to query accounts: database unavailable');
     expect(mockLogger.error.mock.calls[0]?.[1]).toBe('Failed to query accounts');
@@ -308,7 +310,7 @@ describe('AccountQuery', () => {
 
     vi.mocked(ctx.findAccountById).mockResolvedValue(err(new Error('Account 22 not found')));
 
-    const result = await query.findById(22);
+    const result = await query.findById(22, profileId);
 
     expect(assertErr(result).message).toBe('Account 22 not found');
   });

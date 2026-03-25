@@ -5,6 +5,10 @@ export const JsonFlagSchema = z.object({
   json: z.boolean().optional(),
 });
 
+export const ProfileFlagSchema = z.object({
+  profile: z.string().min(1).optional(),
+});
+
 export const VerboseFlagSchema = z.object({
   verbose: z.boolean().optional(),
 });

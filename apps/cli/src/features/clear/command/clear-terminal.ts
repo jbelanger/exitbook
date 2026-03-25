@@ -1,4 +1,5 @@
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { handleCancellation, promptConfirm } from '../../shared/prompts.js';
@@ -15,9 +16,15 @@ export async function runClearTerminalFlow(options: ClearCommandOptions): Promis
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('clear', profileResult.error, ExitCodes.GENERAL_ERROR, outputMode);
+      }
+
       const clearHandler = createClearHandler({ db: database });
 
       const previewResult = await clearHandler.preview({
+        profileId: profileResult.value.id,
         accountId: options.accountId,
         source: options.source,
         includeRaw,
@@ -44,6 +51,7 @@ export async function runClearTerminalFlow(options: ClearCommandOptions): Promis
 
       const spinner = createSpinner('Clearing data...', options.json ?? false);
       const result = await clearHandler.execute({
+        profileId: profileResult.value.id,
         accountId: options.accountId,
         source: options.source,
         includeRaw,

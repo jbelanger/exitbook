@@ -7,6 +7,7 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { render } from 'ink';
 import type React from 'react';
 
+import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
 import {
   openCliBlockchainProviderRuntime,
   type CliBlockchainProviderRuntimeOptions,
@@ -41,6 +42,8 @@ export class CommandRuntime {
   exitCode = 0;
   readonly app?: CliAppRuntime | undefined;
   readonly dataDir: string;
+  readonly activeProfileName: string;
+  readonly activeProfileSource: 'default' | 'env' | 'state';
 
   private _database?: DataSession | undefined;
   private _databaseClosed = false;
@@ -51,6 +54,12 @@ export class CommandRuntime {
   constructor(app?: CliAppRuntime) {
     this.app = app;
     this.dataDir = app?.dataDir ?? getDataDir();
+    const profileSelectionResult = resolveCliProfileSelection(this.dataDir);
+    if (profileSelectionResult.isErr()) {
+      throw profileSelectionResult.error;
+    }
+    this.activeProfileName = profileSelectionResult.value.name;
+    this.activeProfileSource = profileSelectionResult.value.source;
   }
 
   requireAppRuntime(): CliAppRuntime {

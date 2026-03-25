@@ -1,4 +1,4 @@
-import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus, Profile } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 interface AccountFindAllFilters {
@@ -9,7 +9,6 @@ interface AccountFindAllFilters {
 }
 
 export interface AccountQueryPorts {
-  findOrCreateDefaultProfile(): Promise<Result<Profile, Error>>;
   findAccountById(id: number): Promise<Result<Account | undefined, Error>>;
   findAccounts(filters?: AccountFindAllFilters): Promise<Result<Account[], Error>>;
   countSessionsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>>;

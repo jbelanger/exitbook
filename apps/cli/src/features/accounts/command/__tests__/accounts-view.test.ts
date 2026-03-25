@@ -10,10 +10,12 @@ const {
   mockList,
   mockOutputSuccess,
   mockRenderApp,
+  mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
   mockBuildAccountQueryPorts: vi.fn(),
   mockCtx: {
+    activeProfileName: 'default',
     closeDatabase: vi.fn(),
     database: vi.fn(),
     exitCode: 0,
@@ -22,6 +24,7 @@ const {
   mockList: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
+  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
 
@@ -36,6 +39,10 @@ vi.mock('../../../shared/json-output.js', () => ({
 
 vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
+}));
+
+vi.mock('../../../profiles/profile-resolution.js', () => ({
+  resolveCommandProfile: mockResolveCommandProfile,
 }));
 
 vi.mock('../../query/build-account-query-ports.js', () => ({
@@ -104,6 +111,9 @@ beforeEach(() => {
   mockCtx.closeDatabase.mockResolvedValue(undefined);
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
+  mockResolveCommandProfile.mockResolvedValue(
+    ok({ id: 1, name: 'default', createdAt: new Date('2025-01-01T00:00:00.000Z') })
+  );
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);
   });
@@ -159,6 +169,7 @@ describe('registerAccountsViewCommand', () => {
 
     expect(mockBuildAccountQueryPorts).toHaveBeenCalledWith({ tag: 'db' });
     expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
       accountId: 1,
       accountType: 'exchange-api',
       source: 'kraken',
@@ -231,6 +242,13 @@ describe('registerAccountsViewCommand', () => {
 
     await program.parseAsync(['accounts', 'view', '--source', 'kraken'], { from: 'user' });
 
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: undefined,
+      accountType: undefined,
+      source: 'kraken',
+      showSessions: undefined,
+    });
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AccountsViewApp');

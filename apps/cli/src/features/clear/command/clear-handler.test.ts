@@ -32,7 +32,7 @@ describe('clear-handler', () => {
 
     const handler = createClearHandler({ db });
 
-    const previewResult = await handler.preview({ includeRaw: false });
+    const previewResult = await handler.preview({ profileId: 1, includeRaw: false });
 
     expect(previewResult.isOk()).toBe(true);
     if (previewResult.isErr()) {

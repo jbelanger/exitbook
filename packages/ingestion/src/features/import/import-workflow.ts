@@ -19,6 +19,7 @@ import type { IImporter, StreamingImportParams } from '../../shared/types/import
 // ---------------------------------------------------------------------------
 
 export interface ImportBlockchainParams {
+  profileId?: number | undefined;
   blockchain: string;
   address: string;
   providerName?: string | undefined;
@@ -26,11 +27,13 @@ export interface ImportBlockchainParams {
 }
 
 export interface ImportExchangeApiParams {
+  profileId?: number | undefined;
   exchange: string;
   credentials: ExchangeCredentials;
 }
 
 export interface ImportExchangeCsvParams {
+  profileId?: number | undefined;
   exchange: string;
   csvDir: string;
 }
@@ -94,9 +97,9 @@ export class ImportWorkflow {
   private async executeBlockchain(params: ImportBlockchainParams): Promise<Result<ImportResult, Error>> {
     logger.debug(`Starting blockchain import for ${params.blockchain} (${params.address.substring(0, 20)}...)`);
 
-    const profileResult = await this.ports.profiles.findOrCreateDefault();
-    if (profileResult.isErr()) return err(profileResult.error);
-    const profile = profileResult.value;
+    const profileIdResult = await this.resolveProfileId(params.profileId);
+    if (profileIdResult.isErr()) return err(profileIdResult.error);
+    const profileId = profileIdResult.value;
 
     const normalizedBlockchain = params.blockchain.toLowerCase();
     const adapterResult = this.registry.getBlockchain(normalizedBlockchain);
@@ -110,7 +113,7 @@ export class ImportWorkflow {
     // xpub branch
     if (isUtxoAdapter(blockchainAdapter) && blockchainAdapter.isExtendedPublicKey(normalizedAddress)) {
       return this.importFromXpub(
-        profile.id,
+        profileId,
         params.blockchain,
         normalizedAddress,
         blockchainAdapter,
@@ -126,7 +129,7 @@ export class ImportWorkflow {
     }
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      profileId: profile.id,
+      profileId,
       accountType: 'blockchain',
       platformKey: params.blockchain,
       identifier: normalizedAddress,
@@ -150,12 +153,12 @@ export class ImportWorkflow {
       return err(new Error('API key is required for exchange API imports'));
     }
 
-    const profileResult = await this.ports.profiles.findOrCreateDefault();
-    if (profileResult.isErr()) return err(profileResult.error);
-    const profile = profileResult.value;
+    const profileIdResult = await this.resolveProfileId(params.profileId);
+    if (profileIdResult.isErr()) return err(profileIdResult.error);
+    const profileId = profileIdResult.value;
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      profileId: profile.id,
+      profileId,
       accountType: 'exchange-api',
       platformKey: params.exchange,
       identifier: params.credentials.apiKey,
@@ -181,15 +184,15 @@ export class ImportWorkflow {
 
     const normalizedPath = path.normalize(params.csvDir).replace(/[/\\]$/, '');
 
-    const profileResult = await this.ports.profiles.findOrCreateDefault();
-    if (profileResult.isErr()) return err(profileResult.error);
-    const profile = profileResult.value;
+    const profileIdResult = await this.resolveProfileId(params.profileId);
+    if (profileIdResult.isErr()) return err(profileIdResult.error);
+    const profileId = profileIdResult.value;
 
     // Check for existing account with a different directory
     const existingAccountsResult = await this.ports.accounts.findAll({
       accountType: 'exchange-csv',
       platformKey: params.exchange,
-      profileId: profile.id,
+      profileId,
     });
     if (existingAccountsResult.isErr()) return err(existingAccountsResult.error);
 
@@ -214,7 +217,7 @@ export class ImportWorkflow {
     }
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      profileId: profile.id,
+      profileId,
       accountType: 'exchange-csv',
       platformKey: params.exchange,
       identifier: normalizedPath,
@@ -229,6 +232,19 @@ export class ImportWorkflow {
     const sessionResult = await this.importFromSource(account);
     if (sessionResult.isErr()) return err(sessionResult.error);
     return ok({ sessions: [sessionResult.value] });
+  }
+
+  private async resolveProfileId(profileId?: number  ): Promise<Result<number, Error>> {
+    if (profileId !== undefined) {
+      return ok(profileId);
+    }
+
+    const profileResult = await this.ports.profiles.findOrCreateDefault();
+    if (profileResult.isErr()) {
+      return err(profileResult.error);
+    }
+
+    return ok(profileResult.value.id);
   }
 
   // ---------------------------------------------------------------------------
