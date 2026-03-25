@@ -375,6 +375,409 @@ function findLargestMovement(movements: SolanaMovement[]): SolanaMovement | unde
     .find((movement) => !isZeroDecimal(movement.amount));
 }
 
+interface SolanaMovementCollection {
+  inflows: SolanaMovement[];
+  outflows: SolanaMovement[];
+}
+
+interface CounterpartyInferenceResult {
+  fromAddress?: string | undefined;
+  inferenceFailureReason?: string | undefined;
+  toAddress?: string | undefined;
+}
+
+function collectUserTokenMovements(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>
+): Result<SolanaMovementCollection, Error> {
+  const inflows: SolanaMovement[] = [];
+  const outflows: SolanaMovement[] = [];
+
+  for (const change of tx.tokenChanges ?? []) {
+    const isUserAccount =
+      allWalletAddresses.has(change.account) || (change.owner && allWalletAddresses.has(change.owner));
+    if (!isUserAccount) {
+      continue;
+    }
+
+    const preAmount = parseDecimal(change.preAmount);
+    const postAmount = parseDecimal(change.postAmount);
+    const tokenDelta = postAmount.minus(preAmount);
+    if (tokenDelta.isZero()) {
+      continue;
+    }
+
+    const normalizedAmountResult = fromBaseUnitsToDecimalString(tokenDelta.abs().toFixed(), change.decimals);
+    if (normalizedAmountResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to normalize Solana token amount for account ${change.account}: ${normalizedAmountResult.error.message}. ` +
+            `Raw amount: ${tokenDelta.abs().toFixed()}, decimals: ${change.decimals}, mint: ${change.mint}`
+        )
+      );
+    }
+
+    const movement: SolanaMovement = {
+      amount: normalizedAmountResult.value,
+      asset: (change.symbol || change.mint) as Currency,
+      decimals: change.decimals,
+      tokenAddress: change.mint,
+    };
+
+    if (tokenDelta.isPositive()) {
+      inflows.push(movement);
+    } else {
+      outflows.push(movement);
+    }
+  }
+
+  return ok({ inflows, outflows });
+}
+
+function collectUserSolMovements(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>
+): Result<SolanaMovementCollection, Error> {
+  const inflows: SolanaMovement[] = [];
+  const outflows: SolanaMovement[] = [];
+
+  for (const change of tx.accountChanges ?? []) {
+    if (!allWalletAddresses.has(change.account)) {
+      continue;
+    }
+
+    const preLamports = BigInt(change.preBalance);
+    const postLamports = BigInt(change.postBalance);
+    const solDeltaLamports = postLamports - preLamports;
+    if (solDeltaLamports === 0n) {
+      continue;
+    }
+
+    const absLamports = solDeltaLamports < 0n ? -solDeltaLamports : solDeltaLamports;
+    const normalizedSolAmountResult = fromBaseUnitsToDecimalString(absLamports.toString(), 9);
+    if (normalizedSolAmountResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to normalize SOL balance change for account ${change.account}: ${normalizedSolAmountResult.error.message}. ` +
+            `Raw amount: ${absLamports.toString()}, decimals: 9`
+        )
+      );
+    }
+
+    const movement: SolanaMovement = {
+      amount: normalizedSolAmountResult.value,
+      asset: 'SOL' as Currency,
+    };
+
+    if (solDeltaLamports > 0n) {
+      inflows.push(movement);
+    } else {
+      outflows.push(movement);
+    }
+  }
+
+  return ok({ inflows, outflows });
+}
+
+function collectUserSolanaMovements(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>
+): Result<SolanaMovementCollection, Error> {
+  const tokenMovementsResult = collectUserTokenMovements(tx, allWalletAddresses);
+  if (tokenMovementsResult.isErr()) {
+    return err(tokenMovementsResult.error);
+  }
+
+  const solMovementsResult = collectUserSolMovements(tx, allWalletAddresses);
+  if (solMovementsResult.isErr()) {
+    return err(solMovementsResult.error);
+  }
+
+  return ok({
+    inflows: [...tokenMovementsResult.value.inflows, ...solMovementsResult.value.inflows],
+    outflows: [...tokenMovementsResult.value.outflows, ...solMovementsResult.value.outflows],
+  });
+}
+
+function buildUserAssetSet(inflows: readonly SolanaMovement[], outflows: readonly SolanaMovement[]): Set<string> {
+  const userAssets = new Set<string>();
+  for (const inflow of inflows) {
+    userAssets.add(inflow.tokenAddress || inflow.asset);
+  }
+  for (const outflow of outflows) {
+    userAssets.add(outflow.tokenAddress || outflow.asset);
+  }
+  return userAssets;
+}
+
+function inferCounterpartyAddressesFromCandidates(params: {
+  hasInflows: boolean;
+  hasOutflows: boolean;
+  nonUserRecipients: ReadonlySet<string>;
+  nonUserSenders: ReadonlySet<string>;
+  userAccounts: ReadonlySet<string>;
+}): CounterpartyInferenceResult {
+  if (params.userAccounts.size === 0) {
+    return { inferenceFailureReason: 'no_user_accounts_with_delta' };
+  }
+  if (params.userAccounts.size > 1) {
+    return { inferenceFailureReason: 'multiple_user_accounts' };
+  }
+  if (params.hasOutflows && params.nonUserRecipients.size === 0) {
+    return { inferenceFailureReason: 'missing_counterparty_delta' };
+  }
+  if (params.hasOutflows && params.nonUserRecipients.size > 1) {
+    return { inferenceFailureReason: 'multiple_non_user_recipients' };
+  }
+  if (params.hasInflows && params.nonUserSenders.size === 0) {
+    return { inferenceFailureReason: 'missing_counterparty_delta' };
+  }
+  if (params.hasInflows && params.nonUserSenders.size > 1) {
+    return { inferenceFailureReason: 'multiple_non_user_senders' };
+  }
+
+  const userAccount = Array.from(params.userAccounts)[0];
+  if (!userAccount) {
+    return { inferenceFailureReason: 'no_user_accounts_with_delta' };
+  }
+
+  if (params.hasOutflows) {
+    return {
+      fromAddress: userAccount,
+      toAddress: Array.from(params.nonUserRecipients)[0],
+    };
+  }
+
+  if (params.hasInflows) {
+    return {
+      fromAddress: Array.from(params.nonUserSenders)[0],
+      toAddress: userAccount,
+    };
+  }
+
+  return {};
+}
+
+function inferSolCounterpartyAddresses(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>,
+  hasInflows: boolean,
+  hasOutflows: boolean
+): CounterpartyInferenceResult {
+  const userAccounts = new Set<string>();
+  const nonUserSenders = new Set<string>();
+  const nonUserRecipients = new Set<string>();
+
+  for (const change of tx.accountChanges ?? []) {
+    const deltaLamports = BigInt(change.postBalance) - BigInt(change.preBalance);
+    if (deltaLamports === 0n) {
+      continue;
+    }
+
+    if (allWalletAddresses.has(change.account)) {
+      userAccounts.add(change.account);
+    } else if (deltaLamports < 0n) {
+      nonUserSenders.add(change.account);
+    } else {
+      nonUserRecipients.add(change.account);
+    }
+  }
+
+  return inferCounterpartyAddressesFromCandidates({
+    hasInflows,
+    hasOutflows,
+    nonUserRecipients,
+    nonUserSenders,
+    userAccounts,
+  });
+}
+
+function inferTokenCounterpartyAddresses(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>,
+  primaryAsset: string,
+  hasInflows: boolean,
+  hasOutflows: boolean
+): CounterpartyInferenceResult {
+  const userAccounts = new Set<string>();
+  const nonUserSenders = new Set<string>();
+  const nonUserRecipients = new Set<string>();
+
+  for (const change of tx.tokenChanges ?? []) {
+    if (change.mint !== primaryAsset) {
+      continue;
+    }
+
+    const delta = parseDecimal(change.postAmount).minus(parseDecimal(change.preAmount));
+    if (delta.isZero()) {
+      continue;
+    }
+
+    const ownerAccount = change.owner || change.account;
+    if (allWalletAddresses.has(ownerAccount)) {
+      userAccounts.add(ownerAccount);
+    } else if (delta.isNegative()) {
+      nonUserSenders.add(ownerAccount);
+    } else {
+      nonUserRecipients.add(ownerAccount);
+    }
+  }
+
+  return inferCounterpartyAddressesFromCandidates({
+    hasInflows,
+    hasOutflows,
+    nonUserRecipients,
+    nonUserSenders,
+    userAccounts,
+  });
+}
+
+function inferCounterpartyAddresses(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>,
+  inflows: readonly SolanaMovement[],
+  outflows: readonly SolanaMovement[]
+): CounterpartyInferenceResult {
+  const hasInflows = inflows.length > 0;
+  const hasOutflows = outflows.length > 0;
+  const userAssets = buildUserAssetSet(inflows, outflows);
+
+  if (userAssets.size === 1) {
+    const primaryAsset = Array.from(userAssets)[0];
+    if (!primaryAsset) {
+      return { inferenceFailureReason: 'no_primary_asset' };
+    }
+
+    if (inflows.length > 1 || outflows.length > 1) {
+      return { inferenceFailureReason: 'same_asset_multiple_movements' };
+    }
+
+    return primaryAsset === 'SOL'
+      ? inferSolCounterpartyAddresses(tx, allWalletAddresses, hasInflows, hasOutflows)
+      : inferTokenCounterpartyAddresses(tx, allWalletAddresses, primaryAsset, hasInflows, hasOutflows);
+  }
+
+  if (userAssets.size > 1) {
+    return { inferenceFailureReason: 'multi_asset_user_delta' };
+  }
+
+  return {};
+}
+
+function determineFeePaidByUser(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>,
+  inflows: readonly SolanaMovement[],
+  outflows: readonly SolanaMovement[],
+  fromAddress: string | undefined
+): boolean {
+  const feePayerIsUser = tx.feePayer ? allWalletAddresses.has(tx.feePayer) : false;
+  const inferredSenderIsUser = fromAddress ? allWalletAddresses.has(fromAddress) : false;
+  return outflows.length > 0 || (inflows.length === 0 && (feePayerIsUser || inferredSenderIsUser));
+}
+
+function warnOnAmbiguousFeePayer(
+  tx: SolanaTransaction,
+  inflows: readonly SolanaMovement[],
+  outflows: readonly SolanaMovement[]
+): void {
+  if (inflows.length === 0 && outflows.length === 0 && !tx.feePayer) {
+    logger.warn(
+      { txId: tx.id, provider: tx.providerName },
+      'Fee payer detection: no movements and no explicit feePayer field - fee attribution may be incorrect'
+    );
+  }
+}
+
+function warnOnCounterpartyInferenceFailure(
+  tx: SolanaTransaction,
+  userAssets: ReadonlySet<string>,
+  inferenceFailureReason: string | undefined
+): void {
+  if (!inferenceFailureReason) {
+    return;
+  }
+
+  logger.warn(
+    {
+      inferenceFailureReason,
+      provider: tx.providerName,
+      txId: tx.id,
+      userAssets: Array.from(userAssets),
+    },
+    `Cannot infer from/to counterparty: ${inferenceFailureReason}`
+  );
+}
+
+function absorbFeeFromSolOutflows(outflows: SolanaMovement[], feeAmount: string | undefined): boolean {
+  if (feeAmount === undefined) {
+    return false;
+  }
+
+  let remainingFee = parseDecimal(feeAmount);
+  let hadOutflowsBeforeFeeAdjustment = false;
+  if (remainingFee.isZero()) {
+    return false;
+  }
+
+  for (const movement of outflows) {
+    if (movement.asset !== 'SOL') {
+      continue;
+    }
+
+    const movementAmount = parseDecimal(movement.amount);
+    if (movementAmount.isZero()) {
+      continue;
+    }
+
+    hadOutflowsBeforeFeeAdjustment = true;
+    if (movementAmount.lessThanOrEqualTo(remainingFee)) {
+      remainingFee = remainingFee.minus(movementAmount);
+      movement.amount = '0';
+    } else {
+      movement.amount = movementAmount.minus(remainingFee).toFixed();
+      break;
+    }
+  }
+
+  for (let index = outflows.length - 1; index >= 0; index--) {
+    const movement = outflows[index];
+    if (movement?.asset === 'SOL' && isZeroDecimal(movement.amount)) {
+      outflows.splice(index, 1);
+    }
+  }
+
+  return hadOutflowsBeforeFeeAdjustment && outflows.length === 0;
+}
+
+function inferFeeOnlySelfTransfer(
+  tx: SolanaTransaction,
+  allWalletAddresses: ReadonlySet<string>
+): Pick<CounterpartyInferenceResult, 'fromAddress' | 'toAddress'> {
+  for (const change of tx.accountChanges ?? []) {
+    const deltaLamports = BigInt(change.postBalance) - BigInt(change.preBalance);
+    if (allWalletAddresses.has(change.account) && deltaLamports < 0n) {
+      return {
+        fromAddress: change.account,
+        toAddress: change.account,
+      };
+    }
+  }
+
+  return {};
+}
+
+function buildClassificationUncertainty(
+  inflows: readonly SolanaMovement[],
+  outflows: readonly SolanaMovement[]
+): string | undefined {
+  if (inflows.length <= 1 && outflows.length <= 1) {
+    return undefined;
+  }
+
+  return `Complex transaction with ${outflows.length} outflow(s) and ${inflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
+}
+
 /**
  * Analyze balance changes to collect ALL asset movements (multi-asset tracking)
  */
@@ -382,341 +785,49 @@ export function analyzeSolanaBalanceChanges(
   tx: SolanaTransaction,
   allWalletAddresses: Set<string>
 ): Result<SolanaFlowAnalysis, Error> {
-  const inflows: SolanaMovement[] = [];
-  const outflows: SolanaMovement[] = [];
-
-  // Collect ALL token balance changes involving the user
-  if (tx.tokenChanges && tx.tokenChanges.length > 0) {
-    for (const change of tx.tokenChanges) {
-      const isUserAccount =
-        allWalletAddresses.has(change.account) || (change.owner && allWalletAddresses.has(change.owner));
-
-      if (!isUserAccount) continue;
-
-      // Use Decimal for token amounts (arbitrary precision for token balances)
-      const preAmount = parseDecimal(change.preAmount);
-      const postAmount = parseDecimal(change.postAmount);
-      const tokenDelta = postAmount.minus(preAmount);
-
-      if (tokenDelta.isZero()) continue; // Skip zero changes
-
-      // Normalize token amount using decimals metadata
-      // All providers return amounts in smallest units; normalization ensures consistency and safety
-      const normalizedAmountResult = fromBaseUnitsToDecimalString(tokenDelta.abs().toFixed(), change.decimals);
-      if (normalizedAmountResult.isErr()) {
-        return err(
-          new Error(
-            `Failed to normalize Solana token amount for account ${change.account}: ${normalizedAmountResult.error.message}. ` +
-              `Raw amount: ${tokenDelta.abs().toFixed()}, decimals: ${change.decimals}, mint: ${change.mint}`
-          )
-        );
-      }
-
-      const movement: SolanaMovement = {
-        amount: normalizedAmountResult.value,
-        asset: (change.symbol || change.mint) as Currency,
-        decimals: change.decimals,
-        tokenAddress: change.mint,
-      };
-
-      if (tokenDelta.isPositive()) {
-        inflows.push(movement);
-      } else {
-        outflows.push(movement);
-      }
-    }
+  const movementCollectionResult = collectUserSolanaMovements(tx, allWalletAddresses);
+  if (movementCollectionResult.isErr()) {
+    return err(movementCollectionResult.error);
   }
 
-  // Collect ALL SOL balance changes involving the user (excluding fee-only changes)
-  if (tx.accountChanges && tx.accountChanges.length > 0) {
-    for (const change of tx.accountChanges) {
-      const isUserAccount = allWalletAddresses.has(change.account);
-      if (!isUserAccount) continue;
+  const consolidatedInflows = consolidateSolanaMovements(movementCollectionResult.value.inflows);
+  const consolidatedOutflows = consolidateSolanaMovements(movementCollectionResult.value.outflows);
+  const userAssets = buildUserAssetSet(consolidatedInflows, consolidatedOutflows);
+  const counterpartyInference = inferCounterpartyAddresses(
+    tx,
+    allWalletAddresses,
+    consolidatedInflows,
+    consolidatedOutflows
+  );
 
-      // Use BigInt for lamports (SOL native units) for precision
-      const preLamports = BigInt(change.preBalance);
-      const postLamports = BigInt(change.postBalance);
-      const solDeltaLamports = postLamports - preLamports;
+  const feePaidByUser = determineFeePaidByUser(
+    tx,
+    allWalletAddresses,
+    consolidatedInflows,
+    consolidatedOutflows,
+    counterpartyInference.fromAddress
+  );
+  warnOnAmbiguousFeePayer(tx, consolidatedInflows, consolidatedOutflows);
+  warnOnCounterpartyInferenceFailure(tx, userAssets, counterpartyInference.inferenceFailureReason);
 
-      if (solDeltaLamports === 0n) continue; // Skip zero changes
+  const feeAbsorbedByMovement = feePaidByUser ? absorbFeeFromSolOutflows(consolidatedOutflows, tx.feeAmount) : false;
 
-      // Normalize lamports to SOL using native amount normalization (SOL has 9 decimals)
-      const absLamports = solDeltaLamports < 0n ? -solDeltaLamports : solDeltaLamports;
-      const normalizedSolAmountResult = fromBaseUnitsToDecimalString(absLamports.toString(), 9);
-      if (normalizedSolAmountResult.isErr()) {
-        return err(
-          new Error(
-            `Failed to normalize SOL balance change for account ${change.account}: ${normalizedSolAmountResult.error.message}. ` +
-              `Raw amount: ${absLamports.toString()}, decimals: 9`
-          )
-        );
-      }
-
-      const movement = {
-        amount: normalizedSolAmountResult.value,
-        asset: 'SOL' as Currency,
-      };
-
-      if (solDeltaLamports > 0n) {
-        inflows.push(movement);
-      } else {
-        outflows.push(movement);
-      }
-    }
-  }
-
-  const consolidatedInflows = consolidateSolanaMovements(inflows);
-  const consolidatedOutflows = consolidateSolanaMovements(outflows);
-
-  // Infer from/to by analyzing ALL account changes (not just user changes)
-  // Only populate when there's a clear, unambiguous counterparty
-  let fromAddress: string | undefined;
-  let toAddress: string | undefined;
-  let inferenceFailureReason: string | undefined;
-
-  // Build net deltas per asset for ALL accounts (user and non-user)
-  // This allows us to detect swaps and multi-asset transactions properly
-  const hasInflows = consolidatedInflows.length > 0;
-  const hasOutflows = consolidatedOutflows.length > 0;
-
-  // Gate 1: Only infer when user has movement in exactly ONE asset
-  // Use tokenAddress (mint) for identity to avoid symbol collisions (e.g., multiple USDC mints)
-  const userAssets = new Set<string>();
-  for (const inflow of consolidatedInflows) {
-    userAssets.add(inflow.tokenAddress || inflow.asset);
-  }
-  for (const outflow of consolidatedOutflows) {
-    userAssets.add(outflow.tokenAddress || outflow.asset);
-  }
-
-  if (userAssets.size === 1) {
-    const primaryAsset = Array.from(userAssets)[0];
-    if (!primaryAsset) {
-      inferenceFailureReason = 'no_primary_asset';
-    } else if (consolidatedInflows.length <= 1 && consolidatedOutflows.length <= 1) {
-      // Gate 2: Only infer for simple single-asset transfers (not swaps)
-      if (primaryAsset === 'SOL' && tx.accountChanges) {
-        // Analyze SOL balance changes using BigInt (lamports) for precision
-        const userParticipantAccounts: string[] = [];
-        const counterpartySenders: { account: string; deltaLamports: bigint }[] = [];
-        const counterpartyRecipients: { account: string; deltaLamports: bigint }[] = [];
-
-        for (const change of tx.accountChanges) {
-          const preLamports = BigInt(change.preBalance);
-          const postLamports = BigInt(change.postBalance);
-          const deltaLamports = postLamports - preLamports;
-
-          if (deltaLamports === 0n) continue;
-
-          const isUser = allWalletAddresses.has(change.account);
-          if (isUser) {
-            userParticipantAccounts.push(change.account);
-          } else if (deltaLamports < 0n) {
-            counterpartySenders.push({ account: change.account, deltaLamports });
-          } else if (deltaLamports > 0n) {
-            counterpartyRecipients.push({ account: change.account, deltaLamports });
-          }
-        }
-
-        // Only set from/to if there's exactly one counterparty AND exactly one user account
-        if (userParticipantAccounts.length === 0) {
-          inferenceFailureReason = 'no_user_accounts_with_delta';
-        } else if (userParticipantAccounts.length > 1) {
-          inferenceFailureReason = 'multiple_user_accounts';
-        } else if (hasOutflows && counterpartyRecipients.length === 0) {
-          inferenceFailureReason = 'missing_counterparty_delta';
-        } else if (hasOutflows && counterpartyRecipients.length > 1) {
-          inferenceFailureReason = 'multiple_non_user_recipients';
-        } else if (hasInflows && counterpartySenders.length === 0) {
-          inferenceFailureReason = 'missing_counterparty_delta';
-        } else if (hasInflows && counterpartySenders.length > 1) {
-          inferenceFailureReason = 'multiple_non_user_senders';
-        } else if (hasOutflows && counterpartyRecipients.length === 1) {
-          fromAddress = userParticipantAccounts[0]; // User sent
-          toAddress = counterpartyRecipients[0]?.account;
-        } else if (hasInflows && counterpartySenders.length === 1) {
-          fromAddress = counterpartySenders[0]?.account;
-          toAddress = userParticipantAccounts[0]; // User received
-        }
-      } else if (primaryAsset && tx.tokenChanges) {
-        // Analyze token changes using Decimal for precision
-        // primaryAsset holds the mint address (tokenAddress) for SPL tokens
-
-        // Aggregate deltas by owner account to handle multiple token accounts per user
-        const userAccountDeltas = new Map<string, Decimal>();
-        const nonUserSenderDeltas = new Map<string, Decimal>();
-        const nonUserRecipientDeltas = new Map<string, Decimal>();
-
-        for (const change of tx.tokenChanges) {
-          if (change.mint !== primaryAsset) continue; // Only analyze the primary token
-
-          const preAmount = parseDecimal(change.preAmount);
-          const postAmount = parseDecimal(change.postAmount);
-          const delta = postAmount.minus(preAmount);
-
-          if (delta.isZero()) continue;
-
-          const ownerAccount = change.owner || change.account;
-          const isUser = allWalletAddresses.has(ownerAccount);
-
-          if (isUser) {
-            const existing = userAccountDeltas.get(ownerAccount) || parseDecimal('0');
-            userAccountDeltas.set(ownerAccount, existing.plus(delta));
-          } else if (delta.isNegative()) {
-            const existing = nonUserSenderDeltas.get(ownerAccount) || parseDecimal('0');
-            nonUserSenderDeltas.set(ownerAccount, existing.plus(delta));
-          } else if (delta.isPositive()) {
-            const existing = nonUserRecipientDeltas.get(ownerAccount) || parseDecimal('0');
-            nonUserRecipientDeltas.set(ownerAccount, existing.plus(delta));
-          }
-        }
-
-        // Only set from/to if there's exactly one counterparty AND exactly one user account
-        if (userAccountDeltas.size === 0) {
-          inferenceFailureReason = 'no_user_accounts_with_delta';
-        } else if (userAccountDeltas.size > 1) {
-          inferenceFailureReason = 'multiple_user_accounts';
-        } else if (hasOutflows && nonUserRecipientDeltas.size === 0) {
-          inferenceFailureReason = 'missing_counterparty_delta';
-        } else if (hasOutflows && nonUserRecipientDeltas.size > 1) {
-          inferenceFailureReason = 'multiple_non_user_recipients';
-        } else if (hasInflows && nonUserSenderDeltas.size === 0) {
-          inferenceFailureReason = 'missing_counterparty_delta';
-        } else if (hasInflows && nonUserSenderDeltas.size > 1) {
-          inferenceFailureReason = 'multiple_non_user_senders';
-        } else if (hasOutflows && nonUserRecipientDeltas.size === 1) {
-          const userAccount = Array.from(userAccountDeltas.keys())[0];
-          const recipientAccount = Array.from(nonUserRecipientDeltas.keys())[0];
-          fromAddress = userAccount; // User sent
-          toAddress = recipientAccount;
-        } else if (hasInflows && nonUserSenderDeltas.size === 1) {
-          const userAccount = Array.from(userAccountDeltas.keys())[0];
-          const senderAccount = Array.from(nonUserSenderDeltas.keys())[0];
-          fromAddress = senderAccount;
-          toAddress = userAccount; // User received
-        }
-      }
-    } else {
-      // Multiple inflows or outflows for the same asset - likely a complex transaction
-      inferenceFailureReason = 'same_asset_multiple_movements';
-    }
-  } else if (userAssets.size > 1) {
-    // User has movements in multiple assets - this is a swap or complex DeFi operation
-    inferenceFailureReason = 'multi_asset_user_delta';
-  }
-
-  // Determine if the user paid the transaction fee
-  // User pays fee when:
-  // 1. They have outflows (sent funds, swapped, staked, etc.), OR
-  // 2. They initiated a transaction with no movements (contract interactions, failed txs)
-  // Note: Use explicit feePayer field from mapper, fallback to legacy 'from' field for backward compatibility
-  const feePayer = tx.feePayer;
-  const feePayerIsUser = feePayer ? allWalletAddresses.has(feePayer) : false;
-  const inferredSenderIsUser = fromAddress ? allWalletAddresses.has(fromAddress) : false;
-  const feePaidByUser = hasOutflows || (!hasInflows && (feePayerIsUser || inferredSenderIsUser));
-
-  // Warn if fee payer is ambiguous
-  if (!hasInflows && !hasOutflows && !feePayer) {
-    logger.warn(
-      { txId: tx.id, provider: tx.providerName },
-      'Fee payer detection: no movements and no explicit feePayer field - fee attribution may be incorrect'
-    );
-  }
-
-  // Warn on inference failures
-  if (inferenceFailureReason) {
-    logger.warn(
-      {
-        inferenceFailureReason,
-        provider: tx.providerName,
-        txId: tx.id,
-        userAssets: Array.from(userAssets),
-      },
-      `Cannot infer from/to counterparty: ${inferenceFailureReason}`
-    );
-  }
-
-  // Prevent double-counting of fees in SOL balance calculations.
-  // Solana accountChanges already include fees (net lamport deltas), so we must
-  // deduct fees from SOL outflows to avoid subtracting them twice in accounting.
-  // For fee-only transactions, this reduces the outflow to zero, which we track
-  // via `feeAbsorbedByMovement` to avoid recording a separate fee entry later.
-  let hadOutflowsBeforeFeeAdjustment = false;
-  if (feePaidByUser && tx.feeAmount) {
-    let remainingFee = parseDecimal(tx.feeAmount);
-
-    if (!remainingFee.isZero()) {
-      for (const movement of consolidatedOutflows) {
-        if (movement.asset !== 'SOL') {
-          continue;
-        }
-
-        const movementAmount = parseDecimal(movement.amount);
-        if (movementAmount.isZero()) {
-          continue;
-        }
-
-        hadOutflowsBeforeFeeAdjustment = true;
-        if (movementAmount.lessThanOrEqualTo(remainingFee)) {
-          remainingFee = remainingFee.minus(movementAmount);
-          movement.amount = '0';
-        } else {
-          movement.amount = movementAmount.minus(remainingFee).toFixed();
-          break;
-        }
-      }
-
-      // Remove zero-value SOL movements that resulted from fee deduction
-      for (let index = consolidatedOutflows.length - 1; index >= 0; index--) {
-        const movement = consolidatedOutflows[index];
-        if (movement?.asset === 'SOL' && isZeroDecimal(movement.amount)) {
-          consolidatedOutflows.splice(index, 1);
-        }
-      }
-    }
-  }
-
-  // Handle fee-only transactions after fee deduction
-  // If outflows became empty after fee deduction, this was a fee-only transaction
+  let fromAddress = counterpartyInference.fromAddress;
+  let toAddress = counterpartyInference.toAddress;
   if (consolidatedOutflows.length === 0 && consolidatedInflows.length === 0 && !fromAddress && !toAddress) {
-    // Set from = to = fee payer address for fee-only transactions
-    if (tx.accountChanges && tx.accountChanges.length > 0) {
-      for (const change of tx.accountChanges) {
-        const isUser = allWalletAddresses.has(change.account);
-        const preLamports = BigInt(change.preBalance);
-        const postLamports = BigInt(change.postBalance);
-        const deltaLamports = postLamports - preLamports;
-        if (isUser && deltaLamports < 0n) {
-          fromAddress = change.account;
-          toAddress = change.account;
-          break;
-        }
-      }
-    }
+    ({ fromAddress, toAddress } = inferFeeOnlySelfTransfer(tx, allWalletAddresses));
   }
 
-  // Select primary asset: largest inflow, or largest outflow if no inflows.
-  // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions.
   const primaryFallback: SolanaMovement = { amount: '0', asset: 'SOL' as Currency };
   const primary =
     findLargestMovement(consolidatedInflows) ?? findLargestMovement(consolidatedOutflows) ?? primaryFallback;
 
-  // Track uncertainty for complex transactions
-  let classificationUncertainty: string | undefined;
-  if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
-    classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
-  }
-
-  // Track fee-only transactions where the fee was fully absorbed by movement adjustment
-  // When true, prevents recording a duplicate fee entry in the transaction record
-  const feeAbsorbedByMovement = hadOutflowsBeforeFeeAdjustment && consolidatedOutflows.length === 0;
-
   return ok({
-    classificationUncertainty,
+    classificationUncertainty: buildClassificationUncertainty(consolidatedInflows, consolidatedOutflows),
     feeAbsorbedByMovement,
     feePaidByUser,
     fromAddress,
-    inferenceFailureReason,
+    inferenceFailureReason: counterpartyInference.inferenceFailureReason,
     inflows: consolidatedInflows,
     outflows: consolidatedOutflows,
     primary,

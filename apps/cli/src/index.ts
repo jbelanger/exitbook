@@ -11,13 +11,26 @@ import { Command } from 'commander';
 // Read version from package.json
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-let packageJson: { version: string };
-try {
-  packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8')) as { version: string };
-} catch {
-  packageJson = { version: '0.0.0' };
+
+function readCliVersion(): string {
+  try {
+    const packageJson: unknown = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+    if (
+      typeof packageJson === 'object' &&
+      packageJson !== null &&
+      'version' in packageJson &&
+      typeof packageJson.version === 'string'
+    ) {
+      return packageJson.version;
+    }
+  } catch {
+    return '0.0.0';
+  }
+
+  return '0.0.0';
 }
-export const CLI_VERSION = packageJson.version;
+
+export const CLI_VERSION = readCliVersion();
 
 // Configure logger — LoggerImpl reads config dynamically, so loggers
 // created during module loading (before this runs) still pick up sinks.
