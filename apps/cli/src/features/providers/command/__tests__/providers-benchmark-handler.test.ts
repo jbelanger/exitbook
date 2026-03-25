@@ -1,4 +1,3 @@
-import { loadBlockchainExplorerConfig } from '@exitbook/blockchain-providers';
 import {
   openBlockchainProviderBenchmarkSession,
   type BlockchainProviderBenchmarkSession,
@@ -9,14 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { benchmarkRateLimit } from '../benchmark-tool.js';
 import { ProviderBenchmarkHandler } from '../providers-benchmark-handler.js';
-
-vi.mock('@exitbook/blockchain-providers', async () => {
-  const actual = await vi.importActual('@exitbook/blockchain-providers');
-  return {
-    ...actual,
-    loadBlockchainExplorerConfig: vi.fn(),
-  };
-});
 
 vi.mock('@exitbook/blockchain-providers/benchmark', () => ({
   openBlockchainProviderBenchmarkSession: vi.fn(),
@@ -67,16 +58,13 @@ function createMockBenchmarkSession(
 
 describe('ProviderBenchmarkHandler', () => {
   let handler: ProviderBenchmarkHandler;
-  let mockLoadBlockchainExplorerConfig: ReturnType<typeof vi.fn>;
   let mockOpenBlockchainProviderBenchmarkSession: ReturnType<typeof vi.fn>;
   let mockBenchmarkSession: ReturnType<typeof createMockBenchmarkSession>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLoadBlockchainExplorerConfig = vi.mocked(loadBlockchainExplorerConfig);
     mockOpenBlockchainProviderBenchmarkSession = vi.mocked(openBlockchainProviderBenchmarkSession);
     mockBenchmarkSession = createMockBenchmarkSession();
-    mockLoadBlockchainExplorerConfig.mockReturnValue(ok(undefined));
     handler = new ProviderBenchmarkHandler();
   });
 
@@ -191,19 +179,26 @@ describe('ProviderBenchmarkHandler', () => {
     }
   });
 
-  it('returns explorer config load errors before opening a session', async () => {
-    mockLoadBlockchainExplorerConfig.mockReturnValue(err(new Error('Invalid blockchain explorer config')));
+  it('passes configured explorer config through to the benchmark session opener', async () => {
+    const explorerConfig = {
+      bitcoin: {
+        defaultEnabled: ['blockstream.info'],
+      },
+    };
+    handler = new ProviderBenchmarkHandler(explorerConfig);
+    mockOpenBlockchainProviderBenchmarkSession.mockResolvedValue(ok(mockBenchmarkSession));
 
     const result = await handler.execute({
       blockchain: 'bitcoin',
       provider: 'blockstream.info',
     });
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Invalid blockchain explorer config');
-    }
-    expect(mockOpenBlockchainProviderBenchmarkSession).not.toHaveBeenCalled();
+    expect(result.isOk()).toBe(true);
+    expect(mockOpenBlockchainProviderBenchmarkSession).toHaveBeenCalledWith({
+      blockchain: 'bitcoin',
+      explorerConfig,
+      providerName: 'blockstream.info',
+    });
   });
 
   it('returns validation errors before opening a session', async () => {

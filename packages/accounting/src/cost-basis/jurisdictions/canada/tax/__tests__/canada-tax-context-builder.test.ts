@@ -94,7 +94,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('converts confirmed internal links into transfer events instead of acquisitions or dispositions', async () => {
-    const fxProvider = createCanadaPriceRuntime();
+    const fxProvider = createCanadaPriceRuntime({ usdToCad: '1' });
     const withdrawal = buildTransaction({
       id: 10,
       datetime: '2024-02-01T12:00:00Z',
@@ -517,7 +517,7 @@ describe('buildCanadaTaxInputContext', () => {
   });
 
   it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
-    const fxProvider = createCanadaPriceRuntime();
+    const fxProvider = createCanadaPriceRuntime({ usdToCad: '1' });
     const exchangeAcquisition = buildTransaction({
       id: 30,
       datetime: '2024-01-25T12:00:00Z',

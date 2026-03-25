@@ -124,7 +124,7 @@ describe('load-explorer-config', () => {
       expect(result).toEqual(fullRateLimitConfig);
     });
 
-    it('should load from environment variable when set', () => {
+    it('should return undefined when no explicit path is provided, even if environment variable is set', () => {
       const config: BlockchainExplorersConfig = {
         solana: {
           defaultEnabled: ['helius'],
@@ -138,7 +138,7 @@ describe('load-explorer-config', () => {
       process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = 'env-config.json';
 
       const result = loadExplorerConfig();
-      expect(result).toEqual(config);
+      expect(result).toBeUndefined();
     });
 
     it('should prefer explicit path parameter over environment variable', () => {
@@ -157,7 +157,7 @@ describe('load-explorer-config', () => {
       expect(result).toEqual(explicitConfig);
     });
 
-    it('should look for default config path when no path provided', () => {
+    it('should not look for a default config path when no path is provided', () => {
       const config: BlockchainExplorersConfig = { bitcoin: {} };
       const defaultPath = path.join(tempDir, 'config', 'blockchain-explorers.json');
 
@@ -166,7 +166,7 @@ describe('load-explorer-config', () => {
       fs.writeFileSync(defaultPath, JSON.stringify(config));
 
       const result = loadExplorerConfig();
-      expect(result).toEqual(config);
+      expect(result).toBeUndefined();
     });
 
     it('should return undefined when default config path does not exist', () => {

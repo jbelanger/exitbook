@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { err, ok } from '@exitbook/foundation';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createProviderRegistry } from '../../../../../initialize.js';
 import {
@@ -75,15 +75,26 @@ describe('EtherscanApiClient', () => {
   const providerRegistry = createProviderRegistry();
   let client: EtherscanApiClient;
   let mockGet: MockHttpClient['get'];
+  const originalEtherscanApiKey = process.env['ETHERSCAN_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
+    process.env['ETHERSCAN_API_KEY'] = 'test-etherscan-api-key';
 
     const config = providerRegistry.createDefaultConfig('ethereum', 'etherscan');
     client = new EtherscanApiClient(config);
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
+  });
+
+  afterAll(() => {
+    if (originalEtherscanApiKey === undefined) {
+      delete process.env['ETHERSCAN_API_KEY'];
+      return;
+    }
+
+    process.env['ETHERSCAN_API_KEY'] = originalEtherscanApiKey;
   });
 
   describe('metadata', () => {

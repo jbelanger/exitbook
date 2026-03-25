@@ -15,8 +15,8 @@ const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
 }));
 
 // Mock the DataSession class — replace with object exposing mocked static method
-vi.mock('@exitbook/data/context', async () => {
-  const actual = await vi.importActual('@exitbook/data/context');
+vi.mock('@exitbook/data/session', async () => {
+  const actual = await vi.importActual('@exitbook/data/session');
   return {
     ...actual,
     DataSession: {

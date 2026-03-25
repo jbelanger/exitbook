@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 /* eslint-disable unicorn/no-null -- acceptable for tests */
 import { err, ok } from '@exitbook/foundation';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createMockHttpClient,
@@ -101,14 +101,25 @@ describe('TaostatsApiClient', () => {
   const providerRegistry = createProviderRegistry();
   let client: TaostatsApiClient;
   let mockGet: MockHttpClient['get'];
+  const originalTaostatsApiKey = process.env['TAOSTATS_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
+    process.env['TAOSTATS_API_KEY'] = 'test-taostats-api-key';
 
     client = new TaostatsApiClient(providerRegistry.createDefaultConfig('bittensor', 'taostats'));
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
+  });
+
+  afterAll(() => {
+    if (originalTaostatsApiKey === undefined) {
+      delete process.env['TAOSTATS_API_KEY'];
+      return;
+    }
+
+    process.env['TAOSTATS_API_KEY'] = originalTaostatsApiKey;
   });
 
   // ── metadata ─────────────────────────────────────────────────────

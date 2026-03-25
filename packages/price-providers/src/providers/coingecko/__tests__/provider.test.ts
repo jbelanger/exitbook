@@ -44,6 +44,7 @@ describe('CoinGeckoProvider', () => {
   let httpClient: HttpClient;
   let providerRepoMocks: {
     getCoinIdForSymbol: ReturnType<typeof vi.fn>;
+    getOrCreateProvider: ReturnType<typeof vi.fn>;
     needsCoinListSync: ReturnType<typeof vi.fn>;
     updateProviderSync: ReturnType<typeof vi.fn>;
     upsertCoinMappings: ReturnType<typeof vi.fn>;
@@ -66,6 +67,7 @@ describe('CoinGeckoProvider', () => {
     httpClient = { get: httpClientGet } as unknown as HttpClient;
 
     providerRepoMocks = {
+      getOrCreateProvider: vi.fn().mockResolvedValue(ok({ id: 1 } as const)),
       getCoinIdForSymbol: vi.fn().mockResolvedValue(ok('bitcoin')),
       needsCoinListSync: vi.fn().mockResolvedValue(ok(true)),
       updateProviderSync: vi.fn().mockResolvedValue(ok(undefined)),

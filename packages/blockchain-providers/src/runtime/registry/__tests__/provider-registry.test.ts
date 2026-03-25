@@ -40,14 +40,25 @@ describe('ProviderRegistry', () => {
   });
 
   test('should create provider instances from registry', () => {
-    const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
-    const provider = providerRegistry.createProvider('ethereum', 'moralis', config);
+    const originalMoralisApiKey = process.env['MORALIS_API_KEY'];
+    process.env['MORALIS_API_KEY'] = 'test-moralis-api-key';
 
-    expect(provider).toBeDefined();
-    expect(provider.name).toBe('moralis');
-    expect(provider.blockchain).toBe('ethereum');
-    expect(provider.capabilities).toBeDefined();
-    expect(provider.capabilities.supportedOperations).toContain('getAddressBalances');
+    try {
+      const config = providerRegistry.createDefaultConfig('ethereum', 'moralis');
+      const provider = providerRegistry.createProvider('ethereum', 'moralis', config);
+
+      expect(provider).toBeDefined();
+      expect(provider.name).toBe('moralis');
+      expect(provider.blockchain).toBe('ethereum');
+      expect(provider.capabilities).toBeDefined();
+      expect(provider.capabilities.supportedOperations).toContain('getAddressBalances');
+    } finally {
+      if (originalMoralisApiKey === undefined) {
+        delete process.env['MORALIS_API_KEY'];
+      } else {
+        process.env['MORALIS_API_KEY'] = originalMoralisApiKey;
+      }
+    }
   });
 
   test('should reject mismatched metadata when provided explicitly', () => {

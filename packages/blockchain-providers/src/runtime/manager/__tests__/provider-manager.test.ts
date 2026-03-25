@@ -369,6 +369,8 @@ describe('Provider System Integration', () => {
 
   test('should auto-register providers from configuration', async () => {
     const manager = new BlockchainProviderManager(providerRegistry, { explorerConfig: mockExplorerConfig });
+    const originalMoralisApiKey = process.env['MORALIS_API_KEY'];
+    process.env['MORALIS_API_KEY'] = 'test-moralis-api-key';
 
     try {
       const testConfig = providerRegistry.createDefaultConfig('ethereum', 'moralis');
@@ -379,6 +381,11 @@ describe('Provider System Integration', () => {
       expect(registeredProviders.length).toBe(1);
       expect(registeredProviders[0]?.name).toBe('moralis');
     } finally {
+      if (originalMoralisApiKey === undefined) {
+        delete process.env['MORALIS_API_KEY'];
+      } else {
+        process.env['MORALIS_API_KEY'] = originalMoralisApiKey;
+      }
       await manager.destroy();
     }
   });

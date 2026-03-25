@@ -96,7 +96,7 @@ describe('UsdConversionRateProvider', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Failed to fetch FX rate for EUR → USD');
+        expect(result.error.message).toContain('Failed to fetch FX rate for EUR -> USD');
         expect(result.error.message).toContain('Provider unavailable');
       }
     });
@@ -176,7 +176,7 @@ describe('UsdConversionRateProvider', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Failed to fetch FX rate for USD → CAD');
+        expect(result.error.message).toContain('Failed to fetch FX rate for USD -> CAD');
         expect(result.error.message).toContain('No providers available');
       }
     });
@@ -203,7 +203,7 @@ describe('UsdConversionRateProvider', () => {
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toContain('Cannot invert zero FX rate');
-        expect(result.error.message).toContain('CAD → USD');
+        expect(result.error.message).toContain('CAD -> USD');
       }
     });
 

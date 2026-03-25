@@ -128,6 +128,14 @@ describe('consumer-input-readiness', () => {
     const ctx = {
       dataDir: '/tmp',
       database: vi.fn().mockResolvedValue({}),
+      openPriceProviderRuntime: vi.fn().mockResolvedValue(
+        ok({
+          cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+          fetchPrice: vi.fn(),
+          setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+          setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+        })
+      ),
       requireAppRuntime: vi.fn().mockReturnValue({
         adapterRegistry: {},
         blockchainExplorersConfig: undefined,
@@ -158,6 +166,14 @@ describe('consumer-input-readiness', () => {
     const ctx = {
       dataDir: '/tmp',
       database: vi.fn().mockResolvedValue({}),
+      openPriceProviderRuntime: vi.fn().mockResolvedValue(
+        ok({
+          cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+          fetchPrice: vi.fn(),
+          setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+          setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+        })
+      ),
       requireAppRuntime: vi.fn().mockReturnValue({
         adapterRegistry: {},
         blockchainExplorersConfig: undefined,
