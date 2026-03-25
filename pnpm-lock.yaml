@@ -79,6 +79,9 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../../packages/accounting
+      '@exitbook/accounts':
+        specifier: workspace:*
+        version: link:../../packages/accounts
       '@exitbook/blockchain-providers':
         specifier: workspace:*
         version: link:../../packages/blockchain-providers
@@ -190,6 +193,22 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/accounts:
+    dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../core
+      '@exitbook/foundation':
+        specifier: workspace:*
+        version: link:../foundation
+      '@exitbook/logger':
+        specifier: workspace:*
+        version: link:../logger
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
   packages/blockchain-providers:
     dependencies:
       '@cardano-sdk/core':
@@ -269,6 +288,9 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../accounting
+      '@exitbook/accounts':
+        specifier: workspace:*
+        version: link:../accounts
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core

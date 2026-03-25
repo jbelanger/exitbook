@@ -20,6 +20,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('accounts')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('profile_id', 'integer', (col) => col.references('profiles.id'))
+    .addColumn('name', 'text')
     .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
     .addColumn('platform_key', 'text', (col) => col.notNull())
@@ -34,6 +35,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'accounts_account_type_valid',
       sql`account_type IN ('blockchain', 'exchange-api', 'exchange-csv')`
     )
+    .addCheckConstraint('accounts_child_name_null', sql`parent_account_id IS NULL OR name IS NULL`)
     .addCheckConstraint('accounts_credentials_json_valid', sql`credentials IS NULL OR json_valid(credentials)`)
     .addCheckConstraint('accounts_last_cursor_json_valid', sql`last_cursor IS NULL OR json_valid(last_cursor)`)
     .addCheckConstraint('accounts_metadata_json_valid', sql`metadata IS NULL OR json_valid(metadata)`)
@@ -44,6 +46,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE UNIQUE INDEX idx_accounts_unique
     ON accounts (account_type, platform_key, identifier, COALESCE(profile_id, 0))
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounts_top_level_name_unique
+    ON accounts (COALESCE(profile_id, 0), lower(name))
+    WHERE name IS NOT NULL AND parent_account_id IS NULL
   `.execute(db);
 
   // Create index on parent_account_id for efficient child account queries (xpub hierarchies)

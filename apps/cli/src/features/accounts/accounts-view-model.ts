@@ -30,6 +30,7 @@ export interface AccountViewItem {
   id: number;
   accountType: AccountType;
   platformKey: string;
+  name?: string | undefined;
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;

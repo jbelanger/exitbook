@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { toAccountViewItem } from '../../account-view-projection.js';
 import type { AccountSummary, SessionSummary } from '../../query/account-query.js';
 import { registerAccountsCommand } from '../accounts.js';
@@ -10,6 +11,7 @@ function createAccountSummary(overrides: Partial<AccountSummary> = {}): AccountS
     id: overrides.id ?? 1,
     accountType: overrides.accountType ?? 'exchange-api',
     platformKey: overrides.platformKey ?? 'kraken',
+    name: overrides.name,
     identifier: overrides.identifier ?? 'acct-1',
     parentAccountId: overrides.parentAccountId,
     providerName: overrides.providerName,
@@ -54,6 +56,7 @@ describe('toAccountViewItem', () => {
       id: 1,
       accountType: 'exchange-api',
       platformKey: 'kraken',
+      name: undefined,
       identifier: 'acct-1',
       parentAccountId: undefined,
       providerName: undefined,
@@ -95,12 +98,15 @@ describe('toAccountViewItem', () => {
 describe('registerAccountsCommand', () => {
   it('registers the accounts namespace with the view subcommand', () => {
     const program = new Command();
+    const appRuntime = {} as CliAppRuntime;
 
-    registerAccountsCommand(program);
+    registerAccountsCommand(program, appRuntime);
 
     const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
     expect(accountsCommand).toBeDefined();
-    expect(accountsCommand?.description()).toBe('Manage accounts (view account information)');
-    expect(accountsCommand?.commands.map((command) => command.name())).toContain('view');
+    expect(accountsCommand?.description()).toBe('Manage named accounts');
+    expect(accountsCommand?.commands.map((command) => command.name())).toEqual(
+      expect.arrayContaining(['add', 'view', 'rename', 'remove'])
+    );
   });
 });

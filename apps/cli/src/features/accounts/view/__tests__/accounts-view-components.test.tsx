@@ -15,6 +15,7 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
     accountType: overrides.accountType ?? 'blockchain',
     balanceProjectionStatus: overrides.balanceProjectionStatus,
     platformKey: overrides.platformKey ?? 'bitcoin',
+    name: overrides.name,
     identifier: overrides.identifier ?? 'bc1qexampleaddress',
     providerName: overrides.providerName,
     lastRefreshAt: overrides.lastRefreshAt,
@@ -107,5 +108,39 @@ describe('AccountsViewApp', () => {
 
     expect(frame).toContain('0 sess !proj ✓ver');
     expect(frame).not.toContain('unknown');
+  });
+
+  it('renders the account name alongside the identifier when present', () => {
+    const state = createAccountsViewState(
+      [
+        createAccountViewItem({
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          name: 'kraken-main',
+          identifier: 'abcdefghijk123',
+          balanceProjectionStatus: 'fresh',
+          verificationStatus: 'match',
+        }),
+      ],
+      { showSessions: false },
+      1
+    );
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('kraken-main');
+    expect(frame).toContain('abcdefghijk123');
+    expect(frame).toContain('Name: kraken-main');
   });
 });

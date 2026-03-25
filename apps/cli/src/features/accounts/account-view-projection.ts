@@ -22,6 +22,7 @@ export function toAccountViewItem(account: AccountSummary, sessions?: Map<number
     id: account.id,
     accountType: account.accountType,
     platformKey: account.platformKey,
+    name: account.name,
     identifier: account.identifier,
     parentAccountId: account.parentAccountId,
     providerName: account.providerName,

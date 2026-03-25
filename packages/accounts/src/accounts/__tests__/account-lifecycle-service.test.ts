@@ -1,0 +1,260 @@
+import type { Account } from '@exitbook/core';
+import { ok } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
+import { describe, expect, it } from 'vitest';
+
+import { AccountLifecycleService } from '../account-lifecycle-service.js';
+
+function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Account {
+  return {
+    id: overrides.id,
+    profileId: overrides.profileId ?? 1,
+    name: overrides.name,
+    parentAccountId: overrides.parentAccountId,
+    accountType: overrides.accountType ?? 'exchange-api',
+    platformKey: overrides.platformKey ?? 'kraken',
+    identifier: overrides.identifier ?? `identifier-${overrides.id}`,
+    providerName: overrides.providerName,
+    credentials: overrides.credentials,
+    lastCursor: overrides.lastCursor,
+    metadata: overrides.metadata,
+    createdAt: overrides.createdAt ?? new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: overrides.updatedAt,
+  };
+}
+
+function createStore(initialAccounts: Account[] = []) {
+  const accounts = initialAccounts.map((account) => ({ ...account }));
+  let nextId = Math.max(0, ...accounts.map((account) => account.id)) + 1;
+
+  return {
+    accounts,
+    store: {
+      async create(input: {
+        accountType: Account['accountType'];
+        credentials?: Account['credentials'];
+        identifier: string;
+        metadata?: Account['metadata'];
+        name: string;
+        platformKey: string;
+        profileId: number;
+        providerName?: string | undefined;
+      }) {
+        const account = createAccount({
+          id: nextId++,
+          profileId: input.profileId,
+          name: input.name,
+          accountType: input.accountType,
+          platformKey: input.platformKey,
+          identifier: input.identifier,
+          providerName: input.providerName,
+          credentials: input.credentials,
+          metadata: input.metadata,
+        });
+        accounts.push(account);
+        return ok(account);
+      },
+      async findById(accountId: number) {
+        return ok(accounts.find((account) => account.id === accountId));
+      },
+      async findByKey(input: {
+        accountType: Account['accountType'];
+        identifier: string;
+        platformKey: string;
+        profileId: number;
+      }) {
+        return ok(
+          accounts.find(
+            (account) =>
+              account.profileId === input.profileId &&
+              account.accountType === input.accountType &&
+              account.platformKey === input.platformKey &&
+              account.identifier === input.identifier
+          )
+        );
+      },
+      async findByName(profileId: number, name: string) {
+        return ok(accounts.find((account) => account.profileId === profileId && account.name === name));
+      },
+      async findChildren(parentAccountId: number) {
+        return ok(accounts.filter((account) => account.parentAccountId === parentAccountId));
+      },
+      async listTopLevel(profileId: number, options?: { includeUnnamed?: boolean | undefined }) {
+        return ok(
+          accounts.filter(
+            (account) =>
+              account.profileId === profileId &&
+              account.parentAccountId === undefined &&
+              (options?.includeUnnamed || account.name !== undefined)
+          )
+        );
+      },
+      async update(
+        accountId: number,
+        updates: {
+          credentials?: Account['credentials'];
+          metadata?: Account['metadata'];
+          name?: string | null | undefined;
+          providerName?: string | undefined;
+        }
+      ) {
+        const account = accounts.find((current) => current.id === accountId);
+        if (!account) {
+          throw new Error(`Missing account ${accountId}`);
+        }
+
+        if (updates.name !== undefined) {
+          account.name = updates.name ?? undefined;
+        }
+        if (updates.providerName !== undefined) {
+          account.providerName = updates.providerName;
+        }
+        if (updates.credentials !== undefined) {
+          account.credentials = updates.credentials;
+        }
+        if (updates.metadata !== undefined) {
+          account.metadata = updates.metadata;
+        }
+        account.updatedAt = new Date('2026-01-02T00:00:00.000Z');
+
+        return ok(undefined);
+      },
+    },
+  };
+}
+
+describe('AccountLifecycleService', () => {
+  it('creates a new named account when the config is new', async () => {
+    const { store } = createStore();
+    const service = new AccountLifecycleService(store);
+
+    const result = assertOk(
+      await service.createNamed({
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      })
+    );
+
+    expect(result.disposition).toBe('created');
+    expect(result.account.name).toBe('kraken-main');
+  });
+
+  it('adopts an unnamed legacy top-level account when the config matches', async () => {
+    const { accounts, store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = assertOk(
+      await service.createNamed({
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+        providerName: 'kraken-api',
+      })
+    );
+
+    expect(result.disposition).toBe('adopted');
+    expect(result.account.id).toBe(7);
+    expect(result.account.name).toBe('kraken-main');
+    expect(accounts[0]?.providerName).toBe('kraken-api');
+  });
+
+  it('rejects naming a child account config as a standalone account', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        parentAccountId: 3,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.createNamed({
+      profileId: 1,
+      name: 'btc-child',
+      accountType: 'blockchain',
+      platformKey: 'bitcoin',
+      identifier: 'bc1q-child',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('child account');
+    }
+  });
+
+  it('renames an existing named account', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const renamed = assertOk(await service.rename(1, 'kraken-main', 'kraken-primary'));
+
+    expect(renamed.name).toBe('kraken-primary');
+  });
+
+  it('collects the full account hierarchy in breadth-first order', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 1,
+        profileId: 1,
+        name: 'wallet-root',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'xpub-root',
+      }),
+      createAccount({
+        id: 2,
+        profileId: 1,
+        parentAccountId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'child-a',
+      }),
+      createAccount({
+        id: 3,
+        profileId: 1,
+        parentAccountId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'child-b',
+      }),
+      createAccount({
+        id: 4,
+        profileId: 1,
+        parentAccountId: 2,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'grandchild',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const hierarchy = assertOk(await service.collectHierarchy(1));
+
+    expect(hierarchy.map((account) => account.id)).toEqual([1, 2, 3, 4]);
+  });
+});

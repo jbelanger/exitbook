@@ -285,6 +285,48 @@ describe('AccountRepository', () => {
     });
   });
 
+  describe('findByName', () => {
+    it('finds a named top-level account within a profile', async () => {
+      const created = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'kraken-main',
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'apiKey123',
+        })
+      );
+
+      const found = assertOk(await repo.findByName(1, 'KRAKEN-MAIN'));
+
+      expect(found?.id).toBe(created.id);
+      expect(found?.name).toBe('kraken-main');
+    });
+
+    it('does not return child accounts by name', async () => {
+      const parent = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-root',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-root',
+        })
+      );
+
+      await repo.findOrCreate({
+        profileId: 1,
+        parentAccountId: parent.id,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      });
+
+      const found = assertOk(await repo.findByName(1, 'bc1q-child'));
+      expect(found).toBeUndefined();
+    });
+  });
+
   describe('findAll', () => {
     it('returns all accounts for a user', async () => {
       await repo.findOrCreate({
@@ -400,6 +442,94 @@ describe('AccountRepository', () => {
       expect(children).toHaveLength(1);
       expect(children[0]?.identifier).toBe('bc1q-child1...');
     });
+
+    it('lists only top-level named accounts when requested', async () => {
+      const namedTopLevel = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'kraken-main',
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'apiKey123',
+        })
+      );
+      await repo.findOrCreate({
+        profileId: 1,
+        accountType: 'exchange-csv',
+        platformKey: 'kraken',
+        identifier: '/tmp/legacy-csv',
+      });
+      await repo.findOrCreate({
+        profileId: 1,
+        parentAccountId: namedTopLevel.id,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      });
+
+      const accounts = assertOk(
+        await repo.findAll({
+          profileId: 1,
+          topLevelOnly: true,
+          includeUnnamedTopLevel: false,
+        })
+      );
+
+      expect(accounts).toHaveLength(1);
+      expect(accounts[0]?.name).toBe('kraken-main');
+      expect(accounts[0]?.parentAccountId).toBeUndefined();
+    });
+  });
+
+  describe('create', () => {
+    it('creates a named top-level account', async () => {
+      const account = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'ledger-wallet',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-ledger',
+          metadata: {
+            xpub: {
+              gapLimit: 20,
+              lastDerivedAt: 0,
+              derivedCount: 0,
+            },
+          },
+        })
+      );
+
+      expect(account.name).toBe('ledger-wallet');
+      expect(account.parentAccountId).toBeUndefined();
+      expect(account.metadata?.xpub?.gapLimit).toBe(20);
+    });
+
+    it('rejects named child accounts', async () => {
+      const parent = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-root',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-parent',
+        })
+      );
+
+      const result = await repo.create({
+        profileId: 1,
+        name: 'child-name',
+        parentAccountId: parent.id,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Child accounts must not have names');
+      }
+    });
   });
 
   describe('update', () => {
@@ -452,6 +582,12 @@ describe('AccountRepository', () => {
 
       expect(after.providerName).toBe('existing-provider');
       expect(after.updatedAt?.toISOString()).toBe(before.updatedAt?.toISOString());
+    });
+
+    it('updates the account name', async () => {
+      await repo.update(account.id, { name: 'wallet-main' });
+      const updated = assertOk(await repo.getById(account.id));
+      expect(updated.name).toBe('wallet-main');
     });
   });
 

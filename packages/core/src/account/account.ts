@@ -23,6 +23,7 @@ export const ExchangeCredentialsSchema = z
 export const AccountSchema = z.object({
   id: z.number(),
   profileId: z.number().optional(), // NULL for tracking-only accounts
+  name: z.string().optional(), // user-facing top-level account name; child accounts remain unnamed
   parentAccountId: z.number().optional(), // NULL for top-level accounts, set for derived address child accounts
   accountType: AccountTypeSchema,
   platformKey: z.string(), // 'kraken', 'bitcoin', 'ethereum', etc.

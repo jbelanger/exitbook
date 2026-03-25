@@ -79,7 +79,7 @@ async function main() {
   registerProfilesCommand(program);
   registerReprocessCommand(program, appRuntime);
   registerLinksCommand(program, appRuntime);
-  registerAccountsCommand(program);
+  registerAccountsCommand(program, appRuntime);
   registerAssetsCommand(program);
   registerTransactionsCommand(program);
   registerPricesCommand(program, appRuntime);

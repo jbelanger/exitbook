@@ -17,6 +17,7 @@ export function createMockAccount(
   return {
     id: options?.id ?? 1,
     profileId: options?.profileId ?? 1,
+    name: options?.name,
     parentAccountId: options?.parentAccountId,
     accountType: options?.accountType ?? 'blockchain',
     platformKey: options?.platformKey ?? 'bitcoin',

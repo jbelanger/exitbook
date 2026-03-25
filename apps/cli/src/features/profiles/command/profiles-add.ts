@@ -4,6 +4,7 @@ import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
+import { buildCliProfileService } from '../profile-service.js';
 
 export function registerProfilesAddCommand(profilesCommand: Command): void {
   profilesCommand
@@ -17,7 +18,7 @@ export function registerProfilesAddCommand(profilesCommand: Command): void {
       try {
         await runCommand(async (ctx) => {
           const db = await ctx.database();
-          const result = await db.profiles.create(name);
+          const result = await buildCliProfileService(db).create(name);
           if (result.isErr()) {
             displayCliError('profiles-add', result.error, ExitCodes.GENERAL_ERROR, format);
           }

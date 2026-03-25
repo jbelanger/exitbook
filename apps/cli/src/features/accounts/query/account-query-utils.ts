@@ -1,5 +1,7 @@
 import type { Account, AccountType, BalanceSnapshot, ProjectionStatus } from '@exitbook/core';
 
+type IdentifierMaskInput = Pick<Account, 'accountType' | 'identifier'>;
+
 export interface AccountQueryParams {
   profileId: number;
   accountId?: number | undefined;
@@ -27,6 +29,7 @@ export interface AccountSummary {
   id: number;
   accountType: AccountType;
   platformKey: string;
+  name?: string | undefined;
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
@@ -46,7 +49,7 @@ export interface AccountListResult {
   count: number;
 }
 
-export function maskIdentifier(account: Account): string {
+export function maskIdentifier(account: IdentifierMaskInput): string {
   if (account.accountType === 'exchange-api' && account.identifier) {
     const key = account.identifier;
     if (key.length <= 8) {
@@ -75,6 +78,7 @@ export function toAccountSummary(
     id: account.id,
     accountType: account.accountType,
     platformKey: account.platformKey,
+    name: account.name,
     identifier: maskIdentifier(account),
     parentAccountId: account.parentAccountId,
     providerName: account.providerName ?? undefined,

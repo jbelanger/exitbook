@@ -4,6 +4,7 @@ import { AccountSchema, ExchangeCredentialsSchema } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
 import { CursorStateSchema } from '@exitbook/foundation';
 import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/foundation';
+import { sql } from '@exitbook/sqlite';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
 
@@ -22,6 +23,7 @@ interface AccountKeyParams {
 
 interface FindOrCreateAccountParams {
   profileId: number | undefined;
+  name?: string | undefined;
   parentAccountId?: number | undefined;
   accountType: AccountType;
   platformKey: string;
@@ -31,10 +33,23 @@ interface FindOrCreateAccountParams {
 }
 
 interface UpdateAccountParams {
+  name?: string | null | undefined;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   lastCursor?: Record<string, CursorState> | undefined;
+  metadata?: Account['metadata'] | undefined;
+}
+
+interface CreateAccountParams {
+  profileId: number | undefined;
+  name?: string | undefined;
+  parentAccountId?: number | undefined;
+  accountType: AccountType;
+  platformKey: string;
+  identifier: string;
+  providerName?: string | undefined;
+  credentials?: ExchangeCredentials | undefined;
   metadata?: Account['metadata'] | undefined;
 }
 
@@ -58,6 +73,15 @@ function isUnsetProfileId(profileId: number | null | undefined): boolean {
   return profileId === null || profileId === undefined || profileId === 0;
 }
 
+function normalizeAccountName(name: string): Result<string, Error> {
+  const normalized = name.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return err(new Error('Account name must not be empty'));
+  }
+
+  return ok(normalized);
+}
+
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
   return resultDo(function* () {
     const credentials = yield* parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
@@ -67,6 +91,7 @@ function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
     const parseResult = AccountSchema.safeParse({
       id: row.id,
       profileId: row.profile_id ?? undefined,
+      name: row.name ?? undefined,
       parentAccountId: row.parent_account_id ?? undefined,
       accountType: row.account_type,
       platformKey: row.platform_key,
@@ -103,6 +128,30 @@ export class AccountRepository extends BaseRepository {
       },
       this,
       'Failed to find account by ID'
+    );
+  }
+
+  async findByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        const normalizedName = yield* normalizeAccountName(name);
+
+        const row = await self.db
+          .selectFrom('accounts')
+          .selectAll()
+          .where('parent_account_id', 'is', null)
+          .where('profile_id', '=', profileId)
+          .where('name', 'is not', null)
+          .where(sql`lower(name)`, '=', normalizedName)
+          .executeTakeFirst();
+        if (!row) {
+          return undefined;
+        }
+
+        return yield* toAccount(row);
+      },
+      this,
+      'Failed to find account by name'
     );
   }
 
@@ -149,9 +198,11 @@ export class AccountRepository extends BaseRepository {
 
   async findAll(filters?: {
     accountType?: AccountType | undefined;
+    includeUnnamedTopLevel?: boolean | undefined;
     parentAccountId?: number | undefined;
     platformKey?: string | undefined;
     profileId?: number | undefined;
+    topLevelOnly?: boolean | undefined;
   }): Promise<Result<Account[], Error>> {
     return resultTryAsync(
       async function* (self) {
@@ -172,6 +223,12 @@ export class AccountRepository extends BaseRepository {
         }
         if (filters?.parentAccountId !== undefined) {
           query = query.where('parent_account_id', '=', filters.parentAccountId);
+        } else if (filters?.topLevelOnly) {
+          query = query.where('parent_account_id', 'is', null);
+        }
+
+        if (filters?.includeUnnamedTopLevel === false) {
+          query = query.where('name', 'is not', null);
         }
 
         const rows = await query.execute();
@@ -183,6 +240,84 @@ export class AccountRepository extends BaseRepository {
       },
       this,
       'Failed to find all accounts'
+    );
+  }
+
+  async create(params: CreateAccountParams): Promise<Result<Account, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        if (!params.identifier || params.identifier.trim() === '') {
+          yield* err('Account identifier must not be empty');
+        }
+        if (!params.platformKey || params.platformKey.trim() === '') {
+          yield* err('Account platform key must not be empty');
+        }
+        if (params.parentAccountId !== undefined && params.name !== undefined) {
+          yield* err('Child accounts must not have names');
+        }
+
+        let normalizedName: string | null = null;
+        if (params.name !== undefined) {
+          normalizedName = yield* normalizeAccountName(params.name);
+        }
+
+        let credentialsJson: string | null = null;
+        if (params.credentials) {
+          const validationResult = ExchangeCredentialsSchema.safeParse(params.credentials);
+          if (!validationResult.success) {
+            yield* err(`Invalid credentials: ${validationResult.error.message}`);
+          } else {
+            credentialsJson = (yield* serializeToJson(validationResult.data)) ?? null;
+          }
+        }
+
+        let metadataJson: string | null = null;
+        if (params.metadata !== undefined) {
+          metadataJson = (yield* serializeToJson(params.metadata)) ?? null;
+        }
+
+        const result = await self.db
+          .insertInto('accounts')
+          .values({
+            profile_id: params.profileId,
+            name: normalizedName,
+            parent_account_id: params.parentAccountId ?? null,
+            account_type: params.accountType,
+            platform_key: params.platformKey,
+            identifier: params.identifier,
+            provider_name: params.providerName ?? null,
+            credentials: credentialsJson,
+            last_cursor: null,
+            metadata: metadataJson,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          })
+          .returning([
+            'id',
+            'profile_id',
+            'name',
+            'account_type',
+            'platform_key',
+            'identifier',
+            'provider_name',
+            'created_at',
+          ])
+          .executeTakeFirstOrThrow();
+
+        self.logger.info(
+          {
+            accountId: result.id,
+            accountType: params.accountType,
+            platformKey: params.platformKey,
+            name: normalizedName ?? undefined,
+          },
+          'Created account'
+        );
+
+        return yield* await self.getById(result.id);
+      },
+      this,
+      'Failed to create account'
     );
   }
 
@@ -232,6 +367,7 @@ export class AccountRepository extends BaseRepository {
           .insertInto('accounts')
           .values({
             profile_id: params.profileId,
+            name: params.name ?? null,
             parent_account_id: params.parentAccountId ?? null,
             account_type: params.accountType,
             platform_key: params.platformKey,
@@ -242,7 +378,16 @@ export class AccountRepository extends BaseRepository {
             created_at: new Date().toISOString(),
             updated_at: null,
           })
-          .returning(['id', 'profile_id', 'account_type', 'platform_key', 'identifier', 'provider_name', 'created_at'])
+          .returning([
+            'id',
+            'profile_id',
+            'name',
+            'account_type',
+            'platform_key',
+            'identifier',
+            'provider_name',
+            'created_at',
+          ])
           .executeTakeFirstOrThrow();
 
         self.logger.info(
@@ -266,6 +411,10 @@ export class AccountRepository extends BaseRepository {
 
         if (updates.parentAccountId !== undefined) {
           updateData.parent_account_id = updates.parentAccountId;
+        }
+
+        if (updates.name !== undefined) {
+          updateData.name = updates.name === null ? null : yield* normalizeAccountName(updates.name);
         }
 
         if (updates.providerName !== undefined) {
@@ -320,8 +469,11 @@ export class AccountRepository extends BaseRepository {
     if (accountIds.length === 0) return ok(0);
 
     try {
-      const result = await this.db.deleteFrom('accounts').where('id', 'in', accountIds).executeTakeFirst();
-      const count = Number(result.numDeletedRows ?? 0);
+      let count = 0;
+      for (const accountId of accountIds) {
+        const result = await this.db.deleteFrom('accounts').where('id', '=', accountId).executeTakeFirst();
+        count += Number(result.numDeletedRows ?? 0);
+      }
       this.logger.debug({ accountIds, count }, 'Deleted accounts by IDs');
       return ok(count);
     } catch (error) {

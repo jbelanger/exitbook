@@ -1,0 +1,26 @@
+{
+  "name": "@exitbook/accounts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ports": "./src/ports/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
+    "@exitbook/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*"
+  }
+}
