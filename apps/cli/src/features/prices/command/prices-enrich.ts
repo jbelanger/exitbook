@@ -11,7 +11,7 @@ import type { PricesEnrichOptions } from '@exitbook/accounting';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-scope.js';
+import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';

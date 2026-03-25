@@ -16,7 +16,7 @@ const { mockCreateBalanceHandler, mockCtx, mockDisplayCliError, mockOutputSucces
   })
 );
 
-vi.mock('../../../../runtime/command-scope.js', () => ({
+vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: vi.fn(),
   runCommand: mockRunCommand,
 }));

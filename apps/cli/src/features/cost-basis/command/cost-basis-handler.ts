@@ -17,7 +17,7 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
-import type { CommandScope } from '../../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
@@ -185,7 +185,7 @@ export class CostBasisHandler {
  * Factory runs prereqs via ensureConsumerInputsReady -- command files NEVER call prereqs directly.
  */
 export async function createCostBasisHandler(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: {
     isJsonMode: boolean;
     params: ValidatedCostBasisConfig;

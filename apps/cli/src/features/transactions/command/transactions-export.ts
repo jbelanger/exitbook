@@ -1,7 +1,7 @@
 // Command registration for transactions export subcommand
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-scope.js';
+import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';

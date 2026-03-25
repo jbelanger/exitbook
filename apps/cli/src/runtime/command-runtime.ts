@@ -20,7 +20,7 @@ import { getDataDir } from '../features/shared/data-dir.js';
 
 import type { CliAppRuntime } from './app-runtime.js';
 
-const logger = getLogger('command-scope');
+const logger = getLogger('command-runtime');
 
 interface ResultCleanupOutcome {
   error?: Error | undefined;
@@ -33,11 +33,11 @@ interface ResultCleanupOutcome {
  * - `database()` — lazy init; auto-closed in dispose
  * - `closeDatabase()` — early close for snapshot TUI pattern
  * - `onCleanup()` — LIFO stack, runs during dispose
- * - `openPriceProviderRuntime()` / `openBlockchainProviderRuntime()` — command-scoped runtime setup
+ * - `openPriceProviderRuntime()` / `openBlockchainProviderRuntime()` — command runtime setup
  * - `onAbort()` — SIGINT: fn() sync → await dispose → exit(130)
  * - `dispose()` — remove SIGINT, run stack, close DB. Idempotent. Throws on cleanup failures.
  */
-export class CommandScope {
+export class CommandRuntime {
   exitCode = 0;
   readonly app?: CliAppRuntime | undefined;
   readonly dataDir: string;
@@ -228,7 +228,7 @@ export class CommandScope {
 }
 
 /**
- * Adapt a Result-returning cleanup function into CommandScope.onCleanup() shape.
+ * Adapt a Result-returning cleanup function into CommandRuntime.onCleanup() shape.
  */
 export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>): () => Promise<void> {
   return async () => {
@@ -246,11 +246,14 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
  * Dispose always runs. If both fn and dispose fail, the fn error takes priority
  * (dispose error is logged). If only dispose fails, that error propagates.
  */
-export async function runCommand(appRuntime: CliAppRuntime, fn: (scope: CommandScope) => Promise<void>): Promise<void>;
-export async function runCommand(fn: (scope: CommandScope) => Promise<void>): Promise<void>;
 export async function runCommand(
-  appRuntimeOrFn: CliAppRuntime | ((scope: CommandScope) => Promise<void>),
-  maybeFn?: (scope: CommandScope) => Promise<void>
+  appRuntime: CliAppRuntime,
+  fn: (runtime: CommandRuntime) => Promise<void>
+): Promise<void>;
+export async function runCommand(fn: (runtime: CommandRuntime) => Promise<void>): Promise<void>;
+export async function runCommand(
+  appRuntimeOrFn: CliAppRuntime | ((runtime: CommandRuntime) => Promise<void>),
+  maybeFn?: (runtime: CommandRuntime) => Promise<void>
 ): Promise<void> {
   const appRuntime = typeof appRuntimeOrFn === 'function' ? undefined : appRuntimeOrFn;
   const fn = typeof appRuntimeOrFn === 'function' ? appRuntimeOrFn : maybeFn;
@@ -258,17 +261,17 @@ export async function runCommand(
     throw new Error('runCommand() requires a command function');
   }
 
-  const scope = new CommandScope(appRuntime);
+  const runtime = new CommandRuntime(appRuntime);
   let fnError: unknown;
 
   try {
-    await fn(scope);
+    await fn(runtime);
   } catch (error) {
     fnError = error;
   }
 
   try {
-    await scope.dispose();
+    await runtime.dispose();
   } catch (disposeError) {
     if (fnError) {
       logger.error({ error: disposeError }, 'Cleanup failed (original error takes priority)');
@@ -277,8 +280,8 @@ export async function runCommand(
     }
   }
 
-  if (scope.exitCode !== 0) {
-    process.exit(scope.exitCode);
+  if (runtime.exitCode !== 0) {
+    process.exit(runtime.exitCode);
   }
 
   if (fnError) {

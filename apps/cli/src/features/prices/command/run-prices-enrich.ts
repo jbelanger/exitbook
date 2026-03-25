@@ -2,7 +2,7 @@ import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/acc
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import { adaptResultCleanup, type CommandScope } from '../../../runtime/command-scope.js';
+import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
   createCliPriceEnrichmentRuntime,
   type CliPriceEnrichmentRuntime,
@@ -20,11 +20,11 @@ export interface ExecutePricesEnrichRuntimeOptions<TSuccess = PricesEnrichResult
 
 interface WithPricesEnrichRuntimeOptions {
   accountingExclusionPolicy?: import('@exitbook/accounting').AccountingExclusionPolicy | undefined;
-  database: Awaited<ReturnType<CommandScope['database']>>;
+  database: Awaited<ReturnType<CommandRuntime['database']>>;
   isJsonMode: boolean;
   onAbortRegistered?: ((abort: () => void) => void) | undefined;
   onAbortReleased?: (() => void) | undefined;
-  scope: CommandScope;
+  scope: CommandRuntime;
 }
 
 export async function executePricesEnrichRuntime<TSuccess = PricesEnrichResult>(
@@ -115,7 +115,7 @@ export async function withPricesEnrichRuntime<T>(
 }
 
 export async function runPricesEnrich(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: { isJsonMode: boolean },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {

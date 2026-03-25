@@ -4,7 +4,7 @@ import type { ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
-import type { CommandScope } from '../../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import { resetProjections } from '../../shared/projection-reset.js';
@@ -94,7 +94,7 @@ export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void 
 }
 
 export async function runReprocess(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: { isJsonMode: boolean },
   params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {

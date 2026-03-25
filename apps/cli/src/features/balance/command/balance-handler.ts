@@ -4,7 +4,7 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion';
 
-import { adaptResultCleanup, type CommandScope } from '../../../runtime/command-scope.js';
+import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import type { BalanceEvent } from '../view/balance-view-state.js';
 
@@ -71,7 +71,7 @@ export class BalanceHandler {
 }
 
 export async function createBalanceHandler(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: { needsWorkflow: boolean }
 ): Promise<Result<BalanceHandler, Error>> {
   try {

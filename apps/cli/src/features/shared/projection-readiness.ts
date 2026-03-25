@@ -7,7 +7,7 @@ import {
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CommandScope } from '../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../runtime/command-runtime.js';
 import { createIngestionRuntime } from '../../runtime/ingestion-runtime.js';
 import { createCliLinkingRuntime, readCliLinkOverrides } from '../../runtime/linking-runtime.js';
 
@@ -51,7 +51,7 @@ async function rebuildIfStale(
 }
 
 export async function ensureProcessedTransactionsReady(
-  scope: CommandScope,
+  scope: CommandRuntime,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
@@ -92,7 +92,7 @@ export async function ensureProcessedTransactionsReady(
   );
 }
 
-export async function ensureAssetReviewReady(scope: CommandScope): Promise<Result<void, Error>> {
+export async function ensureAssetReviewReady(scope: CommandRuntime): Promise<Result<void, Error>> {
   const db = await scope.database();
 
   return rebuildIfStale(
@@ -103,7 +103,7 @@ export async function ensureAssetReviewReady(scope: CommandScope): Promise<Resul
 }
 
 export async function ensureLinksReady(
-  scope: CommandScope,
+  scope: CommandRuntime,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const db = await scope.database();

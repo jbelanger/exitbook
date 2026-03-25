@@ -1,4 +1,4 @@
-import { runCommand } from '../../../runtime/command-scope.js';
+import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { handleCancellation, promptConfirm } from '../../shared/prompts.js';

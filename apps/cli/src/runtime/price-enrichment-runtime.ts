@@ -10,7 +10,7 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { PricesEnrichMonitor } from '../features/prices/view/prices-enrich-components.jsx';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
-import { adaptResultCleanup, type CommandScope } from './command-scope.js';
+import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 
 const logger = getLogger('cli-price-enrichment-runtime');
 
@@ -26,7 +26,7 @@ export interface CreateCliPriceEnrichmentRuntimeOptions {
   database: DataSession;
   isJsonMode: boolean;
   registerCleanup?: boolean | undefined;
-  scope: CommandScope;
+  scope: CommandRuntime;
 }
 
 export async function createCliPriceEnrichmentRuntime(

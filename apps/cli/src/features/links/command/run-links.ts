@@ -8,7 +8,7 @@ import type { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CommandScope } from '../../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createCliLinkingRuntime, readCliLinkOverrides } from '../../../runtime/linking-runtime.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
@@ -66,7 +66,7 @@ export function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
 }
 
 export async function runLinks(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: { isJsonMode: boolean },
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {

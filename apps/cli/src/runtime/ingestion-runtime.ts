@@ -9,7 +9,7 @@ import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view
 import type { OpenedCliBlockchainProviderRuntime } from '../features/shared/blockchain-provider-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
-import { adaptResultCleanup, type CommandScope } from './command-scope.js';
+import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 import { createCliProcessingWorkflowRuntime } from './processing-workflow-runtime.js';
 
 const logger = getLogger('ingestion-runtime');
@@ -29,7 +29,7 @@ export interface CreateIngestionRuntimeOptions {
 }
 
 export async function createIngestionRuntime(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   database: DataSession,
   options: CreateIngestionRuntimeOptions = {}
 ): Promise<IngestionRuntime> {

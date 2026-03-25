@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { renderApp, runCommand } from '../../../runtime/command-scope.js';
+import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';

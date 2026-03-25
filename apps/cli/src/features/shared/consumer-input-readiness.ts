@@ -1,7 +1,7 @@
 import type { AccountingExclusionPolicy } from '@exitbook/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { CommandScope } from '../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../runtime/command-runtime.js';
 
 import { ensureTransactionPricesReady, type PricePrereqConfig } from './price-readiness.js';
 import {
@@ -19,7 +19,7 @@ export interface EnsureConsumerInputsReadyOptions extends PrereqExecutionOptions
 }
 
 export async function ensureConsumerInputsReady(
-  scope: CommandScope,
+  scope: CommandRuntime,
   target: ConsumerTarget,
   options: EnsureConsumerInputsReadyOptions
 ): Promise<Result<void, Error>> {

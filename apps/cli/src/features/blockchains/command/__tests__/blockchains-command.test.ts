@@ -30,7 +30,7 @@ vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
 }));
 
-vi.mock('../../../../runtime/command-scope.js', () => ({
+vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
 }));
 

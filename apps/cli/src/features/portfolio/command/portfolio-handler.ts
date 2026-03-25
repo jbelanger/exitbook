@@ -2,7 +2,7 @@ import { PortfolioHandler } from '@exitbook/accounting';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
-import type { CommandScope } from '../../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createCliPortfolioRuntime } from '../../../runtime/portfolio-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
@@ -14,7 +14,7 @@ export { PortfolioHandler } from '@exitbook/accounting';
  * The CLI owns prerequisite orchestration, runtime setup, and adapter wiring.
  */
 export async function createPortfolioHandler(
-  ctx: CommandScope,
+  ctx: CommandRuntime,
   options: {
     asOf: Date;
     isJsonMode: boolean;

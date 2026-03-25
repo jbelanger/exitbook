@@ -1,7 +1,7 @@
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-scope.js';
+import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';

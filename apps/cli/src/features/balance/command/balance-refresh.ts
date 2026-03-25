@@ -3,7 +3,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, runCommand } from '../../../runtime/command-scope.js';
+import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';

@@ -11,7 +11,7 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { readAssetReviewProjectionSummaries } from '../features/shared/asset-review-projection-store.js';
 import { readCostBasisDependencyWatermark } from '../features/shared/cost-basis-dependency-watermark-runtime.js';
 
-import type { CommandScope } from './command-scope.js';
+import type { CommandRuntime } from './command-runtime.js';
 
 export interface CliPortfolioRuntime {
   dependencyReader: IPortfolioDependencyReader;
@@ -22,7 +22,7 @@ export interface CliPortfolioRuntime {
 export interface CreateCliPortfolioRuntimeOptions {
   accountingExclusionPolicy: AccountingExclusionPolicy;
   database: DataSession;
-  scope: CommandScope;
+  scope: CommandRuntime;
 }
 
 export async function createCliPortfolioRuntime(

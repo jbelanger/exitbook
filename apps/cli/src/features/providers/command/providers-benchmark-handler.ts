@@ -141,7 +141,7 @@ export class ProviderBenchmarkHandler {
  * Creation itself is infallible; err() is unreachable in practice.
  */
 export function createProviderBenchmarkHandler(
-  ctx: import('../../../runtime/command-scope.js').CommandScope
+  ctx: import('../../../runtime/command-runtime.js').CommandRuntime
 ): Result<ProviderBenchmarkHandler, Error> {
   const handler = new ProviderBenchmarkHandler(ctx.requireAppRuntime().blockchainExplorersConfig);
   ctx.onCleanup(async () => handler.destroy());

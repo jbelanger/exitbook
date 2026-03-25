@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-scope.js';
+import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';

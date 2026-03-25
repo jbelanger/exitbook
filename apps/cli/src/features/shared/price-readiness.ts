@@ -3,7 +3,7 @@ import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CommandScope } from '../../runtime/command-scope.js';
+import type { CommandRuntime } from '../../runtime/command-runtime.js';
 import { executePricesEnrichRuntime, withPricesEnrichRuntime } from '../prices/command/run-prices-enrich.js';
 
 import type { PrereqExecutionOptions } from './projection-readiness.js';
@@ -18,7 +18,7 @@ export interface PricePrereqConfig {
 export type PriceReadinessTarget = 'cost-basis' | 'portfolio';
 
 export async function ensureTransactionPricesReady(
-  scope: CommandScope,
+  scope: CommandRuntime,
   options: PrereqExecutionOptions,
   config: PricePrereqConfig,
   target: PriceReadinessTarget,

@@ -25,7 +25,7 @@ const {
   mockRunCommand: vi.fn(),
 }));
 
-vi.mock('../../../../runtime/command-scope.js', () => ({
+vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));

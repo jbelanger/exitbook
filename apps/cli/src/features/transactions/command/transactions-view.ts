@@ -3,7 +3,7 @@ import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-scope.js';
+import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesAtomically } from '../../shared/file-utils.js';
