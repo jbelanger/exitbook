@@ -10,6 +10,8 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   noExternal: [/^@exitbook\//],
+  // ccxt emits runtime imports for protobufjs/minimal.js in the bundled CLI, so this
+  // package must stay installed even though the CLI source never imports it directly.
   external: ['protobufjs'],
   banner: {
     js: 'import { createRequire } from "module"; const require = createRequire(import.meta.url);',
