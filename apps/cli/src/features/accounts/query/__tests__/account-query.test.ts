@@ -47,12 +47,12 @@ describe('AccountQuery', () => {
     const child = createMockAccount({ id: 2, parentAccountId: 1, identifier: 'bc1qchild' });
     const standalone = createMockAccount({ id: 3, identifier: 'bc1qstandalone' });
 
-    vi.mocked(ctx.accounts.findAll).mockImplementation((filters: AccountFindAllFilters | undefined) => {
+    vi.mocked(ctx.findAccounts).mockImplementation((filters: AccountFindAllFilters | undefined) => {
       if (filters?.parentAccountId === 1) return Promise.resolve(ok([child]));
       if (filters?.parentAccountId === 3) return Promise.resolve(ok([]));
       return Promise.resolve(ok([parent, child, standalone]));
     });
-    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(
+    vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(
       ok(
         new Map([
           [1, 2],
@@ -61,13 +61,13 @@ describe('AccountQuery', () => {
         ])
       )
     );
-    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+    vi.mocked(ctx.findAccountById).mockImplementation(async (accountId: number) => {
       if (accountId === parent.id) return ok(parent);
       if (accountId === child.id) return ok(child);
       if (accountId === standalone.id) return ok(standalone);
       return ok(parent);
     });
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(
       ok(
         new Map([
           [1, createSnapshot({ scopeAccountId: 1 })],
@@ -90,7 +90,7 @@ describe('AccountQuery', () => {
     expect(parentView?.childAccounts).toHaveLength(1);
     expect(parentView?.childAccounts?.[0]).toMatchObject({ id: 2, sessionCount: 3 });
     expect(standaloneView).toMatchObject({ id: 3, sessionCount: 4 });
-    expect(ctx.importSessions.findAll).not.toHaveBeenCalled();
+    expect(ctx.findSessions).not.toHaveBeenCalled();
   });
 
   it('lists account sessions when showSessions is true', async () => {
@@ -100,25 +100,25 @@ describe('AccountQuery', () => {
     const a1 = createMockAccount({ id: 1 });
     const a2 = createMockAccount({ id: 2, identifier: 'bc1qsecond' });
 
-    vi.mocked(ctx.accounts.findAll).mockImplementation((filters: AccountFindAllFilters | undefined) => {
+    vi.mocked(ctx.findAccounts).mockImplementation((filters: AccountFindAllFilters | undefined) => {
       if (filters?.parentAccountId === 1 || filters?.parentAccountId === 2) return Promise.resolve(ok([]));
       return Promise.resolve(ok([a1, a2]));
     });
 
-    vi.mocked(ctx.importSessions.findAll).mockResolvedValue(
+    vi.mocked(ctx.findSessions).mockResolvedValue(
       ok([
         createMockSession({ id: 10, accountId: 1 }),
         createMockSession({ id: 11, accountId: 1 }),
         createMockSession({ id: 12, accountId: 2 }),
       ])
     );
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(ok(new Map()));
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map()));
 
     const result = await query.list({ showSessions: true });
     const value = assertOk(result);
 
-    expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
-    expect(ctx.importSessions.findAll).toHaveBeenCalledWith({ accountIds: [1, 2] });
+    expect(ctx.countSessionsByAccount).not.toHaveBeenCalled();
+    expect(ctx.findSessions).toHaveBeenCalledWith({ accountIds: [1, 2] });
     expect(value.accounts).toHaveLength(2);
     expect(value.count).toBe(2);
     expect(value.accounts.find((account) => account.id === 1)?.sessionCount).toBe(2);
@@ -131,7 +131,7 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(createMockAccount({ id: 7, userId: 999 })));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 7, userId: 999 })));
 
     const result = await query.list({ accountId: 7 });
 
@@ -142,7 +142,7 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(undefined));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(undefined));
 
     const result = await query.list({ accountId: 404 });
 
@@ -155,15 +155,13 @@ describe('AccountQuery', () => {
 
     const parent = createMockAccount({ id: 2, identifier: 'xpub-parent' });
     const child = createMockAccount({ id: 8, parentAccountId: 2, identifier: 'bc1qchild-single' });
-    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+    vi.mocked(ctx.findAccountById).mockImplementation(async (accountId: number) => {
       if (accountId === child.id) return ok(child);
       if (accountId === parent.id) return ok(parent);
       return ok(parent);
     });
-    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[8, 7]])));
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
-      ok(new Map([[2, createSnapshot({ scopeAccountId: 2 })]]))
-    );
+    vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(ok(new Map([[8, 7]])));
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map([[2, createSnapshot({ scopeAccountId: 2 })]])));
 
     const result = await query.list({ accountId: 8 });
     const value = assertOk(result);
@@ -175,7 +173,7 @@ describe('AccountQuery', () => {
       sessionCount: 7,
       childAccounts: undefined,
     });
-    expect(ctx.accounts.findAll).not.toHaveBeenCalled();
+    expect(ctx.findAccounts).not.toHaveBeenCalled();
   });
 
   it('marks accounts as never built when no balance snapshot exists for the scope', async () => {
@@ -184,12 +182,12 @@ describe('AccountQuery', () => {
 
     const account = createMockAccount({ id: 5, identifier: 'bc1qneverbuilt' });
 
-    vi.mocked(ctx.accounts.findAll).mockImplementation((filters: AccountFindAllFilters | undefined) => {
+    vi.mocked(ctx.findAccounts).mockImplementation((filters: AccountFindAllFilters | undefined) => {
       if (filters?.parentAccountId === account.id) return Promise.resolve(ok([]));
       return Promise.resolve(ok([account]));
     });
-    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[account.id, 1]])));
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(ok(new Map()));
+    vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(ok(new Map([[account.id, 1]])));
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map()));
 
     const result = await query.list();
     const value = assertOk(result);
@@ -200,7 +198,7 @@ describe('AccountQuery', () => {
       balanceProjectionStatus: 'never-built',
       verificationStatus: 'never-checked',
     });
-    expect(ctx.balanceFreshness.checkFreshness).not.toHaveBeenCalled();
+    expect(ctx.checkBalanceFreshness).not.toHaveBeenCalled();
   });
 
   it('resolves nested child account snapshots from the root balance scope', async () => {
@@ -211,24 +209,24 @@ describe('AccountQuery', () => {
     const child = createMockAccount({ id: 2, parentAccountId: root.id, identifier: 'bc1-child' });
     const grandchild = createMockAccount({ id: 3, parentAccountId: child.id, identifier: 'bc1-grandchild' });
 
-    vi.mocked(ctx.accounts.findById).mockImplementation(async (accountId: number) => {
+    vi.mocked(ctx.findAccountById).mockImplementation(async (accountId: number) => {
       if (accountId === root.id) return ok(root);
       if (accountId === child.id) return ok(child);
       if (accountId === grandchild.id) return ok(grandchild);
       return ok(root);
     });
-    vi.mocked(ctx.importSessions.countByAccount).mockResolvedValue(ok(new Map([[grandchild.id, 2]])));
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
+    vi.mocked(ctx.countSessionsByAccount).mockResolvedValue(ok(new Map([[grandchild.id, 2]])));
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(
       ok(new Map([[root.id, createSnapshot({ scopeAccountId: root.id, verificationStatus: 'mismatch' })]]))
     );
-    vi.mocked(ctx.balanceFreshness.checkFreshness).mockResolvedValue(
+    vi.mocked(ctx.checkBalanceFreshness).mockResolvedValue(
       ok({ status: 'stale' as const, reason: 'upstream-reset:processed-transactions' })
     );
 
     const result = await query.list({ accountId: grandchild.id });
     const value = assertOk(result);
 
-    expect(ctx.balanceSnapshots.findSnapshots).toHaveBeenCalledWith([root.id]);
+    expect(ctx.findBalanceSnapshots).toHaveBeenCalledWith([root.id]);
     expect(value.accounts).toHaveLength(1);
     expect(value.accounts[0]).toMatchObject({
       id: grandchild.id,
@@ -245,16 +243,14 @@ describe('AccountQuery', () => {
     const parent = createMockAccount({ id: 1, accountType: 'exchange-api', identifier: 'apikey-secret' });
     const child = createMockAccount({ id: 2, parentAccountId: 1, identifier: 'bc1qchild' });
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(parent));
-    vi.mocked(ctx.accounts.findAll).mockResolvedValue(ok([child]));
-    vi.mocked(ctx.importSessions.countByAccount).mockImplementation((accountIds: number[]) => {
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(parent));
+    vi.mocked(ctx.findAccounts).mockResolvedValue(ok([child]));
+    vi.mocked(ctx.countSessionsByAccount).mockImplementation((accountIds: number[]) => {
       if (accountIds.length === 1 && accountIds[0] === 1) return Promise.resolve(ok(new Map([[1, 2]])));
       if (accountIds.length === 1 && accountIds[0] === 2) return Promise.resolve(ok(new Map([[2, 4]])));
       return Promise.resolve(ok(new Map()));
     });
-    vi.mocked(ctx.balanceSnapshots.findSnapshots).mockResolvedValue(
-      ok(new Map([[1, createSnapshot({ scopeAccountId: 1 })]]))
-    );
+    vi.mocked(ctx.findBalanceSnapshots).mockResolvedValue(ok(new Map([[1, createSnapshot({ scopeAccountId: 1 })]])));
 
     const result = await query.findById(1);
     const account = assertOk(result);
@@ -275,19 +271,19 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(createMockAccount({ id: 9, userId: 42 })));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 9, userId: 42 })));
 
     const result = await query.findById(9);
 
     expect(assertOk(result)).toBeUndefined();
-    expect(ctx.importSessions.countByAccount).not.toHaveBeenCalled();
+    expect(ctx.countSessionsByAccount).not.toHaveBeenCalled();
   });
 
   it('returns undefined when findById cannot find an account', async () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(ok(undefined));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(undefined));
 
     const result = await query.findById(22);
 
@@ -298,7 +294,7 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findAll).mockRejectedValue(new Error('database unavailable'));
+    vi.mocked(ctx.findAccounts).mockRejectedValue(new Error('database unavailable'));
 
     const result = await query.list();
 
@@ -310,7 +306,7 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.accounts.findById).mockResolvedValue(err(new Error('Account 22 not found')));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(err(new Error('Account 22 not found')));
 
     const result = await query.findById(22);
 

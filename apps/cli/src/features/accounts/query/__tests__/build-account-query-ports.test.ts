@@ -56,13 +56,13 @@ describe('buildAccountQueryPorts', () => {
 
     expect(mockBuildBalancesFreshnessPorts).toHaveBeenCalledWith(db);
 
-    await ports.users.findOrCreateDefault();
-    await ports.accounts.findById(1);
-    await ports.accounts.findAll({ sourceName: 'kraken' });
-    await ports.importSessions.countByAccount([1, 2]);
-    await ports.importSessions.findAll({ accountIds: [1, 2] });
+    await ports.findOrCreateDefaultUser();
+    await ports.findAccountById(1);
+    await ports.findAccounts({ sourceName: 'kraken' });
+    await ports.countSessionsByAccount([1, 2]);
+    await ports.findSessions({ accountIds: [1, 2] });
 
-    const snapshotsResult = await ports.balanceSnapshots.findSnapshots([1]);
+    const snapshotsResult = await ports.findBalanceSnapshots([1]);
     expect(snapshotsResult.isOk()).toBe(true);
     if (!snapshotsResult.isOk()) {
       return;
@@ -79,7 +79,7 @@ describe('buildAccountQueryPorts', () => {
       verificationStatus: 'match',
     });
 
-    await ports.balanceFreshness.checkFreshness(1);
+    await ports.checkBalanceFreshness(1);
     expect(mockCheckFreshness).toHaveBeenCalledWith(1);
   });
 
@@ -89,7 +89,7 @@ describe('buildAccountQueryPorts', () => {
     db.balanceSnapshots.findSnapshots.mockResolvedValue(err(snapshotError));
 
     const ports = buildAccountQueryPorts(db as never);
-    const result = await ports.balanceSnapshots.findSnapshots([7]);
+    const result = await ports.findBalanceSnapshots([7]);
 
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) {

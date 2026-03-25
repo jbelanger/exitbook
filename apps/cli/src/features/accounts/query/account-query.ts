@@ -99,13 +99,13 @@ export class AccountQuery {
 
   async findById(id: number): Promise<Result<AccountSummary | undefined, Error>> {
     try {
-      const userResult = await this.ports.users.findOrCreateDefault();
+      const userResult = await this.ports.findOrCreateDefaultUser();
       if (userResult.isErr()) {
         return err(userResult.error);
       }
       const user = userResult.value;
 
-      const accountResult = await this.ports.accounts.findById(id);
+      const accountResult = await this.ports.findAccountById(id);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
@@ -118,14 +118,14 @@ export class AccountQuery {
         return ok(undefined);
       }
 
-      const countsResult = await this.ports.importSessions.countByAccount([id]);
+      const countsResult = await this.ports.countSessionsByAccount([id]);
       if (countsResult.isErr()) {
         return err(countsResult.error);
       }
 
       const sessionCount = countsResult.value.get(id) ?? 0;
 
-      const childAccountsResult = await this.ports.accounts.findAll({ parentAccountId: id });
+      const childAccountsResult = await this.ports.findAccounts({ parentAccountId: id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
@@ -154,7 +154,7 @@ export class AccountQuery {
 
       if (childAccountsResult.value.length > 0) {
         const childIds = childAccountsResult.value.map((childAccount) => childAccount.id);
-        const childCountsResult = await this.ports.importSessions.countByAccount(childIds);
+        const childCountsResult = await this.ports.countSessionsByAccount(childIds);
         if (childCountsResult.isErr()) {
           return err(childCountsResult.error);
         }
@@ -190,14 +190,14 @@ export class AccountQuery {
   }
 
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
-    const userResult = await this.ports.users.findOrCreateDefault();
+    const userResult = await this.ports.findOrCreateDefaultUser();
     if (userResult.isErr()) {
       return err(userResult.error);
     }
     const user = userResult.value;
 
     if (params.accountId) {
-      const accountResult = await this.ports.accounts.findById(params.accountId);
+      const accountResult = await this.ports.findAccountById(params.accountId);
       if (accountResult.isErr()) {
         return err(accountResult.error);
       }
@@ -218,7 +218,7 @@ export class AccountQuery {
       return ok([account]);
     }
 
-    return this.ports.accounts.findAll({
+    return this.ports.findAccounts({
       accountType: params.accountType,
       sourceName: params.source,
       userId: user.id,
@@ -226,11 +226,11 @@ export class AccountQuery {
   }
 
   private fetchSessionCounts(accounts: Account[]): Promise<Result<Map<number, number>, Error>> {
-    return this.ports.importSessions.countByAccount(accounts.map((account) => account.id));
+    return this.ports.countSessionsByAccount(accounts.map((account) => account.id));
   }
 
   private async fetchSessionsForAccounts(accounts: Account[]): Promise<Result<Map<number, SessionSummary[]>, Error>> {
-    const sessionsResult = await this.ports.importSessions.findAll({
+    const sessionsResult = await this.ports.findSessions({
       accountIds: accounts.map((account) => account.id),
     });
     if (sessionsResult.isErr()) {
@@ -263,7 +263,7 @@ export class AccountQuery {
       return err(scopeAccountIdsResult.error);
     }
 
-    return this.ports.balanceSnapshots.findSnapshots([...new Set(scopeAccountIdsResult.value.values())]);
+    return this.ports.findBalanceSnapshots([...new Set(scopeAccountIdsResult.value.values())]);
   }
 
   private async fetchBalanceFreshness(
@@ -282,7 +282,7 @@ export class AccountQuery {
         continue;
       }
 
-      const freshnessResult = await this.ports.balanceFreshness.checkFreshness(scopeAccountId);
+      const freshnessResult = await this.ports.checkBalanceFreshness(scopeAccountId);
       if (freshnessResult.isErr()) {
         return err(freshnessResult.error);
       }
@@ -323,7 +323,7 @@ export class AccountQuery {
         continue;
       }
 
-      const childAccountsResult = await this.ports.accounts.findAll({ parentAccountId: account.id });
+      const childAccountsResult = await this.ports.findAccounts({ parentAccountId: account.id });
       if (childAccountsResult.isErr()) {
         return err(childAccountsResult.error);
       }
@@ -370,7 +370,7 @@ export class AccountQuery {
       const scopeAccountIdResult = await resolveBalanceScopeAccountId(
         account,
         {
-          findById: (accountId: number) => this.ports.accounts.findById(accountId),
+          findById: (accountId: number) => this.ports.findAccountById(accountId),
         },
         { cache: scopeAccountIds }
       );
