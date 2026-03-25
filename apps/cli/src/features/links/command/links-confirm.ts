@@ -10,8 +10,8 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../view/index.js';
 
-import { LinksConfirmHandler } from './links-confirm-handler.js';
 import { LinksConfirmCommandOptionsSchema } from './links-option-schemas.js';
+import { LinksReviewHandler } from './links-review-handler.js';
 
 /**
  * Result data for links confirm command (JSON mode).
@@ -71,8 +71,8 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const handler = new LinksConfirmHandler(database, overrideStore);
-      const result = await handler.execute({ linkId });
+      const handler = new LinksReviewHandler(database, overrideStore);
+      const result = await handler.executeTyped({ linkId }, 'confirm');
 
       stopSpinner(spinner);
 

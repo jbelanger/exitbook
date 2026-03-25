@@ -5,24 +5,19 @@ import { err, ok } from '@exitbook/foundation';
 
 import { TransferProposalReviewService } from './transfer-proposal-review-service.js';
 
-/**
- * Parameters for links confirm command.
- */
-export interface LinksConfirmParams {
+export type LinksReviewAction = 'confirm' | 'reject';
+
+export interface LinksReviewParams {
   linkId: number;
 }
 
-/**
- * Result of links confirm operation.
- */
-interface LinksConfirmResult {
+export interface LinksReviewResult {
   linkId: number;
   affectedLinkIds: number[];
   affectedLinkCount: number;
-  newStatus: 'confirmed';
+  newStatus: 'confirmed' | 'rejected';
   reviewedBy: string;
   reviewedAt: Date;
-  // Additional fields for rich display
   asset?: string | undefined;
   sourceAmount?: string | undefined;
   targetAmount?: string | undefined;
@@ -32,28 +27,41 @@ interface LinksConfirmResult {
   transferProposalKey?: string | undefined;
 }
 
-/**
- * Handler for confirming transaction links.
- */
-export class LinksConfirmHandler {
+export type LinksReviewActionResult<TAction extends LinksReviewAction> = LinksReviewResult & {
+  newStatus: (typeof ACTION_STATUS)[TAction];
+};
+
+const ACTION_STATUS = {
+  confirm: 'confirmed',
+  reject: 'rejected',
+} as const;
+
+export class LinksReviewHandler {
   private readonly reviewService: TransferProposalReviewService;
 
   constructor(db: DataSession, overrideStore?: OverrideStore) {
     this.reviewService = new TransferProposalReviewService(db, overrideStore);
   }
 
-  /**
-   * Execute the links confirm command.
-   */
-  async execute(params: LinksConfirmParams): Promise<Result<LinksConfirmResult, Error>> {
-    const result = await this.reviewService.confirm(params.linkId);
+  async execute(params: LinksReviewParams, action: LinksReviewAction): Promise<Result<LinksReviewResult, Error>> {
+    return this.executeTyped(params, action);
+  }
+
+  async executeTyped<TAction extends LinksReviewAction>(
+    params: LinksReviewParams,
+    action: TAction
+  ): Promise<Result<LinksReviewActionResult<TAction>, Error>> {
+    const result =
+      action === 'confirm'
+        ? await this.reviewService.confirm(params.linkId)
+        : await this.reviewService.reject(params.linkId);
     if (result.isErr()) {
       return err(result.error);
     }
 
     return ok({
       ...result.value,
-      newStatus: 'confirmed',
-    });
+      newStatus: ACTION_STATUS[action],
+    } as LinksReviewActionResult<TAction>);
   }
 }

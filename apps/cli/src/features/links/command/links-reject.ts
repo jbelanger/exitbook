@@ -11,7 +11,7 @@ import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../view/index.js';
 
 import { LinksRejectCommandOptionsSchema } from './links-option-schemas.js';
-import { LinksRejectHandler } from './links-reject-handler.js';
+import { LinksReviewHandler } from './links-review-handler.js';
 
 /**
  * Result data for links reject command (JSON mode).
@@ -71,8 +71,8 @@ async function executeLinksRejectCommand(linkIdArg: string, rawOptions: unknown)
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const handler = new LinksRejectHandler(database, overrideStore);
-      const result = await handler.execute({ linkId });
+      const handler = new LinksReviewHandler(database, overrideStore);
+      const result = await handler.executeTyped({ linkId }, 'reject');
 
       stopSpinner(spinner);
 

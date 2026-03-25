@@ -14,7 +14,7 @@ import {
   buildCostBasisPorts,
 } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -191,42 +191,46 @@ export async function createCostBasisHandler(
     params: ValidatedCostBasisConfig;
   }
 ): Promise<Result<CostBasisHandler, Error>> {
-  const database = await ctx.database();
-  let prereqAbort: (() => void) | undefined;
-  if (!options.isJsonMode) {
-    ctx.onAbort(() => {
-      prereqAbort?.();
+  try {
+    const database = await ctx.database();
+    let prereqAbort: (() => void) | undefined;
+    if (!options.isJsonMode) {
+      ctx.onAbort(() => {
+        prereqAbort?.();
+      });
+    }
+
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+    if (accountingExclusionPolicyResult.isErr()) {
+      return err(accountingExclusionPolicyResult.error);
+    }
+
+    const { params } = options;
+    const priceConfig =
+      params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
+
+    const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
+      isJsonMode: options.isJsonMode,
+      priceConfig,
+      accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+      setAbort: (abort) => {
+        prereqAbort = abort;
+      },
     });
+    if (readyResult.isErr()) {
+      return err(readyResult.error);
+    }
+
+    prereqAbort = undefined;
+    return ok(
+      new CostBasisHandler(
+        database,
+        ctx.dataDir,
+        accountingExclusionPolicyResult.value,
+        ctx.requireAppRuntime().priceProviderConfig
+      )
+    );
+  } catch (error) {
+    return wrapError(error, 'Failed to create cost basis handler');
   }
-
-  const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
-  if (accountingExclusionPolicyResult.isErr()) {
-    return err(accountingExclusionPolicyResult.error);
-  }
-
-  const { params } = options;
-  const priceConfig =
-    params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
-
-  const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
-    isJsonMode: options.isJsonMode,
-    priceConfig,
-    accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-    setAbort: (abort) => {
-      prereqAbort = abort;
-    },
-  });
-  if (readyResult.isErr()) {
-    return err(readyResult.error);
-  }
-
-  prereqAbort = undefined;
-  return ok(
-    new CostBasisHandler(
-      database,
-      ctx.dataDir,
-      accountingExclusionPolicyResult.value,
-      ctx.requireAppRuntime().priceProviderConfig
-    )
-  );
 }

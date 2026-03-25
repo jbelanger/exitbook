@@ -1,7 +1,7 @@
 import type { ExchangeCredentials } from '@exitbook/core';
 import { buildBalancePorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion';
 
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -96,6 +96,6 @@ export async function createBalanceHandler(
 
     return ok(handler);
   } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to create balance handler');
   }
 }

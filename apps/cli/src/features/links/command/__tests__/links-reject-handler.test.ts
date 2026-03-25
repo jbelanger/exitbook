@@ -11,10 +11,10 @@ import {
   createMockTransactionObjects,
   createMockLink,
 } from '../../__tests__/test-utils.ts';
-import { LinksRejectHandler, type LinksRejectParams } from '../links-reject-handler.ts';
+import { LinksReviewHandler, type LinksReviewParams } from '../links-review-handler.js';
 
 describe('LinksRejectHandler', () => {
-  let handler: LinksRejectHandler;
+  let handler: LinksReviewHandler;
   let mockLinkQueries: ReturnType<typeof createMockLinkRepository>;
   let mockTransactionQueries: ReturnType<typeof createMockTransactionRepository>;
   let mockOverrideStore: ReturnType<typeof createMockOverrideStore>;
@@ -31,14 +31,14 @@ describe('LinksRejectHandler', () => {
       transactions: mockTransactionQueries,
     });
 
-    handler = new LinksRejectHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
+    handler = new LinksReviewHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
   });
 
   const { source: mockSourceTx, target: mockTargetTx } = createMockTransactionObjects();
 
   describe('execute', () => {
     it('should successfully reject a suggested link', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -53,7 +53,7 @@ describe('LinksRejectHandler', () => {
         return Promise.resolve(ok(undefined));
       });
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
@@ -68,7 +68,7 @@ describe('LinksRejectHandler', () => {
     });
 
     it('should write unlink_override event after successful reject', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -83,12 +83,11 @@ describe('LinksRejectHandler', () => {
         return Promise.resolve(ok(undefined));
       });
 
-      await handler.execute(params);
+      await handler.execute(params, 'reject');
 
       const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
       expect(appendCall).toBeDefined();
 
-      // Unlink payload only stores the resolved link fingerprint, so tx fingerprint sort order is irrelevant here.
       expect(appendCall?.[0]).toMatchObject({
         scope: 'unlink',
         payload: {
@@ -100,7 +99,7 @@ describe('LinksRejectHandler', () => {
     });
 
     it('should not fail if override store write fails', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -116,14 +115,13 @@ describe('LinksRejectHandler', () => {
       });
       mockOverrideStore.append.mockResolvedValue(err(new Error('Write failed')));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
-      // Command should still succeed even if override write fails
       expect(result.isOk()).toBe(true);
     });
 
     it('should handle already rejected link (idempotent)', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -136,21 +134,18 @@ describe('LinksRejectHandler', () => {
       mockLinkQueries.findById.mockResolvedValue(ok(rejectedLink));
       mockLinkQueries.findAll.mockResolvedValue(ok([rejectedLink]));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
-
-      // Should not call updateStatus for already rejected links
       expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
-      // Should not write override for idempotent no-op
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
     });
 
     it('should reject only actionable proposal legs when the selected leg is already rejected', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -197,7 +192,7 @@ describe('LinksRejectHandler', () => {
         return Promise.resolve(ok(undefined));
       });
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const rejectResult = assertOk(result);
       expect(rejectResult.affectedLinkIds).toEqual([124]);
@@ -207,7 +202,7 @@ describe('LinksRejectHandler', () => {
     });
 
     it('should successfully reject a confirmed link (override auto-confirmation)', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -226,48 +221,45 @@ describe('LinksRejectHandler', () => {
         return Promise.resolve(ok(undefined));
       });
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
-
       expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user');
     });
 
     it('should return error if link not found', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 999,
       };
 
       mockLinkQueries.findById.mockResolvedValue(ok(undefined));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toContain('not found');
-
       expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should return error if findById fails', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
       mockLinkQueries.findById.mockResolvedValue(err(new Error('Database error')));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toBe('Database error');
-
       expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should return error if updateStatus fails', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -277,14 +269,14 @@ describe('LinksRejectHandler', () => {
       mockLinkQueries.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkQueries.updateStatuses.mockResolvedValue(err(new Error('Update failed')));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toBe('Update failed');
     });
 
     it('should return error if updateStatus returns false', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -294,27 +286,27 @@ describe('LinksRejectHandler', () => {
       mockLinkQueries.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkQueries.updateStatuses.mockResolvedValue(ok(0));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toContain('Failed to update transfer proposal');
     });
 
     it('should handle exceptions gracefully', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
       mockLinkQueries.findById.mockRejectedValue(new Error('Unexpected error'));
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toContain('Unexpected error');
     });
 
     it('should reject all related proposal legs together', async () => {
-      const params: LinksRejectParams = {
+      const params: LinksReviewParams = {
         linkId: 123,
       };
 
@@ -358,7 +350,7 @@ describe('LinksRejectHandler', () => {
         return Promise.resolve(ok(undefined));
       });
 
-      const result = await handler.execute(params);
+      const result = await handler.execute(params, 'reject');
 
       const rejectResult = assertOk(result);
       expect(rejectResult.affectedLinkIds).toEqual([123, 124]);
