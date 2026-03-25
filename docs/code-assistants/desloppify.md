@@ -169,6 +169,28 @@ If you intentionally need a checkpoint mid-cycle:
 desloppify scan --force-rescan --attest "I understand this resets the plan-start score and I am intentionally forcing a rescan"
 ```
 
+## Deferring Test-Only Review Items
+
+If the remaining open review items are test strategy findings and the user has
+explicitly asked to defer tests until the architecture settles, record that in
+plan state instead of leaving the review queue half-open.
+
+Use a temporary skip, not a permanent wontfix:
+
+```bash
+desloppify plan skip <review-id> <review-id> ... \
+  --reason "User requested architecture-first cleanup before adding or rewriting tests."
+```
+
+Notes:
+
+- Prefer `plan skip` over `--permanent` here. The tests are still worth doing;
+  they are just intentionally sequenced later.
+- Include the user-driven reason so future sessions do not have to re-discover
+  why those review items were deferred.
+- After the architecture pass stabilizes, re-open the items by clearing the
+  skip or re-running review/scan as appropriate for the current queue state.
+
 ## Batch Retry Workflow
 
 Batch runs write reproducible artifacts under `.desloppify/subagents/runs/<timestamp>/`.
