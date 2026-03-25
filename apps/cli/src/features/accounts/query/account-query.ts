@@ -99,11 +99,11 @@ export class AccountQuery {
 
   async findById(id: number): Promise<Result<AccountSummary | undefined, Error>> {
     try {
-      const userResult = await this.ports.findOrCreateDefaultUser();
-      if (userResult.isErr()) {
-        return err(userResult.error);
+      const profileResult = await this.ports.findOrCreateDefaultProfile();
+      if (profileResult.isErr()) {
+        return err(profileResult.error);
       }
-      const user = userResult.value;
+      const profile = profileResult.value;
 
       const accountResult = await this.ports.findAccountById(id);
       if (accountResult.isErr()) {
@@ -114,7 +114,7 @@ export class AccountQuery {
         return ok(undefined);
       }
 
-      if (account.userId !== user.id) {
+      if (account.profileId !== profile.id) {
         return ok(undefined);
       }
 
@@ -190,11 +190,11 @@ export class AccountQuery {
   }
 
   private async fetchAccounts(params: AccountQueryParams): Promise<Result<Account[], Error>> {
-    const userResult = await this.ports.findOrCreateDefaultUser();
-    if (userResult.isErr()) {
-      return err(userResult.error);
+    const profileResult = await this.ports.findOrCreateDefaultProfile();
+    if (profileResult.isErr()) {
+      return err(profileResult.error);
     }
-    const user = userResult.value;
+    const profile = profileResult.value;
 
     if (params.accountId) {
       const accountResult = await this.ports.findAccountById(params.accountId);
@@ -207,10 +207,10 @@ export class AccountQuery {
         return err(new Error(`Account ${params.accountId} not found`));
       }
 
-      if (account.userId !== user.id) {
+      if (account.profileId !== profile.id) {
         return err(
           new Error(
-            `Account ${params.accountId} does not belong to the default user (expected userId=${user.id}, found ${account.userId ?? 'null'})`
+            `Account ${params.accountId} does not belong to the default profile (expected profileId=${profile.id}, found ${account.profileId ?? 'null'})`
           )
         );
       }
@@ -220,8 +220,8 @@ export class AccountQuery {
 
     return this.ports.findAccounts({
       accountType: params.accountType,
-      sourceName: params.source,
-      userId: user.id,
+      platformKey: params.source,
+      profileId: profile.id,
     });
   }
 

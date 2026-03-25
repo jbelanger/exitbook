@@ -30,7 +30,7 @@ describe('buildProcessingPorts', () => {
       .values({
         id: 1,
         account_id: 1,
-        source_name: 'kraken',
+        platform_key: 'kraken',
         source_type: 'exchange',
         tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-1'),
         transaction_status: 'success',

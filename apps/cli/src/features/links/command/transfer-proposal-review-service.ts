@@ -23,7 +23,7 @@ interface TransferProposalReviewResult {
   reviewedAt: Date;
   reviewedBy: string;
   sourceAmount?: string | undefined;
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
   targetAmount?: string | undefined;
   targetName?: string | undefined;
   transferProposalKey?: string | undefined;
@@ -215,8 +215,8 @@ export class TransferProposalReviewService {
       {
         asset: string;
         confidence: string;
+        platformKey: string;
         sourceAmount: string;
-        sourceName: string;
         targetAmount: string;
         targetName: string;
       },
@@ -250,7 +250,7 @@ export class TransferProposalReviewService {
       asset: selectedLink.assetSymbol,
       confidence: `${(selectedLink.confidenceScore.toNumber() * 100).toFixed(1)}%`,
       sourceAmount: selectedLink.sourceAmount.toFixed(),
-      sourceName: sourceTxResult.value?.source ?? 'unknown',
+      platformKey: sourceTxResult.value?.source ?? 'unknown',
       targetAmount: selectedLink.targetAmount.toFixed(),
       targetName: targetTxResult.value?.source ?? 'unknown',
     });

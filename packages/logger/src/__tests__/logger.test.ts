@@ -70,11 +70,11 @@ describe('Logger', () => {
     initLogger({ level: 'info', sinks: [mockSink] });
     const logger = getLogger('test');
 
-    logger.info({ userId: 123, action: 'login' }, 'user logged in');
+    logger.info({ profileId: 123, action: 'login' }, 'user logged in');
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.msg).toBe('user logged in');
-    expect(entries[0]?.context).toEqual({ userId: 123, action: 'login' });
+    expect(entries[0]?.context).toEqual({ profileId: 123, action: 'login' });
   });
 
   it('should serialize Error objects in context', () => {
@@ -171,11 +171,11 @@ describe('ConsoleSink', () => {
       category: 'test',
       timestamp: new Date(),
       msg: 'test message',
-      context: { userId: 123, action: 'login' },
+      context: { profileId: 123, action: 'login' },
     });
     sink.flush();
 
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('userId=123'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('profileId=123'));
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('action="login"'));
     consoleSpy.mockRestore();
   });

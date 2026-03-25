@@ -79,8 +79,8 @@ Core utilities for e2e testing:
 - `executeCLI(args)` - Executes CLI commands and parses JSON output
 - `cleanupTestDatabase()` - Cleans up test database
 - `canBindUnixSocket()` - Checks if Unix socket binding is allowed
-- `hasSampleData(sourceName)` - Checks if sample data exists
-- `getSampleDir(sourceName)` - Gets sample directory path
+- `hasSampleData(platformKey)` - Checks if sample data exists
+- `getSampleDir(platformKey)` - Gets sample directory path
 
 ### `e2e-test-types.ts`
 

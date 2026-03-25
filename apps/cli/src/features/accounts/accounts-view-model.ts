@@ -29,7 +29,7 @@ export interface ChildAccountViewItem {
 export interface AccountViewItem {
   id: number;
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;

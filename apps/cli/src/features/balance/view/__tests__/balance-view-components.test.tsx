@@ -58,7 +58,7 @@ describe('BalanceApp - asset view', () => {
     const state = createBalanceVerificationAssetState(
       {
         accountId: 44,
-        sourceName: 'coinbase',
+        platformKey: 'coinbase',
         accountType: 'exchange-api',
       },
       [
@@ -109,7 +109,7 @@ describe('BalanceApp - asset view', () => {
     const state = createBalanceStoredSnapshotAssetState(
       {
         accountId: 55,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         accountType: 'blockchain',
       },
       [createStoredSnapshotAssetItem({ assetSymbol: 'BTC', calculatedBalance: '1.25' })]
@@ -136,7 +136,7 @@ describe('BalanceApp - asset view', () => {
     const state = createBalanceStoredSnapshotAssetState(
       {
         accountId: 74,
-        sourceName: 'lukso',
+        platformKey: 'lukso',
         accountType: 'blockchain',
         verificationStatus: 'unavailable',
         statusReason: 'Live balance verification is unavailable for lukso.',

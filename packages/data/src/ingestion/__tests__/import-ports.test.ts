@@ -83,7 +83,7 @@ describe('buildImportPorts', () => {
       const ports = buildImportPorts(ctx);
 
       const result = await ports.withTransaction(async (txPorts) => {
-        const user = assertOk(await txPorts.users.findOrCreateDefault());
+        const user = assertOk(await txPorts.profiles.findOrCreateDefault());
         expect(user.id).toBe(1);
         return ok(undefined);
       });

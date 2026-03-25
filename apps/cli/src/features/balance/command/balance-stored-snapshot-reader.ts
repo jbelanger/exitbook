@@ -115,7 +115,7 @@ export class BalanceStoredSnapshotReader {
         {
           requestedAccountId: requestedAccount.id,
           scopeAccountId: scopeAccount.id,
-          sourceName: scopeAccount.sourceName,
+          platformKey: scopeAccount.platformKey,
           freshnessReason: freshnessResult.value.reason,
           freshnessStatus: freshnessResult.value.status,
         },
@@ -142,7 +142,7 @@ export class BalanceStoredSnapshotReader {
           formatBalanceSnapshotFreshnessMessage({
             requestedAccountId: requestedAccount.id,
             scopeAccountId: scopeAccount.id,
-            scopeSourceName: scopeAccount.sourceName,
+            scopeSourceName: scopeAccount.platformKey,
             status: refreshedResult.value.status,
             reason: refreshedResult.value.reason,
           })
@@ -156,7 +156,7 @@ export class BalanceStoredSnapshotReader {
           formatBalanceSnapshotFreshnessMessage({
             requestedAccountId: requestedAccount.id,
             scopeAccountId: scopeAccount.id,
-            scopeSourceName: scopeAccount.sourceName,
+            scopeSourceName: scopeAccount.platformKey,
             status: freshnessResult.value.status,
             reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
           })
@@ -169,7 +169,7 @@ export class BalanceStoredSnapshotReader {
         formatBalanceSnapshotFreshnessMessage({
           requestedAccountId: requestedAccount.id,
           scopeAccountId: scopeAccount.id,
-          scopeSourceName: scopeAccount.sourceName,
+          scopeSourceName: scopeAccount.platformKey,
           status: freshnessResult.value.status,
           reason: freshnessResult.value.reason,
         })

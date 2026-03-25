@@ -366,7 +366,7 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
   let report = `# Balance Verification Report - ${timestamp}\n\n`;
 
   for (const result of results) {
-    report += `## ${result.account.sourceName} (${result.account.accountType})\n`;
+    report += `## ${result.account.platformKey} (${result.account.accountType})\n`;
     report += `- **Account ID**: ${result.account.id}\n`;
     report += `- **Status**: ${result.status.toUpperCase()}\n`;
     report += `- **Total Currencies**: ${result.summary.totalCurrencies}\n`;

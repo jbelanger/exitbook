@@ -28,7 +28,7 @@ describe('DataSession', () => {
     expect(ctx.transactionLinks).toBeDefined();
     expect(ctx.rawTransactions).toBeDefined();
     expect(ctx.importSessions).toBeDefined();
-    expect(ctx.users).toBeDefined();
+    expect(ctx.profiles).toBeDefined();
     expect(ctx.nearRawTransactions).toBeDefined();
     expect(ctx.projectionState).toBeDefined();
   });
@@ -39,9 +39,9 @@ describe('DataSession', () => {
         await ctx.executeInTransaction(async (tx) => {
           assertOk(
             await tx.accounts.findOrCreate({
-              userId: 1,
+              profileId: 1,
               accountType: 'blockchain',
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               identifier: 'bc1q-test',
             })
           );
@@ -61,9 +61,9 @@ describe('DataSession', () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
           await tx.accounts.findOrCreate({
-            userId: 1,
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-rollback',
           })
         );
@@ -82,9 +82,9 @@ describe('DataSession', () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
           await tx.accounts.findOrCreate({
-            userId: 1,
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-throw',
           })
         );
@@ -103,9 +103,9 @@ describe('DataSession', () => {
           // Create account in outer transaction
           assertOk(
             await outerTx.accounts.findOrCreate({
-              userId: 1,
+              profileId: 1,
               accountType: 'blockchain',
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               identifier: 'bc1q-outer',
             })
           );
@@ -115,9 +115,9 @@ describe('DataSession', () => {
             await outerTx.executeInTransaction(async (innerTx) => {
               assertOk(
                 await innerTx.accounts.findOrCreate({
-                  userId: 1,
+                  profileId: 1,
                   accountType: 'exchange-api',
-                  sourceName: 'kraken',
+                  platformKey: 'kraken',
                   identifier: 'api-key-inner',
                 })
               );
@@ -141,9 +141,9 @@ describe('DataSession', () => {
       const result = await ctx.executeInTransaction(async (outerTx) => {
         assertOk(
           await outerTx.accounts.findOrCreate({
-            userId: 1,
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-nested-fail',
           })
         );

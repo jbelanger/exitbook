@@ -94,7 +94,7 @@ export interface PortfolioHandlerDeps {
 
 interface PortfolioAccountMetadata {
   accountType: AccountBreakdownItem['accountType'];
-  sourceName: string;
+  platformKey: string;
 }
 
 interface ValidatedPortfolioParams {
@@ -238,7 +238,7 @@ export class PortfolioHandler {
     const accountMetadataById = new Map<number, PortfolioAccountMetadata>(
       contextResult.value.accounts.map((account) => [
         account.id,
-        { sourceName: account.sourceName, accountType: account.accountType },
+        { platformKey: account.platformKey, accountType: account.accountType },
       ])
     );
 

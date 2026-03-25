@@ -127,15 +127,15 @@ describe('AccountQuery', () => {
     expect(value.sessions?.get(2)).toHaveLength(1);
   });
 
-  it('returns an error when accountId does not belong to the default user', async () => {
+  it('returns an error when accountId does not belong to the default profile', async () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 7, userId: 999 })));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 7, profileId: 999 })));
 
     const result = await query.list({ accountId: 7 });
 
-    expect(assertErr(result).message).toContain('does not belong to the default user');
+    expect(assertErr(result).message).toContain('does not belong to the default profile');
   });
 
   it('returns an error when list is filtered to a missing account id', async () => {
@@ -271,7 +271,7 @@ describe('AccountQuery', () => {
     const ctx = createMockPorts();
     const query = new AccountQuery(ctx.ports);
 
-    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 9, userId: 42 })));
+    vi.mocked(ctx.findAccountById).mockResolvedValue(ok(createMockAccount({ id: 9, profileId: 42 })));
 
     const result = await query.findById(9);
 

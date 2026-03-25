@@ -224,7 +224,7 @@ const AccountList: FC<{
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
   const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
-    source: { format: (item) => item.sourceName, minWidth: 10 },
+    source: { format: (item) => item.platformKey, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
   });
   const startIndex = scrollOffset;
@@ -383,7 +383,7 @@ function buildBalanceAccountDetailRows(
           key="verifying"
           color="yellow"
         >
-          ⏳ Verifying {verifying.sourceName} (account #{verifying.accountId})...
+          ⏳ Verifying {verifying.platformKey} (account #{verifying.accountId})...
         </Text>,
       ];
     }
@@ -394,7 +394,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
         {'  '}
@@ -416,7 +416,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
         {'  '}
@@ -438,7 +438,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
       </Text>,
@@ -458,7 +458,7 @@ function buildBalanceAccountDetailRows(
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
       {'  '}
-      <Text color="cyan">{selected.sourceName}</Text>
+      <Text color="cyan">{selected.platformKey}</Text>
       {'  '}
       <Text dimColor>{selected.accountType}</Text>
       {'  '}
@@ -620,7 +620,7 @@ const StoredSnapshotAccountList: FC<{
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
   const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
-    source: { format: (item) => item.sourceName, minWidth: 10 },
+    source: { format: (item) => item.platformKey, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
   });
   const startIndex = scrollOffset;
@@ -700,7 +700,7 @@ function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountIte
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
       {'  '}
-      <Text color="cyan">{selected.sourceName}</Text>
+      <Text color="cyan">{selected.platformKey}</Text>
       {'  '}
       <Text dimColor>{selected.accountType}</Text>
       {'  '}
@@ -819,7 +819,7 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
       </Text>
       {state.mode === 'verification' && (
         <Text dimColor>
-          {'  '}exitbook import --blockchain {state.sourceName} --address ...
+          {'  '}exitbook import --blockchain {state.platformKey} --address ...
         </Text>
       )}
       <Text> </Text>
@@ -844,7 +844,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
         <Text bold>Balance{storedSnapshotLabel}</Text>
         <Text>
           {'  '}
-          <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
+          <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
         </Text>
         <Text dimColor>
           {'  '}
@@ -871,7 +871,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
       <Text bold>Balance{storedSnapshotLabel}</Text>
       <Text>
         {'  '}
-        <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
+        <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
       </Text>
       <Text dimColor>
         {'  '}

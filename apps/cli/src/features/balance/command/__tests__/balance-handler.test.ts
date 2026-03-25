@@ -10,7 +10,7 @@ function createAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: overrides.id ?? 1,
     accountType: overrides.accountType ?? 'blockchain',
-    sourceName: overrides.sourceName ?? 'bitcoin',
+    platformKey: overrides.platformKey ?? 'bitcoin',
     identifier: overrides.identifier ?? `identifier-${overrides.id ?? 1}`,
     parentAccountId: overrides.parentAccountId,
     providerName: overrides.providerName,
@@ -212,7 +212,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
   });
 
   it('reports a missing stored snapshot even when projection freshness was invalidated globally', async () => {
-    const account = createAccount({ id: 1, sourceName: 'kraken' });
+    const account = createAccount({ id: 1, platformKey: 'kraken' });
     const mockDb = createMockDb({
       accounts: [account],
       snapshots: [],
@@ -230,7 +230,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
   });
 
   it('explains when processed-transaction resets invalidate every stored balance snapshot', async () => {
-    const account = createAccount({ id: 1, sourceName: 'kraken' });
+    const account = createAccount({ id: 1, platformKey: 'kraken' });
     const mockDb = createMockDb({
       accounts: [account],
       snapshots: [createSnapshot(account.id)],
@@ -314,7 +314,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
 
 describe('BalanceHandler.refreshAllScopes', () => {
   it('counts calculated-only warning results as verified totals', async () => {
-    const account = createAccount({ id: 74, sourceName: 'lukso', identifier: '0xlukso' });
+    const account = createAccount({ id: 74, platformKey: 'lukso', identifier: '0xlukso' });
     const mockDb = createMockDb({
       accounts: [account],
       snapshots: [],

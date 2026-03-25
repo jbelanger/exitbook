@@ -2,9 +2,9 @@ import { sql } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-  // Create users table
+  // Create profiles table
   await db.schema
-    .createTable('users')
+    .createTable('profiles')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
@@ -13,10 +13,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('accounts')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('user_id', 'integer', (col) => col.references('users.id'))
+    .addColumn('profile_id', 'integer', (col) => col.references('profiles.id'))
     .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
-    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('identifier', 'text', (col) => col.notNull()) // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
@@ -34,10 +34,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   // Create unique index on accounts to prevent duplicate accounts
-  // Using raw SQL because the index includes expressions (COALESCE for nullable user_id)
+  // Using raw SQL because the index includes expressions (COALESCE for nullable profile_id)
   await sql`
     CREATE UNIQUE INDEX idx_accounts_unique
-    ON accounts (account_type, source_name, identifier, COALESCE(user_id, 0))
+    ON accounts (account_type, platform_key, identifier, COALESCE(profile_id, 0))
   `.execute(db);
 
   // Create index on parent_account_id for efficient child account queries (xpub hierarchies)
@@ -118,7 +118,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
-    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
@@ -341,7 +341,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   // Create indexes for transaction_links
   await db.schema
-    .createIndex('idx_tx_links_source_name')
+    .createIndex('idx_tx_links_platform_key')
     .on('transaction_links')
     .column('source_transaction_id')
     .execute();
@@ -608,7 +608,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
-  // Drop accounts and users tables
+  // Drop accounts and profiles tables
   await db.schema.dropTable('accounts').execute();
-  await db.schema.dropTable('users').execute();
+  await db.schema.dropTable('profiles').execute();
 }

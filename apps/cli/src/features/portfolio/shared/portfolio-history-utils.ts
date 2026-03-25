@@ -99,7 +99,7 @@ export function buildTransactionItems(
       datetime: tx.datetime,
       operationCategory: tx.operation.category,
       operationType: tx.operation.type,
-      sourceName: tx.source,
+      platformKey: tx.source,
       assetAmount: netAmount.abs().toFixed(8),
       assetDirection,
       ...(fiatValue !== undefined && { fiatValue }),

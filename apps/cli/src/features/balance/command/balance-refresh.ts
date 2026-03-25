@@ -101,13 +101,13 @@ async function executeBalanceRefreshJSON(
           coverage: verificationResult.coverage,
           source: {
             type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
-            name: account.sourceName,
+            name: account.platformKey,
             address: account.accountType === 'blockchain' ? account.identifier : undefined,
           },
           account: {
             id: account.id,
             type: account.accountType,
-            sourceName: account.sourceName,
+            platformKey: account.platformKey,
             identifier: account.identifier,
             providerName: account.providerName,
           },
@@ -115,7 +115,7 @@ async function executeBalanceRefreshJSON(
             requestedAccount: {
               id: requestedAccount.id,
               type: requestedAccount.accountType,
-              sourceName: requestedAccount.sourceName,
+              platformKey: requestedAccount.platformKey,
               identifier: requestedAccount.identifier,
               providerName: requestedAccount.providerName,
             },
@@ -182,13 +182,13 @@ async function executeBalanceRefreshSingleTUI(
       const initialState =
         result.value.mode === 'verification'
           ? createBalanceVerificationAssetState(
-              { accountId: account.id, sourceName: account.sourceName, accountType: account.accountType },
+              { accountId: account.id, platformKey: account.platformKey, accountType: account.accountType },
               sortAssetsByStatus(result.value.comparisons)
             )
           : createBalanceStoredSnapshotAssetState(
               {
                 accountId: account.id,
-                sourceName: account.sourceName,
+                platformKey: account.platformKey,
                 accountType: account.accountType,
                 verificationStatus: 'unavailable',
                 statusReason: result.value.verificationResult.warnings?.[0],
@@ -225,7 +225,7 @@ async function executeBalanceRefreshAllTUI(
       const initialItems: AccountVerificationItem[] = sortAccountsByVerificationPriority(sortedResult.value).map(
         (account) => ({
           accountId: account.accountId,
-          sourceName: account.sourceName,
+          platformKey: account.platformKey,
           accountType: account.accountType,
           status: account.skipReason ? ('skipped' as const) : ('pending' as const),
           assetCount: 0,

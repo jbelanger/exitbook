@@ -66,7 +66,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
 
       const accountsData = result.value.accounts.map((item) => ({
         accountId: item.account.id,
-        sourceName: item.account.sourceName,
+        platformKey: item.account.platformKey,
         accountType: item.account.accountType,
         snapshot: {
           verificationStatus: item.snapshot.verificationStatus,
@@ -77,7 +77,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
         ...(item.requestedAccount && {
           requestedAccount: {
             id: item.requestedAccount.id,
-            sourceName: item.requestedAccount.sourceName,
+            platformKey: item.requestedAccount.platformKey,
             accountType: item.requestedAccount.accountType,
           },
         }),
@@ -128,7 +128,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRunt
         const initialState = createBalanceStoredSnapshotAssetState(
           {
             accountId: item.account.id,
-            sourceName: item.account.sourceName,
+            platformKey: item.account.platformKey,
             accountType: item.account.accountType,
             verificationStatus: item.snapshot.verificationStatus,
             statusReason: item.snapshot.statusReason,

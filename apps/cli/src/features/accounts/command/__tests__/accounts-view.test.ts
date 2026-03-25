@@ -66,7 +66,7 @@ function createAccountSummary() {
   return {
     id: 1,
     accountType: 'exchange-api' as const,
-    sourceName: 'kraken',
+    platformKey: 'kraken',
     identifier: 'acct-1',
     parentAccountId: undefined,
     providerName: 'kraken-api',
@@ -80,7 +80,7 @@ function createAccountSummary() {
       {
         id: 2,
         accountType: 'exchange-api' as const,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         identifier: 'acct-child',
         parentAccountId: 1,
         providerName: undefined,
@@ -169,7 +169,7 @@ describe('registerAccountsViewCommand', () => {
         {
           id: 1,
           accountType: 'exchange-api',
-          sourceName: 'kraken',
+          platformKey: 'kraken',
           identifier: 'acct-1',
           parentAccountId: undefined,
           providerName: 'kraken-api',
@@ -239,7 +239,7 @@ describe('registerAccountsViewCommand', () => {
         {
           id: 1,
           accountType: 'exchange-api',
-          sourceName: 'kraken',
+          platformKey: 'kraken',
           identifier: 'acct-1',
           parentAccountId: undefined,
           providerName: 'kraken-api',

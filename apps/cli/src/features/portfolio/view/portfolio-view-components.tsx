@@ -692,7 +692,7 @@ const PortfolioAssetDetail: FC<{
   const accountSummary =
     selected.accountBreakdown.length > 0
       ? selected.accountBreakdown
-          .map((account) => `${account.sourceName} (${formatCryptoQuantity(account.quantity)})`)
+          .map((account) => `${account.platformKey} (${formatCryptoQuantity(account.quantity)})`)
           .join(', ')
       : 'none';
   const realizedValue = selected.realizedGainLossAllTime ?? '0.00';
@@ -979,7 +979,7 @@ const PortfolioHistoryRow: FC<{
       {'  '}
       <Text>{valueOrTransfer}</Text>
       {'  '}
-      <Text color="cyan">{transaction.sourceName}</Text>
+      <Text color="cyan">{transaction.platformKey}</Text>
     </Text>
   );
 };
@@ -1012,7 +1012,7 @@ const PortfolioTransactionDetail: FC<{ state: PortfolioHistoryState }> = ({ stat
       </Text>
       <Text>
         {'  '}
-        <Text dimColor>Source:</Text> <Text color="cyan">{selected.sourceName}</Text>
+        <Text dimColor>Source:</Text> <Text color="cyan">{selected.platformKey}</Text>
       </Text>
       {selected.transferDirection && selected.transferPeer && (
         <Text>

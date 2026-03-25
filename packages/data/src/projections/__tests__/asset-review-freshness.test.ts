@@ -27,7 +27,7 @@ describe('buildAssetReviewFreshnessPorts', () => {
       .insertInto('transactions')
       .values({
         account_id: accountId,
-        source_name: 'test',
+        platform_key: 'test',
         source_type: 'blockchain',
         tx_fingerprint: seedTxFingerprint('test', accountId, identityReference),
         transaction_status: 'success',

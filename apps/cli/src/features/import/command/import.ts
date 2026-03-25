@@ -120,7 +120,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
     await runCommand(appRuntime, async (ctx) => {
       const params = unwrapResult(buildImportParams(options, appRuntime.adapterRegistry));
 
-      const sourceName = 'blockchain' in params ? params.blockchain : params.exchange;
+      const platformKey = 'blockchain' in params ? params.blockchain : params.exchange;
 
       const result = await runImport(
         ctx,
@@ -135,7 +135,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
             process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
             process.stderr.write('For complete wallet tracking, use xpub instead:\n');
             process.stderr.write(
-              `  $ exitbook import --blockchain ${sourceName} --address xpub... [--xpub-gap 20]\n\n`
+              `  $ exitbook import --blockchain ${platformKey} --address xpub... [--xpub-gap 20]\n\n`
             );
             process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
             return await promptConfirm('Continue with single address import?', false);
@@ -164,7 +164,7 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
   const firstSession = importResult.sessions[0];
 
   const isBlockchain = 'blockchain' in params;
-  const sourceName = isBlockchain ? params.blockchain : params.exchange;
+  const platformKey = isBlockchain ? params.blockchain : params.exchange;
 
   const inputData = {
     address: isBlockchain ? params.address : undefined,
@@ -186,7 +186,7 @@ function buildImportResult(importResult: ImportExecuteResult, params: ImportPara
     status: 'success',
     import: {
       accountId: firstSession?.accountId,
-      source: sourceName,
+      source: platformKey,
       input: inputData,
       counts: {
         imported: totalImported,

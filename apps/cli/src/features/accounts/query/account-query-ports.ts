@@ -1,15 +1,15 @@
-import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus, User } from '@exitbook/core';
+import type { Account, AccountType, BalanceSnapshot, ImportSession, ProjectionStatus, Profile } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 interface AccountFindAllFilters {
   accountType?: AccountType | undefined;
   parentAccountId?: number | undefined;
-  sourceName?: string | undefined;
-  userId?: number | undefined;
+  platformKey?: string | undefined;
+  profileId?: number | undefined;
 }
 
 export interface AccountQueryPorts {
-  findOrCreateDefaultUser(): Promise<Result<User, Error>>;
+  findOrCreateDefaultProfile(): Promise<Result<Profile, Error>>;
   findAccountById(id: number): Promise<Result<Account | undefined, Error>>;
   findAccounts(filters?: AccountFindAllFilters): Promise<Result<Account[], Error>>;
   countSessionsByAccount(accountIds: number[]): Promise<Result<Map<number, number>, Error>>;

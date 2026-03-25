@@ -54,10 +54,10 @@ export function buildProcessingPorts(
     accountLookup: {
       getAccountInfo: (accountId) => db.accounts.getById(accountId),
 
-      getUserAddresses: (userId, blockchain) =>
+      getProfileAddresses: (profileId, blockchain) =>
         resultDoAsync(async function* () {
-          const accounts = yield* await db.accounts.findAll({ userId });
-          return accounts.filter((account) => account.sourceName === blockchain).map((account) => account.identifier);
+          const accounts = yield* await db.accounts.findAll({ profileId });
+          return accounts.filter((account) => account.platformKey === blockchain).map((account) => account.identifier);
         }),
     },
 

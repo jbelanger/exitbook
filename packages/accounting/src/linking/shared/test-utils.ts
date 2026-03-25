@@ -15,7 +15,7 @@ export function createLinkableMovement(overrides: Partial<LinkableMovement> = {}
     id,
     transactionId: id,
     accountId: 1,
-    sourceName: 'kraken',
+    platformKey: 'kraken',
     sourceType: 'exchange',
     assetId: 'test:btc',
     assetSymbol: 'BTC' as Currency,

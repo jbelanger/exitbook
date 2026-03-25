@@ -51,7 +51,7 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
       .values({
         id: i,
         account_id: 1,
-        source_name: 'test',
+        platform_key: 'test',
         source_type: 'exchange',
         tx_fingerprint: seedTxFingerprint('test', 1, identityReference),
         transaction_status: 'success',
@@ -284,10 +284,10 @@ describe('TransactionLinkRepository', () => {
         .insertInto('accounts')
         .values({
           id: 2,
-          user_id: 1,
+          profile_id: 1,
           parent_account_id: null,
           account_type: 'exchange-api',
-          source_name: 'test-2',
+          platform_key: 'test-2',
           identifier: 'test-api-key-2',
           provider_name: null,
           last_cursor: null,
@@ -303,7 +303,7 @@ describe('TransactionLinkRepository', () => {
           .values({
             id,
             account_id: 2,
-            source_name: 'test-2',
+            platform_key: 'test-2',
             source_type: 'exchange',
             tx_fingerprint: seedTxFingerprint('test-2', 2, identityReference),
             transaction_status: 'success',

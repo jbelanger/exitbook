@@ -8,7 +8,7 @@ import type { Result } from '@exitbook/foundation';
  */
 export interface StreamingImportParams {
   /** Source name (exchange or blockchain identifier) */
-  sourceName: string;
+  platformKey: string;
 
   /** Source type (blockchain, exchange-api, or exchange-csv) */
   sourceType: AccountType;

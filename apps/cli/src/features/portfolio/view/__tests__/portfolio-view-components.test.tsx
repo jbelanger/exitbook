@@ -36,7 +36,9 @@ function createBaseState() {
             holdingDays: 365,
           },
         ],
-        accountBreakdown: [{ accountId: 1, sourceName: 'kraken', accountType: 'exchange-api', quantity: '1.00000000' }],
+        accountBreakdown: [
+          { accountId: 1, platformKey: 'kraken', accountType: 'exchange-api', quantity: '1.00000000' },
+        ],
       },
     ],
     transactionsByAssetId: new Map([['asset:btc', []]]),

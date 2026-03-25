@@ -5,10 +5,10 @@ import type { AccountType, ExchangeCredentials } from '@exitbook/core';
  * Owned by ingestion — the import workflow defines what it needs.
  */
 export interface FindOrCreateAccountParams {
-  userId: number | undefined;
+  profileId: number | undefined;
   parentAccountId?: number | undefined;
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;

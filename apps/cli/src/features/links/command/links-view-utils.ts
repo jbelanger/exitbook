@@ -25,7 +25,7 @@ export interface TransactionDetails {
   id: number;
   movements_inflows: AssetMovementDraft[];
   movements_outflows: AssetMovementDraft[];
-  source_name: string;
+  platform_key: string;
   source_type: Transaction['sourceType'];
   timestamp: string;
   to_address: string | undefined;
@@ -96,7 +96,7 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
     id: tx.id,
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
-    source_name: tx.source,
+    platform_key: tx.source,
     source_type: tx.sourceType,
     timestamp: tx.datetime,
     to_address: tx.to,
@@ -215,7 +215,7 @@ function formatTransactionDetails(tx: TransactionDetails, label: string): string
   const lines: string[] = [];
 
   lines.push(`   ${label}:`);
-  lines.push(`      ID: #${tx.id} | Source: ${tx.source_name}`);
+  lines.push(`      ID: #${tx.id} | Source: ${tx.platform_key}`);
   lines.push(`      Time: ${tx.timestamp}`);
   lines.push(`      Movement: ${formatMovements(tx.movements_inflows, tx.movements_outflows)}`);
 

@@ -33,7 +33,7 @@ import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 import { BaseRepository } from './base-repository.js';
 
 interface TransactionQueryParams {
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
   since?: number | undefined;
   accountId?: number | undefined;
   accountIds?: number[] | undefined;
@@ -265,7 +265,7 @@ interface CanonicalMovementEntry<TMovement> {
 async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<Result<string, Error>> {
   const account = await db
     .selectFrom('accounts')
-    .select(['account_type', 'source_name', 'identifier'])
+    .select(['account_type', 'platform_key', 'identifier'])
     .where('id', '=', accountId)
     .executeTakeFirst();
 
@@ -275,7 +275,7 @@ async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<
 
   return computeAccountFingerprint({
     accountType: account.account_type,
-    sourceName: account.source_name,
+    platformKey: account.platform_key,
     identifier: account.identifier,
   });
 }
@@ -553,7 +553,7 @@ function buildInsertValues(
       notes_json: notesJsonResult.value ?? null,
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
-      source_name: transaction.source,
+      platform_key: transaction.source,
       source_type: transaction.sourceType,
       to_address: transaction.to ?? null,
       transaction_datetime: transaction.datetime
@@ -582,7 +582,7 @@ function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSu
     txFingerprint: row.tx_fingerprint,
     datetime,
     timestamp,
-    source: row.source_name,
+    source: row.platform_key,
     sourceType: row.source_type,
     status,
     from: row.from_address ?? undefined,
@@ -794,8 +794,8 @@ export class TransactionRepository extends BaseRepository {
       let query = this.db.selectFrom('transactions').selectAll();
 
       if (filters) {
-        if (filters.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters.platformKey) {
+          query = query.where('platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
@@ -1057,8 +1057,8 @@ export class TransactionRepository extends BaseRepository {
       let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters) {
-        if (filters.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters.platformKey) {
+          query = query.where('platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
@@ -1222,7 +1222,7 @@ export class TransactionRepository extends BaseRepository {
       txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,
-      source: row.source_name,
+      source: row.platform_key,
       sourceType: row.source_type,
       status,
       from: row.from_address ?? undefined,

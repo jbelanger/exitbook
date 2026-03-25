@@ -281,10 +281,10 @@ export class ProcessingWorkflow {
 
       const account = accountResult.value;
       const sourceType = account.accountType;
-      const sourceName = account.sourceName;
+      const platformKey = account.platformKey;
 
       // Choose batch provider based on source type
-      const batchProvider = this.createBatchProvider(sourceType, sourceName, accountId);
+      const batchProvider = this.createBatchProvider(sourceType, platformKey, accountId);
 
       // Process using batch provider
       return this.processAccountWithBatchProvider(accountId, account, batchProvider);
@@ -338,9 +338,9 @@ export class ProcessingWorkflow {
   /**
    * Create appropriate batch provider based on source type and name.
    */
-  private createBatchProvider(sourceType: string, sourceName: string, accountId: number): IRawDataBatchProvider {
+  private createBatchProvider(sourceType: string, platformKey: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
-    if (sourceType === 'blockchain' && sourceName.toLowerCase() === 'near') {
+    if (sourceType === 'blockchain' && platformKey.toLowerCase() === 'near') {
       return new NearStreamBatchProvider(this.ports.nearBatchSource, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
@@ -359,10 +359,10 @@ export class ProcessingWorkflow {
    */
   private async processAccountWithBatchProvider(
     accountId: number,
-    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
+    account: { accountType: string; identifier: string; platformKey: string; profileId?: number | undefined },
     batchProvider: IRawDataBatchProvider
   ): Promise<Result<BatchProcessSummary, Error>> {
-    const sourceName = account.sourceName.toLowerCase();
+    const platformKey = account.platformKey.toLowerCase();
     let totalSaved = 0;
     let totalProcessed = 0;
     let batchNumber = 0;
@@ -383,7 +383,7 @@ export class ProcessingWorkflow {
     const addressContext = await this.buildAddressContext(account, accountId);
 
     // Create processor once (reused for all batches)
-    const processorResult = this.createProcessor(sourceName, account.accountType, accountId);
+    const processorResult = this.createProcessor(platformKey, account.accountType, accountId);
     if (processorResult.isErr()) {
       return err(processorResult.error);
     }
@@ -418,7 +418,7 @@ export class ProcessingWorkflow {
       });
 
       this.logger.debug(
-        `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${sourceName})`
+        `Processing batch ${batchNumber}: ${rawDataItems.length} items for account ${accountId} (${platformKey})`
       );
 
       const processorInputsResult = this.unpackForProcessor(rawDataItems, account.accountType);
@@ -498,7 +498,7 @@ export class ProcessingWorkflow {
       return ok({ errors: [], failed: 0, processed: 0 });
     }
 
-    const accountLabel = `Account ${accountId} (${sourceName})`.padEnd(25);
+    const accountLabel = `Account ${accountId} (${platformKey})`.padEnd(25);
 
     if (batchNumber === 1) {
       const skippedCount = totalProcessed - totalSaved;
@@ -519,7 +519,7 @@ export class ProcessingWorkflow {
   }
 
   private async buildAddressContext(
-    account: { accountType: string; identifier: string; sourceName: string; userId?: number | undefined },
+    account: { accountType: string; identifier: string; platformKey: string; profileId?: number | undefined },
     accountId: number
   ): Promise<AddressContext> {
     const addressContext: AddressContext = {
@@ -530,8 +530,11 @@ export class ProcessingWorkflow {
     if (account.accountType === 'blockchain') {
       addressContext.primaryAddress = account.identifier;
 
-      if (account.userId) {
-        const userAddressesResult = await this.ports.accountLookup.getUserAddresses(account.userId, account.sourceName);
+      if (account.profileId) {
+        const userAddressesResult = await this.ports.accountLookup.getProfileAddresses(
+          account.profileId,
+          account.platformKey
+        );
         if (userAddressesResult.isOk() && userAddressesResult.value.length > 0) {
           addressContext.userAddresses = userAddressesResult.value;
           this.logger.debug(
@@ -544,12 +547,12 @@ export class ProcessingWorkflow {
   }
 
   private createProcessor(
-    sourceName: string,
+    platformKey: string,
     sourceType: string,
     accountId: number
   ): Result<ITransactionProcessor, Error> {
     if (sourceType === 'blockchain') {
-      const adapterResult = this.registry.getBlockchain(sourceName);
+      const adapterResult = this.registry.getBlockchain(platformKey);
       if (adapterResult.isErr()) {
         return err(adapterResult.error);
       }
@@ -563,7 +566,7 @@ export class ProcessingWorkflow {
         })
       );
     } else {
-      const adapterResult = this.registry.getExchange(sourceName);
+      const adapterResult = this.registry.getExchange(platformKey);
       if (adapterResult.isErr()) {
         return err(adapterResult.error);
       }

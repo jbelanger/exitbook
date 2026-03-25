@@ -12,11 +12,11 @@ describe('analyzeLinkGaps', () => {
   const serviceOutAddress = '0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef';
 
   const createMockAccount = (
-    overrides: Partial<Pick<Account, 'id' | 'identifier' | 'userId'>> = {}
-  ): Pick<Account, 'id' | 'identifier' | 'userId'> => ({
+    overrides: Partial<Pick<Account, 'id' | 'identifier' | 'profileId'>> = {}
+  ): Pick<Account, 'id' | 'identifier' | 'profileId'> => ({
     id: overrides.id ?? 1,
     identifier: overrides.identifier ?? selfAddress,
-    userId: overrides.userId ?? 1,
+    profileId: overrides.profileId ?? 1,
   });
 
   const createMockTransaction = (
@@ -597,12 +597,12 @@ describe('analyzeLinkGaps', () => {
         createMockAccount({
           id: 86,
           identifier: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
-          userId: 1,
+          profileId: 1,
         }),
         createMockAccount({
           id: 50,
           identifier: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
-          userId: 1,
+          profileId: 1,
         }),
       ],
     });
@@ -677,12 +677,12 @@ describe('analyzeLinkGaps', () => {
         createMockAccount({
           id: 86,
           identifier: '3c49dfe359205e7ceb0cfac58f3592d12b14554e73f1f5448ea938cb04cf5fcc',
-          userId: 1,
+          profileId: 1,
         }),
         createMockAccount({
           id: 50,
           identifier: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
-          userId: 2,
+          profileId: 2,
         }),
       ],
     });

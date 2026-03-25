@@ -46,7 +46,7 @@ export interface StoredSnapshotAssetItem {
 
 export interface AccountVerificationItem {
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: AccountType;
   status: 'pending' | 'verifying' | 'success' | 'warning' | 'failed' | 'skipped' | 'error';
   assetCount: number;
@@ -61,7 +61,7 @@ export interface AccountVerificationItem {
 
 export interface StoredSnapshotAccountItem {
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: AccountType;
   assetCount: number;
   assets: StoredSnapshotAssetItem[];
@@ -108,7 +108,7 @@ export interface BalanceStoredSnapshotState {
 interface BalanceAssetStateBase {
   view: 'assets';
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: AccountType;
   selectedIndex: number;
   scrollOffset: number;
@@ -209,7 +209,7 @@ export function createBalanceStoredSnapshotState(
 }
 
 export function createBalanceVerificationAssetState(
-  account: { accountId: number; accountType: AccountType; sourceName: string },
+  account: { accountId: number; accountType: AccountType; platformKey: string },
   assets: AssetComparisonItem[],
   options?: {
     parentState?: BalanceVerificationState | undefined;
@@ -223,7 +223,7 @@ export function createBalanceVerificationAssetState(
     view: 'assets',
     mode: 'verification',
     accountId: account.accountId,
-    sourceName: account.sourceName,
+    platformKey: account.platformKey,
     accountType: account.accountType,
     assets,
     summary: {
@@ -243,7 +243,7 @@ export function createBalanceStoredSnapshotAssetState(
     accountId: number;
     accountType: AccountType;
     lastRefreshAt?: string | undefined;
-    sourceName: string;
+    platformKey: string;
     statusReason?: string | undefined;
     suggestion?: string | undefined;
     verificationStatus?: BalanceSnapshotVerificationStatus | undefined;
@@ -257,7 +257,7 @@ export function createBalanceStoredSnapshotAssetState(
     view: 'assets',
     mode: 'stored-snapshot',
     accountId: account.accountId,
-    sourceName: account.sourceName,
+    platformKey: account.platformKey,
     accountType: account.accountType,
     verificationStatus: account.verificationStatus,
     statusReason: account.statusReason,

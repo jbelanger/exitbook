@@ -117,22 +117,22 @@ export function createClearHandler(deps: ClearHandlerDeps) {
   async function resolveAccountIds(params: ClearParams): Promise<Result<number[] | undefined, Error>> {
     if (!params.accountId && !params.source) return ok(undefined);
 
-    const userResult = await db.users.findOrCreateDefault();
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
+    const profileResult = await db.profiles.findOrCreateDefault();
+    if (profileResult.isErr()) return err(profileResult.error);
+    const profile = profileResult.value;
 
     if (params.accountId) {
-      const result = await db.accounts.findAll({ userId: user.id });
+      const result = await db.accounts.findAll({ profileId: profile.id });
       if (result.isErr()) return err(result.error);
       const account = result.value.find((acc: Account) => acc.id === params.accountId);
       if (!account) {
-        return err(new Error(`Account ${params.accountId} not found for user ${user.id}`));
+        return err(new Error(`Account ${params.accountId} not found for profile ${profile.id}`));
       }
       return ok([account.id]);
     }
 
     if (params.source) {
-      const result = await db.accounts.findAll({ userId: user.id, sourceName: params.source });
+      const result = await db.accounts.findAll({ profileId: profile.id, platformKey: params.source });
       if (result.isErr()) return err(result.error);
       if (result.value.length === 0) {
         return err(

@@ -16,7 +16,7 @@ function sha256Result(material: string): Result<string, Error> {
 
 export interface AccountFingerprintInput {
   accountType: string;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
 }
 
@@ -27,9 +27,9 @@ export interface AccountFingerprintInput {
  * Deterministic across rebuilds for the same account type/source/identifier.
  */
 export function computeAccountFingerprint(input: AccountFingerprintInput): Result<string, Error> {
-  const { accountType, sourceName, identifier } = input;
+  const { accountType, platformKey, identifier } = input;
   const trimmedAccountType = accountType.trim();
-  const trimmedSourceName = sourceName.trim();
+  const trimmedSourceName = platformKey.trim();
   const trimmedIdentifier = identifier.trim();
 
   if (trimmedAccountType === '') {
@@ -37,7 +37,7 @@ export function computeAccountFingerprint(input: AccountFingerprintInput): Resul
   }
 
   if (trimmedSourceName === '') {
-    return err(new Error('sourceName must not be empty'));
+    return err(new Error('platformKey must not be empty'));
   }
 
   if (trimmedIdentifier === '') {

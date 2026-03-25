@@ -1,10 +1,10 @@
-import type { User } from '@exitbook/core';
-import { UserSchema } from '@exitbook/core';
+import type { Profile } from '@exitbook/core';
+import { ProfileSchema } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Selectable } from '@exitbook/sqlite';
 
-import type { UsersTable } from '../database-schema.js';
+import type { ProfilesTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -13,28 +13,28 @@ function currentTimestamp(): string {
   return new Date().toISOString();
 }
 
-function toUser(row: Selectable<UsersTable>): User {
-  const parseResult = UserSchema.safeParse({
+function toProfile(row: Selectable<ProfilesTable>): Profile {
+  const parseResult = ProfileSchema.safeParse({
     id: row.id,
     createdAt: new Date(row.created_at),
   });
 
   if (!parseResult.success) {
-    throw new Error(`Invalid user data: ${parseResult.error.message}`);
+    throw new Error(`Invalid profile data: ${parseResult.error.message}`);
   }
 
   return parseResult.data;
 }
 
-export class UserRepository extends BaseRepository {
+export class ProfileRepository extends BaseRepository {
   constructor(db: KyselyDB) {
-    super(db, 'user-repository');
+    super(db, 'profile-repository');
   }
 
   async create(): Promise<Result<number, Error>> {
     try {
       const result = await this.db
-        .insertInto('users')
+        .insertInto('profiles')
         .values({
           created_at: currentTimestamp(),
         })
@@ -43,24 +43,24 @@ export class UserRepository extends BaseRepository {
 
       return ok(result.id);
     } catch (error) {
-      return wrapError(error, 'Failed to create user');
+      return wrapError(error, 'Failed to create profile');
     }
   }
 
-  async findById(userId: number): Promise<Result<User | undefined, Error>> {
+  async findById(profileId: number): Promise<Result<Profile | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('users').selectAll().where('id', '=', userId).executeTakeFirst();
+      const row = await this.db.selectFrom('profiles').selectAll().where('id', '=', profileId).executeTakeFirst();
       if (!row) {
         return ok(undefined);
       }
 
-      return ok(toUser(row));
+      return ok(toProfile(row));
     } catch (error) {
-      return wrapError(error, 'Failed to find user by ID');
+      return wrapError(error, 'Failed to find profile by ID');
     }
   }
 
-  async findOrCreateDefault(): Promise<Result<User, Error>> {
+  async findOrCreateDefault(): Promise<Result<Profile, Error>> {
     try {
       const existingResult = await this.findById(1);
       if (existingResult.isErr()) {
@@ -72,7 +72,7 @@ export class UserRepository extends BaseRepository {
       }
 
       const result = await this.db
-        .insertInto('users')
+        .insertInto('profiles')
         .values({
           id: 1,
           created_at: currentTimestamp(),
@@ -80,11 +80,11 @@ export class UserRepository extends BaseRepository {
         .returning(['id', 'created_at'])
         .executeTakeFirstOrThrow();
 
-      const user = toUser(result);
-      this.logger.info('Created default CLI user (id=1)');
-      return ok(user);
+      const profile = toProfile(result);
+      this.logger.info('Created default CLI profile (id=1)');
+      return ok(profile);
     } catch (error) {
-      return wrapError(error, 'Failed to ensure default user');
+      return wrapError(error, 'Failed to ensure default profile');
     }
   }
 }

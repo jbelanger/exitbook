@@ -10,8 +10,8 @@ import { markDownstreamProjectionsStale } from '../projections/projection-invali
  */
 export function buildImportPorts(db: DataSession): ImportPorts {
   return {
-    users: {
-      findOrCreateDefault: () => db.users.findOrCreateDefault(),
+    profiles: {
+      findOrCreateDefault: () => db.profiles.findOrCreateDefault(),
     },
 
     accounts: {

@@ -144,16 +144,16 @@ describe('TransactionRepository', () => {
       // 3 kraken + 2 ethereum transactions
       for (let i = 1; i <= 5; i++) {
         const accountId = i <= 3 ? 1 : 2;
-        const sourceName = i <= 3 ? 'kraken' : 'ethereum';
+        const platformKey = i <= 3 ? 'kraken' : 'ethereum';
         const identityReference = `tx-${i}`;
         await db
           .insertInto('transactions')
           .values({
             id: i,
             account_id: accountId,
-            source_name: sourceName,
+            platform_key: platformKey,
             source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
-            tx_fingerprint: seedTxFingerprint(sourceName, accountId, identityReference),
+            tx_fingerprint: seedTxFingerprint(platformKey, accountId, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,
@@ -208,7 +208,7 @@ describe('TransactionRepository', () => {
           .values({
             id: i,
             account_id: 1,
-            source_name: 'ethereum',
+            platform_key: 'ethereum',
             source_type: 'blockchain',
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
@@ -258,7 +258,7 @@ describe('TransactionRepository', () => {
           .values({
             id: i,
             account_id: 1,
-            source_name: 'ethereum',
+            platform_key: 'ethereum',
             source_type: 'blockchain',
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
@@ -625,7 +625,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 1,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -776,7 +776,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 2,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -912,7 +912,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 3,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -1006,7 +1006,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 4,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -1115,7 +1115,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 11,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-11'),
           transaction_status: 'success',
@@ -1172,7 +1172,7 @@ describe('TransactionRepository', () => {
           {
             id: 21,
             account_id: 1,
-            source_name: 'kraken',
+            platform_key: 'kraken',
             source_type: 'exchange',
             tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-21'),
             transaction_status: 'success',
@@ -1195,7 +1195,7 @@ describe('TransactionRepository', () => {
           {
             id: 22,
             account_id: 2,
-            source_name: 'coinbase',
+            platform_key: 'coinbase',
             source_type: 'exchange',
             tx_fingerprint: seedTxFingerprint('coinbase', 2, 'tx-22'),
             transaction_status: 'success',

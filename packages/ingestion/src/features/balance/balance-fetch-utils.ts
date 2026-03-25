@@ -33,7 +33,7 @@ export interface UnifiedBalanceSnapshot {
   assetMetadata: Record<string, string>;
   timestamp: number;
   sourceType: SourceType;
-  sourceName: string;
+  platformKey: string;
   coverage?: BalanceCoverageStats | undefined;
   partialFailures?: BalancePartialFailure[] | undefined;
 }
@@ -76,7 +76,7 @@ export async function fetchExchangeBalance(
       assetMetadata,
       timestamp,
       sourceType: 'exchange',
-      sourceName: exchangeId,
+      platformKey: exchangeId,
     });
   } catch (error) {
     return wrapError(error, `Failed to fetch exchange balance for ${exchangeId}`);
@@ -179,7 +179,7 @@ export async function fetchBlockchainBalance(
       assetMetadata,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceName: `${blockchain}:${address}`,
+      platformKey: `${blockchain}:${address}`,
       coverage: {
         failedAddressCount: 0,
         requestedAddressCount: 1,
@@ -254,7 +254,7 @@ export async function fetchChildAccountsBalance(
       assetMetadata: aggregatedMetadata,
       timestamp: Date.now(),
       sourceType: 'blockchain',
-      sourceName: `${blockchain}:${parentAddress}`,
+      platformKey: `${blockchain}:${parentAddress}`,
       coverage: {
         failedAddressCount: partialFailures.length,
         requestedAddressCount: childAccounts.length,

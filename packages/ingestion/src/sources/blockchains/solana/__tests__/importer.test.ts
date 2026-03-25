@@ -95,7 +95,7 @@ describe('SolanaImporter', () => {
       ]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -145,7 +145,7 @@ describe('SolanaImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -171,7 +171,7 @@ describe('SolanaImporter', () => {
       setupMockData(multipleTxs);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -198,7 +198,7 @@ describe('SolanaImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -212,7 +212,7 @@ describe('SolanaImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, { platformKey: 'solana', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -228,7 +228,7 @@ describe('SolanaImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { sourceName: 'solana', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'solana', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;

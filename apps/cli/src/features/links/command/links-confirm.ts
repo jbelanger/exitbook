@@ -114,10 +114,10 @@ function handleLinksConfirmSuccess(
     confidence?: string | undefined;
     linkId: number;
     newStatus: 'confirmed';
+    platformKey?: string | undefined;
     reviewedAt: Date;
     reviewedBy: string;
     sourceAmount?: string | undefined;
-    sourceName?: string | undefined;
     targetAmount?: string | undefined;
     targetName?: string | undefined;
   }
@@ -128,7 +128,7 @@ function handleLinksConfirmSuccess(
       result.asset &&
       result.sourceAmount &&
       result.targetAmount &&
-      result.sourceName &&
+      result.platformKey &&
       result.targetName &&
       result.confidence
     ) {
@@ -140,7 +140,7 @@ function handleLinksConfirmSuccess(
           asset: result.asset,
           sourceAmount: result.sourceAmount,
           targetAmount: result.targetAmount,
-          sourceName: result.sourceName,
+          platformKey: result.platformKey,
           targetName: result.targetName,
           confidence: result.confidence,
         })

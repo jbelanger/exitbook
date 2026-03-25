@@ -142,7 +142,7 @@ describe('PortfolioHandler', () => {
       ok({
         confirmedLinks: [],
         transactions: [tx],
-        accounts: [{ id: 1, sourceName: 'kraken', accountType: 'exchange-api' as const }],
+        accounts: [{ id: 1, platformKey: 'kraken', accountType: 'exchange-api' as const }],
       })
     );
     mockCostBasisStore = {
@@ -464,7 +464,7 @@ describe('PortfolioHandler', () => {
       ok({
         confirmedLinks: [],
         transactions: [tx, excludedTradeTx],
-        accounts: [{ id: 1, sourceName: 'kraken', accountType: 'exchange-api' as const }],
+        accounts: [{ id: 1, platformKey: 'kraken', accountType: 'exchange-api' as const }],
       })
     );
 

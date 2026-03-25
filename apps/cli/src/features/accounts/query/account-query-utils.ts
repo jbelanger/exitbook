@@ -25,7 +25,7 @@ export interface AccountProjectionFreshness {
 export interface AccountSummary {
   id: number;
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
@@ -73,7 +73,7 @@ export function toAccountSummary(
   return {
     id: account.id,
     accountType: account.accountType,
-    sourceName: account.sourceName,
+    platformKey: account.platformKey,
     identifier: maskIdentifier(account),
     parentAccountId: account.parentAccountId,
     providerName: account.providerName ?? undefined,

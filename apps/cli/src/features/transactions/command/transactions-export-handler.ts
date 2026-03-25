@@ -22,7 +22,7 @@ interface ExportResult {
   csvFormat?: 'normalized' | 'simple' | undefined;
 
   /** Source name (if filtered) */
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
 
   /** Outputs to write */
   outputs: ExportOutput[];
@@ -47,7 +47,7 @@ export class TransactionsExportHandler {
     try {
       const transactionsResult = await readTransactionsForCommand({
         db: this.db,
-        sourceName: params.sourceName,
+        platformKey: params.platformKey,
         since: params.since,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -97,7 +97,7 @@ export class TransactionsExportHandler {
         transactionCount: transactions.length,
         format: params.format,
         csvFormat: params.format === 'csv' ? (params.csvFormat ?? 'normalized') : undefined,
-        sourceName: params.sourceName,
+        platformKey: params.platformKey,
         outputs,
       });
     } catch (error) {

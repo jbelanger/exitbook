@@ -14,7 +14,7 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
     id: overrides.id ?? 1,
     accountType: overrides.accountType ?? 'blockchain',
     balanceProjectionStatus: overrides.balanceProjectionStatus,
-    sourceName: overrides.sourceName ?? 'bitcoin',
+    platformKey: overrides.platformKey ?? 'bitcoin',
     identifier: overrides.identifier ?? 'bc1qexampleaddress',
     providerName: overrides.providerName,
     lastRefreshAt: overrides.lastRefreshAt,

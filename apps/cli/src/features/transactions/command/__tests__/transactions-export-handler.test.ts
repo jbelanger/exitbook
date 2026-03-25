@@ -176,7 +176,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should filter by source name', async () => {
       const params: ExportHandlerParams = {
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         format: 'csv',
         outputPath: './data/kraken.csv',
       };
@@ -188,11 +188,11 @@ describe('TransactionsExportHandler', () => {
       const result = await handler.execute(params);
 
       const exportResult = assertOk(result);
-      expect(exportResult.sourceName).toBe('kraken');
+      expect(exportResult.platformKey).toBe('kraken');
       expect(exportResult.transactionCount).toBe(1);
 
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         includeExcluded: true,
       });
     });
@@ -221,7 +221,7 @@ describe('TransactionsExportHandler', () => {
     it('should filter by both source and since date', async () => {
       const sinceTimestamp = Date.parse('2024-01-01');
       const params: ExportHandlerParams = {
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         format: 'json',
         outputPath: './data/bitcoin.json',
         since: sinceTimestamp,
@@ -235,7 +235,7 @@ describe('TransactionsExportHandler', () => {
 
       assertOk(result);
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         since: sinceTimestamp,
         includeExcluded: true,
       });

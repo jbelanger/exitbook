@@ -52,7 +52,7 @@ export class BalanceVerificationRunner {
     const sorted = sortAccountsByVerificationPriority(
       topLevel.map((account) => ({
         accountId: account.id,
-        sourceName: account.sourceName,
+        platformKey: account.platformKey,
         accountType: account.accountType,
         account,
       }))
@@ -64,7 +64,7 @@ export class BalanceVerificationRunner {
         return {
           account: item.account,
           accountId: item.accountId,
-          sourceName: item.sourceName,
+          platformKey: item.platformKey,
           accountType: item.accountType,
           skipReason,
         };
@@ -128,7 +128,7 @@ export class BalanceVerificationRunner {
       const sorted = sortAccountsByVerificationPriority(
         accounts.map((account) => ({
           accountId: account.id,
-          sourceName: account.sourceName,
+          platformKey: account.platformKey,
           accountType: account.accountType,
           account,
         }))
@@ -148,7 +148,7 @@ export class BalanceVerificationRunner {
           skipped++;
           accountResults.push({
             accountId: account.id,
-            sourceName: account.sourceName,
+            platformKey: account.platformKey,
             accountType: account.accountType,
             status: 'skipped',
             reason: skipReason,
@@ -160,7 +160,7 @@ export class BalanceVerificationRunner {
         if (result.isErr()) {
           accountResults.push({
             accountId: account.id,
-            sourceName: account.sourceName,
+            platformKey: account.platformKey,
             accountType: account.accountType,
             status: 'error',
             error: result.error.message,
@@ -184,7 +184,7 @@ export class BalanceVerificationRunner {
           if (comparisonsResult.isErr()) {
             accountResults.push({
               accountId: account.id,
-              sourceName: account.sourceName,
+              platformKey: account.platformKey,
               accountType: account.accountType,
               status: 'error',
               error: comparisonsResult.error.message,
@@ -198,7 +198,7 @@ export class BalanceVerificationRunner {
         verified++;
         accountResults.push({
           accountId: account.id,
-          sourceName: account.sourceName,
+          platformKey: account.platformKey,
           accountType: account.accountType,
           status: verificationResult.status,
           reason: verificationResult.mode === 'calculated-only' ? verificationResult.warnings?.[0] : undefined,
@@ -283,7 +283,7 @@ export class BalanceVerificationRunner {
 
           verificationItem = {
             accountId: item.accountId,
-            sourceName: item.sourceName,
+            platformKey: item.platformKey,
             accountType: item.accountType,
             status: 'warning' as const,
             assetCount: storedSnapshotAssetsResult.value.length,
@@ -316,7 +316,7 @@ export class BalanceVerificationRunner {
           const comparisons = comparisonsResult.value;
           verificationItem = {
             accountId: item.accountId,
-            sourceName: item.sourceName,
+            platformKey: item.platformKey,
             accountType: item.accountType,
             status: verificationResult.status,
             assetCount: comparisons.length,

@@ -123,7 +123,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
   const columns = createColumns(accounts, {
     acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
-    source: { format: (item) => item.sourceName, minWidth: 12 },
+    source: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
 
@@ -212,7 +212,7 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   const projection = getProjectionDisplay(selected.balanceProjectionStatus);
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.sourceName}</Text> <Text dimColor>{type}</Text>
+      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.platformKey}</Text> <Text dimColor>{type}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
     <Text key="identifier">

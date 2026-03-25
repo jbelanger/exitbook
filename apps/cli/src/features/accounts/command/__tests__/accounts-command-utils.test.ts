@@ -9,7 +9,7 @@ function createAccountSummary(overrides: Partial<AccountSummary> = {}): AccountS
   return {
     id: overrides.id ?? 1,
     accountType: overrides.accountType ?? 'exchange-api',
-    sourceName: overrides.sourceName ?? 'kraken',
+    platformKey: overrides.platformKey ?? 'kraken',
     identifier: overrides.identifier ?? 'acct-1',
     parentAccountId: overrides.parentAccountId,
     providerName: overrides.providerName,
@@ -53,7 +53,7 @@ describe('toAccountViewItem', () => {
     expect(result).toEqual({
       id: 1,
       accountType: 'exchange-api',
-      sourceName: 'kraken',
+      platformKey: 'kraken',
       identifier: 'acct-1',
       parentAccountId: undefined,
       providerName: undefined,

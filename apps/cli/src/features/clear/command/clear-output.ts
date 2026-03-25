@@ -7,7 +7,7 @@ import type { ClearCommandResult } from './clear-command-types.js';
 import { flattenPreview, type ClearResult, type FlatDeletionPreview } from './clear-handler.js';
 
 interface ClearAccountLookup {
-  findById(accountId: number): Promise<Result<{ sourceName: string } | undefined, Error>>;
+  findById(accountId: number): Promise<Result<{ platformKey: string } | undefined, Error>>;
 }
 
 export async function buildScopeLabel(
@@ -18,7 +18,7 @@ export async function buildScopeLabel(
   if (accountId) {
     const accountResult = await accountRepo.findById(accountId);
     if (accountResult.isOk() && accountResult.value) {
-      return `#${accountId} ${accountResult.value.sourceName}`;
+      return `#${accountId} ${accountResult.value.platformKey}`;
     }
     return `#${accountId}`;
   }

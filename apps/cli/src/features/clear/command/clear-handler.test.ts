@@ -25,7 +25,7 @@ describe('clear-handler', () => {
       costBasisFailureSnapshots: {
         count: vi.fn().mockResolvedValue(ok(1)),
       },
-      users: { findOrCreateDefault: vi.fn() },
+      profiles: { findOrCreateDefault: vi.fn() },
       accounts: { findAll: vi.fn() },
       executeInTransaction: vi.fn(),
     } as unknown as DataSession;

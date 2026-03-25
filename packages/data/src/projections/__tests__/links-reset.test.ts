@@ -29,7 +29,7 @@ describe('buildLinksResetPorts', () => {
       .insertInto('transactions')
       .values({
         account_id: 1,
-        source_name: 'test',
+        platform_key: 'test',
         source_type: 'exchange',
         tx_fingerprint: seedTxFingerprint('test', 1, tx1Fingerprint),
         transaction_status: 'success',
@@ -45,7 +45,7 @@ describe('buildLinksResetPorts', () => {
       .insertInto('transactions')
       .values({
         account_id: 2,
-        source_name: 'test',
+        platform_key: 'test',
         source_type: 'exchange',
         tx_fingerprint: seedTxFingerprint('test', 2, tx2Fingerprint),
         transaction_status: 'success',

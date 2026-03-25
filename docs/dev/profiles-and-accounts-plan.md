@@ -1,6 +1,6 @@
 ---
 status: draft
-last_updated: 2026-03-19
+last_updated: 2026-03-25
 supersedes: docs/dev/profiles-and-sources-plan.md
 ---
 
@@ -8,47 +8,50 @@ supersedes: docs/dev/profiles-and-sources-plan.md
 
 ## Summary
 
-This plan replaces the previous source-based draft with a simpler product model:
+This plan makes three structural decisions:
 
-- profiles isolate datasets
-- accounts are the named top-level things users add and refresh
-- each account is either a wallet or an exchange
-- each account belongs to a platform such as `bitcoin` or `kraken`
-- accounts may create internal child accounts
-- providers remain technical upstream details
+- profiles are the local ownership and scope model
+- accounts are the named top-level things users create and sync
+- import stops creating top-level accounts and only syncs existing ones
 
 Main user outcomes:
 
 - `exitbook profiles switch son`
-- `exitbook accounts list`
+- `exitbook accounts add kraken-main --exchange kraken --api-key ... --api-secret ...`
 - `exitbook import --account kraken-main`
 - `exitbook import --all`
 
+This is also a terminology migration:
+
+- `user` becomes `profile`
+- `sourceName` becomes `platformKey`
+
 ## Why This Supersedes The Previous Drafts
 
-The earlier draft was trying to solve two different problems at once:
+The earlier drafts were directionally right about named saved refresh targets and profile-like scoping, but they still carried one major boundary mistake:
 
-- how to isolate datasets by person or purpose
-- what to call the saved thing a user refreshes later
+- account lifecycle and import execution were fused together
 
-The `source` draft was directionally correct about profiles and named refresh targets, but `source` never felt like product language.
+That leak shows up in `findOrCreate` style orchestration:
 
-Greenfield, the most natural term is `account`.
+- import has to know how to create accounts
+- naming and uniqueness rules leak into ingestion
+- the system cannot represent "this account exists but has not been synced yet"
+- the hidden default-user model remains baked into command entry points
 
-Users already say:
+The correct split is:
 
-- `my Kraken account`
-- `my Coinbase account`
-- `my Bitcoin wallet account`
+1. declare a profile-scoped account
+2. sync that account
 
-That is the right top-level noun unless the data model forces us away from it. Right now it does not.
+That means the CLI composes two operations, while the domain keeps them separate.
 
 ## Decision
 
 Adopt these product concepts:
 
-- `profile`: the local dataset owner and active working context
-- `account`: the named top-level thing a user adds, views, and refreshes
+- `profile`: the local dataset owner and working scope
+- `account`: the named top-level thing a user adds, views, renames, removes, and refreshes
 - `account kind`: `wallet` or `exchange`
 - `platform`: the chain or exchange family, such as `bitcoin`, `ethereum`, `kraken`, `coinbase`
 - `provider`: the technical upstream used to fetch data from a platform, such as `alchemy`, `blockchair`, or `mempool`
@@ -75,7 +78,7 @@ A profile is the local working context for the CLI.
 Properties:
 
 - owns accounts
-- is selected explicitly or through a stored active-profile setting
+- is selected explicitly or through stored active-profile state
 - is not an authentication boundary
 - can be overridden per command with `--profile`
 
@@ -116,8 +119,6 @@ Each top-level account is one of:
 - `wallet`
 - `exchange`
 
-These are the right user-facing labels in creation flows and detail views.
-
 Examples:
 
 - `btc-cold` is a wallet account
@@ -132,7 +133,7 @@ Examples:
 - blockchains: `bitcoin`, `ethereum`, `solana`
 - exchanges: `kraken`, `coinbase`, `kucoin`
 
-This is the concept the current code often calls `sourceName`.
+This is the concept the current code calls `sourceName` and this plan renames to `platformKey`.
 
 ### Provider
 
@@ -174,7 +175,41 @@ Rules:
 - xpub imports create one top-level parent account plus many child accounts
 - child accounts are not listed as separate user-created accounts
 
-That means one user-facing account can map to multiple stored rows, while still using a single `accounts` table.
+That means one user-facing account can map to multiple stored rows while still using a single `accounts` table.
+
+## Ownership Boundary
+
+Profiles and accounts belong to one capability.
+
+That capability owns:
+
+- profile CRUD
+- active profile resolution inputs
+- account lifecycle
+- account name resolution within a profile
+- validation of naming, uniqueness, and lifecycle rules
+
+Ingestion is a separate capability.
+
+That capability owns:
+
+- sync execution
+- importer selection
+- import sessions
+- cursor persistence
+- raw transaction persistence
+- xpub child derivation and child account materialization
+
+The key boundary rule is:
+
+- ingestion never creates top-level accounts
+
+The intended flow is:
+
+1. `accounts.add(profile, draft)` returns a top-level account id
+2. `ingestion.sync(accountId)` refreshes that account
+
+The app layer composes those two steps. The domain does not expose a top-level `findOrCreate` import path.
 
 ## One-Table Model
 
@@ -194,9 +229,15 @@ Recommended shape:
 - top-level accounts have a non-null human `name`
 - child accounts have `name = NULL`
 - top-level accounts carry the user-facing metadata
-- child accounts carry the runtime identity needed for import and processing
+- child accounts carry the runtime identity needed for sync and processing
 
 This is simpler than introducing a separate top-level table before we need it.
+
+Important nuance:
+
+- removing top-level `findOrCreate` does not mean ingestion can never insert an account row
+- ingestion may still create internal child rows for xpub-derived addresses inside the one-table model
+- if that ever feels architecturally wrong, that is the signal for a second table, not for restoring top-level `findOrCreate`
 
 ## Example Model
 
@@ -221,7 +262,7 @@ This is simpler than introducing a separate top-level table before we need it.
 - provider: not a primary UX concept
 - mode: `exchange-api`
 - stored rows:
-  - one top-level exchange account row today
+  - one top-level exchange account row
 
 ### Example 3: Exchange CSV
 
@@ -232,7 +273,7 @@ This is simpler than introducing a separate top-level table before we need it.
 - provider: not applicable
 - mode: `exchange-csv`
 - stored rows:
-  - one top-level exchange CSV account row today
+  - one top-level exchange CSV account row
 
 ## UX Copy Rules
 
@@ -300,8 +341,8 @@ Add a first-class `accounts` lifecycle command group around the named top-level 
 Proposed surface:
 
 ```bash
-exitbook accounts add --exchange kraken
-exitbook accounts add --blockchain bitcoin --address xpub...
+exitbook accounts add kraken-main --exchange kraken --api-key ... --api-secret ...
+exitbook accounts add btc-cold --blockchain bitcoin --address xpub...
 exitbook accounts list
 exitbook accounts view kraken-main
 exitbook accounts rename kraken-main kraken-tax
@@ -313,11 +354,11 @@ Creation flows should use kind-specific copy:
 - `Add wallet account`
 - `Add exchange account`
 
-The CLI does not need separate `wallets` and `exchanges` command groups in the first slice. Those can be added later as convenience aliases if they add real value.
+The CLI does not need separate `wallets` and `exchanges` command groups in the first slice.
 
 ### Import
 
-Make account-based import the primary refresh path.
+Make account-based import the only top-level refresh path.
 
 Proposed surface:
 
@@ -327,19 +368,16 @@ exitbook import --all
 exitbook import --profile son --all
 ```
 
-Bootstrap paths remain valid:
+Rules:
 
-```bash
-exitbook import --exchange kraken --api-key ... --api-secret ...
-exitbook import --blockchain bitcoin --address bc1...
-```
+- `import --account` resolves a saved top-level account within the active or overridden profile
+- `import --all` refreshes all saved top-level accounts within the active or overridden profile
+- raw parameter import is removed as a top-level command path
+- users create accounts explicitly before import
 
-Bootstrap behavior:
+This is intentional.
 
-- raw-parameter imports still work
-- the CLI resolves the active profile first
-- if a matching saved account already exists for that profile, reuse it
-- otherwise create a saved top-level account automatically using a prompted or generated name
+The system should not preserve convenience paths that reintroduce lifecycle creation into import.
 
 ## `import --all` Semantics
 
@@ -357,11 +395,12 @@ For xpub accounts:
 
 ## Data Model Direction
 
-This plan assumes one `accounts` table, not a new top-level table.
+This plan assumes one `profiles` table and one `accounts` table, not a new top-level table.
 
 Practical direction:
 
-- add profile identity and active-profile state
+- rename `users` to `profiles`
+- rename `user_id` to `profile_id`
 - keep one `accounts` table
 - add explicit top-level account metadata to that table
 - continue using `parent_account_id` for child account hierarchy
@@ -396,20 +435,29 @@ This preserves the current FK shape and avoids a new abstraction layer.
 
 ## Naming Direction For Existing Fields
 
-The current internal `sourceName` concept is really the platform key.
+This plan makes these internal renames explicit:
 
-Direction:
+- `User` -> `Profile`
+- `users` -> `profiles`
+- `userId` -> `profileId`
+- `sourceName` -> `platformKey`
+- `source_name` -> `platform_key`
+
+Meaning rules:
 
 - user-facing umbrella object: `account`
 - user-facing kind labels: `wallet`, `exchange`
 - user-facing platform label: `platform`
 - user-facing technical upstream label: `provider`
-- internal current `sourceName`: eventually rename to `platformKey` or `platformName`
+- internal `platformKey` stores the normalized platform identity
 
-Until the internal rename happens:
+Do not rename unrelated concepts just because they contain `user` or `source`.
 
-- do not expose internal `sourceName` directly as the account name
-- do not reclaim `provider` for `kraken` or `bitcoin`
+Examples:
+
+- remove hidden default-user APIs instead of renaming them
+- keep transaction provenance fields like `source_address` as they are
+- avoid broad package and folder renames that do not improve the domain model
 
 ## Query And Filter Migration
 
@@ -428,20 +476,20 @@ Transitional rule:
 
 ## Safe Rollout Constraints
 
-This feature should be rolled out in a way that avoids mixed tenancy and mixed terminology.
+This feature should be rolled out in a way that avoids mixed terminology and hidden behavioral changes.
 
 Rules:
 
 - do not ship `profiles switch` until command entry points resolve profile scope consistently
 - do not ship `import --all` across profile boundaries
-- do not rename internal `sourceName` and add profiles in the same first slice
-- do not reinterpret the current `source_name` field as the user-facing account name
-- keep raw parameter imports working during the transition
+- do not keep hidden default-profile creation semantics inside import
+- do not reinterpret the current identity fields as the user-facing account name
 - keep account IDs available for diagnostics and advanced workflows
+- treat mass renames as a controlled terminology migration, not a blind search-replace
 
 ## Migration Direction
 
-Existing installs should migrate without breaking the fast path.
+Existing installs should migrate without keeping the old hidden-default model alive.
 
 Initial migration rules:
 
@@ -449,7 +497,7 @@ Initial migration rules:
 - existing top-level account rows receive generated user-facing names such as `kraken-1` or `bitcoin-1`
 - xpub parent rows become named top-level accounts
 - child rows remain unnamed and internal
-- existing raw imports continue to work after migration
+- existing imports remain attached to the same account rows after schema renames
 
 ## Edge Cases To Resolve During Implementation
 
@@ -461,30 +509,52 @@ Initial migration rules:
 - how `import --all` reports partial failure when one account fails and others succeed
 - how provider preference is stored for wallet accounts versus exchange accounts
 - how filters like transactions, prices, and clear should distinguish `account` from `platform`
+- where active-profile state is persisted in CLI/runtime terms
 
 ## Recommended Implementation Order
 
-### 1. Add profile identity
+### 1. Rename The Domain Language
+
+- rename `user` to `profile`
+- rename `sourceName` to `platformKey`
+- update schema names, core types, repository APIs, ports, and docs
+- remove hidden default-user naming instead of translating it directly
+
+### 2. Add Explicit Profile Resolution
 
 - add visible profile names
 - add active-profile resolution in the CLI runtime
-- replace hidden default-user assumptions in command entry points
+- replace hidden default-profile assumptions in command entry points
 
-### 2. Make top-level accounts explicit
+### 3. Make Top-Level Accounts Explicit
 
 - add top-level account fields to `accounts`
 - define root versus child account rules
 - ensure top-level names are unique per profile
 
-### 3. Scope command reads consistently
+### 4. Add Account Lifecycle Commands
 
-Update the commands that already assume user scoping first:
+- `accounts add/list/view/rename/remove`
+- kind-specific creation copy for wallets and exchanges
+- explicit account creation before sync
+
+### 5. Refactor Import To Sync Existing Accounts
+
+- `import --account <name>`
+- `import --all`
+- `--profile <name>` override
+- remove top-level raw-parameter import paths
+- remove top-level `findOrCreate` orchestration from ingestion
+
+### 6. Scope Command Reads Consistently
+
+Update the commands that already assume account ownership first:
 
 - import
 - accounts
 - clear
 
-Then update the commands that currently read globally:
+Then update the commands that currently read more broadly:
 
 - balance
 - portfolio
@@ -493,22 +563,11 @@ Then update the commands that currently read globally:
 - prices
 - links
 
-### 4. Add account lifecycle commands
-
-- `accounts add/list/view/rename/remove`
-- kind-specific creation copy for wallets and exchanges
-
-### 5. Add account-based import
-
-- `import --account <name>`
-- `import --all`
-- `--profile <name>` override
-
-### 6. Clean up terminology
+### 7. Clean Up Remaining Terminology
 
 - move `--source` filters toward `--platform`
 - phase out `source` from primary UX copy
-- rename internal `sourceName` to `platformKey` when practical
+- align logs, errors, and TUI copy with `profile`, `account`, and `platform`
 
 ## Non-Goals
 

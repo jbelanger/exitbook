@@ -26,7 +26,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 1,
         transactionId: 100,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         assetId: 'exchange:kraken:btc',
         assetSymbol: 'BTC' as Currency,
@@ -40,7 +40,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 2,
         transactionId: 200,
-        sourceName: 'coinbase',
+        platformKey: 'coinbase',
         sourceType: 'exchange',
         assetId: 'exchange:coinbase:eth',
         assetSymbol: 'ETH' as Currency,
@@ -63,7 +63,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 1,
         transactionId: 100,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -78,7 +78,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 2,
         transactionId: 200,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -109,7 +109,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 1,
         transactionId: 100,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -123,7 +123,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 2,
         transactionId: 200,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -145,7 +145,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 1,
         transactionId: 100,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
@@ -159,7 +159,7 @@ describe('AmountTimingStrategy', () => {
       createLinkableMovement({
         id: 2,
         transactionId: 200,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,

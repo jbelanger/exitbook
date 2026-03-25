@@ -115,7 +115,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        sourceName: params.source,
+        platformKey: params.source,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -150,7 +150,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
           const outputPath = generateDefaultPath(viewFilters, format);
 
           const result = await exportHandler.execute({
-            sourceName: params.source,
+            platformKey: params.source,
             format,
             csvFormat,
             outputPath,
@@ -213,7 +213,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        sourceName: params.source,
+        platformKey: params.source,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,

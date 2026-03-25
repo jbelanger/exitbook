@@ -13,7 +13,7 @@ describe('ExactHashStrategy', () => {
       createLinkableMovement({
         id: 1,
         transactionId: 9005,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         assetId: 'exchange:kucoin:rndr',
         assetSymbol: 'RNDR' as Currency,
@@ -28,7 +28,7 @@ describe('ExactHashStrategy', () => {
       createLinkableMovement({
         id: 2,
         transactionId: 8813,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
         assetSymbol: 'RENDER' as Currency,

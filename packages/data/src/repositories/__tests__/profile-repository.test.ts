@@ -3,15 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
-import { UserRepository } from '../user-repository.js';
+import { ProfileRepository } from '../profile-repository.js';
 
-describe('UserRepository', () => {
+describe('ProfileRepository', () => {
   let db: KyselyDB;
-  let repo: UserRepository;
+  let repo: ProfileRepository;
 
   beforeEach(async () => {
     db = await createTestDatabase();
-    repo = new UserRepository(db);
+    repo = new ProfileRepository(db);
   });
 
   afterEach(async () => {
@@ -24,13 +24,13 @@ describe('UserRepository', () => {
 
       expect(id).toBeGreaterThan(0);
 
-      const user = await db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst();
+      const user = await db.selectFrom('profiles').selectAll().where('id', '=', id).executeTakeFirst();
       expect(user).toBeDefined();
       expect(user?.id).toBe(id);
       expect(user?.created_at).toBeDefined();
     });
 
-    it('creates multiple users with distinct IDs', async () => {
+    it('creates multiple profiles with distinct IDs', async () => {
       const id1 = assertOk(await repo.create());
       const id2 = assertOk(await repo.create());
 
@@ -83,7 +83,7 @@ describe('UserRepository', () => {
       expect(user.id).toBe(1);
       expect(user.createdAt).toBeInstanceOf(Date);
 
-      const row = await db.selectFrom('users').selectAll().where('id', '=', 1).executeTakeFirst();
+      const row = await db.selectFrom('profiles').selectAll().where('id', '=', 1).executeTakeFirst();
       expect(row?.id).toBe(1);
     });
 
@@ -94,8 +94,8 @@ describe('UserRepository', () => {
       expect(second.id).toBe(1);
       expect(second.createdAt).toEqual(first.createdAt);
 
-      const users = await db.selectFrom('users').selectAll().execute();
-      expect(users).toHaveLength(1);
+      const profiles = await db.selectFrom('profiles').selectAll().execute();
+      expect(profiles).toHaveLength(1);
     });
 
     it('is idempotent across multiple sequential calls', async () => {
@@ -108,9 +108,9 @@ describe('UserRepository', () => {
       expect(result2.id).toBe(1);
       expect(result3.id).toBe(1);
 
-      const users = await db.selectFrom('users').selectAll().execute();
-      expect(users).toHaveLength(1);
-      expect(users[0]?.id).toBe(1);
+      const profiles = await db.selectFrom('profiles').selectAll().execute();
+      expect(profiles).toHaveLength(1);
+      expect(profiles[0]?.id).toBe(1);
     });
 
     it('returns an error when the database is closed', async () => {

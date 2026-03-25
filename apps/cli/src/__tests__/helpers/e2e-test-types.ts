@@ -68,8 +68,8 @@ export interface BalanceCommandResult {
   account: {
     id: number;
     identifier: string | null;
+    platformKey: string;
     providerName: string | null;
-    sourceName: string;
     type: string;
   };
   meta: {

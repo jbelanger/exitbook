@@ -51,21 +51,21 @@ function createAccount(overrides: {
   accountType?: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier?: string;
+  platformKey?: string;
   providerName?: string | undefined;
-  sourceName?: string;
 }): {
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier: string;
+  platformKey: string;
   providerName?: string | undefined;
-  sourceName: string;
 } {
   return {
     accountType: overrides.accountType ?? 'blockchain',
     id: overrides.id,
     identifier: overrides.identifier ?? `identifier-${overrides.id}`,
     providerName: overrides.providerName,
-    sourceName: overrides.sourceName ?? 'bitcoin',
+    platformKey: overrides.platformKey ?? 'bitcoin',
   };
 }
 
@@ -129,11 +129,11 @@ describe('balance command JSON mode', () => {
         accounts: [
           {
             accountId: 1,
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             accountType: 'blockchain',
             requestedAccount: {
               id: 2,
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               accountType: 'blockchain',
             },
             snapshot: {
@@ -255,14 +255,14 @@ describe('balance command JSON mode', () => {
         account: {
           id: 1,
           type: 'blockchain',
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           identifier: 'xpub-root',
           providerName: 'mempool',
         },
         requestedAccount: {
           id: 2,
           type: 'blockchain',
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           identifier: 'bc1-child',
           providerName: undefined,
         },
@@ -289,7 +289,7 @@ describe('balance command JSON mode', () => {
     const scopeAccount = createAccount({
       id: 74,
       identifier: 'lukso-address',
-      sourceName: 'lukso',
+      platformKey: 'lukso',
     });
 
     mockCreateBalanceHandler.mockResolvedValue(

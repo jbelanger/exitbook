@@ -640,14 +640,14 @@ const TransactionLine: FC<{
   transaction: { datetime: string; source: string } | undefined;
   txId: number;
 }> = ({ label, txId, transaction, direction, amount, asset }) => {
-  const sourceName = transaction?.source || 'unknown';
+  const platformKey = transaction?.source || 'unknown';
   const timestamp = transaction?.datetime || '?';
   const directionColor = direction === 'IN' ? 'green' : 'yellow';
 
   return (
     <Text>
       {'  '}
-      <Text dimColor>{label}: </Text>#{txId} <Text color="cyan">{sourceName}</Text> <Text dimColor>{timestamp}</Text>{' '}
+      <Text dimColor>{label}: </Text>#{txId} <Text color="cyan">{platformKey}</Text> <Text dimColor>{timestamp}</Text>{' '}
       <Text color={directionColor}>{direction}</Text> <Text color="green">{amount}</Text> {asset}
     </Text>
   );

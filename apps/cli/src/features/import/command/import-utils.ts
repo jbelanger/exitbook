@@ -26,14 +26,14 @@ export function buildImportParams(
   const isBlockchain = !!options.blockchain;
 
   if (isBlockchain) {
-    const sourceName = options.blockchain!;
+    const platformKey = options.blockchain!;
 
     if (!options.address) {
       return err(new Error('Address is required for blockchain imports'));
     }
 
     return ok({
-      blockchain: sourceName,
+      blockchain: platformKey,
       address: options.address,
       providerName: options.provider,
       xpubGap: options.xpubGap,
@@ -41,8 +41,8 @@ export function buildImportParams(
   }
 
   // Exchange import
-  const sourceName = options.exchange!;
-  const normalizedSourceName = sourceName.toLowerCase();
+  const platformKey = options.exchange!;
+  const normalizedSourceName = platformKey.toLowerCase();
 
   const exchangeAdapterResult = registry.getExchange(normalizedSourceName);
   if (exchangeAdapterResult.isErr()) return err(exchangeAdapterResult.error);
@@ -51,19 +51,19 @@ export function buildImportParams(
   if (options.csvDir) {
     if (!exchangeAdapter.capabilities.supportsCsv) {
       return err(
-        new Error(`Exchange "${sourceName}" does not support CSV import. Use API credentials for this exchange.`)
+        new Error(`Exchange "${platformKey}" does not support CSV import. Use API credentials for this exchange.`)
       );
     }
 
     return ok({
-      exchange: sourceName,
+      exchange: platformKey,
       csvDir: options.csvDir,
     });
   }
 
   // API import
   if (!exchangeAdapter.capabilities.supportsApi) {
-    return err(new Error(`Exchange "${sourceName}" does not support API import. Use --csv-dir for this exchange.`));
+    return err(new Error(`Exchange "${platformKey}" does not support API import. Use --csv-dir for this exchange.`));
   }
 
   if (!options.apiKey || !options.apiSecret) {
@@ -79,7 +79,7 @@ export function buildImportParams(
   }
 
   return ok({
-    exchange: sourceName,
+    exchange: platformKey,
     credentials,
   });
 }

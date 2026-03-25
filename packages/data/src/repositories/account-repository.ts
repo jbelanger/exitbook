@@ -15,16 +15,16 @@ import { BaseRepository } from './base-repository.js';
 
 interface AccountKeyParams {
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
-  userId: number | undefined;
+  profileId: number | undefined;
 }
 
 interface FindOrCreateAccountParams {
-  userId: number | undefined;
+  profileId: number | undefined;
   parentAccountId?: number | undefined;
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
@@ -51,11 +51,11 @@ const accountMetadataSchema = z
   .optional();
 
 /**
- * Matches the DB unique index: COALESCE(user_id, 0).
+ * Matches the DB unique index: COALESCE(profile_id, 0).
  * NULL and 0 are equivalent at the schema level — undefined in the domain maps to both.
  */
-function isUnsetUserId(userId: number | null | undefined): boolean {
-  return userId === null || userId === undefined || userId === 0;
+function isUnsetProfileId(profileId: number | null | undefined): boolean {
+  return profileId === null || profileId === undefined || profileId === 0;
 }
 
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
@@ -66,10 +66,10 @@ function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
 
     const parseResult = AccountSchema.safeParse({
       id: row.id,
-      userId: row.user_id ?? undefined,
+      profileId: row.profile_id ?? undefined,
       parentAccountId: row.parent_account_id ?? undefined,
       accountType: row.account_type,
-      sourceName: row.source_name,
+      platformKey: row.platform_key,
       identifier: row.identifier,
       providerName: row.provider_name ?? undefined,
       credentials: credentials ?? undefined,
@@ -113,13 +113,13 @@ export class AccountRepository extends BaseRepository {
           .selectFrom('accounts')
           .selectAll()
           .where('account_type', '=', params.accountType)
-          .where('source_name', '=', params.sourceName)
+          .where('platform_key', '=', params.platformKey)
           .where('identifier', '=', params.identifier);
 
-        if (isUnsetUserId(params.userId)) {
-          query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
+        if (isUnsetProfileId(params.profileId)) {
+          query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
         } else {
-          query = query.where('user_id', '=', params.userId!);
+          query = query.where('profile_id', '=', params.profileId!);
         }
 
         const row = await query.executeTakeFirst();
@@ -150,8 +150,8 @@ export class AccountRepository extends BaseRepository {
   async findAll(filters?: {
     accountType?: AccountType | undefined;
     parentAccountId?: number | undefined;
-    sourceName?: string | undefined;
-    userId?: number | undefined;
+    platformKey?: string | undefined;
+    profileId?: number | undefined;
   }): Promise<Result<Account[], Error>> {
     return resultTryAsync(
       async function* (self) {
@@ -160,14 +160,14 @@ export class AccountRepository extends BaseRepository {
         if (filters?.accountType) {
           query = query.where('account_type', '=', filters.accountType);
         }
-        if (filters?.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters?.platformKey) {
+          query = query.where('platform_key', '=', filters.platformKey);
         }
-        if (filters?.userId !== undefined) {
-          if (isUnsetUserId(filters.userId)) {
-            query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
+        if (filters?.profileId !== undefined) {
+          if (isUnsetProfileId(filters.profileId)) {
+            query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
           } else {
-            query = query.where('user_id', '=', filters.userId);
+            query = query.where('profile_id', '=', filters.profileId);
           }
         }
         if (filters?.parentAccountId !== undefined) {
@@ -192,15 +192,15 @@ export class AccountRepository extends BaseRepository {
         if (!params.identifier || params.identifier.trim() === '') {
           yield* err('Account identifier must not be empty');
         }
-        if (!params.sourceName || params.sourceName.trim() === '') {
-          yield* err('Account source name must not be empty');
+        if (!params.platformKey || params.platformKey.trim() === '') {
+          yield* err('Account platform key must not be empty');
         }
 
         const existing = yield* await self.findBy({
           accountType: params.accountType,
-          sourceName: params.sourceName,
+          platformKey: params.platformKey,
           identifier: params.identifier,
-          userId: params.userId,
+          profileId: params.profileId,
         });
 
         if (existing) {
@@ -231,10 +231,10 @@ export class AccountRepository extends BaseRepository {
         const result = await self.db
           .insertInto('accounts')
           .values({
-            user_id: params.userId,
+            profile_id: params.profileId,
             parent_account_id: params.parentAccountId ?? null,
             account_type: params.accountType,
-            source_name: params.sourceName,
+            platform_key: params.platformKey,
             identifier: params.identifier,
             provider_name: params.providerName ?? null,
             credentials: credentialsJson,
@@ -242,11 +242,11 @@ export class AccountRepository extends BaseRepository {
             created_at: new Date().toISOString(),
             updated_at: null,
           })
-          .returning(['id', 'user_id', 'account_type', 'source_name', 'identifier', 'provider_name', 'created_at'])
+          .returning(['id', 'profile_id', 'account_type', 'platform_key', 'identifier', 'provider_name', 'created_at'])
           .executeTakeFirstOrThrow();
 
         self.logger.info(
-          { accountId: result.id, accountType: params.accountType, sourceName: params.sourceName },
+          { accountId: result.id, accountType: params.accountType, platformKey: params.platformKey },
           'Created new account'
         );
 

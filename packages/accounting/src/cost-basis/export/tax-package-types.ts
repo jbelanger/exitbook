@@ -53,7 +53,7 @@ interface TaxPackageTransactionIssueDetailBase {
   operationCategory?: string | undefined;
   operationType?: string | undefined;
   reference: string;
-  sourceName: string;
+  platformKey: string;
   transactionDatetime: string;
   transactionId: number;
 }

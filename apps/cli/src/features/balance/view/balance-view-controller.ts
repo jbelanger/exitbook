@@ -179,7 +179,7 @@ function handleDrillDown(state: BalanceState): BalanceState {
     return createBalanceStoredSnapshotAssetState(
       {
         accountId: selected.accountId,
-        sourceName: selected.sourceName,
+        platformKey: selected.platformKey,
         accountType: selected.accountType,
         verificationStatus: selected.verificationStatus,
         statusReason: selected.statusReason,
@@ -205,7 +205,7 @@ function handleDrillDown(state: BalanceState): BalanceState {
     const sortedAssets = sortAssetsByStatus(selected.comparisons);
 
     return createBalanceVerificationAssetState(
-      { accountId: selected.accountId, sourceName: selected.sourceName, accountType: selected.accountType },
+      { accountId: selected.accountId, platformKey: selected.platformKey, accountType: selected.accountType },
       sortedAssets,
       { parentState: state }
     );

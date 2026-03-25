@@ -32,7 +32,7 @@ function createAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: 1,
     accountType: 'blockchain',
-    sourceName: 'bitcoin',
+    platformKey: 'bitcoin',
     identifier: 'bc1-parent',
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -412,7 +412,7 @@ describe('BalanceWorkflow', () => {
   });
 
   it('falls back to a calculated-only unavailable snapshot when no provider supports live balances', async () => {
-    const account = createAccount({ sourceName: 'lukso', identifier: '0xlukso' });
+    const account = createAccount({ platformKey: 'lukso', identifier: '0xlukso' });
     const normalTransactions = [
       createTransaction({
         movements: {
@@ -485,7 +485,7 @@ describe('BalanceWorkflow', () => {
   });
 
   it('fails when a registered balance provider cannot be initialized', async () => {
-    const account = createAccount({ sourceName: 'lukso', identifier: '0xlukso' });
+    const account = createAccount({ platformKey: 'lukso', identifier: '0xlukso' });
     const normalTransactions = [
       createTransaction({
         movements: {

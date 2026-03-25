@@ -39,7 +39,7 @@ export class ExactHashStrategy implements ILinkingStrategy {
         if (!areLinkingAssetsEquivalent(source, target)) continue;
 
         // Same-source guard
-        if (source.sourceName === target.sourceName) continue;
+        if (source.platformKey === target.platformKey) continue;
 
         // Skip both-blockchain pairs (handled by pre-linking internal detection)
         if (source.sourceType === 'blockchain' && target.sourceType === 'blockchain') continue;

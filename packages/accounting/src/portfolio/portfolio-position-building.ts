@@ -27,7 +27,7 @@ const USD_CURRENCY = 'USD' as Currency;
 
 interface AccountMetadata {
   accountType: AccountBreakdownItem['accountType'];
-  sourceName: string;
+  platformKey: string;
 }
 
 /**
@@ -219,7 +219,7 @@ function mergeAccountBreakdownItems(items: AccountBreakdownItem[]): AccountBreak
   const merged = new Map<string, AccountBreakdownItem>();
 
   for (const item of items) {
-    const key = `${item.accountId}:${item.sourceName}:${item.accountType}`;
+    const key = `${item.accountId}:${item.platformKey}:${item.accountType}`;
     const existing = merged.get(key);
     if (existing) {
       existing.quantity = new Decimal(existing.quantity).plus(item.quantity).toFixed(8);
@@ -652,7 +652,7 @@ export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem
     const accountMap = new Map<string, AccountBreakdownItem>();
     for (const position of group) {
       for (const account of position.accountBreakdown) {
-        const key = `${account.accountId}:${account.sourceName}:${account.accountType}`;
+        const key = `${account.accountId}:${account.platformKey}:${account.accountType}`;
         const existing = accountMap.get(key);
         if (existing) {
           const mergedQty = new Decimal(existing.quantity).plus(account.quantity);
@@ -823,13 +823,13 @@ export function buildAccountAssetBalances(
   for (const [accountId, balances] of accountBalances.entries()) {
     const fallbackTx = accountTransactions.get(accountId)?.[0];
     const metadata = accountMetadataById.get(accountId) ?? {
-      sourceName: fallbackTx?.source ?? `account-${accountId}`,
+      platformKey: fallbackTx?.source ?? `account-${accountId}`,
       accountType: deriveAccountTypeFromSourceType(fallbackTx?.sourceType),
     };
 
     if (!accountMetadataById.has(accountId)) {
       logger.warn(
-        { accountId, sourceName: metadata.sourceName },
+        { accountId, platformKey: metadata.platformKey },
         'Account metadata missing for account breakdown; using transaction fallback'
       );
     }
@@ -842,7 +842,7 @@ export function buildAccountAssetBalances(
       const existing = breakdown.get(assetId);
       const item: AccountBreakdownItem = {
         accountId,
-        sourceName: metadata.sourceName,
+        platformKey: metadata.platformKey,
         accountType: metadata.accountType,
         quantity: balance.toFixed(8),
       };

@@ -21,7 +21,7 @@ export interface LinksReviewResult {
   asset?: string | undefined;
   sourceAmount?: string | undefined;
   targetAmount?: string | undefined;
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
   targetName?: string | undefined;
   confidence?: string | undefined;
   transferProposalKey?: string | undefined;

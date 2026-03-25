@@ -34,7 +34,7 @@ export class PricesViewHandler {
    * Execute the view prices command (coverage mode).
    */
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
-    const txResult = await this.db.transactions.findAll(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.findAll(params.source ? { platformKey: params.source } : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');
@@ -70,7 +70,7 @@ export class PricesViewHandler {
    * Execute coverage with enhanced detail (source breakdown + date range).
    */
   async executeCoverageDetail(params: ViewPricesParams): Promise<Result<PriceCoverageDetail[], Error>> {
-    const txResult = await this.db.transactions.findAll(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.findAll(params.source ? { platformKey: params.source } : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');
@@ -156,7 +156,7 @@ export class PricesViewHandler {
    * Execute missing mode — returns flat movement rows + asset breakdown.
    */
   async executeMissing(params: ViewPricesParams): Promise<Result<MissingPricesResult, Error>> {
-    const txResult = await this.db.transactions.findAll(params.source ? { sourceName: params.source } : undefined);
+    const txResult = await this.db.transactions.findAll(params.source ? { platformKey: params.source } : undefined);
 
     if (txResult.isErr()) {
       return wrapError(txResult.error, 'Failed to fetch transactions');

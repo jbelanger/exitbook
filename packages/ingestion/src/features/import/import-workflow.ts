@@ -58,7 +58,7 @@ const logger = getLogger('ImportWorkflow');
 
 /**
  * Owns the full import lifecycle:
- * ensure user -> resolve account -> create/resume session ->
+ * ensure profile -> resolve account -> create/resume session ->
  * drive IImporter.importStreaming() -> persist batches -> finalize session.
  *
  * Persistence accessed through ImportPorts — capability-owned contracts.
@@ -94,9 +94,9 @@ export class ImportWorkflow {
   private async executeBlockchain(params: ImportBlockchainParams): Promise<Result<ImportResult, Error>> {
     logger.debug(`Starting blockchain import for ${params.blockchain} (${params.address.substring(0, 20)}...)`);
 
-    const userResult = await this.ports.users.findOrCreateDefault();
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
+    const profileResult = await this.ports.profiles.findOrCreateDefault();
+    if (profileResult.isErr()) return err(profileResult.error);
+    const profile = profileResult.value;
 
     const normalizedBlockchain = params.blockchain.toLowerCase();
     const adapterResult = this.registry.getBlockchain(normalizedBlockchain);
@@ -110,7 +110,7 @@ export class ImportWorkflow {
     // xpub branch
     if (isUtxoAdapter(blockchainAdapter) && blockchainAdapter.isExtendedPublicKey(normalizedAddress)) {
       return this.importFromXpub(
-        user.id,
+        profile.id,
         params.blockchain,
         normalizedAddress,
         blockchainAdapter,
@@ -126,9 +126,9 @@ export class ImportWorkflow {
     }
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      userId: user.id,
+      profileId: profile.id,
       accountType: 'blockchain',
-      sourceName: params.blockchain,
+      platformKey: params.blockchain,
       identifier: normalizedAddress,
       providerName: params.providerName,
       credentials: undefined,
@@ -150,14 +150,14 @@ export class ImportWorkflow {
       return err(new Error('API key is required for exchange API imports'));
     }
 
-    const userResult = await this.ports.users.findOrCreateDefault();
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
+    const profileResult = await this.ports.profiles.findOrCreateDefault();
+    if (profileResult.isErr()) return err(profileResult.error);
+    const profile = profileResult.value;
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      userId: user.id,
+      profileId: profile.id,
       accountType: 'exchange-api',
-      sourceName: params.exchange,
+      platformKey: params.exchange,
       identifier: params.credentials.apiKey,
       providerName: undefined,
       credentials: params.credentials,
@@ -181,15 +181,15 @@ export class ImportWorkflow {
 
     const normalizedPath = path.normalize(params.csvDir).replace(/[/\\]$/, '');
 
-    const userResult = await this.ports.users.findOrCreateDefault();
-    if (userResult.isErr()) return err(userResult.error);
-    const user = userResult.value;
+    const profileResult = await this.ports.profiles.findOrCreateDefault();
+    if (profileResult.isErr()) return err(profileResult.error);
+    const profile = profileResult.value;
 
     // Check for existing account with a different directory
     const existingAccountsResult = await this.ports.accounts.findAll({
       accountType: 'exchange-csv',
-      sourceName: params.exchange,
-      userId: user.id,
+      platformKey: params.exchange,
+      profileId: profile.id,
     });
     if (existingAccountsResult.isErr()) return err(existingAccountsResult.error);
 
@@ -214,9 +214,9 @@ export class ImportWorkflow {
     }
 
     const accountResult = await this.ports.accounts.findOrCreate({
-      userId: user.id,
+      profileId: profile.id,
       accountType: 'exchange-csv',
-      sourceName: params.exchange,
+      platformKey: params.exchange,
       identifier: normalizedPath,
       providerName: undefined,
       credentials: undefined,
@@ -236,7 +236,7 @@ export class ImportWorkflow {
   // ---------------------------------------------------------------------------
 
   private async importFromXpub(
-    userId: number,
+    profileId: number,
     blockchain: string,
     xpub: string,
     blockchainAdapter: UtxoBlockchainAdapter,
@@ -250,9 +250,9 @@ export class ImportWorkflow {
 
     // 1. Create parent account
     const parentAccountResult = await this.ports.accounts.findOrCreate({
-      userId,
+      profileId,
       accountType: 'blockchain',
-      sourceName: blockchain,
+      platformKey: blockchain,
       identifier: xpub,
       providerName,
       credentials: undefined,
@@ -327,10 +327,10 @@ export class ImportWorkflow {
         }
 
         const childResult = await this.ports.accounts.findOrCreate({
-          userId,
+          profileId,
           parentAccountId: parentAccount.id,
           accountType: 'blockchain',
-          sourceName: blockchain,
+          platformKey: blockchain,
           identifier: normalizedResult.value,
           providerName,
           credentials: undefined,
@@ -437,13 +437,13 @@ export class ImportWorkflow {
   }
 
   private buildImporter(account: Account): Result<{ importer: IImporter; params: StreamingImportParams }, Error> {
-    const sourceName = account.sourceName;
+    const platformKey = account.platformKey;
     const sourceType = account.accountType;
 
-    logger.debug(`Setting up ${sourceType} import for ${sourceName}`);
+    logger.debug(`Setting up ${sourceType} import for ${platformKey}`);
 
     const params: StreamingImportParams = {
-      sourceName,
+      platformKey,
       sourceType,
       cursor: account.lastCursor,
     };
@@ -452,7 +452,7 @@ export class ImportWorkflow {
       params.address = account.identifier;
       params.providerName = account.providerName ?? undefined;
       if (!params.address) {
-        return err(new Error(`Address required for ${sourceName} import`));
+        return err(new Error(`Address required for ${platformKey} import`));
       }
     } else if (sourceType === 'exchange-api') {
       params.credentials = account.credentials ?? undefined;
@@ -460,7 +460,7 @@ export class ImportWorkflow {
       params.csvDirectory = account.identifier;
     }
 
-    const normalizedSourceName = sourceName.toLowerCase();
+    const normalizedSourceName = platformKey.toLowerCase();
 
     if (sourceType === 'blockchain') {
       const adapterResult = this.registry.getBlockchain(normalizedSourceName);
@@ -480,7 +480,7 @@ export class ImportWorkflow {
     importer: IImporter,
     params: StreamingImportParams
   ): Promise<Result<ImportSession, Error>> {
-    const sourceName = account.sourceName;
+    const platformKey = account.platformKey;
 
     // Session create/resume (crash recovery)
     const incompleteResult = await this.ports.importSessions.findLatestIncomplete(account.id);
@@ -530,7 +530,7 @@ export class ImportWorkflow {
 
     this.emit({
       type: 'import.started',
-      sourceName,
+      platformKey,
       sourceType: account.accountType,
       accountId: account.id,
       parentAccountId: account.parentAccountId,
@@ -542,7 +542,7 @@ export class ImportWorkflow {
     if (transactionCountWarning) {
       this.emit({
         type: 'import.warning',
-        sourceName,
+        platformKey,
         accountId: account.id,
         warning: transactionCountWarning,
       });
@@ -585,7 +585,7 @@ export class ImportWorkflow {
             logger.warn(`Import warning: ${warning}`);
             this.emit({
               type: 'import.warning',
-              sourceName,
+              platformKey,
               accountId: account.id,
               streamType: batch.streamType,
               warning,
@@ -641,7 +641,7 @@ export class ImportWorkflow {
 
         this.emit({
           type: 'import.batch',
-          sourceName,
+          platformKey,
           accountId: account.id,
           fetched: fetchedInBatch,
           deduplicated: deduplicatedInBatch,
@@ -678,7 +678,7 @@ export class ImportWorkflow {
 
         this.emit({
           type: 'import.failed',
-          sourceName,
+          platformKey,
           accountId: account.id,
           error: warningMessage,
         });
@@ -697,7 +697,10 @@ export class ImportWorkflow {
           });
           if (finalize.isErr()) return err(finalize.error);
 
-          const invalidate = await tx.invalidateProjections([account.id], `import:${sourceName}:account-${account.id}`);
+          const invalidate = await tx.invalidateProjections(
+            [account.id],
+            `import:${platformKey}:account-${account.id}`
+          );
           if (invalidate.isErr()) return err(invalidate.error);
 
           return ok(undefined);
@@ -714,16 +717,16 @@ export class ImportWorkflow {
       }
 
       if (account.accountType === 'exchange-csv') {
-        logger.info(`Import completed for ${sourceName}: ${totalImported} items saved`);
+        logger.info(`Import completed for ${platformKey}: ${totalImported} items saved`);
       } else {
         logger.info(
-          `Import completed for ${sourceName}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
+          `Import completed for ${platformKey}: ${totalImported} items saved, ${totalSkipped} duplicates skipped`
         );
       }
 
       this.emit({
         type: 'import.completed',
-        sourceName,
+        platformKey,
         accountId: account.id,
         totalImported,
         totalSkipped,
@@ -749,11 +752,11 @@ export class ImportWorkflow {
         metadata: error instanceof Error ? { stack: error.stack } : { error: String(error) },
       });
 
-      logger.error(`Import failed for ${sourceName}: ${originalError.message}`);
+      logger.error(`Import failed for ${platformKey}: ${originalError.message}`);
 
       this.emit({
         type: 'import.failed',
-        sourceName,
+        platformKey,
         accountId: account.id,
         error: originalError.message,
       });

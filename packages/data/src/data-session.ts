@@ -11,11 +11,11 @@ import { CostBasisFailureSnapshotRepository } from './repositories/cost-basis-fa
 import { CostBasisSnapshotRepository } from './repositories/cost-basis-snapshot-repository.js';
 import { ImportSessionRepository } from './repositories/import-session-repository.js';
 import { NearRawTransactionRepository } from './repositories/near-raw-transaction-repository.js';
+import { ProfileRepository } from './repositories/profile-repository.js';
 import { ProjectionStateRepository } from './repositories/projection-state-repository.js';
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
-import { UserRepository } from './repositories/user-repository.js';
 import { withControlledTransaction } from './utils/db-utils.js';
 
 const logger = getLogger('data-session');
@@ -37,7 +37,7 @@ export class DataSession {
   readonly transactionLinks: TransactionLinkRepository;
   readonly rawTransactions: RawTransactionRepository;
   readonly importSessions: ImportSessionRepository;
-  readonly users: UserRepository;
+  readonly profiles: ProfileRepository;
   readonly nearRawTransactions: NearRawTransactionRepository;
   readonly projectionState: ProjectionStateRepository;
 
@@ -56,7 +56,7 @@ export class DataSession {
     this.transactionLinks = new TransactionLinkRepository(connection);
     this.rawTransactions = new RawTransactionRepository(connection);
     this.importSessions = new ImportSessionRepository(connection);
-    this.users = new UserRepository(connection);
+    this.profiles = new ProfileRepository(connection);
     this.nearRawTransactions = new NearRawTransactionRepository(connection);
     this.projectionState = new ProjectionStateRepository(connection);
   }

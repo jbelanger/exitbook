@@ -22,7 +22,7 @@ describe('@exitbook/core/test-utils', () => {
     const accountFingerprint = assertOk(
       computeAccountFingerprint({
         accountType: 'exchange-api',
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         identifier: 'identifier-12',
       })
     );
@@ -43,7 +43,7 @@ describe('@exitbook/core/test-utils', () => {
     const accountFingerprint = assertOk(
       computeAccountFingerprint({
         accountType: 'blockchain',
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         identifier: 'identifier-7',
       })
     );

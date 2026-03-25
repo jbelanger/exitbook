@@ -114,10 +114,10 @@ function handleLinksRejectSuccess(
     confidence?: string | undefined;
     linkId: number;
     newStatus: 'rejected';
+    platformKey?: string | undefined;
     reviewedAt: Date;
     reviewedBy: string;
     sourceAmount?: string | undefined;
-    sourceName?: string | undefined;
     targetAmount?: string | undefined;
     targetName?: string | undefined;
   }
@@ -128,7 +128,7 @@ function handleLinksRejectSuccess(
       result.asset &&
       result.sourceAmount &&
       result.targetAmount &&
-      result.sourceName &&
+      result.platformKey &&
       result.targetName &&
       result.confidence
     ) {
@@ -140,7 +140,7 @@ function handleLinksRejectSuccess(
           asset: result.asset,
           sourceAmount: result.sourceAmount,
           targetAmount: result.targetAmount,
-          sourceName: result.sourceName,
+          platformKey: result.platformKey,
           targetName: result.targetName,
           confidence: result.confidence,
         })

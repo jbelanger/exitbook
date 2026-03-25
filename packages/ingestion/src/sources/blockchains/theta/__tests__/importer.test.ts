@@ -84,7 +84,7 @@ describe('ThetaImporter', () => {
 
     const importer = createImporter();
     const result = await consumeImportStream(importer, {
-      sourceName: 'theta',
+      platformKey: 'theta',
       sourceType: 'blockchain',
       address: TEST_ADDRESS,
     });
@@ -136,7 +136,7 @@ describe('ThetaImporter', () => {
 
     const importer = createImporter();
     const result = await consumeImportStream(importer, {
-      sourceName: 'theta',
+      platformKey: 'theta',
       sourceType: 'blockchain',
       address: TEST_ADDRESS,
     });

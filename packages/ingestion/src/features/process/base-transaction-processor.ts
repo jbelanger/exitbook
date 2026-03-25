@@ -20,11 +20,11 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   protected logger: Logger;
 
   constructor(
-    protected sourceName: string,
+    protected platformKey: string,
     protected providerRuntime?: IBlockchainProviderRuntime,
     protected scamDetectionService?: IScamDetectionService
   ) {
-    this.logger = getLogger(`${sourceName}Processor`);
+    this.logger = getLogger(`${platformKey}Processor`);
   }
 
   /** Zod schema used to validate and type each item before processing. */
@@ -41,14 +41,14 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   ): Promise<Result<TransactionDraft[], Error>>;
 
   async process(normalizedData: unknown[], context?: AddressContext): Promise<Result<TransactionDraft[], Error>> {
-    this.logger.debug(`Processing ${normalizedData.length} items for ${this.sourceName}`);
+    this.logger.debug(`Processing ${normalizedData.length} items for ${this.platformKey}`);
 
     const validated: T[] = [];
     for (let i = 0; i < normalizedData.length; i++) {
       const result = this.inputSchema.safeParse(normalizedData[i]);
       if (!result.success) {
         const errorDetail = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
-        return err(new Error(`Input validation failed for ${this.sourceName} item at index ${i}: ${errorDetail}`));
+        return err(new Error(`Input validation failed for ${this.platformKey} item at index ${i}: ${errorDetail}`));
       }
       validated.push(result.data);
     }
@@ -56,14 +56,14 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     const result = await this.transformNormalizedData(validated, context || { primaryAddress: '', userAddresses: [] });
 
     if (result.isErr()) {
-      this.logger.error(`Processing failed for ${this.sourceName}: ${result.error}`);
+      this.logger.error(`Processing failed for ${this.platformKey}: ${result.error}`);
       return result;
     }
 
     const postProcessResult = this.validateAndFilterTransactions(result.value);
 
     if (postProcessResult.isErr()) {
-      this.logger.error(`Post-processing failed for ${this.sourceName}: ${postProcessResult.error}`);
+      this.logger.error(`Post-processing failed for ${this.platformKey}: ${postProcessResult.error}`);
       return postProcessResult;
     }
 
@@ -125,7 +125,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     }
 
     // Get scam notes keyed by transaction index
-    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap, this.sourceName);
+    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap, this.platformKey);
 
     // Apply notes to transactions
     for (const [txIndex, notes] of scamNotes) {
@@ -172,7 +172,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       const errorSummary = invalid.map(({ errors }) => this.formatZodErrors(errors)).join(' | ');
 
       this.logger.error(
-        `CRITICAL: ${invalid.length} invalid transactions from ${this.sourceName}Processor. ` +
+        `CRITICAL: ${invalid.length} invalid transactions from ${this.platformKey}Processor. ` +
           `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${filteredTransactions.length}. ` +
           `Errors: ${errorSummary}`
       );
@@ -199,7 +199,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     if (droppedCount > 0) {
       this.logger.warn(
         {
-          source: this.sourceName,
+          source: this.platformKey,
           droppedCount,
           total: transactions.length,
         },

@@ -11,7 +11,7 @@ export type { FindOrCreateAccountParams } from './import-account-store.js';
 
 type ImportSessionStatus = 'started' | 'completed' | 'failed' | 'cancelled';
 
-export interface IImportUserLookup {
+export interface IImportProfileLookup {
   findOrCreateDefault(): Promise<Result<{ id: number }, Error>>;
 }
 
@@ -20,8 +20,8 @@ export interface IImportAccountStore {
   findAll(filters: {
     accountType?: AccountType | undefined;
     parentAccountId?: number | undefined;
-    sourceName?: string | undefined;
-    userId?: number | undefined;
+    platformKey?: string | undefined;
+    profileId?: number | undefined;
   }): Promise<Result<Account[], Error>>;
   update(id: number, updates: { metadata?: Record<string, unknown> | undefined }): Promise<Result<void, Error>>;
   updateCursor(id: number, streamType: string, cursor: CursorState): Promise<Result<void, Error>>;
@@ -70,7 +70,7 @@ export interface IImportRawTransactionSink {
  * Constructed in the composition root (CLI) and injected into ImportWorkflow.
  */
 export interface ImportPorts {
-  users: IImportUserLookup;
+  profiles: IImportProfileLookup;
   accounts: IImportAccountStore;
   importSessions: IImportSessionStore;
   rawTransactions: IImportRawTransactionSink;

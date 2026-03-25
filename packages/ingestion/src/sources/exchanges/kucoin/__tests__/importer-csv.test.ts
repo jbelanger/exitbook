@@ -52,7 +52,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReadFile.mockResolvedValue(csvContent);
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
@@ -75,7 +75,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReadFile.mockResolvedValue(csvContent);
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
@@ -104,7 +104,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReadFile.mockResolvedValue(csvContent);
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
@@ -129,7 +129,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     >[]);
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
       cursor: {
@@ -179,7 +179,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     });
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
@@ -219,7 +219,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -240,7 +240,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -261,7 +261,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -298,7 +298,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -318,7 +318,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -337,7 +337,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
     mockReadFile.mockResolvedValue(csvContent);
 
     const result = await consumeImportStream(importer, {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
@@ -363,7 +363,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
 
   test('returns error when csvDirectory is not provided', async () => {
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: undefined,
     };
@@ -384,7 +384,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     mockReaddir.mockRejectedValue(new Error('Directory not found'));
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/invalid',
     };
@@ -404,7 +404,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
     mockReadFile.mockRejectedValue(new Error('File read error'));
 
     const params: StreamingImportParams = {
-      sourceName: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
