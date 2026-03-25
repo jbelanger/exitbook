@@ -91,7 +91,7 @@ export class AccountRepository extends BaseRepository {
     super(db, 'account-repository');
   }
 
-  async findByIdOptional(accountId: number): Promise<Result<Account | undefined, Error>> {
+  async findById(accountId: number): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
         const row = await self.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
@@ -132,10 +132,10 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
-  async findById(accountId: number): Promise<Result<Account, Error>> {
+  async getById(accountId: number): Promise<Result<Account, Error>> {
     return resultTryAsync(
       async function* (self) {
-        const account = yield* await self.findByIdOptional(accountId);
+        const account = yield* await self.findById(accountId);
         if (!account) {
           return yield* err(`Account ${accountId} not found`);
         }
@@ -212,7 +212,7 @@ export class AccountRepository extends BaseRepository {
               'Updating parent account relationship for existing account'
             );
             yield* await self.update(existing.id, { parentAccountId: params.parentAccountId });
-            return yield* await self.findById(existing.id);
+            return yield* await self.getById(existing.id);
           }
 
           return existing;
@@ -250,7 +250,7 @@ export class AccountRepository extends BaseRepository {
           'Created new account'
         );
 
-        return yield* await self.findById(result.id);
+        return yield* await self.getById(result.id);
       },
       this,
       'Failed to find or create account'
@@ -307,7 +307,7 @@ export class AccountRepository extends BaseRepository {
   async updateCursor(accountId: number, operationType: string, cursor: CursorState): Promise<Result<void, Error>> {
     return resultTryAsync(
       async function* (self) {
-        const account = yield* await self.findById(accountId);
+        const account = yield* await self.getById(accountId);
         const updatedCursors = { ...(account.lastCursor ?? {}), [operationType]: cursor };
         return yield* await self.update(accountId, { lastCursor: updatedCursors });
       },

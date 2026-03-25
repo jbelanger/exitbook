@@ -6,7 +6,7 @@ import React from 'react';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { writeFilesAtomically } from '../../shared/file-utils.js';
+import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta, parseDate } from '../../shared/view-utils.js';
@@ -164,7 +164,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
             return err(result.error);
           }
 
-          const writeResult = await writeFilesAtomically(result.value.outputs);
+          const writeResult = await writeFilesWithAtomicRenames(result.value.outputs);
           if (writeResult.isErr()) {
             return err(new Error(`Failed to write export files: ${writeResult.error.message}`));
           }

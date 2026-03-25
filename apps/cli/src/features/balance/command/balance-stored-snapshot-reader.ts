@@ -81,14 +81,10 @@ export class BalanceStoredSnapshotReader {
       return account;
     }
 
-    const scopeAccountResult = await this.db.accounts.findById(scopeAccountId);
+    const scopeAccountResult = await this.db.accounts.getById(scopeAccountId);
     if (scopeAccountResult.isErr()) {
       throw scopeAccountResult.error;
     }
-    if (!scopeAccountResult.value) {
-      throw new Error(`Balance scope account #${scopeAccountId} not found`);
-    }
-
     return scopeAccountResult.value;
   }
 
@@ -218,12 +214,9 @@ export class BalanceStoredSnapshotReader {
   }
 
   private async loadSingleAccount(accountId: number): Promise<Account[]> {
-    const result = await this.db.accounts.findById(accountId);
+    const result = await this.db.accounts.getById(accountId);
     if (result.isErr()) {
       throw result.error;
-    }
-    if (!result.value) {
-      throw new Error(`Account #${accountId} not found`);
     }
     return [result.value];
   }

@@ -32,7 +32,8 @@
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
-    "decimal.js": "^10.6.0"
+    "decimal.js": "^10.6.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "tsconfig": "workspace:*",

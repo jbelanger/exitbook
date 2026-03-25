@@ -1,6 +1,6 @@
 /**
- * Atomic file write utilities.
- * Ensures all-or-nothing semantics for multi-file writes.
+ * Temp-file write helpers for export commands.
+ * Each destination file is written via an atomic rename, but a multi-file batch can still partially commit.
  */
 
 import { promises as fs } from 'node:fs';
@@ -17,11 +17,10 @@ interface FileWrite {
 }
 
 /**
- * Atomically write multiple files.
- * Writes to temp files first, then renames atomically on success.
- * Cleans up temp files if any write fails.
+ * Write multiple files by staging temp files and renaming each destination atomically.
+ * This guarantees per-file atomic replacement, not batch-level rollback across all outputs.
  */
-export async function writeFilesAtomically(files: FileWrite[]): Promise<Result<string[], Error>> {
+export async function writeFilesWithAtomicRenames(files: FileWrite[]): Promise<Result<string[], Error>> {
   const tempPaths: string[] = [];
 
   try {

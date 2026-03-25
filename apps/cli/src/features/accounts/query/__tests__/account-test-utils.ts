@@ -64,44 +64,38 @@ type CheckBalanceFreshness = (
 ) => Promise<Result<{ reason?: string | undefined; status: ProjectionStatus }, Error>>;
 
 export function createMockPorts() {
-  const users = {
-    findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1, createdAt: new Date('2025-01-01T00:00:00.000Z') })),
-  };
-
-  const accounts = {
-    findAll: vi.fn<AccountFindAll>().mockResolvedValue(ok([])),
-    findById: vi.fn<AccountFindById>(),
-  };
-
-  const importSessions = {
-    countByAccount: vi.fn<CountByAccount>().mockImplementation((accountIds: number[]) => {
-      return Promise.resolve(ok(new Map(accountIds.map((id) => [id, 0]))));
-    }),
-    findAll: vi.fn<SessionFindAll>().mockResolvedValue(ok([])),
-  };
-
-  const balanceSnapshots = {
-    findSnapshots: vi.fn<SnapshotFindMany>().mockResolvedValue(ok(new Map())),
-  };
-
-  const balanceFreshness = {
-    checkFreshness: vi.fn<CheckBalanceFreshness>().mockResolvedValue(ok({ status: 'fresh', reason: undefined })),
-  };
+  const findOrCreateDefaultUser = vi
+    .fn()
+    .mockResolvedValue(ok({ id: 1, createdAt: new Date('2025-01-01T00:00:00.000Z') }));
+  const findAccounts = vi.fn<AccountFindAll>().mockResolvedValue(ok([]));
+  const findAccountById = vi.fn<AccountFindById>();
+  const countSessionsByAccount = vi.fn<CountByAccount>().mockImplementation((accountIds: number[]) => {
+    return Promise.resolve(ok(new Map(accountIds.map((id) => [id, 0]))));
+  });
+  const findSessions = vi.fn<SessionFindAll>().mockResolvedValue(ok([]));
+  const findBalanceSnapshots = vi.fn<SnapshotFindMany>().mockResolvedValue(ok(new Map()));
+  const checkBalanceFreshness = vi
+    .fn<CheckBalanceFreshness>()
+    .mockResolvedValue(ok({ status: 'fresh', reason: undefined }));
 
   const ports: AccountQueryPorts = {
-    users,
-    accounts,
-    importSessions,
-    balanceSnapshots,
-    balanceFreshness,
+    findOrCreateDefaultUser,
+    findAccounts,
+    findAccountById,
+    countSessionsByAccount,
+    findSessions,
+    findBalanceSnapshots,
+    checkBalanceFreshness,
   };
 
   return {
     ports,
-    users,
-    accounts,
-    importSessions,
-    balanceSnapshots,
-    balanceFreshness,
+    findOrCreateDefaultUser,
+    findAccounts,
+    findAccountById,
+    countSessionsByAccount,
+    findSessions,
+    findBalanceSnapshots,
+    checkBalanceFreshness,
   };
 }

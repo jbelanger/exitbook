@@ -4,7 +4,7 @@ import type { Command } from 'commander';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { writeFilesAtomically } from '../../shared/file-utils.js';
+import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { TransactionsExportCommandOptionsSchema } from './transactions-option-schemas.js';
@@ -103,7 +103,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       }
 
       // Write files atomically
-      const writeResult = await writeFilesAtomically(result.value.outputs);
+      const writeResult = await writeFilesWithAtomicRenames(result.value.outputs);
       if (writeResult.isErr()) {
         displayCliError(
           'transactions-export',

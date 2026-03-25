@@ -19,13 +19,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@exitbook/events": "workspace:*",
     "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",
     "@exitbook/resilience": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
+    "decimal.js": "^10.6.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

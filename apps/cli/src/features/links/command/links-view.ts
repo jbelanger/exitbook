@@ -15,10 +15,9 @@ import type { LinkGapIssue } from '../links-gap-model.js';
 import type { LinkWithTransactions } from '../links-view-model.js';
 import { LinksViewApp, createGapsViewState, createLinksViewState } from '../view/index.js';
 
-import { LinksConfirmHandler } from './links-confirm-handler.js';
 import { analyzeLinkGaps } from './links-gap-analysis.js';
 import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from './links-option-schemas.js';
-import { LinksRejectHandler } from './links-reject-handler.js';
+import { LinksReviewHandler } from './links-review-handler.js';
 import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
 import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';
 
@@ -175,32 +174,21 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 
       const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(linksResult.value, txRepo);
 
-      const confirmHandler = new LinksConfirmHandler(database, overrideStore);
-      const rejectHandler = new LinksRejectHandler(database, overrideStore);
+      const reviewHandler = new LinksReviewHandler(database, overrideStore);
 
       const handleAction = async (
         linkId: number,
         action: 'confirm' | 'reject'
       ): Promise<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }> => {
-        if (action === 'confirm') {
-          const result = await confirmHandler.execute({ linkId });
-          if (result.isErr()) {
-            throw result.error;
-          }
-          return {
-            affectedLinkIds: result.value.affectedLinkIds,
-            newStatus: result.value.newStatus,
-          };
-        } else {
-          const result = await rejectHandler.execute({ linkId });
-          if (result.isErr()) {
-            throw result.error;
-          }
-          return {
-            affectedLinkIds: result.value.affectedLinkIds,
-            newStatus: result.value.newStatus,
-          };
+        const result = await reviewHandler.execute({ linkId }, action);
+        if (result.isErr()) {
+          throw result.error;
         }
+
+        return {
+          affectedLinkIds: result.value.affectedLinkIds,
+          newStatus: result.value.newStatus,
+        };
       };
 
       const initialState = createLinksViewState(

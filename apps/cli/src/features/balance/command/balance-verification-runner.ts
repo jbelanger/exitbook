@@ -356,9 +356,8 @@ export class BalanceVerificationRunner {
   }
 
   private async loadSingleAccountOrFail(accountId: number): Promise<Account> {
-    const result = await this.db.accounts.findById(accountId);
+    const result = await this.db.accounts.getById(accountId);
     if (result.isErr()) throw result.error;
-    if (!result.value) throw new Error(`Account #${accountId} not found`);
     return result.value;
   }
 

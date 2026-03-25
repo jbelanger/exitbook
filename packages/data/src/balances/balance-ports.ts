@@ -12,7 +12,7 @@ import { toBalanceScopeKey } from './balance-scope.js';
 export function buildBalancePorts(db: DataSession): BalancePorts {
   return {
     accountLookup: {
-      findById: (id) => db.accounts.findByIdOptional(id),
+      findById: (id) => db.accounts.findById(id),
       findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
     },
     snapshotStore: {

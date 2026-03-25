@@ -54,20 +54,15 @@ export async function resolveBalanceScopeAccountIds(
 function createBalanceScopeLookup(db: DataSession): IBalanceScopeAccountLookup<BalanceScopeAccount> {
   return {
     findById(id) {
-      return db.accounts.findByIdOptional(id);
+      return db.accounts.findById(id);
     },
   };
 }
 
 async function loadRequestedAccount(db: DataSession, accountId: number): Promise<Result<BalanceScopeAccount, Error>> {
-  const accountResult = await db.accounts.findById(accountId);
+  const accountResult = await db.accounts.getById(accountId);
   if (accountResult.isErr()) {
     return err(accountResult.error);
   }
-
-  if (!accountResult.value) {
-    return err(new Error(`Account ${accountId} not found while resolving balance scope for ${accountId}`));
-  }
-
   return ok(accountResult.value);
 }

@@ -8,29 +8,19 @@ export function buildAccountQueryPorts(db: DataSession): AccountQueryPorts {
   const balancesFreshness = buildBalancesFreshnessPorts(db);
 
   return {
-    users: {
-      findOrCreateDefault: () => db.users.findOrCreateDefault(),
-    },
-    accounts: {
-      findById: (id) => db.accounts.findByIdOptional(id),
-      findAll: (filters) => db.accounts.findAll(filters),
-    },
-    importSessions: {
-      countByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),
-      findAll: (filters) => db.importSessions.findAll(filters),
-    },
-    balanceSnapshots: {
-      findSnapshots: async (scopeAccountIds) => {
-        const snapshotsResult = await db.balanceSnapshots.findSnapshots(scopeAccountIds);
-        if (snapshotsResult.isErr()) {
-          return err(snapshotsResult.error);
-        }
+    findOrCreateDefaultUser: () => db.users.findOrCreateDefault(),
+    findAccountById: (id) => db.accounts.findById(id),
+    findAccounts: (filters) => db.accounts.findAll(filters),
+    countSessionsByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),
+    findSessions: (filters) => db.importSessions.findAll(filters),
+    findBalanceSnapshots: async (scopeAccountIds) => {
+      const snapshotsResult = await db.balanceSnapshots.findSnapshots(scopeAccountIds);
+      if (snapshotsResult.isErr()) {
+        return err(snapshotsResult.error);
+      }
 
-        return ok(new Map(snapshotsResult.value.map((snapshot) => [snapshot.scopeAccountId, snapshot])));
-      },
+      return ok(new Map(snapshotsResult.value.map((snapshot) => [snapshot.scopeAccountId, snapshot])));
     },
-    balanceFreshness: {
-      checkFreshness: (scopeAccountId) => balancesFreshness.checkFreshness(scopeAccountId),
-    },
+    checkBalanceFreshness: (scopeAccountId) => balancesFreshness.checkFreshness(scopeAccountId),
   };
 }

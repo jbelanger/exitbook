@@ -52,7 +52,7 @@ export function buildProcessingPorts(
     },
 
     accountLookup: {
-      getAccountInfo: (accountId) => db.accounts.findById(accountId),
+      getAccountInfo: (accountId) => db.accounts.getById(accountId),
 
       getUserAddresses: (userId, blockchain) =>
         resultDoAsync(async function* () {
