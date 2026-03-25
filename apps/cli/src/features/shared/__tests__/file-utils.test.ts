@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { writeFilesAtomically } from '../file-utils.js';
+import { writeFilesWithAtomicRenames } from '../file-utils.js';
 
 describe('writeFilesAtomically', () => {
   let testDir: string;
@@ -29,7 +29,7 @@ describe('writeFilesAtomically', () => {
       { path: join(testDir, 'file3.txt'), content: 'content 3' },
     ];
 
-    const result = await writeFilesAtomically(files);
+    const result = await writeFilesWithAtomicRenames(files);
     expect(assertOk(result)).toEqual([
       join(testDir, 'file1.txt'),
       join(testDir, 'file2.txt'),
@@ -50,7 +50,7 @@ describe('writeFilesAtomically', () => {
     const nestedPath = join(testDir, 'nested', 'deep', 'file.txt');
     const files = [{ path: nestedPath, content: 'nested content' }];
 
-    const result = await writeFilesAtomically(files);
+    const result = await writeFilesWithAtomicRenames(files);
     assertOk(result);
 
     expect(await fs.readFile(nestedPath, 'utf8')).toBe('nested content');
@@ -60,7 +60,7 @@ describe('writeFilesAtomically', () => {
     // Simulate a write error by using an invalid path
     const files = [{ path: '/dev/null/invalid/path/file.txt', content: 'will fail' }];
 
-    const result = await writeFilesAtomically(files);
+    const result = await writeFilesWithAtomicRenames(files);
     const error = assertErr(result);
     expect(error.message).toMatch(/ENOTDIR|EACCES|EPERM/);
   });
@@ -68,7 +68,7 @@ describe('writeFilesAtomically', () => {
   it('handles single file write', async () => {
     const files = [{ path: join(testDir, 'single.txt'), content: 'single file' }];
 
-    const result = await writeFilesAtomically(files);
+    const result = await writeFilesWithAtomicRenames(files);
     expect(result.isOk()).toBe(true);
     expect(await fs.readFile(join(testDir, 'single.txt'), 'utf8')).toBe('single file');
   });
@@ -78,7 +78,7 @@ describe('writeFilesAtomically', () => {
     await fs.writeFile(filePath, 'old content');
 
     const files = [{ path: filePath, content: 'new content' }];
-    const result = await writeFilesAtomically(files);
+    const result = await writeFilesWithAtomicRenames(files);
 
     expect(result.isOk()).toBe(true);
     expect(await fs.readFile(filePath, 'utf8')).toBe('new content');

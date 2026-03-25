@@ -20,7 +20,7 @@ import { runCommand } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { writeFilesAtomically } from '../../shared/file-utils.js';
+import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 
@@ -193,7 +193,7 @@ export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
       content: file.content,
     }));
 
-    const writeResult = await writeFilesAtomically(outputFiles);
+    const writeResult = await writeFilesWithAtomicRenames(outputFiles);
     if (writeResult.isErr()) {
       return err(writeResult.error);
     }
