@@ -84,4 +84,45 @@ export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(Block
     }
   );
 
+export const AccountUpdateCommandOptionsSchema = z
+  .object({
+    apiKey: z.string().min(1).optional(),
+    apiSecret: z.string().min(1).optional(),
+    apiPassphrase: z.string().optional(),
+    csvDir: z.string().optional(),
+    provider: z.string().optional(),
+    profile: z.string().min(1).optional(),
+    json: z.boolean().optional(),
+    xpubGap: z.number().int().positive().optional(),
+  })
+  .refine(
+    (data) =>
+      data.apiKey !== undefined ||
+      data.apiSecret !== undefined ||
+      data.apiPassphrase !== undefined ||
+      data.csvDir !== undefined ||
+      data.provider !== undefined ||
+      data.xpubGap !== undefined,
+    {
+      message: 'At least one account config flag is required',
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.xpubGap !== undefined) {
+        if (!Number.isFinite(data.xpubGap)) {
+          return false;
+        }
+        if (data.xpubGap < 1) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: '--xpub-gap must be a positive integer (minimum: 1)',
+    }
+  );
+
 export type AccountAddCommandOptions = z.infer<typeof AccountAddCommandOptionsSchema>;
+export type AccountUpdateCommandOptions = z.infer<typeof AccountUpdateCommandOptionsSchema>;

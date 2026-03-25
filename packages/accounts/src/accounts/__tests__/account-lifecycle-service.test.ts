@@ -93,9 +93,11 @@ function createStore(initialAccounts: Account[] = []) {
         accountId: number,
         updates: {
           credentials?: Account['credentials'];
+          identifier?: string | undefined;
           metadata?: Account['metadata'];
           name?: string | null | undefined;
           providerName?: string | undefined;
+          resetCursor?: boolean | undefined;
         }
       ) {
         const account = accounts.find((current) => current.id === accountId);
@@ -106,6 +108,9 @@ function createStore(initialAccounts: Account[] = []) {
         if (updates.name !== undefined) {
           account.name = updates.name ?? undefined;
         }
+        if (updates.identifier !== undefined) {
+          account.identifier = updates.identifier;
+        }
         if (updates.providerName !== undefined) {
           account.providerName = updates.providerName;
         }
@@ -114,6 +119,9 @@ function createStore(initialAccounts: Account[] = []) {
         }
         if (updates.metadata !== undefined) {
           account.metadata = updates.metadata;
+        }
+        if (updates.resetCursor) {
+          account.lastCursor = undefined;
         }
         account.updatedAt = new Date('2026-01-02T00:00:00.000Z');
 
@@ -214,6 +222,85 @@ describe('AccountLifecycleService', () => {
     const renamed = assertOk(await service.rename(1, 'kraken-main', 'kraken-primary'));
 
     expect(renamed.name).toBe('kraken-primary');
+  });
+
+  it('updates account config for an existing named account', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'old-key',
+        credentials: {
+          apiKey: 'old-key',
+          apiSecret: 'old-secret',
+        },
+        lastCursor: {
+          ledger: {
+            primary: { type: 'pageToken', value: '123', providerName: 'kraken' },
+            lastTransactionId: 'tx-123',
+            totalFetched: 10,
+          },
+        },
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const updated = assertOk(
+      await service.updateNamed(1, 'kraken-main', {
+        identifier: 'new-key',
+        credentials: {
+          apiKey: 'new-key',
+          apiSecret: 'new-secret',
+        },
+        resetCursor: true,
+      })
+    );
+
+    expect(updated.identifier).toBe('new-key');
+    expect(updated.credentials).toEqual({
+      apiKey: 'new-key',
+      apiSecret: 'new-secret',
+    });
+    expect(updated.lastCursor).toBeUndefined();
+  });
+
+  it('rejects config updates that collide with another account', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'old-key',
+      }),
+      createAccount({
+        id: 8,
+        profileId: 1,
+        name: 'kraken-secondary',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'new-key',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.updateNamed(1, 'kraken-main', {
+      identifier: 'new-key',
+      credentials: {
+        apiKey: 'new-key',
+        apiSecret: 'new-secret',
+      },
+      resetCursor: true,
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('kraken-secondary');
+    }
   });
 
   it('collects the full account hierarchy in breadth-first order', async () => {

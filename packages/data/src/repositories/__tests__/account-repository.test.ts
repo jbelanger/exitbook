@@ -589,6 +589,35 @@ describe('AccountRepository', () => {
       const updated = assertOk(await repo.getById(account.id));
       expect(updated.name).toBe('wallet-main');
     });
+
+    it('updates the identifier and clears cursor state when requested', async () => {
+      const exchange = assertOk(
+        await repo.findOrCreate({
+          profileId: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'old-key',
+          credentials: { apiKey: 'old-key', apiSecret: 'old-secret' },
+        })
+      );
+
+      await repo.updateCursor(exchange.id, 'ledger', {
+        primary: { type: 'pageToken', value: '123', providerName: 'kraken' },
+        lastTransactionId: 'tx-123',
+        totalFetched: 10,
+      });
+
+      await repo.update(exchange.id, {
+        identifier: 'new-key',
+        credentials: { apiKey: 'new-key', apiSecret: 'new-secret' },
+        resetCursor: true,
+      });
+
+      const updated = assertOk(await repo.getById(exchange.id));
+      expect(updated.identifier).toBe('new-key');
+      expect(updated.credentials).toEqual({ apiKey: 'new-key', apiSecret: 'new-secret' });
+      expect(updated.lastCursor).toBeUndefined();
+    });
   });
 
   describe('updateCursor', () => {

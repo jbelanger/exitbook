@@ -33,9 +33,11 @@ interface FindOrCreateAccountParams {
 }
 
 interface UpdateAccountParams {
+  identifier?: string | undefined;
   name?: string | null | undefined;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
+  resetCursor?: boolean | undefined;
   credentials?: ExchangeCredentials | undefined;
   lastCursor?: Record<string, CursorState> | undefined;
   metadata?: Account['metadata'] | undefined;
@@ -417,6 +419,13 @@ export class AccountRepository extends BaseRepository {
           updateData.name = updates.name === null ? null : yield* normalizeAccountName(updates.name);
         }
 
+        if (updates.identifier !== undefined) {
+          if (!updates.identifier || updates.identifier.trim() === '') {
+            yield* err('Account identifier must not be empty');
+          }
+          updateData.identifier = updates.identifier;
+        }
+
         if (updates.providerName !== undefined) {
           updateData.provider_name = updates.providerName;
         }
@@ -437,6 +446,8 @@ export class AccountRepository extends BaseRepository {
           } else {
             updateData.last_cursor = (yield* serializeToJson(validationResult.data)) ?? null;
           }
+        } else if (updates.resetCursor) {
+          updateData.last_cursor = null;
         }
 
         if (updates.metadata !== undefined) {

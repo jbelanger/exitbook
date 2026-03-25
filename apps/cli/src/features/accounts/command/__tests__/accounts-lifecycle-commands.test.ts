@@ -7,6 +7,7 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 const {
   mockBuildCliAccountLifecycleService,
   mockBuildNamedAccountDraft,
+  mockBuildUpdatedAccountDraft,
   mockCollectHierarchy,
   mockCreateAccountRemoveHandler,
   mockCreateNamed,
@@ -20,9 +21,11 @@ const {
   mockRename,
   mockResolveCommandProfile,
   mockRunCommand,
+  mockUpdateNamed,
 } = vi.hoisted(() => ({
   mockBuildCliAccountLifecycleService: vi.fn(),
   mockBuildNamedAccountDraft: vi.fn(),
+  mockBuildUpdatedAccountDraft: vi.fn(),
   mockCollectHierarchy: vi.fn(),
   mockCreateAccountRemoveHandler: vi.fn(),
   mockCreateNamed: vi.fn(),
@@ -38,6 +41,7 @@ const {
   mockRename: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
+  mockUpdateNamed: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -63,6 +67,7 @@ vi.mock('../../account-service.js', () => ({
 
 vi.mock('../account-draft-utils.js', () => ({
   buildNamedAccountDraft: mockBuildNamedAccountDraft,
+  buildUpdatedAccountDraft: mockBuildUpdatedAccountDraft,
 }));
 
 vi.mock('../accounts-remove-handler.js', () => ({
@@ -71,7 +76,7 @@ vi.mock('../accounts-remove-handler.js', () => ({
     deleted: {
       accounts: number;
       assetReview: { assets: number };
-      balances: { assetRows: number; scopes: number; };
+      balances: { assetRows: number; scopes: number };
       costBasisSnapshots: { snapshots: number };
       links: { links: number };
       processedTransactions: { transactions: number };
@@ -98,6 +103,7 @@ vi.mock('../../../shared/prompts.js', () => ({
 import { registerAccountsAddCommand } from '../accounts-add.js';
 import { registerAccountsRemoveCommand } from '../accounts-remove.js';
 import { registerAccountsRenameCommand } from '../accounts-rename.js';
+import { registerAccountsUpdateCommand } from '../accounts-update.js';
 
 function createAccountsProgram(): Command {
   const program = new Command();
@@ -105,6 +111,7 @@ function createAccountsProgram(): Command {
   const appRuntime = { adapterRegistry: {} } as CliAppRuntime;
 
   registerAccountsAddCommand(accounts, appRuntime);
+  registerAccountsUpdateCommand(accounts, appRuntime);
   registerAccountsRenameCommand(accounts);
   registerAccountsRemoveCommand(accounts);
 
@@ -130,6 +137,7 @@ beforeEach(() => {
     rename: mockRename,
     getByName: mockGetByName,
     collectHierarchy: mockCollectHierarchy,
+    updateNamed: mockUpdateNamed,
   });
   mockCreateAccountRemoveHandler.mockReturnValue({
     preview: mockPreviewRemove,
@@ -240,6 +248,87 @@ describe('accounts lifecycle commands', () => {
         id: 7,
         name: 'kraken-primary',
         platformKey: 'kraken',
+      },
+      profile: 'default',
+    });
+  });
+
+  it('updates a named account config in JSON mode', async () => {
+    const program = createAccountsProgram();
+
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'old-key',
+        providerName: undefined,
+        credentials: { apiKey: 'old-key', apiSecret: 'old-secret' },
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockBuildUpdatedAccountDraft.mockReturnValue(
+      ok({
+        identifier: 'new-key',
+        credentials: {
+          apiKey: 'new-key',
+          apiSecret: 'new-secret',
+        },
+        resetCursor: true,
+      })
+    );
+    mockUpdateNamed.mockResolvedValue(
+      ok({
+        id: 7,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'new-key',
+        providerName: undefined,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      })
+    );
+
+    await program.parseAsync(
+      ['accounts', 'update', 'kraken-main', '--api-key', 'new-key', '--api-secret', 'new-secret', '--json'],
+      { from: 'user' }
+    );
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
+    expect(mockBuildUpdatedAccountDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 7,
+        name: 'kraken-main',
+      }),
+      expect.objectContaining({
+        apiKey: 'new-key',
+        apiSecret: 'new-secret',
+      }),
+      {}
+    );
+    expect(mockUpdateNamed).toHaveBeenCalledWith(
+      1,
+      'kraken-main',
+      expect.objectContaining({
+        identifier: 'new-key',
+        resetCursor: true,
+      })
+    );
+    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-update', {
+      account: {
+        id: 7,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: '***',
+        providerName: undefined,
+        createdAt: '2026-01-02T00:00:00.000Z',
       },
       profile: 'default',
     });

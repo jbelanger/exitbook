@@ -22,6 +22,14 @@ export interface CreateNamedAccountResult {
   disposition: 'adopted' | 'created';
 }
 
+export interface UpdateNamedAccountInput {
+  credentials?: ExchangeCredentials | undefined;
+  identifier?: string | undefined;
+  metadata?: Account['metadata'] | undefined;
+  providerName?: string | undefined;
+  resetCursor?: boolean | undefined;
+}
+
 function normalizeAccountName(name: string): Result<string, Error> {
   const normalized = name.trim().toLowerCase();
   if (normalized.length === 0) {
@@ -176,15 +184,64 @@ export class AccountLifecycleService {
       return err(updateResult.error);
     }
 
-    const refreshedResult = await this.store.findById(accountResult.value.id);
-    if (refreshedResult.isErr()) {
-      return err(refreshedResult.error);
-    }
-    if (!refreshedResult.value) {
-      return err(new Error(`Account ${accountResult.value.id} disappeared after rename`));
+    return this.requireAccount(accountResult.value.id);
+  }
+
+  async updateNamed(profileId: number, name: string, input: UpdateNamedAccountInput): Promise<Result<Account, Error>> {
+    if (
+      input.identifier === undefined &&
+      input.providerName === undefined &&
+      input.credentials === undefined &&
+      input.metadata === undefined
+    ) {
+      return err(new Error('No account config changes were provided'));
     }
 
-    return ok(refreshedResult.value);
+    const accountResult = await this.getByName(profileId, name);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    if (!accountResult.value) {
+      return err(new Error(`Account '${name.trim().toLowerCase()}' not found`));
+    }
+
+    const account = accountResult.value;
+    const nextIdentifier = input.identifier ?? account.identifier;
+    if (nextIdentifier !== account.identifier) {
+      const duplicateResult = await this.store.findByKey({
+        accountType: account.accountType,
+        identifier: nextIdentifier,
+        platformKey: account.platformKey,
+        profileId,
+      });
+      if (duplicateResult.isErr()) {
+        return err(duplicateResult.error);
+      }
+
+      const duplicate = duplicateResult.value;
+      if (duplicate && duplicate.id !== account.id) {
+        if (duplicate.name) {
+          return err(
+            new Error(
+              `Account config already exists as '${duplicate.name}'. Use that account name or change the config.`
+            )
+          );
+        }
+
+        return err(
+          new Error(
+            `Account config is already tracked by legacy account #${duplicate.id}. Remove or rename that account before reusing this config.`
+          )
+        );
+      }
+    }
+
+    const updateResult = await this.store.update(account.id, input);
+    if (updateResult.isErr()) {
+      return err(updateResult.error);
+    }
+
+    return this.requireAccount(account.id);
   }
 
   async collectHierarchy(rootAccountId: number): Promise<Result<Account[], Error>> {
@@ -213,5 +270,17 @@ export class AccountLifecycleService {
     }
 
     return ok(ordered);
+  }
+
+  private async requireAccount(accountId: number): Promise<Result<Account, Error>> {
+    const refreshedResult = await this.store.findById(accountId);
+    if (refreshedResult.isErr()) {
+      return err(refreshedResult.error);
+    }
+    if (!refreshedResult.value) {
+      return err(new Error(`Account ${accountId} disappeared after update`));
+    }
+
+    return ok(refreshedResult.value);
   }
 }

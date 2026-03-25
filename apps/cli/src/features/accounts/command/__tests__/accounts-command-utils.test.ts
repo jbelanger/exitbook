@@ -106,7 +106,7 @@ describe('registerAccountsCommand', () => {
     expect(accountsCommand).toBeDefined();
     expect(accountsCommand?.description()).toBe('Manage named accounts');
     expect(accountsCommand?.commands.map((command) => command.name())).toEqual(
-      expect.arrayContaining(['add', 'view', 'rename', 'remove'])
+      expect.arrayContaining(['add', 'view', 'update', 'rename', 'remove'])
     );
   });
 });

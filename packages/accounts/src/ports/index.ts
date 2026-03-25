@@ -36,9 +36,11 @@ export interface IAccountLifecycleStore {
     accountId: number,
     updates: {
       credentials?: ExchangeCredentials | undefined;
+      identifier?: string | undefined;
       metadata?: Account['metadata'] | undefined;
       name?: string | null | undefined;
       providerName?: string | undefined;
+      resetCursor?: boolean | undefined;
     }
   ): Promise<Result<void, Error>>;
 }
