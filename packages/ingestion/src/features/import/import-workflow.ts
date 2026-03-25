@@ -363,7 +363,7 @@ export class ImportWorkflow {
       logger.info(`Created new import session #${importSessionId}`);
     }
 
-    const isNewAccount = account.lastCursor === null;
+    const isNewAccount = account.lastCursor === undefined || Object.keys(account.lastCursor).length === 0;
 
     // Fetch transaction counts for existing accounts (event metadata)
     let transactionCounts: Map<string, number> | undefined;

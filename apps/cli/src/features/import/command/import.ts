@@ -14,8 +14,8 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
-import type { ImportExecuteResult } from './run-import.js';
-import { runImport } from './run-import.js';
+import type { BatchImportExecuteResult, ImportExecuteResult } from './run-import.js';
+import { runImport, runImportAll } from './run-import.js';
 
 type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
@@ -41,7 +41,37 @@ interface ImportCommandResult {
       skipped: number;
     };
     importSessions?: ImportSessionSummary[] | undefined;
+    mode: 'single';
     runStats?: import('@exitbook/observability').MetricsSummary | undefined;
+  };
+  meta: {
+    timestamp: string;
+  };
+}
+
+interface BatchImportCommandResult {
+  status: 'partial-failure' | 'success';
+  import: {
+    accounts: {
+      account: {
+        accountType: Account['accountType'];
+        id: number;
+        name: string;
+        platformKey: string;
+      };
+      counts: {
+        imported: number;
+        skipped: number;
+      };
+      errorMessage?: string | undefined;
+      status: 'completed' | 'failed';
+      syncMode: string;
+    }[];
+    failedCount: number;
+    mode: 'batch';
+    profile: string;
+    runStats?: import('@exitbook/observability').MetricsSummary | undefined;
+    totalCount: number;
   };
   meta: {
     timestamp: string;
@@ -54,6 +84,7 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
     .description('Sync raw data for an existing account')
     .option('--account <name>', 'Named account to sync')
     .option('--account-id <number>', 'Account ID to sync', parseInt)
+    .option('--all', 'Sync all top-level accounts in the selected profile')
     .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
@@ -63,6 +94,7 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
 Examples:
   $ exitbook import --account kraken-main
   $ exitbook import --account wallet-main --profile business
+  $ exitbook import --all --profile business
   $ exitbook import --account-id 42 --json
 `
     )
@@ -86,6 +118,23 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
       const profileResult = await resolveCommandProfile(ctx, database, options.profile);
       if (profileResult.isErr()) {
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      if (options.all) {
+        const result = await runImportAll(ctx, {
+          isJsonMode: true,
+          profileId: profileResult.value.id,
+          profileName: profileResult.value.name,
+        });
+        if (result.isErr()) {
+          displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
+        }
+
+        outputSuccess('import', buildBatchImportResult(result.value));
+        if (result.value.failedCount > 0) {
+          ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        }
+        return;
       }
 
       const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
@@ -117,6 +166,21 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
       const profileResult = await resolveCommandProfile(ctx, database, options.profile);
       if (profileResult.isErr()) {
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
+      if (options.all) {
+        const result = await runImportAll(ctx, {
+          isJsonMode: false,
+          profileId: profileResult.value.id,
+          profileName: profileResult.value.name,
+        });
+        if (result.isErr()) {
+          displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
+        }
+        if (result.value.failedCount > 0) {
+          ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        }
+        return;
       }
 
       const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
@@ -200,6 +264,7 @@ function buildImportResult(importResult: ImportExecuteResult, account: Account):
   return {
     status: 'success',
     import: {
+      mode: 'single',
       account: {
         id: account.id,
         name: account.name,
@@ -215,6 +280,29 @@ function buildImportResult(importResult: ImportExecuteResult, account: Account):
           ? importResult.sessions.map((session) => buildSessionSummary(session))
           : undefined,
       runStats: importResult.runStats,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  };
+}
+
+function buildBatchImportResult(importResult: BatchImportExecuteResult): BatchImportCommandResult {
+  return {
+    status: importResult.failedCount > 0 ? 'partial-failure' : 'success',
+    import: {
+      accounts: importResult.accounts.map((accountResult) => ({
+        account: accountResult.account,
+        counts: accountResult.counts,
+        errorMessage: accountResult.errorMessage,
+        status: accountResult.status,
+        syncMode: accountResult.syncMode,
+      })),
+      failedCount: importResult.failedCount,
+      mode: 'batch',
+      profile: importResult.profileName,
+      runStats: importResult.runStats,
+      totalCount: importResult.totalCount,
     },
     meta: {
       timestamp: new Date().toISOString(),

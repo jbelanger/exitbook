@@ -75,6 +75,28 @@ export function ingestionMonitorReducer(
   }
 }
 
+export function applyIngestionMonitorEvent(
+  state: IngestionMonitorState,
+  event: CliEvent,
+  instrumentation: InstrumentationCollector,
+  providerRuntime: IBlockchainProviderRuntime
+): IngestionMonitorState {
+  return ingestionMonitorReducer(state, {
+    type: 'event',
+    event,
+    instrumentation,
+    providerRuntime,
+  });
+}
+
+export function abortIngestionMonitor(state: IngestionMonitorState): IngestionMonitorState {
+  return ingestionMonitorReducer(state, { type: 'abort' });
+}
+
+export function failIngestionMonitor(state: IngestionMonitorState, errorMessage: string): IngestionMonitorState {
+  return ingestionMonitorReducer(state, { type: 'fail', errorMessage });
+}
+
 /**
  * Update dashboard state from event (mutates state in place for performance).
  */

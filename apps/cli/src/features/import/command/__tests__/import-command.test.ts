@@ -16,10 +16,12 @@ const {
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunImport,
+  mockRunImportAll,
 } = vi.hoisted(() => ({
   mockBuildCliAccountLifecycleService: vi.fn(),
   mockCtx: {
     database: vi.fn(),
+    exitCode: undefined as number | undefined,
   },
   mockDisplayCliError: vi.fn(),
   mockGetById: vi.fn(),
@@ -29,6 +31,7 @@ const {
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunImport: vi.fn(),
+  mockRunImportAll: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -54,6 +57,7 @@ vi.mock('../../../accounts/account-service.js', () => ({
 
 vi.mock('../run-import.js', () => ({
   runImport: mockRunImport,
+  runImportAll: mockRunImportAll,
 }));
 
 vi.mock('../../../shared/prompts.js', () => ({
@@ -109,6 +113,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockCtx.database.mockResolvedValue({ tag: 'db' });
+  mockCtx.exitCode = undefined;
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);
@@ -122,6 +127,15 @@ beforeEach(() => {
     getByName: mockGetByName,
   });
   mockRunImport.mockResolvedValue(ok({ sessions: [makeSession()], runStats: { totalRequests: 0 } }));
+  mockRunImportAll.mockResolvedValue(
+    ok({
+      accounts: [],
+      failedCount: 0,
+      profileName: 'default',
+      runStats: { totalRequests: 0 },
+      totalCount: 0,
+    })
+  );
   mockPromptConfirm.mockResolvedValue(true);
   mockDisplayCliError.mockImplementation(
     (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
@@ -134,25 +148,33 @@ beforeEach(() => {
 });
 
 describe('ImportCommandOptionsSchema', () => {
-  it('requires either --account or --account-id', () => {
+  it('requires exactly one of --account, --account-id, or --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({});
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Either --account or --account-id is required'
+        'Specify exactly one of --account, --account-id, or --all'
       );
     }
   });
 
-  it('rejects providing both --account and --account-id', () => {
+  it('accepts --all by itself', () => {
+    const result = ImportCommandOptionsSchema.safeParse({
+      all: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects providing both --account and --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({
       account: 'kraken-main',
-      accountId: 42,
+      all: true,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Cannot specify both --account and --account-id'
+        'Specify exactly one of --account, --account-id, or --all'
       );
     }
   });
@@ -208,5 +230,124 @@ describe('import command', () => {
     );
 
     expect(mockRunImport).not.toHaveBeenCalled();
+  });
+
+  it('runs batch import for --all in JSON mode and returns partial failure status', async () => {
+    const program = createImportProgram();
+    mockResolveCommandProfile.mockResolvedValue(ok(makeProfile({ id: 3, name: 'business' })));
+    mockRunImportAll.mockResolvedValue(
+      ok({
+        accounts: [
+          {
+            account: {
+              id: 7,
+              name: 'kraken-main',
+              accountType: 'exchange-api',
+              platformKey: 'kraken',
+            },
+            counts: {
+              imported: 5,
+              skipped: 2,
+            },
+            status: 'completed',
+            syncMode: 'incremental',
+          },
+          {
+            account: {
+              id: 8,
+              name: 'wallet-main',
+              accountType: 'blockchain',
+              platformKey: 'bitcoin',
+            },
+            counts: {
+              imported: 0,
+              skipped: 0,
+            },
+            errorMessage: 'RPC timeout',
+            status: 'failed',
+            syncMode: 'resuming',
+          },
+        ],
+        failedCount: 1,
+        profileName: 'business',
+        runStats: { totalRequests: 4 },
+        totalCount: 2,
+      })
+    );
+
+    await program.parseAsync(['import', '--all', '--json'], { from: 'user' });
+
+    expect(mockRunImportAll).toHaveBeenCalledWith(mockCtx, {
+      isJsonMode: true,
+      profileId: 3,
+      profileName: 'business',
+    });
+    expect(mockRunImport).not.toHaveBeenCalled();
+    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockGetByName).not.toHaveBeenCalled();
+    expect(mockOutputSuccess).toHaveBeenCalledOnce();
+    expect(mockCtx.exitCode).toBe(1);
+
+    const [, payload] = mockOutputSuccess.mock.calls[0] as [
+      string,
+      {
+        import: {
+          accounts: {
+            account: {
+              accountType: string;
+              id: number;
+              name: string;
+              platformKey: string;
+            };
+            errorMessage?: string | undefined;
+            status: string;
+            syncMode: string;
+          }[];
+          failedCount: number;
+          mode: string;
+          profile: string;
+          totalCount: number;
+        };
+        status: string;
+      },
+    ];
+
+    expect(payload.status).toBe('partial-failure');
+    expect(payload.import.mode).toBe('batch');
+    expect(payload.import.profile).toBe('business');
+    expect(payload.import.failedCount).toBe(1);
+    expect(payload.import.totalCount).toBe(2);
+    expect(payload.import.accounts).toEqual([
+      {
+        account: {
+          id: 7,
+          name: 'kraken-main',
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+        },
+        counts: {
+          imported: 5,
+          skipped: 2,
+        },
+        errorMessage: undefined,
+        status: 'completed',
+        syncMode: 'incremental',
+      },
+      {
+        account: {
+          id: 8,
+          name: 'wallet-main',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+        },
+        counts: {
+          imported: 0,
+          skipped: 0,
+        },
+        errorMessage: 'RPC timeout',
+        status: 'failed',
+        syncMode: 'resuming',
+      },
+    ]);
   });
 });
