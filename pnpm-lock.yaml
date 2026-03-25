@@ -118,6 +118,9 @@ importers:
       commander:
         specifier: ^14.0.3
         version: 14.0.3
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       ink:
         specifier: ^6.8.0
         version: 6.8.0(@types/react@19.2.14)(react@19.2.4)
@@ -136,6 +139,9 @@ importers:
       react:
         specifier: ^19.2.4
         version: 19.2.4
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/react':
         specifier: ^19.2.14
@@ -281,6 +287,9 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -309,6 +318,9 @@ importers:
       ccxt:
         specifier: ^4.5.44
         version: 4.5.44
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       jose:
         specifier: ^6.2.2
         version: 6.2.2
@@ -409,9 +421,6 @@ importers:
 
   packages/price-providers:
     dependencies:
-      '@exitbook/events':
-        specifier: workspace:*
-        version: link:../events
       '@exitbook/foundation':
         specifier: workspace:*
         version: link:../foundation
@@ -430,6 +439,9 @@ importers:
       '@exitbook/sqlite':
         specifier: workspace:*
         version: link:../sqlite
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
