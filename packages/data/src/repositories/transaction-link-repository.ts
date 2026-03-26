@@ -401,12 +401,23 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async findLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCreatedAt(profileId?: number): Promise<Result<Date | null, Error>> {
     try {
-      const result = await this.db
+      let query = this.db
         .selectFrom('transaction_links')
-        .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
-        .executeTakeFirst();
+        .select(({ fn }) => [fn.max<string>('created_at').as('latest')]);
+
+      if (profileId !== undefined) {
+        const scopedTransactionIds = this.buildScopedTransactionIdsQuery(profileId);
+        query = query.where((eb) =>
+          eb.and([
+            eb('source_transaction_id', 'in', scopedTransactionIds),
+            eb('target_transaction_id', 'in', scopedTransactionIds),
+          ])
+        );
+      }
+
+      const result = await query.executeTakeFirst();
 
       if (!result?.latest) {
         return ok(null);

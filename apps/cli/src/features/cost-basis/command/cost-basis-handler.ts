@@ -117,7 +117,8 @@ export class CostBasisHandler {
         const watermarkResult = await readCostBasisDependencyWatermark(
           this.db,
           this.dataDir,
-          this.accountingExclusionPolicy
+          this.accountingExclusionPolicy,
+          this.profileId
         );
         if (watermarkResult.isErr()) {
           return err(watermarkResult.error);

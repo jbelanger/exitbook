@@ -112,7 +112,7 @@ export async function ensureLinksReady(
 
   return rebuildIfStale(
     'links',
-    () => buildLinksFreshnessPorts(db).checkFreshness(),
+    () => buildLinksFreshnessPorts(db, options.profileId).checkFreshness(),
     async () => {
       const profileIdResult =
         options.profileId !== undefined

@@ -2,12 +2,15 @@ import type { ILinkingPersistence } from '@exitbook/accounting/ports';
 import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
+import { buildProfileProjectionScopeKey } from '../projections/profile-scope-key.js';
 
 /**
  * Bridges DataSession repositories to accounting's ILinkingPersistence port.
  * Mirrors the pattern established by buildProcessingPorts and buildImportPorts.
  */
 export function buildLinkingPorts(db: DataSession, profileId: number): ILinkingPersistence {
+  const scopeKey = buildProfileProjectionScopeKey(profileId);
+
   return {
     loadTransactions: () => db.transactions.findAll({ profileId }),
 
@@ -26,12 +29,29 @@ export function buildLinkingPorts(db: DataSession, profileId: number): ILinkingP
         return { previousCount, savedCount };
       }),
 
-    markLinksBuilding: () => db.projectionState.markBuilding('links'),
+    markLinksBuilding: () =>
+      resultDoAsync(async function* () {
+        yield* await db.projectionState.markBuilding('links');
+        yield* await db.projectionState.markBuilding('links', scopeKey);
+        return undefined;
+      }),
 
-    // eslint-disable-next-line unicorn/no-null -- DB layer expects null for absent metadata
-    markLinksFresh: () => db.projectionState.markFresh('links', null),
+     
+    markLinksFresh: () =>
+      resultDoAsync(async function* () {
+        // eslint-disable-next-line unicorn/no-null -- DB layer expects null for absent metadata
+        yield* await db.projectionState.markFresh('links', null);
+        // eslint-disable-next-line unicorn/no-null -- DB layer expects null for absent metadata
+        yield* await db.projectionState.markFresh('links', null, scopeKey);
+        return undefined;
+      }),
 
-    markLinksFailed: () => db.projectionState.markFailed('links'),
+    markLinksFailed: () =>
+      resultDoAsync(async function* () {
+        yield* await db.projectionState.markFailed('links');
+        yield* await db.projectionState.markFailed('links', scopeKey);
+        return undefined;
+      }),
 
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildLinkingPorts(txDb, profileId))),
   };

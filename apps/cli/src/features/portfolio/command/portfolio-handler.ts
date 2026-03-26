@@ -51,6 +51,7 @@ export async function createPortfolioHandler(
     const portfolioRuntimeResult = await createCliPortfolioRuntime({
       accountingExclusionPolicy,
       database,
+      profileId: options.profileId,
       scope: ctx,
     });
     if (portfolioRuntimeResult.isErr()) {

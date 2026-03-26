@@ -1139,12 +1139,18 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCreatedAt(profileId?: number): Promise<Result<Date | null, Error>> {
     try {
-      const result = await this.db
+      let query = this.db
         .selectFrom('transactions')
-        .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
-        .executeTakeFirst();
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .select(({ fn }) => [fn.max<string>('transactions.created_at').as('latest')]);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
+
+      const result = await query.executeTakeFirst();
 
       if (!result?.latest) {
         return ok(null);

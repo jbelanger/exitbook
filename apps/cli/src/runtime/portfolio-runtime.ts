@@ -22,6 +22,7 @@ interface CliPortfolioRuntime {
 interface CreateCliPortfolioRuntimeOptions {
   accountingExclusionPolicy: AccountingExclusionPolicy;
   database: DataSession;
+  profileId: number;
   scope: CommandRuntime;
 }
 
@@ -39,7 +40,12 @@ export async function createCliPortfolioRuntime(
     dependencyReader: {
       readAssetReviewSummaries: () => readAssetReviewProjectionSummaries(options.database),
       readDependencyWatermark: () =>
-        readCostBasisDependencyWatermark(options.database, dataDir, options.accountingExclusionPolicy),
+        readCostBasisDependencyWatermark(
+          options.database,
+          dataDir,
+          options.accountingExclusionPolicy,
+          options.profileId
+        ),
     },
     holdingsCalculator: {
       calculateHoldings: (transactions) => calculateBalances(transactions),

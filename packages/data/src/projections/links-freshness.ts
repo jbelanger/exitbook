@@ -3,6 +3,8 @@ import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
 
+import { buildProfileProjectionScopeKey } from './profile-scope-key.js';
+
 /**
  * Bridges DataSession to accounting's ILinksFreshness port.
  *
@@ -11,11 +13,14 @@ import type { DataSession } from '../data-session.js';
  * - No links exist but transactions do (timestamp comparison)
  * - Newest transaction is newer than newest link
  */
-export function buildLinksFreshnessPorts(db: DataSession): ILinksFreshness {
+export function buildLinksFreshnessPorts(db: DataSession, profileId?: number): ILinksFreshness {
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {
-        const state = yield* await db.projectionState.get('links');
+        const state = yield* await db.projectionState.get(
+          'links',
+          profileId !== undefined ? buildProfileProjectionScopeKey(profileId) : undefined
+        );
 
         if (state && (state.status === 'stale' || state.status === 'failed' || state.status === 'building')) {
           return { status: state.status, reason: state.invalidatedBy ?? `projection is ${state.status}` };
@@ -27,13 +32,13 @@ export function buildLinksFreshnessPorts(db: DataSession): ILinksFreshness {
         }
 
         // No projection state row — fall back to timestamp heuristic (legacy/first run)
-        const latestTx = yield* await db.transactions.findLatestCreatedAt();
+        const latestTx = yield* await db.transactions.findLatestCreatedAt(profileId);
         if (!latestTx) {
           // No transactions => nothing to link, consider fresh
           return { status: 'fresh' as const, reason: undefined };
         }
 
-        const latestLink = yield* await db.transactionLinks.findLatestCreatedAt();
+        const latestLink = yield* await db.transactionLinks.findLatestCreatedAt(profileId);
         if (!latestLink || latestLink < latestTx) {
           return {
             status: 'stale' as const,
