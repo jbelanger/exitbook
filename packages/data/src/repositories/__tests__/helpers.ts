@@ -6,7 +6,7 @@ import type { KyselyDB } from '../../database.js';
 export async function seedProfile(db: KyselyDB): Promise<void> {
   await db
     .insertInto('profiles')
-    .values({ id: 1, profile_key: 'default', name: 'default', created_at: new Date().toISOString() })
+    .values({ id: 1, profile_key: 'default', display_name: 'default', created_at: new Date().toISOString() })
     .execute();
 }
 

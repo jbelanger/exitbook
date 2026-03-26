@@ -9,8 +9,8 @@ import { buildCliProfileService } from './profile-service.js';
 export async function resolveCommandProfile(
   ctx: CommandRuntime,
   db: DataSession,
-  profileOverride?: string  
+  profileOverride?: string
 ): Promise<Result<Profile, Error>> {
   const profileService = buildCliProfileService(db);
-  return profileService.resolve(profileOverride ?? ctx.activeProfileName);
+  return profileService.resolve(profileOverride ?? ctx.activeProfileKey);
 }

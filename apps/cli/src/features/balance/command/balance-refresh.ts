@@ -31,7 +31,7 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
     .option('--account-id <id>', 'Refresh a specific balance scope', parseInt)
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')

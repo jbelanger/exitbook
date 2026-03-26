@@ -41,7 +41,7 @@ export function registerCostBasisCommand(program: Command, appRuntime: CliAppRun
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, appRuntime));

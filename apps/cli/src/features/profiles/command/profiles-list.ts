@@ -30,19 +30,19 @@ export function registerProfilesListCommand(profilesCommand: Command): void {
           }
 
           const profiles = profilesResult.value;
-          const activeProfileName = ctx.activeProfileName;
+          const activeProfileKey = ctx.activeProfileKey;
 
           if (options.json) {
             outputSuccess('profiles-list', {
-              activeProfileName,
-              profiles: profiles.map((profile) => toProfileListItem(profile, activeProfileName)),
+              activeProfileKey,
+              profiles: profiles.map((profile) => toProfileListItem(profile, activeProfileKey)),
             });
             return;
           }
 
           for (const profile of profiles) {
-            const marker = profile.name === activeProfileName ? '*' : ' ';
-            console.log(`${marker} ${profile.name} [key: ${profile.profileKey}]`);
+            const marker = profile.profileKey === activeProfileKey ? '*' : ' ';
+            console.log(`${marker} ${profile.displayName} [key: ${profile.profileKey}]`);
           }
         });
       } catch (error) {
@@ -56,12 +56,12 @@ export function registerProfilesListCommand(profilesCommand: Command): void {
     });
 }
 
-function toProfileListItem(profile: Profile, activeProfileName: string) {
+function toProfileListItem(profile: Profile, activeProfileKey: string) {
   return {
     id: profile.id,
     profileKey: profile.profileKey,
-    name: profile.name,
-    isActive: profile.name === activeProfileName,
+    displayName: profile.displayName,
+    isActive: profile.profileKey === activeProfileKey,
     createdAt: profile.createdAt.toISOString(),
   };
 }

@@ -12,60 +12,70 @@ function createStore() {
   return {
     profiles,
     store: {
-      async create(input: { name: string; profileKey: string }) {
+      async create(input: { displayName: string; profileKey: string }) {
         const profile: Profile = {
           id: nextId++,
           profileKey: input.profileKey,
-          name: input.name,
+          displayName: input.displayName,
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         };
         profiles.push(profile);
         return ok(profile);
       },
-      async findByName(name: string) {
-        return ok(profiles.find((profile) => profile.name === name));
+      async findByKey(profileKey: string) {
+        return ok(profiles.find((profile) => profile.profileKey === profileKey));
       },
       async findOrCreateDefault() {
-        const existing = profiles.find((profile) => profile.name === 'default');
+        const existing = profiles.find((profile) => profile.profileKey === 'default');
         if (existing) {
           return ok(existing);
         }
 
-        return this.create({ name: 'default', profileKey: 'default' });
+        return this.create({ displayName: 'default', profileKey: 'default' });
       },
       async list() {
         return ok([...profiles]);
+      },
+      async updateDisplayName(profileKey: string, displayName: string) {
+        const profile = profiles.find((item) => item.profileKey === profileKey);
+        if (!profile) {
+          throw new Error(`Profile '${profileKey}' not found`);
+        }
+
+        profile.displayName = displayName;
+        return ok(profile);
       },
     },
   };
 }
 
 describe('ProfileService', () => {
-  it('defaults the stable key from the profile name', async () => {
+  it('creates a profile with the key as the initial display name', async () => {
     const { store } = createStore();
     const service = new ProfileService(store);
 
     const profile = assertOk(await service.create('Business 2024'));
 
-    expect(profile.name).toBe('business 2024');
+    expect(profile.displayName).toBe('business-2024');
     expect(profile.profileKey).toBe('business-2024');
   });
 
-  it('accepts an explicit stable key', async () => {
+  it('renames the display name without changing the stable key', async () => {
     const { store } = createStore();
     const service = new ProfileService(store);
 
-    const profile = assertOk(await service.create('Business 2024', 'family-ledger'));
+    assertOk(await service.create('son'));
+    const profile = assertOk(await service.rename('son', 'Son / Family'));
 
-    expect(profile.name).toBe('business 2024');
-    expect(profile.profileKey).toBe('family-ledger');
+    expect(profile.displayName).toBe('Son / Family');
+    expect(profile.profileKey).toBe('son');
   });
 
-  it('rejects invalid explicit keys', async () => {
+  it('rejects invalid keys', async () => {
     const { store } = createStore();
     const service = new ProfileService(store);
 
-    const result = await service.create('Business 2024', 'bad/key');
+    const result = await service.create('bad/key');
 
     expect(result.isErr()).toBe(true);
     if (!result.isErr()) {

@@ -41,7 +41,7 @@ export function registerPortfolioCommand(program: Command, appRuntime: CliAppRun
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US (default: US)')
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, appRuntime));
 }

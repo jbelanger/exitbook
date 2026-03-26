@@ -55,7 +55,7 @@ Common Usage:
   - Verify imported data accuracy
 `
     )
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH)')
     .option('--since <date>', 'Filter by date (ISO 8601 format, e.g., 2024-01-01)')

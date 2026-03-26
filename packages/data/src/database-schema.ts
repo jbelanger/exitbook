@@ -17,7 +17,7 @@ export type JSONString = ColumnType<unknown, string, string>;
 export interface ProfilesTable {
   id: Generated<number>;
   profile_key: string;
-  name: string;
+  display_name: string;
   created_at: DateTime;
 }
 

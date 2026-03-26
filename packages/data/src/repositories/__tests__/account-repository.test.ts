@@ -268,7 +268,12 @@ describe('AccountRepository', () => {
     it('does not include accounts from other profiles', async () => {
       await db
         .insertInto('profiles')
-        .values({ id: 2, profile_key: 'secondary', name: 'secondary', created_at: new Date().toISOString() })
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
         .execute();
       assertOk(
         await repo.create({

@@ -13,7 +13,7 @@ export function registerAccountsRenameCommand(accountsCommand: Command): void {
     .description('Rename a named account')
     .argument('<current-name>', 'Existing account name')
     .argument('<next-name>', 'New account name')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(
       async (
@@ -46,7 +46,7 @@ export function registerAccountsRenameCommand(accountsCommand: Command): void {
                 name: renameResult.value.name,
                 platformKey: renameResult.value.platformKey,
               },
-              profile: profileResult.value.name,
+              profile: profileResult.value.profileKey,
             };
 
             if (options.json) {

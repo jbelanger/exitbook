@@ -18,7 +18,7 @@ const {
   mockBuildCliAccountLifecycleService: vi.fn(),
   mockBuildAccountQueryPorts: vi.fn(),
   mockCtx: {
-    activeProfileName: 'default',
+    activeProfileKey: 'default',
     closeDatabase: vi.fn(),
     database: vi.fn(),
     exitCode: 0,
@@ -141,7 +141,7 @@ beforeEach(() => {
     })
   );
   mockResolveCommandProfile.mockResolvedValue(
-    ok({ id: 1, profileKey: 'default', name: 'default', createdAt: new Date('2025-01-01T00:00:00.000Z') })
+    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2025-01-01T00:00:00.000Z') })
   );
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);

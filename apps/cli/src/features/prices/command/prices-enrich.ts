@@ -28,7 +28,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command, appRuntime: 
   pricesCommand
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--on-missing <behavior>', 'How to handle missing prices: fail (abort on first error)')
     .option('--normalize-only', 'Only run FX rates stage')

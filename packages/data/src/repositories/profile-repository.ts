@@ -1,4 +1,4 @@
-import { DEFAULT_PROFILE_NAME, normalizeProfileKey, normalizeProfileName, type Profile } from '@exitbook/core';
+import { DEFAULT_PROFILE_KEY, normalizeProfileDisplayName, normalizeProfileKey, type Profile } from '@exitbook/core';
 import { ProfileSchema } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -18,7 +18,7 @@ function toProfile(row: Selectable<ProfilesTable>): Profile {
   const parseResult = ProfileSchema.safeParse({
     id: row.id,
     profileKey: row.profile_key,
-    name: row.name,
+    displayName: row.display_name,
     createdAt: new Date(row.created_at),
   });
 
@@ -34,13 +34,12 @@ export class ProfileRepository extends BaseRepository {
     super(db, 'profile-repository');
   }
 
-  async create(input: { name: string; profileKey: string }): Promise<Result<Profile, Error>> {
+  async create(input: { displayName: string; profileKey: string }): Promise<Result<Profile, Error>> {
     try {
-      const normalizedNameResult = normalizeProfileName(input.name);
-      if (normalizedNameResult.isErr()) {
-        return err(normalizedNameResult.error);
+      const normalizedDisplayNameResult = normalizeProfileDisplayName(input.displayName);
+      if (normalizedDisplayNameResult.isErr()) {
+        return err(normalizedDisplayNameResult.error);
       }
-      const normalizedName = normalizedNameResult.value;
 
       const normalizedKeyResult = normalizeProfileKey(input.profileKey);
       if (normalizedKeyResult.isErr()) {
@@ -48,31 +47,22 @@ export class ProfileRepository extends BaseRepository {
       }
       const normalizedKey = normalizedKeyResult.value;
 
-      const existingResult = await this.findByName(normalizedName);
+      const existingResult = await this.findByKey(normalizedKey);
       if (existingResult.isErr()) {
         return err(existingResult.error);
       }
       if (existingResult.value) {
-        return err(new Error(`Profile '${normalizedName}' already exists`));
-      }
-
-      const existingByKey = await this.db
-        .selectFrom('profiles')
-        .select(['id', 'name', 'profile_key', 'created_at'])
-        .where('profile_key', '=', normalizedKey)
-        .executeTakeFirst();
-      if (existingByKey) {
         return err(new Error(`Profile key '${normalizedKey}' already exists`));
       }
 
       const result = await this.db
         .insertInto('profiles')
         .values({
+          display_name: normalizedDisplayNameResult.value,
           profile_key: normalizedKey,
-          name: normalizedName,
           created_at: currentTimestamp(),
         })
-        .returning(['id', 'profile_key', 'name', 'created_at'])
+        .returning(['id', 'profile_key', 'display_name', 'created_at'])
         .executeTakeFirstOrThrow();
 
       return ok(toProfile(result));
@@ -94,17 +84,17 @@ export class ProfileRepository extends BaseRepository {
     }
   }
 
-  async findByName(name: string): Promise<Result<Profile | undefined, Error>> {
+  async findByKey(profileKey: string): Promise<Result<Profile | undefined, Error>> {
     try {
-      const normalizedNameResult = normalizeProfileName(name);
-      if (normalizedNameResult.isErr()) {
-        return err(normalizedNameResult.error);
+      const normalizedKeyResult = normalizeProfileKey(profileKey);
+      if (normalizedKeyResult.isErr()) {
+        return err(normalizedKeyResult.error);
       }
 
       const row = await this.db
         .selectFrom('profiles')
         .selectAll()
-        .where(sql`lower(name)`, '=', normalizedNameResult.value)
+        .where('profile_key', '=', normalizedKeyResult.value)
         .executeTakeFirst();
       if (!row) {
         return ok(undefined);
@@ -112,22 +102,58 @@ export class ProfileRepository extends BaseRepository {
 
       return ok(toProfile(row));
     } catch (error) {
-      return wrapError(error, 'Failed to find profile by name');
+      return wrapError(error, 'Failed to find profile by key');
     }
   }
 
   async list(): Promise<Result<Profile[], Error>> {
     try {
-      const rows = await this.db.selectFrom('profiles').selectAll().orderBy('name asc').execute();
+      const rows = await this.db
+        .selectFrom('profiles')
+        .selectAll()
+        .orderBy(sql`lower(display_name)`)
+        .orderBy('profile_key asc')
+        .execute();
       return ok(rows.map((row) => toProfile(row)));
     } catch (error) {
       return wrapError(error, 'Failed to list profiles');
     }
   }
 
+  async updateDisplayName(profileKey: string, displayName: string): Promise<Result<Profile, Error>> {
+    try {
+      const normalizedKeyResult = normalizeProfileKey(profileKey);
+      if (normalizedKeyResult.isErr()) {
+        return err(normalizedKeyResult.error);
+      }
+
+      const normalizedDisplayNameResult = normalizeProfileDisplayName(displayName);
+      if (normalizedDisplayNameResult.isErr()) {
+        return err(normalizedDisplayNameResult.error);
+      }
+
+      const result = await this.db
+        .updateTable('profiles')
+        .set({
+          display_name: normalizedDisplayNameResult.value,
+        })
+        .where('profile_key', '=', normalizedKeyResult.value)
+        .returning(['id', 'profile_key', 'display_name', 'created_at'])
+        .executeTakeFirst();
+
+      if (!result) {
+        return err(new Error(`Profile '${normalizedKeyResult.value}' not found`));
+      }
+
+      return ok(toProfile(result));
+    } catch (error) {
+      return wrapError(error, 'Failed to update profile display name');
+    }
+  }
+
   async findOrCreateDefault(): Promise<Result<Profile, Error>> {
     try {
-      const existingResult = await this.findByName(DEFAULT_PROFILE_NAME);
+      const existingResult = await this.findByKey(DEFAULT_PROFILE_KEY);
       if (existingResult.isErr()) {
         return err(existingResult.error);
       }
@@ -142,11 +168,11 @@ export class ProfileRepository extends BaseRepository {
         .insertInto('profiles')
         .values({
           ...(firstProfile ? {} : { id: 1 }),
-          profile_key: DEFAULT_PROFILE_NAME,
-          name: DEFAULT_PROFILE_NAME,
+          profile_key: DEFAULT_PROFILE_KEY,
+          display_name: DEFAULT_PROFILE_KEY,
           created_at: currentTimestamp(),
         })
-        .returning(['id', 'profile_key', 'name', 'created_at'])
+        .returning(['id', 'profile_key', 'display_name', 'created_at'])
         .executeTakeFirstOrThrow();
 
       const profile = toProfile(result);

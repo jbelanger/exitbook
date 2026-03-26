@@ -109,7 +109,7 @@ describe('assets command modules', () => {
     vi.clearAllMocks();
     mockCtx.database.mockResolvedValue({ tag: 'db' });
     mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', name: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
+      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
     );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);

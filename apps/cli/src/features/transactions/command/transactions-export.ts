@@ -40,7 +40,7 @@ Examples:
   $ exitbook transactions export --json                         # Output metadata as JSON
 `
     )
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--format <type>', 'Export format (csv|json)', 'csv')
     .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--output <file>', 'Output file path')

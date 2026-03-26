@@ -23,7 +23,7 @@ export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
     .description('View assets and review flagged ones')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--action-required', 'Show only flagged assets that still need attention')
     .option('--needs-review', 'Alias for --action-required')
     .option('--json', 'Output results in JSON format')

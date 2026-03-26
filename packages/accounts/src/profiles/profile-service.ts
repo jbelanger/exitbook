@@ -1,4 +1,4 @@
-import { DEFAULT_PROFILE_NAME, normalizeProfileKey, normalizeProfileName, type Profile } from '@exitbook/core';
+import { DEFAULT_PROFILE_KEY, normalizeProfileDisplayName, normalizeProfileKey, type Profile } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { IProfileLifecycleStore } from '../ports/index.js';
@@ -6,19 +6,14 @@ import type { IProfileLifecycleStore } from '../ports/index.js';
 export class ProfileService {
   constructor(private readonly store: IProfileLifecycleStore) {}
 
-  create(name: string, profileKey?: string  ): Promise<Result<Profile, Error>> {
-    const normalizedNameResult = normalizeProfileName(name);
-    if (normalizedNameResult.isErr()) {
-      return Promise.resolve(err(normalizedNameResult.error));
-    }
-
-    const normalizedKeyResult = normalizeProfileKey(profileKey ?? name);
+  create(profileKey: string): Promise<Result<Profile, Error>> {
+    const normalizedKeyResult = normalizeProfileKey(profileKey);
     if (normalizedKeyResult.isErr()) {
       return Promise.resolve(err(normalizedKeyResult.error));
     }
 
     return this.store.create({
-      name: normalizedNameResult.value,
+      displayName: normalizedKeyResult.value,
       profileKey: normalizedKeyResult.value,
     });
   }
@@ -27,30 +22,45 @@ export class ProfileService {
     return this.store.list();
   }
 
-  findByName(name: string): Promise<Result<Profile | undefined, Error>> {
-    const normalizedNameResult = normalizeProfileName(name);
-    if (normalizedNameResult.isErr()) {
-      return Promise.resolve(err(normalizedNameResult.error));
+  findByKey(profileKey: string): Promise<Result<Profile | undefined, Error>> {
+    const normalizedKeyResult = normalizeProfileKey(profileKey);
+    if (normalizedKeyResult.isErr()) {
+      return Promise.resolve(err(normalizedKeyResult.error));
     }
 
-    return this.store.findByName(normalizedNameResult.value);
+    return this.store.findByKey(normalizedKeyResult.value);
   }
 
   findOrCreateDefault(): Promise<Result<Profile, Error>> {
     return this.store.findOrCreateDefault();
   }
 
-  async resolve(profileName?: string  ): Promise<Result<Profile, Error>> {
-    if (!profileName || profileName.trim().length === 0 || profileName.trim().toLowerCase() === DEFAULT_PROFILE_NAME) {
+  async rename(profileKey: string, displayName: string): Promise<Result<Profile, Error>> {
+    const normalizedKeyResult = normalizeProfileKey(profileKey);
+    if (normalizedKeyResult.isErr()) {
+      return err(normalizedKeyResult.error);
+    }
+
+    const normalizedDisplayNameResult = normalizeProfileDisplayName(displayName);
+    if (normalizedDisplayNameResult.isErr()) {
+      return err(normalizedDisplayNameResult.error);
+    }
+
+    return this.store.updateDisplayName(normalizedKeyResult.value, normalizedDisplayNameResult.value);
+  }
+
+  async resolve(profileKey?: string): Promise<Result<Profile, Error>> {
+    const resolvedProfileKey = profileKey?.trim() ?? '';
+    if (resolvedProfileKey.length === 0 || resolvedProfileKey.toLowerCase() === DEFAULT_PROFILE_KEY) {
       return this.findOrCreateDefault();
     }
 
-    const profileResult = await this.findByName(profileName);
+    const profileResult = await this.findByKey(resolvedProfileKey);
     if (profileResult.isErr()) {
       return err(profileResult.error);
     }
     if (!profileResult.value) {
-      return err(new Error(`Profile '${profileName.trim().toLowerCase()}' not found`));
+      return err(new Error(`Profile '${resolvedProfileKey.toLowerCase()}' not found`));
     }
 
     return ok(profileResult.value);

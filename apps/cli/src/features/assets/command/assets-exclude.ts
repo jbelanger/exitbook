@@ -14,7 +14,7 @@ export function registerAssetsExcludeCommand(assetsCommand: Command): void {
   assetsCommand
     .command('exclude')
     .description('Exclude an asset from accounting-scoped cost basis and portfolio processing')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')
     .option('--reason <text>', 'Optional audit reason stored with the override event')

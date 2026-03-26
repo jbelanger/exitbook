@@ -613,7 +613,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 2,
           profile_key: 'secondary',
-          name: 'secondary',
+          display_name: 'secondary',
           created_at: new Date().toISOString(),
         })
         .execute();
@@ -1297,7 +1297,12 @@ describe('TransactionRepository', () => {
       await seedProfile(db);
       await db
         .insertInto('profiles')
-        .values({ id: 2, profile_key: 'audit', name: 'audit', created_at: new Date().toISOString() })
+        .values({
+          id: 2,
+          profile_key: 'audit',
+          display_name: 'audit',
+          created_at: new Date().toISOString(),
+        })
         .execute();
       await seedAccount(db, 1, 'exchange-api', 'kraken', { profileId: 1 });
       await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });

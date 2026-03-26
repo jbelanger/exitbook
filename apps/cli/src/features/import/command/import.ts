@@ -85,7 +85,7 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
     .option('--account <name>', 'Named account to sync')
     .option('--account-id <number>', 'Account ID to sync', parseInt)
     .option('--all', 'Sync all top-level accounts in the selected profile')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
     .addHelpText(
@@ -124,7 +124,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
         const result = await runImportAll(ctx, {
           isJsonMode: true,
           profileId: profileResult.value.id,
-          profileName: profileResult.value.name,
+          profileName: profileResult.value.displayName,
         });
         if (result.isErr()) {
           displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -172,7 +172,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
         const result = await runImportAll(ctx, {
           isJsonMode: false,
           profileId: profileResult.value.id,
-          profileName: profileResult.value.name,
+          profileName: profileResult.value.displayName,
         });
         if (result.isErr()) {
           displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');

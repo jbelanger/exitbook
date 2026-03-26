@@ -83,7 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCtx.database.mockResolvedValue({});
   mockResolveCommandProfile.mockResolvedValue(
-    ok({ id: 1, profileKey: 'default', name: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
+    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
   );
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;

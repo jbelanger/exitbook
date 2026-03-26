@@ -32,12 +32,12 @@ describe('profile-state', () => {
       return;
     }
 
-    expect(result.value).toEqual({ name: 'default', source: 'default' });
+    expect(result.value).toEqual({ profileKey: 'default', source: 'default' });
   });
 
   it('uses EXITBOOK_PROFILE before shared state', () => {
     const dataDir = createTempDir();
-    writeFileSync(getCliStatePath(dataDir), JSON.stringify({ activeProfileName: 'state-profile' }), 'utf8');
+    writeFileSync(getCliStatePath(dataDir), JSON.stringify({ activeProfileKey: 'state-profile' }), 'utf8');
     process.env['EXITBOOK_PROFILE'] = ' Env-Profile ';
 
     const result = resolveCliProfileSelection(dataDir);
@@ -47,7 +47,7 @@ describe('profile-state', () => {
       return;
     }
 
-    expect(result.value).toEqual({ name: 'env-profile', source: 'env' });
+    expect(result.value).toEqual({ profileKey: 'env-profile', source: 'env' });
   });
 
   it('writes and rereads normalized shared profile state', () => {
@@ -62,7 +62,7 @@ describe('profile-state', () => {
       return;
     }
 
-    expect(readResult.value).toEqual({ activeProfileName: 'son' });
+    expect(readResult.value).toEqual({ activeProfileKey: 'son' });
 
     const selectionResult = resolveCliProfileSelection(dataDir);
     expect(selectionResult.isOk()).toBe(true);
@@ -70,6 +70,6 @@ describe('profile-state', () => {
       return;
     }
 
-    expect(selectionResult.value).toEqual({ name: 'son', source: 'state' });
+    expect(selectionResult.value).toEqual({ profileKey: 'son', source: 'state' });
   });
 });

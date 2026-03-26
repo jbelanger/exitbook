@@ -1,4 +1,3 @@
-import { DEFAULT_PROFILE_NAME } from '@exitbook/core';
 import type { Command } from 'commander';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
@@ -12,44 +11,37 @@ export function registerProfilesSwitchCommand(profilesCommand: Command): void {
   profilesCommand
     .command('switch')
     .description('Set the default active profile for future commands')
-    .argument('<name>', 'Profile name')
+    .argument('<profile>', 'Profile key')
     .option('--json', 'Output results in JSON format')
-    .action(async (name: string, options: { json?: boolean | undefined }) => {
+    .action(async (profileKey: string, options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';
 
       try {
         await runCommand(async (ctx) => {
           const db = await ctx.database();
           const profileService = buildCliProfileService(db);
-          const normalizedName = name.trim().toLowerCase();
-          const profileResult =
-            normalizedName === DEFAULT_PROFILE_NAME
-              ? await profileService.findOrCreateDefault()
-              : await profileService.findByName(name);
+          const profileResult = await profileService.resolve(profileKey);
 
           if (profileResult.isErr()) {
             displayCliError('profiles-switch', profileResult.error, ExitCodes.GENERAL_ERROR, format);
           }
-          if (!profileResult.value) {
-            displayCliError(
-              'profiles-switch',
-              new Error(`Profile '${normalizedName}' not found`),
-              ExitCodes.GENERAL_ERROR,
-              format
-            );
-          }
 
-          const writeResult = writeCliStateFile(ctx.dataDir, profileResult.value.name);
+          const writeResult = writeCliStateFile(ctx.dataDir, profileResult.value.profileKey);
           if (writeResult.isErr()) {
             displayCliError('profiles-switch', writeResult.error, ExitCodes.GENERAL_ERROR, format);
           }
 
           if (options.json) {
-            outputSuccess('profiles-switch', { defaultProfileName: profileResult.value.name });
+            outputSuccess('profiles-switch', {
+              defaultProfileKey: profileResult.value.profileKey,
+              profile: profileResult.value,
+            });
             return;
           }
 
-          console.log(`Default profile set to ${profileResult.value.name}`);
+          console.log(
+            `Default profile set to ${profileResult.value.displayName} [key: ${profileResult.value.profileKey}]`
+          );
         });
       } catch (error) {
         displayCliError(

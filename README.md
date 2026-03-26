@@ -154,12 +154,18 @@ Exitbook scopes accounts, imports, links, balances, and reporting to one active 
 
 ```bash
 # Use the built-in default profile, or create your own
-pnpm run dev profiles add business --key business
+pnpm run dev profiles add business
 pnpm run dev profiles switch business
 pnpm run dev profiles current
 ```
 
-You can override the active profile per command with `--profile <name>`.
+`business` is the stable profile key. If you want a friendlier label later, rename the display name without changing identity:
+
+```bash
+pnpm run dev profiles rename business "Business / Family"
+```
+
+You can override the active profile per command with `--profile <profile>`.
 
 ### 2. Add accounts, then import them
 

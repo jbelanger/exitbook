@@ -5,9 +5,10 @@ import type { DataSession } from './data-session.js';
 export function buildProfileLifecycleStore(db: DataSession): IProfileLifecycleStore {
   return {
     create: (input) => db.profiles.create(input),
-    findByName: (name) => db.profiles.findByName(name),
+    findByKey: (profileKey) => db.profiles.findByKey(profileKey),
     findOrCreateDefault: () => db.profiles.findOrCreateDefault(),
     list: () => db.profiles.list(),
+    updateDisplayName: (profileKey, displayName) => db.profiles.updateDisplayName(profileKey, displayName),
   };
 }
 

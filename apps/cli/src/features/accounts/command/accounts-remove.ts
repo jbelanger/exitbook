@@ -19,7 +19,7 @@ export function registerAccountsRemoveCommand(accountsCommand: Command): void {
     .command('remove')
     .description('Remove a named account, purge its imported data, and reset affected projections')
     .argument('<name>', 'Account name')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--confirm', 'Skip confirmation prompt')
     .option('--json', 'Output results in JSON format')
     .action(
@@ -94,7 +94,7 @@ export function registerAccountsRemoveCommand(accountsCommand: Command): void {
               outputSuccess('accounts-remove', {
                 accountName: accountResult.value.name,
                 deleted: removeResult.value.deleted,
-                profile: profileResult.value.name,
+                profile: profileResult.value.profileKey,
               });
               return;
             }

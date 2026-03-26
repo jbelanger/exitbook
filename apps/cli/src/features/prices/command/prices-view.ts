@@ -59,7 +59,7 @@ Common Usage:
   - Find gaps in historical pricing data
 `
     )
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')

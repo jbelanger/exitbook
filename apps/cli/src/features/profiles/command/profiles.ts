@@ -3,6 +3,7 @@ import type { Command } from 'commander';
 import { registerProfilesAddCommand } from './profiles-add.js';
 import { registerProfilesCurrentCommand } from './profiles-current.js';
 import { registerProfilesListCommand } from './profiles-list.js';
+import { registerProfilesRenameCommand } from './profiles-rename.js';
 import { registerProfilesSwitchCommand } from './profiles-switch.js';
 
 export function registerProfilesCommand(program: Command): void {
@@ -10,6 +11,7 @@ export function registerProfilesCommand(program: Command): void {
 
   registerProfilesAddCommand(profiles);
   registerProfilesListCommand(profiles);
+  registerProfilesRenameCommand(profiles);
   registerProfilesSwitchCommand(profiles);
   registerProfilesCurrentCommand(profiles);
 }

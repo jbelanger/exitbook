@@ -34,16 +34,18 @@ Profiles are the CLI ownership and scope model.
 {
   id: number,
   profileKey: string,
-  name: string,
+  displayName: string,
   createdAt: Date
 }
 ```
 
 Rules:
 
-- `name` is the mutable display label
+- `displayName` is the mutable display label
 - `profileKey` is the stable identity anchor used by deterministic fingerprints
-- commands use the active profile unless `--profile <name>` overrides it
+- `profiles add <profile>` creates the profile with `displayName === profileKey` initially
+- `profiles rename <profile> <display-name>` changes only the display label
+- commands use the active profile unless `--profile <profile>` overrides it
 
 ### Account
 

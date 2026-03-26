@@ -122,7 +122,7 @@ export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAp
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')

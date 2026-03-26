@@ -271,7 +271,12 @@ describe('TransactionLinkRepository', () => {
     it('filters links by profile ownership', async () => {
       await db
         .insertInto('profiles')
-        .values({ id: 2, profile_key: 'business', name: 'business', created_at: new Date().toISOString() })
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
         .execute();
       await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
 
@@ -441,7 +446,12 @@ describe('TransactionLinkRepository', () => {
     it('counts links scoped to a profile', async () => {
       await db
         .insertInto('profiles')
-        .values({ id: 2, profile_key: 'business', name: 'business', created_at: new Date().toISOString() })
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
         .execute();
       await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
 

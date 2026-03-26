@@ -24,7 +24,7 @@ export function registerAccountsUpdateCommand(accountsCommand: Command, appRunti
     .option('--csv-dir <path>', 'New CSV directory for exchange CSV accounts')
     .option('--provider <name>', 'Preferred blockchain provider for blockchain accounts')
     .option('--xpub-gap <number>', 'Increase the xpub gap limit for xpub accounts', parseInt)
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (name: string, rawOptions: unknown) => {
       await executeUpdateAccountCommand(name, rawOptions, appRuntime);
@@ -72,7 +72,7 @@ async function executeUpdateAccountCommand(
 
       const payload = {
         account: serializeAccount(updateResult.value),
-        profile: profileResult.value.name,
+        profile: profileResult.value.profileKey,
       };
 
       if (options.json) {

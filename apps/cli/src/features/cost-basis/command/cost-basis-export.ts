@@ -70,7 +70,7 @@ Examples:
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Rejected for tax-package export; filing export requires full scope')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--output <dir>', 'Output directory for the tax package')
     .option('--json', 'Output command metadata in JSON format')

@@ -27,7 +27,7 @@ export function registerAccountsAddCommand(accountsCommand: Command, appRuntime:
     .option('--api-key <key>', 'API key for exchange API accounts')
     .option('--api-secret <secret>', 'API secret for exchange API accounts')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API accounts')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (name: string, rawOptions: unknown) => {
       await executeAddAccountCommand(name, rawOptions, appRuntime);
@@ -57,7 +57,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
 
       const payload = {
         account: serializeAccount(addResult.value),
-        profile: profileResult.value.name,
+        profile: profileResult.value.profileKey,
       };
 
       if (options.json) {

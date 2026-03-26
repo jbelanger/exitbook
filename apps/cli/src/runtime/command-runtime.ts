@@ -42,7 +42,7 @@ export class CommandRuntime {
   exitCode = 0;
   readonly app?: CliAppRuntime | undefined;
   readonly dataDir: string;
-  readonly activeProfileName: string;
+  readonly activeProfileKey: string;
   readonly activeProfileSource: 'default' | 'env' | 'state';
 
   private _database?: DataSession | undefined;
@@ -58,7 +58,7 @@ export class CommandRuntime {
     if (profileSelectionResult.isErr()) {
       throw profileSelectionResult.error;
     }
-    this.activeProfileName = profileSelectionResult.value.name;
+    this.activeProfileKey = profileSelectionResult.value.profileKey;
     this.activeProfileSource = profileSelectionResult.value.source;
   }
 

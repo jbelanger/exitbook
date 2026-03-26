@@ -34,7 +34,7 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
     .command('confirm')
     .description('Confirm a suggested transaction link')
     .argument('<link-id>', 'ID of the link to confirm')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (linkIdArg: string, rawOptions: unknown) => {
       await executeLinksConfirmCommand(linkIdArg, rawOptions);

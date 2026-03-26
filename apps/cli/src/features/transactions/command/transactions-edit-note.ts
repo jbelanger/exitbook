@@ -30,7 +30,7 @@ Examples:
 `
     )
     .argument('<transaction-id>', 'ID of the transaction to annotate')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--message <text>', 'Note message to persist for the transaction')
     .option('--clear', 'Clear the currently saved transaction note')
     .option('--reason <text>', 'Optional audit reason stored with the override event')

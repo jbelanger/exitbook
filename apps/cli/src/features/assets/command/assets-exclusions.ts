@@ -14,7 +14,7 @@ export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
     .command('exclusions')
     .description('List asset IDs currently excluded from accounting')
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeAssetsExclusionsCommand(rawOptions);

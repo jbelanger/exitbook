@@ -23,7 +23,7 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
     .command('view')
     .description('View stored balance snapshots without calling live providers')
     .option('--account-id <id>', 'View a specific balance scope', parseInt)
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',

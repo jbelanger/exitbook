@@ -90,7 +90,7 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     id: 1,
     profileKey: 'default',
-    name: 'default',
+    displayName: 'default',
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };
@@ -235,7 +235,7 @@ describe('import command', () => {
 
   it('runs batch import for --all in JSON mode and returns partial failure status', async () => {
     const program = createImportProgram();
-    mockResolveCommandProfile.mockResolvedValue(ok(makeProfile({ id: 3, name: 'business' })));
+    mockResolveCommandProfile.mockResolvedValue(ok(makeProfile({ id: 3, displayName: 'business' })));
     mockRunImportAll.mockResolvedValue(
       ok({
         accounts: [

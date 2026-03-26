@@ -7,18 +7,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('profiles')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('profile_key', 'text', (col) => col.notNull())
-    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('display_name', 'text', (col) => col.notNull())
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
   await sql`
     CREATE UNIQUE INDEX idx_profiles_profile_key_unique
     ON profiles (profile_key)
-  `.execute(db);
-
-  await sql`
-    CREATE UNIQUE INDEX idx_profiles_name_unique
-    ON profiles (lower(name))
   `.execute(db);
 
   // Create accounts table

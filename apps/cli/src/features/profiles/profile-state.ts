@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { DEFAULT_PROFILE_NAME } from '@exitbook/core';
+import { DEFAULT_PROFILE_KEY, normalizeProfileKey } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 const CLI_STATE_FILENAME = 'cli-state.json';
@@ -9,21 +9,12 @@ const CLI_STATE_FILENAME = 'cli-state.json';
 type ActiveProfileSource = 'default' | 'env' | 'state';
 
 interface CliStateFile {
-  activeProfileName?: string | undefined;
+  activeProfileKey?: string | undefined;
 }
 
 export interface CliProfileSelection {
-  name: string;
+  profileKey: string;
   source: ActiveProfileSource;
-}
-
-function normalizeProfileName(name: string, field: string): Result<string, Error> {
-  const normalized = name.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return err(new Error(`${field} must not be empty`));
-  }
-
-  return ok(normalized);
 }
 
 export function getCliStatePath(dataDir: string): string {
@@ -40,12 +31,12 @@ export function readCliStateFile(dataDir: string): Result<CliStateFile, Error> {
       return err(new Error(`CLI state file is invalid: ${statePath}`));
     }
 
-    const activeProfileName = (parsed as { activeProfileName?: unknown }).activeProfileName;
-    if (activeProfileName !== undefined && typeof activeProfileName !== 'string') {
-      return err(new Error(`CLI state file has invalid activeProfileName: ${statePath}`));
+    const activeProfileKey = (parsed as { activeProfileKey?: unknown }).activeProfileKey;
+    if (activeProfileKey !== undefined && typeof activeProfileKey !== 'string') {
+      return err(new Error(`CLI state file has invalid activeProfileKey: ${statePath}`));
     }
 
-    return ok({ activeProfileName });
+    return ok({ activeProfileKey });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return ok({});
@@ -58,12 +49,12 @@ export function readCliStateFile(dataDir: string): Result<CliStateFile, Error> {
 export function resolveCliProfileSelection(dataDir: string): Result<CliProfileSelection, Error> {
   const envProfile = process.env['EXITBOOK_PROFILE'];
   if (envProfile !== undefined) {
-    const normalizedEnvResult = normalizeProfileName(envProfile, 'EXITBOOK_PROFILE');
+    const normalizedEnvResult = normalizeProfileKey(envProfile);
     if (normalizedEnvResult.isErr()) {
       return err(normalizedEnvResult.error);
     }
 
-    return ok({ name: normalizedEnvResult.value, source: 'env' });
+    return ok({ profileKey: normalizedEnvResult.value, source: 'env' });
   }
 
   const stateResult = readCliStateFile(dataDir);
@@ -71,29 +62,29 @@ export function resolveCliProfileSelection(dataDir: string): Result<CliProfileSe
     return err(stateResult.error);
   }
 
-  if (stateResult.value.activeProfileName) {
-    const normalizedStateResult = normalizeProfileName(stateResult.value.activeProfileName, 'Active profile name');
+  if (stateResult.value.activeProfileKey) {
+    const normalizedStateResult = normalizeProfileKey(stateResult.value.activeProfileKey);
     if (normalizedStateResult.isErr()) {
       return err(normalizedStateResult.error);
     }
 
-    return ok({ name: normalizedStateResult.value, source: 'state' });
+    return ok({ profileKey: normalizedStateResult.value, source: 'state' });
   }
 
-  return ok({ name: DEFAULT_PROFILE_NAME, source: 'default' });
+  return ok({ profileKey: DEFAULT_PROFILE_KEY, source: 'default' });
 }
 
-export function writeCliStateFile(dataDir: string, profileName: string): Result<void, Error> {
-  const normalizedProfileNameResult = normalizeProfileName(profileName, 'Profile name');
-  if (normalizedProfileNameResult.isErr()) {
-    return err(normalizedProfileNameResult.error);
+export function writeCliStateFile(dataDir: string, profileKey: string): Result<void, Error> {
+  const normalizedProfileKeyResult = normalizeProfileKey(profileKey);
+  if (normalizedProfileKeyResult.isErr()) {
+    return err(normalizedProfileKeyResult.error);
   }
 
   try {
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(
       getCliStatePath(dataDir),
-      JSON.stringify({ activeProfileName: normalizedProfileNameResult.value }, undefined, 2),
+      JSON.stringify({ activeProfileKey: normalizedProfileKeyResult.value }, undefined, 2),
       'utf8'
     );
     return ok(undefined);

@@ -64,7 +64,7 @@ Account Types:
 `
     )
     .option('--account-id <number>', 'Filter by account ID', parseInt)
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--type <type>', 'Filter by account type (blockchain, exchange-api, exchange-csv)')
     .option('--show-sessions', 'Include import session details for each account')
@@ -230,7 +230,7 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
 async function resolveNamedAccountId(
   database: DataSession,
   profileId: number,
-  accountName?: string  
+  accountName?: string
 ): Promise<Result<number | undefined, Error>> {
   if (!accountName) {
     return ok(undefined);

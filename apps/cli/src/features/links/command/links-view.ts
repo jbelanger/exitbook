@@ -104,7 +104,7 @@ Confidence Scores:
   <0.3 - Low confidence, needs manual review
 `
     )
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
@@ -128,7 +128,7 @@ Examples:
   $ exitbook links gaps --json            # Output gap analysis as JSON
 `
     )
-    .option('--profile <name>', 'Use a specific profile instead of the active profile')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksGapsCommand(rawOptions);

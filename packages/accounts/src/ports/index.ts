@@ -2,10 +2,11 @@ import type { Account, AccountType, ExchangeCredentials, Profile } from '@exitbo
 import type { Result } from '@exitbook/foundation';
 
 export interface IProfileLifecycleStore {
-  create(input: { name: string; profileKey: string }): Promise<Result<Profile, Error>>;
-  findByName(name: string): Promise<Result<Profile | undefined, Error>>;
+  create(input: { displayName: string; profileKey: string }): Promise<Result<Profile, Error>>;
+  findByKey(profileKey: string): Promise<Result<Profile | undefined, Error>>;
   findOrCreateDefault(): Promise<Result<Profile, Error>>;
   list(): Promise<Result<Profile[], Error>>;
+  updateDisplayName(profileKey: string, displayName: string): Promise<Result<Profile, Error>>;
 }
 
 export interface IAccountLifecycleStore {
