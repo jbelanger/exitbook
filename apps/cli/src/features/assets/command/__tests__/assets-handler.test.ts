@@ -21,6 +21,7 @@ import {
 import { AssetsHandler } from '../assets-handler.js';
 
 const PROFILE_ID = 1;
+const OTHER_PROFILE_ID = 2;
 
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   createCliAssetReviewProjectionRuntime: vi.fn(),
@@ -188,7 +189,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
   };
 }
 
-function createAssetExcludeEvent(assetId: string): OverrideEvent {
+function createAssetExcludeEvent(assetId: string, profileId = PROFILE_ID): OverrideEvent {
   return {
     id: `exclude:${assetId}`,
     created_at: '2026-03-10T10:00:00.000Z',
@@ -197,6 +198,7 @@ function createAssetExcludeEvent(assetId: string): OverrideEvent {
     scope: 'asset-exclude',
     payload: {
       type: 'asset_exclude',
+      profile_id: profileId,
       asset_id: assetId,
     },
   };
@@ -266,6 +268,7 @@ describe('AssetsHandler', () => {
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
+        profile_id: PROFILE_ID,
         asset_id: 'blockchain:ethereum:0xscam',
       },
       reason: 'junk airdrop',
@@ -569,6 +572,7 @@ describe('AssetsHandler', () => {
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
+        profile_id: PROFILE_ID,
         asset_id: assetId,
       },
       reason: undefined,
@@ -680,6 +684,41 @@ describe('AssetsHandler', () => {
     expect(value.actionRequiredCount).toBe(0);
     expect(value.excludedCount).toBe(1);
     expect(value.totalCount).toBe(1);
+  });
+
+  it('ignores exclusions written for a different profile', async () => {
+    const blockedAssetId = 'blockchain:ethereum:0xscam';
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: blockedAssetId, assetSymbol: 'SCAM', amount: '100' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent(blockedAssetId, OTHER_PROFILE_ID)]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataSession,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view({ profileId: PROFILE_ID });
+    const value = assertOk(result);
+
+    expect(value.assets).toHaveLength(1);
+    expect(value.assets[0]).toMatchObject({
+      assetId: blockedAssetId,
+      excluded: false,
+    });
+    expect(value.excludedCount).toBe(0);
   });
 
   it('writes an asset-review-confirm event for a suspicious asset', async () => {

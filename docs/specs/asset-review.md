@@ -127,6 +127,7 @@ The override store remains the write-side audit log for:
 - `asset-include`
 
 Review replay is strict and latest-event-wins per asset.
+Exclusion replay is strict and latest-event-wins per profile + asset.
 
 ### `transactions.db`
 
@@ -608,10 +609,9 @@ No consumer should rebuild review summaries ad hoc in its handler.
 
 - Same-symbol ambiguity detection currently applies only to EVM token asset IDs
   on the same chain.
-- Asset review state and asset include/exclude decisions are currently global by
-  `assetId`, not profile-scoped. If two profiles hold the same asset, review
-  confirmations and accounting exclusion decisions are intentionally shared
-  across those profiles for now.
+- Asset review confirmations remain global by `assetId`. Asset include/exclude
+  decisions are profile-scoped, so two profiles can now hold the same asset
+  with different accounting exclusion policy.
 - Provider-backed spam/reference enrichment currently flows through the token
   metadata persistence and CoinGecko reference resolver host support.
 - Reference evidence is summarized as `referenceStatus`; it does not yet have a

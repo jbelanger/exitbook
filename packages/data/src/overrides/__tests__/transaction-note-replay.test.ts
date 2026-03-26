@@ -82,6 +82,7 @@ describe('transaction note replay', () => {
         scope: 'asset-exclude',
         payload: {
           type: 'asset_exclude',
+          profile_id: 1,
           asset_id: 'blockchain:ethereum:0xabc',
         },
       },

@@ -123,7 +123,7 @@ export async function runPricesEnrich(
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
     const database = await ctx.database();
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileId);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }

@@ -143,6 +143,7 @@ export class AssetsHandler {
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
+        profile_id: params.profileId,
         asset_id: assetId,
       },
       reason: params.reason,
@@ -186,6 +187,7 @@ export class AssetsHandler {
       scope: 'asset-include',
       payload: {
         type: 'asset_include',
+        profile_id: params.profileId,
         asset_id: assetId,
       },
       reason: params.reason,
@@ -466,7 +468,7 @@ export class AssetsHandler {
       return err(new Error(`Failed to load balance snapshot assets: ${snapshotAssetsResult.error.message}`));
     }
 
-    const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore);
+    const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore, profileId);
     if (excludedAssetIdsResult.isErr()) {
       return err(excludedAssetIdsResult.error);
     }

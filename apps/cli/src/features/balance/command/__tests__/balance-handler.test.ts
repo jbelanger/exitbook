@@ -272,6 +272,45 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
     expect(error.message).toContain('exitbook balance refresh --account-id 1');
   });
 
+  it('rebuilds stale stored snapshots automatically when a workflow is available', async () => {
+    const account = createAccount({ id: 1, platformKey: 'kraken' });
+    const staleScopes = new Map([[account.id, 'upstream-reset:processed-transactions']]);
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [createSnapshot(account.id)],
+      snapshotAssets: [createSnapshotAsset(account.id, 'exchange:kraken:btc', 'BTC')],
+      staleScopes,
+    });
+    const balanceOperation = {
+      rebuildCalculatedSnapshot: vi.fn().mockImplementation(async ({ accountId }: { accountId: number }) => {
+        expect(accountId).toBe(account.id);
+        staleScopes.delete(account.id);
+        return ok({
+          requestedAccount: account,
+          scopeAccount: account,
+          assetCount: 1,
+        });
+      }),
+    };
+
+    const handler = new BalanceHandler(
+      mockDb as unknown as DataSession,
+      balanceOperation as never,
+      mockDb.accountService
+    );
+    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const value = assertOk(result);
+
+    expect(balanceOperation.rebuildCalculatedSnapshot).toHaveBeenCalledWith({ accountId: account.id });
+    expect(value.accounts).toHaveLength(1);
+    expect(value.accounts[0]).toMatchObject({
+      account: {
+        id: account.id,
+      },
+    });
+    expect(value.accounts[0]?.assets).toHaveLength(1);
+  });
+
   it('reads the root scope snapshot for nested child accounts', async () => {
     const rootAccount = createAccount({ id: 1, identifier: 'xpub-root' });
     const childAccount = createAccount({ id: 2, identifier: 'bc1-child', parentAccountId: rootAccount.id });

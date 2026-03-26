@@ -203,7 +203,7 @@ export async function createCostBasisHandler(
       });
     }
 
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileId);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }

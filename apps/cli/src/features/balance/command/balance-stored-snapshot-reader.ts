@@ -113,11 +113,7 @@ export class BalanceStoredSnapshotReader {
       return err(hasStoredSnapshotResult.error);
     }
 
-    if (
-      !hasStoredSnapshotResult.value &&
-      this.balanceOperation !== undefined &&
-      freshnessResult.value.status !== 'building'
-    ) {
+    if (this.balanceOperation !== undefined && freshnessResult.value.status !== 'building') {
       logger.info(
         {
           requestedAccountId: requestedAccount.id,
@@ -126,7 +122,9 @@ export class BalanceStoredSnapshotReader {
           freshnessReason: freshnessResult.value.reason,
           freshnessStatus: freshnessResult.value.status,
         },
-        'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
+        hasStoredSnapshotResult.value
+          ? 'Stored balance snapshot is not readable; rebuilding calculated snapshot automatically'
+          : 'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
       );
 
       const rebuildResult = await this.balanceOperation.rebuildCalculatedSnapshot({

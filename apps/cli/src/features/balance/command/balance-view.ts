@@ -9,6 +9,7 @@ import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
+import { ensureProcessedTransactionsReady } from '../../shared/projection-readiness.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
@@ -36,9 +37,10 @@ Examples:
 
 Notes:
   - Reads stored balance snapshots only.
-  - Builds the initial stored snapshot automatically if it has never been created.
+  - Reprocesses derived transactions automatically if they are missing or stale.
+  - Rebuilds stored calculated snapshots automatically when they are missing or stale.
   - Does not fetch live balances.
-  - If the snapshot is stale, use "exitbook balance refresh" to rebuild it.
+  - Use "exitbook balance refresh" when you want live verification.
 `
     )
     .action((rawOptions: unknown) => executeBalanceViewCommand(rawOptions, appRuntime));
@@ -62,7 +64,15 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
         displayCliError('balance-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
+      const readyResult = await ensureProcessedTransactionsReady(ctx, {
+        isJsonMode: true,
+        profileId: profileResult.value.id,
+      });
+      if (readyResult.isErr()) {
+        displayCliError('balance-view', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -131,7 +141,13 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRunt
       const profileResult = await resolveCommandProfile(ctx, database, options.profile);
       if (profileResult.isErr()) throw profileResult.error;
 
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
+      const readyResult = await ensureProcessedTransactionsReady(ctx, {
+        isJsonMode: false,
+        profileId: profileResult.value.id,
+      });
+      if (readyResult.isErr()) throw readyResult.error;
+
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;

@@ -117,6 +117,7 @@ export const TransactionNoteOverridePayloadSchema = z
  */
 export const AssetExcludePayloadSchema = z.object({
   type: z.literal('asset_exclude'),
+  profile_id: z.number().int().positive('Profile ID must be a positive integer'),
   asset_id: z.string().min(1, 'Asset ID must not be empty'),
 });
 
@@ -126,6 +127,7 @@ export const AssetExcludePayloadSchema = z.object({
  */
 export const AssetIncludePayloadSchema = z.object({
   type: z.literal('asset_include'),
+  profile_id: z.number().int().positive('Profile ID must be a positive integer'),
   asset_id: z.string().min(1, 'Asset ID must not be empty'),
 });
 

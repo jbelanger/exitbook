@@ -22,7 +22,7 @@ export async function createPortfolioHandler(
   try {
     const database = await ctx.database();
     const dataDir = ctx.dataDir;
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir, options.profileId);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }

@@ -8,6 +8,7 @@ const {
   mockCreateBalanceHandler,
   mockCtx,
   mockDisplayCliError,
+  mockEnsureProcessedTransactionsReady,
   mockOutputSuccess,
   mockResolveCommandProfile,
   mockRunCommand,
@@ -17,6 +18,7 @@ const {
     database: vi.fn(),
   },
   mockDisplayCliError: vi.fn(),
+  mockEnsureProcessedTransactionsReady: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
@@ -37,6 +39,10 @@ vi.mock('../../../shared/cli-error.js', () => ({
 
 vi.mock('../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
+}));
+
+vi.mock('../../../shared/projection-readiness.js', () => ({
+  ensureProcessedTransactionsReady: mockEnsureProcessedTransactionsReady,
 }));
 
 vi.mock('../balance-handler.js', () => ({
@@ -85,6 +91,7 @@ beforeEach(() => {
   mockResolveCommandProfile.mockResolvedValue(
     ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
   );
+  mockEnsureProcessedTransactionsReady.mockResolvedValue(ok(undefined));
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);
@@ -133,6 +140,11 @@ describe('balance command JSON mode', () => {
 
     await program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' });
 
+    expect(mockEnsureProcessedTransactionsReady).toHaveBeenCalledWith(mockCtx, {
+      isJsonMode: true,
+      profileId: 1,
+    });
+    expect(mockCreateBalanceHandler).toHaveBeenCalledWith(mockCtx, { needsWorkflow: true });
     expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
@@ -173,17 +185,29 @@ describe('balance command JSON mode', () => {
     );
   });
 
-  it('routes fail-closed stored snapshot errors through the JSON CLI error path', async () => {
+  it('routes processing-prerequisite failures through the JSON CLI error path', async () => {
     const program = createBalanceCommand();
-    const failClosedError = new Error(
-      'Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
+    const prerequisiteError = new Error('processing failed');
+
+    mockEnsureProcessedTransactionsReady.mockResolvedValue(err(prerequisiteError));
+
+    await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:balance-view:json:processing failed'
     );
+
+    expect(mockCreateBalanceHandler).not.toHaveBeenCalled();
+    expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', prerequisiteError, 1, 'json');
+  });
+
+  it('routes stored snapshot failures through the JSON CLI error path after prerequisites succeed', async () => {
+    const program = createBalanceCommand();
+    const failClosedError = new Error('stored snapshot read failed');
 
     const viewStoredSnapshots = vi.fn().mockResolvedValue(err(failClosedError));
     mockCreateBalanceHandler.mockResolvedValue(ok({ viewStoredSnapshots }));
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
+      'CLI:balance-view:json:stored snapshot read failed'
     );
 
     expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
