@@ -93,6 +93,7 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
       transactionId: 42,
       message: 'Moved to hardware wallet',
       reason: 'manual reminder',
@@ -138,6 +139,7 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
       transactionId: 42,
       message: 'Moved to hardware wallet',
     });
@@ -167,6 +169,7 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
+      profileId: 1,
       transactionId: 42,
       reason: 'no longer needed',
     });
@@ -205,6 +208,7 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
+      profileId: 1,
       transactionId: 42,
     });
 
@@ -228,10 +232,32 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
       transactionId: 999,
       message: 'Missing',
     });
 
     expect(assertErr(result).message).toContain('Transaction not found: 999');
+  });
+
+  it('scopes transaction lookup by profileId', async () => {
+    const findById = vi.fn().mockResolvedValue(ok(undefined));
+    const mockDb = {
+      transactions: {
+        findById,
+        materializeTransactionNoteOverrides: vi.fn(),
+      },
+    } as unknown as Pick<DataSession, 'transactions'>;
+    const mockOverrideStore = createMockOverrideStore();
+
+    const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
+    const result = await handler.setNote({
+      profileId: 7,
+      transactionId: 42,
+      message: 'Scoped lookup',
+    });
+
+    expect(assertErr(result).message).toContain('Transaction not found: 42');
+    expect(findById).toHaveBeenCalledWith(42, 7);
   });
 });

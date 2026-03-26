@@ -9,6 +9,7 @@ const {
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
+  mockResolveCommandProfile,
   mockRunCommand,
   mockSetNote,
   mockTransactionsEditHandlerConstructor,
@@ -23,6 +24,7 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
+  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockSetNote: vi.fn(),
   mockTransactionsEditHandlerConstructor: vi.fn(),
@@ -49,6 +51,10 @@ vi.mock('../../../shared/json-output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
+vi.mock('../../../profiles/profile-resolution.js', () => ({
+  resolveCommandProfile: mockResolveCommandProfile,
+}));
+
 vi.mock('../transactions-edit-handler.js', () => ({
   TransactionsEditHandler: vi.fn().mockImplementation(function MockTransactionsEditHandler(...args: unknown[]) {
     mockTransactionsEditHandlerConstructor(...args);
@@ -73,6 +79,9 @@ describe('transactions edit command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCtx.database.mockResolvedValue({ tag: 'db' });
+    mockResolveCommandProfile.mockResolvedValue(
+      ok({ id: 1, profileKey: 'default', name: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
+    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -108,6 +117,7 @@ describe('transactions edit command', () => {
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-transactions');
     expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, mockOverrideStoreInstance);
     expect(mockSetNote).toHaveBeenCalledWith({
+      profileId: 1,
       transactionId: 123,
       message: 'Moved to Ledger',
       reason: 'wallet transfer',
@@ -134,6 +144,7 @@ describe('transactions edit command', () => {
     });
 
     expect(mockClearNote).toHaveBeenCalledWith({
+      profileId: 1,
       transactionId: 123,
       reason: undefined,
     });

@@ -1288,4 +1288,56 @@ describe('TransactionRepository', () => {
       expect(updated).toBe(0);
     });
   });
+
+  describe('profile scoping', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedUser(db);
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, profile_key: 'audit', name: 'audit', created_at: new Date().toISOString() })
+        .execute();
+      await seedAccount(db, 1, 'exchange-api', 'kraken', { profileId: 1 });
+      await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });
+    });
+
+    it('filters findAll by profileId', async () => {
+      const txId1 = assertOk(
+        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+      );
+      const txId2 = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            source: 'kraken',
+            sourceType: 'exchange',
+            identityReference: 'audit-kraken-1',
+          }),
+          2
+        )
+      );
+
+      const profileOneTransactions = assertOk(await repo.findAll({ profileId: 1, includeExcluded: true }));
+      const profileTwoTransactions = assertOk(await repo.findAll({ profileId: 2, includeExcluded: true }));
+
+      expect(profileOneTransactions.map((tx) => tx.id)).toEqual([txId1]);
+      expect(profileTwoTransactions.map((tx) => tx.id)).toEqual([txId2]);
+    });
+
+    it('returns undefined when findById is scoped to a different profile', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({ source: 'kraken', sourceType: 'exchange', identityReference: 'default-kraken-1' }),
+          1
+        )
+      );
+
+      const sameProfile = assertOk(await repo.findById(transactionId, 1));
+      const otherProfile = assertOk(await repo.findById(transactionId, 2));
+
+      expect(sameProfile?.id).toBe(transactionId);
+      expect(otherProfile).toBeUndefined();
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -18,6 +19,7 @@ import type {
 const logger = getLogger('BalanceVerificationRunner');
 
 interface BalanceVerificationRunnerDeps {
+  accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   assetDetailsBuilder: BalanceAssetDetailsBuilder;
   balanceOperation: BalanceWorkflow | undefined;
   db: DataSession;
@@ -25,12 +27,14 @@ interface BalanceVerificationRunnerDeps {
 
 export class BalanceVerificationRunner {
   private abortController: AbortController | undefined;
+  private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
   private readonly balanceOperation: BalanceWorkflow | undefined;
   private readonly db: DataSession;
   private streamPromise: Promise<void> | undefined;
 
   constructor(deps: BalanceVerificationRunnerDeps) {
+    this.accountService = deps.accountService;
     this.assetDetailsBuilder = deps.assetDetailsBuilder;
     this.balanceOperation = deps.balanceOperation;
     this.db = deps.db;
@@ -44,13 +48,12 @@ export class BalanceVerificationRunner {
     await this.streamPromise;
   }
 
-  async loadAccountsForVerification(): Promise<Result<SortedVerificationAccount[], Error>> {
-    const result = await this.db.accounts.findAll();
+  async loadAccountsForVerification(profileId: number): Promise<Result<SortedVerificationAccount[], Error>> {
+    const result = await this.accountService.listTopLevel(profileId);
     if (result.isErr()) return err(result.error);
 
-    const topLevel = result.value.filter((account) => !account.parentAccountId);
     const sorted = sortAccountsByVerificationPriority(
-      topLevel.map((account) => ({
+      result.value.map((account) => ({
         accountId: account.id,
         platformKey: account.platformKey,
         accountType: account.accountType,
@@ -75,11 +78,12 @@ export class BalanceVerificationRunner {
   async refreshSingleScope(params: {
     accountId: number;
     credentials?: ExchangeCredentials | undefined;
+    profileId: number;
   }): Promise<Result<SingleRefreshResult, Error>> {
     const operation = this.requireBalanceWorkflow();
 
     try {
-      const requestedAccount = await this.loadSingleAccountOrFail(params.accountId);
+      const requestedAccount = await this.loadSingleAccountOrFail(params.profileId, params.accountId);
 
       const result = await operation.refreshVerification({
         accountId: requestedAccount.id,
@@ -120,11 +124,11 @@ export class BalanceVerificationRunner {
     }
   }
 
-  async refreshAllScopes(): Promise<Result<AllAccountsVerificationResult, Error>> {
+  async refreshAllScopes(profileId: number): Promise<Result<AllAccountsVerificationResult, Error>> {
     const operation = this.requireBalanceWorkflow();
 
     try {
-      const accounts = await this.loadAllAccounts();
+      const accounts = await this.loadAllAccounts(profileId);
       const sorted = sortAccountsByVerificationPriority(
         accounts.map((account) => ({
           accountId: account.id,
@@ -349,14 +353,14 @@ export class BalanceVerificationRunner {
     return this.balanceOperation;
   }
 
-  private async loadAllAccounts(): Promise<Account[]> {
-    const result = await this.db.accounts.findAll();
+  private async loadAllAccounts(profileId: number): Promise<Account[]> {
+    const result = await this.accountService.listTopLevel(profileId);
     if (result.isErr()) throw result.error;
-    return result.value.filter((account) => !account.parentAccountId);
+    return result.value;
   }
 
-  private async loadSingleAccountOrFail(accountId: number): Promise<Account> {
-    const result = await this.db.accounts.getById(accountId);
+  private async loadSingleAccountOrFail(profileId: number, accountId: number): Promise<Account> {
+    const result = await this.accountService.requireOwned(profileId, accountId);
     if (result.isErr()) throw result.error;
     return result.value;
   }

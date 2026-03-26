@@ -20,6 +20,9 @@ export type ExportCommandOptions = z.input<typeof ExportCommandOptionsSchema>;
  * Export handler parameters.
  */
 export interface ExportHandlerParams {
+  /** Selected profile scope */
+  profileId: number;
+
   /** Source name (exchange or blockchain) - optional, exports all if not provided */
   platformKey?: string | undefined;
 
@@ -69,7 +72,9 @@ export function parseSinceDate(since: string): Result<number, Error> {
  * Build export parameters from validated CLI flags.
  * No validation needed - options are already validated by Zod schema.
  */
-export function buildExportParamsFromFlags(options: ExportCommandOptions): Result<ExportHandlerParams, Error> {
+export function buildExportParamsFromFlags(
+  options: ExportCommandOptions
+): Result<Omit<ExportHandlerParams, 'profileId'>, Error> {
   return resultDo(function* () {
     const platformKey = options.exchange || options.blockchain;
     const format = options.format ?? 'csv';

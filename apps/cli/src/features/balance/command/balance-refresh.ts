@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -30,6 +31,7 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
     .option('--account-id <id>', 'Refresh a specific balance scope', parseInt)
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
@@ -40,6 +42,7 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
 Examples:
   $ exitbook balance refresh
   $ exitbook balance refresh --account-id 5
+  $ exitbook balance refresh --profile business
   $ exitbook balance refresh --account-id 7 --api-key KEY --api-secret SECRET
   $ exitbook balance refresh --json
 
@@ -69,6 +72,12 @@ async function executeBalanceRefreshJSON(
 ): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('balance-refresh', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-refresh', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -78,7 +87,11 @@ async function executeBalanceRefreshJSON(
 
       if (options.accountId) {
         const credentials = buildCliExchangeCredentials(options);
-        const result = await handler.refreshSingleScope({ accountId: options.accountId, credentials });
+        const result = await handler.refreshSingleScope({
+          accountId: options.accountId,
+          credentials,
+          profileId: profileResult.value.id,
+        });
         if (result.isErr()) {
           displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
         }
@@ -131,7 +144,7 @@ async function executeBalanceRefreshJSON(
         return;
       }
 
-      const result = await handler.refreshAllScopes();
+      const result = await handler.refreshAllScopes(profileResult.value.id);
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -168,12 +181,16 @@ async function executeBalanceRefreshSingleTUI(
 
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) throw profileResult.error;
+
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
       const credentials = buildCliExchangeCredentials(options);
-      const result = await handler.refreshSingleScope({ accountId, credentials });
+      const result = await handler.refreshSingleScope({ accountId, credentials, profileId: profileResult.value.id });
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
@@ -210,16 +227,20 @@ async function executeBalanceRefreshSingleTUI(
 }
 
 async function executeBalanceRefreshAllTUI(
-  _options: BalanceRefreshCommandOptions,
+  options: BalanceRefreshCommandOptions,
   appRuntime: CliAppRuntime
 ): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) throw profileResult.error;
+
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
-      const sortedResult = await handler.loadAccountsForVerification();
+      const sortedResult = await handler.loadAccountsForVerification(profileResult.value.id);
       if (sortedResult.isErr()) throw sortedResult.error;
 
       const initialItems: AccountVerificationItem[] = sortAccountsByVerificationPriority(sortedResult.value).map(

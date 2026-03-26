@@ -17,11 +17,13 @@ interface TransactionIdentity {
 
 interface TransactionNoteSetParams {
   message: string;
+  profileId: number;
   reason?: string | undefined;
   transactionId: number;
 }
 
 interface TransactionNoteClearParams {
+  profileId: number;
   reason?: string | undefined;
   transactionId: number;
 }
@@ -43,7 +45,7 @@ export class TransactionsEditHandler {
   ) {}
 
   async setNote(params: TransactionNoteSetParams): Promise<Result<TransactionNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId);
+    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
@@ -97,7 +99,7 @@ export class TransactionsEditHandler {
   }
 
   async clearNote(params: TransactionNoteClearParams): Promise<Result<TransactionNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId);
+    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
@@ -170,8 +172,11 @@ export class TransactionsEditHandler {
     return ok(undefined);
   }
 
-  private async resolveTransactionIdentity(transactionId: number): Promise<Result<TransactionIdentity, Error>> {
-    const transactionResult = await this.db.transactions.findById(transactionId);
+  private async resolveTransactionIdentity(
+    transactionId: number,
+    profileId: number
+  ): Promise<Result<TransactionIdentity, Error>> {
+    const transactionResult = await this.db.transactions.findById(transactionId, profileId);
     if (transactionResult.isErr()) {
       return err(new Error(`Failed to load transaction ${transactionId}: ${transactionResult.error.message}`));
     }

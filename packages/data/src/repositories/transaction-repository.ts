@@ -33,6 +33,7 @@ import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 import { BaseRepository } from './base-repository.js';
 
 interface TransactionQueryParams {
+  profileId?: number | undefined;
   platformKey?: string | undefined;
   since?: number | undefined;
   accountId?: number | undefined;
@@ -797,30 +798,37 @@ export class TransactionRepository extends BaseRepository {
     try {
       const projection = filters?.projection ?? 'full';
 
-      let query = this.db.selectFrom('transactions').selectAll();
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions');
 
       if (filters) {
+        if (filters.profileId !== undefined) {
+          query = query.where('accounts.profile_id', '=', filters.profileId);
+        }
+
         if (filters.platformKey) {
-          query = query.where('platform_key', '=', filters.platformKey);
+          query = query.where('transactions.platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
           const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('created_at', '>=', sinceDate as unknown as string);
+          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
         }
 
         if (filters.accountId !== undefined) {
-          query = query.where('account_id', '=', filters.accountId);
+          query = query.where('transactions.account_id', '=', filters.accountId);
         } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          query = query.where('account_id', 'in', filters.accountIds);
+          query = query.where('transactions.account_id', 'in', filters.accountIds);
         }
       }
 
       if (!filters?.includeExcluded) {
-        query = query.where('excluded_from_accounting', '=', false);
+        query = query.where('transactions.excluded_from_accounting', '=', false);
       }
 
-      query = query.orderBy('transaction_datetime', 'asc');
+      query = query.orderBy('transactions.transaction_datetime', 'asc');
 
       const rows = await query.execute();
 
@@ -855,9 +863,19 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<Transaction | undefined, Error>> {
+  async findById(id: number, profileId?: number): Promise<Result<Transaction | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions')
+        .where('transactions.id', '=', id);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
+
+      const row = await query.executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -1060,31 +1078,38 @@ export class TransactionRepository extends BaseRepository {
 
   async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
 
       if (filters) {
+        if (filters.profileId !== undefined) {
+          query = query.where('accounts.profile_id', '=', filters.profileId);
+        }
+
         if (filters.platformKey) {
-          query = query.where('platform_key', '=', filters.platformKey);
+          query = query.where('transactions.platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
           const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('created_at', '>=', sinceDate as unknown as string);
+          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
         }
 
         if (filters.accountId !== undefined) {
-          query = query.where('account_id', '=', filters.accountId);
+          query = query.where('transactions.account_id', '=', filters.accountId);
         } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          query = query.where('account_id', 'in', filters.accountIds);
+          query = query.where('transactions.account_id', 'in', filters.accountIds);
         } else if (filters.accountIds !== undefined && filters.accountIds.length === 0) {
           return ok(0);
         }
 
         if (!filters.includeExcluded) {
-          query = query.where('excluded_from_accounting', '=', false);
+          query = query.where('transactions.excluded_from_accounting', '=', false);
         }
       } else {
-        query = query.where('excluded_from_accounting', '=', false);
+        query = query.where('transactions.excluded_from_accounting', '=', false);
       }
 
       const result = await query.executeTakeFirst();

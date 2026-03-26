@@ -4,6 +4,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -22,6 +23,7 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
     .command('view')
     .description('View stored balance snapshots without calling live providers')
     .option('--account-id <id>', 'View a specific balance scope', parseInt)
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -29,6 +31,7 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
 Examples:
   $ exitbook balance view
   $ exitbook balance view --account-id 5
+  $ exitbook balance view --profile business
   $ exitbook balance view --json
 
 Notes:
@@ -53,13 +56,22 @@ async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliApp
 async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('balance-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
       const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({
+        accountId: options.accountId,
+        profileId: profileResult.value.id,
+      });
       if (result.isErr()) {
         displayCliError('balance-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -95,7 +107,10 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
         {
           totalAccounts: result.value.accounts.length,
           mode: 'view',
-          filters: options.accountId ? { accountId: options.accountId } : {},
+          filters: {
+            ...(options.accountId ? { accountId: options.accountId } : {}),
+            ...(options.profile ? { profile: options.profile } : {}),
+          },
         }
       );
     });
@@ -112,11 +127,18 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
 async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) throw profileResult.error;
+
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({
+        accountId: options.accountId,
+        profileId: profileResult.value.id,
+      });
       if (result.isErr()) throw result.error;
 
       await ctx.closeDatabase();

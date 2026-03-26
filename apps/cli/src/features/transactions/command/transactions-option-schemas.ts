@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { OptionalSourceSelectionSchema } from '../../shared/option-schema-primitives.js';
+import { OptionalSourceSelectionSchema, ProfileFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
   z.object({
@@ -28,6 +28,7 @@ export const TransactionsViewCommandOptionsSchema = z.object({
   noPrice: z.boolean().optional(),
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
+  profile: ProfileFlagSchema.shape.profile,
 });
 
 export const TransactionsExportCommandOptionsSchema = z
@@ -36,6 +37,7 @@ export const TransactionsExportCommandOptionsSchema = z
     csvFormat: z.enum(['normalized', 'simple']).optional(),
     output: z.string().optional(),
     json: z.boolean().optional(),
+    profile: ProfileFlagSchema.shape.profile,
   })
   .superRefine((data, ctx) => {
     if (data.format !== 'csv' && data.csvFormat) {
@@ -52,6 +54,7 @@ export const TransactionsEditNoteCommandOptionsSchema = z
     message: z.string().min(1).optional(),
     reason: z.string().min(1).optional(),
     json: z.boolean().optional(),
+    profile: ProfileFlagSchema.shape.profile,
   })
   .superRefine((data, ctx) => {
     if (!data.message && !data.clear) {

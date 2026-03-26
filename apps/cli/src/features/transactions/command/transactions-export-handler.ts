@@ -47,6 +47,7 @@ export class TransactionsExportHandler {
     try {
       const transactionsResult = await readTransactionsForCommand({
         db: this.db,
+        profileId: params.profileId,
         platformKey: params.platformKey,
         since: params.since,
         until: params.until,

@@ -9,6 +9,7 @@ interface ReadTransactionsForCommandParams {
   db: DataSession;
   noPrice?: boolean | undefined;
   operationType?: string | undefined;
+  profileId: number;
   since?: number | undefined;
   platformKey?: string | undefined;
   until?: string | undefined;
@@ -21,6 +22,7 @@ export async function readTransactionsForCommand(
   params: ReadTransactionsForCommandParams
 ): Promise<Result<Transaction[], Error>> {
   const transactionsResult = await params.db.transactions.findAll({
+    profileId: params.profileId,
     ...(params.platformKey ? { platformKey: params.platformKey } : {}),
     ...(params.since !== undefined ? { since: params.since } : {}),
     includeExcluded: true,
