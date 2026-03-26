@@ -73,6 +73,15 @@ interface TransactionSummary {
 type MovementRow = Selectable<TransactionMovementsTable>;
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
+const MOVEMENT_LOOKUP_BATCH_SIZE = 500;
+
+function chunkIds(ids: number[], size: number): number[][] {
+  const chunks: number[][] = [];
+  for (let index = 0; index < ids.length; index += size) {
+    chunks.push(ids.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function validatePriceDataForPersistence(
   inflows: AssetMovementDraft[],
@@ -1177,20 +1186,23 @@ export class TransactionRepository extends BaseRepository {
     }
 
     try {
-      const rows = await this.db
-        .selectFrom('transaction_movements')
-        .selectAll()
-        .where('transaction_id', 'in', transactionIds)
-        .orderBy('transaction_id', 'asc')
-        .execute();
-
       const map = new Map<number, MovementRow[]>();
-      for (const row of rows) {
-        const existing = map.get(row.transaction_id);
-        if (existing) {
-          existing.push(row);
-        } else {
-          map.set(row.transaction_id, [row]);
+
+      for (const transactionIdBatch of chunkIds(transactionIds, MOVEMENT_LOOKUP_BATCH_SIZE)) {
+        const rows = await this.db
+          .selectFrom('transaction_movements')
+          .selectAll()
+          .where('transaction_id', 'in', transactionIdBatch)
+          .orderBy('transaction_id', 'asc')
+          .execute();
+
+        for (const row of rows) {
+          const existing = map.get(row.transaction_id);
+          if (existing) {
+            existing.push(row);
+          } else {
+            map.set(row.transaction_id, [row]);
+          }
         }
       }
 

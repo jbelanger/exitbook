@@ -1339,5 +1339,67 @@ describe('TransactionRepository', () => {
       expect(sameProfile?.id).toBe(transactionId);
       expect(otherProfile).toBeUndefined();
     });
+
+    it('loads full transactions across multiple movement lookup batches', async () => {
+      const totalTransactions = 1_005;
+
+      for (let index = 1; index <= totalTransactions; index++) {
+        const identityReference = `batched-${index}`;
+        const txFingerprint = seedTxFingerprint('kraken', 1, identityReference);
+        const transactionDatetime = new Date(Date.UTC(2025, 0, 1, 0, 0, index)).toISOString();
+
+        await db
+          .insertInto('transactions')
+          .values({
+            id: index,
+            account_id: 1,
+            platform_key: 'kraken',
+            source_type: 'exchange',
+            tx_fingerprint: txFingerprint,
+            transaction_status: 'success',
+            transaction_datetime: transactionDatetime,
+            is_spam: false,
+            excluded_from_accounting: false,
+            operation_type: 'deposit',
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+
+        await db
+          .insertInto('transaction_movements')
+          .values({
+            transaction_id: index,
+            movement_type: 'inflow',
+            movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+              assetId: 'exchange:kraken:btc',
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            }),
+            asset_id: 'exchange:kraken:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          })
+          .execute();
+      }
+
+      const transactions = assertOk(await repo.findAll({ profileId: 1, includeExcluded: true }));
+
+      expect(transactions).toHaveLength(totalTransactions);
+      expect(transactions.every((transaction) => transaction.movements.inflows?.length === 1)).toBe(true);
+      expect(transactions[0]?.txFingerprint).toBe(seedTxFingerprint('kraken', 1, 'batched-1'));
+      expect(transactions.at(-1)?.txFingerprint).toBe(seedTxFingerprint('kraken', 1, `batched-${totalTransactions}`));
+    });
   });
 });
