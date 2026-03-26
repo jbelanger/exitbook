@@ -21,6 +21,8 @@ interface AccountKeyParams {
   profileId: number | undefined;
 }
 
+const EXCHANGE_ACCOUNT_TYPES: AccountType[] = ['exchange-api', 'exchange-csv'];
+
 interface FindOrCreateAccountParams {
   profileId: number | undefined;
   name?: string | undefined;
@@ -82,6 +84,10 @@ function normalizeAccountName(name: string): Result<string, Error> {
   }
 
   return ok(normalized);
+}
+
+function isExchangeAccountType(accountType: AccountType): boolean {
+  return EXCHANGE_ACCOUNT_TYPES.includes(accountType);
 }
 
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
@@ -160,12 +166,13 @@ export class AccountRepository extends BaseRepository {
   async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
-        let query = self.db
-          .selectFrom('accounts')
-          .selectAll()
-          .where('account_type', '=', params.accountType)
-          .where('platform_key', '=', params.platformKey)
-          .where('identifier', '=', params.identifier);
+        let query = self.db.selectFrom('accounts').selectAll().where('platform_key', '=', params.platformKey);
+
+        if (isExchangeAccountType(params.accountType)) {
+          query = query.where('parent_account_id', 'is', null).where('account_type', 'in', EXCHANGE_ACCOUNT_TYPES);
+        } else {
+          query = query.where('account_type', '=', params.accountType).where('identifier', '=', params.identifier);
+        }
 
         if (isUnsetProfileId(params.profileId)) {
           query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));

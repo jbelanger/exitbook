@@ -1,5 +1,5 @@
 import type { Account, ImportSession, Profile } from '@exitbook/core';
-import { ok } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,10 +9,10 @@ const {
   mockBuildCliAccountLifecycleService,
   mockCtx,
   mockDisplayCliError,
-  mockGetById,
   mockGetByName,
   mockOutputSuccess,
   mockPromptConfirm,
+  mockRequireOwned,
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunImport,
@@ -24,10 +24,10 @@ const {
     exitCode: undefined as number | undefined,
   },
   mockDisplayCliError: vi.fn(),
-  mockGetById: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPromptConfirm: vi.fn(),
+  mockRequireOwned: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunImport: vi.fn(),
@@ -124,8 +124,8 @@ beforeEach(() => {
   });
   mockResolveCommandProfile.mockResolvedValue(ok(makeProfile()));
   mockBuildCliAccountLifecycleService.mockReturnValue({
-    getById: mockGetById,
     getByName: mockGetByName,
+    requireOwned: mockRequireOwned,
   });
   mockRunImport.mockResolvedValue(ok({ sessions: [makeSession()], runStats: { totalRequests: 0 } }));
   mockRunImportAll.mockResolvedValue(
@@ -224,7 +224,7 @@ describe('import command', () => {
 
   it('rejects an account id that belongs to another profile', async () => {
     const program = createImportProgram();
-    mockGetById.mockResolvedValue(ok(makeAccount({ id: 42, profileId: 2, name: 'other-profile' })));
+    mockRequireOwned.mockResolvedValue(err(new Error('Account 42 does not belong to the selected profile')));
 
     await expect(program.parseAsync(['import', '--account-id', '42', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:import:json:Account 42 does not belong to the selected profile'
@@ -284,7 +284,7 @@ describe('import command', () => {
       profileName: 'business',
     });
     expect(mockRunImport).not.toHaveBeenCalled();
-    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockRequireOwned).not.toHaveBeenCalled();
     expect(mockGetByName).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockCtx.exitCode).toBe(1);

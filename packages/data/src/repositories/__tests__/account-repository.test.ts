@@ -88,8 +88,8 @@ describe('AccountRepository', () => {
       expect(rows).toHaveLength(1);
     });
 
-    it('allows multiple accounts on the same exchange with different identifiers (ADR-007 Use Case 1)', async () => {
-      const personal = assertOk(
+    it('reuses the same top-level exchange account when the API key changes', async () => {
+      const first = assertOk(
         await repo.findOrCreate({
           profileId: 1,
           accountType: 'exchange-api',
@@ -97,7 +97,7 @@ describe('AccountRepository', () => {
           identifier: 'apiKey_personal',
         })
       );
-      const business = assertOk(
+      const second = assertOk(
         await repo.findOrCreate({
           profileId: 1,
           accountType: 'exchange-api',
@@ -106,10 +106,10 @@ describe('AccountRepository', () => {
         })
       );
 
-      expect(personal.id).not.toBe(business.id);
+      expect(second.id).toBe(first.id);
     });
 
-    it('allows exchange-api and exchange-csv accounts on the same exchange', async () => {
+    it('reuses the same top-level exchange account across CSV and API modes', async () => {
       const api = assertOk(
         await repo.findOrCreate({
           profileId: 1,
@@ -127,9 +127,35 @@ describe('AccountRepository', () => {
         })
       );
 
-      expect(api.id).not.toBe(csv.id);
+      expect(api.id).toBe(csv.id);
       expect(api.accountType).toBe('exchange-api');
-      expect(csv.accountType).toBe('exchange-csv');
+      expect(csv.accountType).toBe('exchange-api');
+    });
+
+    it('allows the same exchange platform in different profiles', async () => {
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, profile_key: 'secondary', name: 'secondary', created_at: new Date().toISOString() })
+        .execute();
+
+      const first = assertOk(
+        await repo.findOrCreate({
+          profileId: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'apiKey-profile-1',
+        })
+      );
+      const second = assertOk(
+        await repo.findOrCreate({
+          profileId: 2,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'apiKey-profile-2',
+        })
+      );
+
+      expect(second.id).not.toBe(first.id);
     });
 
     it('supports external accounts with no profileId (ADR-007 Use Case 3)', async () => {
@@ -282,6 +308,29 @@ describe('AccountRepository', () => {
       );
       expect(found).toBeDefined();
       expect(found?.profileId).toBeUndefined();
+    });
+
+    it('matches top-level exchange accounts by profile and platform, ignoring identifier and mode', async () => {
+      const created = assertOk(
+        await repo.findOrCreate({
+          profileId: 1,
+          accountType: 'exchange-csv',
+          platformKey: 'kraken',
+          identifier: '/tmp/kraken-csv',
+        })
+      );
+
+      const found = assertOk(
+        await repo.findBy({
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'new-api-key',
+          profileId: 1,
+        })
+      );
+
+      expect(found?.id).toBe(created.id);
+      expect(found?.accountType).toBe('exchange-csv');
     });
   });
 

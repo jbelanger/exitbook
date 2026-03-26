@@ -144,6 +144,21 @@ export class AccountLifecycleService {
     return this.store.findById(accountId);
   }
 
+  async requireOwned(profileId: number, accountId: number): Promise<Result<Account, Error>> {
+    const accountResult = await this.store.findById(accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    if (!accountResult.value) {
+      return err(new Error(`Account ${accountId} not found`));
+    }
+    if (accountResult.value.profileId !== profileId) {
+      return err(new Error(`Account ${accountId} does not belong to the selected profile`));
+    }
+
+    return ok(accountResult.value);
+  }
+
   getByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>> {
     const normalizedNameResult = normalizeAccountName(name);
     if (normalizedNameResult.isErr()) {

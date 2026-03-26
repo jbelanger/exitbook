@@ -47,11 +47,19 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint('accounts_metadata_json_valid', sql`metadata IS NULL OR json_valid(metadata)`)
     .execute();
 
-  // Create unique index on accounts to prevent duplicate accounts
-  // Using raw SQL because the index includes expressions (COALESCE for nullable profile_id)
+  // Blockchain and child-account identity stays keyed by account type + platform + identifier.
   await sql`
-    CREATE UNIQUE INDEX idx_accounts_unique
+    CREATE UNIQUE INDEX idx_accounts_unique_non_exchange_identity
     ON accounts (account_type, platform_key, identifier, COALESCE(profile_id, 0))
+    WHERE NOT (account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL)
+  `.execute(db);
+
+  // Top-level exchange identity is profile + platform. API keys and CSV paths are
+  // mutable config, not canonical identity.
+  await sql`
+    CREATE UNIQUE INDEX idx_accounts_unique_exchange_top_level
+    ON accounts (platform_key, COALESCE(profile_id, 0))
+    WHERE account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL
   `.execute(db);
 
   await sql`

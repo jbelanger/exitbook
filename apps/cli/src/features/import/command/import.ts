@@ -231,15 +231,9 @@ async function resolveImportAccount(
   const accountService = buildCliAccountLifecycleService(database);
 
   if (options.accountId !== undefined) {
-    const accountResult = await accountService.getById(options.accountId);
+    const accountResult = await accountService.requireOwned(profileId, options.accountId);
     if (accountResult.isErr()) {
       return err(accountResult.error);
-    }
-    if (!accountResult.value) {
-      return err(new Error(`Account ${options.accountId} not found`));
-    }
-    if (accountResult.value.profileId !== profileId) {
-      return err(new Error(`Account ${options.accountId} does not belong to the selected profile`));
     }
 
     return ok(accountResult.value);

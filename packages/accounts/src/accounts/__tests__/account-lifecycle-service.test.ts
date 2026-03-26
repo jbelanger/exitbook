@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 import { AccountLifecycleService } from '../account-lifecycle-service.js';
 
+function isExchangeAccountType(accountType: Account['accountType']): boolean {
+  return accountType === 'exchange-api' || accountType === 'exchange-csv';
+}
+
 function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Account {
   return {
     id: overrides.id,
@@ -67,9 +71,10 @@ function createStore(initialAccounts: Account[] = []) {
           accounts.find(
             (account) =>
               account.profileId === input.profileId &&
-              account.accountType === input.accountType &&
               account.platformKey === input.platformKey &&
-              account.identifier === input.identifier
+              (isExchangeAccountType(input.accountType)
+                ? account.parentAccountId === undefined && isExchangeAccountType(account.accountType)
+                : account.accountType === input.accountType && account.identifier === input.identifier)
           )
         );
       },
@@ -148,6 +153,33 @@ describe('AccountLifecycleService', () => {
 
     expect(result.disposition).toBe('created');
     expect(result.account.name).toBe('kraken-main');
+  });
+
+  it('rejects a second top-level exchange account on the same platform in one profile', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.createNamed({
+      profileId: 1,
+      name: 'kraken-secondary',
+      accountType: 'exchange-csv',
+      platformKey: 'kraken',
+      identifier: '/tmp/kraken',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('kraken-main');
+    }
   });
 
   it('adopts an unnamed legacy top-level account when the config matches', async () => {
@@ -267,39 +299,67 @@ describe('AccountLifecycleService', () => {
     expect(updated.lastCursor).toBeUndefined();
   });
 
-  it('rejects config updates that collide with another account', async () => {
+  it('rejects blockchain config updates that collide with another account', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'btc-main',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-old',
+      }),
+      createAccount({
+        id: 8,
+        profileId: 1,
+        name: 'btc-secondary',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-new',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.updateNamed(1, 'btc-main', {
+      identifier: 'bc1q-new',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('btc-secondary');
+    }
+  });
+
+  it('returns the account when it belongs to the selected profile', async () => {
     const { store } = createStore([
       createAccount({
         id: 7,
         profileId: 1,
         name: 'kraken-main',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'old-key',
-      }),
-      createAccount({
-        id: 8,
-        profileId: 1,
-        name: 'kraken-secondary',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'new-key',
       }),
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.updateNamed(1, 'kraken-main', {
-      identifier: 'new-key',
-      credentials: {
-        apiKey: 'new-key',
-        apiSecret: 'new-secret',
-      },
-      resetCursor: true,
-    });
+    const account = assertOk(await service.requireOwned(1, 7));
+
+    expect(account.id).toBe(7);
+  });
+
+  it('rejects accounts owned by another profile', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 2,
+        name: 'kraken-main',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.requireOwned(1, 7);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain('kraken-secondary');
+      expect(result.error.message).toContain('does not belong');
     }
   });
 
