@@ -20,29 +20,31 @@ describe('ProfileRepository', () => {
 
   describe('create', () => {
     it('creates a profile and returns it', async () => {
-      const profile = assertOk(await repo.create('Joel'));
+      const profile = assertOk(await repo.create({ name: 'Joel', profileKey: 'joel-main' }));
 
       expect(profile.id).toBeGreaterThan(0);
+      expect(profile.profileKey).toBe('joel-main');
       expect(profile.name).toBe('joel');
 
       const row = await db.selectFrom('profiles').selectAll().where('id', '=', profile.id).executeTakeFirst();
       expect(row).toBeDefined();
       expect(row?.id).toBe(profile.id);
+      expect(row?.profile_key).toBe('joel-main');
       expect(row?.name).toBe('joel');
       expect(row?.created_at).toBeDefined();
     });
 
     it('creates multiple profiles with distinct IDs', async () => {
-      const profile1 = assertOk(await repo.create('joel'));
-      const profile2 = assertOk(await repo.create('son'));
+      const profile1 = assertOk(await repo.create({ name: 'joel', profileKey: 'joel' }));
+      const profile2 = assertOk(await repo.create({ name: 'son', profileKey: 'son' }));
 
       expect(profile1.id).not.toBe(profile2.id);
     });
 
     it('normalizes names and rejects duplicates case-insensitively', async () => {
-      assertOk(await repo.create('Joel'));
+      assertOk(await repo.create({ name: 'Joel', profileKey: 'joel' }));
 
-      const result = await repo.create('joel');
+      const result = await repo.create({ name: 'joel', profileKey: 'joel-2' });
 
       expect(result.isErr()).toBe(true);
       if (!result.isErr()) {
@@ -52,8 +54,21 @@ describe('ProfileRepository', () => {
       expect(result.error.message).toBe("Profile 'joel' already exists");
     });
 
+    it('rejects duplicate profile keys', async () => {
+      assertOk(await repo.create({ name: 'Joel', profileKey: 'shared-key' }));
+
+      const result = await repo.create({ name: 'Son', profileKey: 'shared-key' });
+
+      expect(result.isErr()).toBe(true);
+      if (!result.isErr()) {
+        return;
+      }
+
+      expect(result.error.message).toBe("Profile key 'shared-key' already exists");
+    });
+
     it('rejects empty names', async () => {
-      const result = await repo.create('   ');
+      const result = await repo.create({ name: '   ', profileKey: 'empty-name' });
 
       expect(result.isErr()).toBe(true);
       if (!result.isErr()) {
@@ -66,10 +81,11 @@ describe('ProfileRepository', () => {
 
   describe('findById', () => {
     it('returns an existing profile', async () => {
-      const profile = assertOk(await repo.create('joel'));
+      const profile = assertOk(await repo.create({ name: 'joel', profileKey: 'joel-key' }));
       const loaded = assertOk(await repo.findById(profile.id));
 
       expect(loaded?.id).toBe(profile.id);
+      expect(loaded?.profileKey).toBe('joel-key');
       expect(loaded?.name).toBe('joel');
       expect(loaded?.createdAt).toBeInstanceOf(Date);
     });
@@ -83,7 +99,7 @@ describe('ProfileRepository', () => {
 
   describe('findByName', () => {
     it('finds an existing profile by normalized name', async () => {
-      const profile = assertOk(await repo.create('Joel'));
+      const profile = assertOk(await repo.create({ name: 'Joel', profileKey: 'joel-key' }));
       const loaded = assertOk(await repo.findByName(' joel '));
 
       expect(loaded).toEqual(profile);
@@ -98,8 +114,8 @@ describe('ProfileRepository', () => {
 
   describe('list', () => {
     it('lists profiles ordered by name', async () => {
-      assertOk(await repo.create('son'));
-      assertOk(await repo.create('joel'));
+      assertOk(await repo.create({ name: 'son', profileKey: 'son' }));
+      assertOk(await repo.create({ name: 'joel', profileKey: 'joel' }));
 
       const profiles = assertOk(await repo.list());
 
@@ -112,11 +128,13 @@ describe('ProfileRepository', () => {
       const profile = assertOk(await repo.findOrCreateDefault());
 
       expect(profile.id).toBe(1);
+      expect(profile.profileKey).toBe('default');
       expect(profile.name).toBe('default');
       expect(profile.createdAt).toBeInstanceOf(Date);
 
       const row = await db.selectFrom('profiles').selectAll().where('id', '=', 1).executeTakeFirst();
       expect(row?.id).toBe(1);
+      expect(row?.profile_key).toBe('default');
       expect(row?.name).toBe('default');
     });
 
@@ -138,6 +156,7 @@ describe('ProfileRepository', () => {
       const result3 = assertOk(await repo.findOrCreateDefault());
 
       expect(result1.id).toBe(1);
+      expect(result1.profileKey).toBe('default');
       expect(result1.name).toBe('default');
       expect(result2.id).toBe(1);
       expect(result3.id).toBe(1);

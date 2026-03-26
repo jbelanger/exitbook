@@ -11,14 +11,15 @@ export function registerProfilesAddCommand(profilesCommand: Command): void {
     .command('add')
     .description('Create a new profile')
     .argument('<name>', 'Profile name')
+    .option('--key <key>', 'Stable profile key used for deterministic identity')
     .option('--json', 'Output results in JSON format')
-    .action(async (name: string, options: { json?: boolean | undefined }) => {
+    .action(async (name: string, options: { json?: boolean | undefined; key?: string | undefined }) => {
       const format = options.json ? 'json' : 'text';
 
       try {
         await runCommand(async (ctx) => {
           const db = await ctx.database();
-          const result = await buildCliProfileService(db).create(name);
+          const result = await buildCliProfileService(db).create(name, options.key);
           if (result.isErr()) {
             displayCliError('profiles-add', result.error, ExitCodes.GENERAL_ERROR, format);
           }
@@ -28,7 +29,7 @@ export function registerProfilesAddCommand(profilesCommand: Command): void {
             return;
           }
 
-          console.log(`Added profile ${result.value.name}`);
+          console.log(`Added profile ${result.value.name} [key: ${result.value.profileKey}]`);
         });
       } catch (error) {
         displayCliError(

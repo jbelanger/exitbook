@@ -1,27 +1,26 @@
-import { DEFAULT_PROFILE_NAME, type Profile } from '@exitbook/core';
+import { DEFAULT_PROFILE_NAME, normalizeProfileKey, normalizeProfileName, type Profile } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { IProfileLifecycleStore } from '../ports/index.js';
 
-function normalizeProfileName(name: string): Result<string, Error> {
-  const normalized = name.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return err(new Error('Profile name must not be empty'));
-  }
-
-  return ok(normalized);
-}
-
 export class ProfileService {
   constructor(private readonly store: IProfileLifecycleStore) {}
 
-  create(name: string): Promise<Result<Profile, Error>> {
+  create(name: string, profileKey?: string  ): Promise<Result<Profile, Error>> {
     const normalizedNameResult = normalizeProfileName(name);
     if (normalizedNameResult.isErr()) {
       return Promise.resolve(err(normalizedNameResult.error));
     }
 
-    return this.store.create(normalizedNameResult.value);
+    const normalizedKeyResult = normalizeProfileKey(profileKey ?? name);
+    if (normalizedKeyResult.isErr()) {
+      return Promise.resolve(err(normalizedKeyResult.error));
+    }
+
+    return this.store.create({
+      name: normalizedNameResult.value,
+      profileKey: normalizedKeyResult.value,
+    });
   }
 
   list(): Promise<Result<Profile[], Error>> {

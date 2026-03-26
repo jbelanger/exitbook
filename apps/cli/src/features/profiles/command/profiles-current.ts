@@ -33,7 +33,7 @@ export function registerProfilesCurrentCommand(profilesCommand: Command): void {
           }
 
           const sourceSuffix = ctx.activeProfileSource === 'default' ? '' : ` (${ctx.activeProfileSource})`;
-          console.log(`${profileResult.value.name}${sourceSuffix}`);
+          console.log(`${profileResult.value.name} [key: ${profileResult.value.profileKey}]${sourceSuffix}`);
         });
       } catch (error) {
         displayCliError(

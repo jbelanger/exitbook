@@ -2,7 +2,7 @@ import type { Account, AccountType, ExchangeCredentials, Profile } from '@exitbo
 import type { Result } from '@exitbook/foundation';
 
 export interface IProfileLifecycleStore {
-  create(name: string): Promise<Result<Profile, Error>>;
+  create(input: { name: string; profileKey: string }): Promise<Result<Profile, Error>>;
   findByName(name: string): Promise<Result<Profile | undefined, Error>>;
   findOrCreateDefault(): Promise<Result<Profile, Error>>;
   list(): Promise<Result<Profile[], Error>>;

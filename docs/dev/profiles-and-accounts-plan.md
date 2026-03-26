@@ -90,6 +90,21 @@ Examples:
 
 If a user wants to import a family member's data without touching their own, they create a separate profile.
 
+### Profile Key
+
+Each profile should also carry an immutable stable `profileKey`.
+
+Rules:
+
+- `name` is the mutable display label
+- `profileKey` is the stable identity used when rebuilding deterministic data
+- do not use `profile_id`
+- do not use profile name
+- do not use email
+- `profileKey` should be human-chosen and memorable enough to recreate later
+
+This keeps profile identity stable across rename without forcing users to remember opaque generated identifiers.
+
 ### Account
 
 An account is the named top-level thing a user adds once and refreshes later.
@@ -164,6 +179,12 @@ Examples:
 
 This is primarily a storage and orchestration concern, not a primary UX noun.
 
+Important identity rule:
+
+- exchange mode is config, not account identity
+- switching an exchange account between CSV and API should preserve downstream fingerprints
+- blockchain identifier remains semantic identity and should not be treated like rotatable config
+
 ### Child Account
 
 Internal child accounts remain implementation detail.
@@ -210,6 +231,33 @@ The intended flow is:
 2. `ingestion.sync(accountId)` refreshes that account
 
 The app layer composes those two steps. The domain does not expose a top-level `findOrCreate` import path.
+
+## Identity Constraints
+
+This plan also relies on two explicit identity constraints.
+
+### Fingerprint Root
+
+Processed identity should root in profile-scoped account identity, not in mutable sync config.
+
+Intended shape:
+
+- exchange top-level identity is based on `profileKey + exchange-kind + platformKey`
+- blockchain top-level identity is based on `profileKey + wallet-kind + platformKey + identifier`
+- transaction identity continues deriving from account identity plus source-specific transaction material
+
+This is what allows API-key rotation and CSV-path changes without rewriting transaction identity.
+
+### Exchange Account Invariant
+
+Enforce this product invariant:
+
+- at most one top-level exchange account per platform per profile
+
+Consequences:
+
+- `accounts add` must reject a second same-platform exchange account in the same profile
+- if this invariant ever changes, fingerprint design must be revisited before allowing multiple same-platform exchange accounts
 
 ## One-Table Model
 

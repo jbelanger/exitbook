@@ -4,7 +4,7 @@ import type { DataSession } from './data-session.js';
 
 export function buildProfileLifecycleStore(db: DataSession): IProfileLifecycleStore {
   return {
-    create: (name) => db.profiles.create(name),
+    create: (input) => db.profiles.create(input),
     findByName: (name) => db.profiles.findByName(name),
     findOrCreateDefault: () => db.profiles.findOrCreateDefault(),
     list: () => db.profiles.list(),

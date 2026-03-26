@@ -4,7 +4,10 @@ export { seedAssetMovementFingerprint, seedFeeMovementFingerprint, seedTxFingerp
 import type { KyselyDB } from '../../database.js';
 
 export async function seedUser(db: KyselyDB): Promise<void> {
-  await db.insertInto('profiles').values({ id: 1, name: 'default', created_at: new Date().toISOString() }).execute();
+  await db
+    .insertInto('profiles')
+    .values({ id: 1, profile_key: 'default', name: 'default', created_at: new Date().toISOString() })
+    .execute();
 }
 
 export async function seedAccount(

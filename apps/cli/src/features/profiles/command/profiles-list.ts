@@ -42,7 +42,7 @@ export function registerProfilesListCommand(profilesCommand: Command): void {
 
           for (const profile of profiles) {
             const marker = profile.name === activeProfileName ? '*' : ' ';
-            console.log(`${marker} ${profile.name}`);
+            console.log(`${marker} ${profile.name} [key: ${profile.profileKey}]`);
           }
         });
       } catch (error) {
@@ -59,6 +59,7 @@ export function registerProfilesListCommand(profilesCommand: Command): void {
 function toProfileListItem(profile: Profile, activeProfileName: string) {
   return {
     id: profile.id,
+    profileKey: profile.profileKey,
     name: profile.name,
     isActive: profile.name === activeProfileName,
     createdAt: profile.createdAt.toISOString(),

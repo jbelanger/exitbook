@@ -1,4 +1,4 @@
-import { DEFAULT_PROFILE_NAME, type Profile } from '@exitbook/core';
+import { DEFAULT_PROFILE_NAME, normalizeProfileKey, normalizeProfileName, type Profile } from '@exitbook/core';
 import { ProfileSchema } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -17,6 +17,7 @@ function currentTimestamp(): string {
 function toProfile(row: Selectable<ProfilesTable>): Profile {
   const parseResult = ProfileSchema.safeParse({
     id: row.id,
+    profileKey: row.profile_key,
     name: row.name,
     createdAt: new Date(row.created_at),
   });
@@ -28,27 +29,24 @@ function toProfile(row: Selectable<ProfilesTable>): Profile {
   return parseResult.data;
 }
 
-function normalizeProfileName(name: string): Result<string, Error> {
-  const normalized = name.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return err(new Error('Profile name must not be empty'));
-  }
-
-  return ok(normalized);
-}
-
 export class ProfileRepository extends BaseRepository {
   constructor(db: KyselyDB) {
     super(db, 'profile-repository');
   }
 
-  async create(name: string): Promise<Result<Profile, Error>> {
+  async create(input: { name: string; profileKey: string }): Promise<Result<Profile, Error>> {
     try {
-      const normalizedNameResult = normalizeProfileName(name);
+      const normalizedNameResult = normalizeProfileName(input.name);
       if (normalizedNameResult.isErr()) {
         return err(normalizedNameResult.error);
       }
       const normalizedName = normalizedNameResult.value;
+
+      const normalizedKeyResult = normalizeProfileKey(input.profileKey);
+      if (normalizedKeyResult.isErr()) {
+        return err(normalizedKeyResult.error);
+      }
+      const normalizedKey = normalizedKeyResult.value;
 
       const existingResult = await this.findByName(normalizedName);
       if (existingResult.isErr()) {
@@ -58,13 +56,23 @@ export class ProfileRepository extends BaseRepository {
         return err(new Error(`Profile '${normalizedName}' already exists`));
       }
 
+      const existingByKey = await this.db
+        .selectFrom('profiles')
+        .select(['id', 'name', 'profile_key', 'created_at'])
+        .where('profile_key', '=', normalizedKey)
+        .executeTakeFirst();
+      if (existingByKey) {
+        return err(new Error(`Profile key '${normalizedKey}' already exists`));
+      }
+
       const result = await this.db
         .insertInto('profiles')
         .values({
+          profile_key: normalizedKey,
           name: normalizedName,
           created_at: currentTimestamp(),
         })
-        .returning(['id', 'name', 'created_at'])
+        .returning(['id', 'profile_key', 'name', 'created_at'])
         .executeTakeFirstOrThrow();
 
       return ok(toProfile(result));
@@ -134,10 +142,11 @@ export class ProfileRepository extends BaseRepository {
         .insertInto('profiles')
         .values({
           ...(firstProfile ? {} : { id: 1 }),
+          profile_key: DEFAULT_PROFILE_NAME,
           name: DEFAULT_PROFILE_NAME,
           created_at: currentTimestamp(),
         })
-        .returning(['id', 'name', 'created_at'])
+        .returning(['id', 'profile_key', 'name', 'created_at'])
         .executeTakeFirstOrThrow();
 
       const profile = toProfile(result);
