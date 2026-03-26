@@ -293,7 +293,7 @@ Shows expanded information for the selected asset.
     {qty} {asset}  acquired {date}  basis {currency} {costPerUnit}/unit  held {days}d
     {qty} {asset}  acquired {date}  basis {currency} {costPerUnit}/unit  held {days}d
 
-  Accounts: {sourceName} ({qty}), {sourceName} ({qty})
+  Accounts: {platformKey} ({qty}), {platformKey} ({qty})
 ```
 
 ### No Open Lots Detail
@@ -453,7 +453,7 @@ Shows expanded info for the selected transaction. Same layout as the transaction
 ▸ {date}  {operationType}  {sign}{amount} {asset}
 
   Operation:  {category} ({operationType})
-  Source:     {sourceName}
+  Source:     {platformKey}
   Inflows:    {inflow lines}
   Outflows:   {outflow lines}
   Fees:       {fee lines}
@@ -529,8 +529,9 @@ Portfolio  0 assets
 
   No transactions found.
 
-  Import data to create accounts:
-  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
+  Add and sync an account first:
+  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
+  exitbook import --account kucoin-main
 
 q quit
 ```
@@ -587,8 +588,8 @@ Bypasses the TUI. Outputs portfolio data in JSON format.
           }
         ],
         "accountBreakdown": [
-          { "accountId": 1, "sourceName": "kraken", "accountType": "exchange-api", "quantity": "0.30" },
-          { "accountId": 4, "sourceName": "bitcoin", "accountType": "blockchain", "quantity": "0.15" }
+          { "accountId": 1, "platformKey": "kraken", "accountType": "exchange-api", "quantity": "0.30" },
+          { "accountId": 4, "platformKey": "bitcoin", "accountType": "blockchain", "quantity": "0.15" }
         ]
       },
       {
@@ -599,7 +600,7 @@ Bypasses the TUI. Outputs portfolio data in JSON format.
         "priceError": "No CoinGecko coin ID found for symbol: OBSCURE",
         "openLots": [],
         "accountBreakdown": [
-          { "accountId": 1, "sourceName": "kraken", "accountType": "exchange-api", "quantity": "100.00" }
+          { "accountId": 1, "platformKey": "kraken", "accountType": "exchange-api", "quantity": "100.00" }
         ]
       }
     ]
@@ -800,7 +801,7 @@ interface OpenLotItem {
 
 interface AccountBreakdownItem {
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
   quantity: string;
 }
@@ -810,7 +811,7 @@ interface PortfolioTransactionItem {
   datetime: string;
   operationCategory: string;
   operationType: string;
-  sourceName: string;
+  platformKey: string;
 
   // Movement of the drilled asset (signed quantity)
   assetAmount: string;

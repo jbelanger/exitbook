@@ -4,6 +4,8 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { resolveBalanceScopeAccountIds, toBalanceScopeKey } from '../balances/balance-scope.js';
 import type { DataSession } from '../data-session.js';
 
+import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from './profile-scope-key.js';
+
 async function resolveExistingBalanceScopeIds(db: DataSession): Promise<Result<number[], Error>> {
   return resultDoAsync(async function* () {
     const snapshots = yield* await db.balanceSnapshots.findSnapshots();
@@ -23,6 +25,14 @@ export async function markDownstreamProjectionsStale(params: {
     const downstreamProjections = cascadeInvalidation(from);
 
     for (const downstream of downstreamProjections) {
+      if (downstream === 'links') {
+        const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
+        for (const profileId of profileIds) {
+          yield* await db.projectionState.markStale('links', reason, buildProfileProjectionScopeKey(profileId));
+        }
+        continue;
+      }
+
       if (downstream !== 'balances') {
         yield* await db.projectionState.markStale(downstream, reason);
         continue;

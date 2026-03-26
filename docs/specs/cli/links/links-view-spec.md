@@ -111,18 +111,18 @@ Transaction Links (suggested)  4 suggested
 {cursor} {icon}  {id}  {asset}  {sourceAmt} → {targetAmt}   {source} → {target}   {confidence}  {status}
 ```
 
-| Column          | Width    | Alignment | Content                                          |
-| --------------- | -------- | --------- | ------------------------------------------------ |
-| Cursor          | 1        | —         | `▸` for selected row, space otherwise            |
-| Icon            | 1        | —         | Status icon                                      |
-| ID              | 8        | left      | First 8 chars of link UUID                       |
-| Asset           | 5        | left      | Asset symbol, truncated                          |
-| Source Amount   | 15       | right     | Locale-formatted (commas, max 4 decimal places)  |
-| Arrow           | 1        | —         | `→`                                              |
-| Target Amount   | 15       | right     | Same format                                      |
-| Source → Target | variable | left      | `{sourceName} → {targetName}`, padded to 30 wide |
-| Confidence      | 6        | right     | `XX.X%`                                          |
-| Status          | 9        | left      | `confirmed` / `suggested` / `rejected`           |
+| Column          | Width    | Alignment | Content                                           |
+| --------------- | -------- | --------- | ------------------------------------------------- |
+| Cursor          | 1        | —         | `▸` for selected row, space otherwise             |
+| Icon            | 1        | —         | Status icon                                       |
+| ID              | 8        | left      | First 8 chars of link UUID                        |
+| Asset           | 5        | left      | Asset symbol, truncated                           |
+| Source Amount   | 15       | right     | Locale-formatted (commas, max 4 decimal places)   |
+| Arrow           | 1        | —         | `→`                                               |
+| Target Amount   | 15       | right     | Same format                                       |
+| Source → Target | variable | left      | `{platformKey} → {targetName}`, padded to 30 wide |
+| Confidence      | 6        | right     | `XX.X%`                                           |
+| Status          | 9        | left      | `confirmed` / `suggested` / `rejected`            |
 
 ### Status Icons
 
@@ -146,7 +146,7 @@ Transaction Links (suggested)  4 suggested
 ```
 ▸ {id}  {asset}  {linkType}  {confidence}  {status}
 
-  Source: #{txId} {sourceName}   {timestamp}   {direction} {amount} {asset}
+  Source: #{txId} {platformKey}   {timestamp}   {direction} {amount} {asset}
   Target: #{txId} {targetName}   {timestamp}   {direction} {amount} {asset}
 
   Match: {criteria}

@@ -6,7 +6,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { BalanceSnapshotRepository } from '../balance-snapshot-repository.js';
 
-import { seedAccount, seedUser } from './helpers.js';
+import { seedAccount, seedProfile } from './helpers.js';
 
 function createSnapshot(scopeAccountId: number, overrides: Partial<BalanceSnapshot> = {}): BalanceSnapshot {
   return {
@@ -56,7 +56,7 @@ describe('BalanceSnapshotRepository', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     repo = new BalanceSnapshotRepository(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedAccount(db, 2, 'exchange-api', 'kraken');
   });

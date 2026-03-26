@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildProcessingPorts } from '../../ingestion/processing-ports.js';
-import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
+import {
+  seedAccount,
+  seedImportSession,
+  seedTxFingerprint,
+  seedProfile,
+} from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
 describe('buildProcessingPorts', () => {
@@ -15,7 +20,7 @@ describe('buildProcessingPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'exchange-api', 'kraken');
     await seedImportSession(db, 1, 1);
   });

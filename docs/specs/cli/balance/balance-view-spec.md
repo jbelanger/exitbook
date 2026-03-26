@@ -139,11 +139,11 @@ Shape:
     "accounts": [
       {
         "accountId": 5,
-        "sourceName": "bitcoin",
+        "platformKey": "bitcoin",
         "accountType": "blockchain",
         "requestedAccount": {
           "id": 12,
-          "sourceName": "bitcoin",
+          "platformKey": "bitcoin",
           "accountType": "blockchain"
         },
         "assets": [
@@ -234,13 +234,13 @@ Shape:
     "account": {
       "id": 5,
       "type": "blockchain",
-      "sourceName": "bitcoin",
+      "platformKey": "bitcoin",
       "identifier": "xpub..."
     },
     "requestedAccount": {
       "id": 12,
       "type": "blockchain",
-      "sourceName": "bitcoin",
+      "platformKey": "bitcoin",
       "identifier": "bc1..."
     },
     "meta": {

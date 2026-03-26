@@ -109,21 +109,20 @@ export async function ensureLinksReady(
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
+  const profileIdResult =
+    options.profileId !== undefined
+      ? ok(options.profileId)
+      : await resolveCommandProfile(scope, db, undefined).then((result) =>
+          result.isOk() ? ok(result.value.id) : err(result.error)
+        );
+  if (profileIdResult.isErr()) {
+    return err(profileIdResult.error);
+  }
 
   return rebuildIfStale(
     'links',
-    () => buildLinksFreshnessPorts(db, options.profileId).checkFreshness(),
+    () => buildLinksFreshnessPorts(db, profileIdResult.value).checkFreshness(),
     async () => {
-      const profileIdResult =
-        options.profileId !== undefined
-          ? ok(options.profileId)
-          : await resolveCommandProfile(scope, db, undefined).then((result) =>
-              result.isOk() ? ok(result.value.id) : err(result.error)
-            );
-      if (profileIdResult.isErr()) {
-        return err(profileIdResult.error);
-      }
-
       const params = {
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),

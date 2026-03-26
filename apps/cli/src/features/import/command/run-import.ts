@@ -338,7 +338,7 @@ function buildImportExecutionRuntime(
     eventBus: EventBusType<CliEvent>;
     instrumentation: InstrumentationCollector;
   },
-  ingestionMonitor?: ImportMonitorController  
+  ingestionMonitor?: ImportMonitorController
 ): ImportExecutionRuntime {
   const importPorts = buildImportPorts(database);
 
@@ -361,7 +361,7 @@ async function loadBatchImportAccounts(
   profileId: number
 ): Promise<Result<BatchImportAccountPlan[], Error>> {
   const accountService = buildCliAccountLifecycleService(database);
-  const accountsResult = await accountService.listTopLevel(profileId, { includeUnnamed: false });
+  const accountsResult = await accountService.listTopLevel(profileId);
   if (accountsResult.isErr()) {
     return err(accountsResult.error);
   }
@@ -382,10 +382,7 @@ async function loadBatchImportAccounts(
   return ok(plans);
 }
 
-function classifyBatchImportSyncMode(
-  account: Account,
-  incompleteSession?: ImportSession  
-): BatchImportSyncMode {
+function classifyBatchImportSyncMode(account: Account, incompleteSession?: ImportSession): BatchImportSyncMode {
   if (incompleteSession) {
     return 'resuming';
   }

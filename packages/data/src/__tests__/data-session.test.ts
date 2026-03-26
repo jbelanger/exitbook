@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../data-session.js';
 import type { KyselyDB } from '../database.js';
-import { seedUser } from '../repositories/__tests__/helpers.js';
+import { seedProfile } from '../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../utils/test-utils.js';
 
 describe('DataSession', () => {
@@ -14,7 +14,7 @@ describe('DataSession', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {

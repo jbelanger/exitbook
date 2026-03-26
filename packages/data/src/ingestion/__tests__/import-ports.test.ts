@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildImportPorts } from '../../ingestion/import-ports.js';
-import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
+import { seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
@@ -16,7 +17,7 @@ describe('buildImportPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {
@@ -53,8 +54,9 @@ describe('buildImportPorts', () => {
       // Downstream projections should also be stale
       const assetReviewState = assertOk(await repo.get('asset-review'));
       expect(assetReviewState?.status).toBe('stale');
-      const linksState = assertOk(await repo.get('links'));
+      const linksState = assertOk(await repo.get('links', buildProfileProjectionScopeKey(1)));
       expect(linksState?.status).toBe('stale');
+      expect(assertOk(await repo.get('links'))).toBeUndefined();
 
       const balancesState = assertOk(await repo.get('balances', 'balance:1'));
       expect(balancesState?.status).toBe('stale');

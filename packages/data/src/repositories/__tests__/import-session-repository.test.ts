@@ -7,7 +7,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { ImportSessionRepository } from '../import-session-repository.js';
 
-import { seedAccount, seedUser } from './helpers.js';
+import { seedAccount, seedProfile } from './helpers.js';
 
 interface InsertSessionInput {
   accountId: number;
@@ -24,7 +24,7 @@ interface InsertSessionInput {
 }
 
 async function seedDatabase(db: KyselyDB): Promise<void> {
-  await seedUser(db);
+  await seedProfile(db);
   await seedAccount(db, 1, 'exchange-api', 'kraken');
   await seedAccount(db, 2, 'blockchain', 'ethereum');
 }

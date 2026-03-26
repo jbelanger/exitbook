@@ -148,20 +148,39 @@ That separation lets you clear or reprocess transactional data without throwing 
 
 ## Quick start
 
-### 1. Import data
+### 1. Pick a profile
+
+Exitbook scopes accounts, imports, links, balances, and reporting to one active profile.
 
 ```bash
-# Exchange CSV import
-pnpm run dev import --exchange kucoin --csv-dir ./exports/kucoin
-
-# Exchange API import
-pnpm run dev import --exchange kraken --api-key KEY --api-secret SECRET
-
-# Blockchain import
-pnpm run dev import --blockchain bitcoin --address bc1q...
+# Use the built-in default profile, or create your own
+pnpm run dev profiles add business --key business
+pnpm run dev profiles switch business
+pnpm run dev profiles current
 ```
 
-### 2. Inspect what was imported
+You can override the active profile per command with `--profile <name>`.
+
+### 2. Add accounts, then import them
+
+```bash
+# Add an exchange CSV account
+pnpm run dev accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
+
+# Add an exchange API account
+pnpm run dev accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
+
+# Add a blockchain account
+pnpm run dev accounts add btc-cold --blockchain bitcoin --address bc1q...
+
+# Sync one account
+pnpm run dev import --account kucoin-main
+
+# Or sync every top-level account in the active profile
+pnpm run dev import --all
+```
+
+### 3. Inspect what was imported
 
 ```bash
 pnpm run dev accounts view
@@ -169,20 +188,20 @@ pnpm run dev accounts view --show-sessions
 pnpm run dev transactions view
 ```
 
-### 3. Verify balances
+### 4. Verify balances
 
 ```bash
-# Verify all accounts against live sources where supported
-pnpm run dev balance
+# Inspect stored balance snapshots
+pnpm run dev balance view
 
-# Verify one account
-pnpm run dev balance --account-id 5
+# Refresh all balances and verify live sources where supported
+pnpm run dev balance refresh
 
-# Inspect calculated balances without live API calls
-pnpm run dev balance --offline
+# Refresh one balance scope
+pnpm run dev balance refresh --account-id 5
 ```
 
-### 4. Review transfer links
+### 5. Review transfer links
 
 ```bash
 # Suggest links between related transactions
@@ -198,7 +217,7 @@ pnpm run dev links confirm <link-id>
 pnpm run dev links reject <link-id>
 ```
 
-### 5. Enrich prices
+### 6. Enrich prices
 
 ```bash
 # Run the full enrichment pipeline
@@ -212,7 +231,7 @@ pnpm run dev prices set-fx --help
 pnpm run dev prices view
 ```
 
-### 6. Calculate cost basis and inspect portfolio state
+### 7. Calculate cost basis and inspect portfolio state
 
 ```bash
 # Example: Canada, average cost
@@ -225,7 +244,7 @@ pnpm run dev cost-basis --method fifo --jurisdiction US --tax-year 2024
 pnpm run dev portfolio --jurisdiction CA --fiat-currency CAD
 ```
 
-### 7. Export data or replay processing
+### 8. Export data or replay processing
 
 ```bash
 # Export processed transactions
@@ -242,10 +261,11 @@ pnpm run dev clear
 
 These are the main CLI entrypoints:
 
-- `import` - import raw data from blockchains, exchange APIs, or CSVs
-- `accounts` - inspect accounts and import session history
+- `profiles` - create, list, switch, and inspect profile scope
+- `import` - sync raw data for existing saved accounts
+- `accounts` - add, update, rename, remove, and inspect named accounts
 - `transactions` - inspect or export processed transactions
-- `balance` - verify live balances or inspect calculated balances offline
+- `balance` - inspect stored balance snapshots or refresh live verification
 - `links` - run transfer matching and review results
 - `prices` - inspect coverage, enrich prices, or set missing prices manually
 - `cost-basis` - calculate realized gains/losses for a jurisdiction and tax year

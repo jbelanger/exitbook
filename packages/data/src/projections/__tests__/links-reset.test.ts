@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildLinksResetPorts } from '../../projections/links-reset.js';
-import { seedAccount, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
+import { seedAccount, seedTxFingerprint, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
 describe('buildLinksResetPorts', () => {
@@ -14,7 +15,7 @@ describe('buildLinksResetPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'exchange-api', 'kraken');
     await seedAccount(db, 2, 'exchange-api', 'coinbase');
   });
@@ -108,10 +109,10 @@ describe('buildLinksResetPorts', () => {
     const remaining = assertOk(await ctx.transactionLinks.count());
     expect(remaining).toBe(0);
 
-    // Verify projection state is marked stale
-    const linksState = assertOk(await ctx.projectionState.get('links'));
+    const linksState = assertOk(await ctx.projectionState.get('links', buildProfileProjectionScopeKey(1)));
     expect(linksState!.status).toBe('stale');
     expect(linksState!.invalidatedBy).toBe('reset');
+    expect(assertOk(await ctx.projectionState.get('links'))).toBeUndefined();
   });
 
   it('scopes reset to specific account IDs', async () => {

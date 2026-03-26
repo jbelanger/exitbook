@@ -1,10 +1,7 @@
 import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { getLogger } from '@exitbook/logger';
 
 import type { IAccountLifecycleStore } from '../ports/index.js';
-
-const logger = getLogger('account-lifecycle-service');
 
 export interface CreateNamedAccountInput {
   profileId: number;
@@ -15,11 +12,6 @@ export interface CreateNamedAccountInput {
   providerName?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   metadata?: Account['metadata'] | undefined;
-}
-
-export interface CreateNamedAccountResult {
-  account: Account;
-  disposition: 'adopted' | 'created';
 }
 
 export interface UpdateNamedAccountInput {
@@ -42,7 +34,7 @@ function normalizeAccountName(name: string): Result<string, Error> {
 export class AccountLifecycleService {
   constructor(private readonly store: IAccountLifecycleStore) {}
 
-  async createNamed(input: CreateNamedAccountInput): Promise<Result<CreateNamedAccountResult, Error>> {
+  async createNamed(input: CreateNamedAccountInput): Promise<Result<Account, Error>> {
     const normalizedNameResult = normalizeAccountName(input.name);
     if (normalizedNameResult.isErr()) {
       return err(normalizedNameResult.error);
@@ -85,32 +77,11 @@ export class AccountLifecycleService {
         );
       }
 
-      const adoptResult = await this.store.update(existingByKey.id, {
-        name: normalizedName,
-        providerName: input.providerName,
-        credentials: input.credentials,
-        metadata: input.metadata,
-      });
-      if (adoptResult.isErr()) {
-        return err(adoptResult.error);
-      }
-
-      logger.info(
-        { accountId: existingByKey.id, name: normalizedName },
-        'Adopted unnamed legacy account into named lifecycle'
+      return err(
+        new Error(
+          `Account config already exists as unnamed account #${existingByKey.id}. Clear and recreate that profile data before adding it again.`
+        )
       );
-      const adoptedAccountResult = await this.getByName(input.profileId, normalizedName);
-      if (adoptedAccountResult.isErr()) {
-        return err(adoptedAccountResult.error);
-      }
-      if (!adoptedAccountResult.value) {
-        return err(new Error(`Account '${normalizedName}' disappeared after adoption`));
-      }
-
-      return ok({
-        account: adoptedAccountResult.value,
-        disposition: 'adopted',
-      });
     }
 
     const createResult = await this.store.create({
@@ -127,17 +98,11 @@ export class AccountLifecycleService {
       return err(createResult.error);
     }
 
-    return ok({
-      account: createResult.value,
-      disposition: 'created',
-    });
+    return ok(createResult.value);
   }
 
-  listTopLevel(
-    profileId: number,
-    options?: { includeUnnamed?: boolean | undefined }
-  ): Promise<Result<Account[], Error>> {
-    return this.store.listTopLevel(profileId, options);
+  listTopLevel(profileId: number): Promise<Result<Account[], Error>> {
+    return this.store.listTopLevel(profileId);
   }
 
   getById(accountId: number): Promise<Result<Account | undefined, Error>> {
@@ -245,7 +210,7 @@ export class AccountLifecycleService {
 
         return err(
           new Error(
-            `Account config is already tracked by legacy account #${duplicate.id}. Remove or rename that account before reusing this config.`
+            `Account config is already tracked by unnamed account #${duplicate.id}. Clear and recreate that profile data before reusing this config.`
           )
         );
       }

@@ -27,7 +27,7 @@ export interface ProfilesTable {
 export interface AccountsTable {
   id: Generated<number>;
   profile_id: number | null; // FK to profiles.id, NULL for tracking-only accounts
-  name: string | null; // user-facing top-level account name, NULL for unnamed legacy rows and child accounts
+  name: string | null; // user-facing top-level account name, NULL for child accounts
   parent_account_id: number | null; // FK to accounts.id, NULL for top-level accounts, set for derived address child accounts
   account_type: string; // 'blockchain' | 'exchange-api' | 'exchange-csv'
   platform_key: string; // 'kraken', 'bitcoin', 'ethereum', etc.

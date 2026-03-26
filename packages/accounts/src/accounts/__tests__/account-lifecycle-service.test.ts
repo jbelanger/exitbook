@@ -84,13 +84,11 @@ function createStore(initialAccounts: Account[] = []) {
       async findChildren(parentAccountId: number) {
         return ok(accounts.filter((account) => account.parentAccountId === parentAccountId));
       },
-      async listTopLevel(profileId: number, options?: { includeUnnamed?: boolean | undefined }) {
+      async listTopLevel(profileId: number) {
         return ok(
           accounts.filter(
             (account) =>
-              account.profileId === profileId &&
-              account.parentAccountId === undefined &&
-              (options?.includeUnnamed || account.name !== undefined)
+              account.profileId === profileId && account.parentAccountId === undefined && account.name !== undefined
           )
         );
       },
@@ -151,8 +149,7 @@ describe('AccountLifecycleService', () => {
       })
     );
 
-    expect(result.disposition).toBe('created');
-    expect(result.account.name).toBe('kraken-main');
+    expect(result.name).toBe('kraken-main');
   });
 
   it('rejects a second top-level exchange account on the same platform in one profile', async () => {
@@ -182,7 +179,7 @@ describe('AccountLifecycleService', () => {
     }
   });
 
-  it('adopts an unnamed legacy top-level account when the config matches', async () => {
+  it('rejects existing unnamed top-level accounts instead of auto-adopting them', async () => {
     const { accounts, store } = createStore([
       createAccount({
         id: 7,
@@ -194,21 +191,21 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = assertOk(
-      await service.createNamed({
-        profileId: 1,
-        name: 'kraken-main',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        providerName: 'kraken-api',
-      })
-    );
+    const result = await service.createNamed({
+      profileId: 1,
+      name: 'kraken-main',
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      identifier: 'api-key-1',
+      providerName: 'kraken-api',
+    });
 
-    expect(result.disposition).toBe('adopted');
-    expect(result.account.id).toBe(7);
-    expect(result.account.name).toBe('kraken-main');
-    expect(accounts[0]?.providerName).toBe('kraken-api');
+    expect(result.isErr()).toBe(true);
+    expect(accounts[0]?.name).toBeUndefined();
+    expect(accounts[0]?.providerName).toBeUndefined();
+    if (result.isErr()) {
+      expect(result.error.message).toContain('unnamed account #7');
+    }
   });
 
   it('rejects naming a child account config as a standalone account', async () => {

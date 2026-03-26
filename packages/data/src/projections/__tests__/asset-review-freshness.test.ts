@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildAssetReviewFreshnessPorts } from '../../projections/asset-review-freshness.js';
-import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
+import {
+  seedAccount,
+  seedImportSession,
+  seedTxFingerprint,
+  seedProfile,
+} from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
@@ -46,7 +51,7 @@ describe('buildAssetReviewFreshnessPorts', () => {
   });
 
   it('returns stale when processed transactions exist but asset review has never been built', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'ethereum');
     await seedImportSession(db, 1, 1);
     await seedTransaction(1);
@@ -58,7 +63,7 @@ describe('buildAssetReviewFreshnessPorts', () => {
   });
 
   it('trusts fresh projection state when asset review is marked fresh', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'ethereum');
     await seedImportSession(db, 1, 1);
     await seedTransaction(1);

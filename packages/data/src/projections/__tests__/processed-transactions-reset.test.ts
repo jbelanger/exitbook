@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildProcessedTransactionsResetPorts } from '../../projections/processed-transactions-reset.js';
-import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from '../../repositories/__tests__/helpers.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
+import {
+  seedAccount,
+  seedImportSession,
+  seedTxFingerprint,
+  seedProfile,
+} from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
 describe('buildProcessedTransactionsResetPorts', () => {
@@ -14,7 +20,7 @@ describe('buildProcessedTransactionsResetPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedImportSession(db, 1, 1);
   });
@@ -98,9 +104,10 @@ describe('buildProcessedTransactionsResetPorts', () => {
     expect(assetReviewState!.status).toBe('stale');
     expect(assetReviewState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
 
-    const linksState = assertOk(await ctx.projectionState.get('links'));
+    const linksState = assertOk(await ctx.projectionState.get('links', buildProfileProjectionScopeKey(1)));
     expect(linksState!.status).toBe('stale');
     expect(linksState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
+    expect(assertOk(await ctx.projectionState.get('links'))).toBeUndefined();
   });
 
   it('scopes reset to specific account IDs', async () => {

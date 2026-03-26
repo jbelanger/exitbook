@@ -292,8 +292,8 @@ Rules shared across package CSVs:
 
 Account labels are human-facing:
 
-- when a source name is unique in the package, use `sourceName`
-- when multiple accounts share a source name, use `sourceName (identifier)`
+- when a platform is unique in the package, use `platformKey`
+- when multiple accounts share a platform, use `platformKey (identifier)`
 
 ### Issues CSV
 

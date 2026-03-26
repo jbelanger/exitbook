@@ -290,7 +290,7 @@ interface XpubImportFailedEvent {
  */
 interface ImportStartedEvent {
   type: 'import.started';
-  sourceName: string;
+  platformKey: string;
   sourceType: AccountType;
   accountId: number;
   parentAccountId?: number | undefined; // NEW: Present if this is a child of an xpub parent
@@ -331,7 +331,7 @@ interface XpubEmptyWarningEvent {
 // File: packages/ingestion/src/features/import/import-orchestrator.ts
 
 private async importFromXpub(
-  userId: number,
+  profileId: number,
   blockchain: string,
   xpub: string,
   blockchainAdapter: BlockchainAdapter,
@@ -343,9 +343,9 @@ private async importFromXpub(
 
   // 1. Create parent account
   const parentAccountResult = await this.accountRepository.findOrCreate({
-    userId,
+    profileId,
     accountType: 'blockchain',
-    sourceName: blockchain,
+    platformKey: blockchain,
     identifier: xpub,
     providerName,
     credentials: undefined
@@ -426,10 +426,10 @@ private async importFromXpub(
       }
 
       const childResult = await this.accountRepository.findOrCreate({
-        userId,
+        profileId,
         parentAccountId: parentAccount.id,
         accountType: 'blockchain',
-        sourceName: blockchain,
+        platformKey: blockchain,
         identifier: normalizedResult.value,
         providerName,
         credentials: undefined
@@ -547,7 +547,7 @@ private async executeStreamingImport(
   // Emit import.started with parentAccountId context
   this.eventBus?.emit({
     type: 'import.started',
-    sourceName,
+    platformKey,
     sourceType: account.accountType,
     accountId: account.id,
     parentAccountId: account.parentAccountId,  // NEW: Links to xpub parent if present

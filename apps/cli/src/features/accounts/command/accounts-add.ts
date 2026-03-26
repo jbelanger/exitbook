@@ -56,8 +56,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
       }
 
       const payload = {
-        account: serializeAccount(addResult.value.account),
-        disposition: addResult.value.disposition,
+        account: serializeAccount(addResult.value),
         profile: profileResult.value.name,
       };
 
@@ -66,8 +65,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
         return;
       }
 
-      const verb = addResult.value.disposition === 'adopted' ? 'Adopted existing account' : 'Added account';
-      console.log(`${verb} ${addResult.value.account.name} (${addResult.value.account.platformKey})`);
+      console.log(`Added account ${addResult.value.name} (${addResult.value.platformKey})`);
     });
   } catch (error) {
     displayCliError(

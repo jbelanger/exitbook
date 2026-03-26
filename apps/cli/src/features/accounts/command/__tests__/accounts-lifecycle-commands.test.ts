@@ -166,16 +166,13 @@ describe('accounts lifecycle commands', () => {
     );
     mockCreateNamed.mockResolvedValue(
       ok({
-        disposition: 'created',
-        account: {
-          id: 7,
-          name: 'kraken-main',
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apikey1',
-          providerName: undefined,
-          createdAt: new Date('2026-01-02T00:00:00.000Z'),
-        },
+        id: 7,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'apikey1',
+        providerName: undefined,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
       })
     );
 
@@ -221,7 +218,6 @@ describe('accounts lifecycle commands', () => {
         providerName: undefined,
         createdAt: '2026-01-02T00:00:00.000Z',
       },
-      disposition: 'created',
       profile: 'default',
     });
   });

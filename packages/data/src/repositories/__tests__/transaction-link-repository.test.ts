@@ -8,7 +8,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { TransactionLinkRepository } from '../transaction-link-repository.js';
 
-import { seedAccount, seedImportSession, seedTxFingerprint, seedUser } from './helpers.js';
+import { seedAccount, seedImportSession, seedTxFingerprint, seedProfile } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,7 +40,7 @@ function makeBtcLink(sourceTxId: number, targetTxId: number): NewTransactionLink
 }
 
 async function seedDatabase(db: KyselyDB): Promise<void> {
-  await seedUser(db);
+  await seedProfile(db);
   await seedAccount(db, 1, 'exchange-api', 'test');
   await seedImportSession(db, 1, 1);
 

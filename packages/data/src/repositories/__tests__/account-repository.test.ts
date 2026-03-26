@@ -9,7 +9,7 @@ import type { DatabaseSchema } from '../../database-schema.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { AccountRepository } from '../account-repository.js';
 
-import { seedUser } from './helpers.js';
+import { seedProfile } from './helpers.js';
 
 describe('AccountRepository', () => {
   let db: Kysely<DatabaseSchema>;
@@ -19,7 +19,7 @@ describe('AccountRepository', () => {
     db = await createTestDatabase();
     repo = new AccountRepository(db);
 
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {

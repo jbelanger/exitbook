@@ -14,7 +14,7 @@ import {
   seedFeeMovementFingerprint,
   seedImportSession,
   seedTxFingerprint,
-  seedUser,
+  seedProfile,
 } from './helpers.js';
 
 describe('TransactionRepository', () => {
@@ -135,7 +135,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedAccount(db, 2, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
@@ -195,7 +195,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
 
@@ -335,7 +335,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
     });
@@ -539,7 +539,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
     });
@@ -641,7 +641,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedImportSession(db, 1, 1);
     });
@@ -1130,7 +1130,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedAccount(db, 2, 'exchange-api', 'coinbase');
       await seedImportSession(db, 1, 1);
@@ -1294,7 +1294,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await db
         .insertInto('profiles')
         .values({ id: 2, profile_key: 'audit', name: 'audit', created_at: new Date().toISOString() })

@@ -18,9 +18,9 @@ export function buildAccountLifecycleStore(db: DataSession): IAccountLifecycleSt
     findByKey: (input) => db.accounts.findBy(input),
     findByName: (profileId, name) => db.accounts.findByName(profileId, name),
     findChildren: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
-    listTopLevel: (profileId, options) =>
+    listTopLevel: (profileId) =>
       db.accounts.findAll({
-        includeUnnamedTopLevel: options?.includeUnnamed,
+        includeUnnamedTopLevel: false,
         profileId,
         topLevelOnly: true,
       }),

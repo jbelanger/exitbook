@@ -53,7 +53,7 @@ interface LinkableMovement {
   id: number;
   transactionId: number;
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   sourceType: SourceType;
   assetId: string;
   assetSymbol: Currency;
@@ -277,7 +277,7 @@ Hard filters:
 - source and target cannot come from the same transaction
 - source must be `direction='out'`; target must be `direction='in'`
 - source and target must share `assetSymbol`
-- linkable movements from the same `sourceName` are skipped
+- linkable movements from the same `platformKey` are skipped
 - explicit address mismatch is a hard veto
 - timing must be within `[-clockSkewToleranceHours, maxTimingWindowHours]`
 - confidence must meet `minConfidenceScore`
@@ -308,7 +308,7 @@ Same-hash external outflow fast path:
   - at least two source movements
   - at least two accounts
   - exactly one shared `toAddress`
-  - no tracked blockchain inflow movement for the same `(hash, assetId, sourceName)`
+  - no tracked blockchain inflow movement for the same `(hash, assetId, platformKey)`
 - reconstructs the group send amount as:
 
 ```text
