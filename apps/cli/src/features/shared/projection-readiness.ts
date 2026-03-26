@@ -10,6 +10,7 @@ import { getLogger } from '@exitbook/logger';
 import type { CommandRuntime } from '../../runtime/command-runtime.js';
 import { createIngestionRuntime } from '../../runtime/ingestion-runtime.js';
 import { createCliLinkingRuntime, readCliLinkOverrides } from '../../runtime/linking-runtime.js';
+import { resolveCommandProfile } from '../profiles/profile-resolution.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import { resetProjections } from './projection-reset.js';
@@ -25,6 +26,7 @@ type RebuildablePrereqId = Exclude<ProjectionId, 'balances'>;
 
 export interface PrereqExecutionOptions {
   isJsonMode: boolean;
+  profileId?: number | undefined;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
 }
 
@@ -112,6 +114,16 @@ export async function ensureLinksReady(
     'links',
     () => buildLinksFreshnessPorts(db).checkFreshness(),
     async () => {
+      const profileIdResult =
+        options.profileId !== undefined
+          ? ok(options.profileId)
+          : await resolveCommandProfile(scope, db, undefined).then((result) =>
+              result.isOk() ? ok(result.value.id) : err(result.error)
+            );
+      if (profileIdResult.isErr()) {
+        return err(profileIdResult.error);
+      }
+
       const params = {
         minConfidenceScore: parseDecimal('0.7'),
         autoConfirmThreshold: parseDecimal('0.95'),
@@ -121,6 +133,7 @@ export async function ensureLinksReady(
         dataDir: scope.dataDir,
         database: db,
         isJsonMode: options.isJsonMode,
+        profileId: profileIdResult.value,
       });
       if (linkingRuntimeResult.isErr()) {
         return err(linkingRuntimeResult.error);

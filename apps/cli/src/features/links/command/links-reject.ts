@@ -4,6 +4,7 @@ import { render } from 'ink';
 import React from 'react';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -33,6 +34,7 @@ export function registerLinksRejectCommand(linksCommand: Command): void {
     .command('reject')
     .description('Reject a suggested transaction link')
     .argument('<link-id>', 'ID of the link to reject')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (linkIdArg: string, rawOptions: unknown) => {
       await executeLinksRejectCommand(linkIdArg, rawOptions);
@@ -69,9 +71,15 @@ async function executeLinksRejectCommand(linkIdArg: string, rawOptions: unknown)
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        stopSpinner(spinner);
+        displayCliError('links-reject', profileResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const handler = new LinksReviewHandler(database, overrideStore);
+      const handler = new LinksReviewHandler(database, profileResult.value.id, overrideStore);
       const result = await handler.executeTyped({ linkId }, 'reject');
 
       stopSpinner(spinner);

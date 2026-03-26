@@ -6,6 +6,7 @@ import type { Command } from 'commander';
 import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -26,15 +27,16 @@ import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';
  */
 async function fetchTransactionsForLinks(
   links: TransactionLink[],
-  txRepo: { findById: (id: number) => Promise<Result<Transaction | undefined, Error>> }
+  txRepo: { findById: (id: number, profileId?: number) => Promise<Result<Transaction | undefined, Error>> },
+  profileId: number
 ): Promise<LinkWithTransactions[]> {
   const result: LinkWithTransactions[] = [];
 
   for (const link of links) {
-    const sourceTxResult = await txRepo.findById(link.sourceTransactionId);
+    const sourceTxResult = await txRepo.findById(link.sourceTransactionId, profileId);
     const sourceTx = sourceTxResult.isOk() ? sourceTxResult.value : undefined;
 
-    const targetTxResult = await txRepo.findById(link.targetTransactionId);
+    const targetTxResult = await txRepo.findById(link.targetTransactionId, profileId);
     const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;
 
     result.push({
@@ -56,6 +58,13 @@ type LinksViewCommandResult = ViewCommandResult<LinkInfo[]>;
  * Result data for gaps view command (JSON mode).
  */
 type GapsViewCommandResult = ViewCommandResult<LinkGapIssue[]>;
+interface LinksCommandParams extends LinksViewParams {
+  profile?: string | undefined;
+}
+
+interface LinksGapsCommandParams {
+  profile?: string | undefined;
+}
 
 /**
  * Register the links view subcommand.
@@ -69,6 +78,7 @@ export function registerLinksViewCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links view                                # View all transaction links
+  $ exitbook links view --profile business             # View links for one profile
   $ exitbook links view --status suggested             # View AI-suggested links
   $ exitbook links view --status confirmed             # View user-confirmed links
   $ exitbook links view --min-confidence 0.8           # View high-confidence links only
@@ -94,6 +104,7 @@ Confidence Scores:
   <0.3 - Low confidence, needs manual review
 `
     )
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
@@ -112,10 +123,12 @@ export function registerLinksGapsCommand(linksCommand: Command): void {
       'after',
       `
 Examples:
-  $ exitbook links gaps         # View uncovered inflows and unmatched outflows
-  $ exitbook links gaps --json  # Output gap analysis as JSON
+  $ exitbook links gaps                   # View uncovered inflows and unmatched outflows
+  $ exitbook links gaps --profile audit   # Scope gap analysis to one profile
+  $ exitbook links gaps --json            # Output gap analysis as JSON
 `
     )
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksGapsCommand(rawOptions);
@@ -127,7 +140,8 @@ Examples:
  */
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
   const { format, options } = parseCliCommandOptions('links-view', rawOptions, LinksViewCommandOptionsSchema);
-  const params: LinksViewParams = {
+  const params: LinksCommandParams = {
+    profile: options.profile,
     status: options.status,
     minConfidence: options.minConfidence,
     maxConfidence: options.maxConfidence,
@@ -143,38 +157,52 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 }
 
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
-  const { format } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
+  const { format, options } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
+  const params: LinksGapsCommandParams = {
+    profile: options.profile,
+  };
   if (format === 'json') {
-    await executeGapsViewJSON();
+    await executeGapsViewJSON(params);
     return;
   }
 
-  await executeGapsViewTUI();
+  await executeGapsViewTUI(params);
 }
 
 /**
  * Execute links view in TUI mode (text mode, no JSON)
  */
-async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
+async function executeLinksViewTUI(params: LinksCommandParams): Promise<void> {
   const { OverrideStore } = await import('@exitbook/data/overrides');
 
   await withCliCommandErrorHandling('links-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        console.error('\n⚠ Error:', profileResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
       const linkRepo = database.transactionLinks;
       const txRepo = database.transactions;
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const linksResult = await linkRepo.findAll();
+      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
       if (linksResult.isErr()) {
         console.error('\n⚠ Error:', linksResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(linksResult.value, txRepo);
+      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(
+        linksResult.value,
+        txRepo,
+        profileResult.value.id
+      );
 
-      const reviewHandler = new LinksReviewHandler(database, overrideStore);
+      const reviewHandler = new LinksReviewHandler(database, profileResult.value.id, overrideStore);
 
       const handleAction = async (
         linkId: number,
@@ -216,29 +244,36 @@ async function executeLinksViewTUI(params: LinksViewParams): Promise<void> {
 /**
  * Execute gaps view in TUI mode (read-only)
  */
-async function executeGapsViewTUI(): Promise<void> {
+async function executeGapsViewTUI(params: LinksGapsCommandParams): Promise<void> {
   await withCliCommandErrorHandling('links-gaps', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        console.error('\n⚠ Error:', profileResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
       const accountRepo = database.accounts;
 
-      const transactionsResult = await txRepo.findAll();
+      const transactionsResult = await txRepo.findAll({ profileId: profileResult.value.id });
       if (transactionsResult.isErr()) {
         console.error('\n⚠ Error:', transactionsResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      const linksResult = await linkRepo.findAll();
+      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
       if (linksResult.isErr()) {
         console.error('\n⚠ Error:', linksResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
         return;
       }
 
-      const accountsResult = await accountRepo.findAll();
+      const accountsResult = await accountRepo.findAll({ profileId: profileResult.value.id });
       if (accountsResult.isErr()) {
         console.error('\n⚠ Error:', accountsResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -266,14 +301,23 @@ async function executeGapsViewTUI(): Promise<void> {
 /**
  * Execute links view in JSON mode
  */
-async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
+async function executeLinksViewJSON(params: LinksCommandParams): Promise<void> {
   await withCliCommandErrorHandling('links-view', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        displayCliError('links-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
       const linkRepo = database.transactionLinks;
       const txRepo = database.transactions;
 
-      const linksResult = await linkRepo.findAll(params.status);
+      const linksResult = await linkRepo.findAll({
+        profileId: profileResult.value.id,
+        status: params.status,
+      });
       if (linksResult.isErr()) {
         displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -285,7 +329,7 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
         links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
       }
 
-      const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo);
+      const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo, profileResult.value.id);
       const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
         const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
 
@@ -310,27 +354,33 @@ async function executeLinksViewJSON(params: LinksViewParams): Promise<void> {
 /**
  * Execute gaps view in JSON mode
  */
-async function executeGapsViewJSON(): Promise<void> {
+async function executeGapsViewJSON(params: LinksGapsCommandParams): Promise<void> {
   await withCliCommandErrorHandling('links-gaps', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        displayCliError('links-gaps', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
       const txRepo = database.transactions;
       const linkRepo = database.transactionLinks;
       const accountRepo = database.accounts;
 
-      const transactionsResult = await txRepo.findAll();
+      const transactionsResult = await txRepo.findAll({ profileId: profileResult.value.id });
       if (transactionsResult.isErr()) {
         displayCliError('links-gaps', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
-      const linksResult = await linkRepo.findAll();
+      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
       if (linksResult.isErr()) {
         displayCliError('links-gaps', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
       }
 
-      const accountsResult = await accountRepo.findAll();
+      const accountsResult = await accountRepo.findAll({ profileId: profileResult.value.id });
       if (accountsResult.isErr()) {
         displayCliError('links-gaps', accountsResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -365,7 +415,7 @@ async function executeGapsViewJSON(): Promise<void> {
 /**
  * Handle links view JSON output.
  */
-function handleLinksViewJSON(result: LinksViewResult, params: LinksViewParams): void {
+function handleLinksViewJSON(result: LinksViewResult, params: LinksCommandParams): void {
   const { links, count } = result;
 
   const resultData: LinksViewCommandResult = {
@@ -376,6 +426,7 @@ function handleLinksViewJSON(result: LinksViewResult, params: LinksViewParams): 
       count,
       count,
       buildDefinedFilters({
+        profile: params.profile,
         status: params.status,
         min_confidence: params.minConfidence,
         max_confidence: params.maxConfidence,

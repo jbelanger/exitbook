@@ -241,6 +241,46 @@ describe('TransactionLinkRepository', () => {
       expect(found?.sourceAmount.toFixed()).toBe('1');
       expect(found?.targetAmount.toFixed()).toBe('0.9995');
     });
+
+    it('filters links by profile ownership', async () => {
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, profile_key: 'business', name: 'business', created_at: new Date().toISOString() })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      for (const id of [11, 12]) {
+        const identityReference = `business-tx-${id}`;
+        await db
+          .insertInto('transactions')
+          .values({
+            id,
+            account_id: 2,
+            platform_key: 'business',
+            source_type: 'exchange',
+            tx_fingerprint: seedTxFingerprint('business', 2, identityReference),
+            transaction_status: 'success',
+            transaction_datetime: new Date().toISOString(),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      const defaultLinkId = assertOk(await repo.create(makeBtcLink(1, 2)));
+      const businessLinkId = assertOk(
+        await repo.create({
+          ...makeBtcLink(11, 12),
+          assetSymbol: 'ETH' as Currency,
+        })
+      );
+
+      expect(assertOk(await repo.findAll({ profileId: 1 })).map((link) => link.id)).toEqual([defaultLinkId]);
+      expect(assertOk(await repo.findAll({ profileId: 2 })).map((link) => link.id)).toEqual([businessLinkId]);
+      expect(assertOk(await repo.findById(defaultLinkId, 2))).toBeUndefined();
+      expect(assertOk(await repo.findById(businessLinkId, 1))).toBeUndefined();
+    });
   });
 
   describe('updateStatuses', () => {
@@ -327,6 +367,42 @@ describe('TransactionLinkRepository', () => {
 
     it('returns 0 when accountIds filter is empty', async () => {
       expect(assertOk(await repo.count({ accountIds: [] }))).toBe(0);
+    });
+
+    it('counts links scoped to a profile', async () => {
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, profile_key: 'business', name: 'business', created_at: new Date().toISOString() })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      for (const id of [11, 12]) {
+        const identityReference = `business-tx-${id}`;
+        await db
+          .insertInto('transactions')
+          .values({
+            id,
+            account_id: 2,
+            platform_key: 'business',
+            source_type: 'exchange',
+            tx_fingerprint: seedTxFingerprint('business', 2, identityReference),
+            transaction_status: 'success',
+            transaction_datetime: new Date().toISOString(),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      await repo.create(makeBtcLink(1, 2));
+      await repo.create({
+        ...makeBtcLink(11, 12),
+        assetSymbol: 'ETH' as Currency,
+      });
+
+      expect(assertOk(await repo.count({ profileId: 1 }))).toBe(1);
+      expect(assertOk(await repo.count({ profileId: 2 }))).toBe(1);
     });
   });
 });

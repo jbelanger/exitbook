@@ -67,7 +67,7 @@ function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
 
 export async function runLinks(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  options: { isJsonMode: boolean; profileId: number },
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   try {
@@ -83,6 +83,7 @@ export async function runLinks(
       dataDir: ctx.dataDir,
       database,
       isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
     });
     if (runtimeResult.isErr()) {
       return err(runtimeResult.error);

@@ -17,6 +17,15 @@ import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
 import { BaseRepository } from './base-repository.js';
 
 type TransactionLinkRow = Selectable<TransactionLinksTable>;
+interface TransactionLinkFindFilters {
+  profileId?: number | undefined;
+  status?: LinkStatus | undefined;
+}
+
+interface TransactionLinkCountFilters {
+  accountIds?: number[] | undefined;
+  profileId?: number | undefined;
+}
 
 function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Error> {
   const matchCriteriaResult = parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
@@ -198,9 +207,21 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<TransactionLink | undefined, Error>> {
+  async findById(id: number, profileId?: number): Promise<Result<TransactionLink | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('transaction_links').selectAll().where('id', '=', id).executeTakeFirst();
+      let query = this.db.selectFrom('transaction_links').selectAll().where('id', '=', id);
+
+      if (profileId !== undefined) {
+        const scopedTransactionIds = this.buildScopedTransactionIdsQuery(profileId);
+        query = query.where((eb) =>
+          eb.and([
+            eb('source_transaction_id', 'in', scopedTransactionIds),
+            eb('target_transaction_id', 'in', scopedTransactionIds),
+          ])
+        );
+      }
+
+      const row = await query.executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -213,17 +234,28 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(result.value);
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to find transaction link by ID');
+      this.logger.error({ error, id, profileId }, 'Failed to find transaction link by ID');
       return wrapError(error, 'Failed to find transaction link');
     }
   }
 
-  async findAll(status?: LinkStatus): Promise<Result<TransactionLink[], Error>> {
+  async findAll(filtersOrStatus?: LinkStatus | TransactionLinkFindFilters): Promise<Result<TransactionLink[], Error>> {
     try {
+      const filters = typeof filtersOrStatus === 'string' ? { status: filtersOrStatus } : (filtersOrStatus ?? {});
       let query = this.db.selectFrom('transaction_links').selectAll();
 
-      if (status) {
-        query = query.where('status', '=', status);
+      if (filters.status) {
+        query = query.where('status', '=', filters.status);
+      }
+
+      if (filters.profileId !== undefined) {
+        const scopedTransactionIds = this.buildScopedTransactionIdsQuery(filters.profileId);
+        query = query.where((eb) =>
+          eb.and([
+            eb('source_transaction_id', 'in', scopedTransactionIds),
+            eb('target_transaction_id', 'in', scopedTransactionIds),
+          ])
+        );
       }
 
       query = query.orderBy('created_at', 'asc');
@@ -241,25 +273,35 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(links);
     } catch (error) {
-      this.logger.error({ error, status }, 'Failed to find transaction links');
+      this.logger.error({ error, filtersOrStatus }, 'Failed to find transaction links');
       return wrapError(error, 'Failed to find transaction links');
     }
   }
 
-  async findByTransactionIds(transactionIds: number[]): Promise<Result<TransactionLink[], Error>> {
+  async findByTransactionIds(transactionIds: number[], profileId?: number): Promise<Result<TransactionLink[], Error>> {
     try {
       if (transactionIds.length === 0) {
         return ok([]);
       }
 
-      const rows = await this.db
+      let query = this.db
         .selectFrom('transaction_links')
         .selectAll()
         .where((eb) =>
           eb.or([eb('source_transaction_id', 'in', transactionIds), eb('target_transaction_id', 'in', transactionIds)])
-        )
-        .orderBy('created_at', 'asc')
-        .execute();
+        );
+
+      if (profileId !== undefined) {
+        const scopedTransactionIds = this.buildScopedTransactionIdsQuery(profileId);
+        query = query.where((eb) =>
+          eb.and([
+            eb('source_transaction_id', 'in', scopedTransactionIds),
+            eb('target_transaction_id', 'in', scopedTransactionIds),
+          ])
+        );
+      }
+
+      const rows = await query.orderBy('created_at', 'asc').execute();
 
       const links: TransactionLink[] = [];
       for (const row of rows) {
@@ -272,7 +314,7 @@ export class TransactionLinkRepository extends BaseRepository {
 
       return ok(links);
     } catch (error) {
-      this.logger.error({ error, transactionIds }, 'Failed to find links by transaction IDs');
+      this.logger.error({ error, profileId, transactionIds }, 'Failed to find links by transaction IDs');
       return wrapError(error, 'Failed to find links by transaction IDs');
     }
   }
@@ -328,7 +370,7 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async count(filters?: { accountIds?: number[] | undefined }): Promise<Result<number, Error>> {
+  async count(filters?: TransactionLinkCountFilters): Promise<Result<number, Error>> {
     try {
       const accountIds = filters?.accountIds;
       if (accountIds !== undefined && accountIds.length === 0) {
@@ -337,11 +379,11 @@ export class TransactionLinkRepository extends BaseRepository {
 
       let query = this.db.selectFrom('transaction_links').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
-      if (accountIds !== undefined) {
-        const transactionsSubquery = this.db
-          .selectFrom('transactions')
-          .select('id')
-          .where('account_id', 'in', accountIds);
+      if (accountIds !== undefined || filters?.profileId !== undefined) {
+        let transactionsSubquery = this.buildScopedTransactionIdsQuery(filters?.profileId);
+        if (accountIds !== undefined) {
+          transactionsSubquery = transactionsSubquery.where('transactions.account_id', 'in', accountIds);
+        }
 
         query = query.where((eb) =>
           eb.or([
@@ -417,5 +459,17 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.error({ error }, 'Failed to delete all links');
       return wrapError(error, 'Failed to delete all links');
     }
+  }
+
+  private buildScopedTransactionIdsQuery(profileId?: number) {
+    let query = this.db.selectFrom('transactions').select('transactions.id');
+
+    if (profileId !== undefined) {
+      query = query
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .where('accounts.profile_id', '=', profileId);
+    }
+
+    return query;
   }
 }

@@ -7,16 +7,18 @@ import type { DataSession } from '../data-session.js';
  * Bridges DataSession repositories to accounting's ILinkingPersistence port.
  * Mirrors the pattern established by buildProcessingPorts and buildImportPorts.
  */
-export function buildLinkingPorts(db: DataSession): ILinkingPersistence {
+export function buildLinkingPorts(db: DataSession, profileId: number): ILinkingPersistence {
   return {
-    loadTransactions: () => db.transactions.findAll(),
+    loadTransactions: () => db.transactions.findAll({ profileId }),
 
     replaceLinks: (links) =>
       resultDoAsync(async function* () {
-        const previousCount = yield* await db.transactionLinks.count();
+        const scopedAccounts = yield* await db.accounts.findAll({ profileId });
+        const scopedAccountIds = scopedAccounts.map((account) => account.id);
+        const previousCount = yield* await db.transactionLinks.count({ accountIds: scopedAccountIds });
 
         if (previousCount > 0) {
-          yield* await db.transactionLinks.deleteAll();
+          yield* await db.transactionLinks.deleteByAccountIds(scopedAccountIds);
         }
 
         const savedCount = yield* await db.transactionLinks.createBatch(links);
@@ -31,6 +33,6 @@ export function buildLinkingPorts(db: DataSession): ILinkingPersistence {
 
     markLinksFailed: () => db.projectionState.markFailed('links'),
 
-    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildLinkingPorts(txDb))),
+    withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildLinkingPorts(txDb, profileId))),
   };
 }

@@ -14,6 +14,8 @@ import {
 } from '../../__tests__/test-utils.js';
 import { LinksReviewHandler, type LinksReviewParams } from '../links-review-handler.js';
 
+const PROFILE_ID = 1;
+
 describe('LinksConfirmHandler', () => {
   let handler: LinksReviewHandler;
   let mockLinkRepository: ReturnType<typeof createMockLinkRepository>;
@@ -32,7 +34,7 @@ describe('LinksConfirmHandler', () => {
       transactions: mockTransactionRepository,
     });
 
-    handler = new LinksReviewHandler(mockDb, mockOverrideStore as unknown as OverrideStore);
+    handler = new LinksReviewHandler(mockDb, PROFILE_ID, mockOverrideStore as unknown as OverrideStore);
   });
 
   const { source: mockSourceTx, target: mockTargetTx } = createMockTransactionObjects();
@@ -66,7 +68,7 @@ describe('LinksConfirmHandler', () => {
       expect(confirmResult.reviewedBy).toBe('cli-user');
       expect(confirmResult.reviewedAt).toBeInstanceOf(Date);
 
-      expect(mockLinkRepository.findById).toHaveBeenCalledWith(123);
+      expect(mockLinkRepository.findById).toHaveBeenCalledWith(123, PROFILE_ID);
       expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user');
     });
 

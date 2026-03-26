@@ -22,12 +22,13 @@ interface CreateCliLinkingRuntimeOptions {
   dataDir: string;
   database: DataSession;
   isJsonMode: boolean;
+  profileId: number;
 }
 
 export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions): Result<CliLinkingRuntime, Error> {
   try {
     const overrideStore = new OverrideStore(options.dataDir);
-    const store = buildLinkingPorts(options.database);
+    const store = buildLinkingPorts(options.database, options.profileId);
 
     if (options.isJsonMode) {
       return ok({

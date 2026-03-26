@@ -32,6 +32,7 @@ interface TransferProposalReviewResult {
 export class TransferProposalReviewService {
   constructor(
     private readonly db: DataSession,
+    private readonly profileId: number,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -48,7 +49,7 @@ export class TransferProposalReviewService {
     targetStatus: 'confirmed' | 'rejected'
   ): Promise<Result<TransferProposalReviewResult, Error>> {
     try {
-      const selectedLinkResult = await this.db.transactionLinks.findById(linkId);
+      const selectedLinkResult = await this.db.transactionLinks.findById(linkId, this.profileId);
       if (selectedLinkResult.isErr()) {
         return err(selectedLinkResult.error);
       }
@@ -60,7 +61,7 @@ export class TransferProposalReviewService {
 
       const reviewedBy = getDefaultReviewer();
 
-      const allLinksResult = await this.db.transactionLinks.findAll();
+      const allLinksResult = await this.db.transactionLinks.findAll({ profileId: this.profileId });
       if (allLinksResult.isErr()) {
         return err(allLinksResult.error);
       }
@@ -171,7 +172,7 @@ export class TransferProposalReviewService {
     proposalLinks: TransactionLink[],
     allLinks: TransactionLink[]
   ): Promise<Result<void, Error>> {
-    const transactionsResult = await this.db.transactions.findAll();
+    const transactionsResult = await this.db.transactions.findAll({ profileId: this.profileId });
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -202,10 +203,13 @@ export class TransferProposalReviewService {
     }
 
     for (const proposalLink of proposalLinks) {
+      const scopedTransactions = {
+        findById: (transactionId: number) => this.db.transactions.findById(transactionId, this.profileId),
+      };
       if (targetStatus === 'confirmed') {
-        await writeLinkOverrideEvent(this.db.transactions, this.overrideStore, proposalLink);
+        await writeLinkOverrideEvent(scopedTransactions, this.overrideStore, proposalLink);
       } else {
-        await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, proposalLink);
+        await writeUnlinkOverrideEvent(scopedTransactions, this.overrideStore, proposalLink);
       }
     }
   }
@@ -223,12 +227,12 @@ export class TransferProposalReviewService {
       Error
     >
   > {
-    const sourceTxResult = await this.db.transactions.findById(selectedLink.sourceTransactionId);
+    const sourceTxResult = await this.db.transactions.findById(selectedLink.sourceTransactionId, this.profileId);
     if (sourceTxResult.isErr()) {
       return err(sourceTxResult.error);
     }
 
-    const targetTxResult = await this.db.transactions.findById(selectedLink.targetTransactionId);
+    const targetTxResult = await this.db.transactions.findById(selectedLink.targetTransactionId, this.profileId);
     if (targetTxResult.isErr()) {
       return err(targetTxResult.error);
     }
