@@ -171,4 +171,36 @@ describe('BalanceSnapshotRepository', () => {
     expect(assertOk(await repo.findSnapshot(1))).toBeUndefined();
     expect(assertOk(await repo.findSnapshot(2))).toMatchObject({ scopeAccountId: 2 });
   });
+
+  it('replaces snapshots with large asset sets without exceeding SQLite variable limits', async () => {
+    const totalAssets = 250;
+    const assets = Array.from({ length: totalAssets }, (_, index) =>
+      createAsset(1, `blockchain:ethereum:asset-${index.toString().padStart(3, '0')}`, {
+        assetSymbol: `ASSET${index}`,
+        comparisonStatus: index % 2 === 0 ? 'match' : 'warning',
+        difference: index % 2 === 0 ? '0' : '-0.01',
+        liveBalance: index % 2 === 0 ? '1.25' : '1.24',
+      })
+    );
+
+    assertOk(
+      await repo.replaceSnapshot({
+        snapshot: createSnapshot(1, {
+          totalAssetCount: totalAssets,
+          parsedAssetCount: totalAssets,
+          matchCount: totalAssets / 2,
+          warningCount: totalAssets / 2,
+          mismatchCount: 0,
+        }),
+        assets,
+      })
+    );
+
+    const persistedAssets = assertOk(await repo.findAssetsByScope([1]));
+    expect(persistedAssets).toHaveLength(totalAssets);
+    expect(persistedAssets[0]?.assetId).toBe('blockchain:ethereum:asset-000');
+    expect(persistedAssets.at(-1)?.assetId).toBe(
+      `blockchain:ethereum:asset-${(totalAssets - 1).toString().padStart(3, '0')}`
+    );
+  });
 });

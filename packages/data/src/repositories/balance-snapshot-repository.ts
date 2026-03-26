@@ -38,6 +38,16 @@ interface BalanceSnapshotAssetRecord {
   scope_account_id: number;
 }
 
+const BALANCE_SNAPSHOT_ASSET_INSERT_BATCH_SIZE = 100;
+
+function chunkItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export class BalanceSnapshotRepository extends BaseRepository {
   constructor(db: KyselyDB) {
     super(db, 'balance-snapshot-repository');
@@ -175,11 +185,9 @@ export class BalanceSnapshotRepository extends BaseRepository {
 
       await this.db.insertInto('balance_snapshots').values(this.toSnapshotRow(snapshot)).execute();
 
-      if (assets.length > 0) {
-        await this.db
-          .insertInto('balance_snapshot_assets')
-          .values(assets.map((asset) => this.toSnapshotAssetRow(asset)))
-          .execute();
+      const assetRows = assets.map((asset) => this.toSnapshotAssetRow(asset));
+      for (const assetRowBatch of chunkItems(assetRows, BALANCE_SNAPSHOT_ASSET_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('balance_snapshot_assets').values(assetRowBatch).execute();
       }
 
       return ok(undefined);
