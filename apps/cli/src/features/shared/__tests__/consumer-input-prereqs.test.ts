@@ -147,6 +147,7 @@ describe('consumer-input-readiness', () => {
 
     const result = await ensureConsumerInputsReady(ctx as never, 'cost-basis', {
       isJsonMode: true,
+      profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
         endDate: new Date('2025-12-31T23:59:59.999Z'),
@@ -156,6 +157,7 @@ describe('consumer-input-readiness', () => {
     expect(assertErr(result).message).toContain('Price coverage remains incomplete after enrichment');
     expect(mockPipelineExecute).toHaveBeenCalledOnce();
     expect(mockCheckTransactionPriceCoverage).toHaveBeenCalledTimes(2);
+    expect(mockBuildPriceCoverageDataPorts).toHaveBeenCalledWith({}, 1);
   });
 
   it('allows portfolio readiness to continue when price coverage remains incomplete after enrichment', async () => {
@@ -185,6 +187,7 @@ describe('consumer-input-readiness', () => {
 
     const result = await ensureConsumerInputsReady(ctx as never, 'portfolio', {
       isJsonMode: true,
+      profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
         endDate: new Date('2025-12-31T23:59:59.999Z'),
@@ -194,5 +197,6 @@ describe('consumer-input-readiness', () => {
     assertOk(result);
     expect(mockPipelineExecute).toHaveBeenCalledOnce();
     expect(mockCheckTransactionPriceCoverage).toHaveBeenCalledTimes(2);
+    expect(mockBuildPriceCoverageDataPorts).toHaveBeenCalledWith({}, 1);
   });
 });

@@ -16,6 +16,7 @@ export async function createPortfolioHandler(
   options: {
     asOf: Date;
     isJsonMode: boolean;
+    profileId: number;
   }
 ): Promise<Result<PortfolioHandler, Error>> {
   try {
@@ -36,6 +37,7 @@ export async function createPortfolioHandler(
 
     const readyResult = await ensureConsumerInputsReady(ctx, 'portfolio', {
       isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
       priceConfig: { startDate: new Date(0), endDate: options.asOf },
       accountingExclusionPolicy,
       setAbort: (abort) => {
@@ -60,7 +62,7 @@ export async function createPortfolioHandler(
     return ok(
       new PortfolioHandler({
         accountingExclusionPolicy,
-        costBasisStore: buildCostBasisPorts(database),
+        costBasisStore: buildCostBasisPorts(database, options.profileId),
         dependencyReader: portfolioRuntime.dependencyReader,
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
         holdingsCalculator: portfolioRuntime.holdingsCalculator,

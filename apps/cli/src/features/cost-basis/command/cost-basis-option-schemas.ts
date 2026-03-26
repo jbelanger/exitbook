@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-import { validateAccountingMethodJurisdictionOptions } from '../../shared/option-schema-primitives.js';
+import {
+  ProfileFlagSchema,
+  validateAccountingMethodJurisdictionOptions,
+} from '../../shared/option-schema-primitives.js';
 
 export const CostBasisCommandOptionsSchema = z
   .object({
@@ -13,6 +16,7 @@ export const CostBasisCommandOptionsSchema = z
     asset: z.string().optional(),
     refresh: z.boolean().optional(),
     json: z.boolean().optional(),
+    profile: ProfileFlagSchema.shape.profile,
   })
   .superRefine(validateAccountingMethodJurisdictionOptions);
 
@@ -29,5 +33,6 @@ export const CostBasisExportCommandOptionsSchema = z
     json: z.boolean().optional(),
     format: z.literal('tax-package').optional(),
     output: z.string().optional(),
+    profile: ProfileFlagSchema.shape.profile,
   })
   .superRefine(validateAccountingMethodJurisdictionOptions);

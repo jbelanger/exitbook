@@ -17,6 +17,7 @@ export const PricesEnrichCommandOptionsSchema = z.object({
   normalizeOnly: z.boolean().optional(),
   fetchOnly: z.boolean().optional(),
   json: z.boolean().optional(),
+  profile: ProfileFlagSchema.shape.profile,
 });
 
 export const PricesSetCommandOptionsSchema = z.object({

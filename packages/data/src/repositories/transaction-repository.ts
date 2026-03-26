@@ -898,9 +898,17 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findNeedingPrices(assetFilter?: string[]): Promise<Result<Transaction[], Error>> {
+  async findNeedingPrices(assetFilter?: string[], profileId?: number): Promise<Result<Transaction[], Error>> {
     try {
-      const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions')
+        .where('transactions.excluded_from_accounting', '=', false);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
 
       const rows = await query.execute();
 

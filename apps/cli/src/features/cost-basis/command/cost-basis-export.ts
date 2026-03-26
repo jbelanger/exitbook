@@ -17,6 +17,7 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -69,6 +70,7 @@ Examples:
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Rejected for tax-package export; filing export requires full scope')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--output <dir>', 'Output directory for the tax package')
     .option('--json', 'Output command metadata in JSON format')
@@ -103,7 +105,17 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
     await mkdir(outputDir, { recursive: true });
 
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: isJson, params });
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('cost-basis-export', profileResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
+      }
+
+      const handlerResult = await createCostBasisHandler(ctx, {
+        isJsonMode: isJson,
+        params,
+        profileId: profileResult.value.id,
+      });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }

@@ -26,8 +26,11 @@ export async function ensureTransactionPricesReady(
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
   const { isJsonMode, setAbort } = options;
+  if (options.profileId === undefined) {
+    return err(new Error('Price readiness requires a resolved profile scope'));
+  }
 
-  const data = buildPriceCoverageDataPorts(db);
+  const data = buildPriceCoverageDataPorts(db, options.profileId);
   const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);
   if (coverageResult.isErr()) return err(coverageResult.error);
 
@@ -49,6 +52,7 @@ export async function ensureTransactionPricesReady(
       isJsonMode,
       onAbortRegistered: (abort) => setAbort?.(abort),
       onAbortReleased: () => setAbort?.(undefined),
+      profileId: options.profileId,
       scope,
     },
     (runtime) =>

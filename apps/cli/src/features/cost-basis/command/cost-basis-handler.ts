@@ -48,6 +48,7 @@ export class CostBasisHandler {
   constructor(
     private readonly db: DataSession,
     private readonly dataDir: string,
+    private readonly profileId: number,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() },
     private readonly priceProviderConfig?: PriceProviderConfig | undefined
   ) {}
@@ -73,7 +74,7 @@ export class CostBasisHandler {
       return err(artifactResult.error);
     }
 
-    const sourceContextResult = await buildCostBasisPorts(this.db).loadCostBasisContext();
+    const sourceContextResult = await buildCostBasisPorts(this.db, this.profileId).loadCostBasisContext();
     if (sourceContextResult.isErr()) {
       return err(sourceContextResult.error);
     }
@@ -91,7 +92,7 @@ export class CostBasisHandler {
     params: ValidatedCostBasisConfig,
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<PreparedCostBasisArtifactResult, Error>> {
-    const contextReader = buildCostBasisPorts(this.db);
+    const contextReader = buildCostBasisPorts(this.db, this.profileId);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
     const priceRuntimeResult = await openCliPriceProviderRuntime({
@@ -189,6 +190,7 @@ export async function createCostBasisHandler(
   options: {
     isJsonMode: boolean;
     params: ValidatedCostBasisConfig;
+    profileId: number;
   }
 ): Promise<Result<CostBasisHandler, Error>> {
   try {
@@ -211,6 +213,7 @@ export async function createCostBasisHandler(
 
     const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
       isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
       priceConfig,
       accountingExclusionPolicy: accountingExclusionPolicyResult.value,
       setAbort: (abort) => {
@@ -226,6 +229,7 @@ export async function createCostBasisHandler(
       new CostBasisHandler(
         database,
         ctx.dataDir,
+        options.profileId,
         accountingExclusionPolicyResult.value,
         ctx.requireAppRuntime().priceProviderConfig
       )

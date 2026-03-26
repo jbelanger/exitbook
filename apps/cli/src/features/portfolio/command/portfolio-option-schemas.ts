@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-import { validateAccountingMethodJurisdictionOptions } from '../../shared/option-schema-primitives.js';
+import {
+  ProfileFlagSchema,
+  validateAccountingMethodJurisdictionOptions,
+} from '../../shared/option-schema-primitives.js';
 
 export const PortfolioCommandOptionsSchema = z
   .object({
@@ -9,5 +12,6 @@ export const PortfolioCommandOptionsSchema = z
     fiatCurrency: z.string().optional(),
     asOf: z.string().optional(),
     json: z.boolean().optional(),
+    profile: ProfileFlagSchema.shape.profile,
   })
   .superRefine(validateAccountingMethodJurisdictionOptions);

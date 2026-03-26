@@ -6,6 +6,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -40,6 +41,7 @@ export function registerCostBasisCommand(program: Command, appRuntime: CliAppRun
     .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
     .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, appRuntime));
@@ -64,7 +66,17 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
     const params = unwrapResult(buildCostBasisInputFromFlags(options));
 
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: true, params });
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const handlerResult = await createCostBasisHandler(ctx, {
+        isJsonMode: true,
+        params,
+        profileId: profileResult.value.id,
+      });
 
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -94,6 +106,12 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
 async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: ValidatedCostBasisConfig;
       const defaultMethodResult = options.jurisdiction
@@ -115,7 +133,11 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
       }
 
       // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
-      const handlerResult = await createCostBasisHandler(ctx, { isJsonMode: false, params });
+      const handlerResult = await createCostBasisHandler(ctx, {
+        isJsonMode: false,
+        params,
+        profileId: profileResult.value.id,
+      });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
