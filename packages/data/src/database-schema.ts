@@ -316,6 +316,7 @@ export interface BalanceSnapshotAssetsTable {
 }
 
 export interface AssetReviewStateTable {
+  profile_id: number;
   asset_id: string;
   review_status: string;
   reference_status: string;
@@ -329,6 +330,7 @@ export interface AssetReviewStateTable {
 
 export interface AssetReviewEvidenceTable {
   id: Generated<number>;
+  profile_id: number;
   asset_id: string;
   position: number;
   kind: string;

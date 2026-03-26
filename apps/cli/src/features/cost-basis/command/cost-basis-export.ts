@@ -115,6 +115,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
         isJsonMode: isJson,
         params,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');

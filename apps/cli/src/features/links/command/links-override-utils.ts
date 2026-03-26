@@ -20,12 +20,14 @@ interface TransactionFingerprintReader {
 export async function writeLinkOverrideEvent(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
+  profileKey: string,
   link: TransactionLink
 ): Promise<void> {
   const fingerprints = await resolveFingerprints(txRepo, link);
   if (!fingerprints) return;
 
   const options: CreateOverrideEventOptions = {
+    profileKey,
     scope: 'link',
     payload: {
       type: 'link_override',
@@ -58,12 +60,14 @@ export async function writeLinkOverrideEvent(
 export async function writeUnlinkOverrideEvent(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
+  profileKey: string,
   link: TransactionLink
 ): Promise<void> {
   const fingerprints = await resolveFingerprints(txRepo, link);
   if (!fingerprints) return;
 
   const options: CreateOverrideEventOptions = {
+    profileKey,
     scope: 'unlink',
     payload: {
       type: 'unlink_override',

@@ -11,6 +11,8 @@ import { createTransaction, requirePresent } from '../../shared/test-utils.js';
 import type { LinkingEvent } from '../linking-events.js';
 import { LinkingOrchestrator } from '../linking-orchestrator.js';
 
+const PROFILE_KEY = 'default';
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -85,6 +87,7 @@ describe('LinkingOrchestrator', () => {
     const unlinkEvent: OverrideEvent = {
       id: 'evt-1',
       created_at: '2026-02-07T10:00:00.000Z',
+      profile_key: PROFILE_KEY,
       actor: 'cli-user',
       source: 'cli',
       scope: 'unlink',
@@ -257,6 +260,7 @@ describe('LinkingOrchestrator', () => {
     const linkOverride: OverrideEvent = {
       id: 'evt-orphan',
       created_at: '2026-02-07T10:00:00.000Z',
+      profile_key: PROFILE_KEY,
       actor: 'cli-user',
       source: 'cli',
       scope: 'link',
@@ -328,6 +332,7 @@ describe('LinkingOrchestrator', () => {
     const linkOverride: OverrideEvent = {
       id: 'evt-orphan-ambiguous-source',
       created_at: '2026-02-07T10:00:00.000Z',
+      profile_key: PROFILE_KEY,
       actor: 'cli-user',
       source: 'cli',
       scope: 'link',
@@ -490,6 +495,7 @@ describe('LinkingOrchestrator', () => {
       const unlinkEvent: OverrideEvent = {
         id: 'evt-1',
         created_at: '2026-02-07T10:00:00.000Z',
+        profile_key: PROFILE_KEY,
         actor: 'cli-user',
         source: 'cli',
         scope: 'unlink',
@@ -549,6 +555,7 @@ describe('LinkingOrchestrator', () => {
     const linkOverride: OverrideEvent = {
       id: 'evt-orphan-ambiguous-target',
       created_at: '2026-02-07T10:00:00.000Z',
+      profile_key: PROFILE_KEY,
       actor: 'cli-user',
       source: 'cli',
       scope: 'link',

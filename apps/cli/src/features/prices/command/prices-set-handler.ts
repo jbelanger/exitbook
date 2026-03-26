@@ -28,6 +28,9 @@ interface PricesSetOptions {
 
   /** Source attribution (default: 'manual-cli') */
   source?: string | undefined;
+
+  /** Stable profile key for durable override scoping. */
+  profileKey: string;
 }
 
 /**
@@ -85,6 +88,7 @@ export class PricesSetHandler {
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
         const appendResult = await this.overrideStore.append({
+          profileKey: options.profileKey,
           scope: 'price',
           payload: {
             type: 'price_override',

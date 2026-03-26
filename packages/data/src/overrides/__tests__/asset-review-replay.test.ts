@@ -9,10 +9,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readAssetReviewDecisions, replayAssetReviewEvents } from '../asset-review-replay.js';
 import { OverrideStore } from '../override-store.js';
 
+const PROFILE_KEY = 'default';
+
 function createAssetReviewConfirmEvent(assetId: string, createdAt: string, evidenceFingerprint: string): OverrideEvent {
   return {
     id: `confirm:${assetId}:${createdAt}`,
     created_at: createdAt,
+    profile_key: PROFILE_KEY,
     actor: 'user',
     source: 'cli',
     scope: 'asset-review-confirm',
@@ -28,6 +31,7 @@ function createAssetReviewClearEvent(assetId: string, createdAt: string): Overri
   return {
     id: `clear:${assetId}:${createdAt}`,
     created_at: createdAt,
+    profile_key: PROFILE_KEY,
     actor: 'user',
     source: 'cli',
     scope: 'asset-review-clear',
@@ -85,6 +89,7 @@ describe('asset-review-replay', () => {
         {
           id: 'price-1',
           created_at: '2025-01-01T00:00:00.000Z',
+          profile_key: PROFILE_KEY,
           actor: 'user',
           source: 'cli',
           scope: 'price',
@@ -105,7 +110,7 @@ describe('asset-review-replay', () => {
 
   describe('readAssetReviewDecisions', () => {
     it('returns an empty map when the override store does not exist', async () => {
-      const result = await readAssetReviewDecisions(store);
+      const result = await readAssetReviewDecisions(store, PROFILE_KEY);
 
       expect(assertOk(result)).toEqual(new Map());
     });
@@ -113,6 +118,7 @@ describe('asset-review-replay', () => {
     it('reads review confirm and clear events from the store', async () => {
       assertOk(
         await store.append({
+          profileKey: PROFILE_KEY,
           scope: 'asset-review-confirm',
           payload: {
             type: 'asset_review_confirm',
@@ -123,6 +129,7 @@ describe('asset-review-replay', () => {
       );
       assertOk(
         await store.append({
+          profileKey: PROFILE_KEY,
           scope: 'asset-review-clear',
           payload: {
             type: 'asset_review_clear',
@@ -131,7 +138,7 @@ describe('asset-review-replay', () => {
         })
       );
 
-      const result = await readAssetReviewDecisions(store);
+      const result = await readAssetReviewDecisions(store, PROFILE_KEY);
 
       expect([...assertOk(result).entries()]).toEqual([
         [

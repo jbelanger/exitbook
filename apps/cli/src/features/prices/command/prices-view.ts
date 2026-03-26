@@ -150,7 +150,13 @@ async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<
           const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
           const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            const result = await pricesSetHandler.execute({
+              asset,
+              date,
+              price,
+              source: 'manual-tui',
+              profileKey: profileResult.value.profileKey,
+            });
             if (result.isErr()) throw result.error;
           };
 
@@ -206,7 +212,13 @@ async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<v
           const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
           const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            const result = await pricesSetHandler.execute({
+              asset,
+              date,
+              price,
+              source: 'manual-tui',
+              profileKey: profileResult.value.profileKey,
+            });
             if (result.isErr()) {
               throw result.error;
             }

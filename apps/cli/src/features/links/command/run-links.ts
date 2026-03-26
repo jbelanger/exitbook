@@ -23,10 +23,11 @@ export interface LinksRunRuntime {
 
 export async function executeLinksRunWithRuntime(
   runtime: LinksRunRuntime,
+  profileKey: string,
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   try {
-    const overrides = await readCliLinkOverrides(runtime.overrideStore);
+    const overrides = await readCliLinkOverrides(runtime.overrideStore, profileKey);
     if (overrides.isErr()) {
       return err(overrides.error);
     }
@@ -67,13 +68,15 @@ function abortLinksRunRuntime(runtime: LinksRunRuntime): void {
 
 export async function runLinks(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean; profileId: number },
+  options: { isJsonMode: boolean; profileId: number; profileKey: string },
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   try {
     const database = await ctx.database();
     const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
       isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
+      profileKey: options.profileKey,
     });
     if (readyResult.isErr()) {
       return err(readyResult.error);
@@ -84,6 +87,7 @@ export async function runLinks(
       database,
       isJsonMode: options.isJsonMode,
       profileId: options.profileId,
+      profileKey: options.profileKey,
     });
     if (runtimeResult.isErr()) {
       return err(runtimeResult.error);
@@ -96,7 +100,7 @@ export async function runLinks(
       controller: runtime.controller,
     };
     ctx.onAbort(() => abortLinksRunRuntime(linksRuntime));
-    return executeLinksRunWithRuntime(linksRuntime, params);
+    return executeLinksRunWithRuntime(linksRuntime, options.profileKey, params);
   } catch (error) {
     return wrapError(error, 'Failed to run links operation');
   }

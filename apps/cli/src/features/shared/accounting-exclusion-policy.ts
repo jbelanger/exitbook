@@ -4,10 +4,10 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 export async function loadAccountingExclusionPolicy(
   dataDir: string,
-  profileId: number
+  profileKey: string
 ): Promise<Result<AccountingExclusionPolicy, Error>> {
   const overrideStore = new OverrideStore(dataDir);
-  const excludedAssetIdsResult = await readExcludedAssetIds(overrideStore, profileId);
+  const excludedAssetIdsResult = await readExcludedAssetIds(overrideStore, profileKey);
   if (excludedAssetIdsResult.isErr()) {
     return err(excludedAssetIdsResult.error);
   }

@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildAssetReviewProjectionDataPorts } from '../../projections/asset-review-projection-data-ports.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
+import { seedProfile } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
+
+const PROFILE_ID = 1;
 
 describe('buildAssetReviewProjectionDataPorts', () => {
   let db: KyselyDB;
@@ -14,6 +18,7 @@ describe('buildAssetReviewProjectionDataPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {
@@ -21,7 +26,7 @@ describe('buildAssetReviewProjectionDataPorts', () => {
   });
 
   it('replaces the asset review projection and marks it fresh in one transaction', async () => {
-    const ports = buildAssetReviewProjectionDataPorts(ctx);
+    const ports = buildAssetReviewProjectionDataPorts(ctx, PROFILE_ID);
     const summary: AssetReviewSummary = {
       assetId: 'blockchain:ethereum:0xaaa',
       reviewStatus: 'needs-review',
@@ -46,12 +51,13 @@ describe('buildAssetReviewProjectionDataPorts', () => {
     assertOk(await ports.markAssetReviewBuilding());
     assertOk(await ports.replaceAssetReviewProjection([summary], { assetCount: 1 }));
 
-    const persisted = assertOk(await ctx.assetReview.listAll());
+    const persisted = assertOk(await ctx.assetReview.listAll(PROFILE_ID));
     expect(persisted).toEqual([summary]);
 
-    const state = assertOk(await ctx.projectionState.get('asset-review'));
+    const state = assertOk(await ctx.projectionState.get('asset-review', buildProfileProjectionScopeKey(PROFILE_ID)));
     expect(state).toMatchObject({
       projectionId: 'asset-review',
+      scopeKey: buildProfileProjectionScopeKey(PROFILE_ID),
       status: 'fresh',
       metadata: { assetCount: 1 },
     });

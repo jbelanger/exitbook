@@ -18,12 +18,14 @@ interface TransactionIdentity {
 interface TransactionNoteSetParams {
   message: string;
   profileId: number;
+  profileKey: string;
   reason?: string | undefined;
   transactionId: number;
 }
 
 interface TransactionNoteClearParams {
   profileId: number;
+  profileKey: string;
   reason?: string | undefined;
   transactionId: number;
 }
@@ -50,7 +52,7 @@ export class TransactionsEditHandler {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore);
+    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
     if (noteOverridesResult.isErr()) {
       return err(noteOverridesResult.error);
     }
@@ -69,6 +71,7 @@ export class TransactionsEditHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -82,7 +85,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -104,7 +107,7 @@ export class TransactionsEditHandler {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore);
+    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
     if (noteOverridesResult.isErr()) {
       return err(noteOverridesResult.error);
     }
@@ -121,6 +124,7 @@ export class TransactionsEditHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -133,7 +137,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -157,10 +161,11 @@ export class TransactionsEditHandler {
     return ok(undefined);
   }
 
-  private async materializeTransactionNote(transactionId: number): Promise<Result<void, Error>> {
+  private async materializeTransactionNote(profileKey: string, transactionId: number): Promise<Result<void, Error>> {
     const materializeResult = await materializeStoredTransactionNoteOverrides(
       this.db.transactions,
       this.overrideStore,
+      profileKey,
       {
         transactionIds: [transactionId],
       }

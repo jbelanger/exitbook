@@ -94,20 +94,20 @@ export class OverrideStore {
   /**
    * Read override events filtered by scope
    */
-  async readByScope(scope: Scope): Promise<Result<OverrideEvent[], Error>> {
-    const eventsResult = await this.readByScopes([scope]);
+  async readByScope(profileKey: string, scope: Scope): Promise<Result<OverrideEvent[], Error>> {
+    const eventsResult = await this.readByScopes(profileKey, [scope]);
     if (eventsResult.isErr()) {
       return err(eventsResult.error);
     }
 
-    this.logger.debug({ scope, count: eventsResult.value.length }, 'Read override events by scope');
+    this.logger.debug({ profileKey, scope, count: eventsResult.value.length }, 'Read override events by scope');
     return ok(eventsResult.value);
   }
 
   /**
    * Read override events filtered by multiple scopes while preserving append order.
    */
-  async readByScopes(scopes: Scope[]): Promise<Result<OverrideEvent[], Error>> {
+  async readByScopes(profileKey: string, scopes: Scope[]): Promise<Result<OverrideEvent[], Error>> {
     try {
       if (scopes.length === 0) {
         return ok([]);
@@ -119,7 +119,10 @@ export class OverrideStore {
       }
 
       if (!ensureResult.value) {
-        this.logger.debug({ dbPath: this.dbPath, scopes }, 'Override database does not exist, returning empty array');
+        this.logger.debug(
+          { dbPath: this.dbPath, profileKey, scopes },
+          'Override database does not exist, returning empty array'
+        );
         return ok([]);
       }
 
@@ -128,6 +131,7 @@ export class OverrideStore {
           const rows = await db
             .selectFrom('override_events')
             .selectAll()
+            .where('profile_key', '=', profileKey)
             .where('scope', 'in', scopes)
             .orderBy('sequence_id', 'asc')
             .execute();
@@ -137,7 +141,7 @@ export class OverrideStore {
             return err(eventsResult.error);
           }
 
-          this.logger.debug({ scopes, count: eventsResult.value.length }, 'Read override events by scopes');
+          this.logger.debug({ profileKey, scopes, count: eventsResult.value.length }, 'Read override events by scopes');
           return ok(eventsResult.value);
         } catch (error) {
           return wrapError(error, 'Failed to read override events by scopes');
@@ -148,7 +152,7 @@ export class OverrideStore {
     }
   }
 
-  async findLatestCreatedAt(scopes: Scope[]): Promise<Result<Date | undefined, Error>> {
+  async findLatestCreatedAt(profileKey: string, scopes: Scope[]): Promise<Result<Date | undefined, Error>> {
     try {
       if (scopes.length === 0) {
         return ok(undefined);
@@ -160,7 +164,10 @@ export class OverrideStore {
       }
 
       if (!ensureResult.value) {
-        this.logger.debug({ dbPath: this.dbPath, scopes }, 'Override database does not exist, no latest timestamp');
+        this.logger.debug(
+          { dbPath: this.dbPath, profileKey, scopes },
+          'Override database does not exist, no latest timestamp'
+        );
         return ok(undefined);
       }
 
@@ -169,6 +176,7 @@ export class OverrideStore {
           const row = await db
             .selectFrom('override_events')
             .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
+            .where('profile_key', '=', profileKey)
             .where('scope', 'in', scopes)
             .executeTakeFirst();
 
@@ -213,6 +221,7 @@ export class OverrideStore {
       const event: OverrideEvent = {
         id: randomUUID(),
         created_at: new Date().toISOString(),
+        profile_key: options.profileKey,
         actor: 'user',
         source: 'cli',
         scope: options.scope,
@@ -239,6 +248,7 @@ export class OverrideStore {
             .values({
               event_id: event.id,
               created_at: event.created_at,
+              profile_key: event.profile_key,
               actor: event.actor,
               source: event.source,
               scope: event.scope,
@@ -250,6 +260,7 @@ export class OverrideStore {
           this.logger.info(
             {
               eventId: event.id,
+              profileKey: event.profile_key,
               scope: event.scope,
             },
             'Appended override event'
@@ -298,6 +309,7 @@ export class OverrideStore {
       const eventCandidate = {
         id: row.event_id,
         created_at: row.created_at,
+        profile_key: row.profile_key,
         actor: row.actor,
         source: row.source,
         scope: row.scope as Scope,

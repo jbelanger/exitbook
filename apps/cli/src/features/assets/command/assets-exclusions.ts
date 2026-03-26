@@ -49,7 +49,7 @@ async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void
 
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.listExclusions(profileResult.value.id);
+      const result = await handler.listExclusions(profileResult.value.id, profileResult.value.profileKey);
 
       if (result.isErr()) {
         displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');

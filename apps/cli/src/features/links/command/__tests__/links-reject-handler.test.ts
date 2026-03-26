@@ -14,6 +14,7 @@ import {
 import { LinksReviewHandler, type LinksReviewParams } from '../links-review-handler.js';
 
 const PROFILE_ID = 1;
+const PROFILE_KEY = 'default';
 
 describe('LinksRejectHandler', () => {
   let handler: LinksReviewHandler;
@@ -33,7 +34,7 @@ describe('LinksRejectHandler', () => {
       transactions: mockTransactionQueries,
     });
 
-    handler = new LinksReviewHandler(mockDb, PROFILE_ID, mockOverrideStore as unknown as OverrideStore);
+    handler = new LinksReviewHandler(mockDb, PROFILE_ID, PROFILE_KEY, mockOverrideStore as unknown as OverrideStore);
   });
 
   const { source: mockSourceTx, target: mockTargetTx } = createMockTransactionObjects();

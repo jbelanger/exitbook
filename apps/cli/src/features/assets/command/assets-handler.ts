@@ -36,12 +36,14 @@ interface AssetSelectionParams {
 
 interface AssetOverrideParams extends AssetSelectionParams {
   profileId: number;
+  profileKey: string;
   reason?: string | undefined;
 }
 
 interface ViewAssetsParams {
   actionRequiredOnly?: boolean | undefined;
   profileId: number;
+  profileKey: string;
 }
 
 export interface AssetOverrideResult {
@@ -118,7 +120,7 @@ export class AssetsHandler {
   ) {}
 
   async exclude(params: AssetOverrideParams): Promise<Result<AssetOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(params.profileId);
+    const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -140,10 +142,10 @@ export class AssetsHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
-        profile_id: params.profileId,
         asset_id: assetId,
       },
       reason: params.reason,
@@ -162,7 +164,7 @@ export class AssetsHandler {
   }
 
   async include(params: AssetOverrideParams): Promise<Result<AssetOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(params.profileId);
+    const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -184,10 +186,10 @@ export class AssetsHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'asset-include',
       payload: {
         type: 'asset_include',
-        profile_id: params.profileId,
         asset_id: assetId,
       },
       reason: params.reason,
@@ -206,7 +208,7 @@ export class AssetsHandler {
   }
 
   async confirmReview(params: AssetOverrideParams): Promise<Result<AssetReviewOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(params.profileId);
+    const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -239,6 +241,7 @@ export class AssetsHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'asset-review-confirm',
       payload: {
         type: 'asset_review_confirm',
@@ -251,12 +254,16 @@ export class AssetsHandler {
       return err(appendResult.error);
     }
 
-    const invalidateResult = await invalidateAssetReviewProjection(this.db, 'override:asset-review-confirm');
+    const invalidateResult = await invalidateAssetReviewProjection(
+      this.db,
+      params.profileId,
+      'override:asset-review-confirm'
+    );
     if (invalidateResult.isErr()) {
       return err(invalidateResult.error);
     }
 
-    const refreshedSummaryResult = await this.readFreshReviewSummaries([assetId]);
+    const refreshedSummaryResult = await this.readFreshReviewSummaries(params.profileId, params.profileKey, [assetId]);
     if (refreshedSummaryResult.isErr()) {
       return err(refreshedSummaryResult.error);
     }
@@ -277,7 +284,7 @@ export class AssetsHandler {
   }
 
   async clearReview(params: AssetOverrideParams): Promise<Result<AssetReviewOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(params.profileId);
+    const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -307,6 +314,7 @@ export class AssetsHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'asset-review-clear',
       payload: {
         type: 'asset_review_clear',
@@ -318,12 +326,16 @@ export class AssetsHandler {
       return err(appendResult.error);
     }
 
-    const invalidateResult = await invalidateAssetReviewProjection(this.db, 'override:asset-review-clear');
+    const invalidateResult = await invalidateAssetReviewProjection(
+      this.db,
+      params.profileId,
+      'override:asset-review-clear'
+    );
     if (invalidateResult.isErr()) {
       return err(invalidateResult.error);
     }
 
-    const refreshedSummaryResult = await this.readFreshReviewSummaries([assetId]);
+    const refreshedSummaryResult = await this.readFreshReviewSummaries(params.profileId, params.profileKey, [assetId]);
     if (refreshedSummaryResult.isErr()) {
       return err(refreshedSummaryResult.error);
     }
@@ -343,8 +355,8 @@ export class AssetsHandler {
     });
   }
 
-  async listExclusions(profileId: number): Promise<Result<AssetExclusionsResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(profileId);
+  async listExclusions(profileId: number, profileKey: string): Promise<Result<AssetExclusionsResult, Error>> {
+    const snapshotResult = await this.loadSnapshot(profileId, profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -376,7 +388,7 @@ export class AssetsHandler {
   }
 
   async view(params: ViewAssetsParams): Promise<Result<AssetsViewResult, Error>> {
-    const snapshotResult = await this.loadSnapshot(params.profileId);
+    const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -428,13 +440,20 @@ export class AssetsHandler {
     });
   }
 
-  private async readFreshReviewSummaries(assetIds?: string[]): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
-    const freshProjectionResult = await createCliAssetReviewProjectionRuntime(this.db, this.dataDir).ensureFresh();
+  private async readFreshReviewSummaries(
+    profileId: number,
+    profileKey: string,
+    assetIds?: string[]
+  ): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
+    const freshProjectionResult = await createCliAssetReviewProjectionRuntime(this.db, this.dataDir, {
+      profileId,
+      profileKey,
+    }).ensureFresh();
     if (freshProjectionResult.isErr()) {
       return err(freshProjectionResult.error);
     }
 
-    return readAssetReviewProjectionSummaries(this.db, assetIds);
+    return readAssetReviewProjectionSummaries(this.db, profileId, assetIds);
   }
 
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {
@@ -446,7 +465,7 @@ export class AssetsHandler {
     return ok(undefined);
   }
 
-  private async loadSnapshot(profileId: number): Promise<Result<AssetSnapshot, Error>> {
+  private async loadSnapshot(profileId: number, profileKey: string): Promise<Result<AssetSnapshot, Error>> {
     const transactionsResult = await this.db.transactions.findAll({ profileId, includeExcluded: true });
     if (transactionsResult.isErr()) {
       return wrapError(transactionsResult.error, 'Failed to load transactions for asset resolution');
@@ -468,17 +487,17 @@ export class AssetsHandler {
       return err(new Error(`Failed to load balance snapshot assets: ${snapshotAssetsResult.error.message}`));
     }
 
-    const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore, profileId);
+    const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore, profileKey);
     if (excludedAssetIdsResult.isErr()) {
       return err(excludedAssetIdsResult.error);
     }
 
-    const reviewDecisionsResult = await readAssetReviewDecisions(this.overrideStore);
+    const reviewDecisionsResult = await readAssetReviewDecisions(this.overrideStore, profileKey);
     if (reviewDecisionsResult.isErr()) {
       return err(reviewDecisionsResult.error);
     }
 
-    const reviewSummariesResult = await this.readFreshReviewSummaries();
+    const reviewSummariesResult = await this.readFreshReviewSummaries(profileId, profileKey);
     if (reviewSummariesResult.isErr()) {
       return err(reviewSummariesResult.error);
     }

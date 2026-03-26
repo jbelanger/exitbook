@@ -79,7 +79,12 @@ async function executeLinksRejectCommand(linkIdArg: string, rawOptions: unknown)
 
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const handler = new LinksReviewHandler(database, profileResult.value.id, overrideStore);
+      const handler = new LinksReviewHandler(
+        database,
+        profileResult.value.id,
+        profileResult.value.profileKey,
+        overrideStore
+      );
       const result = await handler.executeTyped({ linkId }, 'reject');
 
       stopSpinner(spinner);

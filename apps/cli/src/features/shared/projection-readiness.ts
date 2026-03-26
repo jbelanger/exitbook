@@ -27,7 +27,40 @@ type RebuildablePrereqId = Exclude<ProjectionId, 'balances'>;
 export interface PrereqExecutionOptions {
   isJsonMode: boolean;
   profileId?: number | undefined;
+  profileKey?: string | undefined;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
+}
+
+async function resolvePrereqProfileScope(
+  scope: CommandRuntime,
+  options: Pick<PrereqExecutionOptions, 'profileId' | 'profileKey'>
+): Promise<Result<{ profileId: number; profileKey: string }, Error>> {
+  const db = await scope.database();
+
+  if (options.profileId !== undefined && options.profileKey !== undefined) {
+    return ok({ profileId: options.profileId, profileKey: options.profileKey });
+  }
+
+  if (options.profileId !== undefined) {
+    const profilesResult = await db.profiles.list();
+    if (profilesResult.isErr()) {
+      return err(profilesResult.error);
+    }
+
+    const profile = profilesResult.value.find((item) => item.id === options.profileId);
+    if (!profile) {
+      return err(new Error(`Profile not found for ID ${options.profileId}`));
+    }
+
+    return ok({ profileId: profile.id, profileKey: profile.profileKey });
+  }
+
+  const profileResult = await resolveCommandProfile(scope, db, undefined);
+  if (profileResult.isErr()) {
+    return err(profileResult.error);
+  }
+
+  return ok({ profileId: profileResult.value.id, profileKey: profileResult.value.profileKey });
 }
 
 async function rebuildIfStale(
@@ -94,13 +127,21 @@ export async function ensureProcessedTransactionsReady(
   );
 }
 
-export async function ensureAssetReviewReady(scope: CommandRuntime): Promise<Result<void, Error>> {
+export async function ensureAssetReviewReady(
+  scope: CommandRuntime,
+  options: Pick<PrereqExecutionOptions, 'profileId' | 'profileKey'>
+): Promise<Result<void, Error>> {
+  const profileScopeResult = await resolvePrereqProfileScope(scope, options);
+  if (profileScopeResult.isErr()) {
+    return err(profileScopeResult.error);
+  }
+
   const db = await scope.database();
 
   return rebuildIfStale(
     'asset-review',
-    () => buildAssetReviewFreshnessPorts(db).checkFreshness(),
-    async () => createCliAssetReviewProjectionRuntime(db, scope.dataDir).rebuild()
+    () => buildAssetReviewFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
+    async () => createCliAssetReviewProjectionRuntime(db, scope.dataDir, profileScopeResult.value).rebuild()
   );
 }
 
@@ -109,19 +150,14 @@ export async function ensureLinksReady(
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
-  const profileIdResult =
-    options.profileId !== undefined
-      ? ok(options.profileId)
-      : await resolveCommandProfile(scope, db, undefined).then((result) =>
-          result.isOk() ? ok(result.value.id) : err(result.error)
-        );
-  if (profileIdResult.isErr()) {
-    return err(profileIdResult.error);
+  const profileScopeResult = await resolvePrereqProfileScope(scope, options);
+  if (profileScopeResult.isErr()) {
+    return err(profileScopeResult.error);
   }
 
   return rebuildIfStale(
     'links',
-    () => buildLinksFreshnessPorts(db, profileIdResult.value).checkFreshness(),
+    () => buildLinksFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
     async () => {
       const params = {
         minConfidenceScore: parseDecimal('0.7'),
@@ -132,14 +168,18 @@ export async function ensureLinksReady(
         dataDir: scope.dataDir,
         database: db,
         isJsonMode: options.isJsonMode,
-        profileId: profileIdResult.value,
+        profileId: profileScopeResult.value.profileId,
+        profileKey: profileScopeResult.value.profileKey,
       });
       if (linkingRuntimeResult.isErr()) {
         return err(linkingRuntimeResult.error);
       }
 
       const linkingRuntime = linkingRuntimeResult.value;
-      const overridesResult = await readCliLinkOverrides(linkingRuntime.overrideStore);
+      const overridesResult = await readCliLinkOverrides(
+        linkingRuntime.overrideStore,
+        profileScopeResult.value.profileKey
+      );
       if (overridesResult.isErr()) {
         return err(overridesResult.error);
       }

@@ -85,11 +85,13 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
       const result = options.clear
         ? await handler.clearNote({
             profileId: profileResult.value.id,
+            profileKey: profileResult.value.profileKey,
             transactionId: transactionIdResult.data,
             reason: options.reason,
           })
         : await handler.setNote({
             profileId: profileResult.value.id,
+            profileKey: profileResult.value.profileKey,
             transactionId: transactionIdResult.data,
             message: options.message!,
             reason: options.reason,

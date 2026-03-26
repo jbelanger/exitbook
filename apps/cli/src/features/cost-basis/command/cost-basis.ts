@@ -76,6 +76,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
         isJsonMode: true,
         params,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
 
       if (handlerResult.isErr()) {
@@ -137,6 +138,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
         isJsonMode: false,
         params,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
       if (handlerResult.isErr()) {
         displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');

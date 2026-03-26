@@ -71,6 +71,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
         isJsonMode: true,
         asOf: normalized.asOf,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
 
       if (handlerResult.isErr()) {
@@ -134,6 +135,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
         isJsonMode: false,
         asOf: normalized.asOf,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
 
       if (handlerResult.isErr()) {

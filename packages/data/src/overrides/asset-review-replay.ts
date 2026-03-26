@@ -74,13 +74,14 @@ export function replayAssetReviewEvents(overrides: OverrideEvent[]): Result<Map<
  * Read and replay asset review overrides from the durable override store.
  */
 export async function readAssetReviewDecisions(
-  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  profileKey: string
 ): Promise<Result<Map<string, AssetReviewDecision>, Error>> {
   if (!overrideStore.exists()) {
     return ok(new Map<string, AssetReviewDecision>());
   }
 
-  const overridesResult = await overrideStore.readByScopes(['asset-review-confirm', 'asset-review-clear']);
+  const overridesResult = await overrideStore.readByScopes(profileKey, ['asset-review-confirm', 'asset-review-clear']);
   if (overridesResult.isErr()) {
     return err(new Error(`Failed to read asset review override events: ${overridesResult.error.message}`));
   }

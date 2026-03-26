@@ -6,6 +6,7 @@ export interface OverrideEventsTable {
   sequence_id: Generated<number>;
   event_id: string;
   created_at: DateTime;
+  profile_key: string;
   actor: string;
   source: string;
   scope: string;

@@ -545,7 +545,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('asset_review_state')
-    .addColumn('asset_id', 'text', (col) => col.primaryKey())
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id').onDelete('cascade'))
+    .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('review_status', 'text', (col) => col.notNull())
     .addColumn('reference_status', 'text', (col) => col.notNull())
     .addColumn('warning_summary', 'text')
@@ -562,24 +563,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'asset_review_state_reference_status_valid',
       sql`reference_status IN ('matched', 'unmatched', 'unknown')`
     )
+    .addPrimaryKeyConstraint('asset_review_state_pk', ['profile_id', 'asset_id'])
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_state_review_status')
+    .createIndex('idx_asset_review_state_profile_review_status')
     .on('asset_review_state')
-    .column('review_status')
+    .columns(['profile_id', 'review_status'])
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_state_accounting_blocked')
+    .createIndex('idx_asset_review_state_profile_accounting_blocked')
     .on('asset_review_state')
-    .column('accounting_blocked')
+    .columns(['profile_id', 'accounting_blocked'])
     .execute();
 
   await db.schema
     .createTable('asset_review_evidence')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('asset_id', 'text', (col) => col.notNull().references('asset_review_state.asset_id').onDelete('cascade'))
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id').onDelete('cascade'))
+    .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('position', 'integer', (col) => col.notNull())
     .addColumn('kind', 'text', (col) => col.notNull())
     .addColumn('severity', 'text', (col) => col.notNull())
@@ -594,19 +597,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'asset_review_evidence_metadata_json_valid',
       sql`metadata_json IS NULL OR json_valid(metadata_json)`
     )
+    .addForeignKeyConstraint(
+      'asset_review_evidence_profile_asset_fk',
+      ['profile_id', 'asset_id'],
+      'asset_review_state',
+      ['profile_id', 'asset_id'],
+      (cb) => cb.onDelete('cascade')
+    )
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_evidence_asset_position')
+    .createIndex('idx_asset_review_evidence_profile_asset_position')
     .on('asset_review_evidence')
-    .columns(['asset_id', 'position'])
+    .columns(['profile_id', 'asset_id', 'position'])
     .unique()
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_evidence_asset_id')
+    .createIndex('idx_asset_review_evidence_profile_asset_id')
     .on('asset_review_evidence')
-    .column('asset_id')
+    .columns(['profile_id', 'asset_id'])
     .execute();
 
   await db.schema.createIndex('idx_asset_review_evidence_kind').on('asset_review_evidence').column('kind').execute();

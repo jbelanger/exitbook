@@ -39,8 +39,8 @@ const ACTION_STATUS = {
 export class LinksReviewHandler {
   private readonly reviewService: TransferProposalReviewService;
 
-  constructor(db: DataSession, profileId: number, overrideStore?: OverrideStore) {
-    this.reviewService = new TransferProposalReviewService(db, profileId, overrideStore);
+  constructor(db: DataSession, profileId: number, profileKey: string, overrideStore?: OverrideStore) {
+    this.reviewService = new TransferProposalReviewService(db, profileId, profileKey, overrideStore);
   }
 
   async execute(params: LinksReviewParams, action: LinksReviewAction): Promise<Result<LinksReviewResult, Error>> {

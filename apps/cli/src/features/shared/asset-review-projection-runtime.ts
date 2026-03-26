@@ -8,11 +8,15 @@ import { createAssetReviewProjectionRuntime, type AssetReviewProjectionRuntime }
 
 import { buildPriceProviderConfigFromEnv } from '../../runtime/app-runtime.js';
 
-export function createCliAssetReviewProjectionRuntime(db: DataSession, dataDir: string): AssetReviewProjectionRuntime {
+export function createCliAssetReviewProjectionRuntime(
+  db: DataSession,
+  dataDir: string,
+  profile: { profileId: number; profileKey: string }
+): AssetReviewProjectionRuntime {
   const coinGeckoConfig = buildPriceProviderConfigFromEnv().coingecko;
 
   return createAssetReviewProjectionRuntime({
-    ports: buildAssetReviewRuntimePorts(db, dataDir),
+    ports: buildAssetReviewRuntimePorts(db, dataDir, profile),
     providerSupportFactory: {
       open: () => createAssetReviewProviderSupport(dataDir, coinGeckoConfig),
     },

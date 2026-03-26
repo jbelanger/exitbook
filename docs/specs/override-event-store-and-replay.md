@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-19
+last_verified: 2026-03-26
 status: canonical
 ---
 
@@ -7,14 +7,15 @@ status: canonical
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
 
-Defines how user overrides are stored in `overrides.db` and how link/unlink and
-transaction-note events are replayed or materialized.
+Defines how user overrides are stored in `overrides.db` and how replay/materialization
+consumers read the relevant profile-scoped event streams.
 
 ## Quick Reference
 
 | Concept                 | Key Rule                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Storage                 | Dedicated SQLite DB at `${EXITBOOK_DATA_DIR}/overrides.db`                                                     |
+| Durable scope           | Every override row belongs to exactly one `profile_key`                                                        |
 | Transaction identity    | Persisted `txFingerprint`                                                                                      |
 | Legacy link identity    | `link:${sortedTxFp1}:${sortedTxFp2}:${assetSymbol}`                                                            |
 | Resolved link identity  | `resolved-link:v1:${sourceMovementFingerprint}:${targetMovementFingerprint}:${sourceAssetId}:${targetAssetId}` |
@@ -47,9 +48,19 @@ Append-only logical event stored as one row in SQLite:
 {
   id: string,
   created_at: string,
+  profile_key: string,
   actor: string,
   source: string,
-  scope: 'price' | 'fx' | 'link' | 'unlink' | 'transaction-note',
+  scope:
+    | 'price'
+    | 'fx'
+    | 'link'
+    | 'unlink'
+    | 'transaction-note'
+    | 'asset-exclude'
+    | 'asset-include'
+    | 'asset-review-confirm'
+    | 'asset-review-clear',
   reason?: string,
   payload: OverridePayload
 }
@@ -94,8 +105,11 @@ This is direction-aware, movement-aware, and asset-id-aware.
   `override_events`.
 - Writes are serialized by an internal queue.
 - `OverrideStore.readAll()` returns rows ordered by the SQLite sequence column.
-- `OverrideStore.readByScope(scope)` and `readByScopes(scopes)` query by the
-  persisted `scope` column and preserve append order.
+- `OverrideStore.readByScope(profileKey, scope)` and
+  `readByScopes(profileKey, scopes)` query by top-level `profile_key` plus
+  persisted `scope`, then preserve append order.
+- `OverrideStore.findLatestCreatedAt(profileKey, scopes)` reads the latest
+  override timestamp inside one profile stream.
 
 ### CLI Write Path Rules
 
@@ -211,6 +225,29 @@ Rejected links are not persisted by `links run`.
 
 ## Data Model
 
+### `override_events`
+
+Logical shape:
+
+```ts
+{
+  id: string;
+  created_at: string;
+  profile_key: string;
+  actor: string;
+  source: string;
+  scope: Scope;
+  payload: OverridePayload;
+  reason?: string;
+}
+```
+
+Persistence/indexing rules:
+
+- `profile_key` is required and stable across `transactions.db` rebuilds
+- the durable query path is `(profile_key, scope, sequence_id)`
+- append order still comes from SQLite `sequence_id`, not `created_at`
+
 ### Override Event Payloads
 
 ```ts
@@ -318,4 +355,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-03-26_

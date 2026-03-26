@@ -58,6 +58,7 @@ async function executeAssetsClearReviewCommand(rawOptions: unknown): Promise<voi
       const result = await handler.clearReview({
         assetId: options.assetId,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
         symbol: options.symbol,
         reason: options.reason,
       });

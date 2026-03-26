@@ -53,6 +53,7 @@ async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
       const result = await handler.confirmReview({
         assetId: options.assetId,
         profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
         symbol: options.symbol,
         reason: options.reason,
       });

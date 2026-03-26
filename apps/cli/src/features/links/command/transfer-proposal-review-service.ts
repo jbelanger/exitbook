@@ -33,6 +33,7 @@ export class TransferProposalReviewService {
   constructor(
     private readonly db: DataSession,
     private readonly profileId: number,
+    private readonly profileKey: string,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -207,9 +208,9 @@ export class TransferProposalReviewService {
         findById: (transactionId: number) => this.db.transactions.findById(transactionId, this.profileId),
       };
       if (targetStatus === 'confirmed') {
-        await writeLinkOverrideEvent(scopedTransactions, this.overrideStore, proposalLink);
+        await writeLinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
       } else {
-        await writeUnlinkOverrideEvent(scopedTransactions, this.overrideStore, proposalLink);
+        await writeUnlinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
       }
     }
   }

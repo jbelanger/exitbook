@@ -57,13 +57,14 @@ export function replayTransactionNoteOverrides(overrides: OverrideEvent[]): Resu
  * Read and replay transaction note overrides from the durable override store.
  */
 export async function readTransactionNoteOverrides(
-  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  profileKey: string
 ): Promise<Result<Map<string, string>, Error>> {
   if (!overrideStore.exists()) {
     return ok(new Map());
   }
 
-  const overridesResult = await overrideStore.readByScopes(['transaction-note']);
+  const overridesResult = await overrideStore.readByScopes(profileKey, ['transaction-note']);
   if (overridesResult.isErr()) {
     return err(new Error(`Failed to read transaction note override events: ${overridesResult.error.message}`));
   }
@@ -80,9 +81,10 @@ type TransactionNoteMaterializationStore = Pick<OverrideStore, 'exists' | 'readB
 export async function materializeStoredTransactionNoteOverrides(
   transactions: TransactionNoteMaterializationRepository,
   overrideStore: TransactionNoteMaterializationStore,
+  profileKey: string,
   scope: TransactionMaterializationScope = {}
 ): Promise<Result<number, Error>> {
-  const noteOverridesResult = await readTransactionNoteOverrides(overrideStore);
+  const noteOverridesResult = await readTransactionNoteOverrides(overrideStore, profileKey);
   if (noteOverridesResult.isErr()) {
     return err(noteOverridesResult.error);
   }

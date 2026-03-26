@@ -109,7 +109,7 @@ export class CostBasisHandler {
         const workflow = new CostBasisWorkflow(contextReader, priceRuntime);
         const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
-        const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db);
+        const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db, this.profileId);
         if (assetReviewSummariesResult.isErr()) {
           return err(assetReviewSummariesResult.error);
         }
@@ -192,6 +192,7 @@ export async function createCostBasisHandler(
     isJsonMode: boolean;
     params: ValidatedCostBasisConfig;
     profileId: number;
+    profileKey: string;
   }
 ): Promise<Result<CostBasisHandler, Error>> {
   try {
@@ -203,7 +204,7 @@ export async function createCostBasisHandler(
       });
     }
 
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileId);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
@@ -215,6 +216,7 @@ export async function createCostBasisHandler(
     const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
       isJsonMode: options.isJsonMode,
       profileId: options.profileId,
+      profileKey: options.profileKey,
       priceConfig,
       accountingExclusionPolicy: accountingExclusionPolicyResult.value,
       setAbort: (abort) => {

@@ -32,7 +32,7 @@ export async function ensureConsumerInputsReady(
     return ok(undefined);
   }
 
-  const assetReviewResult = await ensureAssetReviewReady(scope);
+  const assetReviewResult = await ensureAssetReviewReady(scope, options);
   if (assetReviewResult.isErr()) {
     return err(assetReviewResult.error);
   }

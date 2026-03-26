@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildAssetReviewFreshnessPorts } from '../../projections/asset-review-freshness.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
 import {
   seedAccount,
   seedImportSession,
@@ -12,6 +13,8 @@ import {
 } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
+
+const PROFILE_ID = 1;
 
 describe('buildAssetReviewFreshnessPorts', () => {
   let db: KyselyDB;
@@ -45,7 +48,7 @@ describe('buildAssetReviewFreshnessPorts', () => {
   }
 
   it('returns fresh when no processed transactions exist', async () => {
-    const freshness = buildAssetReviewFreshnessPorts(ctx);
+    const freshness = buildAssetReviewFreshnessPorts(ctx, PROFILE_ID);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('fresh');
   });
@@ -56,7 +59,7 @@ describe('buildAssetReviewFreshnessPorts', () => {
     await seedImportSession(db, 1, 1);
     await seedTransaction(1);
 
-    const freshness = buildAssetReviewFreshnessPorts(ctx);
+    const freshness = buildAssetReviewFreshnessPorts(ctx, PROFILE_ID);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('asset review has never been built');
@@ -67,21 +70,21 @@ describe('buildAssetReviewFreshnessPorts', () => {
     await seedAccount(db, 1, 'blockchain', 'ethereum');
     await seedImportSession(db, 1, 1);
     await seedTransaction(1);
-    assertOk(await ctx.assetReview.replaceAll([]));
+    assertOk(await ctx.assetReview.replaceAll(PROFILE_ID, []));
 
     const repo = new ProjectionStateRepository(db);
-    assertOk(await repo.markFresh('asset-review', { assetCount: 0 }));
+    assertOk(await repo.markFresh('asset-review', { assetCount: 0 }, buildProfileProjectionScopeKey(PROFILE_ID)));
 
-    const freshness = buildAssetReviewFreshnessPorts(ctx);
+    const freshness = buildAssetReviewFreshnessPorts(ctx, PROFILE_ID);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('fresh');
   });
 
   it('returns stale when projection state is explicitly stale', async () => {
     const repo = new ProjectionStateRepository(db);
-    assertOk(await repo.markStale('asset-review', 'override:confirm'));
+    assertOk(await repo.markStale('asset-review', 'override:confirm', buildProfileProjectionScopeKey(PROFILE_ID)));
 
-    const freshness = buildAssetReviewFreshnessPorts(ctx);
+    const freshness = buildAssetReviewFreshnessPorts(ctx, PROFILE_ID);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('override:confirm');

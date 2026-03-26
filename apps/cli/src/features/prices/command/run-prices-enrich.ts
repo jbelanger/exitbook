@@ -118,12 +118,12 @@ export async function withPricesEnrichRuntime<T>(
 
 export async function runPricesEnrich(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean; profileId: number },
+  options: { isJsonMode: boolean; profileId: number; profileKey: string },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
     const database = await ctx.database();
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileId);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }

@@ -16,7 +16,7 @@ Defines how Exitbook excludes transactions or assets from accounting-facing work
 | Baseline exclusion   | Whole-transaction exclusion is persisted on `transactions.excluded_from_accounting`               |
 | Spam default         | `isSpam: true` auto-excludes unless `excludedFromAccounting: false` is set explicitly             |
 | User policy source   | Asset exclusions come from override events, not a balances projection or cached transaction field |
-| Policy identity      | User exclusions are keyed by `profileId + assetId`, never by display symbol alone                 |
+| Policy identity      | User exclusions are keyed by `profileKey + assetId`, never by display symbol alone                |
 | Scoped seam          | Asset exclusion is applied after `buildCostBasisScopedTransactions()`                             |
 | Mixed transactions   | Excluded movements and fees are pruned; surviving included activity stays in scope                |
 | Price gating         | Price coverage and cost basis validate the post-exclusion scoped result                           |
@@ -69,13 +69,15 @@ The current override scopes are:
 
 ```ts
 type AssetExcludeOverride = {
+  profile_key: string;
   scope: 'asset-exclude';
-  payload: { type: 'asset_exclude'; profile_id: number; asset_id: string };
+  payload: { type: 'asset_exclude'; asset_id: string };
 };
 
 type AssetIncludeOverride = {
+  profile_key: string;
   scope: 'asset-include';
-  payload: { type: 'asset_include'; profile_id: number; asset_id: string };
+  payload: { type: 'asset_include'; asset_id: string };
 };
 ```
 
@@ -84,7 +86,8 @@ Replay semantics are strict and deterministic:
 - only `asset-exclude` and `asset-include` scopes are accepted
 - payload `type` must exactly match the scope
 - events replay in append order
-- latest event wins per `profile_id + asset_id`
+- override reads are scoped by top-level `profile_key`
+- latest event wins per `asset_id` within that profile stream
 - missing `overrides.db` means "no asset exclusions"
 
 ### Scoped Exclusion Application
@@ -120,7 +123,7 @@ This is the baseline exclusion layer used before accounting logic starts.
 CLI accounting surfaces load asset exclusions from the durable override store by:
 
 1. reading `asset-exclude` and `asset-include` events
-2. filtering to the active profile and replaying them with latest-event-wins semantics
+2. replaying the active profile's event stream with latest-event-wins semantics
 3. constructing `AccountingExclusionPolicy { excludedAssetIds }`
 
 This keeps user policy independent from projection rebuilds and database resets of derived data.
@@ -239,13 +242,14 @@ For accounting exclusions, only these are relevant:
 - `asset-exclude`
 - `asset-include`
 
-The override store persists events durably in `overrides.db` and returns them in append order.
+The override store persists events durably in `overrides.db`, scopes them by
+top-level `profile_key`, and returns them in append order.
 
 ## Invariants
 
 - **Required**: Whole-transaction exclusion remains a persistence concern.
 - **Required**: Asset-level mixed exclusion remains an accounting concern applied after scoped build.
-- **Required**: User exclusion policy is keyed by `profileId + assetId`, not symbol text.
+- **Required**: User exclusion policy is keyed by `profileKey + assetId`, not symbol text.
 - **Required**: Invalid exclusion override scope/payload combinations fail replay instead of being skipped.
 - **Required**: Generic cost basis, Canada ACB, and price coverage all apply the same asset exclusion policy shape.
 - **Required**: `missingPricePolicy: 'exclude'` never stands in for user-directed exclusion policy.

@@ -202,7 +202,12 @@ async function executeLinksViewTUI(params: LinksCommandParams): Promise<void> {
         profileResult.value.id
       );
 
-      const reviewHandler = new LinksReviewHandler(database, profileResult.value.id, overrideStore);
+      const reviewHandler = new LinksReviewHandler(
+        database,
+        profileResult.value.id,
+        profileResult.value.profileKey,
+        overrideStore
+      );
 
       const handleAction = async (
         linkId: number,

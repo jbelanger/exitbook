@@ -154,7 +154,15 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
         displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const result = await runLinks(ctx, { isJsonMode: true, profileId: profileResult.value.id }, params);
+      const result = await runLinks(
+        ctx,
+        {
+          isJsonMode: true,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -194,7 +202,15 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
         displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      const result = await runLinks(ctx, { isJsonMode: false, profileId: profileResult.value.id }, params);
+      const result = await runLinks(
+        ctx,
+        {
+          isJsonMode: false,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

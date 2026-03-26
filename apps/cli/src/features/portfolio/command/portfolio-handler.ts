@@ -17,12 +17,13 @@ export async function createPortfolioHandler(
     asOf: Date;
     isJsonMode: boolean;
     profileId: number;
+    profileKey: string;
   }
 ): Promise<Result<PortfolioHandler, Error>> {
   try {
     const database = await ctx.database();
     const dataDir = ctx.dataDir;
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir, options.profileId);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir, options.profileKey);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
@@ -38,6 +39,7 @@ export async function createPortfolioHandler(
     const readyResult = await ensureConsumerInputsReady(ctx, 'portfolio', {
       isJsonMode: options.isJsonMode,
       profileId: options.profileId,
+      profileKey: options.profileKey,
       priceConfig: { startDate: new Date(0), endDate: options.asOf },
       accountingExclusionPolicy,
       setAbort: (abort) => {
@@ -52,6 +54,7 @@ export async function createPortfolioHandler(
       accountingExclusionPolicy,
       database,
       profileId: options.profileId,
+      profileKey: options.profileKey,
       scope: ctx,
     });
     if (portfolioRuntimeResult.isErr()) {

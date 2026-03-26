@@ -65,7 +65,11 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({ actionRequiredOnly, profileId: profileResult.value.id });
+      const result = await handler.view({
+        actionRequiredOnly,
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
+      });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -103,7 +107,11 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({ actionRequiredOnly, profileId: profileResult.value.id });
+      const result = await handler.view({
+        actionRequiredOnly,
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
+      });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'text');
@@ -125,22 +133,38 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
           onQuit: unmount,
           onToggleExclusion: async (assetId, excluded) => {
             const actionResult = excluded
-              ? await handler.include({ assetId, profileId: profileResult.value.id })
-              : await handler.exclude({ assetId, profileId: profileResult.value.id });
+              ? await handler.include({
+                  assetId,
+                  profileId: profileResult.value.id,
+                  profileKey: profileResult.value.profileKey,
+                })
+              : await handler.exclude({
+                  assetId,
+                  profileId: profileResult.value.id,
+                  profileKey: profileResult.value.profileKey,
+                });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }
             return actionResult.value;
           },
           onConfirmReview: async (assetId) => {
-            const actionResult = await handler.confirmReview({ assetId, profileId: profileResult.value.id });
+            const actionResult = await handler.confirmReview({
+              assetId,
+              profileId: profileResult.value.id,
+              profileKey: profileResult.value.profileKey,
+            });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }
             return actionResult.value;
           },
           onClearReview: async (assetId) => {
-            const actionResult = await handler.clearReview({ assetId, profileId: profileResult.value.id });
+            const actionResult = await handler.clearReview({
+              assetId,
+              profileId: profileResult.value.id,
+              profileKey: profileResult.value.profileKey,
+            });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }

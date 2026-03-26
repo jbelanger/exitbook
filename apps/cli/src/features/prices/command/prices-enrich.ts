@@ -77,7 +77,15 @@ async function executePricesEnrichJSON(
         displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const result = await runPricesEnrich(ctx, { isJsonMode: true, profileId: profileResult.value.id }, params);
+      const result = await runPricesEnrich(
+        ctx,
+        {
+          isJsonMode: true,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -109,7 +117,15 @@ async function executePricesEnrichTUI(
         displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
 
-      const result = await runPricesEnrich(ctx, { isJsonMode: false, profileId: profileResult.value.id }, params);
+      const result = await runPricesEnrich(
+        ctx,
+        {
+          isJsonMode: false,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

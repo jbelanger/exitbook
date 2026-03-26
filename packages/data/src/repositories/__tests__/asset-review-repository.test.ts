@@ -6,6 +6,10 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { AssetReviewRepository } from '../asset-review-repository.js';
 
+import { seedProfile } from './helpers.js';
+
+const PROFILE_ID = 1;
+
 function createSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
   return {
     assetId,
@@ -32,6 +36,7 @@ describe('AssetReviewRepository', () => {
 
   beforeEach(async () => {
     db = await createTestDatabase();
+    await seedProfile(db);
     repo = new AssetReviewRepository(db);
   });
 
@@ -41,7 +46,7 @@ describe('AssetReviewRepository', () => {
 
   it('replaces and reloads the full asset review projection', async () => {
     assertOk(
-      await repo.replaceAll([
+      await repo.replaceAll(PROFILE_ID, [
         createSummary('blockchain:ethereum:0xscam', {
           evidence: [
             {
@@ -70,7 +75,7 @@ describe('AssetReviewRepository', () => {
       ])
     );
 
-    const summaries = assertOk(await repo.listAll());
+    const summaries = assertOk(await repo.listAll(PROFILE_ID));
 
     expect(summaries).toHaveLength(2);
     expect(summaries[0]).toMatchObject({
@@ -104,23 +109,25 @@ describe('AssetReviewRepository', () => {
   });
 
   it('replaces old rows instead of appending to them', async () => {
-    assertOk(await repo.replaceAll([createSummary('blockchain:ethereum:0xold')]));
-    assertOk(await repo.replaceAll([createSummary('blockchain:ethereum:0xnew', { accountingBlocked: false })]));
+    assertOk(await repo.replaceAll(PROFILE_ID, [createSummary('blockchain:ethereum:0xold')]));
+    assertOk(
+      await repo.replaceAll(PROFILE_ID, [createSummary('blockchain:ethereum:0xnew', { accountingBlocked: false })])
+    );
 
-    const summaries = assertOk(await repo.listAll());
+    const summaries = assertOk(await repo.listAll(PROFILE_ID));
 
     expect(summaries.map((summary) => summary.assetId)).toEqual(['blockchain:ethereum:0xnew']);
   });
 
   it('loads a filtered map by asset ids', async () => {
     assertOk(
-      await repo.replaceAll([
+      await repo.replaceAll(PROFILE_ID, [
         createSummary('blockchain:ethereum:0xscam'),
         createSummary('exchange:kraken:btc', { accountingBlocked: false, reviewStatus: 'clear', evidence: [] }),
       ])
     );
 
-    const summaries = assertOk(await repo.getByAssetIds(['exchange:kraken:btc']));
+    const summaries = assertOk(await repo.getByAssetIds(PROFILE_ID, ['exchange:kraken:btc']));
 
     expect([...summaries.keys()]).toEqual(['exchange:kraken:btc']);
     expect(summaries.get('exchange:kraken:btc')).toMatchObject({
@@ -130,11 +137,11 @@ describe('AssetReviewRepository', () => {
   });
 
   it('tracks the latest computed timestamp', async () => {
-    expect(assertOk(await repo.findLatestComputedAt())).toBeNull();
+    expect(assertOk(await repo.findLatestComputedAt(PROFILE_ID))).toBeNull();
 
-    assertOk(await repo.replaceAll([createSummary('blockchain:ethereum:0xscam')]));
+    assertOk(await repo.replaceAll(PROFILE_ID, [createSummary('blockchain:ethereum:0xscam')]));
 
-    const latest = assertOk(await repo.findLatestComputedAt());
+    const latest = assertOk(await repo.findLatestComputedAt(PROFILE_ID));
     expect(latest).toBeInstanceOf(Date);
   });
 
@@ -161,9 +168,9 @@ describe('AssetReviewRepository', () => {
       })
     );
 
-    assertOk(await repo.replaceAll(summaries));
+    assertOk(await repo.replaceAll(PROFILE_ID, summaries));
 
-    const persisted = assertOk(await repo.listAll());
+    const persisted = assertOk(await repo.listAll(PROFILE_ID));
     expect(persisted).toHaveLength(totalSummaries);
     expect(persisted[0]?.assetId).toBe('blockchain:ethereum:0x0000');
     expect(persisted.at(-1)?.assetId).toBe(

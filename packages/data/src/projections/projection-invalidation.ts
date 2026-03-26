@@ -25,10 +25,10 @@ export async function markDownstreamProjectionsStale(params: {
     const downstreamProjections = cascadeInvalidation(from);
 
     for (const downstream of downstreamProjections) {
-      if (downstream === 'links') {
+      if (downstream === 'links' || downstream === 'asset-review') {
         const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
         for (const profileId of profileIds) {
-          yield* await db.projectionState.markStale('links', reason, buildProfileProjectionScopeKey(profileId));
+          yield* await db.projectionState.markStale(downstream, reason, buildProfileProjectionScopeKey(profileId));
         }
         continue;
       }

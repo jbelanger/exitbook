@@ -8,6 +8,7 @@ export async function up(db: Kysely<OverridesDatabaseSchema>): Promise<void> {
     .addColumn('sequence_id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('event_id', 'text', (col) => col.notNull().unique())
     .addColumn('created_at', 'text', (col) => col.notNull())
+    .addColumn('profile_key', 'text', (col) => col.notNull())
     .addColumn('actor', 'text', (col) => col.notNull())
     .addColumn('source', 'text', (col) => col.notNull())
     .addColumn('scope', 'text', (col) => col.notNull())
@@ -16,17 +17,21 @@ export async function up(db: Kysely<OverridesDatabaseSchema>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('idx_override_events_scope_sequence')
+    .createIndex('idx_override_events_profile_scope_sequence')
     .on('override_events')
-    .columns(['scope', 'sequence_id'])
+    .columns(['profile_key', 'scope', 'sequence_id'])
     .execute();
 
-  await db.schema.createIndex('idx_override_events_created_at').on('override_events').column('created_at').execute();
+  await db.schema
+    .createIndex('idx_override_events_profile_created_at')
+    .on('override_events')
+    .columns(['profile_key', 'created_at'])
+    .execute();
 }
 
 export async function down(db: Kysely<OverridesDatabaseSchema>): Promise<void> {
-  await db.schema.dropIndex('idx_override_events_created_at').ifExists().execute();
-  await db.schema.dropIndex('idx_override_events_scope_sequence').ifExists().execute();
+  await db.schema.dropIndex('idx_override_events_profile_created_at').ifExists().execute();
+  await db.schema.dropIndex('idx_override_events_profile_scope_sequence').ifExists().execute();
   await db.schema.dropTable('override_events').ifExists().execute();
 
   await sql`DROP TABLE IF EXISTS kysely_migration`.execute(db);

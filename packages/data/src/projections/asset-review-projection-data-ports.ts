@@ -4,24 +4,29 @@ import type { IAssetReviewProjectionDataSource, IAssetReviewProjectionStore } fr
 
 import type { DataSession } from '../data-session.js';
 
-export function buildAssetReviewProjectionDataPorts(
-  db: DataSession
-): IAssetReviewProjectionDataSource & IAssetReviewProjectionStore {
-  return {
-    listTransactions: () => db.transactions.findAll({ includeExcluded: true }),
+import { buildProfileProjectionScopeKey } from './profile-scope-key.js';
 
-    markAssetReviewBuilding: () => db.projectionState.markBuilding('asset-review'),
+export function buildAssetReviewProjectionDataPorts(
+  db: DataSession,
+  profileId: number
+): IAssetReviewProjectionDataSource & IAssetReviewProjectionStore {
+  const scopeKey = buildProfileProjectionScopeKey(profileId);
+
+  return {
+    listTransactions: () => db.transactions.findAll({ profileId, includeExcluded: true }),
+
+    markAssetReviewBuilding: () => db.projectionState.markBuilding('asset-review', scopeKey),
 
     replaceAssetReviewProjection: (summaries: Iterable<AssetReviewSummary>, metadata: { assetCount: number }) =>
       db.executeInTransaction(async (tx) => {
-        const replaceResult = await tx.assetReview.replaceAll(summaries);
+        const replaceResult = await tx.assetReview.replaceAll(profileId, summaries);
         if (replaceResult.isErr()) {
           return err(replaceResult.error);
         }
 
-        return tx.projectionState.markFresh('asset-review', metadata);
+        return tx.projectionState.markFresh('asset-review', metadata, scopeKey);
       }),
 
-    markAssetReviewFailed: () => db.projectionState.markFailed('asset-review'),
+    markAssetReviewFailed: () => db.projectionState.markFailed('asset-review', scopeKey),
   };
 }

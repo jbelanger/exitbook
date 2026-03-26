@@ -8,7 +8,7 @@ export function buildProfileProjectionScopeKey(profileId: number): string {
 
 export async function resolveAffectedProfileIds(
   db: DataSession,
-  accountIds?: number[]  
+  accountIds?: number[]
 ): Promise<Result<number[], Error>> {
   return resultDoAsync(async function* () {
     const profileIds = new Set<number>();
@@ -21,11 +21,9 @@ export async function resolveAffectedProfileIds(
         }
       }
     } else {
-      const accounts = yield* await db.accounts.findAll();
-      for (const account of accounts) {
-        if (account.profileId !== undefined) {
-          profileIds.add(account.profileId);
-        }
+      const profiles = yield* await db.profiles.list();
+      for (const profile of profiles) {
+        profileIds.add(profile.id);
       }
     }
 

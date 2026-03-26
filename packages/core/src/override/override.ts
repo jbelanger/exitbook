@@ -117,7 +117,6 @@ export const TransactionNoteOverridePayloadSchema = z
  */
 export const AssetExcludePayloadSchema = z.object({
   type: z.literal('asset_exclude'),
-  profile_id: z.number().int().positive('Profile ID must be a positive integer'),
   asset_id: z.string().min(1, 'Asset ID must not be empty'),
 });
 
@@ -127,7 +126,6 @@ export const AssetExcludePayloadSchema = z.object({
  */
 export const AssetIncludePayloadSchema = z.object({
   type: z.literal('asset_include'),
-  profile_id: z.number().int().positive('Profile ID must be a positive integer'),
   asset_id: z.string().min(1, 'Asset ID must not be empty'),
 });
 
@@ -190,6 +188,7 @@ export const OverrideEventSchema = z
   .object({
     id: z.string().min(1, 'Event ID must not be empty'),
     created_at: z.string().datetime(),
+    profile_key: z.string().min(1, 'Profile key must not be empty'),
     actor: z.string(),
     reason: z.string().optional(),
     source: z.string(),
@@ -230,6 +229,7 @@ export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
  * Actor and source are hardcoded in the store (always 'user'/'cli')
  */
 export interface CreateOverrideEventOptions {
+  profileKey: string;
   scope: Scope;
   payload: OverrideEvent['payload'];
   reason?: string | undefined;
