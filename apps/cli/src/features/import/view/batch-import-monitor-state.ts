@@ -30,7 +30,7 @@ export interface BatchImportMonitorState {
   errorMessage?: string | undefined;
   failedCount: number;
   isComplete: boolean;
-  profileName?: string | undefined;
+  profileDisplayName?: string | undefined;
   rows: BatchImportRow[];
   startedAt?: number | undefined;
   totalCount: number;
@@ -48,7 +48,7 @@ export interface BatchImportDescriptor {
 export type BatchImportMonitorEvent =
   | CliEvent
   | {
-      profileName: string;
+      profileDisplayName: string;
       rows: BatchImportDescriptor[];
       type: 'batch.started';
     }

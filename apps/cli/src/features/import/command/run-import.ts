@@ -42,7 +42,7 @@ export interface BatchImportAccountResult {
 export interface BatchImportExecuteResult {
   accounts: BatchImportAccountResult[];
   failedCount: number;
-  profileName: string;
+  profileDisplayName: string;
   runStats: MetricsSummary;
   totalCount: number;
 }
@@ -144,8 +144,8 @@ export async function runImportAll(
   ctx: CommandRuntime,
   options: {
     isJsonMode: boolean;
+    profileDisplayName: string;
     profileId: number;
-    profileName: string;
   }
 ): Promise<Result<BatchImportExecuteResult, Error>> {
   let batchController: EventDrivenController<BatchImportMonitorEvent> | undefined;
@@ -161,7 +161,7 @@ export async function runImportAll(
 
     const batchAccounts = batchAccountsResult.value;
     if (batchAccounts.length === 0) {
-      return err(new Error(`No accounts found for profile '${options.profileName}'`));
+      return err(new Error(`No accounts found for profile '${options.profileDisplayName}'`));
     }
 
     const infra = await createIngestionRuntime(ctx, database, { presentation: 'headless' });
@@ -198,7 +198,7 @@ export async function runImportAll(
 
     batchEventBus.emit({
       type: 'batch.started',
-      profileName: options.profileName,
+      profileDisplayName: options.profileDisplayName,
       rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
         accountId: batchAccount.account.id,
         accountType: batchAccount.account.accountType,
@@ -275,7 +275,7 @@ export async function runImportAll(
     return ok({
       accounts: accountResults,
       failedCount,
-      profileName: options.profileName,
+      profileDisplayName: options.profileDisplayName,
       runStats: runtime.instrumentation.getSummary(),
       totalCount: accountResults.length,
     });

@@ -124,7 +124,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
         const result = await runImportAll(ctx, {
           isJsonMode: true,
           profileId: profileResult.value.id,
-          profileName: profileResult.value.displayName,
+          profileDisplayName: profileResult.value.displayName,
         });
         if (result.isErr()) {
           displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -172,7 +172,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
         const result = await runImportAll(ctx, {
           isJsonMode: false,
           profileId: profileResult.value.id,
-          profileName: profileResult.value.displayName,
+          profileDisplayName: profileResult.value.displayName,
         });
         if (result.isErr()) {
           displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
@@ -294,7 +294,7 @@ function buildBatchImportResult(importResult: BatchImportExecuteResult): BatchIm
       })),
       failedCount: importResult.failedCount,
       mode: 'batch',
-      profile: importResult.profileName,
+      profile: importResult.profileDisplayName,
       runStats: importResult.runStats,
       totalCount: importResult.totalCount,
     },

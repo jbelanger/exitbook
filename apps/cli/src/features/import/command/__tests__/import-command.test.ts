@@ -132,7 +132,7 @@ beforeEach(() => {
     ok({
       accounts: [],
       failedCount: 0,
-      profileName: 'default',
+      profileDisplayName: 'default',
       runStats: { totalRequests: 0 },
       totalCount: 0,
     })
@@ -270,7 +270,7 @@ describe('import command', () => {
           },
         ],
         failedCount: 1,
-        profileName: 'business',
+        profileDisplayName: 'business',
         runStats: { totalRequests: 4 },
         totalCount: 2,
       })
@@ -281,7 +281,7 @@ describe('import command', () => {
     expect(mockRunImportAll).toHaveBeenCalledWith(mockCtx, {
       isJsonMode: true,
       profileId: 3,
-      profileName: 'business',
+      profileDisplayName: 'business',
     });
     expect(mockRunImport).not.toHaveBeenCalled();
     expect(mockRequireOwned).not.toHaveBeenCalled();

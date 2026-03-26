@@ -92,7 +92,7 @@ const BatchHeader: FC<{ state: BatchImportMonitorState }> = ({ state }) => {
 
   return (
     <Text>
-      <Text bold>Importing profile {state.profileName ?? '...'}</Text>
+      <Text bold>Importing profile {state.profileDisplayName ?? '...'}</Text>
       <Text dimColor>
         {' '}
         · {state.totalCount} accounts · {activeCount} active · {state.completedCount} completed · {state.failedCount}{' '}

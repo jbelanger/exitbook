@@ -67,7 +67,7 @@ function updateBatchImportMonitorState(
         completedCount: 0,
         failedCount: 0,
         isComplete: false,
-        profileName: event.profileName,
+        profileDisplayName: event.profileDisplayName,
         rows: event.rows.map<BatchImportRow>((row) => ({
           ...row,
           imported: 0,
