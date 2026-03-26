@@ -13,6 +13,7 @@ import type { Selectable } from '@exitbook/sqlite';
 import type { TransactionLinksTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE, SQLITE_SAFE_INSERT_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -197,7 +198,9 @@ export class TransactionLinkRepository extends BaseRepository {
         });
       }
 
-      await this.db.insertInto('transaction_links').values(values).execute();
+      for (const valueBatch of chunkItems(values, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('transaction_links').values(valueBatch).execute();
+      }
 
       this.logger.info({ count: links.length }, 'Bulk created transaction links');
       return ok(links.length);
@@ -284,24 +287,35 @@ export class TransactionLinkRepository extends BaseRepository {
         return ok([]);
       }
 
-      let query = this.db
-        .selectFrom('transaction_links')
-        .selectAll()
-        .where((eb) =>
-          eb.or([eb('source_transaction_id', 'in', transactionIds), eb('target_transaction_id', 'in', transactionIds)])
-        );
+      const rowById = new Map<number, TransactionLinkRow>();
+      for (const transactionIdBatch of chunkItems(transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        let query = this.db
+          .selectFrom('transaction_links')
+          .selectAll()
+          .where((eb) =>
+            eb.or([
+              eb('source_transaction_id', 'in', transactionIdBatch),
+              eb('target_transaction_id', 'in', transactionIdBatch),
+            ])
+          );
 
-      if (profileId !== undefined) {
-        const scopedTransactionIds = this.buildScopedTransactionIdsQuery(profileId);
-        query = query.where((eb) =>
-          eb.and([
-            eb('source_transaction_id', 'in', scopedTransactionIds),
-            eb('target_transaction_id', 'in', scopedTransactionIds),
-          ])
-        );
+        if (profileId !== undefined) {
+          const scopedTransactionIds = this.buildScopedTransactionIdsQuery(profileId);
+          query = query.where((eb) =>
+            eb.and([
+              eb('source_transaction_id', 'in', scopedTransactionIds),
+              eb('target_transaction_id', 'in', scopedTransactionIds),
+            ])
+          );
+        }
+
+        const rows = await query.orderBy('created_at', 'asc').execute();
+        for (const row of rows) {
+          rowById.set(row.id, row);
+        }
       }
 
-      const rows = await query.orderBy('created_at', 'asc').execute();
+      const rows = [...rowById.values()].sort((left, right) => left.created_at.localeCompare(right.created_at));
 
       const links: TransactionLink[] = [];
       for (const row of rows) {
@@ -350,18 +364,22 @@ export class TransactionLinkRepository extends BaseRepository {
       }
 
       const now = new Date().toISOString();
-      const result = await this.db
-        .updateTable('transaction_links')
-        .set({
-          status,
-          reviewed_by: reviewedBy,
-          reviewed_at: now,
-          updated_at: now,
-        })
-        .where('id', 'in', ids)
-        .executeTakeFirst();
+      let updatedRows = 0;
+      for (const idBatch of chunkItems(ids, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await this.db
+          .updateTable('transaction_links')
+          .set({
+            status,
+            reviewed_by: reviewedBy,
+            reviewed_at: now,
+            updated_at: now,
+          })
+          .where('id', 'in', idBatch)
+          .executeTakeFirst();
 
-      const updatedRows = Number(result.numUpdatedRows ?? 0);
+        updatedRows += Number(result.numUpdatedRows ?? 0);
+      }
+
       this.logger.debug({ ids, status, updatedRows }, 'Updated transaction link statuses');
       return ok(updatedRows);
     } catch (error) {
@@ -380,6 +398,35 @@ export class TransactionLinkRepository extends BaseRepository {
       let query = this.db.selectFrom('transaction_links').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (accountIds !== undefined || filters?.profileId !== undefined) {
+        if (accountIds !== undefined && accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE) {
+          const matchingLinkIds = new Set<number>();
+
+          for (const accountIdBatch of chunkItems(accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+            const transactionsSubquery = this.buildScopedTransactionIdsQuery(filters?.profileId).where(
+              'transactions.account_id',
+              'in',
+              accountIdBatch
+            );
+
+            const rows = await this.db
+              .selectFrom('transaction_links')
+              .select('id')
+              .where((eb) =>
+                eb.or([
+                  eb('source_transaction_id', 'in', transactionsSubquery),
+                  eb('target_transaction_id', 'in', transactionsSubquery),
+                ])
+              )
+              .execute();
+
+            for (const row of rows) {
+              matchingLinkIds.add(row.id);
+            }
+          }
+
+          return ok(matchingLinkIds.size);
+        }
+
         let transactionsSubquery = this.buildScopedTransactionIdsQuery(filters?.profileId);
         if (accountIds !== undefined) {
           transactionsSubquery = transactionsSubquery.where('transactions.account_id', 'in', accountIds);
@@ -435,22 +482,26 @@ export class TransactionLinkRepository extends BaseRepository {
         return ok(0);
       }
 
-      const transactionsSubquery = this.db
-        .selectFrom('transactions')
-        .select('id')
-        .where('account_id', 'in', accountIds);
+      let count = 0;
+      for (const accountIdBatch of chunkItems(accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const transactionsSubquery = this.db
+          .selectFrom('transactions')
+          .select('id')
+          .where('account_id', 'in', accountIdBatch);
 
-      const result = await this.db
-        .deleteFrom('transaction_links')
-        .where((eb) =>
-          eb.or([
-            eb('source_transaction_id', 'in', transactionsSubquery),
-            eb('target_transaction_id', 'in', transactionsSubquery),
-          ])
-        )
-        .executeTakeFirst();
+        const result = await this.db
+          .deleteFrom('transaction_links')
+          .where((eb) =>
+            eb.or([
+              eb('source_transaction_id', 'in', transactionsSubquery),
+              eb('target_transaction_id', 'in', transactionsSubquery),
+            ])
+          )
+          .executeTakeFirst();
 
-      const count = Number(result.numDeletedRows ?? 0);
+        count += Number(result.numDeletedRows ?? 0);
+      }
+
       this.logger.debug({ accountIds, count }, 'Deleted transaction links by account IDs');
       return ok(count);
     } catch (error) {

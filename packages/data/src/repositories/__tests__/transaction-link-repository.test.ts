@@ -203,6 +203,22 @@ describe('TransactionLinkRepository', () => {
       expect(all.find((l) => l.assetSymbol === 'BTC')?.sourceAmount.toFixed()).toBe('1');
       expect(all.find((l) => l.assetSymbol === 'ETH')?.sourceAmount.toFixed()).toBe('10');
     });
+
+    it('handles large batch inserts without exceeding SQLite variable limits', async () => {
+      const links: NewTransactionLink[] = Array.from({ length: 250 }, (_, index) => ({
+        ...makeBtcLink((index % 5) + 1, (index % 5) + 6),
+        sourceMovementFingerprint: `movement:batch:${index}:source`,
+        targetMovementFingerprint: `movement:batch:${index}:target`,
+        metadata: {
+          variance: '0.0005',
+          variancePct: '0.05',
+          transferProposalKey: `proposal:${index}`,
+        },
+      }));
+
+      expect(assertOk(await repo.createBatch(links))).toBe(250);
+      expect(assertOk(await repo.count())).toBe(250);
+    });
   });
 
   describe('findByTransactionIds', () => {
@@ -227,6 +243,16 @@ describe('TransactionLinkRepository', () => {
       expect(links[0]?.assetSymbol).toBeDefined();
       expect(links[0]?.sourceAmount).toBeDefined();
       expect(links[0]?.targetAmount).toBeDefined();
+    });
+
+    it('handles large transaction ID filters without exceeding SQLite variable limits', async () => {
+      await repo.create(makeBtcLink(1, 2));
+      await repo.create(makeBtcLink(3, 4));
+
+      const transactionIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+      const links = assertOk(await repo.findByTransactionIds(transactionIds));
+
+      expect(links).toHaveLength(2);
     });
   });
 
@@ -363,6 +389,49 @@ describe('TransactionLinkRepository', () => {
 
       expect(assertOk(await repo.count({ accountIds: [1] }))).toBe(1);
       expect(assertOk(await repo.count({ accountIds: [2] }))).toBe(1);
+    });
+
+    it('handles large account ID filters when counting', async () => {
+      await db
+        .insertInto('accounts')
+        .values({
+          id: 2,
+          profile_id: 1,
+          parent_account_id: null,
+          account_type: 'exchange-api',
+          platform_key: 'test-2',
+          identifier: 'test-api-key-2',
+          provider_name: null,
+          last_cursor: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        })
+        .execute();
+
+      for (const id of [11, 12]) {
+        const identityReference = `test-2-tx-${id}`;
+        await db
+          .insertInto('transactions')
+          .values({
+            id,
+            account_id: 2,
+            platform_key: 'test-2',
+            source_type: 'exchange',
+            tx_fingerprint: seedTxFingerprint('test-2', 2, identityReference),
+            transaction_status: 'success',
+            transaction_datetime: new Date().toISOString(),
+            is_spam: false,
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      await repo.create(makeBtcLink(1, 2));
+      await repo.create({ ...makeBtcLink(11, 12), assetSymbol: 'ETH' as Currency });
+
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+      expect(assertOk(await repo.count({ accountIds }))).toBe(2);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {

@@ -4,6 +4,7 @@ import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { AssetReviewEvidenceTable, AssetReviewStateTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
+import { chunkItems, SQLITE_SAFE_INSERT_BATCH_SIZE, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -28,16 +29,6 @@ interface AssetReviewEvidenceRecord {
   severity: string;
 }
 
-const ASSET_REVIEW_INSERT_BATCH_SIZE = 100;
-
-function chunkItems<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
-
 export class AssetReviewRepository extends BaseRepository {
   constructor(db: KyselyDB) {
     super(db, 'asset-review-repository');
@@ -56,7 +47,7 @@ export class AssetReviewRepository extends BaseRepository {
       }
 
       const stateRows = items.map((summary) => this.toStateRow(summary, computedAt));
-      for (const stateRowBatch of chunkItems(stateRows, ASSET_REVIEW_INSERT_BATCH_SIZE)) {
+      for (const stateRowBatch of chunkItems(stateRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
         await this.db.insertInto('asset_review_state').values(stateRowBatch).execute();
       }
 
@@ -64,7 +55,7 @@ export class AssetReviewRepository extends BaseRepository {
         summary.evidence.map((evidence, position) => this.toEvidenceRow(summary.assetId, position, evidence))
       );
 
-      for (const evidenceRowBatch of chunkItems(evidenceRows, ASSET_REVIEW_INSERT_BATCH_SIZE)) {
+      for (const evidenceRowBatch of chunkItems(evidenceRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
         await this.db.insertInto('asset_review_evidence').values(evidenceRowBatch).execute();
       }
 
@@ -99,20 +90,32 @@ export class AssetReviewRepository extends BaseRepository {
     }
 
     try {
-      const stateRows = await this.db
-        .selectFrom('asset_review_state')
-        .selectAll()
-        .where('asset_id', 'in', assetIds)
-        .orderBy('asset_id', 'asc')
-        .execute();
+      const stateRows: AssetReviewStateRecord[] = [];
+      const evidenceRows: AssetReviewEvidenceRecord[] = [];
 
-      const evidenceRows = await this.db
-        .selectFrom('asset_review_evidence')
-        .selectAll()
-        .where('asset_id', 'in', assetIds)
-        .orderBy('asset_id', 'asc')
-        .orderBy('position', 'asc')
-        .execute();
+      for (const assetIdBatch of chunkItems(assetIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        stateRows.push(
+          ...(await this.db
+            .selectFrom('asset_review_state')
+            .selectAll()
+            .where('asset_id', 'in', assetIdBatch)
+            .orderBy('asset_id', 'asc')
+            .execute())
+        );
+
+        evidenceRows.push(
+          ...(await this.db
+            .selectFrom('asset_review_evidence')
+            .selectAll()
+            .where('asset_id', 'in', assetIdBatch)
+            .orderBy('asset_id', 'asc')
+            .orderBy('position', 'asc')
+            .execute())
+        );
+      }
+
+      stateRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id));
+      evidenceRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id) || left.position - right.position);
 
       return ok(new Map(this.buildSummaries(stateRows, evidenceRows).map((summary) => [summary.assetId, summary])));
     } catch (error) {

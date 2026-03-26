@@ -3,6 +3,7 @@ import type { BalanceSnapshot, BalanceSnapshotAsset } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
+import { chunkItems, SQLITE_SAFE_INSERT_BATCH_SIZE, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -36,16 +37,6 @@ interface BalanceSnapshotAssetRecord {
   excluded_from_accounting: number | boolean;
   live_balance: string | null;
   scope_account_id: number;
-}
-
-const BALANCE_SNAPSHOT_ASSET_INSERT_BATCH_SIZE = 100;
-
-function chunkItems<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
 }
 
 export class BalanceSnapshotRepository extends BaseRepository {
@@ -93,35 +84,69 @@ export class BalanceSnapshotRepository extends BaseRepository {
     }
 
     try {
-      let query = this.db
-        .selectFrom('balance_snapshots')
-        .select([
-          'scope_account_id',
-          'calculated_at',
-          'last_refresh_at',
-          'verification_status',
-          'coverage_status',
-          'coverage_confidence',
-          'requested_address_count',
-          'successful_address_count',
-          'failed_address_count',
-          'total_asset_count',
-          'parsed_asset_count',
-          'failed_asset_count',
-          'match_count',
-          'warning_count',
-          'mismatch_count',
-          'status_reason',
-          'suggestion',
-          'last_error',
-        ])
-        .orderBy('scope_account_id', 'asc');
+      const rows: BalanceSnapshotRecord[] = [];
 
       if (scopeAccountIds) {
-        query = query.where('scope_account_id', 'in', scopeAccountIds);
+        for (const scopeAccountIdBatch of chunkItems(scopeAccountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          rows.push(
+            ...(await this.db
+              .selectFrom('balance_snapshots')
+              .select([
+                'scope_account_id',
+                'calculated_at',
+                'last_refresh_at',
+                'verification_status',
+                'coverage_status',
+                'coverage_confidence',
+                'requested_address_count',
+                'successful_address_count',
+                'failed_address_count',
+                'total_asset_count',
+                'parsed_asset_count',
+                'failed_asset_count',
+                'match_count',
+                'warning_count',
+                'mismatch_count',
+                'status_reason',
+                'suggestion',
+                'last_error',
+              ])
+              .where('scope_account_id', 'in', scopeAccountIdBatch)
+              .orderBy('scope_account_id', 'asc')
+              .execute())
+          );
+        }
+      } else {
+        rows.push(
+          ...(await this.db
+            .selectFrom('balance_snapshots')
+            .select([
+              'scope_account_id',
+              'calculated_at',
+              'last_refresh_at',
+              'verification_status',
+              'coverage_status',
+              'coverage_confidence',
+              'requested_address_count',
+              'successful_address_count',
+              'failed_address_count',
+              'total_asset_count',
+              'parsed_asset_count',
+              'failed_asset_count',
+              'match_count',
+              'warning_count',
+              'mismatch_count',
+              'status_reason',
+              'suggestion',
+              'last_error',
+            ])
+            .orderBy('scope_account_id', 'asc')
+            .execute())
+        );
       }
 
-      const rows = await query.execute();
+      rows.sort((left, right) => left.scope_account_id - right.scope_account_id);
+
       return ok(rows.map((row) => this.toSnapshot(row)));
     } catch (error) {
       this.logger.error({ error, scopeAccountIds }, 'Failed to list balance snapshots');
@@ -135,17 +160,35 @@ export class BalanceSnapshotRepository extends BaseRepository {
     }
 
     try {
-      let query = this.db
-        .selectFrom('balance_snapshot_assets')
-        .selectAll()
-        .orderBy('scope_account_id', 'asc')
-        .orderBy('asset_id', 'asc');
+      const rows: BalanceSnapshotAssetRecord[] = [];
 
       if (scopeAccountIds) {
-        query = query.where('scope_account_id', 'in', scopeAccountIds);
+        for (const scopeAccountIdBatch of chunkItems(scopeAccountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          rows.push(
+            ...(await this.db
+              .selectFrom('balance_snapshot_assets')
+              .selectAll()
+              .where('scope_account_id', 'in', scopeAccountIdBatch)
+              .orderBy('scope_account_id', 'asc')
+              .orderBy('asset_id', 'asc')
+              .execute())
+          );
+        }
+      } else {
+        rows.push(
+          ...(await this.db
+            .selectFrom('balance_snapshot_assets')
+            .selectAll()
+            .orderBy('scope_account_id', 'asc')
+            .orderBy('asset_id', 'asc')
+            .execute())
+        );
       }
 
-      const rows = await query.execute();
+      rows.sort(
+        (left, right) => left.scope_account_id - right.scope_account_id || left.asset_id.localeCompare(right.asset_id)
+      );
+
       return ok(rows.map((row) => this.toSnapshotAsset(row)));
     } catch (error) {
       this.logger.error({ error, scopeAccountIds }, 'Failed to list balance snapshot assets');
@@ -186,7 +229,7 @@ export class BalanceSnapshotRepository extends BaseRepository {
       await this.db.insertInto('balance_snapshots').values(this.toSnapshotRow(snapshot)).execute();
 
       const assetRows = assets.map((asset) => this.toSnapshotAssetRow(asset));
-      for (const assetRowBatch of chunkItems(assetRows, BALANCE_SNAPSHOT_ASSET_INSERT_BATCH_SIZE)) {
+      for (const assetRowBatch of chunkItems(assetRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
         await this.db.insertInto('balance_snapshot_assets').values(assetRowBatch).execute();
       }
 
@@ -203,23 +246,27 @@ export class BalanceSnapshotRepository extends BaseRepository {
     }
 
     try {
-      const countRow = await (scopeAccountIds
-        ? this.db
-            .selectFrom('balance_snapshots')
-            .select(({ fn }) => [fn.count<number>('scope_account_id').as('count')])
-            .where('scope_account_id', 'in', scopeAccountIds)
-            .executeTakeFirst()
-        : this.db
-            .selectFrom('balance_snapshots')
-            .select(({ fn }) => [fn.count<number>('scope_account_id').as('count')])
-            .executeTakeFirst());
+      if (!scopeAccountIds) {
+        const countRow = await this.db
+          .selectFrom('balance_snapshots')
+          .select(({ fn }) => [fn.count<number>('scope_account_id').as('count')])
+          .executeTakeFirst();
 
-      const deletedCount = Number(countRow?.count ?? 0);
-
-      if (scopeAccountIds) {
-        await this.db.deleteFrom('balance_snapshots').where('scope_account_id', 'in', scopeAccountIds).execute();
-      } else {
+        const deletedCount = Number(countRow?.count ?? 0);
         await this.db.deleteFrom('balance_snapshots').execute();
+        return ok(deletedCount);
+      }
+
+      let deletedCount = 0;
+      for (const scopeAccountIdBatch of chunkItems(scopeAccountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const countRow = await this.db
+          .selectFrom('balance_snapshots')
+          .select(({ fn }) => [fn.count<number>('scope_account_id').as('count')])
+          .where('scope_account_id', 'in', scopeAccountIdBatch)
+          .executeTakeFirst();
+
+        deletedCount += Number(countRow?.count ?? 0);
+        await this.db.deleteFrom('balance_snapshots').where('scope_account_id', 'in', scopeAccountIdBatch).execute();
       }
 
       return ok(deletedCount);

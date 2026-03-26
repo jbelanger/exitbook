@@ -161,6 +161,18 @@ describe('BalanceSnapshotRepository', () => {
     expect(grouped.get('shared:btc')?.map((asset) => asset.scopeAccountId)).toEqual([1, 2]);
   });
 
+  it('handles large scope filters when listing snapshots and assets', async () => {
+    assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(1), assets: [createAsset(1, 'shared:btc')] }));
+    assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(2), assets: [createAsset(2, 'shared:eth')] }));
+
+    const scopeAccountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+    const snapshots = assertOk(await repo.findSnapshots(scopeAccountIds));
+    const assets = assertOk(await repo.findAssetsByScope(scopeAccountIds));
+
+    expect(snapshots.map((snapshot) => snapshot.scopeAccountId)).toEqual([1, 2]);
+    expect(assets.map((asset) => asset.scopeAccountId)).toEqual([1, 2]);
+  });
+
   it('deletes targeted scopes only', async () => {
     assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(1), assets: [createAsset(1, 'shared:btc')] }));
     assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(2), assets: [createAsset(2, 'shared:eth')] }));

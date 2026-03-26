@@ -1325,6 +1325,30 @@ describe('TransactionRepository', () => {
       expect(profileTwoTransactions.map((tx) => tx.id)).toEqual([txId2]);
     });
 
+    it('handles large account ID filters without exceeding SQLite variable limits', async () => {
+      const txId1 = assertOk(
+        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+      );
+      const txId2 = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            source: 'kraken',
+            sourceType: 'exchange',
+            identityReference: 'audit-kraken-2',
+          }),
+          2
+        )
+      );
+
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+
+      const transactions = assertOk(await repo.findAll({ accountIds, includeExcluded: true }));
+      const count = assertOk(await repo.count({ accountIds, includeExcluded: true }));
+
+      expect(transactions.map((tx) => tx.id)).toEqual([txId1, txId2]);
+      expect(count).toBe(2);
+    });
+
     it('returns undefined when findById is scoped to a different profile', async () => {
       const transactionId = assertOk(
         await repo.create(

@@ -233,6 +233,15 @@ describe('ImportSessionRepository', () => {
       expect(sessions.every((session) => session.accountId === 1)).toBe(true);
     });
 
+    it('handles large account ID filters without exceeding SQLite variable limits', async () => {
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+
+      const sessions = assertOk(await repo.findAll({ accountIds }));
+
+      expect(sessions).toHaveLength(3);
+      expect(sessions.map((session) => session.accountId).sort()).toEqual([1, 1, 2]);
+    });
+
     it('returns an empty array when accountIds filter is empty', async () => {
       const sessions = assertOk(await repo.findAll({ accountIds: [] }));
       expect(sessions).toEqual([]);
@@ -263,6 +272,16 @@ describe('ImportSessionRepository', () => {
       expect(counts.get(1)).toBe(2);
       expect(counts.get(2)).toBe(1);
       expect(counts.get(999)).toBe(0);
+    });
+
+    it('handles large account ID lists when counting by account', async () => {
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+
+      const counts = assertOk(await repo.countByAccount(accountIds));
+
+      expect(counts.get(1)).toBe(2);
+      expect(counts.get(2)).toBe(1);
+      expect(counts.get(1_200)).toBe(0);
     });
 
     it('returns an empty map for empty account list', async () => {
@@ -392,6 +411,11 @@ describe('ImportSessionRepository', () => {
 
     it('counts sessions filtered by account IDs', async () => {
       expect(assertOk(await repo.count({ accountIds: [1] }))).toBe(2);
+    });
+
+    it('handles large account ID filters when counting', async () => {
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+      expect(assertOk(await repo.count({ accountIds }))).toBe(3);
     });
 
     it('returns 0 when accountIds filter is empty', async () => {

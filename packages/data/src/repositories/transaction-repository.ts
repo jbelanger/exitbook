@@ -28,6 +28,7 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -73,15 +74,7 @@ interface TransactionSummary {
 type MovementRow = Selectable<TransactionMovementsTable>;
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
-const MOVEMENT_LOOKUP_BATCH_SIZE = 500;
-
-function chunkIds(ids: number[], size: number): number[][] {
-  const chunks: number[][] = [];
-  for (let index = 0; index < ids.length; index += size) {
-    chunks.push(ids.slice(index, index + size));
-  }
-  return chunks;
-}
+const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
 
 function validatePriceDataForPersistence(
   inflows: AssetMovementDraft[],
@@ -839,7 +832,43 @@ export class TransactionRepository extends BaseRepository {
 
       query = query.orderBy('transactions.transaction_datetime', 'asc');
 
-      const rows = await query.execute();
+      let rows: Selectable<TransactionsTable>[] = [];
+      if (
+        filters?.accountId === undefined &&
+        filters?.accountIds !== undefined &&
+        filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+      ) {
+        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          let batchedQuery = this.db
+            .selectFrom('transactions')
+            .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+            .selectAll('transactions');
+
+          if (filters.profileId !== undefined) {
+            batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
+          }
+
+          if (filters.platformKey) {
+            batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
+          }
+
+          if (filters.since) {
+            const sinceDate = new Date(filters.since * 1000).toISOString();
+            batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
+          }
+
+          batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
+
+          if (!filters.includeExcluded) {
+            batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
+          }
+
+          rows.push(...(await batchedQuery.orderBy('transactions.transaction_datetime', 'asc').execute()));
+        }
+        rows.sort((left, right) => left.transaction_datetime.localeCompare(right.transaction_datetime));
+      } else {
+        rows = await query.execute();
+      }
 
       if (projection === 'summary') {
         const summaries: TransactionSummary[] = [];
@@ -1038,17 +1067,36 @@ export class TransactionRepository extends BaseRepository {
       this.db,
       this.logger,
       async (trx) => {
-        let query = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+        const rowsById = new Map<number, { id: number; notes_json: unknown; tx_fingerprint: string }>();
+        const batchedTransactionIds =
+          params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+            ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
+            : [params.transactionIds];
+        const batchedAccountIds =
+          !params.transactionIds && params.accountIds && params.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+            ? chunkItems(params.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)
+            : [params.accountIds];
 
-        if (params.accountIds) {
-          query = query.where('account_id', 'in', params.accountIds);
+        for (const transactionIdBatch of batchedTransactionIds) {
+          for (const accountIdBatch of batchedAccountIds) {
+            let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+
+            if (accountIdBatch) {
+              batchedQuery = batchedQuery.where('account_id', 'in', accountIdBatch);
+            }
+
+            if (transactionIdBatch) {
+              batchedQuery = batchedQuery.where('id', 'in', transactionIdBatch);
+            }
+
+            const rows = await batchedQuery.execute();
+            for (const row of rows) {
+              rowsById.set(row.id, row);
+            }
+          }
         }
 
-        if (params.transactionIds) {
-          query = query.where('id', 'in', params.transactionIds);
-        }
-
-        const rows = await query.execute();
+        const rows = [...rowsById.values()].sort((left, right) => left.id - right.id);
         let updatedCount = 0;
 
         for (const row of rows) {
@@ -1117,6 +1165,40 @@ export class TransactionRepository extends BaseRepository {
         if (filters.accountId !== undefined) {
           query = query.where('transactions.account_id', '=', filters.accountId);
         } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
+          if (filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE) {
+            let totalCount = 0;
+            for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+              let batchedQuery = this.db
+                .selectFrom('transactions')
+                .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+                .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
+
+              if (filters.profileId !== undefined) {
+                batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
+              }
+
+              if (filters.platformKey) {
+                batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
+              }
+
+              if (filters.since) {
+                const sinceDate = new Date(filters.since * 1000).toISOString();
+                batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
+              }
+
+              batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
+
+              if (!filters.includeExcluded) {
+                batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
+              }
+
+              const result = await batchedQuery.executeTakeFirst();
+              totalCount += result?.count ?? 0;
+            }
+
+            return ok(totalCount);
+          }
+
           query = query.where('transactions.account_id', 'in', filters.accountIds);
         } else if (filters.accountIds !== undefined && filters.accountIds.length === 0) {
           return ok(0);
@@ -1141,8 +1223,15 @@ export class TransactionRepository extends BaseRepository {
       if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
-      return ok(Number(result.numDeletedRows));
+      let deletedCount = 0;
+      for (const accountIdBatch of chunkItems(accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await this.db
+          .deleteFrom('transactions')
+          .where('account_id', 'in', accountIdBatch)
+          .executeTakeFirst();
+        deletedCount += Number(result.numDeletedRows);
+      }
+      return ok(deletedCount);
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by account IDs');
     }
@@ -1188,7 +1277,7 @@ export class TransactionRepository extends BaseRepository {
     try {
       const map = new Map<number, MovementRow[]>();
 
-      for (const transactionIdBatch of chunkIds(transactionIds, MOVEMENT_LOOKUP_BATCH_SIZE)) {
+      for (const transactionIdBatch of chunkItems(transactionIds, MOVEMENT_LOOKUP_BATCH_SIZE)) {
         const rows = await this.db
           .selectFrom('transaction_movements')
           .selectAll()

@@ -8,6 +8,7 @@ import type { Selectable } from '@exitbook/sqlite';
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseJson, toRawTransaction } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -134,14 +135,16 @@ export class RawTransactionRepository extends BaseRepository {
     try {
       const processedAt = new Date().toISOString();
 
-      await this.db
-        .updateTable('raw_transactions')
-        .set({
-          processed_at: processedAt,
-          processing_status: 'processed',
-        })
-        .where('id', 'in', rawTransactionIds)
-        .execute();
+      for (const rawTransactionIdBatch of chunkItems(rawTransactionIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        await this.db
+          .updateTable('raw_transactions')
+          .set({
+            processed_at: processedAt,
+            processing_status: 'processed',
+          })
+          .where('id', 'in', rawTransactionIdBatch)
+          .execute();
+      }
 
       return ok(undefined);
     } catch (error) {
@@ -241,7 +244,21 @@ export class RawTransactionRepository extends BaseRepository {
         if (filters.accountIds.length === 0) {
           return ok(0);
         }
-        query = query.where('account_id', 'in', filters.accountIds);
+        let totalCount = 0;
+        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          let batchQuery = this.db
+            .selectFrom('raw_transactions')
+            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .where('account_id', 'in', accountIdBatch);
+
+          if (filters.processingStatus !== undefined) {
+            batchQuery = batchQuery.where('processing_status', '=', filters.processingStatus);
+          }
+
+          const result = await batchQuery.executeTakeFirst();
+          totalCount += result?.count ?? 0;
+        }
+        return ok(totalCount);
       }
 
       if (filters?.processingStatus !== undefined) {

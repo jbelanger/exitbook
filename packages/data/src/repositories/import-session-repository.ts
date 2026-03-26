@@ -7,6 +7,7 @@ import type { Selectable, Updateable } from '@exitbook/sqlite';
 import type { ImportSessionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseJson, serializeToJson } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -124,13 +125,23 @@ export class ImportSessionRepository extends BaseRepository {
         return ok([]);
       }
 
-      let query = this.db.selectFrom('import_sessions').selectAll().orderBy('started_at', 'desc');
-
+      const rows: Selectable<ImportSessionsTable>[] = [];
       if (filters?.accountIds !== undefined) {
-        query = query.where('account_id', 'in', filters.accountIds);
+        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          rows.push(
+            ...(await this.db
+              .selectFrom('import_sessions')
+              .selectAll()
+              .where('account_id', 'in', accountIdBatch)
+              .orderBy('started_at', 'desc')
+              .execute())
+          );
+        }
+      } else {
+        rows.push(...(await this.db.selectFrom('import_sessions').selectAll().orderBy('started_at', 'desc').execute()));
       }
 
-      const rows = await query.execute();
+      rows.sort((left, right) => right.started_at.localeCompare(left.started_at));
 
       const importSessions: ImportSession[] = [];
       for (const row of rows) {
@@ -153,16 +164,19 @@ export class ImportSessionRepository extends BaseRepository {
         return ok(new Map());
       }
 
-      const results = await this.db
-        .selectFrom('import_sessions')
-        .select(['account_id', (eb) => eb.fn.count<number>('id').as('count')])
-        .where('account_id', 'in', accountIds)
-        .groupBy('account_id')
-        .execute();
-
       const counts = new Map<number, number>();
-      for (const row of results) {
-        counts.set(row.account_id, row.count);
+
+      for (const accountIdBatch of chunkItems(accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const results = await this.db
+          .selectFrom('import_sessions')
+          .select(['account_id', (eb) => eb.fn.count<number>('id').as('count')])
+          .where('account_id', 'in', accountIdBatch)
+          .groupBy('account_id')
+          .execute();
+
+        for (const row of results) {
+          counts.set(row.account_id, row.count);
+        }
       }
 
       for (const accountId of accountIds) {
@@ -228,13 +242,22 @@ export class ImportSessionRepository extends BaseRepository {
 
   async count(filters?: { accountIds?: number[] }): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('import_sessions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      const query = this.db.selectFrom('import_sessions').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
       if (filters?.accountIds !== undefined) {
         if (filters.accountIds.length === 0) {
           return ok(0);
         }
-        query = query.where('account_id', 'in', filters.accountIds);
+        let totalCount = 0;
+        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          const result = await this.db
+            .selectFrom('import_sessions')
+            .select(({ fn }) => [fn.count<number>('id').as('count')])
+            .where('account_id', 'in', accountIdBatch)
+            .executeTakeFirst();
+          totalCount += result?.count ?? 0;
+        }
+        return ok(totalCount);
       }
 
       const result = await query.executeTakeFirst();
