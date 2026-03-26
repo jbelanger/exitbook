@@ -103,6 +103,7 @@ function createAssetsProgram(): Command {
 }
 
 describe('assets command modules', () => {
+  const PROFILE_KEY = 'default';
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
   beforeEach(() => {
@@ -150,6 +151,7 @@ describe('assets command modules', () => {
     expect(mockClearReview).toHaveBeenCalledWith({
       assetId: 'asset-1',
       profileId: 1,
+      profileKey: PROFILE_KEY,
       symbol: undefined,
       reason: 'reset evidence',
     });
@@ -175,6 +177,7 @@ describe('assets command modules', () => {
     expect(mockConfirmReview).toHaveBeenCalledWith({
       assetId: undefined,
       profileId: 1,
+      profileKey: PROFILE_KEY,
       symbol: 'USDC',
       reason: undefined,
     });
@@ -237,6 +240,7 @@ describe('assets command modules', () => {
     expect(mockInclude).toHaveBeenCalledWith({
       assetId: 'asset-5',
       profileId: 1,
+      profileKey: PROFILE_KEY,
       symbol: undefined,
       reason: undefined,
     });
@@ -272,7 +276,7 @@ describe('assets command modules', () => {
 
     await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
 
-    expect(mockView).toHaveBeenCalledWith({ actionRequiredOnly: true, profileId: 1 });
+    expect(mockView).toHaveBeenCalledWith({ actionRequiredOnly: true, profileId: 1, profileKey: PROFILE_KEY });
     expect(mockOutputSuccess).toHaveBeenCalledWith('assets-view', {
       data: [
         {
@@ -381,9 +385,17 @@ describe('assets command modules', () => {
     await renderedElement?.props.onConfirmReview('asset-view-2');
     await renderedElement?.props.onClearReview('asset-view-2');
 
-    expect(mockExclude).toHaveBeenCalledWith({ assetId: 'asset-view-2', profileId: 1 });
-    expect(mockConfirmReview).toHaveBeenCalledWith({ assetId: 'asset-view-2', profileId: 1 });
-    expect(mockClearReview).toHaveBeenCalledWith({ assetId: 'asset-view-2', profileId: 1 });
+    expect(mockExclude).toHaveBeenCalledWith({ assetId: 'asset-view-2', profileId: 1, profileKey: PROFILE_KEY });
+    expect(mockConfirmReview).toHaveBeenCalledWith({
+      assetId: 'asset-view-2',
+      profileId: 1,
+      profileKey: PROFILE_KEY,
+    });
+    expect(mockClearReview).toHaveBeenCalledWith({
+      assetId: 'asset-view-2',
+      profileId: 1,
+      profileKey: PROFILE_KEY,
+    });
   });
 
   it('registers the assets namespace with the expected subcommands', () => {

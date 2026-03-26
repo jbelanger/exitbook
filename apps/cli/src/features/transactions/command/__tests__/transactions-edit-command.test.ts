@@ -74,6 +74,7 @@ function createProgram(): Command {
 }
 
 describe('transactions edit command', () => {
+  const PROFILE_KEY = 'default';
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
   beforeEach(() => {
@@ -118,6 +119,7 @@ describe('transactions edit command', () => {
     expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, mockOverrideStoreInstance);
     expect(mockSetNote).toHaveBeenCalledWith({
       profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 123,
       message: 'Moved to Ledger',
       reason: 'wallet transfer',
@@ -145,6 +147,7 @@ describe('transactions edit command', () => {
 
     expect(mockClearNote).toHaveBeenCalledWith({
       profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 123,
       reason: undefined,
     });

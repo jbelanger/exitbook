@@ -100,7 +100,7 @@ describe('buildProcessedTransactionsResetPorts', () => {
     expect(ptState!.invalidatedBy).toBe('reset');
 
     // Verify downstream projections are also marked stale
-    const assetReviewState = assertOk(await ctx.projectionState.get('asset-review'));
+    const assetReviewState = assertOk(await ctx.projectionState.get('asset-review', buildProfileProjectionScopeKey(1)));
     expect(assetReviewState!.status).toBe('stale');
     expect(assetReviewState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
 
