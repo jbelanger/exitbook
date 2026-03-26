@@ -257,7 +257,7 @@ describe('buildUsLotRows', () => {
 
     const rows = assertOk(buildUsLotRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
 
-    // Both lots come from accounts with sourceName 'kraken', but there are
+    // Both lots come from accounts with platformKey 'kraken', but there are
     // two kraken accounts (spot-wallet and trading-wallet) so labels are disambiguated
     expect(rows[0]!.account_label).toContain('kraken');
     expect(rows[1]!.account_label).toContain('kraken');

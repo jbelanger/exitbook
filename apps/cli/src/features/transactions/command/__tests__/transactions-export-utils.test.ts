@@ -94,7 +94,7 @@ describe('export-utils', () => {
       expect(params.format).toBe('csv');
       expect(params.csvFormat).toBe('normalized');
       expect(params.outputPath).toBe('data/transactions.csv');
-      expect(params.sourceName).toBeUndefined();
+      expect(params.platformKey).toBeUndefined();
       expect(params.since).toBeUndefined();
     });
 
@@ -107,7 +107,7 @@ describe('export-utils', () => {
       const result = buildExportParamsFromFlags(options);
 
       const params = assertOk(result);
-      expect(params.sourceName).toBe('kraken');
+      expect(params.platformKey).toBe('kraken');
       expect(params.format).toBe('json');
       expect(params.csvFormat).toBeUndefined();
       expect(params.outputPath).toBe('./exports/kraken.json');
@@ -122,7 +122,7 @@ describe('export-utils', () => {
       const result = buildExportParamsFromFlags(options);
 
       const params = assertOk(result);
-      expect(params.sourceName).toBe('bitcoin');
+      expect(params.platformKey).toBe('bitcoin');
       expect(params.format).toBe('csv');
       expect(params.csvFormat).toBe('normalized');
     });

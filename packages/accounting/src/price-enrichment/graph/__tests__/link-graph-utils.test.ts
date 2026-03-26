@@ -51,20 +51,20 @@ function createTx(
 
 // Helper to create transaction links
 function createLink(
-  sourceName: number,
+  platformKey: number,
   targetId: number,
   status: 'suggested' | 'confirmed' | 'rejected' = 'confirmed'
 ): TransactionLink {
   return {
     id: targetId,
-    sourceTransactionId: sourceName,
+    sourceTransactionId: platformKey,
     targetTransactionId: targetId,
     assetSymbol: 'BTC' as Currency,
     sourceAssetId: 'exchange:source:btc',
     targetAssetId: 'blockchain:target:btc',
     sourceAmount: parseDecimal('1.0'),
     targetAmount: parseDecimal('1.0'),
-    sourceMovementFingerprint: `movement:exchange:source:${sourceName}:outflow:0`,
+    sourceMovementFingerprint: `movement:exchange:source:${platformKey}:outflow:0`,
     targetMovementFingerprint: `movement:blockchain:target:${targetId}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: parseDecimal('0.95'),

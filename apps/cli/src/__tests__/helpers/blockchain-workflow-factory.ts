@@ -163,7 +163,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
             accountType: string;
             id: number;
             identifier: string;
-            sourceName: string;
+            platformKey: string;
           }[];
           expect(accounts.length).toBeGreaterThan(0);
 

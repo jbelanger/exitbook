@@ -3,6 +3,7 @@ import type { CostBasisSnapshotRecord } from '@exitbook/accounting/ports';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -96,11 +97,21 @@ export class CostBasisSnapshotRepository extends BaseRepository {
         return ok(0);
       }
 
-      const query = scopeKeys
-        ? this.db.deleteFrom('cost_basis_snapshots').where('scope_key', 'in', scopeKeys)
-        : this.db.deleteFrom('cost_basis_snapshots');
-      const result = await query.executeTakeFirst();
-      return ok(Number(result.numDeletedRows));
+      if (!scopeKeys) {
+        const result = await this.db.deleteFrom('cost_basis_snapshots').executeTakeFirst();
+        return ok(Number(result.numDeletedRows));
+      }
+
+      let deletedCount = 0;
+      for (const scopeKeyBatch of chunkItems(scopeKeys, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await this.db
+          .deleteFrom('cost_basis_snapshots')
+          .where('scope_key', 'in', scopeKeyBatch)
+          .executeTakeFirst();
+        deletedCount += Number(result.numDeletedRows);
+      }
+
+      return ok(deletedCount);
     } catch (error) {
       this.logger.error({ error, scopeKeys }, 'Failed to delete cost-basis snapshots');
       return err(error instanceof Error ? error : new Error(String(error)));

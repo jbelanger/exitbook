@@ -2,6 +2,7 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -13,6 +14,7 @@ export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
     .command('exclusions')
     .description('List asset IDs currently excluded from accounting')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeAssetsExclusionsCommand(rawOptions);
@@ -35,9 +37,19 @@ async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError(
+          'assets-exclusions',
+          profileResult.error,
+          ExitCodes.GENERAL_ERROR,
+          options.json ? 'json' : 'text'
+        );
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.listExclusions();
+      const result = await handler.listExclusions(profileResult.value.id, profileResult.value.profileKey);
 
       if (result.isErr()) {
         displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');

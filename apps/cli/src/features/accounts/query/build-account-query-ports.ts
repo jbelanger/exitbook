@@ -8,7 +8,6 @@ export function buildAccountQueryPorts(db: DataSession): AccountQueryPorts {
   const balancesFreshness = buildBalancesFreshnessPorts(db);
 
   return {
-    findOrCreateDefaultUser: () => db.users.findOrCreateDefault(),
     findAccountById: (id) => db.accounts.findById(id),
     findAccounts: (filters) => db.accounts.findAll(filters),
     countSessionsByAccount: (accountIds) => db.importSessions.countByAccount(accountIds),

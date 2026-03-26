@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
@@ -22,6 +23,10 @@ import { PricesViewApp, createCoverageViewState, createMissingViewState } from '
 import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 import { PricesViewHandler } from './prices-view-handler.js';
+
+interface ViewPricesCommandParams extends ViewPricesParams {
+  profile?: string | undefined;
+}
 
 /**
  * Result data for view prices command (JSON mode).
@@ -45,6 +50,7 @@ Examples:
   $ exitbook prices view                    # View price coverage for all assets
   $ exitbook prices view --asset BTC        # View price coverage for Bitcoin only
   $ exitbook prices view --missing-only     # Show only assets missing price data
+  $ exitbook prices view --profile business # View one profile only
   $ exitbook prices view --source kraken    # View coverage for Kraken transactions
 
 Common Usage:
@@ -53,6 +59,7 @@ Common Usage:
   - Find gaps in historical pricing data
 `
     )
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')
@@ -69,7 +76,8 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   const { format, options } = parseCliCommandOptions('prices-view', rawOptions, PricesViewCommandOptionsSchema);
   const isMissingMode = options.missingOnly ?? false;
 
-  const params: ViewPricesParams = {
+  const params: ViewPricesCommandParams = {
+    profile: options.profile,
     source: options.source,
     asset: options.asset,
     missingOnly: options.missingOnly,
@@ -95,11 +103,18 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
 /**
  * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
  */
-async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
+async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('prices-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new PricesViewHandler(database);
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        console.error('\n⚠ Error:', profileResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      const handler = new PricesViewHandler(database, profileResult.value.id);
 
       const detailResult = await handler.executeCoverageDetail(params);
       if (detailResult.isErr()) {
@@ -135,7 +150,13 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
           const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
           const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            const result = await pricesSetHandler.execute({
+              asset,
+              date,
+              price,
+              source: 'manual-tui',
+              profileKey: profileResult.value.profileKey,
+            });
             if (result.isErr()) throw result.error;
           };
 
@@ -160,12 +181,19 @@ async function executeCoverageViewTUI(params: ViewPricesParams): Promise<void> {
 /**
  * Execute missing view in TUI mode (keeps DB open for set-price writes)
  */
-async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
+async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('prices-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new PricesViewHandler(database);
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        console.error('\n⚠ Error:', profileResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
+      const handler = new PricesViewHandler(database, profileResult.value.id);
 
       const missingResult = await handler.executeMissing(params);
       if (missingResult.isErr()) {
@@ -184,7 +212,13 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
           const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
           const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({ asset, date, price, source: 'manual-tui' });
+            const result = await pricesSetHandler.execute({
+              asset,
+              date,
+              price,
+              source: 'manual-tui',
+              profileKey: profileResult.value.profileKey,
+            });
             if (result.isErr()) {
               throw result.error;
             }
@@ -210,11 +244,17 @@ async function executeMissingViewTUI(params: ViewPricesParams): Promise<void> {
 /**
  * Execute view prices in JSON mode
  */
-async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
+async function executeViewPricesJSON(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new PricesViewHandler(database);
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const handler = new PricesViewHandler(database, profileResult.value.id);
 
       const result = await handler.execute(params);
 
@@ -235,6 +275,7 @@ async function executeViewPricesJSON(params: ViewPricesParams): Promise<void> {
           buildDefinedFilters({
             asset: params.asset,
             source: params.source,
+            profile: params.profile,
             missingOnly: params.missingOnly ? true : undefined,
           })
         ),
@@ -263,11 +304,17 @@ type MissingPricesCommandResult = ViewCommandResult<{
 /**
  * Execute missing prices in JSON mode
  */
-async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
+async function executeMissingViewJSON(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const handler = new PricesViewHandler(database);
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
+
+      const handler = new PricesViewHandler(database, profileResult.value.id);
 
       const result = await handler.executeMissing(params);
 
@@ -297,6 +344,7 @@ async function executeMissingViewJSON(params: ViewPricesParams): Promise<void> {
           buildDefinedFilters({
             asset: params.asset,
             source: params.source,
+            profile: params.profile,
             missingOnly: true,
           })
         ),

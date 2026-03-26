@@ -5,5 +5,6 @@ export { buildAssetReviewResetPorts } from './projections/asset-review-reset.js'
 export { buildBalancesResetPorts } from './projections/balances-reset.js';
 export { buildLinksFreshnessPorts } from './projections/links-freshness.js';
 export { buildLinksResetPorts } from './projections/links-reset.js';
+export { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from './projections/profile-scope-key.js';
 export { buildProcessedTransactionsFreshnessPorts } from './projections/processed-transactions-freshness.js';
 export { buildProcessedTransactionsResetPorts } from './projections/processed-transactions-reset.js';

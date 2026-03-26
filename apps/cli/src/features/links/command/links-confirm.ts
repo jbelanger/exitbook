@@ -4,6 +4,7 @@ import { render } from 'ink';
 import React from 'react';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -33,6 +34,7 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
     .command('confirm')
     .description('Confirm a suggested transaction link')
     .argument('<link-id>', 'ID of the link to confirm')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (linkIdArg: string, rawOptions: unknown) => {
       await executeLinksConfirmCommand(linkIdArg, rawOptions);
@@ -69,9 +71,20 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        stopSpinner(spinner);
+        displayCliError('links-confirm', profileResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
 
-      const handler = new LinksReviewHandler(database, overrideStore);
+      const handler = new LinksReviewHandler(
+        database,
+        profileResult.value.id,
+        profileResult.value.profileKey,
+        overrideStore
+      );
       const result = await handler.executeTyped({ linkId }, 'confirm');
 
       stopSpinner(spinner);
@@ -114,10 +127,10 @@ function handleLinksConfirmSuccess(
     confidence?: string | undefined;
     linkId: number;
     newStatus: 'confirmed';
+    platformKey?: string | undefined;
     reviewedAt: Date;
     reviewedBy: string;
     sourceAmount?: string | undefined;
-    sourceName?: string | undefined;
     targetAmount?: string | undefined;
     targetName?: string | undefined;
   }
@@ -128,7 +141,7 @@ function handleLinksConfirmSuccess(
       result.asset &&
       result.sourceAmount &&
       result.targetAmount &&
-      result.sourceName &&
+      result.platformKey &&
       result.targetName &&
       result.confidence
     ) {
@@ -140,7 +153,7 @@ function handleLinksConfirmSuccess(
           asset: result.asset,
           sourceAmount: result.sourceAmount,
           targetAmount: result.targetAmount,
-          sourceName: result.sourceName,
+          platformKey: result.platformKey,
           targetName: result.targetName,
           confidence: result.confidence,
         })

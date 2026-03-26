@@ -268,8 +268,9 @@ When no stats exist (provider never used):
 
   Config: {rateLimit} ({configSource})
 
-  No usage data. Run an import to generate stats:
-  exitbook import --blockchain {blockchain} --address {placeholder}
+  No usage data. Add and sync an account to generate stats:
+  exitbook accounts add {blockchain}-main --blockchain {blockchain} --address {placeholder}
+  exitbook import --account {blockchain}-main
 ```
 
 ### Last Error

@@ -154,7 +154,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
           accountType: string;
           id: number;
           identifier: string;
-          sourceName: string;
+          platformKey: string;
         }[];
         expect(accounts.length).toBeGreaterThan(0);
         const accountId = accounts[0]?.id;

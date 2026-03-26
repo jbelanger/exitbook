@@ -23,7 +23,7 @@ export type ImportEvent =
        * Present when importing derived addresses from an extended public key.
        */
       parentAccountId?: number | undefined;
-      sourceName: string;
+      platformKey: string;
       sourceType: 'blockchain' | 'exchange-api' | 'exchange-csv';
       /**
        * Transaction counts by stream type (only present for existing accounts)
@@ -43,7 +43,7 @@ export type ImportEvent =
       deduplicated: number; // Count filtered by importer/provider-level dedup (0 when unavailable)
       fetched: number; // Raw count fetched before importer/provider-level dedup
       isComplete: boolean;
-      sourceName: string;
+      platformKey: string;
       streamType: string;
       totalFetchedRun: number; // Total fetched this run (per-process)
       totalImported: number;
@@ -57,7 +57,7 @@ export type ImportEvent =
        * Used by CLI dashboard activity log.
        */
       accountId: number;
-      sourceName: string;
+      platformKey: string;
       streamType?: string | undefined;
       type: 'import.warning';
       warning: string;
@@ -68,7 +68,7 @@ export type ImportEvent =
        */
       accountId: number;
       durationMs: number;
-      sourceName: string;
+      platformKey: string;
       totalImported: number;
       totalSkipped: number;
       type: 'import.completed';
@@ -80,7 +80,7 @@ export type ImportEvent =
        */
       accountId: number;
       error: string;
-      sourceName: string;
+      platformKey: string;
       type: 'import.failed';
     }
   | {

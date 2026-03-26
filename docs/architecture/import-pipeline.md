@@ -1,121 +1,210 @@
 # Streaming Import Pipeline
 
-> Exitbook imports transaction histories from blockchain APIs, exchange APIs, and CSV files through a memory-bounded streaming pipeline with per-batch crash recovery.
+> Exitbook syncs raw transaction history through an account-owned, memory-bounded streaming pipeline with per-batch crash recovery.
 
 ## The Problem
 
-Cryptocurrency transaction histories are large, fragmented, and expensive to fetch. A single Ethereum address can have 50,000+ transactions spread across normal transfers, internal calls, and token events. Blockchain APIs enforce rate limits, return paginated results in varying formats, and go down without warning. Exchange APIs have their own pagination quirks and credential requirements.
+Cryptocurrency history is large, paginated, rate-limited, and failure-prone.
 
-An import that takes 20 minutes and dies at minute 18 is worthless if it has to start over. An import that loads everything into memory before persisting will crash on active addresses. An import that half-completes and silently feeds partial data into portfolio calculations produces wrong tax numbers.
+- a single wallet can span tens of thousands of transactions
+- blockchain and exchange adapters page differently
+- long-running imports must survive crashes and retries
+- partial imports must not silently flow into downstream accounting
 
-The pipeline must handle all of these failure modes while remaining simple enough to extend with new data sources.
+The pipeline therefore has to do three things well:
+
+1. sync one existing account deterministically
+2. persist progress per batch
+3. block downstream processing when the latest import is incomplete
 
 ## Design Overview
 
-The import pipeline separates concerns into three layers:
+The modern design separates lifecycle from sync execution:
 
 ```mermaid
 graph TD
-    A[ImportCoordinator] -->|account setup| B[StreamingImportRunner]
-    B -->|creates| C[IImporter]
-    C -->|yields| D["AsyncIterableIterator&lt;Result&lt;Batch, Error&gt;&gt;"]
-    D -->|each batch| E[Persist raw_transactions]
-    E --> F[Update cursor]
-    F --> G{More batches?}
-    G -->|yes| D
-    G -->|complete| H[Finalize session: completed]
-    D -->|error| I[Finalize session: failed]
+    A["CLI / App Layer"] -->|resolve profile + account| B["ImportWorkflow.execute(accountId)"]
+    B --> C["Load account"]
+    C --> D{"Top-level xpub?"}
+    D -->|yes| E["Derive / materialize child accounts"]
+    D -->|no| F["Build importer"]
+    E --> F
+    F --> G["Resume or create import session"]
+    G --> H["Stream raw batches"]
+    H --> I["Persist raw_transactions"]
+    I --> J["Update session totals"]
+    J --> K["Advance cursor"]
+    K --> L{"More batches?"}
+    L -->|yes| H
+    L -->|done| M["Finalize session completed + invalidate projections"]
+    H -->|error| N["Finalize session failed"]
 ```
 
-**ImportCoordinator** handles identity: ensuring a user exists, normalizing addresses, finding or creating the account record, and handling xpub derivation for UTXO chains. It delegates all import execution to StreamingImportRunner.
+The key boundary is deliberate:
 
-**StreamingImportRunner** handles execution: creating the appropriate importer via the adapter registry, managing import sessions (resume or create), iterating batches, persisting raw transactions, and updating cursors.
+- account creation happens before import
+- import never creates user-facing top-level accounts
+- ingestion receives an `accountId` and syncs that account
+- xpub child-account materialization remains internal to ingestion because it is part of sync execution, not user-facing lifecycle
 
-**IImporter** implementations handle data acquisition: each blockchain or exchange adapter yields batches through an async iterator, encapsulating pagination, provider failover, and source-specific normalization.
+## Responsibilities
+
+### App Layer
+
+The CLI or future API composes profile/account lifecycle with ingestion:
+
+- resolve the active or overridden profile
+- resolve a named account or account ID inside that profile
+- call `ImportWorkflow.execute({ accountId })`
+
+Examples:
+
+```bash
+exitbook profiles switch business
+exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
+exitbook import --account kraken-main
+exitbook import --all --profile business
+```
+
+### ImportWorkflow
+
+`ImportWorkflow` owns account-scoped sync execution:
+
+- load account metadata
+- build the correct importer
+- resume or create an import session
+- stream raw batches
+- persist raw transactions
+- update session totals and cursors atomically per batch
+- finalize the session
+- invalidate processed projections after a successful import
+
+### Importers
+
+Adapters implement `IImporter.importStreaming()` and own:
+
+- pagination
+- provider failover / retries
+- source-specific fetch logic
+- source-specific raw normalization
+
+They yield one batch at a time so the workflow stays memory-bounded.
 
 ## Key Design Decisions
 
-### Per-batch cursor persistence, not per-import
+### Account-First Import
 
-**Decision**: Save the cursor to the database after every batch, not once at the end of the import.
+**Decision**: import syncs an existing account only.
 
-**Why**: A 50,000-transaction import might run for 30 minutes. If the process crashes at batch 47, per-batch persistence means the next run resumes at batch 48. The cost is one extra DB write per batch (negligible compared to the API call that produced the batch).
+**Why**: account lifecycle and data sync are different capabilities. By forcing import to start from `accountId`, ingestion no longer has to understand profile ownership, account naming, or top-level account creation rules.
 
-**Alternative considered**: Persist cursor only on successful completion. Simpler, but any crash or network timeout forces a full re-import, wasting API quota and user time.
+### Per-Batch Cursor Persistence
 
-### Cursor merging per operation type
+**Decision**: save the cursor after every committed batch.
 
-**Decision**: Each account stores a cursor map keyed by operation type (`normal`, `internal`, `token`, `ledger`), and updates merge into the existing map rather than replacing it wholesale.
+**Why**: long imports should resume from the last durable batch, not restart from zero after a crash.
 
-**Why**: Blockchain importers run multiple parallel streams (e.g., Ethereum fetches normal transactions, internal transactions, and token transfers as separate operation types). Each stream has independent pagination state. Replacing the entire cursor map when one stream updates would destroy progress on the others.
+### Session Resume Semantics
 
-### Session state machine with resume semantics
+**Decision**: the latest `started` or `failed` session is resumed instead of starting a new session.
 
-**Decision**: Import sessions track status (`started` -> `completed`/`failed`). On the next import attempt, if the latest session is `started` or `failed`, the runner resumes it (resets to `started`, continues accumulating totals) rather than creating a new session.
+**Why**: one session record should represent the full work of syncing an account, even across retries.
 
-**Why**: This gives a single session record that represents "all work to import this account," even if it took three attempts. Session totals (`transactionsImported`, `transactionsSkipped`) accumulate across retries, providing accurate final counts.
+### Incomplete Import Guards
 
-### Incomplete import guards block processing
+**Decision**: downstream processing is blocked unless the latest import session for each relevant account is `completed`.
 
-**Decision**: `TransactionProcessingService.assertNoIncompleteImports()` checks that the latest import session for each account is `completed` before allowing processing to proceed. If any session is `started` or `failed`, processing is blocked with an error.
+**Why**: partial raw history produces wrong accounting outputs. Blocking is safer than silently processing incomplete data.
 
-**Why**: Processing partial data produces incomplete portfolio calculations. If an Ethereum import fetched normal transactions but crashed before fetching token transfers, processing would miss all ERC-20 activity. The guard ensures processing only runs on complete datasets. The error message tells the user exactly what to do: finish or re-run the import.
+### Internal Xpub Child Materialization
 
-**Alternative considered**: Process whatever is available and re-process later. This would require tracking which raw transactions have been processed and which haven't, plus reconciliation logic. The simpler approach is to ensure imports complete before processing begins.
+**Decision**: top-level xpub accounts may create or reuse child account rows during sync.
+
+**Why**: the one-table account model stores both user-facing top-level accounts and internally derived child accounts. The top-level lifecycle boundary remains clean while ingestion still owns derivation details.
 
 ## How It Works
 
-### 1. Orchestration (ImportCoordinator)
+### 1. Resolve The Sync Target
 
-The CLI command calls one of three methods: `importBlockchain()`, `importExchangeApi()`, or `importExchangeCsv()`. Each method:
+The CLI resolves profile scope first, then resolves the target account within that profile:
 
-1. Ensures the default CLI user exists (id=1)
-2. Normalizes the identifier (address normalization for blockchains, path normalization for CSVs)
-3. Finds or creates the account via a unique constraint on `(accountType, sourceName, identifier, userId)`
-4. Delegates to `StreamingImportRunner.importFromSource(account)`
+- `import --account <name>`
+- `import --account-id <id>`
+- `import --all`
 
-For xpub imports, the orchestrator first derives child addresses, creates child accounts, and imports each sequentially.
+`import --all` enumerates top-level named accounts for one profile and runs each sync sequentially.
 
-### 2. Streaming Execution (StreamingImportRunner)
+### 2. Create Or Resume A Session
 
-`executeStreamingImport()` is the core loop:
+For each account:
 
-1. Check for an incomplete session — resume if found, create new if not
-2. Create the appropriate importer from the adapter registry
-3. Iterate `importer.importStreaming(params)`:
-   - Each batch yields `{ rawTransactions, streamType, cursor, isComplete }`
-   - Persist raw transactions via `rawDataQueries.saveBatch()` — duplicates counted as skipped, not errors
-   - Update cursor via `accountQueries.updateCursor(accountId, streamType, cursor)` — failures logged as warnings, import continues
-   - Emit progress events for the dashboard UI
-4. Finalize the session as `completed` or `failed`
+- if the latest session is `started` or `failed`, resume it
+- otherwise create a new `started` session
 
-### 3. Importer Contract (IImporter)
+Session totals (`transactionsImported`, `transactionsSkipped`) accumulate across retries.
 
-Every data source implements the same interface:
+### 3. Stream Batches
 
-```typescript
-importStreaming(params: ImportParams): AsyncIterableIterator<Result<ImportBatchResult, Error>>
-```
+Each importer yields batches containing:
 
-The `Result` wrapper ensures errors are values, not exceptions. A batch error terminates the import cleanly (session marked `failed`) rather than crashing the process. The async iterator ensures only one batch is in memory at a time.
+- `rawTransactions`
+- `streamType`
+- `cursor`
+- `isComplete`
+- optional warnings / provider stats
 
-Each batch includes a `cursor` containing the pagination state needed to resume, and an `isComplete` flag that signals when the source has no more data.
+### 4. Commit Each Batch Atomically
+
+For every successful batch, the workflow commits in one transaction:
+
+1. save raw transactions
+2. update import-session totals
+3. advance the account cursor for that stream
+
+If the commit fails, the session is marked failed and the import stops.
+
+### 5. Finalize And Invalidate
+
+On success:
+
+- finalize the session as `completed`
+- mark processed transactions stale
+- cascade downstream projection invalidation
+
+On failure:
+
+- finalize the session as `failed`
+- keep the latest durable cursor/session state for retry
 
 ## Tradeoffs
 
-**Cursor update failures are tolerated.** If the cursor write fails, the import continues but logs a warning. The next run may re-fetch some overlap, which the deduplication layer handles. This trades occasional redundant work for import reliability — a cursor write failure shouldn't abort an otherwise successful batch.
+### Cursor Writes Are Part Of The Batch Commit
 
-**Sequential child imports for xpubs.** Each derived address is imported one at a time, not in parallel. This is slower but avoids overwhelming API rate limits and simplifies error handling. A single child failure aborts the entire xpub import.
+The current workflow treats cursor advancement as part of the atomic batch commit, not as a best-effort side effect. That is stricter than the older design and avoids mismatch between saved raw data and saved progress.
 
-**No partial processing.** The incomplete import guard is a hard stop. If an import fails, the user must re-run it before processing can proceed. This is deliberate — partial data produces wrong financial calculations — but can be frustrating when the failure was transient.
+### Sequential `import --all`
+
+Batch import runs accounts one at a time.
+
+- simpler rate-limit behavior
+- simpler TUI progress reporting
+- slower than parallel fan-out
+
+### No Top-Level Bootstrap Import
+
+The CLI no longer supports `import --exchange ...` or `import --blockchain ...` as a top-level shortcut.
+
+That keeps one clear path:
+
+1. `accounts add`
+2. `import --account` or `import --all`
 
 ## Key Files
 
-| File                                                                | Role                                                    |
-| ------------------------------------------------------------------- | ------------------------------------------------------- |
-| `packages/ingestion/src/features/import/import-coordinator.ts`      | Public API; account setup, xpub derivation              |
-| `packages/ingestion/src/features/import/streaming-import-runner.ts` | Core streaming loop, session management, crash recovery |
-| `packages/ingestion/src/shared/types/importers.ts`                  | `IImporter` interface and `ImportBatchResult` type      |
-| `packages/ingestion/src/shared/types/adapter-registry.ts`           | Registry for blockchain and exchange adapters           |
-| `packages/ingestion/src/features/process/process-service.ts`        | Processing service with incomplete import guards        |
-| `packages/core/src/schemas/cursor.ts`                               | `CursorState` and `PaginationCursor` schemas            |
+| File                                                        | Role                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| `apps/cli/src/features/import/command/import.ts`            | CLI surface for `import --account`, `--account-id`, `--all`  |
+| `apps/cli/src/features/import/command/run-import.ts`        | CLI orchestration for single-account and batch import runs   |
+| `packages/ingestion/src/features/import/import-workflow.ts` | Capability-owned import execution workflow                   |
+| `packages/data/src/ingestion/import-ports.ts`               | Data adapters for import sessions, raw transactions, cursors |
+| `packages/data/src/projections/projection-invalidation.ts`  | Projection invalidation after successful imports             |

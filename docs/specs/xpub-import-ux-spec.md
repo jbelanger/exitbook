@@ -290,7 +290,7 @@ interface XpubImportFailedEvent {
  */
 interface ImportStartedEvent {
   type: 'import.started';
-  sourceName: string;
+  platformKey: string;
   sourceType: AccountType;
   accountId: number;
   parentAccountId?: number | undefined; // NEW: Present if this is a child of an xpub parent
@@ -331,7 +331,7 @@ interface XpubEmptyWarningEvent {
 // File: packages/ingestion/src/features/import/import-orchestrator.ts
 
 private async importFromXpub(
-  userId: number,
+  accountId: number,
   blockchain: string,
   xpub: string,
   blockchainAdapter: BlockchainAdapter,
@@ -341,18 +341,15 @@ private async importFromXpub(
   const startTime = Date.now();
   const requestedGap = xpubGap ?? getDefaultGap(blockchain);
 
-  // 1. Create parent account
-  const parentAccountResult = await this.accountRepository.findOrCreate({
-    userId,
-    accountType: 'blockchain',
-    sourceName: blockchain,
-    identifier: xpub,
-    providerName,
-    credentials: undefined
-  });
+  // 1. Load the saved top-level account created by `accounts add`
+  const parentAccountResult = await this.accountRepository.getById(accountId);
   if (parentAccountResult.isErr()) return err(parentAccountResult.error);
 
   const parentAccount = parentAccountResult.value;
+  const profileId = parentAccount.profileId;
+  if (profileId === undefined) {
+    return err(new Error('Xpub parent account must belong to a profile'));
+  }
   const parentAlreadyExists = parentAccount.metadata?.xpub !== undefined;
 
   // 2. Check if we need to re-derive
@@ -425,14 +422,26 @@ private async importFromXpub(
         continue;
       }
 
-      const childResult = await this.accountRepository.findOrCreate({
-        userId,
+      const existingChildResult = await this.accountRepository.findBy({
+        profileId,
+        accountType: 'blockchain',
+        platformKey: blockchain,
+        identifier: normalizedResult.value
+      });
+      if (existingChildResult.isErr()) return err(existingChildResult.error);
+
+      if (existingChildResult.value) {
+        childAccounts.push(existingChildResult.value);
+        continue;
+      }
+
+      const childResult = await this.accountRepository.create({
+        profileId,
         parentAccountId: parentAccount.id,
         accountType: 'blockchain',
-        sourceName: blockchain,
+        platformKey: blockchain,
         identifier: normalizedResult.value,
-        providerName,
-        credentials: undefined
+        providerName
       });
 
       if (childResult.isErr()) return err(childResult.error);
@@ -547,7 +556,7 @@ private async executeStreamingImport(
   // Emit import.started with parentAccountId context
   this.eventBus?.emit({
     type: 'import.started',
-    sourceName,
+    platformKey,
     sourceType: account.accountType,
     accountId: account.id,
     parentAccountId: account.parentAccountId,  // NEW: Links to xpub parent if present

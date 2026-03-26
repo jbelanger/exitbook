@@ -3,26 +3,30 @@ export { seedAssetMovementFingerprint, seedFeeMovementFingerprint, seedTxFingerp
 
 import type { KyselyDB } from '../../database.js';
 
-export async function seedUser(db: KyselyDB): Promise<void> {
-  await db.insertInto('users').values({ id: 1, created_at: new Date().toISOString() }).execute();
+export async function seedProfile(db: KyselyDB): Promise<void> {
+  await db
+    .insertInto('profiles')
+    .values({ id: 1, profile_key: 'default', display_name: 'default', created_at: new Date().toISOString() })
+    .execute();
 }
 
 export async function seedAccount(
   db: KyselyDB,
   accountId: number,
   type: string,
-  source: string,
+  platformKey: string,
   options?: {
     parentAccountId?: number | undefined;
+    profileId?: number | undefined;
   }
 ): Promise<void> {
   await db
     .insertInto('accounts')
     .values({
       id: accountId,
-      user_id: 1,
+      profile_id: options?.profileId ?? 1,
       account_type: type,
-      source_name: source,
+      platform_key: platformKey,
       identifier: `identifier-${accountId}`,
       provider_name: null,
       parent_account_id: options?.parentAccountId ?? null,

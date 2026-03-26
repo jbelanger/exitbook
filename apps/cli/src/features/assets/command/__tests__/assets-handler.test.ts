@@ -20,6 +20,10 @@ import {
 } from '../../../shared/asset-review-projection-store.js';
 import { AssetsHandler } from '../assets-handler.js';
 
+const PROFILE_ID = 1;
+const PROFILE_KEY = 'default';
+const OTHER_PROFILE_KEY = 'other';
+
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   createCliAssetReviewProjectionRuntime: vi.fn(),
 }));
@@ -114,11 +118,16 @@ function createMockDb(
     freshnessByScope?: Map<number, { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }>;
   }
 ) {
-  const snapshotRows = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))].map((scopeAccountId) =>
-    createSnapshot(scopeAccountId)
-  );
+  const scopeAccountIds = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))];
+  if (scopeAccountIds.length === 0) {
+    scopeAccountIds.push(1);
+  }
+  const snapshotRows = scopeAccountIds.map((scopeAccountId) => createSnapshot(scopeAccountId));
 
   return {
+    accounts: {
+      findAll: vi.fn().mockResolvedValue(ok(scopeAccountIds.map((id) => ({ id })))),
+    },
     transactions: {
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
     },
@@ -181,10 +190,11 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
   };
 }
 
-function createAssetExcludeEvent(assetId: string): OverrideEvent {
+function createAssetExcludeEvent(assetId: string, profileKey = PROFILE_KEY): OverrideEvent {
   return {
     id: `exclude:${assetId}`,
     created_at: '2026-03-10T10:00:00.000Z',
+    profile_key: profileKey,
     actor: 'user',
     source: 'cli',
     scope: 'asset-exclude',
@@ -199,6 +209,7 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
   return {
     id: `review-confirm:${assetId}`,
     created_at: '2026-03-10T10:05:00.000Z',
+    profile_key: PROFILE_KEY,
     actor: 'user',
     source: 'cli',
     scope: 'asset-review-confirm',
@@ -244,7 +255,12 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'scam', reason: 'junk airdrop' });
+    const result = await handler.exclude({
+      symbol: 'scam',
+      reason: 'junk airdrop',
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
 
     const value = assertOk(result);
     expect(value).toMatchObject({
@@ -254,8 +270,9 @@ describe('AssetsHandler', () => {
       changed: true,
       reason: 'junk airdrop',
     });
-    expect(mockDb.transactions.findAll).toHaveBeenCalledWith({ includeExcluded: true });
+    expect(mockDb.transactions.findAll).toHaveBeenCalledWith({ profileId: PROFILE_ID, includeExcluded: true });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
@@ -285,7 +302,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'USDC' });
+    const result = await handler.exclude({ symbol: 'USDC', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
 
     const error = assertErr(result);
     expect(error.message).toContain("Symbol 'USDC' is ambiguous");
@@ -310,7 +327,11 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.include({ assetId: 'blockchain:ethereum:0xscam' });
+    const result = await handler.include({
+      assetId: 'blockchain:ethereum:0xscam',
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
 
     const value = assertOk(result);
     expect(value.changed).toBe(false);
@@ -336,7 +357,7 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+    mockOverrideStore.readByScopes.mockImplementation((_profileKey: string, scopes: string[]) => {
       if (scopes.includes('asset-exclude')) {
         return Promise.resolve(ok([createAssetExcludeEvent('blockchain:ethereum:0xscam')]));
       }
@@ -350,7 +371,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.listExclusions();
+    const result = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
 
     const value = assertOk(result);
     expect(value.excludedAssets).toEqual([
@@ -375,7 +396,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.listExclusions();
+    const result = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
 
     const error = assertErr(result);
     expect(error.message).toContain('Failed to read asset exclusion override events');
@@ -418,7 +439,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -433,7 +454,7 @@ describe('AssetsHandler', () => {
     const mockDb = createMockDb([]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+    mockOverrideStore.readByScopes.mockImplementation((_profileKey: string, scopes: string[]) => {
       if (scopes.includes('asset-exclude')) {
         return Promise.resolve(ok([createAssetExcludeEvent(orphanExcludedAssetId)]));
       }
@@ -447,14 +468,14 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const viewResult = await handler.view();
+    const viewResult = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const viewValue = assertOk(viewResult);
 
     expect(viewValue.assets).toEqual([]);
     expect(viewValue.excludedCount).toBe(0);
     expect(viewValue.totalCount).toBe(0);
 
-    const exclusionsResult = await handler.listExclusions();
+    const exclusionsResult = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
     const exclusionsValue = assertOk(exclusionsResult);
 
     expect(exclusionsValue.excludedAssets).toEqual([
@@ -487,7 +508,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -511,7 +532,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const error = assertErr(result);
 
     expect(error.message).toContain('Assets view requires fresh balance snapshots');
@@ -532,7 +553,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const error = assertErr(result);
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
@@ -553,12 +574,13 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'dust' });
+    const result = await handler.exclude({ symbol: 'dust', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assetId).toBe(assetId);
     expect(value.assetSymbols).toEqual(['DUST']);
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'asset-exclude',
       payload: {
         type: 'asset_exclude',
@@ -619,7 +641,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -640,7 +662,7 @@ describe('AssetsHandler', () => {
     ]);
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(true);
-    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+    mockOverrideStore.readByScopes.mockImplementation((_profileKey: string, scopes: string[]) => {
       if (scopes.includes('asset-exclude')) {
         return Promise.resolve(ok([createAssetExcludeEvent(blockedAssetId)]));
       }
@@ -666,13 +688,48 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toEqual([]);
     expect(value.actionRequiredCount).toBe(0);
     expect(value.excludedCount).toBe(1);
     expect(value.totalCount).toBe(1);
+  });
+
+  it('ignores exclusions written for a different profile', async () => {
+    const blockedAssetId = 'blockchain:ethereum:0xscam';
+    const mockDb = createMockDb([
+      createTransaction({
+        id: 1,
+        inflows: [{ assetId: blockedAssetId, assetSymbol: 'SCAM', amount: '100' }],
+      }),
+    ]);
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.readByScopes.mockImplementation((profileKey: string, scopes: string[]) => {
+      if (profileKey === OTHER_PROFILE_KEY && scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent(blockedAssetId, OTHER_PROFILE_KEY)]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+
+    const handler = new AssetsHandler(
+      mockDb as unknown as DataSession,
+      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
+      '/tmp/test-data'
+    );
+
+    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const value = assertOk(result);
+
+    expect(value.assets).toHaveLength(1);
+    expect(value.assets[0]).toMatchObject({
+      assetId: blockedAssetId,
+      excluded: false,
+    });
+    expect(value.excludedCount).toBe(0);
   });
 
   it('writes an asset-review-confirm event for a suspicious asset', async () => {
@@ -712,7 +769,12 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.confirmReview({ assetId: scamAssetId, reason: 'intentional contract' });
+    const result = await handler.confirmReview({
+      assetId: scamAssetId,
+      reason: 'intentional contract',
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
     const value = assertOk(result);
 
     expect(value).toMatchObject({
@@ -724,6 +786,7 @@ describe('AssetsHandler', () => {
       confirmationIsStale: false,
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'asset-review-confirm',
       payload: {
         type: 'asset_review_confirm',
@@ -732,7 +795,11 @@ describe('AssetsHandler', () => {
       },
       reason: 'intentional contract',
     });
-    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(expect.anything(), 'override:asset-review-confirm');
+    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(
+      expect.anything(),
+      PROFILE_ID,
+      'override:asset-review-confirm'
+    );
   });
 
   it('writes an asset-review-clear event and reopens the asset to needs-review', async () => {
@@ -751,7 +818,7 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
-    mockOverrideStore.readByScopes.mockImplementation((scopes: string[]) => {
+    mockOverrideStore.readByScopes.mockImplementation((_profileKey: string, scopes: string[]) => {
       if (scopes.includes('asset-review-confirm')) {
         return Promise.resolve(ok([createAssetReviewConfirmEvent(scamAssetId, 'asset-review:v1:fingerprint-1')]));
       }
@@ -777,7 +844,12 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.clearReview({ assetId: scamAssetId, reason: 'reopen review' });
+    const result = await handler.clearReview({
+      assetId: scamAssetId,
+      reason: 'reopen review',
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
     const value = assertOk(result);
 
     expect(value).toMatchObject({
@@ -788,6 +860,7 @@ describe('AssetsHandler', () => {
       evidenceFingerprint: 'asset-review:v1:fingerprint-1',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'asset-review-clear',
       payload: {
         type: 'asset_review_clear',
@@ -795,6 +868,10 @@ describe('AssetsHandler', () => {
       },
       reason: 'reopen review',
     });
-    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(expect.anything(), 'override:asset-review-clear');
+    expect(invalidateAssetReviewProjection).toHaveBeenCalledWith(
+      expect.anything(),
+      PROFILE_ID,
+      'override:asset-review-clear'
+    );
   });
 });

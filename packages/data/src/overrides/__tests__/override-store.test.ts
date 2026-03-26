@@ -2,11 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
+import type { CreateOverrideEventOptions, LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { OverrideStore } from '../override-store.js';
+
+const DEFAULT_PROFILE_KEY = 'default';
 
 function createTxFingerprint(seed: string): string {
   return seed.repeat(32).slice(0, 64);
@@ -35,6 +37,13 @@ describe('OverrideStore', () => {
   let tempDir: string;
   let store: OverrideStore;
 
+  async function appendOverride(
+    options: Omit<CreateOverrideEventOptions, 'profileKey'>,
+    profileKey = DEFAULT_PROFILE_KEY
+  ) {
+    return store.append({ profileKey, ...options });
+  }
+
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'override-store-test-'));
     store = new OverrideStore(tempDir);
@@ -50,7 +59,7 @@ describe('OverrideStore', () => {
     it('should append a link override event', async () => {
       const payload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
-      const result = await store.append({
+      const result = await appendOverride({
         scope: 'link',
         payload,
         reason: 'Test link confirmation',
@@ -65,6 +74,7 @@ describe('OverrideStore', () => {
         expect(event.actor).toBe('user');
         expect(event.source).toBe('cli');
         expect(event.scope).toBe('link');
+        expect(event.profile_key).toBe(DEFAULT_PROFILE_KEY);
         expect(event.reason).toBe('Test link confirmation');
         expect(event.payload).toEqual(payload);
       }
@@ -80,7 +90,7 @@ describe('OverrideStore', () => {
         timestamp: '2024-01-15T14:30:00Z',
       };
 
-      const result = await store.append({
+      const result = await appendOverride({
         scope: 'price',
         payload,
       });
@@ -95,7 +105,7 @@ describe('OverrideStore', () => {
     });
 
     it('should append an asset review confirm event', async () => {
-      const result = await store.append({
+      const result = await appendOverride({
         scope: 'asset-review-confirm',
         payload: {
           type: 'asset_review_confirm',
@@ -121,7 +131,7 @@ describe('OverrideStore', () => {
 
     it('should reject mismatched scope and payload type', async () => {
       // Attempt to write a price_override payload with scope 'link'
-      const result = await store.append({
+      const result = await appendOverride({
         scope: 'link',
         payload: {
           type: 'price_override',
@@ -141,7 +151,7 @@ describe('OverrideStore', () => {
 
       const payload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
-      const result = await store.append({
+      const result = await appendOverride({
         scope: 'link',
         payload,
       });
@@ -157,7 +167,7 @@ describe('OverrideStore', () => {
         .spyOn(store as unknown as { appendImpl: (options: unknown) => Promise<unknown> }, 'appendImpl')
         .mockRejectedValueOnce(new Error('simulated append failure'));
 
-      const firstResult = await store.append({
+      const firstResult = await appendOverride({
         scope: 'link',
         payload,
       });
@@ -169,7 +179,7 @@ describe('OverrideStore', () => {
 
       appendImplSpy.mockRestore();
 
-      const secondResult = await store.append({
+      const secondResult = await appendOverride({
         scope: 'link',
         payload,
       });
@@ -203,9 +213,9 @@ describe('OverrideStore', () => {
 
       const payload3 = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'ETH');
 
-      await store.append({ scope: 'link', payload: payload1 });
-      await store.append({ scope: 'price', payload: payload2 });
-      await store.append({ scope: 'link', payload: payload3 });
+      await appendOverride({ scope: 'link', payload: payload1 });
+      await appendOverride({ scope: 'price', payload: payload2 });
+      await appendOverride({ scope: 'link', payload: payload3 });
 
       const result = await store.readAll();
 
@@ -225,8 +235,8 @@ describe('OverrideStore', () => {
 
       const payload2 = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'ETH');
 
-      const first = await store.append({ scope: 'link', payload: payload1 });
-      const second = await store.append({ scope: 'link', payload: payload2 });
+      const first = await appendOverride({ scope: 'link', payload: payload1 });
+      const second = await appendOverride({ scope: 'link', payload: payload2 });
 
       expect(first.isOk()).toBe(true);
       expect(second.isOk()).toBe(true);
@@ -255,11 +265,11 @@ describe('OverrideStore', () => {
         timestamp: '2024-01-15T14:30:00Z',
       };
 
-      await store.append({ scope: 'link', payload: linkPayload });
-      await store.append({ scope: 'price', payload: pricePayload });
-      await store.append({ scope: 'link', payload: linkPayload });
+      await appendOverride({ scope: 'link', payload: linkPayload });
+      await appendOverride({ scope: 'price', payload: pricePayload });
+      await appendOverride({ scope: 'link', payload: linkPayload });
 
-      const result = await store.readByScope('link');
+      const result = await store.readByScope(DEFAULT_PROFILE_KEY, 'link');
 
       expect(result.isOk()).toBe(true);
 
@@ -272,10 +282,10 @@ describe('OverrideStore', () => {
 
     it('should query scope directly without delegating to readAll', async () => {
       const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
-      await store.append({ scope: 'link', payload: linkPayload });
+      await appendOverride({ scope: 'link', payload: linkPayload });
 
       const readAllSpy = vi.spyOn(store, 'readAll');
-      const result = await store.readByScope('link');
+      const result = await store.readByScope(DEFAULT_PROFILE_KEY, 'link');
 
       expect(result.isOk()).toBe(true);
       expect(readAllSpy).not.toHaveBeenCalled();
@@ -297,18 +307,18 @@ describe('OverrideStore', () => {
         timestamp: '2024-01-15T14:30:00Z',
       };
 
-      await store.append({ scope: 'link', payload: linkPayload });
-      await store.append({ scope: 'price', payload: pricePayload });
-      await store.append({
+      await appendOverride({ scope: 'link', payload: linkPayload });
+      await appendOverride({ scope: 'price', payload: pricePayload });
+      await appendOverride({
         scope: 'unlink',
         payload: {
           type: 'unlink_override',
           resolved_link_fingerprint: `resolved-link:v1:movement:${sourceFingerprint}:outflow:0:movement:${targetFingerprint}:inflow:0:test:btc:test:btc`,
         },
       });
-      await store.append({ scope: 'link', payload: otherLinkPayload });
+      await appendOverride({ scope: 'link', payload: otherLinkPayload });
 
-      const result = await store.readByScopes(['link', 'unlink']);
+      const result = await store.readByScopes(DEFAULT_PROFILE_KEY, ['link', 'unlink']);
 
       expect(result.isOk()).toBe(true);
 
@@ -321,8 +331,8 @@ describe('OverrideStore', () => {
     it('should read asset review scopes alongside other overrides in append order', async () => {
       const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
 
-      await store.append({ scope: 'link', payload: linkPayload });
-      await store.append({
+      await appendOverride({ scope: 'link', payload: linkPayload });
+      await appendOverride({
         scope: 'asset-review-confirm',
         payload: {
           type: 'asset_review_confirm',
@@ -330,7 +340,7 @@ describe('OverrideStore', () => {
           evidence_fingerprint: 'asset-review:v1:abc123',
         },
       });
-      await store.append({
+      await appendOverride({
         scope: 'asset-review-clear',
         payload: {
           type: 'asset_review_clear',
@@ -338,7 +348,11 @@ describe('OverrideStore', () => {
         },
       });
 
-      const result = await store.readByScopes(['link', 'asset-review-confirm', 'asset-review-clear']);
+      const result = await store.readByScopes(DEFAULT_PROFILE_KEY, [
+        'link',
+        'asset-review-confirm',
+        'asset-review-clear',
+      ]);
 
       expect(result.isOk()).toBe(true);
 

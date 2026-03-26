@@ -9,6 +9,7 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { PromptFlow, type PromptStep } from '../../../ui/shared/prompt-flow.jsx';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -121,6 +122,7 @@ export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAp
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')
@@ -146,7 +148,21 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
 
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runLinks(ctx, { isJsonMode: true }, params);
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const result = await runLinks(
+        ctx,
+        {
+          isJsonMode: true,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -180,7 +196,21 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
     }
 
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runLinks(ctx, { isJsonMode: false }, params);
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
+      const result = await runLinks(
+        ctx,
+        {
+          isJsonMode: false,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

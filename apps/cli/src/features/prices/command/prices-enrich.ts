@@ -12,6 +12,7 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -27,6 +28,7 @@ export function registerPricesEnrichCommand(pricesCommand: Command, appRuntime: 
   pricesCommand
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--on-missing <behavior>', 'How to handle missing prices: fail (abort on first error)')
     .option('--normalize-only', 'Only run FX rates stage')
@@ -54,18 +56,36 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
   };
 
   if (format === 'json') {
-    await executePricesEnrichJSON(params, appRuntime);
+    await executePricesEnrichJSON(params, options.profile, appRuntime);
   } else {
-    await executePricesEnrichTUI(params, appRuntime);
+    await executePricesEnrichTUI(params, options.profile, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
+async function executePricesEnrichJSON(
+  params: PricesEnrichOptions,
+  profile: string | undefined,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runPricesEnrich(ctx, { isJsonMode: true }, params);
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, profile);
+      if (profileResult.isErr()) {
+        displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const result = await runPricesEnrich(
+        ctx,
+        {
+          isJsonMode: true,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -84,10 +104,28 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: 
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
+async function executePricesEnrichTUI(
+  params: PricesEnrichOptions,
+  profile: string | undefined,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runPricesEnrich(ctx, { isJsonMode: false }, params);
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, profile);
+      if (profileResult.isErr()) {
+        displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
+      const result = await runPricesEnrich(
+        ctx,
+        {
+          isJsonMode: false,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        },
+        params
+      );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

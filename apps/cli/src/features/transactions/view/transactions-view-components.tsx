@@ -654,8 +654,9 @@ const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state })
         <Box flexDirection="column">
           <Text>{'  '}No transactions found.</Text>
           <Text> </Text>
-          <Text>{'  '}Import transactions first:</Text>
-          <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+          <Text>{'  '}Add an account, then sync it:</Text>
+          <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
+          <Text dimColor>{'  '}exitbook import --account kucoin-main</Text>
         </Box>
       ) : filters.noPriceFilter ? (
         <Text>{'  '}All transactions have price data.</Text>

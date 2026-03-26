@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
@@ -17,6 +18,10 @@ import { TransactionsViewCommandOptionsSchema } from './transactions-option-sche
 import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import { generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
+
+interface ViewTransactionsCommandParams extends ViewTransactionsParams {
+  profile?: string | undefined;
+}
 
 /**
  * Result data for view transactions command (JSON mode).
@@ -38,6 +43,7 @@ Examples:
   $ exitbook transactions view --limit 100                # View latest 100 transactions
   $ exitbook transactions view --asset BTC                # View Bitcoin transactions only
   $ exitbook transactions view --source kraken            # View Kraken transactions
+  $ exitbook transactions view --profile business         # View transactions for one profile
   $ exitbook transactions view --since 2024-01-01         # View transactions from Jan 2024
   $ exitbook transactions view --operation-type trade     # View trades only
   $ exitbook transactions view --no-price                 # Find transactions missing price data
@@ -49,6 +55,7 @@ Common Usage:
   - Verify imported data accuracy
 `
     )
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Filter by exchange or blockchain name')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH)')
     .option('--since <date>', 'Filter by date (ISO 8601 format, e.g., 2024-01-01)')
@@ -81,7 +88,8 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
   const isJsonMode = options.json ?? false;
 
   // Build params from options
-  const params: ViewTransactionsParams = {
+  const params: ViewTransactionsCommandParams = {
+    profile: options.profile,
     source: options.source,
     assetSymbol: options.asset,
     since: options.since,
@@ -101,10 +109,16 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
 /**
  * Execute transactions view in TUI mode
  */
-async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promise<void> {
+async function executeTransactionsViewTUI(params: ViewTransactionsCommandParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        console.error('\n⚠ Error:', profileResult.error.message);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
 
       const sinceResult = parseSinceToUnixSeconds(params.since);
       if (sinceResult.isErr()) {
@@ -115,7 +129,8 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        sourceName: params.source,
+        profileId: profileResult.value.id,
+        platformKey: params.source,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -150,7 +165,8 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
           const outputPath = generateDefaultPath(viewFilters, format);
 
           const result = await exportHandler.execute({
-            sourceName: params.source,
+            profileId: profileResult.value.id,
+            platformKey: params.source,
             format,
             csvFormat,
             outputPath,
@@ -200,10 +216,15 @@ async function executeTransactionsViewTUI(params: ViewTransactionsParams): Promi
 /**
  * Execute transactions view in JSON mode
  */
-async function executeTransactionsViewJSON(params: ViewTransactionsParams): Promise<void> {
+async function executeTransactionsViewJSON(params: ViewTransactionsCommandParams): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      if (profileResult.isErr()) {
+        displayCliError('view-transactions', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+        return;
+      }
 
       const sinceResult = parseSinceToUnixSeconds(params.since);
       if (sinceResult.isErr()) {
@@ -213,7 +234,8 @@ async function executeTransactionsViewJSON(params: ViewTransactionsParams): Prom
 
       const transactionsResult = await readTransactionsForCommand({
         db: database,
-        sourceName: params.source,
+        profileId: profileResult.value.id,
+        platformKey: params.source,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -265,11 +287,12 @@ function parseSinceToUnixSeconds(since: string | undefined): Result<number | und
  */
 function handleViewTransactionsJSON(
   viewItems: TransactionViewItem[],
-  params: ViewTransactionsParams,
+  params: ViewTransactionsCommandParams,
   totalCount: number
 ): void {
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
+  if (params.profile) filters['profile'] = params.profile;
   if (params.source) filters['source'] = params.source;
   if (params.assetSymbol) filters['asset'] = params.assetSymbol;
   if (params.since) filters['since'] = params.since;

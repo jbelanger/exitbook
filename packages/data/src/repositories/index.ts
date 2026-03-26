@@ -9,4 +9,4 @@ export { ProjectionStateRepository } from './projection-state-repository.js';
 export { RawTransactionRepository } from './raw-transaction-repository.js';
 export { TransactionLinkRepository } from './transaction-link-repository.js';
 export { TransactionRepository } from './transaction-repository.js';
-export { UserRepository } from './user-repository.js';
+export { ProfileRepository } from './profile-repository.js';

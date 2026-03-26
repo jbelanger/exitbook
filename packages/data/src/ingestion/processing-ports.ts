@@ -1,4 +1,5 @@
-import { resultDoAsync } from '@exitbook/foundation';
+import type { TransactionMaterializationScope } from '@exitbook/core';
+import { err, resultDoAsync } from '@exitbook/foundation';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
@@ -6,6 +7,58 @@ import type { OverrideStore } from '../overrides/override-store.js';
 import { materializeStoredTransactionNoteOverrides } from '../overrides/transaction-note-replay.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 import { computeAccountHash } from '../utils/account-hash.js';
+
+async function materializeProfileScopedTransactionNotes(
+  db: DataSession,
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  scope: TransactionMaterializationScope
+): Promise<import('@exitbook/foundation').Result<number, Error>> {
+  return resultDoAsync(async function* () {
+    const profiles = yield* await db.profiles.list();
+    const profileKeyById = new Map(profiles.map((profile) => [profile.id, profile.profileKey]));
+
+    const scopedAccountIdsByProfileKey = new Map<string, number[]>();
+    if (scope.accountIds) {
+      for (const accountId of scope.accountIds) {
+        const account = yield* await db.accounts.findById(accountId);
+        if (account?.profileId === undefined) {
+          continue;
+        }
+
+        const profileKey = profileKeyById.get(account.profileId);
+        if (!profileKey) {
+          return yield* err(
+            new Error(`Profile key not found for account ${accountId} and profile ${String(account.profileId)}`)
+          );
+        }
+
+        const accountIds = scopedAccountIdsByProfileKey.get(profileKey) ?? [];
+        accountIds.push(accountId);
+        scopedAccountIdsByProfileKey.set(profileKey, accountIds);
+      }
+    } else {
+      for (const profile of profiles) {
+        scopedAccountIdsByProfileKey.set(profile.profileKey, []);
+      }
+    }
+
+    let updatedCount = 0;
+    for (const [profileKey, accountIds] of scopedAccountIdsByProfileKey) {
+      const materializeResult = yield* await materializeStoredTransactionNoteOverrides(
+        db.transactions,
+        overrideStore,
+        profileKey,
+        {
+          ...scope,
+          ...(scope.accountIds ? { accountIds } : {}),
+        }
+      );
+      updatedCount += materializeResult;
+    }
+
+    return updatedCount;
+  });
+}
 
 /**
  * Bridges DataSession repositories to ingestion's ProcessingPorts.
@@ -54,16 +107,16 @@ export function buildProcessingPorts(
     accountLookup: {
       getAccountInfo: (accountId) => db.accounts.getById(accountId),
 
-      getUserAddresses: (userId, blockchain) =>
+      getProfileAddresses: (profileId, blockchain) =>
         resultDoAsync(async function* () {
-          const accounts = yield* await db.accounts.findAll({ userId });
-          return accounts.filter((account) => account.sourceName === blockchain).map((account) => account.identifier);
+          const accounts = yield* await db.accounts.findAll({ profileId });
+          return accounts.filter((account) => account.platformKey === blockchain).map((account) => account.identifier);
         }),
     },
 
     transactionNotes: {
       materializeStoredNotes: (scope) =>
-        materializeStoredTransactionNoteOverrides(db.transactions, options.overrideStore, scope),
+        materializeProfileScopedTransactionNotes(db, options.overrideStore, scope ?? {}),
     },
 
     importSessionLookup: {

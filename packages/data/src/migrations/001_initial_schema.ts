@@ -2,21 +2,29 @@ import { sql } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-  // Create users table
+  // Create profiles table
   await db.schema
-    .createTable('users')
+    .createTable('profiles')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('profile_key', 'text', (col) => col.notNull())
+    .addColumn('display_name', 'text', (col) => col.notNull())
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_profiles_profile_key_unique
+    ON profiles (profile_key)
+  `.execute(db);
 
   // Create accounts table
   await db.schema
     .createTable('accounts')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('user_id', 'integer', (col) => col.references('users.id'))
+    .addColumn('profile_id', 'integer', (col) => col.references('profiles.id'))
+    .addColumn('name', 'text')
     .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
-    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('identifier', 'text', (col) => col.notNull()) // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
@@ -28,16 +36,31 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'accounts_account_type_valid',
       sql`account_type IN ('blockchain', 'exchange-api', 'exchange-csv')`
     )
+    .addCheckConstraint('accounts_child_name_null', sql`parent_account_id IS NULL OR name IS NULL`)
     .addCheckConstraint('accounts_credentials_json_valid', sql`credentials IS NULL OR json_valid(credentials)`)
     .addCheckConstraint('accounts_last_cursor_json_valid', sql`last_cursor IS NULL OR json_valid(last_cursor)`)
     .addCheckConstraint('accounts_metadata_json_valid', sql`metadata IS NULL OR json_valid(metadata)`)
     .execute();
 
-  // Create unique index on accounts to prevent duplicate accounts
-  // Using raw SQL because the index includes expressions (COALESCE for nullable user_id)
+  // Blockchain and child-account identity stays keyed by account type + platform + identifier.
   await sql`
-    CREATE UNIQUE INDEX idx_accounts_unique
-    ON accounts (account_type, source_name, identifier, COALESCE(user_id, 0))
+    CREATE UNIQUE INDEX idx_accounts_unique_non_exchange_identity
+    ON accounts (account_type, platform_key, identifier, COALESCE(profile_id, 0))
+    WHERE NOT (account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL)
+  `.execute(db);
+
+  // Top-level exchange identity is profile + platform. API keys and CSV paths are
+  // mutable config, not canonical identity.
+  await sql`
+    CREATE UNIQUE INDEX idx_accounts_unique_exchange_top_level
+    ON accounts (platform_key, COALESCE(profile_id, 0))
+    WHERE account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounts_top_level_name_unique
+    ON accounts (COALESCE(profile_id, 0), lower(name))
+    WHERE name IS NOT NULL AND parent_account_id IS NULL
   `.execute(db);
 
   // Create index on parent_account_id for efficient child account queries (xpub hierarchies)
@@ -118,7 +141,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('transactions')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
-    .addColumn('source_name', 'text', (col) => col.notNull())
+    .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('source_type', 'text', (col) => col.notNull())
     .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
@@ -341,7 +364,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   // Create indexes for transaction_links
   await db.schema
-    .createIndex('idx_tx_links_source_name')
+    .createIndex('idx_tx_links_platform_key')
     .on('transaction_links')
     .column('source_transaction_id')
     .execute();
@@ -522,7 +545,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('asset_review_state')
-    .addColumn('asset_id', 'text', (col) => col.primaryKey())
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id').onDelete('cascade'))
+    .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('review_status', 'text', (col) => col.notNull())
     .addColumn('reference_status', 'text', (col) => col.notNull())
     .addColumn('warning_summary', 'text')
@@ -539,24 +563,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'asset_review_state_reference_status_valid',
       sql`reference_status IN ('matched', 'unmatched', 'unknown')`
     )
+    .addPrimaryKeyConstraint('asset_review_state_pk', ['profile_id', 'asset_id'])
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_state_review_status')
+    .createIndex('idx_asset_review_state_profile_review_status')
     .on('asset_review_state')
-    .column('review_status')
+    .columns(['profile_id', 'review_status'])
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_state_accounting_blocked')
+    .createIndex('idx_asset_review_state_profile_accounting_blocked')
     .on('asset_review_state')
-    .column('accounting_blocked')
+    .columns(['profile_id', 'accounting_blocked'])
     .execute();
 
   await db.schema
     .createTable('asset_review_evidence')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('asset_id', 'text', (col) => col.notNull().references('asset_review_state.asset_id').onDelete('cascade'))
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id').onDelete('cascade'))
+    .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('position', 'integer', (col) => col.notNull())
     .addColumn('kind', 'text', (col) => col.notNull())
     .addColumn('severity', 'text', (col) => col.notNull())
@@ -571,19 +597,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'asset_review_evidence_metadata_json_valid',
       sql`metadata_json IS NULL OR json_valid(metadata_json)`
     )
+    .addForeignKeyConstraint(
+      'asset_review_evidence_profile_asset_fk',
+      ['profile_id', 'asset_id'],
+      'asset_review_state',
+      ['profile_id', 'asset_id'],
+      (cb) => cb.onDelete('cascade')
+    )
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_evidence_asset_position')
+    .createIndex('idx_asset_review_evidence_profile_asset_position')
     .on('asset_review_evidence')
-    .columns(['asset_id', 'position'])
+    .columns(['profile_id', 'asset_id', 'position'])
     .unique()
     .execute();
 
   await db.schema
-    .createIndex('idx_asset_review_evidence_asset_id')
+    .createIndex('idx_asset_review_evidence_profile_asset_id')
     .on('asset_review_evidence')
-    .column('asset_id')
+    .columns(['profile_id', 'asset_id'])
     .execute();
 
   await db.schema.createIndex('idx_asset_review_evidence_kind').on('asset_review_evidence').column('kind').execute();
@@ -608,7 +641,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
-  // Drop accounts and users tables
+  // Drop accounts and profiles tables
   await db.schema.dropTable('accounts').execute();
-  await db.schema.dropTable('users').execute();
+  await db.schema.dropTable('profiles').execute();
 }

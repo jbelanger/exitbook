@@ -90,6 +90,22 @@ export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumenta
 
   return (
     <Box flexDirection="column">
+      <IngestionMonitorSections state={state} />
+
+      {/* API calls footer */}
+      <ApiFooter
+        total={state.apiCalls.total}
+        byProvider={state.apiCalls.byProvider}
+        isComplete={state.isComplete}
+        overallDurationMs={state.totalDurationMs}
+      />
+    </Box>
+  );
+};
+
+export const IngestionMonitorSections: FC<{ state: IngestionMonitorState }> = ({ state }) => {
+  return (
+    <>
       {/* Blank line before first operation */}
       <Text> </Text>
 
@@ -130,15 +146,7 @@ export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumenta
 
       {/* Completion status */}
       {state.isComplete && <CompletionSection state={state} />}
-
-      {/* API calls footer */}
-      <ApiFooter
-        total={state.apiCalls.total}
-        byProvider={state.apiCalls.byProvider}
-        isComplete={state.isComplete}
-        overallDurationMs={state.totalDurationMs}
-      />
-    </Box>
+    </>
   );
 };
 

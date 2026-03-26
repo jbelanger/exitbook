@@ -4,10 +4,12 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
+import { ensureProcessedTransactionsReady } from '../../shared/projection-readiness.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
@@ -22,6 +24,7 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
     .command('view')
     .description('View stored balance snapshots without calling live providers')
     .option('--account-id <id>', 'View a specific balance scope', parseInt)
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -29,13 +32,15 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
 Examples:
   $ exitbook balance view
   $ exitbook balance view --account-id 5
+  $ exitbook balance view --profile business
   $ exitbook balance view --json
 
 Notes:
   - Reads stored balance snapshots only.
-  - Builds the initial stored snapshot automatically if it has never been created.
+  - Reprocesses derived transactions automatically if they are missing or stale.
+  - Rebuilds stored calculated snapshots automatically when they are missing or stale.
   - Does not fetch live balances.
-  - If the snapshot is stale, use "exitbook balance refresh" to rebuild it.
+  - Use "exitbook balance refresh" when you want live verification.
 `
     )
     .action((rawOptions: unknown) => executeBalanceViewCommand(rawOptions, appRuntime));
@@ -53,20 +58,37 @@ async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliApp
 async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('balance-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const readyResult = await ensureProcessedTransactionsReady(ctx, {
+        isJsonMode: true,
+        profileId: profileResult.value.id,
+      });
+      if (readyResult.isErr()) {
+        displayCliError('balance-view', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) {
         displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
       const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({
+        accountId: options.accountId,
+        profileId: profileResult.value.id,
+      });
       if (result.isErr()) {
         displayCliError('balance-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
       const accountsData = result.value.accounts.map((item) => ({
         accountId: item.account.id,
-        sourceName: item.account.sourceName,
+        platformKey: item.account.platformKey,
         accountType: item.account.accountType,
         snapshot: {
           verificationStatus: item.snapshot.verificationStatus,
@@ -77,7 +99,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
         ...(item.requestedAccount && {
           requestedAccount: {
             id: item.requestedAccount.id,
-            sourceName: item.requestedAccount.sourceName,
+            platformKey: item.requestedAccount.platformKey,
             accountType: item.requestedAccount.accountType,
           },
         }),
@@ -95,7 +117,10 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
         {
           totalAccounts: result.value.accounts.length,
           mode: 'view',
-          filters: options.accountId ? { accountId: options.accountId } : {},
+          filters: {
+            ...(options.accountId ? { accountId: options.accountId } : {}),
+            ...(options.profile ? { profile: options.profile } : {}),
+          },
         }
       );
     });
@@ -112,11 +137,24 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
 async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: false });
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) throw profileResult.error;
+
+      const readyResult = await ensureProcessedTransactionsReady(ctx, {
+        isJsonMode: false,
+        profileId: profileResult.value.id,
+      });
+      if (readyResult.isErr()) throw readyResult.error;
+
+      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
       if (handlerResult.isErr()) throw handlerResult.error;
 
       const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({ accountId: options.accountId });
+      const result = await handler.viewStoredSnapshots({
+        accountId: options.accountId,
+        profileId: profileResult.value.id,
+      });
       if (result.isErr()) throw result.error;
 
       await ctx.closeDatabase();
@@ -128,7 +166,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRunt
         const initialState = createBalanceStoredSnapshotAssetState(
           {
             accountId: item.account.id,
-            sourceName: item.account.sourceName,
+            platformKey: item.account.platformKey,
             accountType: item.account.accountType,
             verificationStatus: item.snapshot.verificationStatus,
             statusReason: item.snapshot.statusReason,

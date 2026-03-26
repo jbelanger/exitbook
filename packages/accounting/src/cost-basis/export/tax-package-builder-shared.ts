@@ -35,24 +35,24 @@ export function buildAccountLabeler(context: TaxPackageBuildContext): (accountId
       return err(new Error(`Missing account ${accountId} while rendering tax package`));
     }
 
-    return ok(formatAccountLabel(account, sourceNameCounts.get(account.sourceName) ?? 0));
+    return ok(formatAccountLabel(account, sourceNameCounts.get(account.platformKey) ?? 0));
   };
 }
 
 export function countAccountsBySourceName(context: TaxPackageBuildContext): Map<string, number> {
   const counts = new Map<string, number>();
   for (const account of context.sourceContext.accountsById.values()) {
-    counts.set(account.sourceName, (counts.get(account.sourceName) ?? 0) + 1);
+    counts.set(account.platformKey, (counts.get(account.platformKey) ?? 0) + 1);
   }
   return counts;
 }
 
 function formatAccountLabel(account: Account, sourceNameCount: number): string {
   if (sourceNameCount <= 1) {
-    return account.sourceName;
+    return account.platformKey;
   }
 
-  return `${account.sourceName} (${account.identifier})`;
+  return `${account.platformKey} (${account.identifier})`;
 }
 
 export function buildArtifactIndex(
@@ -153,7 +153,7 @@ export function appendSourceLinkRows(
       package_artifact: params.packageArtifact,
       source_type: transactionResult.value.sourceType,
       source_venue_label: transactionResult.value.source,
-      source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.sourceName) ?? 0),
+      source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.platformKey) ?? 0),
       tx_fingerprint: transactionResult.value.txFingerprint,
       source_url: '',
     };

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../data-session.js';
 import type { KyselyDB } from '../database.js';
-import { seedUser } from '../repositories/__tests__/helpers.js';
+import { seedProfile } from '../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../utils/test-utils.js';
 
 describe('DataSession', () => {
@@ -14,7 +14,7 @@ describe('DataSession', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {
@@ -28,7 +28,7 @@ describe('DataSession', () => {
     expect(ctx.transactionLinks).toBeDefined();
     expect(ctx.rawTransactions).toBeDefined();
     expect(ctx.importSessions).toBeDefined();
-    expect(ctx.users).toBeDefined();
+    expect(ctx.profiles).toBeDefined();
     expect(ctx.nearRawTransactions).toBeDefined();
     expect(ctx.projectionState).toBeDefined();
   });
@@ -38,10 +38,10 @@ describe('DataSession', () => {
       const result = assertOk(
         await ctx.executeInTransaction(async (tx) => {
           assertOk(
-            await tx.accounts.findOrCreate({
-              userId: 1,
+            await tx.accounts.create({
+              profileId: 1,
               accountType: 'blockchain',
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               identifier: 'bc1q-test',
             })
           );
@@ -60,10 +60,10 @@ describe('DataSession', () => {
     it('rolls back on err result', async () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
-          await tx.accounts.findOrCreate({
-            userId: 1,
+          await tx.accounts.create({
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-rollback',
           })
         );
@@ -81,10 +81,10 @@ describe('DataSession', () => {
     it('rolls back on thrown exception', async () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
-          await tx.accounts.findOrCreate({
-            userId: 1,
+          await tx.accounts.create({
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-throw',
           })
         );
@@ -102,10 +102,10 @@ describe('DataSession', () => {
         await ctx.executeInTransaction(async (outerTx) => {
           // Create account in outer transaction
           assertOk(
-            await outerTx.accounts.findOrCreate({
-              userId: 1,
+            await outerTx.accounts.create({
+              profileId: 1,
               accountType: 'blockchain',
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               identifier: 'bc1q-outer',
             })
           );
@@ -114,10 +114,10 @@ describe('DataSession', () => {
           const innerResult = assertOk(
             await outerTx.executeInTransaction(async (innerTx) => {
               assertOk(
-                await innerTx.accounts.findOrCreate({
-                  userId: 1,
+                await innerTx.accounts.create({
+                  profileId: 1,
                   accountType: 'exchange-api',
-                  sourceName: 'kraken',
+                  platformKey: 'kraken',
                   identifier: 'api-key-inner',
                 })
               );
@@ -140,10 +140,10 @@ describe('DataSession', () => {
     it('inner err in nested transaction propagates to outer', async () => {
       const result = await ctx.executeInTransaction(async (outerTx) => {
         assertOk(
-          await outerTx.accounts.findOrCreate({
-            userId: 1,
+          await outerTx.accounts.create({
+            profileId: 1,
             accountType: 'blockchain',
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             identifier: 'bc1q-nested-fail',
           })
         );

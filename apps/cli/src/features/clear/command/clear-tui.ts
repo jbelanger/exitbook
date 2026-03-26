@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';
@@ -14,9 +15,17 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        console.error(`\nWARNING: ${profileResult.error.message}`);
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
+        return;
+      }
+
       const clearHandler = createClearHandler({ db: database });
 
       const params = {
+        profileId: profileResult.value.id,
         accountId: options.accountId,
         source: options.source,
         includeRaw: options.includeRaw ?? false,

@@ -28,6 +28,9 @@ interface PricesSetFxOptions {
 
   /** Source attribution (default: 'user-provided') */
   source?: string | undefined;
+
+  /** Stable profile key for durable override scoping. */
+  profileKey: string;
 }
 
 /**
@@ -85,6 +88,7 @@ export class PricesSetFxHandler {
       // Write override event for durability across reprocessing
       if (this.overrideStore) {
         const appendResult = await this.overrideStore.append({
+          profileKey: options.profileKey,
           scope: 'fx',
           payload: {
             type: 'fx_override',

@@ -15,36 +15,65 @@ function sha256Result(material: string): Result<string, Error> {
 // ---------------------------------------------------------------------------
 
 export interface AccountFingerprintInput {
+  profileKey: string;
   accountType: string;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
+}
+
+type FingerprintAccountKind = 'exchange' | 'wallet';
+
+function normalizeFingerprintAccountKind(accountType: string): Result<FingerprintAccountKind, Error> {
+  const normalizedAccountType = accountType.trim();
+
+  if (normalizedAccountType === 'blockchain') {
+    return ok('wallet');
+  }
+  if (normalizedAccountType === 'exchange-api' || normalizedAccountType === 'exchange-csv') {
+    return ok('exchange');
+  }
+
+  return err(new Error(`Unsupported accountType '${normalizedAccountType}' for fingerprint identity`));
 }
 
 /**
  * Stable account identity fingerprint.
  *
  * Derived from semantic account identity material — not database IDs.
- * Deterministic across rebuilds for the same account type/source/identifier.
+ * Deterministic across rebuilds for the same profile-scoped semantic account.
+ *
+ * Exchange identities intentionally ignore mutable API keys and CSV paths and
+ * instead rely on the lifecycle invariant that a profile owns at most one
+ * top-level exchange account per platform. If that invariant changes, revisit
+ * this function before changing account lifecycle rules.
  */
 export function computeAccountFingerprint(input: AccountFingerprintInput): Result<string, Error> {
-  const { accountType, sourceName, identifier } = input;
-  const trimmedAccountType = accountType.trim();
-  const trimmedSourceName = sourceName.trim();
+  const { profileKey, accountType, platformKey, identifier } = input;
+  const trimmedProfileKey = profileKey.trim();
+  const trimmedPlatformKey = platformKey.trim();
   const trimmedIdentifier = identifier.trim();
 
-  if (trimmedAccountType === '') {
-    return err(new Error('accountType must not be empty'));
+  if (trimmedProfileKey === '') {
+    return err(new Error('profileKey must not be empty'));
   }
 
-  if (trimmedSourceName === '') {
-    return err(new Error('sourceName must not be empty'));
+  const accountKindResult = normalizeFingerprintAccountKind(accountType);
+  if (accountKindResult.isErr()) {
+    return err(accountKindResult.error);
   }
 
-  if (trimmedIdentifier === '') {
+  if (trimmedPlatformKey === '') {
+    return err(new Error('platformKey must not be empty'));
+  }
+
+  if (accountKindResult.value === 'wallet' && trimmedIdentifier === '') {
     return err(new Error('identifier must not be empty'));
   }
 
-  const material = `${trimmedAccountType}|${trimmedSourceName}|${trimmedIdentifier}`;
+  const material =
+    accountKindResult.value === 'exchange'
+      ? `${trimmedProfileKey}|exchange|${trimmedPlatformKey}`
+      : `${trimmedProfileKey}|wallet|${trimmedPlatformKey}|${trimmedIdentifier}`;
   return sha256Result(material);
 }
 
@@ -65,6 +94,9 @@ export interface TransactionFingerprintInput {
  *
  * Blockchain: sha256(accountFingerprint|blockchain|source|transactionHash)
  * Exchange:   sha256(accountFingerprint|exchange|source|sortedEventId1|sortedEventId2|...)
+ *
+ * Keep this rooted in `accountFingerprint`. Notes, links, and movement
+ * fingerprints inherit profile isolation automatically from account identity.
  */
 export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
   const { accountFingerprint, source, sourceType } = input;

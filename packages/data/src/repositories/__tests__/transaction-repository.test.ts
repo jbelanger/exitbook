@@ -14,7 +14,7 @@ import {
   seedFeeMovementFingerprint,
   seedImportSession,
   seedTxFingerprint,
-  seedUser,
+  seedProfile,
 } from './helpers.js';
 
 describe('TransactionRepository', () => {
@@ -135,7 +135,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedAccount(db, 2, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
@@ -144,16 +144,16 @@ describe('TransactionRepository', () => {
       // 3 kraken + 2 ethereum transactions
       for (let i = 1; i <= 5; i++) {
         const accountId = i <= 3 ? 1 : 2;
-        const sourceName = i <= 3 ? 'kraken' : 'ethereum';
+        const platformKey = i <= 3 ? 'kraken' : 'ethereum';
         const identityReference = `tx-${i}`;
         await db
           .insertInto('transactions')
           .values({
             id: i,
             account_id: accountId,
-            source_name: sourceName,
+            platform_key: platformKey,
             source_type: i <= 3 ? ('exchange' as const) : ('blockchain' as const),
-            tx_fingerprint: seedTxFingerprint(sourceName, accountId, identityReference),
+            tx_fingerprint: seedTxFingerprint(platformKey, accountId, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
             is_spam: false,
@@ -195,7 +195,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
 
@@ -208,7 +208,7 @@ describe('TransactionRepository', () => {
           .values({
             id: i,
             account_id: 1,
-            source_name: 'ethereum',
+            platform_key: 'ethereum',
             source_type: 'blockchain',
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
@@ -258,7 +258,7 @@ describe('TransactionRepository', () => {
           .values({
             id: i,
             account_id: 1,
-            source_name: 'ethereum',
+            platform_key: 'ethereum',
             source_type: 'blockchain',
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
@@ -335,7 +335,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
     });
@@ -539,7 +539,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'blockchain', 'ethereum');
       await seedImportSession(db, 1, 1);
     });
@@ -606,6 +606,34 @@ describe('TransactionRepository', () => {
       const transactions = await db.selectFrom('transactions').select(['id']).execute();
       expect(transactions).toHaveLength(1);
     });
+
+    it('treats the same exchange event IDs in different profiles as distinct transactions', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });
+      await seedImportSession(db, 2, 2);
+
+      const transaction = makePersistedTransaction({
+        source: 'kraken',
+        sourceType: 'exchange',
+        identityReference: 'shared-fill-1',
+      });
+
+      const firstId = assertOk(await repo.create(transaction, 1));
+      const secondId = assertOk(await repo.create(transaction, 2));
+
+      expect(secondId).not.toBe(firstId);
+
+      const transactions = await db.selectFrom('transactions').select(['id']).orderBy('id asc').execute();
+      expect(transactions).toHaveLength(2);
+    });
   });
 
   describe('updateMovementsWithPrices', () => {
@@ -613,7 +641,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedImportSession(db, 1, 1);
     });
@@ -625,7 +653,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 1,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -776,7 +804,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 2,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -912,7 +940,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 3,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -1006,7 +1034,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 4,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: txFingerprint,
           transaction_status: 'success',
@@ -1102,7 +1130,7 @@ describe('TransactionRepository', () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
 
-      await seedUser(db);
+      await seedProfile(db);
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedAccount(db, 2, 'exchange-api', 'coinbase');
       await seedImportSession(db, 1, 1);
@@ -1115,7 +1143,7 @@ describe('TransactionRepository', () => {
         .values({
           id: 11,
           account_id: 1,
-          source_name: 'kraken',
+          platform_key: 'kraken',
           source_type: 'exchange',
           tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-11'),
           transaction_status: 'success',
@@ -1172,7 +1200,7 @@ describe('TransactionRepository', () => {
           {
             id: 21,
             account_id: 1,
-            source_name: 'kraken',
+            platform_key: 'kraken',
             source_type: 'exchange',
             tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-21'),
             transaction_status: 'success',
@@ -1195,7 +1223,7 @@ describe('TransactionRepository', () => {
           {
             id: 22,
             account_id: 2,
-            source_name: 'coinbase',
+            platform_key: 'coinbase',
             source_type: 'exchange',
             tx_fingerprint: seedTxFingerprint('coinbase', 2, 'tx-22'),
             transaction_status: 'success',
@@ -1258,6 +1286,149 @@ describe('TransactionRepository', () => {
       );
 
       expect(updated).toBe(0);
+    });
+  });
+
+  describe('profile scoping', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedProfile(db);
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'audit',
+          display_name: 'audit',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 1, 'exchange-api', 'kraken', { profileId: 1 });
+      await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });
+    });
+
+    it('filters findAll by profileId', async () => {
+      const txId1 = assertOk(
+        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+      );
+      const txId2 = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            source: 'kraken',
+            sourceType: 'exchange',
+            identityReference: 'audit-kraken-1',
+          }),
+          2
+        )
+      );
+
+      const profileOneTransactions = assertOk(await repo.findAll({ profileId: 1, includeExcluded: true }));
+      const profileTwoTransactions = assertOk(await repo.findAll({ profileId: 2, includeExcluded: true }));
+
+      expect(profileOneTransactions.map((tx) => tx.id)).toEqual([txId1]);
+      expect(profileTwoTransactions.map((tx) => tx.id)).toEqual([txId2]);
+    });
+
+    it('handles large account ID filters without exceeding SQLite variable limits', async () => {
+      const txId1 = assertOk(
+        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+      );
+      const txId2 = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            source: 'kraken',
+            sourceType: 'exchange',
+            identityReference: 'audit-kraken-2',
+          }),
+          2
+        )
+      );
+
+      const accountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+
+      const transactions = assertOk(await repo.findAll({ accountIds, includeExcluded: true }));
+      const count = assertOk(await repo.count({ accountIds, includeExcluded: true }));
+
+      expect(transactions.map((tx) => tx.id)).toEqual([txId1, txId2]);
+      expect(count).toBe(2);
+    });
+
+    it('returns undefined when findById is scoped to a different profile', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({ source: 'kraken', sourceType: 'exchange', identityReference: 'default-kraken-1' }),
+          1
+        )
+      );
+
+      const sameProfile = assertOk(await repo.findById(transactionId, 1));
+      const otherProfile = assertOk(await repo.findById(transactionId, 2));
+
+      expect(sameProfile?.id).toBe(transactionId);
+      expect(otherProfile).toBeUndefined();
+    });
+
+    it('loads full transactions across multiple movement lookup batches', async () => {
+      const totalTransactions = 1_005;
+
+      for (let index = 1; index <= totalTransactions; index++) {
+        const identityReference = `batched-${index}`;
+        const txFingerprint = seedTxFingerprint('kraken', 1, identityReference);
+        const transactionDatetime = new Date(Date.UTC(2025, 0, 1, 0, 0, index)).toISOString();
+
+        await db
+          .insertInto('transactions')
+          .values({
+            id: index,
+            account_id: 1,
+            platform_key: 'kraken',
+            source_type: 'exchange',
+            tx_fingerprint: txFingerprint,
+            transaction_status: 'success',
+            transaction_datetime: transactionDatetime,
+            is_spam: false,
+            excluded_from_accounting: false,
+            operation_type: 'deposit',
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+
+        await db
+          .insertInto('transaction_movements')
+          .values({
+            transaction_id: index,
+            movement_type: 'inflow',
+            movement_fingerprint: seedAssetMovementFingerprint(txFingerprint, 'inflow', {
+              assetId: 'exchange:kraken:btc',
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            }),
+            asset_id: 'exchange:kraken:btc',
+            asset_symbol: 'BTC',
+            gross_amount: '1.0',
+            net_amount: '1.0',
+            fee_amount: null,
+            fee_scope: null,
+            fee_settlement: null,
+            price_amount: null,
+            price_currency: null,
+            price_source: null,
+            price_fetched_at: null,
+            price_granularity: null,
+            fx_rate_to_usd: null,
+            fx_source: null,
+            fx_timestamp: null,
+          })
+          .execute();
+      }
+
+      const transactions = assertOk(await repo.findAll({ profileId: 1, includeExcluded: true }));
+
+      expect(transactions).toHaveLength(totalTransactions);
+      expect(transactions.every((transaction) => transaction.movements.inflows?.length === 1)).toBe(true);
+      expect(transactions[0]?.txFingerprint).toBe(seedTxFingerprint('kraken', 1, 'batched-1'));
+      expect(transactions.at(-1)?.txFingerprint).toBe(seedTxFingerprint('kraken', 1, `batched-${totalTransactions}`));
     });
   });
 });

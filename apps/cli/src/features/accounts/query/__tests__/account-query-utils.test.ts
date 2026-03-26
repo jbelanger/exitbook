@@ -68,7 +68,8 @@ describe('account-query-utils', () => {
       const account = createMockAccount({
         id: 42,
         accountType: 'exchange-api',
-        sourceName: 'kraken',
+        platformKey: 'kraken',
+        name: 'kraken-main',
         identifier: 'secretapikey',
         providerName: 'provider-x',
         createdAt: new Date('2025-01-01T12:00:00.000Z'),
@@ -88,7 +89,8 @@ describe('account-query-utils', () => {
       expect(formatted).toMatchObject({
         id: 42,
         accountType: 'exchange-api',
-        sourceName: 'kraken',
+        platformKey: 'kraken',
+        name: 'kraken-main',
         identifier: 'secretap***',
         providerName: 'provider-x',
         sessionCount: 7,

@@ -11,6 +11,7 @@ function createTransactionNoteEvent(txFingerprint: string, overrides?: Partial<O
   return {
     id: overrides?.id ?? `note:${txFingerprint}:${action}`,
     created_at: overrides?.created_at ?? '2026-03-15T12:00:00.000Z',
+    profile_key: overrides?.profile_key ?? 'default',
     actor: overrides?.actor ?? 'user',
     source: overrides?.source ?? 'cli',
     scope: overrides?.scope ?? 'transaction-note',
@@ -77,6 +78,7 @@ describe('transaction note replay', () => {
       {
         id: 'asset:1',
         created_at: '2026-03-15T12:00:00.000Z',
+        profile_key: 'default',
         actor: 'user',
         source: 'cli',
         scope: 'asset-exclude',
@@ -108,10 +110,10 @@ describe('transaction note replay', () => {
       ),
     };
 
-    const result = await readTransactionNoteOverrides(overrideStore);
+    const result = await readTransactionNoteOverrides(overrideStore, 'default');
 
     const notesByFingerprint = assertOk(result);
-    expect(overrideStore.readByScopes).toHaveBeenCalledWith(['transaction-note']);
+    expect(overrideStore.readByScopes).toHaveBeenCalledWith('default', ['transaction-note']);
     expect(notesByFingerprint.get(txFingerprint)).toBe('Memoized note');
   });
 
@@ -121,7 +123,7 @@ describe('transaction note replay', () => {
       readByScopes: vi.fn(),
     };
 
-    const result = await readTransactionNoteOverrides(overrideStore);
+    const result = await readTransactionNoteOverrides(overrideStore, 'default');
 
     expect(assertOk(result).size).toBe(0);
     expect(overrideStore.readByScopes).not.toHaveBeenCalled();

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildImportPorts } from '../../ingestion/import-ports.js';
-import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
+import { seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
@@ -16,7 +17,7 @@ describe('buildImportPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {
@@ -51,10 +52,11 @@ describe('buildImportPorts', () => {
       expect(ptState?.invalidatedBy).toBe('new-import');
 
       // Downstream projections should also be stale
-      const assetReviewState = assertOk(await repo.get('asset-review'));
+      const assetReviewState = assertOk(await repo.get('asset-review', buildProfileProjectionScopeKey(1)));
       expect(assetReviewState?.status).toBe('stale');
-      const linksState = assertOk(await repo.get('links'));
+      const linksState = assertOk(await repo.get('links', buildProfileProjectionScopeKey(1)));
       expect(linksState?.status).toBe('stale');
+      expect(assertOk(await repo.get('links'))).toBeUndefined();
 
       const balancesState = assertOk(await repo.get('balances', 'balance:1'));
       expect(balancesState?.status).toBe('stale');
@@ -80,15 +82,25 @@ describe('buildImportPorts', () => {
 
   describe('withTransaction', () => {
     it('executes callback in a transaction', async () => {
+      await seedAccount(db, 1, 'blockchain', 'bitcoin');
       const ports = buildImportPorts(ctx);
 
       const result = await ports.withTransaction(async (txPorts) => {
-        const user = assertOk(await txPorts.users.findOrCreateDefault());
-        expect(user.id).toBe(1);
-        return ok(undefined);
+        const account = assertOk(
+          await txPorts.accounts.create({
+            profileId: 1,
+            parentAccountId: 1,
+            accountType: 'blockchain',
+            platformKey: 'bitcoin',
+            identifier: 'bc1qchild',
+          })
+        );
+        return ok(account.id);
       });
 
-      expect(result.isOk()).toBe(true);
+      const accountId = assertOk(result);
+      const createdAccount = assertOk(await ctx.accounts.findById(accountId));
+      expect(createdAccount?.parentAccountId).toBe(1);
     });
   });
 });

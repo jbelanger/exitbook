@@ -22,7 +22,11 @@ function inferSeedTxSourceType(source: string): SeedTxSourceType {
 }
 
 function buildSeedAccountFingerprint(source: string, sourceType: SeedTxSourceType, accountId: number): string {
-  return sha256Hex(`${sourceType === 'blockchain' ? 'blockchain' : 'exchange-api'}|${source}|identifier-${accountId}`);
+  if (sourceType === 'blockchain') {
+    return sha256Hex(`default|wallet|${source}|identifier-${accountId}`);
+  }
+
+  return sha256Hex(`default|exchange|${source}`);
 }
 
 export function seedTxFingerprint(source: string, accountId: number, identityReference: string): string;

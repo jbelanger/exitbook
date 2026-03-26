@@ -372,8 +372,8 @@ Accounts  0 total
 
   No accounts found.
 
-  Import data to create accounts:
-  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
+  Add an account first:
+  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
 
 q quit
 ```
@@ -401,7 +401,7 @@ Bypasses the TUI. Returns structured account data.
       {
         "id": 1,
         "accountType": "exchange-api",
-        "sourceName": "kraken",
+        "platformKey": "kraken",
         "identifier": "OhPz8e0p***",
         "providerName": null,
         "balanceProjectionStatus": "fresh",
@@ -415,7 +415,7 @@ Bypasses the TUI. Returns structured account data.
       {
         "id": 4,
         "accountType": "blockchain",
-        "sourceName": "bitcoin",
+        "platformKey": "bitcoin",
         "identifier": "xpub6CUG...",
         "providerName": "mempool",
         "balanceProjectionStatus": "stale",
@@ -427,7 +427,7 @@ Bypasses the TUI. Returns structured account data.
           {
             "id": 7,
             "accountType": "blockchain",
-            "sourceName": "bitcoin",
+            "platformKey": "bitcoin",
             "identifier": "bc1q84x...w9nk",
             "providerName": null,
             "balanceProjectionStatus": "never-built",
@@ -537,7 +537,7 @@ interface AccountsViewState {
 interface AccountViewItem {
   id: number;
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
-  sourceName: string;
+  platformKey: string;
   identifier: string; // masked/truncated for display
   fullIdentifier: string; // full value for detail panel (still masked for exchange-api)
   providerName: string | null;

@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { executeLinksRunWithRuntime, type LinksRunRuntime } from '../run-links.js';
 
+const PROFILE_KEY = 'default';
+
 describe('links run runner helpers', () => {
   let mockOrchestrator: { execute: Mock };
   let mockOverrideStore: { exists: Mock; readByScopes: Mock };
@@ -49,7 +51,7 @@ describe('links run runner helpers', () => {
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('Overrides file is invalid')));
 
-    const result = await executeLinksRunWithRuntime(runtime, params);
+    const result = await executeLinksRunWithRuntime(runtime, PROFILE_KEY, params);
 
     const error = assertErr(result);
     expect(error.message).toContain('Overrides file is invalid');
@@ -78,6 +80,7 @@ describe('links run runner helpers', () => {
         {
           id: 'evt-1',
           created_at: '2026-03-01T00:00:00.000Z',
+          profile_key: PROFILE_KEY,
           actor: 'cli-user',
           source: 'cli',
           scope: 'unlink',
@@ -90,10 +93,10 @@ describe('links run runner helpers', () => {
     );
     mockOrchestrator.execute.mockResolvedValue(ok(linkingResult));
 
-    const result = await executeLinksRunWithRuntime(runtime, params);
+    const result = await executeLinksRunWithRuntime(runtime, PROFILE_KEY, params);
 
     expect(result.isOk()).toBe(true);
-    expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(['link', 'unlink']);
+    expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['link', 'unlink']);
     expect(mockController.start).toHaveBeenCalledOnce();
     expect(mockOrchestrator.execute).toHaveBeenCalledWith(params, [expect.objectContaining({ scope: 'unlink' })]);
     const readOverridesCallOrder = mockOverrideStore.readByScopes.mock.invocationCallOrder.at(0);

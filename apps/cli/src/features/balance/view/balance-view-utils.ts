@@ -146,7 +146,7 @@ export function resolveAccountCredentials(account: Account): CredentialResolutio
   }
 
   // Environment variables
-  const envResult = getExchangeCredentialsFromEnv(account.sourceName);
+  const envResult = getExchangeCredentialsFromEnv(account.platformKey);
   if (envResult.isOk()) {
     return { credentials: envResult.value };
   }
@@ -184,7 +184,7 @@ export function buildStoredSnapshotAccountItem(
 ): StoredSnapshotAccountItem {
   return {
     accountId: account.id,
-    sourceName: account.sourceName,
+    platformKey: account.platformKey,
     accountType: account.accountType,
     assetCount: assets.length,
     assets,

@@ -72,7 +72,7 @@ export class BalanceWorkflow {
       {
         requestedAccountId: scopeContext.requestedAccount.id,
         scopeAccountId: scopeContext.scopeAccount.id,
-        sourceName: scopeContext.scopeAccount.sourceName,
+        platformKey: scopeContext.scopeAccount.platformKey,
       },
       'Rebuilding calculated balance snapshot'
     );
@@ -108,7 +108,7 @@ export class BalanceWorkflow {
       {
         requestedAccountId: scopeContext.requestedAccount.id,
         scopeAccountId: scopeContext.scopeAccount.id,
-        sourceName: scopeContext.scopeAccount.sourceName,
+        platformKey: scopeContext.scopeAccount.platformKey,
         accountType: scopeContext.scopeAccount.accountType,
       },
       'Refreshing balance verification'
@@ -159,7 +159,7 @@ export class BalanceWorkflow {
             totalCurrencies: assetCount,
             warnings: 0,
           },
-          suggestion: `Stored calculated balances only. Add a balance-capable provider for ${scopeContext.scopeAccount.sourceName} to enable live verification.`,
+          suggestion: `Stored calculated balances only. Add a balance-capable provider for ${scopeContext.scopeAccount.platformKey} to enable live verification.`,
           warnings: [warning],
         });
       }
@@ -348,7 +348,7 @@ export class BalanceWorkflow {
       return;
     }
 
-    const providers = this.providerRuntime.getProviders(account.sourceName);
+    const providers = this.providerRuntime.getProviders(account.platformKey);
     const supportsTokenBalances = providers.some((p) =>
       p.capabilities.supportedOperations.includes('getAddressTokenBalances')
     );
@@ -359,7 +359,7 @@ export class BalanceWorkflow {
 
     if (supportsTokenTransactions && !supportsTokenBalances) {
       warnings.push(
-        `Token balances are not available for ${account.sourceName}. Live balance includes native assets only; token mismatches may be false negatives.`
+        `Token balances are not available for ${account.platformKey}. Live balance includes native assets only; token mismatches may be false negatives.`
       );
     }
   }
@@ -402,11 +402,11 @@ export class BalanceWorkflow {
 
       const allSessions = sessionsResult.value;
       if (allSessions.length === 0) {
-        return err(new Error(`No import sessions found for ${scopeContext.scopeAccount.sourceName}`));
+        return err(new Error(`No import sessions found for ${scopeContext.scopeAccount.platformKey}`));
       }
 
       if (!allSessions.some((s) => s.status === 'completed')) {
-        return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.sourceName}`));
+        return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.platformKey}`));
       }
 
       const transactionsResult: Result<Transaction[], Error> = await this.ports.transactionSource.findByAccountIds({
@@ -417,7 +417,7 @@ export class BalanceWorkflow {
       const allTransactions = transactionsResult.value;
       if (allTransactions.length === 0) {
         logger.warn(
-          `No transactions found for ${scopeContext.scopeAccount.sourceName} - calculated balance will be empty`
+          `No transactions found for ${scopeContext.scopeAccount.platformKey} - calculated balance will be empty`
         );
         return ok({ balances: {}, assetMetadata: {} });
       }
@@ -425,8 +425,8 @@ export class BalanceWorkflow {
       const childAccountCount = accountIds.length - 1;
       const accountInfo =
         childAccountCount > 0
-          ? `${scopeContext.scopeAccount.sourceName} (parent + ${childAccountCount} child accounts)`
-          : scopeContext.scopeAccount.sourceName;
+          ? `${scopeContext.scopeAccount.platformKey} (parent + ${childAccountCount} child accounts)`
+          : scopeContext.scopeAccount.platformKey;
       logger.info(
         `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
       );
@@ -447,12 +447,12 @@ export class BalanceWorkflow {
       );
     }
     const clientResult = createExchangeClient(
-      account.sourceName,
+      account.platformKey,
       credentials ?? account.credentials ?? { apiKey: '', apiSecret: '' }
     );
     if (clientResult.isErr()) return err(clientResult.error);
 
-    return fetchExchangeBalance(clientResult.value, account.sourceName);
+    return fetchExchangeBalance(clientResult.value, account.platformKey);
   }
 
   private async fetchBlockchainLiveBalance(
@@ -463,7 +463,7 @@ export class BalanceWorkflow {
       logger.info(`Fetching balances for ${childAccounts.length} child accounts`);
       return fetchChildAccountsBalance(
         this.providerRuntime,
-        scopeContext.scopeAccount.sourceName,
+        scopeContext.scopeAccount.platformKey,
         scopeContext.scopeAccount.identifier,
         childAccounts
       );
@@ -471,7 +471,7 @@ export class BalanceWorkflow {
 
     return fetchBlockchainBalance(
       this.providerRuntime,
-      scopeContext.scopeAccount.sourceName,
+      scopeContext.scopeAccount.platformKey,
       scopeContext.scopeAccount.identifier
     );
   }
@@ -521,7 +521,7 @@ export class BalanceWorkflow {
       return ok({ supported: true });
     }
 
-    const blockchain = scopeContext.scopeAccount.sourceName;
+    const blockchain = scopeContext.scopeAccount.platformKey;
     const hasRegisteredBalanceSupport = this.providerRuntime.hasRegisteredOperationSupport(
       blockchain,
       'getAddressBalances'
@@ -600,7 +600,7 @@ export class BalanceWorkflow {
       const now = new Date();
       const assetCount = Object.keys(calculated.balances).length;
       const requestedAddressCount = this.getRequestedAddressCount(scopeContext);
-      const suggestion = `Add a balance-capable provider for ${scopeContext.scopeAccount.sourceName} to enable live verification.`;
+      const suggestion = `Add a balance-capable provider for ${scopeContext.scopeAccount.platformKey} to enable live verification.`;
 
       const snapshot: BalanceSnapshot = {
         scopeAccountId: scopeContext.scopeAccount.id,
@@ -638,7 +638,7 @@ export class BalanceWorkflow {
       logger.warn(
         {
           scopeAccountId: scopeContext.scopeAccount.id,
-          sourceName: scopeContext.scopeAccount.sourceName,
+          platformKey: scopeContext.scopeAccount.platformKey,
           assetCount,
           reason,
         },

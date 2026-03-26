@@ -15,6 +15,7 @@ export function registerClearCommand(program: Command): void {
     .command('clear')
     .description('Clear processed data (keeps raw data by default for reprocessing)')
     .option('--account-id <id>', 'Clear data for specific account ID', parseInt)
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Clear data for all accounts with this source name')
     .option('--include-raw', 'Also clear raw imported data (WARNING: requires re-import)')
     .option('--confirm', 'Skip confirmation prompt')

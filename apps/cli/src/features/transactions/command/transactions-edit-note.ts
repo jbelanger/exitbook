@@ -3,6 +3,7 @@ import type { Command } from 'commander';
 import { z } from 'zod';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -29,6 +30,7 @@ Examples:
 `
     )
     .argument('<transaction-id>', 'ID of the transaction to annotate')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--message <text>', 'Note message to persist for the transaction')
     .option('--clear', 'Clear the currently saved transaction note')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
@@ -67,15 +69,29 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError(
+          'transactions-edit-note',
+          profileResult.error,
+          ExitCodes.GENERAL_ERROR,
+          options.json ? 'json' : 'text'
+        );
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new TransactionsEditHandler(database, overrideStore);
 
       const result = options.clear
         ? await handler.clearNote({
+            profileId: profileResult.value.id,
+            profileKey: profileResult.value.profileKey,
             transactionId: transactionIdResult.data,
             reason: options.reason,
           })
         : await handler.setNote({
+            profileId: profileResult.value.id,
+            profileKey: profileResult.value.profileKey,
             transactionId: transactionIdResult.data,
             message: options.message!,
             reason: options.reason,

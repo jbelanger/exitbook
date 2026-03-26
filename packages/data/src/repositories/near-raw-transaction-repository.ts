@@ -8,6 +8,7 @@ import { sql } from '@exitbook/sqlite';
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { toRawTransaction } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -90,15 +91,26 @@ export class NearRawTransactionRepository extends BaseRepository {
         return ok([]);
       }
 
-      const rows = await this.db
-        .selectFrom('raw_transactions')
-        .selectAll()
-        .where('account_id', '=', accountId)
-        .where('processing_status', '=', 'pending')
-        .where('blockchain_transaction_hash', 'in', hashes)
-        .orderBy('blockchain_transaction_hash', 'asc')
-        .orderBy('id', 'asc')
-        .execute();
+      const rows: Selectable<RawTransactionTable>[] = [];
+      for (const hashBatch of chunkItems(hashes, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        rows.push(
+          ...(await this.db
+            .selectFrom('raw_transactions')
+            .selectAll()
+            .where('account_id', '=', accountId)
+            .where('processing_status', '=', 'pending')
+            .where('blockchain_transaction_hash', 'in', hashBatch)
+            .orderBy('blockchain_transaction_hash', 'asc')
+            .orderBy('id', 'asc')
+            .execute())
+        );
+      }
+
+      rows.sort((left, right) => {
+        const leftHash = left.blockchain_transaction_hash ?? '';
+        const rightHash = right.blockchain_transaction_hash ?? '';
+        return leftHash.localeCompare(rightHash) || left.id - right.id;
+      });
 
       const transactionsResult = toRawTransactions(rows);
       if (transactionsResult.isErr()) {
@@ -122,16 +134,23 @@ export class NearRawTransactionRepository extends BaseRepository {
         return err(json1CheckResult.error);
       }
 
-      const rows = await this.db
-        .selectFrom('raw_transactions')
-        .selectAll()
-        .where('account_id', '=', accountId)
-        .where('processing_status', '=', 'pending')
-        .where('transaction_type_hint', 'in', ['balance-changes'])
-        .where('blockchain_transaction_hash', 'is', null)
-        .where(sql`json_extract(normalized_data, '$.receiptId')`, 'in', receiptIds)
-        .orderBy('id', 'asc')
-        .execute();
+      const rows: Selectable<RawTransactionTable>[] = [];
+      for (const receiptIdBatch of chunkItems(receiptIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        rows.push(
+          ...(await this.db
+            .selectFrom('raw_transactions')
+            .selectAll()
+            .where('account_id', '=', accountId)
+            .where('processing_status', '=', 'pending')
+            .where('transaction_type_hint', 'in', ['balance-changes'])
+            .where('blockchain_transaction_hash', 'is', null)
+            .where(sql`json_extract(normalized_data, '$.receiptId')`, 'in', receiptIdBatch)
+            .orderBy('id', 'asc')
+            .execute())
+        );
+      }
+
+      rows.sort((left, right) => left.id - right.id);
 
       const transactionsResult = toRawTransactions(rows);
       if (transactionsResult.isErr()) {
@@ -168,17 +187,24 @@ export class NearRawTransactionRepository extends BaseRepository {
         return err(json1CheckResult.error);
       }
 
-      const rows = await this.db
-        .selectFrom('raw_transactions')
-        .selectAll()
-        .where('account_id', '=', accountId)
-        .where('processing_status', '=', 'processed')
-        .where('transaction_type_hint', '=', 'balance-changes')
-        .where('timestamp', '<=', maxTimestamp)
-        .where(sql`json_extract(normalized_data, '$.affectedAccountId')`, 'in', affectedAccountIds)
-        .orderBy('timestamp', 'asc')
-        .orderBy('id', 'asc')
-        .execute();
+      const rows: Selectable<RawTransactionTable>[] = [];
+      for (const affectedAccountIdBatch of chunkItems(affectedAccountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        rows.push(
+          ...(await this.db
+            .selectFrom('raw_transactions')
+            .selectAll()
+            .where('account_id', '=', accountId)
+            .where('processing_status', '=', 'processed')
+            .where('transaction_type_hint', '=', 'balance-changes')
+            .where('timestamp', '<=', maxTimestamp)
+            .where(sql`json_extract(normalized_data, '$.affectedAccountId')`, 'in', affectedAccountIdBatch)
+            .orderBy('timestamp', 'asc')
+            .orderBy('id', 'asc')
+            .execute())
+        );
+      }
+
+      rows.sort((left, right) => left.timestamp - right.timestamp || left.id - right.id);
 
       const transactionsResult = toRawTransactions(rows);
       if (transactionsResult.isErr()) {

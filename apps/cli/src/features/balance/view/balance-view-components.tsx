@@ -164,8 +164,9 @@ const VerificationEmptyState: FC = () => {
       <Text> </Text>
       <Text>{'  '}No accounts found.</Text>
       <Text> </Text>
-      <Text>{'  '}Import data to create accounts:</Text>
-      <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+      <Text>{'  '}Add an account, then sync it:</Text>
+      <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
+      <Text dimColor>{'  '}exitbook import --account kucoin-main</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
@@ -224,7 +225,7 @@ const AccountList: FC<{
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
   const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
-    source: { format: (item) => item.sourceName, minWidth: 10 },
+    source: { format: (item) => item.platformKey, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
   });
   const startIndex = scrollOffset;
@@ -383,7 +384,7 @@ function buildBalanceAccountDetailRows(
           key="verifying"
           color="yellow"
         >
-          ⏳ Verifying {verifying.sourceName} (account #{verifying.accountId})...
+          ⏳ Verifying {verifying.platformKey} (account #{verifying.accountId})...
         </Text>,
       ];
     }
@@ -394,7 +395,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
         {'  '}
@@ -416,7 +417,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
         {'  '}
@@ -438,7 +439,7 @@ function buildBalanceAccountDetailRows(
       <Text key="title">
         <Text bold>▸ #{selected.accountId}</Text>
         {'  '}
-        <Text color="cyan">{selected.sourceName}</Text>
+        <Text color="cyan">{selected.platformKey}</Text>
         {'  '}
         <Text dimColor>{selected.accountType}</Text>
       </Text>,
@@ -458,7 +459,7 @@ function buildBalanceAccountDetailRows(
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
       {'  '}
-      <Text color="cyan">{selected.sourceName}</Text>
+      <Text color="cyan">{selected.platformKey}</Text>
       {'  '}
       <Text dimColor>{selected.accountType}</Text>
       {'  '}
@@ -589,8 +590,9 @@ const StoredSnapshotEmptyState: FC = () => {
       <Text> </Text>
       <Text>{'  '}No accounts found.</Text>
       <Text> </Text>
-      <Text>{'  '}Import data to create accounts:</Text>
-      <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+      <Text>{'  '}Add an account, then sync it:</Text>
+      <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
+      <Text dimColor>{'  '}exitbook import --account kucoin-main</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
@@ -620,7 +622,7 @@ const StoredSnapshotAccountList: FC<{
   const visibleRows = getBalanceAccountsVisibleRows(terminalHeight);
   const columns = createColumns(accounts, {
     id: { format: (item) => `#${item.accountId}`, align: 'right', minWidth: 4 },
-    source: { format: (item) => item.sourceName, minWidth: 10 },
+    source: { format: (item) => item.platformKey, minWidth: 10 },
     type: { format: (item) => item.accountType, minWidth: 12 },
   });
   const startIndex = scrollOffset;
@@ -700,7 +702,7 @@ function buildStoredSnapshotAccountDetailRows(selected: StoredSnapshotAccountIte
     <Text key="title">
       <Text bold>▸ #{selected.accountId}</Text>
       {'  '}
-      <Text color="cyan">{selected.sourceName}</Text>
+      <Text color="cyan">{selected.platformKey}</Text>
       {'  '}
       <Text dimColor>{selected.accountType}</Text>
       {'  '}
@@ -818,9 +820,14 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
         {followupMessage}
       </Text>
       {state.mode === 'verification' && (
-        <Text dimColor>
-          {'  '}exitbook import --blockchain {state.sourceName} --address ...
-        </Text>
+        <>
+          <Text dimColor>
+            {'  '}exitbook accounts add {state.platformKey}-main --blockchain {state.platformKey} --address ...
+          </Text>
+          <Text dimColor>
+            {'  '}exitbook import --account {state.platformKey}-main
+          </Text>
+        </>
       )}
       <Text> </Text>
       <Text dimColor>q quit</Text>
@@ -844,7 +851,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
         <Text bold>Balance{storedSnapshotLabel}</Text>
         <Text>
           {'  '}
-          <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
+          <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
         </Text>
         <Text dimColor>
           {'  '}
@@ -871,7 +878,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
       <Text bold>Balance{storedSnapshotLabel}</Text>
       <Text>
         {'  '}
-        <Text color="cyan">{state.sourceName}</Text> #{state.accountId}
+        <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
       </Text>
       <Text dimColor>
         {'  '}

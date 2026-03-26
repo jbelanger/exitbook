@@ -23,7 +23,7 @@ interface TransferProposalReviewResult {
   reviewedAt: Date;
   reviewedBy: string;
   sourceAmount?: string | undefined;
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
   targetAmount?: string | undefined;
   targetName?: string | undefined;
   transferProposalKey?: string | undefined;
@@ -32,6 +32,8 @@ interface TransferProposalReviewResult {
 export class TransferProposalReviewService {
   constructor(
     private readonly db: DataSession,
+    private readonly profileId: number,
+    private readonly profileKey: string,
     private readonly overrideStore?: OverrideStore | undefined
   ) {}
 
@@ -48,7 +50,7 @@ export class TransferProposalReviewService {
     targetStatus: 'confirmed' | 'rejected'
   ): Promise<Result<TransferProposalReviewResult, Error>> {
     try {
-      const selectedLinkResult = await this.db.transactionLinks.findById(linkId);
+      const selectedLinkResult = await this.db.transactionLinks.findById(linkId, this.profileId);
       if (selectedLinkResult.isErr()) {
         return err(selectedLinkResult.error);
       }
@@ -60,7 +62,7 @@ export class TransferProposalReviewService {
 
       const reviewedBy = getDefaultReviewer();
 
-      const allLinksResult = await this.db.transactionLinks.findAll();
+      const allLinksResult = await this.db.transactionLinks.findAll({ profileId: this.profileId });
       if (allLinksResult.isErr()) {
         return err(allLinksResult.error);
       }
@@ -171,7 +173,7 @@ export class TransferProposalReviewService {
     proposalLinks: TransactionLink[],
     allLinks: TransactionLink[]
   ): Promise<Result<void, Error>> {
-    const transactionsResult = await this.db.transactions.findAll();
+    const transactionsResult = await this.db.transactions.findAll({ profileId: this.profileId });
     if (transactionsResult.isErr()) {
       return err(transactionsResult.error);
     }
@@ -202,10 +204,13 @@ export class TransferProposalReviewService {
     }
 
     for (const proposalLink of proposalLinks) {
+      const scopedTransactions = {
+        findById: (transactionId: number) => this.db.transactions.findById(transactionId, this.profileId),
+      };
       if (targetStatus === 'confirmed') {
-        await writeLinkOverrideEvent(this.db.transactions, this.overrideStore, proposalLink);
+        await writeLinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
       } else {
-        await writeUnlinkOverrideEvent(this.db.transactions, this.overrideStore, proposalLink);
+        await writeUnlinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
       }
     }
   }
@@ -215,20 +220,20 @@ export class TransferProposalReviewService {
       {
         asset: string;
         confidence: string;
+        platformKey: string;
         sourceAmount: string;
-        sourceName: string;
         targetAmount: string;
         targetName: string;
       },
       Error
     >
   > {
-    const sourceTxResult = await this.db.transactions.findById(selectedLink.sourceTransactionId);
+    const sourceTxResult = await this.db.transactions.findById(selectedLink.sourceTransactionId, this.profileId);
     if (sourceTxResult.isErr()) {
       return err(sourceTxResult.error);
     }
 
-    const targetTxResult = await this.db.transactions.findById(selectedLink.targetTransactionId);
+    const targetTxResult = await this.db.transactions.findById(selectedLink.targetTransactionId, this.profileId);
     if (targetTxResult.isErr()) {
       return err(targetTxResult.error);
     }
@@ -250,7 +255,7 @@ export class TransferProposalReviewService {
       asset: selectedLink.assetSymbol,
       confidence: `${(selectedLink.confidenceScore.toNumber() * 100).toFixed(1)}%`,
       sourceAmount: selectedLink.sourceAmount.toFixed(),
-      sourceName: sourceTxResult.value?.source ?? 'unknown',
+      platformKey: sourceTxResult.value?.source ?? 'unknown',
       targetAmount: selectedLink.targetAmount.toFixed(),
       targetName: targetTxResult.value?.source ?? 'unknown',
     });

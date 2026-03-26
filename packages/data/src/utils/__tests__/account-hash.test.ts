@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
-import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { computeAccountHash } from '../account-hash.js';
 import { createTestDatabase } from '../test-utils.js';
 
@@ -14,7 +14,7 @@ describe('computeAccountHash', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
   });
 
   afterEach(async () => {

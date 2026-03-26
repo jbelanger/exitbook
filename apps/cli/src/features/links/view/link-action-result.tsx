@@ -12,7 +12,7 @@ interface LinkActionResultProps {
   asset: string;
   sourceAmount: string;
   targetAmount: string;
-  sourceName: string;
+  platformKey: string;
   targetName: string;
   confidence: string;
 }
@@ -29,7 +29,7 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
   asset,
   sourceAmount,
   targetAmount,
-  sourceName,
+  platformKey,
   targetName,
   confidence,
 }) => {
@@ -41,7 +41,7 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
     <Text>
       <Text color={iconColor}>{icon}</Text> <Text bold>{actionText}</Text> {linkId} <Text dimColor>·</Text> {asset}{' '}
       <Text color="green">{sourceAmount}</Text> <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text>{' '}
-      <Text dimColor>·</Text> <Text color="cyan">{sourceName}</Text> <Text dimColor>→</Text>{' '}
+      <Text dimColor>·</Text> <Text color="cyan">{platformKey}</Text> <Text dimColor>→</Text>{' '}
       <Text color="cyan">{targetName}</Text> <Text dimColor>({confidence})</Text>
       {affectedLinkCount !== undefined && affectedLinkCount > 1 && <Text dimColor> · {affectedLinkCount} legs</Text>}
     </Text>

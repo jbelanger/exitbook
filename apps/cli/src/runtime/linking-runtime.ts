@@ -22,12 +22,14 @@ interface CreateCliLinkingRuntimeOptions {
   dataDir: string;
   database: DataSession;
   isJsonMode: boolean;
+  profileId: number;
+  profileKey: string;
 }
 
 export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions): Result<CliLinkingRuntime, Error> {
   try {
     const overrideStore = new OverrideStore(options.dataDir);
-    const store = buildLinkingPorts(options.database);
+    const store = buildLinkingPorts(options.database, options.profileId);
 
     if (options.isJsonMode) {
       return ok({
@@ -53,12 +55,15 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
   }
 }
 
-export async function readCliLinkOverrides(overrideStore: OverrideStore): Promise<Result<OverrideEvent[], Error>> {
+export async function readCliLinkOverrides(
+  overrideStore: OverrideStore,
+  profileKey: string
+): Promise<Result<OverrideEvent[], Error>> {
   if (!overrideStore.exists()) {
     return ok([]);
   }
 
-  const result = await overrideStore.readByScopes(['link', 'unlink']);
+  const result = await overrideStore.readByScopes(profileKey, ['link', 'unlink']);
   if (result.isErr()) {
     return err(new Error(`Failed to read override events: ${result.error.message}`));
   }

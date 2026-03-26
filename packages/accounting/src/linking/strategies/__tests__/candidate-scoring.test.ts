@@ -95,7 +95,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.99'),
@@ -104,7 +104,7 @@ describe('candidate-scoring', () => {
         }),
         createLinkableMovement({
           id: 3,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T14:00:00Z'),
           assetId: 'test:eth',
@@ -124,7 +124,7 @@ describe('candidate-scoring', () => {
     it('should surface same-hash mismatched assets as suspected migration candidates', () => {
       const migrationSource = createLinkableMovement({
         id: 9005,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         assetId: 'exchange:kucoin:rndr',
         assetSymbol: 'RNDR' as Currency,
@@ -138,7 +138,7 @@ describe('candidate-scoring', () => {
         createLinkableMovement({
           id: 8813,
           transactionId: 8813,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
           assetSymbol: 'RENDER' as Currency,
@@ -163,7 +163,7 @@ describe('candidate-scoring', () => {
     it('should not treat mismatched assets without a hash match as migration candidates', () => {
       const migrationSource = createLinkableMovement({
         id: 9005,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         assetId: 'exchange:kucoin:rndr',
         assetSymbol: 'RNDR' as Currency,
@@ -177,7 +177,7 @@ describe('candidate-scoring', () => {
         createLinkableMovement({
           id: 8813,
           transactionId: 8813,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
           assetSymbol: 'RENDER' as Currency,
@@ -198,7 +198,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.3'), // Very different amount
@@ -215,7 +215,7 @@ describe('candidate-scoring', () => {
     it('should not match unrelated assets with similar timing and amounts', () => {
       const migrationSource = createLinkableMovement({
         id: 9005,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         assetId: 'exchange:kucoin:rndr',
         assetSymbol: 'RNDR' as Currency,
@@ -227,7 +227,7 @@ describe('candidate-scoring', () => {
         createLinkableMovement({
           id: 8813,
           transactionId: 8813,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           assetId: 'blockchain:ethereum:0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE',
           assetSymbol: 'SHIB' as Currency,
@@ -245,7 +245,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T20:00:00Z'),
           amount: parseDecimal('0.95'), // Good match but later
@@ -253,7 +253,7 @@ describe('candidate-scoring', () => {
         }),
         createLinkableMovement({
           id: 3,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.99'), // Better match, sooner
@@ -271,7 +271,7 @@ describe('candidate-scoring', () => {
 
     it('should emit blockchain_to_exchange for blockchain send matched to exchange deposit', () => {
       const source = createLinkableMovement({
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         direction: 'out',
         amount: parseDecimal('1'),
@@ -279,7 +279,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'kraken',
+          platformKey: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.9995'),
@@ -300,7 +300,7 @@ describe('candidate-scoring', () => {
       // Exchange IN records the pre-fee withdrawal amount: 2679.72
       const source = createLinkableMovement({
         id: 150,
-        sourceName: 'cardano',
+        platformKey: 'cardano',
         sourceType: 'blockchain',
         assetSymbol: 'ADA' as Currency,
         amount: parseDecimal('2678.842165'), // netAmount (gross - fee)
@@ -310,7 +310,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 388,
-          sourceName: 'unknown',
+          platformKey: 'unknown',
           sourceType: 'exchange',
           assetSymbol: 'ADA' as Currency,
           timestamp: new Date('2024-01-01T11:51:00Z'), // 9 min before source (within clock skew)
@@ -331,7 +331,7 @@ describe('candidate-scoring', () => {
       // Fee difference > 0.1% rounding tolerance → no match without grossAmount
       const source = createLinkableMovement({
         id: 150,
-        sourceName: 'cardano',
+        platformKey: 'cardano',
         sourceType: 'blockchain',
         assetSymbol: 'ADA' as Currency,
         amount: parseDecimal('100'), // net (after large fee)
@@ -341,7 +341,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 388,
-          sourceName: 'unknown',
+          platformKey: 'unknown',
           sourceType: 'exchange',
           assetSymbol: 'ADA' as Currency,
           timestamp: new Date('2024-01-01T13:00:00Z'),
@@ -365,7 +365,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'), // Deposit 1h before (within 2h tolerance)
           direction: 'in',
@@ -384,7 +384,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T11:00:00Z'), // Deposit 3h before (beyond 2h tolerance)
           direction: 'in',
@@ -400,7 +400,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
           direction: 'in',
@@ -419,7 +419,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.90'), // 90% similarity — not a hard filter
@@ -439,7 +439,7 @@ describe('candidate-scoring', () => {
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           amount: parseDecimal('0.95'),
@@ -458,14 +458,14 @@ describe('candidate-scoring', () => {
     it('should reject matches within the same exchange', () => {
       const source = createLinkableMovement({
         id: 1,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         direction: 'out',
       });
       const targets = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'kucoin',
+          platformKey: 'kucoin',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           direction: 'in',
@@ -479,14 +479,14 @@ describe('candidate-scoring', () => {
     it('should allow matches across different exchanges', () => {
       const source = createLinkableMovement({
         id: 1,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         sourceType: 'exchange',
         direction: 'out',
       });
       const targets = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'kraken',
+          platformKey: 'kraken',
           sourceType: 'exchange',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           direction: 'in',
@@ -500,14 +500,14 @@ describe('candidate-scoring', () => {
     it('should reject same-blockchain heuristic matches (unrelated on-chain events)', () => {
       const source = createLinkableMovement({
         id: 1,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         direction: 'out',
       });
       const targets = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           direction: 'in',
@@ -521,14 +521,14 @@ describe('candidate-scoring', () => {
     it('should allow blockchain-to-different-source matching', () => {
       const source = createLinkableMovement({
         id: 1,
-        sourceName: 'cardano',
+        platformKey: 'cardano',
         sourceType: 'blockchain',
         direction: 'out',
       });
       const targets = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'unknown',
+          platformKey: 'unknown',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T13:00:00Z'),
           direction: 'in',
@@ -569,10 +569,10 @@ describe('candidate-scoring', () => {
 
   describe('checkTransactionHashMatch', () => {
     it('should return true when hashes match exactly', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         amount: parseDecimal('0.999'),
@@ -584,13 +584,13 @@ describe('candidate-scoring', () => {
 
     it('should return true when hashes match after normalization', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'ETH' as Currency,
         blockchainTxHash: '0xdef456',
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'ETH' as Currency,
@@ -603,13 +603,13 @@ describe('candidate-scoring', () => {
 
     it('should return true when hex hashes match case-insensitively', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'ETH' as Currency,
         blockchainTxHash: '0xABC123',
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'ETH' as Currency,
@@ -622,13 +622,13 @@ describe('candidate-scoring', () => {
 
     it('should be case-sensitive for non-hex hashes (Solana base58)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'SOL' as Currency,
         blockchainTxHash: 'AbC123DeFg456', // Solana base58 hash
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'SOL' as Currency,
@@ -643,13 +643,13 @@ describe('candidate-scoring', () => {
 
     it('should match non-hex hashes when case matches exactly', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'SOL' as Currency,
         blockchainTxHash: 'AbC123DeFg456',
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'solana',
+        platformKey: 'solana',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'SOL' as Currency,
@@ -661,10 +661,10 @@ describe('candidate-scoring', () => {
     });
 
     it('should return false when hashes do not match', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         amount: parseDecimal('0.999'),
@@ -675,10 +675,10 @@ describe('candidate-scoring', () => {
     });
 
     it('should return undefined when source hash is missing', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin' });
+      const source = createLinkableMovement({ platformKey: 'kucoin' });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         amount: parseDecimal('0.999'),
@@ -689,10 +689,10 @@ describe('candidate-scoring', () => {
     });
 
     it('should return undefined when target hash is missing', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         amount: parseDecimal('0.999'),
@@ -703,14 +703,14 @@ describe('candidate-scoring', () => {
 
     it('should match when both have same log index (exact match)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123-819',
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'USDT' as Currency,
@@ -723,14 +723,14 @@ describe('candidate-scoring', () => {
 
     it('should NOT match when both have different log indices (batched transfer safety)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123-819',
       });
       const target = createLinkableMovement({
         id: 2,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'USDT' as Currency,
@@ -745,21 +745,21 @@ describe('candidate-scoring', () => {
       // Scenario: Two separate withdrawals from exchange in same tx (0xabc-819, 0xabc-820)
       // should NOT both match a single deposit (0xabc)
       const withdrawal1 = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123-819',
       });
       const withdrawal2 = createLinkableMovement({
         id: 2,
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('50.0'),
         blockchainTxHash: '0xabc123-820',
       });
       const deposit = createLinkableMovement({
         id: 3,
-        sourceName: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         timestamp: new Date('2024-01-01T12:05:00Z'),
         assetSymbol: 'USDT' as Currency,
@@ -783,11 +783,11 @@ describe('candidate-scoring', () => {
 
   describe('scoreAndFilterMatches with hash matching', () => {
     it('should create perfect match when transaction hashes match', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.999'),
@@ -804,12 +804,12 @@ describe('candidate-scoring', () => {
     });
 
     it('should prioritize hash match over amount-based matching', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const targets: LinkableMovement[] = [
         // Perfect amount match but no hash
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('1.0'), // Exact amount match
@@ -819,7 +819,7 @@ describe('candidate-scoring', () => {
         // Imperfect amount but hash match
         createLinkableMovement({
           id: 3,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:10:00Z'),
           amount: parseDecimal('0.95'), // 5% fee
@@ -840,14 +840,14 @@ describe('candidate-scoring', () => {
 
     it('should handle normalized hash matching', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'ETH' as Currency,
         blockchainTxHash: '0xdef456',
       });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'ETH' as Currency,
@@ -865,14 +865,14 @@ describe('candidate-scoring', () => {
 
     it('should NOT hash-match blockchain→blockchain pairs (let internal linking handle)', () => {
       const source = createLinkableMovement({
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         blockchainTxHash: '0xabc123',
       });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.999'),
@@ -893,11 +893,11 @@ describe('candidate-scoring', () => {
     });
 
     it('should calculate actual timing validation for hash matches', () => {
-      const source = createLinkableMovement({ sourceName: 'kucoin', blockchainTxHash: '0xabc123' });
+      const source = createLinkableMovement({ platformKey: 'kucoin', blockchainTxHash: '0xabc123' });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-03T14:00:00Z'), // 50 hours later (outside default 48h window)
           amount: parseDecimal('0.999'),
@@ -916,7 +916,7 @@ describe('candidate-scoring', () => {
 
     it('should NOT auto-confirm when multiple targets share the same normalized hash (ambiguity)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
@@ -925,7 +925,7 @@ describe('candidate-scoring', () => {
         // Two deposits with same normalized hash (0xabc123-819 and 0xabc123-820 both normalize to 0xabc123)
         createLinkableMovement({
           id: 2,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -935,7 +935,7 @@ describe('candidate-scoring', () => {
         }),
         createLinkableMovement({
           id: 3,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -957,7 +957,7 @@ describe('candidate-scoring', () => {
 
     it('should auto-confirm when hash is unique on target side', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
@@ -966,7 +966,7 @@ describe('candidate-scoring', () => {
         // Only one deposit with this normalized hash
         createLinkableMovement({
           id: 2,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -977,7 +977,7 @@ describe('candidate-scoring', () => {
         // Another deposit with different hash
         createLinkableMovement({
           id: 3,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -998,7 +998,7 @@ describe('candidate-scoring', () => {
 
     it('should NOT auto-confirm when hex hashes differ only by case (uniqueness check is case-insensitive)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123',
@@ -1007,7 +1007,7 @@ describe('candidate-scoring', () => {
         // Same hash but uppercase
         createLinkableMovement({
           id: 2,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -1018,7 +1018,7 @@ describe('candidate-scoring', () => {
         // Same hash but different case
         createLinkableMovement({
           id: 3,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -1040,7 +1040,7 @@ describe('candidate-scoring', () => {
 
     it('should be case-sensitive for non-hex hashes in uniqueness check (Solana)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'SOL' as Currency,
         amount: parseDecimal('10.0'),
         blockchainTxHash: 'AbC123DeFg456',
@@ -1049,7 +1049,7 @@ describe('candidate-scoring', () => {
         // Exact case match
         createLinkableMovement({
           id: 2,
-          sourceName: 'solana',
+          platformKey: 'solana',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'SOL' as Currency,
@@ -1060,7 +1060,7 @@ describe('candidate-scoring', () => {
         // Different case (should be considered different hash for Solana)
         createLinkableMovement({
           id: 3,
-          sourceName: 'solana',
+          platformKey: 'solana',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetSymbol: 'SOL' as Currency,
@@ -1083,14 +1083,14 @@ describe('candidate-scoring', () => {
   describe('hash multi-output sum validation', () => {
     it('should create hash matches when sum of targets does not exceed source', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         amount: parseDecimal('1.0'), // Source has 1.0
         blockchainTxHash: '0xabc123',
       });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.6'), // Target 1: 0.6
@@ -1099,7 +1099,7 @@ describe('candidate-scoring', () => {
         }),
         createLinkableMovement({
           id: 3,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           amount: parseDecimal('0.39'), // Target 2: 0.39, total = 0.99 (valid)
@@ -1118,14 +1118,14 @@ describe('candidate-scoring', () => {
 
     it('should fall back to heuristic when sum of targets exceeds source', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         amount: parseDecimal('1.0'), // Source has 1.0
         blockchainTxHash: '0xabc123',
       });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.7'), // Target 1: 0.7
@@ -1134,7 +1134,7 @@ describe('candidate-scoring', () => {
         }),
         createLinkableMovement({
           id: 3,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           amount: parseDecimal('0.5'), // Target 2: 0.5, total = 1.2 > 1.0 (invalid!)
@@ -1154,14 +1154,14 @@ describe('candidate-scoring', () => {
 
     it('should exclude self-targets from sum validation', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         blockchainTxHash: '0xabc123',
       });
       const targets: LinkableMovement[] = [
         // Self-target (same transaction id as source)
         createLinkableMovement({
           id: 1,
-          sourceName: 'kucoin',
+          platformKey: 'kucoin',
           amount: parseDecimal('10.0'), // Large amount but same tx
           direction: 'in',
           blockchainTxHash: '0xabc123',
@@ -1169,7 +1169,7 @@ describe('candidate-scoring', () => {
         // Valid target
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.99'),
@@ -1189,7 +1189,7 @@ describe('candidate-scoring', () => {
 
     it('should exclude blockchain targets when source is blockchain', () => {
       const source = createLinkableMovement({
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         blockchainTxHash: '0xabc123',
       });
@@ -1197,7 +1197,7 @@ describe('candidate-scoring', () => {
         // Blockchain target (should be excluded from hash path)
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('10.0'), // Large amount
@@ -1216,13 +1216,13 @@ describe('candidate-scoring', () => {
 
     it('should handle single target with hash match (no sum validation needed)', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         blockchainTxHash: '0xabc123',
       });
       const targets: LinkableMovement[] = [
         createLinkableMovement({
           id: 2,
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           amount: parseDecimal('0.99'),
@@ -1241,7 +1241,7 @@ describe('candidate-scoring', () => {
 
     it('should use checkTransactionHashMatch for consistent log-index handling', () => {
       const source = createLinkableMovement({
-        sourceName: 'kucoin',
+        platformKey: 'kucoin',
         assetSymbol: 'USDT' as Currency,
         amount: parseDecimal('100.0'),
         blockchainTxHash: '0xabc123-100',
@@ -1250,7 +1250,7 @@ describe('candidate-scoring', () => {
         // Same hash with same log index (should match via checkTransactionHashMatch)
         createLinkableMovement({
           id: 2,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:05:00Z'),
           assetSymbol: 'USDT' as Currency,
@@ -1261,7 +1261,7 @@ describe('candidate-scoring', () => {
         // Same base hash but different log index (should NOT match)
         createLinkableMovement({
           id: 3,
-          sourceName: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           timestamp: new Date('2024-01-01T12:06:00Z'),
           assetSymbol: 'USDT' as Currency,

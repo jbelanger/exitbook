@@ -32,7 +32,7 @@ import {
  */
 export class KucoinCsvImporter implements IImporter {
   private readonly logger: Logger;
-  private readonly sourceName = 'kucoin';
+  private readonly platformKey = 'kucoin';
   private usedEventIds: Map<string, number>;
 
   constructor() {
@@ -127,7 +127,7 @@ export class KucoinCsvImporter implements IImporter {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CSV streaming import failed: ${errorMessage}`);
-      yield err(new Error(`${this.sourceName} streaming import failed: ${errorMessage}`));
+      yield err(new Error(`${this.platformKey} streaming import failed: ${errorMessage}`));
     }
   }
 

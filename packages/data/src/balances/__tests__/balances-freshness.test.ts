@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildBalancesFreshnessPorts } from '../../balances/balances-freshness.js';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
-import { seedAccount, seedUser } from '../../repositories/__tests__/helpers.js';
+import { seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
 describe('buildBalancesFreshnessPorts', () => {
@@ -14,7 +14,7 @@ describe('buildBalancesFreshnessPorts', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     ctx = new DataSession(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
   });
 

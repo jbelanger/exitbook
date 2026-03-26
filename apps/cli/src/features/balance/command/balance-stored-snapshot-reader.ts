@@ -1,3 +1,4 @@
+import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Account, BalanceSnapshot } from '@exitbook/core';
 import { buildBalancesFreshnessPorts, resolveBalanceScopeAccountId } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
@@ -16,17 +17,20 @@ import type { StoredSnapshotBalanceResult } from './balance-handler-types.js';
 const logger = getLogger('BalanceStoredSnapshotReader');
 
 interface BalanceStoredSnapshotReaderDeps {
+  accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   assetDetailsBuilder: BalanceAssetDetailsBuilder;
   balanceOperation: BalanceWorkflow | undefined;
   db: DataSession;
 }
 
 export class BalanceStoredSnapshotReader {
+  private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
   private readonly balanceOperation: BalanceWorkflow | undefined;
   private readonly db: DataSession;
 
   constructor(deps: BalanceStoredSnapshotReaderDeps) {
+    this.accountService = deps.accountService;
     this.assetDetailsBuilder = deps.assetDetailsBuilder;
     this.balanceOperation = deps.balanceOperation;
     this.db = deps.db;
@@ -34,13 +38,16 @@ export class BalanceStoredSnapshotReader {
 
   async viewStoredSnapshots(params: {
     accountId?: number | undefined;
+    profileId: number;
   }): Promise<Result<StoredSnapshotBalanceResult, Error>> {
     try {
-      const accounts = params.accountId ? await this.loadSingleAccount(params.accountId) : await this.loadAllAccounts();
+      const accounts = params.accountId
+        ? await this.loadSingleAccount(params.profileId, params.accountId)
+        : await this.loadAllAccounts(params.profileId);
 
       const results = [];
       for (const requestedAccount of accounts) {
-        const scopeAccount = await this.resolveStoredSnapshotScopeAccount(requestedAccount);
+        const scopeAccount = await this.resolveStoredSnapshotScopeAccount(params.profileId, requestedAccount);
         const readabilityResult = await this.ensureStoredSnapshotReadable(requestedAccount, scopeAccount);
         if (readabilityResult.isErr()) {
           return err(readabilityResult.error);
@@ -70,7 +77,7 @@ export class BalanceStoredSnapshotReader {
     }
   }
 
-  private async resolveStoredSnapshotScopeAccount(account: Account): Promise<Account> {
+  private async resolveStoredSnapshotScopeAccount(profileId: number, account: Account): Promise<Account> {
     const scopeAccountIdResult = await resolveBalanceScopeAccountId(this.db, account.id);
     if (scopeAccountIdResult.isErr()) {
       throw scopeAccountIdResult.error;
@@ -81,7 +88,7 @@ export class BalanceStoredSnapshotReader {
       return account;
     }
 
-    const scopeAccountResult = await this.db.accounts.getById(scopeAccountId);
+    const scopeAccountResult = await this.accountService.requireOwned(profileId, scopeAccountId);
     if (scopeAccountResult.isErr()) {
       throw scopeAccountResult.error;
     }
@@ -106,20 +113,18 @@ export class BalanceStoredSnapshotReader {
       return err(hasStoredSnapshotResult.error);
     }
 
-    if (
-      !hasStoredSnapshotResult.value &&
-      this.balanceOperation !== undefined &&
-      freshnessResult.value.status !== 'building'
-    ) {
+    if (this.balanceOperation !== undefined && freshnessResult.value.status !== 'building') {
       logger.info(
         {
           requestedAccountId: requestedAccount.id,
           scopeAccountId: scopeAccount.id,
-          sourceName: scopeAccount.sourceName,
+          platformKey: scopeAccount.platformKey,
           freshnessReason: freshnessResult.value.reason,
           freshnessStatus: freshnessResult.value.status,
         },
-        'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
+        hasStoredSnapshotResult.value
+          ? 'Stored balance snapshot is not readable; rebuilding calculated snapshot automatically'
+          : 'Stored balance snapshot is missing; rebuilding calculated snapshot automatically'
       );
 
       const rebuildResult = await this.balanceOperation.rebuildCalculatedSnapshot({
@@ -142,7 +147,7 @@ export class BalanceStoredSnapshotReader {
           formatBalanceSnapshotFreshnessMessage({
             requestedAccountId: requestedAccount.id,
             scopeAccountId: scopeAccount.id,
-            scopeSourceName: scopeAccount.sourceName,
+            scopeSourceName: scopeAccount.platformKey,
             status: refreshedResult.value.status,
             reason: refreshedResult.value.reason,
           })
@@ -156,7 +161,7 @@ export class BalanceStoredSnapshotReader {
           formatBalanceSnapshotFreshnessMessage({
             requestedAccountId: requestedAccount.id,
             scopeAccountId: scopeAccount.id,
-            scopeSourceName: scopeAccount.sourceName,
+            scopeSourceName: scopeAccount.platformKey,
             status: freshnessResult.value.status,
             reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
           })
@@ -169,7 +174,7 @@ export class BalanceStoredSnapshotReader {
         formatBalanceSnapshotFreshnessMessage({
           requestedAccountId: requestedAccount.id,
           scopeAccountId: scopeAccount.id,
-          scopeSourceName: scopeAccount.sourceName,
+          scopeSourceName: scopeAccount.platformKey,
           status: freshnessResult.value.status,
           reason: freshnessResult.value.reason,
         })
@@ -205,16 +210,16 @@ export class BalanceStoredSnapshotReader {
     return ok(snapshotResult.value);
   }
 
-  private async loadAllAccounts(): Promise<Account[]> {
-    const result = await this.db.accounts.findAll();
+  private async loadAllAccounts(profileId: number): Promise<Account[]> {
+    const result = await this.accountService.listTopLevel(profileId);
     if (result.isErr()) {
       throw result.error;
     }
-    return result.value.filter((account) => !account.parentAccountId);
+    return result.value;
   }
 
-  private async loadSingleAccount(accountId: number): Promise<Account[]> {
-    const result = await this.db.accounts.getById(accountId);
+  private async loadSingleAccount(profileId: number, accountId: number): Promise<Account[]> {
+    const result = await this.accountService.requireOwned(profileId, accountId);
     if (result.isErr()) {
       throw result.error;
     }

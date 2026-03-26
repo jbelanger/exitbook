@@ -22,6 +22,7 @@ describe('PricesSetFxHandler', () => {
       date: '2024-01-15T10:30:00Z',
       rate: '0.75',
       source: 'user-provided',
+      profileKey: 'default',
     });
 
     expect(result.isOk()).toBe(true);

@@ -25,6 +25,7 @@ interface CreateCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: DataSession;
   isJsonMode: boolean;
+  profileId: number;
   registerCleanup?: boolean | undefined;
   scope: CommandRuntime;
 }
@@ -36,7 +37,7 @@ export async function createCliPriceEnrichmentRuntime(
   let priceRuntime: IPriceProviderRuntime | undefined;
 
   try {
-    const store = buildPricingPorts(options.database);
+    const store = buildPricingPorts(options.database, options.profileId);
     const instrumentation = new InstrumentationCollector();
 
     if (options.isJsonMode) {

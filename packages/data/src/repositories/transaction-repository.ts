@@ -28,12 +28,14 @@ import { z } from 'zod';
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
 import { BaseRepository } from './base-repository.js';
 
 interface TransactionQueryParams {
-  sourceName?: string | undefined;
+  profileId?: number | undefined;
+  platformKey?: string | undefined;
   since?: number | undefined;
   accountId?: number | undefined;
   accountIds?: number[] | undefined;
@@ -72,6 +74,7 @@ interface TransactionSummary {
 type MovementRow = Selectable<TransactionMovementsTable>;
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
+const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
 
 function validatePriceDataForPersistence(
   inflows: AssetMovementDraft[],
@@ -265,17 +268,23 @@ interface CanonicalMovementEntry<TMovement> {
 async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<Result<string, Error>> {
   const account = await db
     .selectFrom('accounts')
-    .select(['account_type', 'source_name', 'identifier'])
-    .where('id', '=', accountId)
+    .leftJoin('profiles', 'profiles.id', 'accounts.profile_id')
+    .select(['accounts.account_type', 'accounts.platform_key', 'accounts.identifier', 'profiles.profile_key'])
+    .where('accounts.id', '=', accountId)
     .executeTakeFirst();
 
   if (!account) {
     return err(new Error(`Account ${accountId} not found`));
   }
 
+  if (!account.profile_key) {
+    return err(new Error(`Account ${accountId} is missing a stable profile key`));
+  }
+
   return computeAccountFingerprint({
+    profileKey: account.profile_key,
     accountType: account.account_type,
-    sourceName: account.source_name,
+    platformKey: account.platform_key,
     identifier: account.identifier,
   });
 }
@@ -553,7 +562,7 @@ function buildInsertValues(
       notes_json: notesJsonResult.value ?? null,
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
-      source_name: transaction.source,
+      platform_key: transaction.source,
       source_type: transaction.sourceType,
       to_address: transaction.to ?? null,
       transaction_datetime: transaction.datetime
@@ -582,7 +591,7 @@ function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSu
     txFingerprint: row.tx_fingerprint,
     datetime,
     timestamp,
-    source: row.source_name,
+    source: row.platform_key,
     sourceType: row.source_type,
     status,
     from: row.from_address ?? undefined,
@@ -791,32 +800,75 @@ export class TransactionRepository extends BaseRepository {
     try {
       const projection = filters?.projection ?? 'full';
 
-      let query = this.db.selectFrom('transactions').selectAll();
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions');
 
       if (filters) {
-        if (filters.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters.profileId !== undefined) {
+          query = query.where('accounts.profile_id', '=', filters.profileId);
+        }
+
+        if (filters.platformKey) {
+          query = query.where('transactions.platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
           const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('created_at', '>=', sinceDate as unknown as string);
+          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
         }
 
         if (filters.accountId !== undefined) {
-          query = query.where('account_id', '=', filters.accountId);
+          query = query.where('transactions.account_id', '=', filters.accountId);
         } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          query = query.where('account_id', 'in', filters.accountIds);
+          query = query.where('transactions.account_id', 'in', filters.accountIds);
         }
       }
 
       if (!filters?.includeExcluded) {
-        query = query.where('excluded_from_accounting', '=', false);
+        query = query.where('transactions.excluded_from_accounting', '=', false);
       }
 
-      query = query.orderBy('transaction_datetime', 'asc');
+      query = query.orderBy('transactions.transaction_datetime', 'asc');
 
-      const rows = await query.execute();
+      let rows: Selectable<TransactionsTable>[] = [];
+      if (
+        filters?.accountId === undefined &&
+        filters?.accountIds !== undefined &&
+        filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+      ) {
+        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+          let batchedQuery = this.db
+            .selectFrom('transactions')
+            .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+            .selectAll('transactions');
+
+          if (filters.profileId !== undefined) {
+            batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
+          }
+
+          if (filters.platformKey) {
+            batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
+          }
+
+          if (filters.since) {
+            const sinceDate = new Date(filters.since * 1000).toISOString();
+            batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
+          }
+
+          batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
+
+          if (!filters.includeExcluded) {
+            batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
+          }
+
+          rows.push(...(await batchedQuery.orderBy('transactions.transaction_datetime', 'asc').execute()));
+        }
+        rows.sort((left, right) => left.transaction_datetime.localeCompare(right.transaction_datetime));
+      } else {
+        rows = await query.execute();
+      }
 
       if (projection === 'summary') {
         const summaries: TransactionSummary[] = [];
@@ -849,9 +901,19 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findById(id: number): Promise<Result<Transaction | undefined, Error>> {
+  async findById(id: number, profileId?: number): Promise<Result<Transaction | undefined, Error>> {
     try {
-      const row = await this.db.selectFrom('transactions').selectAll().where('id', '=', id).executeTakeFirst();
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions')
+        .where('transactions.id', '=', id);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
+
+      const row = await query.executeTakeFirst();
 
       if (!row) {
         return ok(undefined);
@@ -874,9 +936,17 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  async findNeedingPrices(assetFilter?: string[]): Promise<Result<Transaction[], Error>> {
+  async findNeedingPrices(assetFilter?: string[], profileId?: number): Promise<Result<Transaction[], Error>> {
     try {
-      const query = this.db.selectFrom('transactions').selectAll().where('excluded_from_accounting', '=', false);
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions')
+        .where('transactions.excluded_from_accounting', '=', false);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
 
       const rows = await query.execute();
 
@@ -997,17 +1067,36 @@ export class TransactionRepository extends BaseRepository {
       this.db,
       this.logger,
       async (trx) => {
-        let query = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+        const rowsById = new Map<number, { id: number; notes_json: unknown; tx_fingerprint: string }>();
+        const batchedTransactionIds =
+          params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+            ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
+            : [params.transactionIds];
+        const batchedAccountIds =
+          !params.transactionIds && params.accountIds && params.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+            ? chunkItems(params.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)
+            : [params.accountIds];
 
-        if (params.accountIds) {
-          query = query.where('account_id', 'in', params.accountIds);
+        for (const transactionIdBatch of batchedTransactionIds) {
+          for (const accountIdBatch of batchedAccountIds) {
+            let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+
+            if (accountIdBatch) {
+              batchedQuery = batchedQuery.where('account_id', 'in', accountIdBatch);
+            }
+
+            if (transactionIdBatch) {
+              batchedQuery = batchedQuery.where('id', 'in', transactionIdBatch);
+            }
+
+            const rows = await batchedQuery.execute();
+            for (const row of rows) {
+              rowsById.set(row.id, row);
+            }
+          }
         }
 
-        if (params.transactionIds) {
-          query = query.where('id', 'in', params.transactionIds);
-        }
-
-        const rows = await query.execute();
+        const rows = [...rowsById.values()].sort((left, right) => left.id - right.id);
         let updatedCount = 0;
 
         for (const row of rows) {
@@ -1054,31 +1143,72 @@ export class TransactionRepository extends BaseRepository {
 
   async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('transactions').select(({ fn }) => [fn.count<number>('id').as('count')]);
+      let query = this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
 
       if (filters) {
-        if (filters.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters.profileId !== undefined) {
+          query = query.where('accounts.profile_id', '=', filters.profileId);
+        }
+
+        if (filters.platformKey) {
+          query = query.where('transactions.platform_key', '=', filters.platformKey);
         }
 
         if (filters.since) {
           const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('created_at', '>=', sinceDate as unknown as string);
+          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
         }
 
         if (filters.accountId !== undefined) {
-          query = query.where('account_id', '=', filters.accountId);
+          query = query.where('transactions.account_id', '=', filters.accountId);
         } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          query = query.where('account_id', 'in', filters.accountIds);
+          if (filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE) {
+            let totalCount = 0;
+            for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+              let batchedQuery = this.db
+                .selectFrom('transactions')
+                .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+                .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
+
+              if (filters.profileId !== undefined) {
+                batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
+              }
+
+              if (filters.platformKey) {
+                batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
+              }
+
+              if (filters.since) {
+                const sinceDate = new Date(filters.since * 1000).toISOString();
+                batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
+              }
+
+              batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
+
+              if (!filters.includeExcluded) {
+                batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
+              }
+
+              const result = await batchedQuery.executeTakeFirst();
+              totalCount += result?.count ?? 0;
+            }
+
+            return ok(totalCount);
+          }
+
+          query = query.where('transactions.account_id', 'in', filters.accountIds);
         } else if (filters.accountIds !== undefined && filters.accountIds.length === 0) {
           return ok(0);
         }
 
         if (!filters.includeExcluded) {
-          query = query.where('excluded_from_accounting', '=', false);
+          query = query.where('transactions.excluded_from_accounting', '=', false);
         }
       } else {
-        query = query.where('excluded_from_accounting', '=', false);
+        query = query.where('transactions.excluded_from_accounting', '=', false);
       }
 
       const result = await query.executeTakeFirst();
@@ -1093,19 +1223,32 @@ export class TransactionRepository extends BaseRepository {
       if (accountIds.length === 0) {
         return ok(0);
       }
-      const result = await this.db.deleteFrom('transactions').where('account_id', 'in', accountIds).executeTakeFirst();
-      return ok(Number(result.numDeletedRows));
+      let deletedCount = 0;
+      for (const accountIdBatch of chunkItems(accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await this.db
+          .deleteFrom('transactions')
+          .where('account_id', 'in', accountIdBatch)
+          .executeTakeFirst();
+        deletedCount += Number(result.numDeletedRows);
+      }
+      return ok(deletedCount);
     } catch (error) {
       return wrapError(error, 'Failed to delete transactions by account IDs');
     }
   }
 
-  async findLatestCreatedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCreatedAt(profileId?: number): Promise<Result<Date | null, Error>> {
     try {
-      const result = await this.db
+      let query = this.db
         .selectFrom('transactions')
-        .select(({ fn }) => [fn.max<string>('created_at').as('latest')])
-        .executeTakeFirst();
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .select(({ fn }) => [fn.max<string>('transactions.created_at').as('latest')]);
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
+
+      const result = await query.executeTakeFirst();
 
       if (!result?.latest) {
         return ok(null);
@@ -1132,20 +1275,23 @@ export class TransactionRepository extends BaseRepository {
     }
 
     try {
-      const rows = await this.db
-        .selectFrom('transaction_movements')
-        .selectAll()
-        .where('transaction_id', 'in', transactionIds)
-        .orderBy('transaction_id', 'asc')
-        .execute();
-
       const map = new Map<number, MovementRow[]>();
-      for (const row of rows) {
-        const existing = map.get(row.transaction_id);
-        if (existing) {
-          existing.push(row);
-        } else {
-          map.set(row.transaction_id, [row]);
+
+      for (const transactionIdBatch of chunkItems(transactionIds, MOVEMENT_LOOKUP_BATCH_SIZE)) {
+        const rows = await this.db
+          .selectFrom('transaction_movements')
+          .selectAll()
+          .where('transaction_id', 'in', transactionIdBatch)
+          .orderBy('transaction_id', 'asc')
+          .execute();
+
+        for (const row of rows) {
+          const existing = map.get(row.transaction_id);
+          if (existing) {
+            existing.push(row);
+          } else {
+            map.set(row.transaction_id, [row]);
+          }
         }
       }
 
@@ -1222,7 +1368,7 @@ export class TransactionRepository extends BaseRepository {
       txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,
-      source: row.source_name,
+      source: row.platform_key,
       sourceType: row.source_type,
       status,
       from: row.from_address ?? undefined,

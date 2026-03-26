@@ -446,11 +446,11 @@ Deleted: {summary}
 
 Recovery hints by scenario:
 
-| Scenario                  | Hint                                                                                      |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| Without include-raw       | `Run \`exitbook reprocess\` to reprocess from preserved raw data.`                        |
-| With include-raw          | `Re-import from sources to restore data:`<br>`  exitbook import --exchange <name> ...`    |
-| With include-raw + source | `Re-import from {source} to restore data:`<br>`  exitbook import --exchange {source} ...` |
+| Scenario                  | Hint                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Without include-raw       | `Run \`exitbook reprocess\` to reprocess from preserved raw data.`                                          |
+| With include-raw          | `Re-sync saved accounts to restore data:`<br>`  exitbook import --account <name>`                           |
+| With include-raw + source | `Re-sync saved accounts in that profile after recreating raw data:`<br>`  exitbook import --account <name>` |
 
 ### Complete Phase Navigation
 
@@ -467,8 +467,9 @@ Clear Data  0 items
 
   No data to clear.
 
-  Import data first:
-  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
+  Add and sync an account first:
+  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
+  exitbook import --account kucoin-main
 
 q/esc quit
 ```

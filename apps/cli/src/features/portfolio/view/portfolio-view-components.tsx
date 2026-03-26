@@ -338,8 +338,9 @@ const PortfolioAssetsEmptyState: FC<{ state: PortfolioAssetsState }> = ({ state 
         <Text> </Text>
         <Text>{'  '}No transactions found.</Text>
         <Text> </Text>
-        <Text>{'  '}Import data to create accounts:</Text>
-        <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+        <Text>{'  '}Add an account, then sync it:</Text>
+        <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
+        <Text dimColor>{'  '}exitbook import --account kucoin-main</Text>
         <Text> </Text>
         <Text dimColor>
           {'  '}as-of: {asOfDate}
@@ -692,7 +693,7 @@ const PortfolioAssetDetail: FC<{
   const accountSummary =
     selected.accountBreakdown.length > 0
       ? selected.accountBreakdown
-          .map((account) => `${account.sourceName} (${formatCryptoQuantity(account.quantity)})`)
+          .map((account) => `${account.platformKey} (${formatCryptoQuantity(account.quantity)})`)
           .join(', ')
       : 'none';
   const realizedValue = selected.realizedGainLossAllTime ?? '0.00';
@@ -979,7 +980,7 @@ const PortfolioHistoryRow: FC<{
       {'  '}
       <Text>{valueOrTransfer}</Text>
       {'  '}
-      <Text color="cyan">{transaction.sourceName}</Text>
+      <Text color="cyan">{transaction.platformKey}</Text>
     </Text>
   );
 };
@@ -1012,7 +1013,7 @@ const PortfolioTransactionDetail: FC<{ state: PortfolioHistoryState }> = ({ stat
       </Text>
       <Text>
         {'  '}
-        <Text dimColor>Source:</Text> <Text color="cyan">{selected.sourceName}</Text>
+        <Text dimColor>Source:</Text> <Text color="cyan">{selected.platformKey}</Text>
       </Text>
       {selected.transferDirection && selected.transferPeer && (
         <Text>

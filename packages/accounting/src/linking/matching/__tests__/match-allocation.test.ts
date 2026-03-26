@@ -114,7 +114,7 @@ describe('allocateMatches invariants', () => {
       id: 1,
       direction: 'out',
       amount: parseDecimal('100'),
-      sourceName: 'exchange-a',
+      platformKey: 'exchange-a',
       sourceType: 'exchange',
     });
 
@@ -124,7 +124,7 @@ describe('allocateMatches invariants', () => {
       direction: 'in',
       amount: parseDecimal('200'),
       timestamp: new Date('2024-01-01T13:00:00Z'),
-      sourceName: 'blockchain-a',
+      platformKey: 'blockchain-a',
       sourceType: 'blockchain',
     });
 
@@ -134,7 +134,7 @@ describe('allocateMatches invariants', () => {
       direction: 'in',
       amount: parseDecimal('99.5'),
       timestamp: new Date('2024-01-01T13:00:00Z'),
-      sourceName: 'blockchain-b',
+      platformKey: 'blockchain-b',
       sourceType: 'blockchain',
     });
 
@@ -383,14 +383,14 @@ describe('allocateMatches scenarios', () => {
       id: 2,
       amount: parseDecimal('5'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
     const target2 = createLinkableMovement({
       id: 3,
       amount: parseDecimal('5'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -426,7 +426,7 @@ describe('allocateMatches scenarios', () => {
       id: 3,
       amount: parseDecimal('10'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -461,7 +461,7 @@ describe('allocateMatches scenarios', () => {
       id: 2,
       amount: parseDecimal('0.5'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -492,7 +492,7 @@ describe('allocateMatches scenarios', () => {
       id: 2,
       amount: parseDecimal('0.999'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -523,14 +523,14 @@ describe('allocateMatches scenarios', () => {
       id: 2,
       amount: parseDecimal('6'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
     const target2 = createLinkableMovement({
       id: 3,
       amount: parseDecimal('6'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -566,7 +566,7 @@ describe('allocateMatches scenarios', () => {
       id: 3,
       amount: parseDecimal('10'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -601,7 +601,7 @@ describe('allocateMatches scenarios', () => {
       id: 3,
       amount: parseDecimal('10'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 
@@ -635,7 +635,7 @@ describe('allocateMatches scenarios', () => {
       id: 2,
       amount: parseDecimal('5'),
       direction: 'in',
-      sourceName: 'blockchain',
+      platformKey: 'blockchain',
       sourceType: 'blockchain',
     });
 

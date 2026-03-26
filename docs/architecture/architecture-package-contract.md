@@ -117,7 +117,7 @@ A type does **not** belong in `foundation` when it carries business policy, feat
 - `Balance`, `AssetHolding`
 - `AssetReview`
 - `Override`
-- `User`
+- `Profile`
 - domain projection definitions
 
 #### Must not contain

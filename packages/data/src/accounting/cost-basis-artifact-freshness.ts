@@ -2,16 +2,20 @@ import type { CostBasisDependencyWatermark, ICostBasisDependencyWatermarkReader 
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
+import { buildProfileProjectionScopeKey } from '../projections/profile-scope-key.js';
 
 export function buildCostBasisArtifactFreshnessPorts(
   db: DataSession,
+  profileId: number,
   options?: { pricesLastMutatedAt?: Date | undefined }
 ): ICostBasisDependencyWatermarkReader {
+  const scopeKey = buildProfileProjectionScopeKey(profileId);
+
   return {
     async readCurrentWatermark(exclusionFingerprint): Promise<Result<CostBasisDependencyWatermark, Error>> {
       const [linksResult, assetReviewResult] = await Promise.all([
-        db.projectionState.get('links'),
-        db.projectionState.get('asset-review'),
+        db.projectionState.get('links', scopeKey),
+        db.projectionState.get('asset-review', scopeKey),
       ]);
 
       if (linksResult.isErr()) return err(linksResult.error);

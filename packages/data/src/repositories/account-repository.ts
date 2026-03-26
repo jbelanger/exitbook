@@ -4,6 +4,7 @@ import { AccountSchema, ExchangeCredentialsSchema } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
 import { CursorStateSchema } from '@exitbook/foundation';
 import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/foundation';
+import { sql } from '@exitbook/sqlite';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
 
@@ -15,26 +16,33 @@ import { BaseRepository } from './base-repository.js';
 
 interface AccountKeyParams {
   accountType: AccountType;
-  sourceName: string;
+  platformKey: string;
   identifier: string;
-  userId: number | undefined;
+  profileId: number | undefined;
 }
 
-interface FindOrCreateAccountParams {
-  userId: number | undefined;
-  parentAccountId?: number | undefined;
-  accountType: AccountType;
-  sourceName: string;
-  identifier: string;
-  providerName?: string | undefined;
-  credentials?: ExchangeCredentials | undefined;
-}
+const EXCHANGE_ACCOUNT_TYPES: AccountType[] = ['exchange-api', 'exchange-csv'];
 
 interface UpdateAccountParams {
+  identifier?: string | undefined;
+  name?: string | null | undefined;
   parentAccountId?: number | undefined;
   providerName?: string | undefined;
+  resetCursor?: boolean | undefined;
   credentials?: ExchangeCredentials | undefined;
   lastCursor?: Record<string, CursorState> | undefined;
+  metadata?: Account['metadata'] | undefined;
+}
+
+interface CreateAccountParams {
+  profileId: number | undefined;
+  name?: string | undefined;
+  parentAccountId?: number | undefined;
+  accountType: AccountType;
+  platformKey: string;
+  identifier: string;
+  providerName?: string | undefined;
+  credentials?: ExchangeCredentials | undefined;
   metadata?: Account['metadata'] | undefined;
 }
 
@@ -51,11 +59,24 @@ const accountMetadataSchema = z
   .optional();
 
 /**
- * Matches the DB unique index: COALESCE(user_id, 0).
+ * Matches the DB unique index: COALESCE(profile_id, 0).
  * NULL and 0 are equivalent at the schema level — undefined in the domain maps to both.
  */
-function isUnsetUserId(userId: number | null | undefined): boolean {
-  return userId === null || userId === undefined || userId === 0;
+function isUnsetProfileId(profileId: number | null | undefined): boolean {
+  return profileId === null || profileId === undefined || profileId === 0;
+}
+
+function normalizeAccountName(name: string): Result<string, Error> {
+  const normalized = name.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return err(new Error('Account name must not be empty'));
+  }
+
+  return ok(normalized);
+}
+
+function isExchangeAccountType(accountType: AccountType): boolean {
+  return EXCHANGE_ACCOUNT_TYPES.includes(accountType);
 }
 
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
@@ -66,10 +87,11 @@ function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
 
     const parseResult = AccountSchema.safeParse({
       id: row.id,
-      userId: row.user_id ?? undefined,
+      profileId: row.profile_id ?? undefined,
+      name: row.name ?? undefined,
       parentAccountId: row.parent_account_id ?? undefined,
       accountType: row.account_type,
-      sourceName: row.source_name,
+      platformKey: row.platform_key,
       identifier: row.identifier,
       providerName: row.provider_name ?? undefined,
       credentials: credentials ?? undefined,
@@ -106,20 +128,45 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
+  async findByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        const normalizedName = yield* normalizeAccountName(name);
+
+        const row = await self.db
+          .selectFrom('accounts')
+          .selectAll()
+          .where('parent_account_id', 'is', null)
+          .where('profile_id', '=', profileId)
+          .where('name', 'is not', null)
+          .where(sql`lower(name)`, '=', normalizedName)
+          .executeTakeFirst();
+        if (!row) {
+          return undefined;
+        }
+
+        return yield* toAccount(row);
+      },
+      this,
+      'Failed to find account by name'
+    );
+  }
+
   async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
-        let query = self.db
-          .selectFrom('accounts')
-          .selectAll()
-          .where('account_type', '=', params.accountType)
-          .where('source_name', '=', params.sourceName)
-          .where('identifier', '=', params.identifier);
+        let query = self.db.selectFrom('accounts').selectAll().where('platform_key', '=', params.platformKey);
 
-        if (isUnsetUserId(params.userId)) {
-          query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
+        if (isExchangeAccountType(params.accountType)) {
+          query = query.where('parent_account_id', 'is', null).where('account_type', 'in', EXCHANGE_ACCOUNT_TYPES);
         } else {
-          query = query.where('user_id', '=', params.userId!);
+          query = query.where('account_type', '=', params.accountType).where('identifier', '=', params.identifier);
+        }
+
+        if (isUnsetProfileId(params.profileId)) {
+          query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
+        } else {
+          query = query.where('profile_id', '=', params.profileId!);
         }
 
         const row = await query.executeTakeFirst();
@@ -149,9 +196,11 @@ export class AccountRepository extends BaseRepository {
 
   async findAll(filters?: {
     accountType?: AccountType | undefined;
+    includeUnnamedTopLevel?: boolean | undefined;
     parentAccountId?: number | undefined;
-    sourceName?: string | undefined;
-    userId?: number | undefined;
+    platformKey?: string | undefined;
+    profileId?: number | undefined;
+    topLevelOnly?: boolean | undefined;
   }): Promise<Result<Account[], Error>> {
     return resultTryAsync(
       async function* (self) {
@@ -160,18 +209,24 @@ export class AccountRepository extends BaseRepository {
         if (filters?.accountType) {
           query = query.where('account_type', '=', filters.accountType);
         }
-        if (filters?.sourceName) {
-          query = query.where('source_name', '=', filters.sourceName);
+        if (filters?.platformKey) {
+          query = query.where('platform_key', '=', filters.platformKey);
         }
-        if (filters?.userId !== undefined) {
-          if (isUnsetUserId(filters.userId)) {
-            query = query.where((eb) => eb.or([eb('user_id', 'is', null), eb('user_id', '=', 0)]));
+        if (filters?.profileId !== undefined) {
+          if (isUnsetProfileId(filters.profileId)) {
+            query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
           } else {
-            query = query.where('user_id', '=', filters.userId);
+            query = query.where('profile_id', '=', filters.profileId);
           }
         }
         if (filters?.parentAccountId !== undefined) {
           query = query.where('parent_account_id', '=', filters.parentAccountId);
+        } else if (filters?.topLevelOnly) {
+          query = query.where('parent_account_id', 'is', null);
+        }
+
+        if (filters?.includeUnnamedTopLevel === false) {
+          query = query.where('name', 'is not', null);
         }
 
         const rows = await query.execute();
@@ -186,36 +241,22 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
-  async findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
+  async create(params: CreateAccountParams): Promise<Result<Account, Error>> {
     return resultTryAsync(
       async function* (self) {
         if (!params.identifier || params.identifier.trim() === '') {
           yield* err('Account identifier must not be empty');
         }
-        if (!params.sourceName || params.sourceName.trim() === '') {
-          yield* err('Account source name must not be empty');
+        if (!params.platformKey || params.platformKey.trim() === '') {
+          yield* err('Account platform key must not be empty');
+        }
+        if (params.parentAccountId !== undefined && params.name !== undefined) {
+          yield* err('Child accounts must not have names');
         }
 
-        const existing = yield* await self.findBy({
-          accountType: params.accountType,
-          sourceName: params.sourceName,
-          identifier: params.identifier,
-          userId: params.userId,
-        });
-
-        if (existing) {
-          self.logger.debug({ accountId: existing.id }, 'Found existing account');
-
-          if (params.parentAccountId !== undefined && existing.parentAccountId !== params.parentAccountId) {
-            self.logger.info(
-              { accountId: existing.id, currentParent: existing.parentAccountId, newParent: params.parentAccountId },
-              'Updating parent account relationship for existing account'
-            );
-            yield* await self.update(existing.id, { parentAccountId: params.parentAccountId });
-            return yield* await self.getById(existing.id);
-          }
-
-          return existing;
+        let normalizedName: string | null = null;
+        if (params.name !== undefined) {
+          normalizedName = yield* normalizeAccountName(params.name);
         }
 
         let credentialsJson: string | null = null;
@@ -228,32 +269,53 @@ export class AccountRepository extends BaseRepository {
           }
         }
 
+        let metadataJson: string | null = null;
+        if (params.metadata !== undefined) {
+          metadataJson = (yield* serializeToJson(params.metadata)) ?? null;
+        }
+
         const result = await self.db
           .insertInto('accounts')
           .values({
-            user_id: params.userId,
+            profile_id: params.profileId,
+            name: normalizedName,
             parent_account_id: params.parentAccountId ?? null,
             account_type: params.accountType,
-            source_name: params.sourceName,
+            platform_key: params.platformKey,
             identifier: params.identifier,
             provider_name: params.providerName ?? null,
             credentials: credentialsJson,
             last_cursor: null,
+            metadata: metadataJson,
             created_at: new Date().toISOString(),
             updated_at: null,
           })
-          .returning(['id', 'user_id', 'account_type', 'source_name', 'identifier', 'provider_name', 'created_at'])
+          .returning([
+            'id',
+            'profile_id',
+            'name',
+            'account_type',
+            'platform_key',
+            'identifier',
+            'provider_name',
+            'created_at',
+          ])
           .executeTakeFirstOrThrow();
 
         self.logger.info(
-          { accountId: result.id, accountType: params.accountType, sourceName: params.sourceName },
-          'Created new account'
+          {
+            accountId: result.id,
+            accountType: params.accountType,
+            platformKey: params.platformKey,
+            name: normalizedName ?? undefined,
+          },
+          'Created account'
         );
 
         return yield* await self.getById(result.id);
       },
       this,
-      'Failed to find or create account'
+      'Failed to create account'
     );
   }
 
@@ -266,6 +328,17 @@ export class AccountRepository extends BaseRepository {
 
         if (updates.parentAccountId !== undefined) {
           updateData.parent_account_id = updates.parentAccountId;
+        }
+
+        if (updates.name !== undefined) {
+          updateData.name = updates.name === null ? null : yield* normalizeAccountName(updates.name);
+        }
+
+        if (updates.identifier !== undefined) {
+          if (!updates.identifier || updates.identifier.trim() === '') {
+            yield* err('Account identifier must not be empty');
+          }
+          updateData.identifier = updates.identifier;
         }
 
         if (updates.providerName !== undefined) {
@@ -288,6 +361,8 @@ export class AccountRepository extends BaseRepository {
           } else {
             updateData.last_cursor = (yield* serializeToJson(validationResult.data)) ?? null;
           }
+        } else if (updates.resetCursor) {
+          updateData.last_cursor = null;
         }
 
         if (updates.metadata !== undefined) {
@@ -320,8 +395,11 @@ export class AccountRepository extends BaseRepository {
     if (accountIds.length === 0) return ok(0);
 
     try {
-      const result = await this.db.deleteFrom('accounts').where('id', 'in', accountIds).executeTakeFirst();
-      const count = Number(result.numDeletedRows ?? 0);
+      let count = 0;
+      for (const accountId of accountIds) {
+        const result = await this.db.deleteFrom('accounts').where('id', '=', accountId).executeTakeFirst();
+        count += Number(result.numDeletedRows ?? 0);
+      }
       this.logger.debug({ accountIds, count }, 'Deleted accounts by IDs');
       return ok(count);
     } catch (error) {

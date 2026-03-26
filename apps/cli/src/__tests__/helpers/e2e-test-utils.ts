@@ -100,17 +100,17 @@ export function cleanupTestDatabase(): void {
 /**
  * Check if sample data exists for a given source
  */
-export function hasSampleData(sourceName: string): boolean {
-  const sourceDir = getSampleDir(sourceName);
+export function hasSampleData(platformKey: string): boolean {
+  const sourceDir = getSampleDir(platformKey);
   return fs.existsSync(sourceDir) && fs.readdirSync(sourceDir).length > 0;
 }
 
 /**
  * Get sample directory for a source
  */
-export function getSampleDir(sourceName: string): string {
+export function getSampleDir(platformKey: string): string {
   const { samplesDir } = getTestPaths();
-  if (sourceName === 'kucoin') {
+  if (platformKey === 'kucoin') {
     const candidates = fs
       .readdirSync(samplesDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name.startsWith('BillingHistory'))
@@ -122,5 +122,5 @@ export function getSampleDir(sourceName: string): string {
       return path.join(samplesDir, latest);
     }
   }
-  return path.join(samplesDir, sourceName);
+  return path.join(samplesDir, platformKey);
 }

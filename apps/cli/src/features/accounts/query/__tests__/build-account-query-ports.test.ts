@@ -14,12 +14,9 @@ import { buildAccountQueryPorts } from '../build-account-query-ports.js';
 
 function createMockDatabase() {
   return {
-    users: {
-      findOrCreateDefault: vi.fn().mockResolvedValue(ok({ id: 1 })),
-    },
     accounts: {
       findAll: vi.fn().mockResolvedValue(ok([])),
-      findByIdOptional: vi.fn().mockResolvedValue(ok(undefined)),
+      findById: vi.fn().mockResolvedValue(ok(undefined)),
     },
     importSessions: {
       countByAccount: vi.fn().mockResolvedValue(ok(new Map())),
@@ -56,9 +53,8 @@ describe('buildAccountQueryPorts', () => {
 
     expect(mockBuildBalancesFreshnessPorts).toHaveBeenCalledWith(db);
 
-    await ports.findOrCreateDefaultUser();
     await ports.findAccountById(1);
-    await ports.findAccounts({ sourceName: 'kraken' });
+    await ports.findAccounts({ platformKey: 'kraken' });
     await ports.countSessionsByAccount([1, 2]);
     await ports.findSessions({ accountIds: [1, 2] });
 
@@ -68,9 +64,8 @@ describe('buildAccountQueryPorts', () => {
       return;
     }
 
-    expect(db.users.findOrCreateDefault).toHaveBeenCalledOnce();
-    expect(db.accounts.findByIdOptional).toHaveBeenCalledWith(1);
-    expect(db.accounts.findAll).toHaveBeenCalledWith({ sourceName: 'kraken' });
+    expect(db.accounts.findById).toHaveBeenCalledWith(1);
+    expect(db.accounts.findAll).toHaveBeenCalledWith({ platformKey: 'kraken' });
     expect(db.importSessions.countByAccount).toHaveBeenCalledWith([1, 2]);
     expect(db.importSessions.findAll).toHaveBeenCalledWith({ accountIds: [1, 2] });
     expect(db.balanceSnapshots.findSnapshots).toHaveBeenCalledWith([1]);

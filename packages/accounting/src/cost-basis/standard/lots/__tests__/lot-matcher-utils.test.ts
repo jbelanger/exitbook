@@ -31,7 +31,7 @@ import { getVarianceTolerance, sortTransactionsByDependency } from '../transacti
 
 function createTransactionLink(
   id: number,
-  sourceName: number,
+  platformKey: number,
   targetId: number,
   assetSymbol: string,
   sourceAmount: string,
@@ -41,14 +41,14 @@ function createTransactionLink(
   const asset = assetSymbol.toLowerCase();
   return {
     id,
-    sourceTransactionId: sourceName,
+    sourceTransactionId: platformKey,
     targetTransactionId: targetId,
     assetSymbol: assetSymbol as Currency,
     sourceAssetId: `exchange:source:${asset}`,
     targetAssetId: `blockchain:target:${asset}`,
     sourceAmount: new Decimal(sourceAmount),
     targetAmount: new Decimal(targetAmount),
-    sourceMovementFingerprint: `movement:exchange:source:${sourceName}:${asset}:outflow:0`,
+    sourceMovementFingerprint: `movement:exchange:source:${platformKey}:${asset}:outflow:0`,
     targetMovementFingerprint: `movement:blockchain:target:${targetId}:${asset}:inflow:0`,
     linkType: 'exchange_to_blockchain',
     confidenceScore: new Decimal(confidenceScore),

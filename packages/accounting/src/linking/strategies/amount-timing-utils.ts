@@ -340,7 +340,7 @@ function isLikelyCrossSourceTokenMigration(
     return false;
   }
 
-  return source.sourceName !== target.sourceName;
+  return source.platformKey !== target.platformKey;
 }
 
 /**
@@ -374,7 +374,7 @@ export function scoreAndFilterMatches(
     // - Blockchain: same blockchain → skip heuristic matches (unrelated on-chain events).
     //   Blockchain same-source matches only make sense with a tx hash match, which is
     //   handled above this guard.
-    if (source.sourceName === target.sourceName) continue;
+    if (source.platformKey === target.platformKey) continue;
 
     // Check for transaction hash match (perfect match)
     const hashMatch = checkTransactionHashMatch(source, target);

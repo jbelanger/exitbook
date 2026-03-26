@@ -410,7 +410,14 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
         key="no-stats-command"
         dimColor
       >
-        {'  '}exitbook import --blockchain {selected.blockchains[0]?.name ?? 'ethereum'} --address {'<address>'}
+        {'  '}exitbook accounts add example-wallet --blockchain {selected.blockchains[0]?.name ?? 'ethereum'} --address{' '}
+        {'<address>'}
+      </Text>,
+      <Text
+        key="no-stats-import-command"
+        dimColor
+      >
+        {'  '}exitbook import --account example-wallet
       </Text>
     );
   }

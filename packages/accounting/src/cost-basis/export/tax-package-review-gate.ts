@@ -150,7 +150,7 @@ function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTr
       ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
       : '';
 
-  return `Retained transaction ${detail.sourceName} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
+  return `Retained transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
 }
 
 function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProceedsAllocationDetail): string {
@@ -159,5 +159,5 @@ function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProce
       ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
       : '';
 
-  return `Retained transaction ${detail.sourceName} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
+  return `Retained transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Import note (${detail.noteType}): ${detail.noteMessage}`;
 }

@@ -4,6 +4,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -40,6 +41,7 @@ export function registerPortfolioCommand(program: Command, appRuntime: CliAppRun
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US (default: US)')
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, appRuntime));
 }
@@ -59,9 +61,17 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
     const normalized = normalizeOptions(options);
 
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const handlerResult = await createPortfolioHandler(ctx, {
         isJsonMode: true,
         asOf: normalized.asOf,
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
 
       if (handlerResult.isErr()) {
@@ -115,9 +125,17 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
     const normalized = normalizeOptions(options);
 
     await runCommand(appRuntime, async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
       const handlerResult = await createPortfolioHandler(ctx, {
         isJsonMode: false,
         asOf: normalized.asOf,
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
       });
 
       if (handlerResult.isErr()) {

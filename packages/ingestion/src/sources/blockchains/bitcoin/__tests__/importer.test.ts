@@ -133,7 +133,7 @@ describe('BitcoinImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain' as const,
         address: USER_ADDRESS,
       });
@@ -186,7 +186,7 @@ describe('BitcoinImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain' as const,
         address: USER_ADDRESS,
       });
@@ -231,7 +231,7 @@ describe('BitcoinImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain' as const,
         address: USER_ADDRESS,
       });
@@ -260,7 +260,7 @@ describe('BitcoinImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain' as const,
         address: USER_ADDRESS,
       });
@@ -274,7 +274,7 @@ describe('BitcoinImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { sourceName: 'bitcoin', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, { platformKey: 'bitcoin', sourceType: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

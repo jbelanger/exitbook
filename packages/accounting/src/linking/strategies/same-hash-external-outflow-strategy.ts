@@ -156,7 +156,7 @@ function buildGroups(sources: LinkableMovement[], targets: LinkableMovement[]): 
     const siblingInflows = targets.filter(
       (target) =>
         target.sourceType === 'blockchain' &&
-        target.sourceName === groupSources[0]?.sourceName &&
+        target.platformKey === groupSources[0]?.platformKey &&
         target.direction === 'in' &&
         target.blockchainTxHash === hash &&
         target.assetId === assetId

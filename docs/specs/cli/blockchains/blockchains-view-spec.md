@@ -75,7 +75,8 @@ Blockchains  13 total · 7 evm · 3 substrate · 1 utxo · 1 solana · 1 cosmos 
     ⚠  quicknode      txs · balance            3/sec   QUICKNODE_API_KEY ✗
     ⊘  polygonscan    txs · balance             5/sec
 
-  Example: exitbook import --blockchain polygon --address 0x742d35Cc...
+  Example: exitbook accounts add polygon-main --blockchain polygon --address 0x742d35Cc...
+           exitbook import --account polygon-main
 
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
@@ -174,7 +175,8 @@ The detail panel shows full provider information for the selected blockchain.
     {icon}  {providerName}   {capabilities}   {rateLimit}   {apiKeyInfo}
     ...
 
-  Example: exitbook import --blockchain {name} --address {exampleAddress}
+  Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
+           exitbook import --account {name}-main
 ```
 
 ### Detail Panel Elements
@@ -228,7 +230,8 @@ When a blockchain has zero registered providers:
 
   No providers registered for this blockchain.
 
-  Example: exitbook import --blockchain {name} --address {exampleAddress}
+  Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
+           exitbook import --account {name}-main
 ```
 
 ---

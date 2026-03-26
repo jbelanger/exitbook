@@ -21,7 +21,7 @@ export interface LinksReviewResult {
   asset?: string | undefined;
   sourceAmount?: string | undefined;
   targetAmount?: string | undefined;
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
   targetName?: string | undefined;
   confidence?: string | undefined;
   transferProposalKey?: string | undefined;
@@ -39,8 +39,8 @@ const ACTION_STATUS = {
 export class LinksReviewHandler {
   private readonly reviewService: TransferProposalReviewService;
 
-  constructor(db: DataSession, overrideStore?: OverrideStore) {
-    this.reviewService = new TransferProposalReviewService(db, overrideStore);
+  constructor(db: DataSession, profileId: number, profileKey: string, overrideStore?: OverrideStore) {
+    this.reviewService = new TransferProposalReviewService(db, profileId, profileKey, overrideStore);
   }
 
   async execute(params: LinksReviewParams, action: LinksReviewAction): Promise<Result<LinksReviewResult, Error>> {

@@ -163,6 +163,7 @@ STRATEGY.md
 commands.txt
 *files*.txt
 !prices.db
+!token-metadata.db
 # SQLite WAL files (Write-Ahead Logging)
 *.db-shm
 *.db-wal

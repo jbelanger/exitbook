@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildProcessedTransactionsFreshnessPorts } from '../../projections/processed-transactions-freshness.js';
-import { seedUser, seedAccount, seedImportSession } from '../../repositories/__tests__/helpers.js';
+import { seedProfile, seedAccount, seedImportSession } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
@@ -46,7 +46,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   });
 
   it('returns stale when raw data exists but never processed', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
@@ -57,7 +57,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   });
 
   it('returns fresh when projection is marked fresh with matching account hash', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
@@ -82,7 +82,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   });
 
   it('returns stale when account hash has changed', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
@@ -96,7 +96,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   });
 
   it('returns stale when projection state is explicitly stale', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
@@ -110,7 +110,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   });
 
   it('returns stale when a new import completed after last build', async () => {
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 

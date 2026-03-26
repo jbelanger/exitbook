@@ -217,7 +217,7 @@ describe('portfolio position building', () => {
         unrealizedPct: '-91.1',
         openLots: [],
         accountBreakdown: [
-          { accountId: 1, sourceName: 'coinbase', accountType: 'exchange-api', quantity: '0.00007253' },
+          { accountId: 1, platformKey: 'coinbase', accountType: 'exchange-api', quantity: '0.00007253' },
         ],
       },
       {
@@ -234,7 +234,7 @@ describe('portfolio position building', () => {
         unrealizedGainLoss: '0.00',
         unrealizedPct: '0.0',
         openLots: [],
-        accountBreakdown: [{ accountId: 2, sourceName: 'lukso', accountType: 'blockchain', quantity: '0.00001396' }],
+        accountBreakdown: [{ accountId: 2, platformKey: 'lukso', accountType: 'blockchain', quantity: '0.00001396' }],
       },
     ]);
 
@@ -524,11 +524,11 @@ describe('portfolio position building', () => {
       accountBreakdown: new Map([
         [
           'exchange:kraken:btc',
-          [{ accountId: 1, sourceName: 'kraken', accountType: 'exchange-api', quantity: '0.60000000' }],
+          [{ accountId: 1, platformKey: 'kraken', accountType: 'exchange-api', quantity: '0.60000000' }],
         ],
         [
           'blockchain:bitcoin:native',
-          [{ accountId: 2, sourceName: 'bitcoin', accountType: 'blockchain', quantity: '0.40000000' }],
+          [{ accountId: 2, platformKey: 'bitcoin', accountType: 'blockchain', quantity: '0.40000000' }],
         ],
       ]),
       asOf: new Date('2025-01-01T00:00:00.000Z'),
@@ -583,7 +583,7 @@ describe('portfolio position building', () => {
         ],
       ]),
       accountBreakdown: new Map([
-        ['asset:btc', [{ accountId: 1, sourceName: 'kraken', accountType: 'exchange-api', quantity: '1.50000000' }]],
+        ['asset:btc', [{ accountId: 1, platformKey: 'kraken', accountType: 'exchange-api', quantity: '1.50000000' }]],
       ]),
       fxRate: undefined,
       asOf: new Date('2026-01-01T00:00:00.000Z'),

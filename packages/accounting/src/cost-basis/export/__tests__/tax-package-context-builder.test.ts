@@ -7,12 +7,12 @@ import type { CostBasisContext } from '../../../ports/cost-basis-persistence.js'
 import type { CostBasisWorkflowResult } from '../../workflow/workflow-result-types.js';
 import { buildTaxPackageBuildContext } from '../tax-package-context-builder.js';
 
-function createAccount(id: number, sourceName = `account-${id}`): Account {
+function createAccount(id: number, platformKey = `account-${id}`): Account {
   return {
     id,
     accountType: 'exchange-api',
-    sourceName,
-    identifier: `${sourceName}-identifier`,
+    platformKey,
+    identifier: `${platformKey}-identifier`,
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
   };
 }

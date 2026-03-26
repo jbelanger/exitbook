@@ -10,16 +10,17 @@ export function createMockAccount(
     accountType?: AccountType | undefined;
     id?: number | undefined;
     identifier?: string | undefined;
-    sourceName?: string | undefined;
-    userId?: number | undefined;
+    platformKey?: string | undefined;
+    profileId?: number | undefined;
   }
 ): Account {
   return {
     id: options?.id ?? 1,
-    userId: options?.userId ?? 1,
+    profileId: options?.profileId ?? 1,
+    name: options?.name,
     parentAccountId: options?.parentAccountId,
     accountType: options?.accountType ?? 'blockchain',
-    sourceName: options?.sourceName ?? 'bitcoin',
+    platformKey: options?.platformKey ?? 'bitcoin',
     identifier: options?.identifier ?? 'bc1qtest',
     providerName: options?.providerName,
     credentials: options?.credentials,
@@ -50,8 +51,8 @@ export function createMockSession(overrides?: Partial<ImportSession>): ImportSes
 interface AccountFindAllFilters {
   accountType?: AccountType | undefined;
   parentAccountId?: number | undefined;
-  sourceName?: string | undefined;
-  userId?: number | undefined;
+  platformKey?: string | undefined;
+  profileId?: number | undefined;
 }
 
 type AccountFindAll = (filters?: AccountFindAllFilters) => Promise<Result<Account[], Error>>;
@@ -64,9 +65,6 @@ type CheckBalanceFreshness = (
 ) => Promise<Result<{ reason?: string | undefined; status: ProjectionStatus }, Error>>;
 
 export function createMockPorts() {
-  const findOrCreateDefaultUser = vi
-    .fn()
-    .mockResolvedValue(ok({ id: 1, createdAt: new Date('2025-01-01T00:00:00.000Z') }));
   const findAccounts = vi.fn<AccountFindAll>().mockResolvedValue(ok([]));
   const findAccountById = vi.fn<AccountFindById>();
   const countSessionsByAccount = vi.fn<CountByAccount>().mockImplementation((accountIds: number[]) => {
@@ -79,7 +77,6 @@ export function createMockPorts() {
     .mockResolvedValue(ok({ status: 'fresh', reason: undefined }));
 
   const ports: AccountQueryPorts = {
-    findOrCreateDefaultUser,
     findAccounts,
     findAccountById,
     countSessionsByAccount,
@@ -90,7 +87,6 @@ export function createMockPorts() {
 
   return {
     ports,
-    findOrCreateDefaultUser,
     findAccounts,
     findAccountById,
     countSessionsByAccount,

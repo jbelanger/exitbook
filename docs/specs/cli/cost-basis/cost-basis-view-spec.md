@@ -703,8 +703,9 @@ Cost Basis (FIFO · CA · 2024 · CAD)  0 disposals
 
   No transactions found in the date range 2024-01-01 to 2024-12-31.
 
-  Import transactions first:
-  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
+  Add and sync an account first:
+  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
+  exitbook import --account kucoin-main
 
 q quit
 ```

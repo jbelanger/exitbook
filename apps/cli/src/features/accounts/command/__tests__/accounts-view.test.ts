@@ -4,24 +4,31 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  mockBuildCliAccountLifecycleService,
   mockBuildAccountQueryPorts,
   mockCtx,
   mockDisplayCliError,
+  mockGetByName,
   mockList,
   mockOutputSuccess,
   mockRenderApp,
+  mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
+  mockBuildCliAccountLifecycleService: vi.fn(),
   mockBuildAccountQueryPorts: vi.fn(),
   mockCtx: {
+    activeProfileKey: 'default',
     closeDatabase: vi.fn(),
     database: vi.fn(),
     exitCode: 0,
   },
   mockDisplayCliError: vi.fn(),
+  mockGetByName: vi.fn(),
   mockList: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
+  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
 
@@ -38,8 +45,16 @@ vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
 }));
 
+vi.mock('../../../profiles/profile-resolution.js', () => ({
+  resolveCommandProfile: mockResolveCommandProfile,
+}));
+
 vi.mock('../../query/build-account-query-ports.js', () => ({
   buildAccountQueryPorts: mockBuildAccountQueryPorts,
+}));
+
+vi.mock('../../account-service.js', () => ({
+  buildCliAccountLifecycleService: mockBuildCliAccountLifecycleService,
 }));
 
 vi.mock('../../query/account-query.js', () => ({
@@ -66,7 +81,8 @@ function createAccountSummary() {
   return {
     id: 1,
     accountType: 'exchange-api' as const,
-    sourceName: 'kraken',
+    platformKey: 'kraken',
+    name: 'kraken-main',
     identifier: 'acct-1',
     parentAccountId: undefined,
     providerName: 'kraken-api',
@@ -80,7 +96,7 @@ function createAccountSummary() {
       {
         id: 2,
         accountType: 'exchange-api' as const,
-        sourceName: 'kraken',
+        platformKey: 'kraken',
         identifier: 'acct-child',
         parentAccountId: 1,
         providerName: undefined,
@@ -104,6 +120,29 @@ beforeEach(() => {
   mockCtx.closeDatabase.mockResolvedValue(undefined);
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
+  mockBuildCliAccountLifecycleService.mockReturnValue({
+    getByName: mockGetByName,
+  });
+  mockGetByName.mockResolvedValue(
+    ok({
+      id: 1,
+      profileId: 1,
+      name: 'kraken-main',
+      parentAccountId: undefined,
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      identifier: 'acct-1',
+      providerName: 'kraken-api',
+      credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
+      lastCursor: undefined,
+      metadata: undefined,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: undefined,
+    })
+  );
+  mockResolveCommandProfile.mockResolvedValue(
+    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2025-01-01T00:00:00.000Z') })
+  );
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);
   });
@@ -159,6 +198,7 @@ describe('registerAccountsViewCommand', () => {
 
     expect(mockBuildAccountQueryPorts).toHaveBeenCalledWith({ tag: 'db' });
     expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
       accountId: 1,
       accountType: 'exchange-api',
       source: 'kraken',
@@ -169,7 +209,8 @@ describe('registerAccountsViewCommand', () => {
         {
           id: 1,
           accountType: 'exchange-api',
-          sourceName: 'kraken',
+          platformKey: 'kraken',
+          name: 'kraken-main',
           identifier: 'acct-1',
           parentAccountId: undefined,
           providerName: 'kraken-api',
@@ -231,6 +272,13 @@ describe('registerAccountsViewCommand', () => {
 
     await program.parseAsync(['accounts', 'view', '--source', 'kraken'], { from: 'user' });
 
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: undefined,
+      accountType: undefined,
+      source: 'kraken',
+      showSessions: undefined,
+    });
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AccountsViewApp');
@@ -239,7 +287,8 @@ describe('registerAccountsViewCommand', () => {
         {
           id: 1,
           accountType: 'exchange-api',
-          sourceName: 'kraken',
+          platformKey: 'kraken',
+          name: 'kraken-main',
           identifier: 'acct-1',
           parentAccountId: undefined,
           providerName: 'kraken-api',
@@ -276,6 +325,52 @@ describe('registerAccountsViewCommand', () => {
         exchangeCsv: 0,
       },
     });
+  });
+
+  it('resolves a named account before querying', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 2,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'view', 'kraken-main', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 1,
+      accountType: undefined,
+      source: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputSuccess).toHaveBeenCalledWith('view-accounts', expect.anything());
+
+    const payload: unknown = mockOutputSuccess.mock.calls[0]?.[1];
+    expect(payload).toBeDefined();
+    expect((payload as { meta?: { filters?: Record<string, unknown> } }).meta?.filters).toEqual({
+      accountName: 'kraken-main',
+      accountId: 1,
+    });
+  });
+
+  it('routes conflicting named-account filters through the text error path', async () => {
+    const program = createAccountsProgram();
+
+    await expect(
+      program.parseAsync(['accounts', 'view', 'kraken-main', '--source', 'kraken'], { from: 'user' })
+    ).rejects.toThrow(
+      'CLI:accounts-view:text:Named account lookup cannot be combined with --account-id, --source, or --type'
+    );
+
+    expect(mockRunCommand).not.toHaveBeenCalled();
   });
 
   it('routes invalid CLI options through the text error path', async () => {

@@ -3,7 +3,7 @@ export interface PortfolioTransactionItem {
   datetime: string;
   operationCategory: string;
   operationType: string;
-  sourceName: string;
+  platformKey: string;
   assetAmount: string;
   assetDirection: 'in' | 'out';
   fiatValue?: string | undefined;

@@ -4,17 +4,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
-const { mockCreateBalanceHandler, mockCtx, mockDisplayCliError, mockOutputSuccess, mockRunCommand } = vi.hoisted(
-  () => ({
-    mockCreateBalanceHandler: vi.fn(),
-    mockCtx: {
-      database: vi.fn(),
-    },
-    mockDisplayCliError: vi.fn(),
-    mockOutputSuccess: vi.fn(),
-    mockRunCommand: vi.fn(),
-  })
-);
+const {
+  mockCreateBalanceHandler,
+  mockCtx,
+  mockDisplayCliError,
+  mockEnsureProcessedTransactionsReady,
+  mockOutputSuccess,
+  mockResolveCommandProfile,
+  mockRunCommand,
+} = vi.hoisted(() => ({
+  mockCreateBalanceHandler: vi.fn(),
+  mockCtx: {
+    database: vi.fn(),
+  },
+  mockDisplayCliError: vi.fn(),
+  mockEnsureProcessedTransactionsReady: vi.fn(),
+  mockOutputSuccess: vi.fn(),
+  mockResolveCommandProfile: vi.fn(),
+  mockRunCommand: vi.fn(),
+}));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: vi.fn(),
@@ -27,6 +35,14 @@ vi.mock('../../../shared/json-output.js', () => ({
 
 vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
+}));
+
+vi.mock('../../../profiles/profile-resolution.js', () => ({
+  resolveCommandProfile: mockResolveCommandProfile,
+}));
+
+vi.mock('../../../shared/projection-readiness.js', () => ({
+  ensureProcessedTransactionsReady: mockEnsureProcessedTransactionsReady,
 }));
 
 vi.mock('../balance-handler.js', () => ({
@@ -51,27 +67,31 @@ function createAccount(overrides: {
   accountType?: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier?: string;
+  platformKey?: string;
   providerName?: string | undefined;
-  sourceName?: string;
 }): {
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier: string;
+  platformKey: string;
   providerName?: string | undefined;
-  sourceName: string;
 } {
   return {
     accountType: overrides.accountType ?? 'blockchain',
     id: overrides.id,
     identifier: overrides.identifier ?? `identifier-${overrides.id}`,
     providerName: overrides.providerName,
-    sourceName: overrides.sourceName ?? 'bitcoin',
+    platformKey: overrides.platformKey ?? 'bitcoin',
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockCtx.database.mockResolvedValue({});
+  mockResolveCommandProfile.mockResolvedValue(
+    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
+  );
+  mockEnsureProcessedTransactionsReady.mockResolvedValue(ok(undefined));
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);
@@ -91,37 +111,41 @@ describe('balance command JSON mode', () => {
     const program = createBalanceCommand();
     const scopeAccount = createAccount({ id: 1, identifier: 'xpub-root' });
     const requestedAccount = createAccount({ id: 2, identifier: 'bc1-child' });
-
-    mockCreateBalanceHandler.mockResolvedValue(
+    const viewStoredSnapshots = vi.fn().mockResolvedValue(
       ok({
-        viewStoredSnapshots: vi.fn().mockResolvedValue(
-          ok({
-            accounts: [
+        accounts: [
+          {
+            account: scopeAccount,
+            requestedAccount,
+            snapshot: {
+              verificationStatus: 'unavailable',
+              statusReason: 'Live verification unavailable',
+              suggestion: 'Add a provider',
+              lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
+            },
+            assets: [
               {
-                account: scopeAccount,
-                requestedAccount,
-                snapshot: {
-                  verificationStatus: 'unavailable',
-                  statusReason: 'Live verification unavailable',
-                  suggestion: 'Add a provider',
-                  lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
-                },
-                assets: [
-                  {
-                    assetId: 'blockchain:bitcoin:native',
-                    assetSymbol: 'BTC',
-                    calculatedBalance: '1.25',
-                    diagnostics: { txCount: 4 },
-                  },
-                ],
+                assetId: 'blockchain:bitcoin:native',
+                assetSymbol: 'BTC',
+                calculatedBalance: '1.25',
+                diagnostics: { txCount: 4 },
               },
             ],
-          })
-        ),
+          },
+        ],
       })
     );
 
+    mockCreateBalanceHandler.mockResolvedValue(ok({ viewStoredSnapshots }));
+
     await program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' });
+
+    expect(mockEnsureProcessedTransactionsReady).toHaveBeenCalledWith(mockCtx, {
+      isJsonMode: true,
+      profileId: 1,
+    });
+    expect(mockCreateBalanceHandler).toHaveBeenCalledWith(mockCtx, { needsWorkflow: true });
+    expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-view',
@@ -129,11 +153,11 @@ describe('balance command JSON mode', () => {
         accounts: [
           {
             accountId: 1,
-            sourceName: 'bitcoin',
+            platformKey: 'bitcoin',
             accountType: 'blockchain',
             requestedAccount: {
               id: 2,
-              sourceName: 'bitcoin',
+              platformKey: 'bitcoin',
               accountType: 'blockchain',
             },
             snapshot: {
@@ -161,22 +185,32 @@ describe('balance command JSON mode', () => {
     );
   });
 
-  it('routes fail-closed stored snapshot errors through the JSON CLI error path', async () => {
+  it('routes processing-prerequisite failures through the JSON CLI error path', async () => {
     const program = createBalanceCommand();
-    const failClosedError = new Error(
-      'Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
-    );
+    const prerequisiteError = new Error('processing failed');
 
-    mockCreateBalanceHandler.mockResolvedValue(
-      ok({
-        viewStoredSnapshots: vi.fn().mockResolvedValue(err(failClosedError)),
-      })
-    );
+    mockEnsureProcessedTransactionsReady.mockResolvedValue(err(prerequisiteError));
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:Stored balance snapshot for scope account #1 (bitcoin) is stale because processed transactions were reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 2" to rebuild only the requested scope.'
+      'CLI:balance-view:json:processing failed'
     );
 
+    expect(mockCreateBalanceHandler).not.toHaveBeenCalled();
+    expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', prerequisiteError, 1, 'json');
+  });
+
+  it('routes stored snapshot failures through the JSON CLI error path after prerequisites succeed', async () => {
+    const program = createBalanceCommand();
+    const failClosedError = new Error('stored snapshot read failed');
+
+    const viewStoredSnapshots = vi.fn().mockResolvedValue(err(failClosedError));
+    mockCreateBalanceHandler.mockResolvedValue(ok({ viewStoredSnapshots }));
+
+    await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:balance-view:json:stored snapshot read failed'
+    );
+
+    expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
     expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', failClosedError, 1, 'json');
   });
 
@@ -202,50 +236,50 @@ describe('balance command JSON mode', () => {
       },
     ];
 
-    mockCreateBalanceHandler.mockResolvedValue(
+    const refreshSingleScope = vi.fn().mockResolvedValue(
       ok({
-        refreshSingleScope: vi.fn().mockResolvedValue(
-          ok({
-            mode: 'verification',
-            account: scopeAccount,
-            requestedAccount,
-            comparisons,
-            verificationResult: {
-              mode: 'verification',
-              timestamp: '2026-03-12T18:10:00.000Z',
-              status: 'match',
-              summary: {
-                matches: 1,
-                mismatches: 0,
-                warnings: 0,
-                totalAssets: 1,
-              },
-              coverage: {
-                status: 'complete',
-                confidence: 'high',
-                requestedAddresses: 1,
-                successfulAddresses: 1,
-                failedAddresses: 0,
-                totalAssets: 1,
-                parsedAssets: 1,
-                failedAssets: 0,
-                overallCoverageRatio: 1,
-              },
-              suggestion: 'Balances match',
-              partialFailures: undefined,
-              warnings: undefined,
-            },
-            streamMetadata: {
-              normal: {
-                totalFetched: 4,
-              },
-            },
-          })
-        ),
+        mode: 'verification',
+        account: scopeAccount,
+        requestedAccount,
+        comparisons,
+        verificationResult: {
+          mode: 'verification',
+          timestamp: '2026-03-12T18:10:00.000Z',
+          status: 'match',
+          summary: {
+            matches: 1,
+            mismatches: 0,
+            warnings: 0,
+            totalAssets: 1,
+          },
+          coverage: {
+            status: 'complete',
+            confidence: 'high',
+            requestedAddresses: 1,
+            successfulAddresses: 1,
+            failedAddresses: 0,
+            totalAssets: 1,
+            parsedAssets: 1,
+            failedAssets: 0,
+            overallCoverageRatio: 1,
+          },
+          suggestion: 'Balances match',
+          partialFailures: undefined,
+          warnings: undefined,
+        },
+        streamMetadata: {
+          normal: {
+            totalFetched: 4,
+          },
+        },
       })
     );
 
+    mockCreateBalanceHandler.mockResolvedValue(ok({ refreshSingleScope }));
+
     await program.parseAsync(['refresh', '--account-id', '2', '--json'], { from: 'user' });
+
+    expect(refreshSingleScope).toHaveBeenCalledWith({ accountId: 2, credentials: undefined, profileId: 1 });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-refresh',
@@ -255,14 +289,14 @@ describe('balance command JSON mode', () => {
         account: {
           id: 1,
           type: 'blockchain',
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           identifier: 'xpub-root',
           providerName: 'mempool',
         },
         requestedAccount: {
           id: 2,
           type: 'blockchain',
-          sourceName: 'bitcoin',
+          platformKey: 'bitcoin',
           identifier: 'bc1-child',
           providerName: undefined,
         },
@@ -289,57 +323,56 @@ describe('balance command JSON mode', () => {
     const scopeAccount = createAccount({
       id: 74,
       identifier: 'lukso-address',
-      sourceName: 'lukso',
+      platformKey: 'lukso',
     });
-
-    mockCreateBalanceHandler.mockResolvedValue(
+    const refreshSingleScope = vi.fn().mockResolvedValue(
       ok({
-        refreshSingleScope: vi.fn().mockResolvedValue(
-          ok({
-            mode: 'calculated-only',
-            account: scopeAccount,
-            assets: [
-              {
-                assetId: 'blockchain:lukso:native',
-                assetSymbol: 'LYX',
-                calculatedBalance: '12.5',
-                diagnostics: { txCount: 4 },
-              },
-            ],
-            verificationResult: {
-              mode: 'calculated-only',
-              timestamp: '2026-03-12T18:10:00.000Z',
-              status: 'warning',
-              summary: {
-                matches: 0,
-                mismatches: 0,
-                warnings: 0,
-                totalCurrencies: 1,
-              },
-              coverage: {
-                status: 'partial',
-                confidence: 'low',
-                requestedAddresses: 1,
-                successfulAddresses: 0,
-                failedAddresses: 1,
-                totalAssets: 1,
-                parsedAssets: 0,
-                failedAssets: 1,
-                overallCoverageRatio: 0,
-              },
-              suggestion:
-                'Stored calculated balances only. Add a balance-capable provider for lukso to enable live verification.',
-              partialFailures: undefined,
-              warnings: [
-                'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
-              ],
-            },
-          })
-        ),
+        mode: 'calculated-only',
+        account: scopeAccount,
+        assets: [
+          {
+            assetId: 'blockchain:lukso:native',
+            assetSymbol: 'LYX',
+            calculatedBalance: '12.5',
+            diagnostics: { txCount: 4 },
+          },
+        ],
+        verificationResult: {
+          mode: 'calculated-only',
+          timestamp: '2026-03-12T18:10:00.000Z',
+          status: 'warning',
+          summary: {
+            matches: 0,
+            mismatches: 0,
+            warnings: 0,
+            totalCurrencies: 1,
+          },
+          coverage: {
+            status: 'partial',
+            confidence: 'low',
+            requestedAddresses: 1,
+            successfulAddresses: 0,
+            failedAddresses: 1,
+            totalAssets: 1,
+            parsedAssets: 0,
+            failedAssets: 1,
+            overallCoverageRatio: 0,
+          },
+          suggestion:
+            'Stored calculated balances only. Add a balance-capable provider for lukso to enable live verification.',
+          partialFailures: undefined,
+          warnings: [
+            'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+          ],
+        },
       })
     );
 
+    mockCreateBalanceHandler.mockResolvedValue(ok({ refreshSingleScope }));
+
     await program.parseAsync(['refresh', '--account-id', '74', '--json'], { from: 'user' });
+
+    expect(refreshSingleScope).toHaveBeenCalledWith({ accountId: 74, credentials: undefined, profileId: 1 });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-refresh',

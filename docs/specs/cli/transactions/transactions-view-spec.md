@@ -527,8 +527,9 @@ Transactions  0 total
 
   No transactions found.
 
-  Import transactions first:
-  exitbook import --exchange kucoin --csv-dir ./exports/kucoin
+  Add and sync an account first:
+  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
+  exitbook import --account kucoin-main
 
 q quit
 ```

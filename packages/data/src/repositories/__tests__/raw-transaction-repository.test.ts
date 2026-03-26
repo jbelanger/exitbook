@@ -6,14 +6,14 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { RawTransactionRepository } from '../raw-transaction-repository.js';
 
-import { seedAccount, seedImportSession, seedUser } from './helpers.js';
+import { seedAccount, seedImportSession, seedProfile } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 async function seedDatabase(db: KyselyDB): Promise<void> {
-  await seedUser(db);
+  await seedProfile(db);
   await seedAccount(db, 1, 'exchange-api', 'kraken');
   await seedAccount(db, 2, 'blockchain', 'ethereum');
   await seedImportSession(db, 1, 1);

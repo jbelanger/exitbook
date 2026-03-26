@@ -19,7 +19,7 @@ import type { AccountViewItem, ChildAccountViewItem, SessionViewItem, TypeCounts
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import type { AccountsViewState } from './accounts-view-state.js';
 
-const ACCOUNT_DETAIL_LINES = 7;
+const ACCOUNT_DETAIL_LINES = 8;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
@@ -123,7 +123,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
   const columns = createColumns(accounts, {
     acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
-    source: { format: (item) => item.sourceName, minWidth: 12 },
+    source: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
 
@@ -172,7 +172,8 @@ const AccountRow: FC<{
   item: AccountViewItem;
 }> = ({ item, isSelected, columns }) => {
   const { acctId, source, type } = columns.format(item);
-  const identifier = truncateIdentifier(item.identifier, item.accountType, 28);
+  const label = truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28);
+  const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
   const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
   const projection = getProjectionDisplay(item.balanceProjectionStatus);
   const verification = getVerificationDisplay(item.verificationStatus);
@@ -180,7 +181,13 @@ const AccountRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      {acctId} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> {identifier}{' '}
+      {acctId} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text bold={!!item.name}>{label}</Text>
+      {identifierSuffix ? (
+        <>
+          <Text> </Text>
+          <Text dimColor>{identifierSuffix}</Text>
+        </>
+      ) : null}{' '}
       <Text dimColor>
         {sessions}
         {children}
@@ -210,11 +217,19 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   const type = formatAccountType(selected.accountType);
   const verification = getVerificationDisplay(selected.verificationStatus);
   const projection = getProjectionDisplay(selected.balanceProjectionStatus);
+  const title = selected.name ? selected.name : `#${selected.id}`;
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.sourceName}</Text> <Text dimColor>{type}</Text>
+      <Text bold>▸ {title}</Text>
+      {selected.name ? <Text dimColor> #{selected.id}</Text> : null} <Text color="cyan">{selected.platformKey}</Text>{' '}
+      <Text dimColor>{type}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
+    <Text key="name">
+      {'  '}
+      <Text dimColor>Name: </Text>
+      {selected.name ? <Text>{selected.name}</Text> : <Text dimColor>—</Text>}
+    </Text>,
     <Text key="identifier">
       {'  '}
       <Text dimColor>Identifier: </Text>
@@ -374,8 +389,8 @@ const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
         <Box flexDirection="column">
           <Text>{'  '}No accounts found.</Text>
           <Text> </Text>
-          <Text>{'  '}Import data first:</Text>
-          <Text dimColor>{'  '}exitbook import --exchange kucoin --csv-dir ./exports/kraken</Text>
+          <Text>{'  '}Create an account first:</Text>
+          <Text dimColor>{'  '}exitbook accounts add main-wallet --blockchain bitcoin --address bc1q...</Text>
         </Box>
       ) : (
         <Text>
@@ -479,6 +494,14 @@ function truncateIdentifier(identifier: string, accountType: string, maxWidth: n
 
   // For exchange identifiers, just truncate
   return identifier.substring(0, maxWidth - 3) + '...';
+}
+
+function truncateLabel(label: string, maxWidth: number): string {
+  if (label.length <= maxWidth) {
+    return label.padEnd(maxWidth);
+  }
+
+  return `${label.slice(0, maxWidth - 3)}...`;
 }
 
 function formatTimestamp(isoString: string): string {

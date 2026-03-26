@@ -173,7 +173,7 @@ describe('SubstrateImporter', () => {
       ]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -219,7 +219,7 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -237,7 +237,7 @@ describe('SubstrateImporter', () => {
       setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -257,7 +257,7 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -275,7 +275,7 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -303,7 +303,7 @@ describe('SubstrateImporter', () => {
       setupMockData(largeBatch);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -331,7 +331,7 @@ describe('SubstrateImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -346,7 +346,7 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
       });
 
@@ -360,7 +360,7 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address: '',
       });
@@ -384,7 +384,7 @@ describe('SubstrateImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -408,7 +408,7 @@ describe('SubstrateImporter', () => {
       });
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -436,7 +436,7 @@ describe('SubstrateImporter', () => {
       setupMockData([{ raw: { original: 'tao-data' }, normalized: bittensorTx }], 'taostats');
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -473,7 +473,7 @@ describe('SubstrateImporter', () => {
       setupMockData([{ raw: { original: 'ksm-data' }, normalized: kusamaTx }]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -535,12 +535,12 @@ describe('SubstrateImporter', () => {
         });
 
       const polkadotResult = await consumeImportStream(polkadotImporter, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address: polkadotAddress,
       });
       const bittensorResult = await consumeImportStream(bittensorImporter, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address: bittensorAddress,
       });
@@ -562,7 +562,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'substrate', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
@@ -580,12 +580,12 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       await consumeImportStream(polkadotImporter, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
       await consumeImportStream(bittensorImporter, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -604,7 +604,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { sourceName: 'substrate', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'substrate', sourceType: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
@@ -640,7 +640,7 @@ describe('SubstrateImporter', () => {
       setupMockData([{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }], 'custom-provider');
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -661,7 +661,7 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });
@@ -681,7 +681,7 @@ describe('SubstrateImporter', () => {
       setupMockData([]);
 
       const result = await consumeImportStream(importer, {
-        sourceName: 'substrate',
+        platformKey: 'substrate',
         sourceType: 'blockchain' as const,
         address,
       });

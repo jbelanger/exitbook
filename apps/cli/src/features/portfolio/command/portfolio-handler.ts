@@ -16,12 +16,14 @@ export async function createPortfolioHandler(
   options: {
     asOf: Date;
     isJsonMode: boolean;
+    profileId: number;
+    profileKey: string;
   }
 ): Promise<Result<PortfolioHandler, Error>> {
   try {
     const database = await ctx.database();
     const dataDir = ctx.dataDir;
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir, options.profileKey);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
@@ -36,6 +38,8 @@ export async function createPortfolioHandler(
 
     const readyResult = await ensureConsumerInputsReady(ctx, 'portfolio', {
       isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
+      profileKey: options.profileKey,
       priceConfig: { startDate: new Date(0), endDate: options.asOf },
       accountingExclusionPolicy,
       setAbort: (abort) => {
@@ -49,6 +53,8 @@ export async function createPortfolioHandler(
     const portfolioRuntimeResult = await createCliPortfolioRuntime({
       accountingExclusionPolicy,
       database,
+      profileId: options.profileId,
+      profileKey: options.profileKey,
       scope: ctx,
     });
     if (portfolioRuntimeResult.isErr()) {
@@ -60,7 +66,7 @@ export async function createPortfolioHandler(
     return ok(
       new PortfolioHandler({
         accountingExclusionPolicy,
-        costBasisStore: buildCostBasisPorts(database),
+        costBasisStore: buildCostBasisPorts(database, options.profileId),
         dependencyReader: portfolioRuntime.dependencyReader,
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
         holdingsCalculator: portfolioRuntime.holdingsCalculator,

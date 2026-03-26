@@ -17,11 +17,15 @@ interface TransactionIdentity {
 
 interface TransactionNoteSetParams {
   message: string;
+  profileId: number;
+  profileKey: string;
   reason?: string | undefined;
   transactionId: number;
 }
 
 interface TransactionNoteClearParams {
+  profileId: number;
+  profileKey: string;
   reason?: string | undefined;
   transactionId: number;
 }
@@ -43,12 +47,12 @@ export class TransactionsEditHandler {
   ) {}
 
   async setNote(params: TransactionNoteSetParams): Promise<Result<TransactionNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId);
+    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore);
+    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
     if (noteOverridesResult.isErr()) {
       return err(noteOverridesResult.error);
     }
@@ -67,6 +71,7 @@ export class TransactionsEditHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -80,7 +85,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -97,12 +102,12 @@ export class TransactionsEditHandler {
   }
 
   async clearNote(params: TransactionNoteClearParams): Promise<Result<TransactionNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId);
+    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore);
+    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
     if (noteOverridesResult.isErr()) {
       return err(noteOverridesResult.error);
     }
@@ -119,6 +124,7 @@ export class TransactionsEditHandler {
     }
 
     const appendResult = await this.appendOverride({
+      profileKey: params.profileKey,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -131,7 +137,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.transactionId);
+    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -155,10 +161,11 @@ export class TransactionsEditHandler {
     return ok(undefined);
   }
 
-  private async materializeTransactionNote(transactionId: number): Promise<Result<void, Error>> {
+  private async materializeTransactionNote(profileKey: string, transactionId: number): Promise<Result<void, Error>> {
     const materializeResult = await materializeStoredTransactionNoteOverrides(
       this.db.transactions,
       this.overrideStore,
+      profileKey,
       {
         transactionIds: [transactionId],
       }
@@ -170,8 +177,11 @@ export class TransactionsEditHandler {
     return ok(undefined);
   }
 
-  private async resolveTransactionIdentity(transactionId: number): Promise<Result<TransactionIdentity, Error>> {
-    const transactionResult = await this.db.transactions.findById(transactionId);
+  private async resolveTransactionIdentity(
+    transactionId: number,
+    profileId: number
+  ): Promise<Result<TransactionIdentity, Error>> {
+    const transactionResult = await this.db.transactions.findById(transactionId, profileId);
     if (transactionResult.isErr()) {
       return err(new Error(`Failed to load transaction ${transactionId}: ${transactionResult.error.message}`));
     }

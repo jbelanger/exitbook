@@ -57,6 +57,7 @@ import { registerImportCommand } from './features/import/command/import.js';
 import { registerLinksCommand } from './features/links/command/links.js';
 import { registerPortfolioCommand } from './features/portfolio/command/portfolio.js';
 import { registerPricesCommand } from './features/prices/command/prices.js';
+import { registerProfilesCommand } from './features/profiles/command/profiles.js';
 import { registerProvidersCommand } from './features/providers/command/providers.js';
 import { registerReprocessCommand } from './features/reprocess/command/reprocess.js';
 import { registerTransactionsCommand } from './features/transactions/command/transactions.js';
@@ -75,9 +76,10 @@ async function main() {
   const appRuntime = appRuntimeResult.value;
 
   registerImportCommand(program, appRuntime);
+  registerProfilesCommand(program);
   registerReprocessCommand(program, appRuntime);
   registerLinksCommand(program, appRuntime);
-  registerAccountsCommand(program);
+  registerAccountsCommand(program, appRuntime);
   registerAssetsCommand(program);
   registerTransactionsCommand(program);
   registerPricesCommand(program, appRuntime);

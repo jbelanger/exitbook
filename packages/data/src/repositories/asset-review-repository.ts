@@ -4,10 +4,12 @@ import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { AssetReviewEvidenceTable, AssetReviewStateTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
+import { chunkItems, SQLITE_SAFE_INSERT_BATCH_SIZE, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
 interface AssetReviewStateRecord {
+  profile_id: number;
   accounting_blocked: number | boolean;
   asset_id: string;
   computed_at: string;
@@ -20,6 +22,7 @@ interface AssetReviewStateRecord {
 }
 
 interface AssetReviewEvidenceRecord {
+  profile_id: number;
   asset_id: string;
   kind: string;
   message: string;
@@ -33,29 +36,29 @@ export class AssetReviewRepository extends BaseRepository {
     super(db, 'asset-review-repository');
   }
 
-  async replaceAll(summaries: Iterable<AssetReviewSummary>): Promise<Result<void, Error>> {
+  async replaceAll(profileId: number, summaries: Iterable<AssetReviewSummary>): Promise<Result<void, Error>> {
     const items = [...summaries];
     const computedAt = new Date().toISOString();
 
     try {
-      await this.db.deleteFrom('asset_review_evidence').execute();
-      await this.db.deleteFrom('asset_review_state').execute();
+      await this.db.deleteFrom('asset_review_evidence').where('profile_id', '=', profileId).execute();
+      await this.db.deleteFrom('asset_review_state').where('profile_id', '=', profileId).execute();
 
       if (items.length === 0) {
         return ok(undefined);
       }
 
-      await this.db
-        .insertInto('asset_review_state')
-        .values(items.map((summary) => this.toStateRow(summary, computedAt)))
-        .execute();
+      const stateRows = items.map((summary) => this.toStateRow(profileId, summary, computedAt));
+      for (const stateRowBatch of chunkItems(stateRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('asset_review_state').values(stateRowBatch).execute();
+      }
 
       const evidenceRows = items.flatMap((summary) =>
-        summary.evidence.map((evidence, position) => this.toEvidenceRow(summary.assetId, position, evidence))
+        summary.evidence.map((evidence, position) => this.toEvidenceRow(profileId, summary.assetId, position, evidence))
       );
 
-      if (evidenceRows.length > 0) {
-        await this.db.insertInto('asset_review_evidence').values(evidenceRows).execute();
+      for (const evidenceRowBatch of chunkItems(evidenceRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('asset_review_evidence').values(evidenceRowBatch).execute();
       }
 
       return ok(undefined);
@@ -65,13 +68,19 @@ export class AssetReviewRepository extends BaseRepository {
     }
   }
 
-  async listAll(): Promise<Result<AssetReviewSummary[], Error>> {
+  async listAll(profileId: number): Promise<Result<AssetReviewSummary[], Error>> {
     try {
-      const stateRows = await this.db.selectFrom('asset_review_state').selectAll().orderBy('asset_id', 'asc').execute();
+      const stateRows = await this.db
+        .selectFrom('asset_review_state')
+        .selectAll()
+        .where('profile_id', '=', profileId)
+        .orderBy('asset_id', 'asc')
+        .execute();
 
       const evidenceRows = await this.db
         .selectFrom('asset_review_evidence')
         .selectAll()
+        .where('profile_id', '=', profileId)
         .orderBy('asset_id', 'asc')
         .orderBy('position', 'asc')
         .execute();
@@ -83,39 +92,54 @@ export class AssetReviewRepository extends BaseRepository {
     }
   }
 
-  async getByAssetIds(assetIds: string[]): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
+  async getByAssetIds(profileId: number, assetIds: string[]): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
     if (assetIds.length === 0) {
       return ok(new Map());
     }
 
     try {
-      const stateRows = await this.db
-        .selectFrom('asset_review_state')
-        .selectAll()
-        .where('asset_id', 'in', assetIds)
-        .orderBy('asset_id', 'asc')
-        .execute();
+      const stateRows: AssetReviewStateRecord[] = [];
+      const evidenceRows: AssetReviewEvidenceRecord[] = [];
 
-      const evidenceRows = await this.db
-        .selectFrom('asset_review_evidence')
-        .selectAll()
-        .where('asset_id', 'in', assetIds)
-        .orderBy('asset_id', 'asc')
-        .orderBy('position', 'asc')
-        .execute();
+      for (const assetIdBatch of chunkItems(assetIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        stateRows.push(
+          ...(await this.db
+            .selectFrom('asset_review_state')
+            .selectAll()
+            .where('profile_id', '=', profileId)
+            .where('asset_id', 'in', assetIdBatch)
+            .orderBy('asset_id', 'asc')
+            .execute())
+        );
+
+        evidenceRows.push(
+          ...(await this.db
+            .selectFrom('asset_review_evidence')
+            .selectAll()
+            .where('profile_id', '=', profileId)
+            .where('asset_id', 'in', assetIdBatch)
+            .orderBy('asset_id', 'asc')
+            .orderBy('position', 'asc')
+            .execute())
+        );
+      }
+
+      stateRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id));
+      evidenceRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id) || left.position - right.position);
 
       return ok(new Map(this.buildSummaries(stateRows, evidenceRows).map((summary) => [summary.assetId, summary])));
     } catch (error) {
-      this.logger.error({ error, assetIds }, 'Failed to load asset review projection by asset IDs');
+      this.logger.error({ error, assetIds, profileId }, 'Failed to load asset review projection by asset IDs');
       return wrapError(error, 'Failed to load asset review projection by asset IDs');
     }
   }
 
-  async findLatestComputedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestComputedAt(profileId: number): Promise<Result<Date | null, Error>> {
     try {
       const row = await this.db
         .selectFrom('asset_review_state')
         .select(({ fn }) => [fn.max<string>('computed_at').as('latest')])
+        .where('profile_id', '=', profileId)
         .executeTakeFirst();
 
       if (!row?.latest) {
@@ -129,11 +153,12 @@ export class AssetReviewRepository extends BaseRepository {
     }
   }
 
-  async countStates(): Promise<Result<number, Error>> {
+  async countStates(profileId: number): Promise<Result<number, Error>> {
     try {
       const row = await this.db
         .selectFrom('asset_review_state')
         .select(({ fn }) => [fn.count<number>('asset_id').as('count')])
+        .where('profile_id', '=', profileId)
         .executeTakeFirst();
 
       return ok(Number(row?.count ?? 0));
@@ -143,15 +168,15 @@ export class AssetReviewRepository extends BaseRepository {
     }
   }
 
-  async deleteAll(): Promise<Result<number, Error>> {
+  async deleteAll(profileId: number): Promise<Result<number, Error>> {
     try {
-      const countResult = await this.countStates();
+      const countResult = await this.countStates(profileId);
       if (countResult.isErr()) {
         return err(countResult.error);
       }
 
-      await this.db.deleteFrom('asset_review_evidence').execute();
-      await this.db.deleteFrom('asset_review_state').execute();
+      await this.db.deleteFrom('asset_review_evidence').where('profile_id', '=', profileId).execute();
+      await this.db.deleteFrom('asset_review_state').where('profile_id', '=', profileId).execute();
 
       return ok(countResult.value);
     } catch (error) {
@@ -210,12 +235,14 @@ export class AssetReviewRepository extends BaseRepository {
   }
 
   private toStateRow(
+    profileId: number,
     summary: AssetReviewSummary,
     computedAt: string
   ): Omit<AssetReviewStateTable, 'computed_at'> & {
     computed_at: string;
   } {
     return {
+      profile_id: profileId,
       asset_id: summary.assetId,
       review_status: summary.reviewStatus,
       reference_status: summary.referenceStatus,
@@ -229,11 +256,13 @@ export class AssetReviewRepository extends BaseRepository {
   }
 
   private toEvidenceRow(
+    profileId: number,
     assetId: string,
     position: number,
     evidence: AssetReviewEvidence
   ): Omit<AssetReviewEvidenceTable, 'id' | 'metadata_json'> & { metadata_json: string | null } {
     return {
+      profile_id: profileId,
       asset_id: assetId,
       position,
       kind: evidence.kind,

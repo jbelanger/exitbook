@@ -95,7 +95,7 @@ describe('links-view-utils', () => {
       expect(result).toEqual({
         id: 123,
         tx_fingerprint: 'tx-123',
-        source_name: 'test-source',
+        platform_key: 'test-source',
         source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: '0x1234567890abcdef1234567890abcdef12345678',
@@ -141,7 +141,7 @@ describe('links-view-utils', () => {
       expect(result).toEqual({
         id: 456,
         tx_fingerprint: 'tx-456',
-        source_name: 'test-source',
+        platform_key: 'test-source',
         source_type: 'exchange',
         timestamp: '2024-01-01T12:00:00Z',
         from_address: undefined,

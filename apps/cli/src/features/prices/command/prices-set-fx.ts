@@ -4,6 +4,7 @@
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
+import { resolveCliProfileSelection } from '../../profiles/profile-state.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
 import { getDataDir } from '../../shared/data-dir.js';
@@ -54,6 +55,15 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
 
   try {
     const dataDir = getDataDir();
+    const profileSelectionResult = resolveCliProfileSelection(dataDir);
+    if (profileSelectionResult.isErr()) {
+      displayCliError(
+        'prices-set-fx',
+        profileSelectionResult.error,
+        ExitCodes.GENERAL_ERROR,
+        options.json ? 'json' : 'text'
+      );
+    }
     const overrideStore = new OverrideStore(dataDir);
     const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
       const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
@@ -63,6 +73,7 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
         date: options.date,
         rate: options.rate,
         source: options.source,
+        profileKey: profileSelectionResult.value.profileKey,
       });
     });
 

@@ -22,10 +22,11 @@ export const ExchangeCredentialsSchema = z
  */
 export const AccountSchema = z.object({
   id: z.number(),
-  userId: z.number().optional(), // NULL for tracking-only accounts
+  profileId: z.number().optional(), // NULL for tracking-only accounts
+  name: z.string().optional(), // user-facing top-level account name; child accounts remain unnamed
   parentAccountId: z.number().optional(), // NULL for top-level accounts, set for derived address child accounts
   accountType: AccountTypeSchema,
-  sourceName: z.string(), // 'kraken', 'bitcoin', 'ethereum', etc.
+  platformKey: z.string(), // 'kraken', 'bitcoin', 'ethereum', etc.
   identifier: z.string(), // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
   providerName: z.string().optional(), // preferred provider for blockchain imports
   credentials: ExchangeCredentialsSchema.optional(), // exchange-api credentials only

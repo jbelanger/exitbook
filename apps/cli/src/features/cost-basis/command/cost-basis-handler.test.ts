@@ -9,6 +9,8 @@ import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-run
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
+const PROFILE_ID = 1;
+
 vi.mock('@exitbook/accounting', async () => {
   const actual = await vi.importActual('@exitbook/accounting');
   return {
@@ -128,7 +130,7 @@ describe('CostBasisHandler', () => {
 
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    handler = new CostBasisHandler(mockDb, '/tmp/test-data');
+    handler = new CostBasisHandler(mockDb, '/tmp/test-data', PROFILE_ID);
   });
 
   describe('execute', () => {
@@ -153,7 +155,7 @@ describe('CostBasisHandler', () => {
           get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
         },
       } as unknown as DataSession;
-      handler = new CostBasisHandler(failingDb, '/tmp/test-data');
+      handler = new CostBasisHandler(failingDb, '/tmp/test-data', PROFILE_ID);
 
       const result = await handler.execute(validParams);
 
@@ -226,6 +228,9 @@ describe('CostBasisHandler', () => {
       expect(mockTransactionsFindAll).toHaveBeenCalledTimes(1);
       expect(mockTransactionLinksFindAll).toHaveBeenCalledTimes(1);
       expect(mockAccountsFindAll).toHaveBeenCalledTimes(1);
+      expect(mockTransactionsFindAll).toHaveBeenCalledWith({ profileId: PROFILE_ID });
+      expect(mockTransactionLinksFindAll).toHaveBeenCalledWith({ profileId: PROFILE_ID, status: 'confirmed' });
+      expect(mockAccountsFindAll).toHaveBeenCalledWith({ profileId: PROFILE_ID });
     });
   });
 });

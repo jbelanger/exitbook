@@ -20,8 +20,11 @@ export type ExportCommandOptions = z.input<typeof ExportCommandOptionsSchema>;
  * Export handler parameters.
  */
 export interface ExportHandlerParams {
+  /** Selected profile scope */
+  profileId: number;
+
   /** Source name (exchange or blockchain) - optional, exports all if not provided */
-  sourceName?: string | undefined;
+  platformKey?: string | undefined;
 
   /** Export format (csv or json) */
   format: 'csv' | 'json';
@@ -69,9 +72,11 @@ export function parseSinceDate(since: string): Result<number, Error> {
  * Build export parameters from validated CLI flags.
  * No validation needed - options are already validated by Zod schema.
  */
-export function buildExportParamsFromFlags(options: ExportCommandOptions): Result<ExportHandlerParams, Error> {
+export function buildExportParamsFromFlags(
+  options: ExportCommandOptions
+): Result<Omit<ExportHandlerParams, 'profileId'>, Error> {
   return resultDo(function* () {
-    const sourceName = options.exchange || options.blockchain;
+    const platformKey = options.exchange || options.blockchain;
     const format = options.format ?? 'csv';
     const csvFormat = options.csvFormat ?? 'normalized';
 
@@ -83,7 +88,7 @@ export function buildExportParamsFromFlags(options: ExportCommandOptions): Resul
     const outputPath = options.output || `data/transactions.${format}`;
 
     return {
-      sourceName,
+      platformKey,
       format,
       csvFormat: format === 'csv' ? csvFormat : undefined,
       outputPath,

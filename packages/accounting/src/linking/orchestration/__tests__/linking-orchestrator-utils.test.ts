@@ -11,6 +11,8 @@ import { createTransaction, requirePresent } from '../../shared/test-utils.js';
 import { buildLinkFromOrphanedOverride } from '../linking-orchestrator-utils.js';
 import type { OrphanedLinkOverride } from '../override-replay.js';
 
+const PROFILE_KEY = 'default';
+
 const logger = {
   info: vi.fn(),
   warn: vi.fn(),
@@ -85,6 +87,7 @@ describe('buildLinkFromOrphanedOverride', () => {
     const overrideEvent: OverrideEvent = {
       id: 'evt-orphan',
       created_at: '2026-01-01T03:00:00.000Z',
+      profile_key: PROFILE_KEY,
       actor: 'cli-user',
       source: 'cli',
       scope: 'link',

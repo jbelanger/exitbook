@@ -2,6 +2,7 @@
 import type { Command } from 'commander';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
@@ -34,10 +35,12 @@ export function registerTransactionsExportCommand(transactionsCommand: Command):
 Examples:
   $ exitbook transactions export                                # Export all transactions as normalized CSV
   $ exitbook transactions export --format json --output tx.json # Export as JSON
+  $ exitbook transactions export --profile business             # Export one profile only
   $ exitbook transactions export --csv-format simple            # Export as simple CSV
   $ exitbook transactions export --json                         # Output metadata as JSON
 `
     )
+    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--format <type>', 'Export format (csv|json)', 'csv')
     .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--output <file>', 'Output file path')
@@ -69,6 +72,16 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError(
+          'transactions-export',
+          profileResult.error,
+          ExitCodes.GENERAL_ERROR,
+          isJsonMode ? 'json' : 'text'
+        );
+      }
+
       const exportHandler = new TransactionsExportHandler(database);
 
       const format = options.format ?? 'csv';
@@ -76,6 +89,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       const outputPath = options.output ?? `data/transactions.${format === 'json' ? 'json' : 'csv'}`;
 
       const result = await exportHandler.execute({
+        profileId: profileResult.value.id,
         format,
         csvFormat,
         outputPath,

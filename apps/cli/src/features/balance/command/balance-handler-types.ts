@@ -6,7 +6,7 @@ import type { AssetComparisonItem, StoredSnapshotAssetItem } from '../view/balan
 export interface SortedVerificationAccount {
   account: Account;
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: AccountType;
   skipReason?: string | undefined;
 }
@@ -44,7 +44,7 @@ export type SingleRefreshResult = SingleVerificationResult | SingleCalculatedSna
 
 export interface AccountJsonResult {
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: AccountType;
   status: string;
   reason?: string | undefined;

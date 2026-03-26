@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import { TransactionsEditHandler } from '../transactions-edit-handler.js';
 
+const PROFILE_KEY = 'default';
+
 function createTransaction(id: number, txFingerprintSeed = `ext-${id}`): Transaction {
   return createPersistedTransaction({
     id,
@@ -41,6 +43,7 @@ function createTransactionNoteEvent(txFingerprint: string, message: string): Ove
   return {
     id: `note:${txFingerprint}`,
     created_at: '2026-03-15T12:00:00.000Z',
+    profile_key: PROFILE_KEY,
     actor: 'user',
     source: 'cli',
     scope: 'transaction-note',
@@ -62,6 +65,7 @@ function createMockOverrideStore(
       const event: OverrideEvent = {
         id: `override-event-${events.length + 1}`,
         created_at: '2026-03-15T12:05:00.000Z',
+        profile_key: options.profileKey,
         actor: 'user',
         source: 'cli',
         scope: options.scope,
@@ -73,7 +77,7 @@ function createMockOverrideStore(
     exists: vi.fn().mockImplementation(() => events.length > 0),
     readByScopes: vi
       .fn()
-      .mockImplementation(async (scopes: OverrideEvent['scope'][]) =>
+      .mockImplementation(async (profileKey: string, scopes: OverrideEvent['scope'][]) =>
         ok(events.filter((event) => scopes.includes(event.scope)))
       ),
   };
@@ -93,6 +97,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 42,
       message: 'Moved to hardware wallet',
       reason: 'manual reminder',
@@ -108,6 +114,7 @@ describe('TransactionsEditHandler', () => {
       source: 'kraken',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -138,6 +145,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 42,
       message: 'Moved to hardware wallet',
     });
@@ -167,6 +176,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
+      profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 42,
       reason: 'no longer needed',
     });
@@ -178,6 +189,7 @@ describe('TransactionsEditHandler', () => {
       reason: 'no longer needed',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
+      profileKey: PROFILE_KEY,
       scope: 'transaction-note',
       payload: {
         type: 'transaction_note_override',
@@ -205,6 +217,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
+      profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 42,
     });
 
@@ -228,10 +242,34 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
+      profileId: 1,
+      profileKey: PROFILE_KEY,
       transactionId: 999,
       message: 'Missing',
     });
 
     expect(assertErr(result).message).toContain('Transaction not found: 999');
+  });
+
+  it('scopes transaction lookup by profileId', async () => {
+    const findById = vi.fn().mockResolvedValue(ok(undefined));
+    const mockDb = {
+      transactions: {
+        findById,
+        materializeTransactionNoteOverrides: vi.fn(),
+      },
+    } as unknown as Pick<DataSession, 'transactions'>;
+    const mockOverrideStore = createMockOverrideStore();
+
+    const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
+    const result = await handler.setNote({
+      profileId: 7,
+      profileKey: PROFILE_KEY,
+      transactionId: 42,
+      message: 'Scoped lookup',
+    });
+
+    expect(assertErr(result).message).toContain('Transaction not found: 42');
+    expect(findById).toHaveBeenCalledWith(42, 7);
   });
 });

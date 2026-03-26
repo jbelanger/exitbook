@@ -12,10 +12,12 @@ export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 st
 export type JSONString = ColumnType<unknown, string, string>;
 
 /**
- * Users table - tracks who is using the application and tracking accounts
+ * Profiles table - tracks local ownership scopes for accounts
  */
-export interface UsersTable {
+export interface ProfilesTable {
   id: Generated<number>;
+  profile_key: string;
+  display_name: string;
   created_at: DateTime;
 }
 
@@ -24,10 +26,11 @@ export interface UsersTable {
  */
 export interface AccountsTable {
   id: Generated<number>;
-  user_id: number | null; // FK to users.id, NULL for tracking-only accounts
+  profile_id: number | null; // FK to profiles.id, NULL for tracking-only accounts
+  name: string | null; // user-facing top-level account name, NULL for child accounts
   parent_account_id: number | null; // FK to accounts.id, NULL for top-level accounts, set for derived address child accounts
   account_type: string; // 'blockchain' | 'exchange-api' | 'exchange-csv'
-  source_name: string; // 'kraken', 'bitcoin', 'ethereum', etc.
+  platform_key: string; // 'kraken', 'bitcoin', 'ethereum', etc.
   identifier: string; // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
   provider_name: string | null; // preferred provider for blockchain imports
   credentials: JSONString | null; // JSON: ExchangeCredentials for exchange-api accounts only
@@ -104,7 +107,7 @@ export interface TransactionsTable {
   // Core identification
   id: Generated<number>;
   account_id: number; // FK to accounts.id
-  source_name: string;
+  platform_key: string;
   source_type: SourceType;
   tx_fingerprint: string; // Canonical persisted transaction identity
 
@@ -313,6 +316,7 @@ export interface BalanceSnapshotAssetsTable {
 }
 
 export interface AssetReviewStateTable {
+  profile_id: number;
   asset_id: string;
   review_status: string;
   reference_status: string;
@@ -326,6 +330,7 @@ export interface AssetReviewStateTable {
 
 export interface AssetReviewEvidenceTable {
   id: Generated<number>;
+  profile_id: number;
   asset_id: string;
   position: number;
   kind: string;
@@ -338,7 +343,7 @@ export interface AssetReviewEvidenceTable {
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
-  users: UsersTable;
+  profiles: ProfilesTable;
   accounts: AccountsTable;
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;

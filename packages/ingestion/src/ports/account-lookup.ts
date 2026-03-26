@@ -7,8 +7,8 @@ import type { Result } from '@exitbook/foundation';
 export interface ProcessingAccountInfo {
   accountType: string;
   identifier: string;
-  sourceName: string;
-  userId?: number | undefined;
+  platformKey: string;
+  profileId?: number | undefined;
 }
 
 /**
@@ -19,8 +19,8 @@ export interface IAccountLookup {
   getAccountInfo(accountId: number): Promise<Result<ProcessingAccountInfo, Error>>;
 
   /**
-   * Load all addresses the user owns on a given blockchain.
+   * Load all addresses the profile owns on a given blockchain.
    * Used to build address context for fund-flow analysis (detecting internal transfers).
    */
-  getUserAddresses(userId: number, blockchain: string): Promise<Result<string[], Error>>;
+  getProfileAddresses(profileId: number, blockchain: string): Promise<Result<string[], Error>>;
 }

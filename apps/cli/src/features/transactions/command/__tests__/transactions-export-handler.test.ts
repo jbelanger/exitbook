@@ -65,6 +65,7 @@ describe('TransactionsExportHandler', () => {
   describe('execute', () => {
     it('should successfully export transactions to CSV', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
       };
@@ -86,12 +87,13 @@ describe('TransactionsExportHandler', () => {
       expect(exportResult.outputs[0]?.content).toContain('2,ext-2,1,kraken,trade');
       expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
 
-      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({ includeExcluded: true });
+      expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({ profileId: 1, includeExcluded: true });
       expect(mockTransactionLinkQueries.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
     });
 
     it('should successfully export transactions to JSON', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'json',
         outputPath: './data/transactions.json',
       };
@@ -117,6 +119,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should include materialized user notes in JSON exports', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'json',
         outputPath: './data/transactions.json',
       };
@@ -155,6 +158,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should export simple CSV when csvFormat is simple', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         csvFormat: 'simple',
         outputPath: './data/transactions.csv',
@@ -176,7 +180,8 @@ describe('TransactionsExportHandler', () => {
 
     it('should filter by source name', async () => {
       const params: ExportHandlerParams = {
-        sourceName: 'kraken',
+        profileId: 1,
+        platformKey: 'kraken',
         format: 'csv',
         outputPath: './data/kraken.csv',
       };
@@ -188,11 +193,12 @@ describe('TransactionsExportHandler', () => {
       const result = await handler.execute(params);
 
       const exportResult = assertOk(result);
-      expect(exportResult.sourceName).toBe('kraken');
+      expect(exportResult.platformKey).toBe('kraken');
       expect(exportResult.transactionCount).toBe(1);
 
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
-        sourceName: 'kraken',
+        profileId: 1,
+        platformKey: 'kraken',
         includeExcluded: true,
       });
     });
@@ -200,6 +206,7 @@ describe('TransactionsExportHandler', () => {
     it('should filter by since date', async () => {
       const sinceTimestamp = Date.parse('2024-01-01');
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
         since: sinceTimestamp,
@@ -213,6 +220,7 @@ describe('TransactionsExportHandler', () => {
 
       assertOk(result);
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
+        profileId: 1,
         since: sinceTimestamp,
         includeExcluded: true,
       });
@@ -221,7 +229,8 @@ describe('TransactionsExportHandler', () => {
     it('should filter by both source and since date', async () => {
       const sinceTimestamp = Date.parse('2024-01-01');
       const params: ExportHandlerParams = {
-        sourceName: 'bitcoin',
+        profileId: 1,
+        platformKey: 'bitcoin',
         format: 'json',
         outputPath: './data/bitcoin.json',
         since: sinceTimestamp,
@@ -235,7 +244,8 @@ describe('TransactionsExportHandler', () => {
 
       assertOk(result);
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({
-        sourceName: 'bitcoin',
+        profileId: 1,
+        platformKey: 'bitcoin',
         since: sinceTimestamp,
         includeExcluded: true,
       });
@@ -243,6 +253,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should handle empty transaction list for CSV', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
       };
@@ -258,6 +269,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should handle empty transaction list for JSON', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'json',
         outputPath: './data/transactions.json',
       };
@@ -276,6 +288,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should return error when transaction retrieval fails', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
       };
@@ -292,6 +305,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should handle unexpected errors gracefully', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
       };
@@ -306,6 +320,7 @@ describe('TransactionsExportHandler', () => {
 
     it('should handle non-Error exceptions', async () => {
       const params: ExportHandlerParams = {
+        profileId: 1,
         format: 'csv',
         outputPath: './data/transactions.csv',
       };

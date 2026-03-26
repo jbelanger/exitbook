@@ -63,13 +63,14 @@ export function replayAssetExclusionEvents(overrides: OverrideEvent[]): Result<S
  * Read and replay asset exclusion overrides from the durable override store.
  */
 export async function readExcludedAssetIds(
-  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  profileKey: string
 ): Promise<Result<Set<string>, Error>> {
   if (!overrideStore.exists()) {
     return ok(new Set<string>());
   }
 
-  const overridesResult = await overrideStore.readByScopes(['asset-exclude', 'asset-include']);
+  const overridesResult = await overrideStore.readByScopes(profileKey, ['asset-exclude', 'asset-include']);
   if (overridesResult.isErr()) {
     return err(new Error(`Failed to read asset exclusion override events: ${overridesResult.error.message}`));
   }

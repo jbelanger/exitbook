@@ -8,12 +8,12 @@ const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 
 interface LinkGapAnalysisOptions {
-  accounts?: readonly Pick<Account, 'id' | 'identifier' | 'userId'>[] | undefined;
+  accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
 }
 
 interface GapAnalysisAccountContext {
   identifier: string;
-  userId?: number | undefined;
+  profileId?: number | undefined;
 }
 
 interface OneSidedBlockchainActivity {
@@ -74,14 +74,14 @@ function findHighestConfidence(links: readonly TransactionLink[]): string | unde
 }
 
 function buildAccountContextById(
-  accounts: readonly Pick<Account, 'id' | 'identifier' | 'userId'>[] | undefined
+  accounts: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined
 ): Map<number, GapAnalysisAccountContext> {
   const contexts = new Map<number, GapAnalysisAccountContext>();
 
   for (const account of accounts ?? []) {
     contexts.set(account.id, {
       identifier: account.identifier,
-      userId: account.userId,
+      profileId: account.profileId,
     });
   }
 
@@ -304,11 +304,16 @@ function isLikelyCrossChainServiceFlowPair(
 
   const activityAccount = accountContextById.get(activity.transaction.accountId);
   const otherAccount = accountContextById.get(other.transaction.accountId);
-  if (!activityAccount || !otherAccount || activityAccount.userId === undefined || otherAccount.userId === undefined) {
+  if (
+    !activityAccount ||
+    !otherAccount ||
+    activityAccount.profileId === undefined ||
+    otherAccount.profileId === undefined
+  ) {
     return false;
   }
 
-  if (activityAccount.userId !== otherAccount.userId) {
+  if (activityAccount.profileId !== otherAccount.profileId) {
     return false;
   }
 

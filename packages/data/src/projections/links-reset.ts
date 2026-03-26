@@ -3,6 +3,8 @@ import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
 
+import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from './profile-scope-key.js';
+
 /**
  * Bridges DataSession to accounting's ILinksReset port.
  *
@@ -23,11 +25,15 @@ export function buildLinksResetPorts(db: DataSession): ILinksReset {
     async reset(accountIds) {
       return db.executeInTransaction(async (tx) =>
         resultDoAsync(async function* () {
+          const profileIds = yield* await resolveAffectedProfileIds(tx, accountIds);
+
           const links = yield* await (accountIds
             ? tx.transactionLinks.deleteByAccountIds(accountIds)
             : tx.transactionLinks.deleteAll());
 
-          yield* await tx.projectionState.markStale('links', 'reset');
+          for (const profileId of profileIds) {
+            yield* await tx.projectionState.markStale('links', 'reset', buildProfileProjectionScopeKey(profileId));
+          }
 
           return { links };
         })

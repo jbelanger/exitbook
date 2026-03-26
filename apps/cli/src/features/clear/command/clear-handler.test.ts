@@ -25,14 +25,14 @@ describe('clear-handler', () => {
       costBasisFailureSnapshots: {
         count: vi.fn().mockResolvedValue(ok(1)),
       },
-      users: { findOrCreateDefault: vi.fn() },
+      profiles: { findOrCreateDefault: vi.fn() },
       accounts: { findAll: vi.fn() },
       executeInTransaction: vi.fn(),
     } as unknown as DataSession;
 
     const handler = createClearHandler({ db });
 
-    const previewResult = await handler.preview({ includeRaw: false });
+    const previewResult = await handler.preview({ profileId: 1, includeRaw: false });
 
     expect(previewResult.isOk()).toBe(true);
     if (previewResult.isErr()) {

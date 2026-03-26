@@ -21,6 +21,7 @@ describe('PricesSetHandler', () => {
       price: '45000',
       currency: 'USD',
       source: 'manual-cli',
+      profileKey: 'default',
     });
 
     expect(result.isOk()).toBe(true);

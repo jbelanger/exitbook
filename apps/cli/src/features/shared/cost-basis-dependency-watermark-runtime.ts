@@ -11,7 +11,8 @@ import { readPriceCacheFreshness } from '@exitbook/price-providers';
 export async function readCostBasisDependencyWatermark(
   db: DataSession,
   dataDir: string,
-  accountingExclusionPolicy: AccountingExclusionPolicy
+  accountingExclusionPolicy: AccountingExclusionPolicy,
+  profileId: number
 ): Promise<Result<CostBasisDependencyWatermark, Error>> {
   const latestPriceMutationResult = await readPriceCacheFreshness(dataDir);
   if (latestPriceMutationResult.isErr()) {
@@ -19,7 +20,7 @@ export async function readCostBasisDependencyWatermark(
   }
 
   const exclusionFingerprint = buildAccountingExclusionFingerprint(accountingExclusionPolicy.excludedAssetIds);
-  return buildCostBasisArtifactFreshnessPorts(db, {
+  return buildCostBasisArtifactFreshnessPorts(db, profileId, {
     pricesLastMutatedAt: latestPriceMutationResult.value,
   }).readCurrentWatermark(exclusionFingerprint);
 }

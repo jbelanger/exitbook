@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-12
+last_verified: 2026-03-26
 status: canonical
 ---
 
@@ -15,15 +15,15 @@ accounting exclusion as separate concerns even when they are shown together in
 
 ## Quick Reference
 
-| Concept              | Key Rule                                                                 |
-| -------------------- | ------------------------------------------------------------------------ |
-| `asset facts`        | Descriptive provider facts are not trust decisions                       |
-| `risk evidence`      | Additive suspicious/ambiguity signals that drive review                  |
-| `reference status`   | `matched`, `unmatched`, or `unknown`; useful context, not a spam verdict |
-| `review state`       | Current workflow state: `clear`, `needs-review`, or `reviewed`           |
-| `override store`     | Durable audit log for confirm/clear/include/exclude intent               |
-| `asset_review_state` | Current per-asset review snapshot stored in `transactions.db`            |
-| `accountingBlocked`  | `true` for same-symbol ambiguity or unresolved error evidence            |
+| Concept              | Key Rule                                                                   |
+| -------------------- | -------------------------------------------------------------------------- |
+| `asset facts`        | Descriptive provider facts are not trust decisions                         |
+| `risk evidence`      | Additive suspicious/ambiguity signals that drive review                    |
+| `reference status`   | `matched`, `unmatched`, or `unknown`; useful context, not a spam verdict   |
+| `review state`       | Current workflow state: `clear`, `needs-review`, or `reviewed`             |
+| `override store`     | Durable audit log for confirm/clear/include/exclude intent                 |
+| `asset_review_state` | Current per-profile, per-asset review snapshot stored in `transactions.db` |
+| `accountingBlocked`  | `true` for same-symbol ambiguity or unresolved error evidence              |
 
 ## Goals
 
@@ -126,7 +126,10 @@ The override store remains the write-side audit log for:
 - `asset-exclude`
 - `asset-include`
 
-Review replay is strict and latest-event-wins per asset.
+Review replay is strict and latest-event-wins per asset within one
+`profile_key` stream.
+Exclusion replay is strict and latest-event-wins per asset within one
+`profile_key` stream.
 
 ### `transactions.db`
 
@@ -183,7 +186,8 @@ joining evidence messages with `; `.
 ### `asset_review_state`
 
 ```sql
-asset_id TEXT PRIMARY KEY,
+profile_id INTEGER NOT NULL,
+asset_id TEXT NOT NULL,
 review_status TEXT NOT NULL,
 reference_status TEXT NOT NULL,
 warning_summary TEXT,
@@ -196,6 +200,7 @@ computed_at TEXT NOT NULL
 
 Field semantics:
 
+- `profile_id`: owning profile for this derived review row
 - `asset_id`: stable asset identity from the asset identity model
 - `review_status`: current workflow status
 - `reference_status`: current canonical-reference resolution state
@@ -210,15 +215,17 @@ Field semantics:
 
 Enforced constraints:
 
+- composite primary key on `(profile_id, asset_id)`
 - `review_status IN ('clear', 'needs-review', 'reviewed')`
 - `reference_status IN ('matched', 'unmatched', 'unknown')`
-- index on `review_status`
-- index on `accounting_blocked`
+- index on `(profile_id, review_status)`
+- index on `(profile_id, accounting_blocked)`
 
 ### `asset_review_evidence`
 
 ```sql
 id INTEGER PRIMARY KEY AUTOINCREMENT,
+profile_id INTEGER NOT NULL,
 asset_id TEXT NOT NULL,
 position INTEGER NOT NULL,
 kind TEXT NOT NULL,
@@ -229,6 +236,7 @@ metadata_json TEXT
 
 Field semantics:
 
+- `profile_id`: owning profile for this derived evidence row
 - `asset_id`: parent asset
 - `position`: stable display/persistence order within an asset
 - `kind`: evidence classifier
@@ -239,9 +247,10 @@ Field semantics:
 
 Enforced constraints:
 
-- FK to `asset_review_state.asset_id` with cascade delete
-- unique index on `(asset_id, position)`
-- index on `asset_id`
+- FK to `profiles.id`
+- composite FK to `asset_review_state(profile_id, asset_id)` with cascade delete
+- unique index on `(profile_id, asset_id, position)`
+- index on `(profile_id, asset_id)`
 - index on `kind`
 - `kind` constrained to the current evidence enum
 - `severity IN ('warning', 'error')`
@@ -277,8 +286,8 @@ Rebuild inputs:
 Rebuild output:
 
 - a full replacement of `asset_review_state` and `asset_review_evidence`
-- `projection_state('asset-review')` marked fresh with metadata
-  `{ assetCount }`
+- one profile-scoped `projection_state('asset-review', 'profile:<id>')` marked
+  fresh with metadata `{ assetCount }`
 
 ## Evidence Collection Rules
 
@@ -420,7 +429,7 @@ Replay rules:
 - `asset-review-clear` removes the effect of any prior confirmation for that
   asset
 
-Override replay is latest-event-wins per asset.
+Override replay is latest-event-wins per asset inside one `profile_key` stream.
 
 ## Accounting Policy
 
@@ -473,9 +482,9 @@ state.
 
 The projection rebuilds when any of the following are true:
 
-- `projection_state('asset-review')` is `stale`
-- `projection_state('asset-review')` is `failed`
-- `projection_state('asset-review')` is `building`
+- `projection_state('asset-review', 'profile:<id>')` is `stale`
+- `projection_state('asset-review', 'profile:<id>')` is `failed`
+- `projection_state('asset-review', 'profile:<id>')` is `building`
 - processed transactions exist and asset review has never been built
 - processed transactions are newer than the latest `asset_review_state.computed_at`
 - external asset-review inputs changed after the last fresh build
@@ -500,13 +509,15 @@ Projection writes are full replace:
 6. insert all current evidence rows
 7. mark projection `fresh`
 
-State/evidence replacement plus `projection_state.markFresh()` happens in one
-database transaction.
+State/evidence replacement plus profile-scoped
+`projection_state.markFresh('asset-review', ..., 'profile:<id>')` happens in
+one database transaction.
 
 ### Reset Semantics
 
-Reset deletes all `asset_review_state` and `asset_review_evidence` rows and
-marks the projection stale with reason `reset`.
+Reset deletes all `asset_review_state` and `asset_review_evidence` rows for the
+affected profile ids and marks each corresponding
+`projection_state('asset-review', 'profile:<id>')` stale with reason `reset`.
 
 ## CLI and Consumer Behavior
 
@@ -624,4 +635,4 @@ No consumer should rebuild review summaries ad hoc in its handler.
 
 ---
 
-_Last updated: 2026-03-12_
+_Last updated: 2026-03-26_

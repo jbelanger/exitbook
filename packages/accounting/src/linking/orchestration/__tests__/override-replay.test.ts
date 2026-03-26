@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { applyLinkOverrides } from '../override-replay.js';
 
+const PROFILE_KEY = 'default';
+
 const sourceAssetId = 'exchange:kraken:btc';
 const targetAssetId = 'blockchain:bitcoin:native';
 const sourceFingerprint = 'tx:v2:kraken:1:WITHDRAWAL-123';
@@ -63,6 +65,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -109,6 +112,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'unlink',
@@ -154,6 +158,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -203,6 +208,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -275,6 +281,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -283,6 +290,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-2',
         created_at: '2024-01-15T11:00:00Z', // Later
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'unlink',
@@ -328,6 +336,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -336,6 +345,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-2',
         created_at: '2024-01-15T11:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'unlink',
@@ -347,6 +357,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-3',
         created_at: '2024-01-15T12:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',
@@ -391,6 +402,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-1',
         created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'unlink',
@@ -402,6 +414,7 @@ describe('applyLinkOverrides', () => {
       {
         id: 'override-2',
         created_at: '2024-01-15T11:00:00Z',
+        profile_key: PROFILE_KEY,
         actor: 'user',
         source: 'cli',
         scope: 'link',

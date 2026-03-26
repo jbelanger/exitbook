@@ -24,6 +24,7 @@ interface WithPricesEnrichRuntimeOptions {
   isJsonMode: boolean;
   onAbortRegistered?: ((abort: () => void) => void) | undefined;
   onAbortReleased?: (() => void) | undefined;
+  profileId: number;
   scope: CommandRuntime;
 }
 
@@ -92,6 +93,7 @@ export async function withPricesEnrichRuntime<T>(
     accountingExclusionPolicy: options.accountingExclusionPolicy,
     database: options.database,
     isJsonMode: options.isJsonMode,
+    profileId: options.profileId,
     registerCleanup: false,
     scope: options.scope,
   });
@@ -116,12 +118,12 @@ export async function withPricesEnrichRuntime<T>(
 
 export async function runPricesEnrich(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  options: { isJsonMode: boolean; profileId: number; profileKey: string },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
     const database = await ctx.database();
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir);
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
     if (accountingExclusionPolicyResult.isErr()) {
       return err(accountingExclusionPolicyResult.error);
     }
@@ -131,6 +133,7 @@ export async function runPricesEnrich(
         database,
         isJsonMode: options.isJsonMode,
         onAbortRegistered: (abort) => ctx.onAbort(abort),
+        profileId: options.profileId,
         scope: ctx,
       },
       (runtime) =>

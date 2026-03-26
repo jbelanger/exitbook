@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-17
+last_verified: 2026-03-26
 status: canonical
 ---
 
@@ -7,48 +7,80 @@ status: canonical
 
 > ⚠️ **Code is law**: If this disagrees with implementation, update the spec to match code.
 
-How Exitbook represents accounts (identity/state) and executes imports (sessions, cursors, dedupe) across blockchains, exchange APIs, and exchange CSVs.
+How Exitbook models profiles and accounts, and how imports run against those saved accounts.
 
 ## Quick Reference
 
-| Concept             | Key Rule                                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity    | Unique on `(accountType, sourceName, identifier, COALESCE(userId,0))`                                                           |
-| Import resumability | Latest `started` or `failed` session is resumed; status reset to `started`                                                      |
-| Cursor storage      | Stored per `operationType` in `accounts.lastCursor`; merged, not replaced                                                       |
-| CSV directory lock  | One exchange-csv account per user+exchange; directory must match                                                                |
-| Dedupe              | `raw_transactions` unique on `(account_id, event_id)`; `blockchain_transaction_hash` is stored and indexed for grouping/lookups |
-| xpub children       | Reused if present; no re-derivation on subsequent imports                                                                       |
+| Concept                     | Key Rule                                                                                                  |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Profile identity            | Profiles have mutable `name` plus immutable `profileKey`                                                  |
+| Top-level account lifecycle | Top-level accounts are explicitly created before import                                                   |
+| Import entrypoint           | `ImportWorkflow.execute({ accountId })` syncs one existing account                                        |
+| Top-level exchange identity | Unique on `(platform_key, COALESCE(profile_id, 0))` for exchange top-level rows                           |
+| Blockchain / child identity | Unique on `(account_type, platform_key, identifier, COALESCE(profile_id, 0))` outside top-level exchanges |
+| Top-level account naming    | Unique on `(COALESCE(profile_id, 0), lower(name))`                                                        |
+| Import resumability         | Latest `started` or `failed` session is resumed                                                           |
+| Cursor storage              | Stored per `streamType` in `accounts.lastCursor`; merged, not replaced                                    |
+| Raw dedupe                  | `raw_transactions` unique on `(account_id, event_id)`                                                     |
+| Xpub child accounts         | Derived child rows remain internal and may be created during sync                                         |
 
-## Goals
+## Core Model
 
-- **Stable identity & state**: Persist a canonical account per source so imports and verifications attach consistently.
-- **Resumable, memory-bounded imports**: Stream batches with persisted cursors and session history.
+### Profile
 
-## Non-Goals
-
-- Post-import processing into transactions or accounting logic.
-- Pricing/linking/balance calculation logic (only storage location noted).
-
-## Definitions
-
-### Account (domain schema)
+Profiles are the CLI ownership and scope model.
 
 ```ts
 {
   id: number,
-  userId?: number,          // NULL = tracking-only
-  parentAccountId?: number, // xpub child linkage
+  profileKey: string,
+  displayName: string,
+  createdAt: Date
+}
+```
+
+Rules:
+
+- `displayName` is the mutable display label
+- `profileKey` is the stable identity anchor used by deterministic fingerprints
+- `profiles add <profile>` creates the profile with `displayName === profileKey` initially
+- `profiles rename <profile> <display-name>` changes only the display label
+- commands use the active profile unless `--profile <profile>` overrides it
+
+### Account
+
+Accounts are the named top-level sync targets users create and import.
+
+```ts
+{
+  id: number,
+  profileId?: number,
+  name?: string,
+  parentAccountId?: number,
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv',
-  sourceName: string,       // e.g., 'bitcoin', 'kraken'
-  identifier: string,       // address/xpub, apiKey, or CSV directory
+  platformKey: string,
+  identifier: string,
   providerName?: string,
   credentials?: { apiKey: string; apiSecret: string; apiPassphrase?: string },
   lastCursor?: Record<string, CursorState>,
+  metadata?: {
+    xpub?: {
+      gapLimit: number,
+      lastDerivedAt: number,
+      derivedCount: number
+    }
+  },
   createdAt: Date,
   updatedAt?: Date
 }
 ```
+
+Semantics:
+
+- top-level accounts are user-created and named
+- child accounts are internal derived rows and remain unnamed
+- exchange API keys and CSV directories are sync config, not top-level exchange identity
+- blockchain identifiers remain semantic identity for wallet accounts
 
 ### Import Session
 
@@ -67,104 +99,134 @@ How Exitbook represents accounts (identity/state) and executes imports (sessions
 }
 ```
 
-### CursorState (per operation type)
-
-See [Pagination and Streaming](./pagination-and-streaming.md#cursorstate) for full schema. Key fields for this spec:
-
-- `primary`: cursor used for same-provider resume
-- `metadata.isComplete`: authoritative “done” signal
-- `totalFetched`: cumulative count across batches (including resumed progress)
-
 ## Behavioral Rules
 
-### Account Identity & Tenancy
+### Account Lifecycle
 
-- Accounts are unique per `(accountType, sourceName, identifier, COALESCE(userId,0))`; attempts to duplicate fail DB constraint. (`001_initial_schema`, AccountRepository.findOrCreate)
-- Tracking-only accounts (`userId` NULL) are global; owned accounts are per user.
-- CLI `accounts view` lists only owned accounts for default user (id=1); tracking-only are hidden.
+- top-level accounts are created through `accounts add`, not through `import`
+- `accounts update` mutates sync config for an existing named account
+- `accounts remove` is destructive for that account and its attached data
+- `import --all` enumerates top-level named accounts for one profile only
 
-### Blockchain Imports
+### Account Identity
 
-- Addresses/xpubs normalized before account creation/import. (`blockchainAdapter.normalizeAddress`)
-- If input is xpub and adapter supports derivation:
-  - Parent account: identifier = xpub.
-  - Child accounts per derived address with `parentAccountId = parent.id`.
-  - If parent already has children, reuse them (no new derivation/gap scan).
-  - Child imports run independently; overall xpub import errors only if all children fail.
-- `--xpub-gap` ignored (warn) when input is not an xpub.
+Current DB constraints:
 
-### Exchange API Imports
+- top-level account names are unique per profile
+- top-level exchange accounts are unique per `profile + platform`
+- blockchain accounts and child accounts stay unique by `accountType + platformKey + identifier + profile`
 
-- Account identifier = API key; credentials validated via Zod and stored on account.
+That means:
 
-### Exchange CSV Imports
+- one profile can only have one top-level Kraken account, regardless of CSV vs API mode
+- switching an exchange account between CSV and API mode updates config instead of defining a new top-level identity
+- blockchain addresses/xpubs remain distinct by identifier
 
-- Identifier = single CSV directory path.
-- If an exchange-csv account exists for the user with a different directory, import errors instructing reuse or deletion.
+### Import Scope
 
-### Import Sessions & Resumability (Current Behavior)
+- import syncs one existing account by `accountId`
+- CLI resolution from account name to ID happens before ingestion
+- ingestion never creates user-facing top-level accounts
+- xpub imports may create internal child account rows under the selected parent account
 
-| Condition                                   | Behavior                                                      |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| Latest session status `started` or `failed` | Resume same session; status set to `started`; totals continue |
-| No incomplete session                       | Create new session with status `started`                      |
+### Sessions & Resumability
+
+| Condition                                   | Behavior                                   |
+| ------------------------------------------- | ------------------------------------------ |
+| Latest session status `started` or `failed` | Resume same session and continue totals    |
+| No incomplete session                       | Create a new session with status `started` |
 
 ### Streaming & Cursor Persistence
 
-- Importers yield batches: `{ rawTransactions[], operationType, cursor, isComplete }`.
-- After each batch:
-  - Persist raw transactions; unique collisions counted as `skipped`, import continues.
-  - Update `accounts.lastCursor[operationType]` (merge). Cursor update failures log `warn` but do not fail import.
-- Finalize session with totals and status `completed` (or `failed` on error).
+Importers yield batches:
 
-### Balance Snapshot Storage
+```ts
+{
+  (rawTransactions, streamType, cursor, isComplete);
+}
+```
 
-- Balance verification results live in the `balances` projection (`balance_snapshots`, `balance_snapshot_assets`), not on the Account row and not per import session.
-- Account read models surface snapshot-backed refresh state, not legacy account metadata.
-- CLI status can be `never-checked`, `match`, `warning`, `mismatch`, or `unavailable`.
+For each committed batch, Exitbook:
+
+1. saves raw transactions
+2. updates import-session totals
+3. updates `accounts.lastCursor[streamType]`
+
+Those writes happen atomically per batch.
+
+### Raw Transaction Dedupe
+
+- `raw_transactions` is unique on `(account_id, event_id)`
+- duplicate raw rows count as `skipped`, not fatal errors
+
+### Projection Invalidation
+
+After a successful import with inserted raw data:
+
+- `processed-transactions` is marked stale
+- downstream projections are invalidated
+- links invalidation is profile-scoped
+- balance invalidation is balance-scope-scoped
 
 ## Data Model
 
-### accounts (SQLite via Kysely)
+### profiles
 
 ```sql
 id INTEGER PK,
-user_id INTEGER NULL REFERENCES users(id),
-parent_account_id INTEGER NULL REFERENCES accounts(id),
-account_type TEXT NOT NULL,
-source_name TEXT NOT NULL,
-identifier TEXT NOT NULL,
-provider_name TEXT NULL,
-credentials TEXT NULL,            -- JSON ExchangeCredentials
-last_cursor TEXT NULL,            -- JSON Record<operationType, CursorState>
-metadata TEXT NULL,               -- JSON account metadata (for example xpub derivation state)
-created_at TEXT NOT NULL DEFAULT (datetime('now')),
-updated_at TEXT NULL
--- Unique: (account_type, source_name, identifier, COALESCE(user_id,0))
--- Index: uq_accounts_identity (account_type, source_name, identifier, COALESCE(user_id,0))
+profile_key TEXT NOT NULL UNIQUE,
+name TEXT NOT NULL UNIQUE (case-insensitive),
+created_at TEXT NOT NULL
 ```
 
-#### Field Semantics
+### accounts
 
-- `identifier`: address/xpub (blockchain), API key (exchange-api), CSV directory (exchange-csv).
-- `parent_account_id`: xpub child linkage; NULL for roots.
-- `last_cursor`: per-operation progress map.
-- `metadata`: account-owned configuration and derivation metadata only; balance verification lives in the `balances` projection.
+```sql
+id INTEGER PK,
+profile_id INTEGER NULL REFERENCES profiles(id),
+name TEXT NULL,
+parent_account_id INTEGER NULL REFERENCES accounts(id),
+account_type TEXT NOT NULL,
+platform_key TEXT NOT NULL,
+identifier TEXT NOT NULL,
+provider_name TEXT NULL,
+credentials TEXT NULL,
+last_cursor TEXT NULL,
+metadata TEXT NULL,
+created_at TEXT NOT NULL,
+updated_at TEXT NULL
+```
+
+Important indexes:
+
+```sql
+-- Blockchain + child identity
+UNIQUE (account_type, platform_key, identifier, COALESCE(profile_id, 0))
+WHERE NOT (account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL)
+
+-- Top-level exchange identity
+UNIQUE (platform_key, COALESCE(profile_id, 0))
+WHERE account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL
+
+-- Top-level account names
+UNIQUE (COALESCE(profile_id, 0), lower(name))
+WHERE name IS NOT NULL AND parent_account_id IS NULL
+```
 
 ### import_sessions
 
 ```sql
 id INTEGER PK,
 account_id INTEGER NOT NULL REFERENCES accounts(id),
-status TEXT NOT NULL DEFAULT 'started',
+status TEXT NOT NULL,
 started_at TEXT NOT NULL,
 completed_at TEXT NULL,
 duration_ms INTEGER NULL,
-transactions_imported INTEGER NOT NULL DEFAULT 0,
-transactions_skipped INTEGER NOT NULL DEFAULT 0,
+transactions_imported INTEGER NOT NULL,
+transactions_skipped INTEGER NOT NULL,
 error_message TEXT NULL,
 error_details TEXT NULL,
-created_at TEXT NOT NULL DEFAULT (datetime('now')),
+created_at TEXT NOT NULL,
 updated_at TEXT NULL
 ```
 
@@ -177,59 +239,53 @@ provider_name TEXT NOT NULL,
 event_id TEXT NOT NULL,
 source_address TEXT NULL,
 blockchain_transaction_hash TEXT NULL,
+timestamp INTEGER NOT NULL,
 transaction_type_hint TEXT NULL,
 provider_data TEXT NOT NULL,
 normalized_data TEXT NOT NULL,
-processing_status TEXT NOT NULL DEFAULT 'pending',
+processing_status TEXT NOT NULL,
 processed_at TEXT NULL,
-created_at TEXT NOT NULL DEFAULT (datetime('now'))
--- Unique: (account_id, event_id)
--- Indexes: idx_raw_tx_account_blockchain_hash, idx_raw_tx_account_event_id
+created_at TEXT NOT NULL
 ```
 
-## Pipeline / Flow
+Unique index:
+
+```sql
+UNIQUE (account_id, event_id)
+```
+
+## Flow
 
 ```mermaid
 graph TD
-    A[CLI command] --> B[Normalize inputs]
-    B --> C[Ensure default user]
-    C --> D[Find or create Account (xpub children if needed)]
-    D --> E[Resume or create Import Session]
-    E --> F[Importer streams batches]
-    F --> G[Persist raw_transactions + update cursor/totals]
-    G --> F
-    F -->|done| H[Finalize session: completed]
-    F -->|error| I[Finalize session: failed]
-    G -->|cursor update fails| J[Log warn, continue]
+    A["profiles / accounts commands"] --> B["Existing top-level account"]
+    B --> C["ImportWorkflow.execute(accountId)"]
+    C --> D["Resume or create import session"]
+    D --> E["Importer streams batches"]
+    E --> F["Persist raw_transactions + session totals + cursor"]
+    F --> E
+    E -->|done| G["Finalize session completed"]
+    G --> H["Invalidate processed projections"]
+    E -->|error| I["Finalize session failed"]
 ```
 
 ## Invariants
 
-- **Required**: Account uniqueness constraint must hold; enforced by DB index.
-- **Required**: Resume uses latest `started/failed` session; enforced in ImportSessionRepository.findLatestIncomplete + orchestrator.
-- **Required**: Cursor updates merge per operation; enforced in AccountRepository.updateCursor.
-- **Required**: Raw transaction uniqueness per account enforced by `(account_id, event_id)`; collisions counted as skipped, not fatal.
-- **Required**: Xpub children reuse if already present; no re-derivation.
+- **Required**: top-level imports target existing accounts only.
+- **Required**: top-level exchange identity is profile-scoped by platform, not API key or CSV path.
+- **Required**: blockchain and child identities remain keyed by identifier.
+- **Required**: latest incomplete session is resumed.
+- **Required**: raw transaction dedupe is per `(account_id, event_id)`.
+- **Required**: xpub child rows stay internal and unnamed.
 
-## Edge Cases & Gotchas
+## Known Limitations
 
-- Providing `--xpub-gap` with a non-xpub address logs a warning and is ignored.
-- Xpub import with zero derived addresses returns success with empty session list.
-- Cursor persistence failures do not stop import—can lead to re-fetch on next run.
-- Existing exchange-csv account with different directory aborts import with guidance.
-
-## Known Limitations (Current Implementation)
-
-- CLI cannot list tracking-only accounts; visibility limited to default user’s owned accounts.
-- Xpub gap cannot be expanded automatically if children already cached.
-- No metrics/telemetry; observability relies on logs and session totals.
+- the data model still permits `profile_id NULL` rows for lower-level tracking use-cases, but the current CLI creates profile-owned accounts
+- xpub gap expansion is metadata-driven; already-derived children are reused
+- internal child accounts still share the same `accounts` table as top-level user-facing accounts
 
 ## Related Specs
 
-- [Balance Projection](./balance-projection.md) — snapshot-backed balance storage, scoped freshness, and account summary semantics
-- [Pagination and Streaming](./pagination-and-streaming.md) — cursor model, streaming contract, provider failover
-- [Fee Semantics](./fees.md) — how raw transactions become movements with fee metadata
-
----
-
-_Last updated: 2025-12-12_
+- [Streaming Import Pipeline](../architecture/import-pipeline.md)
+- [Transaction and Movement Identity](./transaction-and-movement-identity.md)
+- [Balance Projection](./balance-projection.md)

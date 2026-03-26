@@ -6,7 +6,7 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { BalanceSnapshotRepository } from '../balance-snapshot-repository.js';
 
-import { seedAccount, seedUser } from './helpers.js';
+import { seedAccount, seedProfile } from './helpers.js';
 
 function createSnapshot(scopeAccountId: number, overrides: Partial<BalanceSnapshot> = {}): BalanceSnapshot {
   return {
@@ -56,7 +56,7 @@ describe('BalanceSnapshotRepository', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     repo = new BalanceSnapshotRepository(db);
-    await seedUser(db);
+    await seedProfile(db);
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedAccount(db, 2, 'exchange-api', 'kraken');
   });
@@ -161,6 +161,18 @@ describe('BalanceSnapshotRepository', () => {
     expect(grouped.get('shared:btc')?.map((asset) => asset.scopeAccountId)).toEqual([1, 2]);
   });
 
+  it('handles large scope filters when listing snapshots and assets', async () => {
+    assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(1), assets: [createAsset(1, 'shared:btc')] }));
+    assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(2), assets: [createAsset(2, 'shared:eth')] }));
+
+    const scopeAccountIds = Array.from({ length: 1_200 }, (_, index) => index + 1);
+    const snapshots = assertOk(await repo.findSnapshots(scopeAccountIds));
+    const assets = assertOk(await repo.findAssetsByScope(scopeAccountIds));
+
+    expect(snapshots.map((snapshot) => snapshot.scopeAccountId)).toEqual([1, 2]);
+    expect(assets.map((asset) => asset.scopeAccountId)).toEqual([1, 2]);
+  });
+
   it('deletes targeted scopes only', async () => {
     assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(1), assets: [createAsset(1, 'shared:btc')] }));
     assertOk(await repo.replaceSnapshot({ snapshot: createSnapshot(2), assets: [createAsset(2, 'shared:eth')] }));
@@ -170,5 +182,37 @@ describe('BalanceSnapshotRepository', () => {
     expect(deleted).toBe(1);
     expect(assertOk(await repo.findSnapshot(1))).toBeUndefined();
     expect(assertOk(await repo.findSnapshot(2))).toMatchObject({ scopeAccountId: 2 });
+  });
+
+  it('replaces snapshots with large asset sets without exceeding SQLite variable limits', async () => {
+    const totalAssets = 250;
+    const assets = Array.from({ length: totalAssets }, (_, index) =>
+      createAsset(1, `blockchain:ethereum:asset-${index.toString().padStart(3, '0')}`, {
+        assetSymbol: `ASSET${index}`,
+        comparisonStatus: index % 2 === 0 ? 'match' : 'warning',
+        difference: index % 2 === 0 ? '0' : '-0.01',
+        liveBalance: index % 2 === 0 ? '1.25' : '1.24',
+      })
+    );
+
+    assertOk(
+      await repo.replaceSnapshot({
+        snapshot: createSnapshot(1, {
+          totalAssetCount: totalAssets,
+          parsedAssetCount: totalAssets,
+          matchCount: totalAssets / 2,
+          warningCount: totalAssets / 2,
+          mismatchCount: 0,
+        }),
+        assets,
+      })
+    );
+
+    const persistedAssets = assertOk(await repo.findAssetsByScope([1]));
+    expect(persistedAssets).toHaveLength(totalAssets);
+    expect(persistedAssets[0]?.assetId).toBe('blockchain:ethereum:asset-000');
+    expect(persistedAssets.at(-1)?.assetId).toBe(
+      `blockchain:ethereum:asset-${(totalAssets - 1).toString().padStart(3, '0')}`
+    );
   });
 });

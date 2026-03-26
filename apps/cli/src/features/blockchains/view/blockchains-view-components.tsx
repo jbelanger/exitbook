@@ -270,10 +270,16 @@ function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[]
   rows.push(
     <Text key="blank-2"> </Text>,
     <Text
-      key="example"
+      key="example-add"
       dimColor
     >
-      {'  '}Example: exitbook import --blockchain {selected.name} --address {selected.exampleAddress}
+      {'  '}Example: exitbook accounts add main-wallet --blockchain {selected.name} --address {selected.exampleAddress}
+    </Text>,
+    <Text
+      key="example-import"
+      dimColor
+    >
+      {'  '} exitbook import --account main-wallet
     </Text>
   );
 

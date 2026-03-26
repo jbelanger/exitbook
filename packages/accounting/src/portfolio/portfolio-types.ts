@@ -22,7 +22,7 @@ export interface OpenLotItem {
 
 export interface AccountBreakdownItem {
   accountId: number;
-  sourceName: string;
+  platformKey: string;
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
   quantity: string;
 }
