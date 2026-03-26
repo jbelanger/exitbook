@@ -38,7 +38,7 @@ describe('DataSession', () => {
       const result = assertOk(
         await ctx.executeInTransaction(async (tx) => {
           assertOk(
-            await tx.accounts.findOrCreate({
+            await tx.accounts.create({
               profileId: 1,
               accountType: 'blockchain',
               platformKey: 'bitcoin',
@@ -60,7 +60,7 @@ describe('DataSession', () => {
     it('rolls back on err result', async () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
-          await tx.accounts.findOrCreate({
+          await tx.accounts.create({
             profileId: 1,
             accountType: 'blockchain',
             platformKey: 'bitcoin',
@@ -81,7 +81,7 @@ describe('DataSession', () => {
     it('rolls back on thrown exception', async () => {
       const result = await ctx.executeInTransaction(async (tx) => {
         assertOk(
-          await tx.accounts.findOrCreate({
+          await tx.accounts.create({
             profileId: 1,
             accountType: 'blockchain',
             platformKey: 'bitcoin',
@@ -102,7 +102,7 @@ describe('DataSession', () => {
         await ctx.executeInTransaction(async (outerTx) => {
           // Create account in outer transaction
           assertOk(
-            await outerTx.accounts.findOrCreate({
+            await outerTx.accounts.create({
               profileId: 1,
               accountType: 'blockchain',
               platformKey: 'bitcoin',
@@ -114,7 +114,7 @@ describe('DataSession', () => {
           const innerResult = assertOk(
             await outerTx.executeInTransaction(async (innerTx) => {
               assertOk(
-                await innerTx.accounts.findOrCreate({
+                await innerTx.accounts.create({
                   profileId: 1,
                   accountType: 'exchange-api',
                   platformKey: 'kraken',
@@ -140,7 +140,7 @@ describe('DataSession', () => {
     it('inner err in nested transaction propagates to outer', async () => {
       const result = await ctx.executeInTransaction(async (outerTx) => {
         assertOk(
-          await outerTx.accounts.findOrCreate({
+          await outerTx.accounts.create({
             profileId: 1,
             accountType: 'blockchain',
             platformKey: 'bitcoin',

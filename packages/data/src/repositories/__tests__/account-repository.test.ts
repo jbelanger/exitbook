@@ -26,156 +26,10 @@ describe('AccountRepository', () => {
     await db.destroy();
   });
 
-  describe('findOrCreate', () => {
-    it('creates a new blockchain account', async () => {
-      const account = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'blockchain',
-          platformKey: 'bitcoin',
-          identifier: 'bc1q...',
-          providerName: 'blockstream',
-        })
-      );
-
-      expect(account.id).toBeGreaterThan(0);
-      expect(account.profileId).toBe(1);
-      expect(account.accountType).toBe('blockchain');
-      expect(account.platformKey).toBe('bitcoin');
-      expect(account.identifier).toBe('bc1q...');
-      expect(account.providerName).toBe('blockstream');
-      expect(account.createdAt).toBeInstanceOf(Date);
-    });
-
-    it('creates an exchange-api account with credentials', async () => {
-      const account = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey123',
-          credentials: { apiKey: 'key123', apiSecret: 'secret456' },
-        })
-      );
-
-      expect(account.accountType).toBe('exchange-api');
-      expect(account.credentials).toEqual({ apiKey: 'key123', apiSecret: 'secret456' });
-    });
-
-    it('returns existing account instead of creating a duplicate', async () => {
-      const first = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'blockchain',
-          platformKey: 'ethereum',
-          identifier: '0x123',
-        })
-      );
-
-      const second = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'blockchain',
-          platformKey: 'ethereum',
-          identifier: '0x123',
-        })
-      );
-
-      expect(second.id).toBe(first.id);
-      expect(second.createdAt).toEqual(first.createdAt);
-
-      const rows = await db.selectFrom('accounts').selectAll().execute();
-      expect(rows).toHaveLength(1);
-    });
-
-    it('reuses the same top-level exchange account when the API key changes', async () => {
-      const first = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey_personal',
-        })
-      );
-      const second = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey_business',
-        })
-      );
-
-      expect(second.id).toBe(first.id);
-    });
-
-    it('reuses the same top-level exchange account across CSV and API modes', async () => {
-      const api = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey123',
-        })
-      );
-      const csv = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-csv',
-          platformKey: 'kraken',
-          identifier: '/path/to/csv',
-        })
-      );
-
-      expect(api.id).toBe(csv.id);
-      expect(api.accountType).toBe('exchange-api');
-      expect(csv.accountType).toBe('exchange-api');
-    });
-
-    it('allows the same exchange platform in different profiles', async () => {
-      await db
-        .insertInto('profiles')
-        .values({ id: 2, profile_key: 'secondary', name: 'secondary', created_at: new Date().toISOString() })
-        .execute();
-
-      const first = assertOk(
-        await repo.findOrCreate({
-          profileId: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey-profile-1',
-        })
-      );
-      const second = assertOk(
-        await repo.findOrCreate({
-          profileId: 2,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'apiKey-profile-2',
-        })
-      );
-
-      expect(second.id).not.toBe(first.id);
-    });
-
-    it('supports external accounts with no profileId (ADR-007 Use Case 3)', async () => {
-      const account = assertOk(
-        await repo.findOrCreate({
-          profileId: undefined,
-          accountType: 'blockchain',
-          platformKey: 'bitcoin',
-          identifier: 'bc1qscammer...',
-        })
-      );
-
-      expect(account.profileId).toBeUndefined();
-    });
-  });
-
   describe('getById', () => {
     it('finds an existing account', async () => {
       const created = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'blockchain',
           platformKey: 'ethereum',
@@ -259,12 +113,14 @@ describe('AccountRepository', () => {
 
   describe('findBy', () => {
     it('finds account by unique key fields', async () => {
-      await repo.findOrCreate({
-        profileId: 1,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q...',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q...',
+        })
+      );
 
       const found = assertOk(
         await repo.findBy({
@@ -291,12 +147,14 @@ describe('AccountRepository', () => {
     });
 
     it('handles null profileId correctly (COALESCE logic)', async () => {
-      await repo.findOrCreate({
-        profileId: undefined,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q...',
-      });
+      assertOk(
+        await repo.create({
+          profileId: undefined,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q...',
+        })
+      );
 
       const found = assertOk(
         await repo.findBy({
@@ -312,7 +170,7 @@ describe('AccountRepository', () => {
 
     it('matches top-level exchange accounts by profile and platform, ignoring identifier and mode', async () => {
       const created = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'exchange-csv',
           platformKey: 'kraken',
@@ -363,13 +221,15 @@ describe('AccountRepository', () => {
         })
       );
 
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: parent.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q-child',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: parent.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-child',
+        })
+      );
 
       const found = assertOk(await repo.findByName(1, 'bc1q-child'));
       expect(found).toBeUndefined();
@@ -377,26 +237,30 @@ describe('AccountRepository', () => {
   });
 
   describe('findAll', () => {
-    it('returns all accounts for a user', async () => {
-      await repo.findOrCreate({
-        profileId: 1,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q...',
-      });
-      await repo.findOrCreate({
-        profileId: 1,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'apiKey123',
-      });
+    it('returns all accounts for a profile', async () => {
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q...',
+        })
+      );
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'apiKey123',
+        })
+      );
 
       const accounts = assertOk(await repo.findAll({ profileId: 1 }));
       expect(accounts).toHaveLength(2);
       expect(accounts.every((a) => a.profileId === 1)).toBe(true);
     });
 
-    it('returns empty array for a user with no accounts', async () => {
+    it('returns empty array for a profile with no accounts', async () => {
       const accounts = assertOk(await repo.findAll({ profileId: 999 }));
       expect(accounts).toHaveLength(0);
     });
@@ -406,18 +270,22 @@ describe('AccountRepository', () => {
         .insertInto('profiles')
         .values({ id: 2, profile_key: 'secondary', name: 'secondary', created_at: new Date().toISOString() })
         .execute();
-      await repo.findOrCreate({
-        profileId: 1,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q...',
-      });
-      await repo.findOrCreate({
-        profileId: 2,
-        accountType: 'blockchain',
-        platformKey: 'ethereum',
-        identifier: '0x456',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q...',
+        })
+      );
+      assertOk(
+        await repo.create({
+          profileId: 2,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0x456',
+        })
+      );
 
       const accounts = assertOk(await repo.findAll({ profileId: 1 }));
       expect(accounts).toHaveLength(1);
@@ -426,7 +294,7 @@ describe('AccountRepository', () => {
 
     it('returns child accounts for a parent', async () => {
       const parent = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'blockchain',
           platformKey: 'bitcoin',
@@ -434,20 +302,24 @@ describe('AccountRepository', () => {
         })
       );
 
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: parent.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q1...',
-      });
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: parent.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q2...',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: parent.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q1...',
+        })
+      );
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: parent.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q2...',
+        })
+      );
 
       const children = assertOk(await repo.findAll({ parentAccountId: parent.id }));
       expect(children).toHaveLength(2);
@@ -456,7 +328,7 @@ describe('AccountRepository', () => {
 
     it('does not mix children across different parents', async () => {
       const p1 = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'blockchain',
           platformKey: 'bitcoin',
@@ -464,7 +336,7 @@ describe('AccountRepository', () => {
         })
       );
       const p2 = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'blockchain',
           platformKey: 'bitcoin',
@@ -472,20 +344,24 @@ describe('AccountRepository', () => {
         })
       );
 
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: p1.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q-child1...',
-      });
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: p2.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q-child2...',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: p1.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-child1...',
+        })
+      );
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: p2.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-child2...',
+        })
+      );
 
       const children = assertOk(await repo.findAll({ parentAccountId: p1.id }));
       expect(children).toHaveLength(1);
@@ -502,19 +378,23 @@ describe('AccountRepository', () => {
           identifier: 'apiKey123',
         })
       );
-      await repo.findOrCreate({
-        profileId: 1,
-        accountType: 'exchange-csv',
-        platformKey: 'kraken',
-        identifier: '/tmp/legacy-csv',
-      });
-      await repo.findOrCreate({
-        profileId: 1,
-        parentAccountId: namedTopLevel.id,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1q-child',
-      });
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-unnamed-top-level',
+        })
+      );
+      assertOk(
+        await repo.create({
+          profileId: 1,
+          parentAccountId: namedTopLevel.id,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-child',
+        })
+      );
 
       const accounts = assertOk(
         await repo.findAll({
@@ -585,7 +465,7 @@ describe('AccountRepository', () => {
     let account: Account;
 
     beforeEach(async () => {
-      const result = await repo.findOrCreate({
+      const result = await repo.create({
         profileId: 1,
         accountType: 'blockchain',
         platformKey: 'bitcoin',
@@ -602,7 +482,7 @@ describe('AccountRepository', () => {
 
     it('updates credentials', async () => {
       const exchange = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'exchange-api',
           platformKey: 'kraken',
@@ -641,7 +521,7 @@ describe('AccountRepository', () => {
 
     it('updates the identifier and clears cursor state when requested', async () => {
       const exchange = assertOk(
-        await repo.findOrCreate({
+        await repo.create({
           profileId: 1,
           accountType: 'exchange-api',
           platformKey: 'kraken',
@@ -673,7 +553,7 @@ describe('AccountRepository', () => {
     let account: Account;
 
     beforeEach(async () => {
-      const result = await repo.findOrCreate({
+      const result = await repo.create({
         profileId: 1,
         accountType: 'blockchain',
         platformKey: 'ethereum',

@@ -23,17 +23,6 @@ interface AccountKeyParams {
 
 const EXCHANGE_ACCOUNT_TYPES: AccountType[] = ['exchange-api', 'exchange-csv'];
 
-interface FindOrCreateAccountParams {
-  profileId: number | undefined;
-  name?: string | undefined;
-  parentAccountId?: number | undefined;
-  accountType: AccountType;
-  platformKey: string;
-  identifier: string;
-  providerName?: string | undefined;
-  credentials?: ExchangeCredentials | undefined;
-}
-
 interface UpdateAccountParams {
   identifier?: string | undefined;
   name?: string | null | undefined;
@@ -327,87 +316,6 @@ export class AccountRepository extends BaseRepository {
       },
       this,
       'Failed to create account'
-    );
-  }
-
-  async findOrCreate(params: FindOrCreateAccountParams): Promise<Result<Account, Error>> {
-    return resultTryAsync(
-      async function* (self) {
-        if (!params.identifier || params.identifier.trim() === '') {
-          yield* err('Account identifier must not be empty');
-        }
-        if (!params.platformKey || params.platformKey.trim() === '') {
-          yield* err('Account platform key must not be empty');
-        }
-
-        const existing = yield* await self.findBy({
-          accountType: params.accountType,
-          platformKey: params.platformKey,
-          identifier: params.identifier,
-          profileId: params.profileId,
-        });
-
-        if (existing) {
-          self.logger.debug({ accountId: existing.id }, 'Found existing account');
-
-          if (params.parentAccountId !== undefined && existing.parentAccountId !== params.parentAccountId) {
-            self.logger.info(
-              { accountId: existing.id, currentParent: existing.parentAccountId, newParent: params.parentAccountId },
-              'Updating parent account relationship for existing account'
-            );
-            yield* await self.update(existing.id, { parentAccountId: params.parentAccountId });
-            return yield* await self.getById(existing.id);
-          }
-
-          return existing;
-        }
-
-        let credentialsJson: string | null = null;
-        if (params.credentials) {
-          const validationResult = ExchangeCredentialsSchema.safeParse(params.credentials);
-          if (!validationResult.success) {
-            yield* err(`Invalid credentials: ${validationResult.error.message}`);
-          } else {
-            credentialsJson = (yield* serializeToJson(validationResult.data)) ?? null;
-          }
-        }
-
-        const result = await self.db
-          .insertInto('accounts')
-          .values({
-            profile_id: params.profileId,
-            name: params.name ?? null,
-            parent_account_id: params.parentAccountId ?? null,
-            account_type: params.accountType,
-            platform_key: params.platformKey,
-            identifier: params.identifier,
-            provider_name: params.providerName ?? null,
-            credentials: credentialsJson,
-            last_cursor: null,
-            created_at: new Date().toISOString(),
-            updated_at: null,
-          })
-          .returning([
-            'id',
-            'profile_id',
-            'name',
-            'account_type',
-            'platform_key',
-            'identifier',
-            'provider_name',
-            'created_at',
-          ])
-          .executeTakeFirstOrThrow();
-
-        self.logger.info(
-          { accountId: result.id, accountType: params.accountType, platformKey: params.platformKey },
-          'Created new account'
-        );
-
-        return yield* await self.getById(result.id);
-      },
-      this,
-      'Failed to find or create account'
     );
   }
 
