@@ -606,6 +606,34 @@ describe('TransactionRepository', () => {
       const transactions = await db.selectFrom('transactions').select(['id']).execute();
       expect(transactions).toHaveLength(1);
     });
+
+    it('treats the same exchange event IDs in different profiles as distinct transactions', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });
+      await seedImportSession(db, 2, 2);
+
+      const transaction = makePersistedTransaction({
+        source: 'kraken',
+        sourceType: 'exchange',
+        identityReference: 'shared-fill-1',
+      });
+
+      const firstId = assertOk(await repo.create(transaction, 1));
+      const secondId = assertOk(await repo.create(transaction, 2));
+
+      expect(secondId).not.toBe(firstId);
+
+      const transactions = await db.selectFrom('transactions').select(['id']).orderBy('id asc').execute();
+      expect(transactions).toHaveLength(2);
+    });
   });
 
   describe('updateMovementsWithPrices', () => {

@@ -27,6 +27,7 @@ describe('computeAccountFingerprint', () => {
   it('produces a 64-char lowercase hex string', async () => {
     const fp = assertOk(
       computeAccountFingerprint({
+        profileKey: 'default',
         accountType: 'exchange-api',
         platformKey: 'kraken',
         identifier: 'my-api-key',
@@ -36,39 +37,62 @@ describe('computeAccountFingerprint', () => {
   });
 
   it('is deterministic', async () => {
-    const input = { accountType: 'blockchain', platformKey: 'bitcoin', identifier: 'bc1qaddr' };
+    const input = { profileKey: 'default', accountType: 'blockchain', platformKey: 'bitcoin', identifier: 'bc1qaddr' };
     const fp1 = assertOk(computeAccountFingerprint(input));
     const fp2 = assertOk(computeAccountFingerprint(input));
     expect(fp1).toBe(fp2);
   });
 
   it('trims identifier whitespace', async () => {
-    const base = { accountType: 'blockchain', platformKey: 'bitcoin' };
+    const base = { profileKey: 'default', accountType: 'blockchain', platformKey: 'bitcoin' };
     const fp1 = assertOk(computeAccountFingerprint({ ...base, identifier: '  addr  ' }));
     const fp2 = assertOk(computeAccountFingerprint({ ...base, identifier: 'addr' }));
     expect(fp1).toBe(fp2);
   });
 
-  it('differs by accountType', async () => {
-    const base = { platformKey: 'kraken', identifier: 'key' };
+  it('treats exchange-api and exchange-csv as the same exchange identity', async () => {
+    const base = { profileKey: 'default', platformKey: 'kraken', identifier: 'key' };
     const fp1 = assertOk(computeAccountFingerprint({ ...base, accountType: 'exchange-api' }));
-    const fp2 = assertOk(computeAccountFingerprint({ ...base, accountType: 'exchange-csv' }));
+    const fp2 = assertOk(computeAccountFingerprint({ ...base, accountType: 'exchange-csv', identifier: 'other' }));
+    expect(fp1).toBe(fp2);
+  });
+
+  it('differs by profileKey', async () => {
+    const base = { accountType: 'exchange-api', platformKey: 'kraken', identifier: 'key' };
+    const fp1 = assertOk(computeAccountFingerprint({ ...base, profileKey: 'default' }));
+    const fp2 = assertOk(computeAccountFingerprint({ ...base, profileKey: 'audit' }));
     expect(fp1).not.toBe(fp2);
   });
 
-  it('rejects empty accountType', async () => {
-    const e = assertErr(computeAccountFingerprint({ accountType: '', platformKey: 'x', identifier: 'y' }));
-    expect(e.message).toContain('accountType');
+  it('rejects empty profileKey', async () => {
+    const e = assertErr(
+      computeAccountFingerprint({ profileKey: '', accountType: 'blockchain', platformKey: 'x', identifier: 'y' })
+    );
+    expect(e.message).toContain('profileKey');
+  });
+
+  it('rejects unsupported account types', async () => {
+    const e = assertErr(
+      computeAccountFingerprint({ profileKey: 'default', accountType: 'custodian', platformKey: 'x', identifier: 'y' })
+    );
+    expect(e.message).toContain('Unsupported accountType');
   });
 
   it('rejects empty platformKey', async () => {
-    const e = assertErr(computeAccountFingerprint({ accountType: 'blockchain', platformKey: '', identifier: 'y' }));
+    const e = assertErr(
+      computeAccountFingerprint({ profileKey: 'default', accountType: 'blockchain', platformKey: '', identifier: 'y' })
+    );
     expect(e.message).toContain('platformKey');
   });
 
   it('rejects empty identifier', async () => {
     const e = assertErr(
-      computeAccountFingerprint({ accountType: 'blockchain', platformKey: 'bitcoin', identifier: '  ' })
+      computeAccountFingerprint({
+        profileKey: 'default',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: '  ',
+      })
     );
     expect(e.message).toContain('identifier');
   });
@@ -81,6 +105,7 @@ describe('computeAccountFingerprint', () => {
 
     const e = assertErr(
       computeAccountFingerprint({
+        profileKey: 'default',
         accountType: 'blockchain',
         platformKey: 'bitcoin',
         identifier: 'bc1qaddr',

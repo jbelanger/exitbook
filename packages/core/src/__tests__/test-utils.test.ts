@@ -21,6 +21,7 @@ describe('@exitbook/core/test-utils', () => {
   it('matches production tx fingerprints for explicit exchange source types', async () => {
     const accountFingerprint = assertOk(
       computeAccountFingerprint({
+        profileKey: 'default',
         accountType: 'exchange-api',
         platformKey: 'kraken',
         identifier: 'identifier-12',
@@ -42,6 +43,7 @@ describe('@exitbook/core/test-utils', () => {
   it('matches production tx fingerprints for inferred blockchain sources', async () => {
     const accountFingerprint = assertOk(
       computeAccountFingerprint({
+        profileKey: 'default',
         accountType: 'blockchain',
         platformKey: 'ethereum',
         identifier: 'identifier-7',

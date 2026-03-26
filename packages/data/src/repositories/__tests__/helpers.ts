@@ -17,13 +17,14 @@ export async function seedAccount(
   source: string,
   options?: {
     parentAccountId?: number | undefined;
+    profileId?: number | undefined;
   }
 ): Promise<void> {
   await db
     .insertInto('accounts')
     .values({
       id: accountId,
-      profile_id: 1,
+      profile_id: options?.profileId ?? 1,
       account_type: type,
       platform_key: source,
       identifier: `identifier-${accountId}`,
