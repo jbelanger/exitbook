@@ -4,6 +4,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -22,6 +23,7 @@ export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
     .description('View assets and review flagged ones')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--action-required', 'Show only flagged assets that still need attention')
     .option('--needs-review', 'Alias for --action-required')
     .option('--json', 'Output results in JSON format')
@@ -55,10 +57,15 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({ actionRequiredOnly });
+      const result = await handler.view({ actionRequiredOnly, profileId: profileResult.value.id });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -66,13 +73,10 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
 
       const payload: ViewAssetsCommandResult = {
         data: result.value.assets,
-        meta: buildViewMeta(
-          result.value.assets.length,
-          0,
-          result.value.assets.length,
-          result.value.totalCount,
-          actionRequiredOnly ? { actionRequired: true } : undefined
-        ),
+        meta: buildViewMeta(result.value.assets.length, 0, result.value.assets.length, result.value.totalCount, {
+          ...(actionRequiredOnly ? { actionRequired: true } : {}),
+          ...(options.profile ? { profile: options.profile } : {}),
+        }),
       };
 
       outputSuccess('assets-view', payload);
@@ -91,10 +95,15 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({ actionRequiredOnly });
+      const result = await handler.view({ actionRequiredOnly, profileId: profileResult.value.id });
 
       if (result.isErr()) {
         displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'text');
@@ -115,21 +124,23 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
           initialState,
           onQuit: unmount,
           onToggleExclusion: async (assetId, excluded) => {
-            const actionResult = excluded ? await handler.include({ assetId }) : await handler.exclude({ assetId });
+            const actionResult = excluded
+              ? await handler.include({ assetId, profileId: profileResult.value.id })
+              : await handler.exclude({ assetId, profileId: profileResult.value.id });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }
             return actionResult.value;
           },
           onConfirmReview: async (assetId) => {
-            const actionResult = await handler.confirmReview({ assetId });
+            const actionResult = await handler.confirmReview({ assetId, profileId: profileResult.value.id });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }
             return actionResult.value;
           },
           onClearReview: async (assetId) => {
-            const actionResult = await handler.clearReview({ assetId });
+            const actionResult = await handler.clearReview({ assetId, profileId: profileResult.value.id });
             if (actionResult.isErr()) {
               throw actionResult.error;
             }

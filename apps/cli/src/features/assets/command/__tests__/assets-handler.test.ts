@@ -20,6 +20,8 @@ import {
 } from '../../../shared/asset-review-projection-store.js';
 import { AssetsHandler } from '../assets-handler.js';
 
+const PROFILE_ID = 1;
+
 vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
   createCliAssetReviewProjectionRuntime: vi.fn(),
 }));
@@ -114,11 +116,16 @@ function createMockDb(
     freshnessByScope?: Map<number, { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }>;
   }
 ) {
-  const snapshotRows = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))].map((scopeAccountId) =>
-    createSnapshot(scopeAccountId)
-  );
+  const scopeAccountIds = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))];
+  if (scopeAccountIds.length === 0) {
+    scopeAccountIds.push(1);
+  }
+  const snapshotRows = scopeAccountIds.map((scopeAccountId) => createSnapshot(scopeAccountId));
 
   return {
+    accounts: {
+      findAll: vi.fn().mockResolvedValue(ok(scopeAccountIds.map((id) => ({ id })))),
+    },
     transactions: {
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
     },
@@ -244,7 +251,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'scam', reason: 'junk airdrop' });
+    const result = await handler.exclude({ symbol: 'scam', reason: 'junk airdrop', profileId: PROFILE_ID });
 
     const value = assertOk(result);
     expect(value).toMatchObject({
@@ -254,7 +261,7 @@ describe('AssetsHandler', () => {
       changed: true,
       reason: 'junk airdrop',
     });
-    expect(mockDb.transactions.findAll).toHaveBeenCalledWith({ includeExcluded: true });
+    expect(mockDb.transactions.findAll).toHaveBeenCalledWith({ profileId: PROFILE_ID, includeExcluded: true });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       scope: 'asset-exclude',
       payload: {
@@ -285,7 +292,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'USDC' });
+    const result = await handler.exclude({ symbol: 'USDC', profileId: PROFILE_ID });
 
     const error = assertErr(result);
     expect(error.message).toContain("Symbol 'USDC' is ambiguous");
@@ -310,7 +317,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.include({ assetId: 'blockchain:ethereum:0xscam' });
+    const result = await handler.include({ assetId: 'blockchain:ethereum:0xscam', profileId: PROFILE_ID });
 
     const value = assertOk(result);
     expect(value.changed).toBe(false);
@@ -350,7 +357,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.listExclusions();
+    const result = await handler.listExclusions(PROFILE_ID);
 
     const value = assertOk(result);
     expect(value.excludedAssets).toEqual([
@@ -375,7 +382,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.listExclusions();
+    const result = await handler.listExclusions(PROFILE_ID);
 
     const error = assertErr(result);
     expect(error.message).toContain('Failed to read asset exclusion override events');
@@ -418,7 +425,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -447,14 +454,14 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const viewResult = await handler.view();
+    const viewResult = await handler.view({ profileId: PROFILE_ID });
     const viewValue = assertOk(viewResult);
 
     expect(viewValue.assets).toEqual([]);
     expect(viewValue.excludedCount).toBe(0);
     expect(viewValue.totalCount).toBe(0);
 
-    const exclusionsResult = await handler.listExclusions();
+    const exclusionsResult = await handler.listExclusions(PROFILE_ID);
     const exclusionsValue = assertOk(exclusionsResult);
 
     expect(exclusionsValue.excludedAssets).toEqual([
@@ -487,7 +494,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -511,7 +518,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID });
     const error = assertErr(result);
 
     expect(error.message).toContain('Assets view requires fresh balance snapshots');
@@ -532,7 +539,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view();
+    const result = await handler.view({ profileId: PROFILE_ID });
     const error = assertErr(result);
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
@@ -553,7 +560,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.exclude({ symbol: 'dust' });
+    const result = await handler.exclude({ symbol: 'dust', profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value.assetId).toBe(assetId);
@@ -619,7 +626,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -666,7 +673,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.view({ actionRequiredOnly: true });
+    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value.assets).toEqual([]);
@@ -712,7 +719,11 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.confirmReview({ assetId: scamAssetId, reason: 'intentional contract' });
+    const result = await handler.confirmReview({
+      assetId: scamAssetId,
+      reason: 'intentional contract',
+      profileId: PROFILE_ID,
+    });
     const value = assertOk(result);
 
     expect(value).toMatchObject({
@@ -777,7 +788,7 @@ describe('AssetsHandler', () => {
       '/tmp/test-data'
     );
 
-    const result = await handler.clearReview({ assetId: scamAssetId, reason: 'reopen review' });
+    const result = await handler.clearReview({ assetId: scamAssetId, reason: 'reopen review', profileId: PROFILE_ID });
     const value = assertOk(result);
 
     expect(value).toMatchObject({

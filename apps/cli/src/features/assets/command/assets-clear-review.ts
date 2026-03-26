@@ -2,6 +2,7 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -13,6 +14,7 @@ export function registerAssetsClearReviewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('clear-review')
     .description('Clear a prior review confirmation for an asset')
+    .option('--profile <name>', 'Use a specific profile instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
@@ -41,10 +43,21 @@ async function executeAssetsClearReviewCommand(rawOptions: unknown): Promise<voi
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      if (profileResult.isErr()) {
+        displayCliError(
+          'assets-clear-review',
+          profileResult.error,
+          ExitCodes.GENERAL_ERROR,
+          options.json ? 'json' : 'text'
+        );
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const result = await handler.clearReview({
         assetId: options.assetId,
+        profileId: profileResult.value.id,
         symbol: options.symbol,
         reason: options.reason,
       });

@@ -35,11 +35,13 @@ interface AssetSelectionParams {
 }
 
 interface AssetOverrideParams extends AssetSelectionParams {
+  profileId: number;
   reason?: string | undefined;
 }
 
 interface ViewAssetsParams {
   actionRequiredOnly?: boolean | undefined;
+  profileId: number;
 }
 
 export interface AssetOverrideResult {
@@ -116,7 +118,7 @@ export class AssetsHandler {
   ) {}
 
   async exclude(params: AssetOverrideParams): Promise<Result<AssetOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+    const snapshotResult = await this.loadSnapshot(params.profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -159,7 +161,7 @@ export class AssetsHandler {
   }
 
   async include(params: AssetOverrideParams): Promise<Result<AssetOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+    const snapshotResult = await this.loadSnapshot(params.profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -202,7 +204,7 @@ export class AssetsHandler {
   }
 
   async confirmReview(params: AssetOverrideParams): Promise<Result<AssetReviewOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+    const snapshotResult = await this.loadSnapshot(params.profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -273,7 +275,7 @@ export class AssetsHandler {
   }
 
   async clearReview(params: AssetOverrideParams): Promise<Result<AssetReviewOverrideResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+    const snapshotResult = await this.loadSnapshot(params.profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -339,8 +341,8 @@ export class AssetsHandler {
     });
   }
 
-  async listExclusions(): Promise<Result<AssetExclusionsResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+  async listExclusions(profileId: number): Promise<Result<AssetExclusionsResult, Error>> {
+    const snapshotResult = await this.loadSnapshot(profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -371,8 +373,8 @@ export class AssetsHandler {
     return ok({ excludedAssets });
   }
 
-  async view(params: ViewAssetsParams = {}): Promise<Result<AssetsViewResult, Error>> {
-    const snapshotResult = await this.loadSnapshot();
+  async view(params: ViewAssetsParams): Promise<Result<AssetsViewResult, Error>> {
+    const snapshotResult = await this.loadSnapshot(params.profileId);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
@@ -442,27 +444,24 @@ export class AssetsHandler {
     return ok(undefined);
   }
 
-  private async loadSnapshot(): Promise<Result<AssetSnapshot, Error>> {
-    const transactionsResult = await this.db.transactions.findAll({ includeExcluded: true });
+  private async loadSnapshot(profileId: number): Promise<Result<AssetSnapshot, Error>> {
+    const transactionsResult = await this.db.transactions.findAll({ profileId, includeExcluded: true });
     if (transactionsResult.isErr()) {
       return wrapError(transactionsResult.error, 'Failed to load transactions for asset resolution');
     }
 
-    const snapshotRowsResult = await this.db.balanceSnapshots.findSnapshots();
-    if (snapshotRowsResult.isErr()) {
-      return wrapError(snapshotRowsResult.error, 'Failed to load balance snapshots');
+    const topLevelAccountsResult = await this.db.accounts.findAll({ profileId, topLevelOnly: true });
+    if (topLevelAccountsResult.isErr()) {
+      return wrapError(topLevelAccountsResult.error, 'Failed to resolve profile accounts for asset view');
     }
+    const scopeAccountIds = topLevelAccountsResult.value.map((account) => account.id);
 
-    const freshnessResult = await this.assertFreshBalanceSnapshots(
-      snapshotRowsResult.value.map((snapshot) => snapshot.scopeAccountId)
-    );
+    const freshnessResult = await this.assertFreshBalanceSnapshots(scopeAccountIds);
     if (freshnessResult.isErr()) {
       return err(freshnessResult.error);
     }
 
-    const snapshotAssetsResult = await this.db.balanceSnapshots.findAssetsByScope(
-      snapshotRowsResult.value.map((snapshot) => snapshot.scopeAccountId)
-    );
+    const snapshotAssetsResult = await this.db.balanceSnapshots.findAssetsByScope(scopeAccountIds);
     if (snapshotAssetsResult.isErr()) {
       return err(new Error(`Failed to load balance snapshot assets: ${snapshotAssetsResult.error.message}`));
     }
