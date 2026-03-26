@@ -28,6 +28,16 @@ interface AssetReviewEvidenceRecord {
   severity: string;
 }
 
+const ASSET_REVIEW_INSERT_BATCH_SIZE = 100;
+
+function chunkItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export class AssetReviewRepository extends BaseRepository {
   constructor(db: KyselyDB) {
     super(db, 'asset-review-repository');
@@ -45,17 +55,17 @@ export class AssetReviewRepository extends BaseRepository {
         return ok(undefined);
       }
 
-      await this.db
-        .insertInto('asset_review_state')
-        .values(items.map((summary) => this.toStateRow(summary, computedAt)))
-        .execute();
+      const stateRows = items.map((summary) => this.toStateRow(summary, computedAt));
+      for (const stateRowBatch of chunkItems(stateRows, ASSET_REVIEW_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('asset_review_state').values(stateRowBatch).execute();
+      }
 
       const evidenceRows = items.flatMap((summary) =>
         summary.evidence.map((evidence, position) => this.toEvidenceRow(summary.assetId, position, evidence))
       );
 
-      if (evidenceRows.length > 0) {
-        await this.db.insertInto('asset_review_evidence').values(evidenceRows).execute();
+      for (const evidenceRowBatch of chunkItems(evidenceRows, ASSET_REVIEW_INSERT_BATCH_SIZE)) {
+        await this.db.insertInto('asset_review_evidence').values(evidenceRowBatch).execute();
       }
 
       return ok(undefined);

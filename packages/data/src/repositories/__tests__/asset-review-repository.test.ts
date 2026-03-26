@@ -137,4 +137,37 @@ describe('AssetReviewRepository', () => {
     const latest = assertOk(await repo.findLatestComputedAt());
     expect(latest).toBeInstanceOf(Date);
   });
+
+  it('replaces large projections without exceeding SQLite variable limits', async () => {
+    const totalSummaries = 250;
+    const summaries = Array.from({ length: totalSummaries }, (_, index) =>
+      createSummary(`blockchain:ethereum:0x${index.toString(16).padStart(4, '0')}`, {
+        evidence: [
+          {
+            kind: 'same-symbol-ambiguity',
+            severity: 'warning',
+            message: `Ambiguous asset ${index}`,
+            metadata: {
+              chain: 'ethereum',
+              conflictingAssetIds: [`blockchain:ethereum:0x${index.toString(16).padStart(4, '0')}`],
+            },
+          },
+          {
+            kind: 'spam-flag',
+            severity: 'error',
+            message: `Spam asset ${index}`,
+          },
+        ],
+      })
+    );
+
+    assertOk(await repo.replaceAll(summaries));
+
+    const persisted = assertOk(await repo.listAll());
+    expect(persisted).toHaveLength(totalSummaries);
+    expect(persisted[0]?.assetId).toBe('blockchain:ethereum:0x0000');
+    expect(persisted.at(-1)?.assetId).toBe(
+      `blockchain:ethereum:0x${(totalSummaries - 1).toString(16).padStart(4, '0')}`
+    );
+  });
 });
