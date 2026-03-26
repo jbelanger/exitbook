@@ -608,6 +608,10 @@ No consumer should rebuild review summaries ad hoc in its handler.
 
 - Same-symbol ambiguity detection currently applies only to EVM token asset IDs
   on the same chain.
+- Asset review state and asset include/exclude decisions are currently global by
+  `assetId`, not profile-scoped. If two profiles hold the same asset, review
+  confirmations and accounting exclusion decisions are intentionally shared
+  across those profiles for now.
 - Provider-backed spam/reference enrichment currently flows through the token
   metadata persistence and CoinGecko reference resolver host support.
 - Reference evidence is summarized as `referenceStatus`; it does not yet have a
