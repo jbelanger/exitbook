@@ -9,11 +9,8 @@ export interface PortfolioHoldingsCalculation {
   balances: Record<string, Decimal>;
 }
 
-export interface IPortfolioDependencyReader {
-  readAssetReviewSummaries(): Promise<Result<ReadonlyMap<string, AssetReviewSummary>, Error>>;
-  readDependencyWatermark(): Promise<Result<CostBasisDependencyWatermark, Error>>;
-}
+export type ReadPortfolioAssetReviewSummaries = () => Promise<Result<ReadonlyMap<string, AssetReviewSummary>, Error>>;
 
-export interface IPortfolioHoldingsCalculator {
-  calculateHoldings(transactions: Transaction[]): PortfolioHoldingsCalculation;
-}
+export type ReadPortfolioDependencyWatermark = () => Promise<Result<CostBasisDependencyWatermark, Error>>;
+
+export type CalculatePortfolioHoldings = (transactions: Transaction[]) => PortfolioHoldingsCalculation;

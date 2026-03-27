@@ -141,6 +141,7 @@ export type {
 
 // Ports
 export type {
+  CalculatePortfolioHoldings,
   CostBasisArtifactKind,
   CostBasisContext,
   CostBasisDependencyWatermark,
@@ -150,8 +151,8 @@ export type {
   ICostBasisContextReader,
   ICostBasisDependencyWatermarkReader,
   ICostBasisFailureSnapshotStore,
-  IPortfolioDependencyReader,
-  IPortfolioHoldingsCalculator,
+  ReadPortfolioAssetReviewSummaries,
+  ReadPortfolioDependencyWatermark,
 } from './ports/index.js';
 export type { PortfolioHoldingsCalculation } from './ports/index.js';
 

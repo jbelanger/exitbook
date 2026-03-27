@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import {
+  type CalculatePortfolioHoldings,
   persistCostBasisFailureSnapshot,
   PortfolioHandler,
+  type ReadPortfolioAssetReviewSummaries,
+  type ReadPortfolioDependencyWatermark,
   runCanadaCostBasisCalculation,
   type ICostBasisContextReader,
   type ICostBasisFailureSnapshotStore,
-  type IPortfolioDependencyReader,
-  type IPortfolioHoldingsCalculator,
 } from '@exitbook/accounting';
 import type { Transaction } from '@exitbook/core';
 import { err, ok, type Currency } from '@exitbook/foundation';
@@ -126,9 +127,10 @@ describe('PortfolioHandler', () => {
   let handler: PortfolioHandler;
   let mockPriceRuntime: IPriceProviderRuntime;
   let mockCostBasisStore: ICostBasisContextReader;
-  let mockDependencyReader: IPortfolioDependencyReader;
   let mockFailureSnapshotStore: ICostBasisFailureSnapshotStore;
-  let mockHoldingsCalculator: IPortfolioHoldingsCalculator;
+  let mockReadAssetReviewSummaries: ReadPortfolioAssetReviewSummaries;
+  let mockReadDependencyWatermark: ReadPortfolioDependencyWatermark;
+  let mockCalculateHoldings: CalculatePortfolioHoldings;
   let loadCostBasisContext: Mock;
   let readAssetReviewSummaries: Mock;
   let readDependencyWatermark: Mock;
@@ -158,10 +160,8 @@ describe('PortfolioHandler', () => {
         exclusionFingerprint: 'excluded-assets:none',
       })
     );
-    mockDependencyReader = {
-      readAssetReviewSummaries,
-      readDependencyWatermark,
-    };
+    mockReadAssetReviewSummaries = readAssetReviewSummaries;
+    mockReadDependencyWatermark = readDependencyWatermark;
     mockFailureSnapshotStore = {
       replaceLatest: vi.fn().mockResolvedValue(ok(undefined)),
     };
@@ -186,9 +186,7 @@ describe('PortfolioHandler', () => {
       balances: { 'exchange:kraken:btc': new Decimal('1') },
       assetMetadata: { 'exchange:kraken:btc': 'BTC' },
     });
-    mockHoldingsCalculator = {
-      calculateHoldings,
-    };
+    mockCalculateHoldings = calculateHoldings;
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
     );
@@ -336,11 +334,12 @@ describe('PortfolioHandler', () => {
     );
 
     handler = new PortfolioHandler({
+      calculateHoldings: mockCalculateHoldings,
       costBasisStore: mockCostBasisStore,
-      dependencyReader: mockDependencyReader,
       failureSnapshotStore: mockFailureSnapshotStore,
-      holdingsCalculator: mockHoldingsCalculator,
       priceRuntime: mockPriceRuntime,
+      readAssetReviewSummaries: mockReadAssetReviewSummaries,
+      readDependencyWatermark: mockReadDependencyWatermark,
     });
   });
 
@@ -495,11 +494,12 @@ describe('PortfolioHandler', () => {
 
     handler = new PortfolioHandler({
       accountingExclusionPolicy: { excludedAssetIds: new Set(['blockchain:base:0xspam']) },
+      calculateHoldings: mockCalculateHoldings,
       costBasisStore: mockCostBasisStore,
-      dependencyReader: mockDependencyReader,
       failureSnapshotStore: mockFailureSnapshotStore,
-      holdingsCalculator: mockHoldingsCalculator,
       priceRuntime: mockPriceRuntime,
+      readAssetReviewSummaries: mockReadAssetReviewSummaries,
+      readDependencyWatermark: mockReadDependencyWatermark,
     });
 
     const result = await handler.execute({

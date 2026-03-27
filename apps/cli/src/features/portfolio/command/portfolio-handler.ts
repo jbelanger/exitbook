@@ -1,11 +1,13 @@
 import { PortfolioHandler } from '@exitbook/accounting';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import { calculateBalances } from '@exitbook/ingestion';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { createCliPortfolioRuntime } from '../../../runtime/portfolio-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
+import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 /**
  * Create a CLI-wired PortfolioHandler.
@@ -50,27 +52,22 @@ export async function createPortfolioHandler(
       return err(readyResult.error);
     }
 
-    const portfolioRuntimeResult = await createCliPortfolioRuntime({
-      accountingExclusionPolicy,
-      database,
-      profileId: options.profileId,
-      profileKey: options.profileKey,
-      scope: ctx,
-    });
-    if (portfolioRuntimeResult.isErr()) {
-      return err(portfolioRuntimeResult.error);
+    const priceRuntimeResult = await ctx.openPriceProviderRuntime();
+    if (priceRuntimeResult.isErr()) {
+      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
     }
-    const portfolioRuntime = portfolioRuntimeResult.value;
 
     prereqAbort = undefined;
     return ok(
       new PortfolioHandler({
         accountingExclusionPolicy,
+        calculateHoldings: (transactions) => calculateBalances(transactions),
         costBasisStore: buildCostBasisPorts(database, options.profileId),
-        dependencyReader: portfolioRuntime.dependencyReader,
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
-        holdingsCalculator: portfolioRuntime.holdingsCalculator,
-        priceRuntime: portfolioRuntime.priceRuntime,
+        priceRuntime: priceRuntimeResult.value,
+        readAssetReviewSummaries: () => readAssetReviewProjectionSummaries(database, options.profileId),
+        readDependencyWatermark: () =>
+          readCostBasisDependencyWatermark(database, ctx.dataDir, accountingExclusionPolicy, options.profileId),
       })
     );
   } catch (error) {

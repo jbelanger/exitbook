@@ -19,11 +19,12 @@ import {
 } from '../cost-basis/workflow/cost-basis-input.js';
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type {
+  CalculatePortfolioHoldings,
   CostBasisDependencyWatermark,
   ICostBasisContextReader,
   ICostBasisFailureSnapshotStore,
-  IPortfolioDependencyReader,
-  IPortfolioHoldingsCalculator,
+  ReadPortfolioAssetReviewSummaries,
+  ReadPortfolioDependencyWatermark,
 } from '../ports/index.js';
 import { UsdConversionRateProvider } from '../price-enrichment/fx/usd-conversion-rate-provider.js';
 
@@ -85,11 +86,12 @@ export interface PortfolioResult {
 
 export interface PortfolioHandlerDeps {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  calculateHoldings: CalculatePortfolioHoldings;
   costBasisStore: ICostBasisContextReader;
-  dependencyReader: IPortfolioDependencyReader;
   failureSnapshotStore: ICostBasisFailureSnapshotStore;
-  holdingsCalculator: IPortfolioHoldingsCalculator;
   priceRuntime: IPriceProviderRuntime;
+  readAssetReviewSummaries: ReadPortfolioAssetReviewSummaries;
+  readDependencyWatermark: ReadPortfolioDependencyWatermark;
 }
 
 interface PortfolioAccountMetadata {
@@ -225,12 +227,12 @@ export class PortfolioHandler {
       return ok(undefined);
     }
 
-    const assetReviewSummariesResult = await this.deps.dependencyReader.readAssetReviewSummaries();
+    const assetReviewSummariesResult = await this.deps.readAssetReviewSummaries();
     if (assetReviewSummariesResult.isErr()) {
       return err(assetReviewSummariesResult.error);
     }
 
-    const dependencyWatermarkResult = await this.deps.dependencyReader.readDependencyWatermark();
+    const dependencyWatermarkResult = await this.deps.readDependencyWatermark();
     if (dependencyWatermarkResult.isErr()) {
       return err(dependencyWatermarkResult.error);
     }
@@ -267,7 +269,7 @@ export class PortfolioHandler {
       );
     }
 
-    const { balances, assetMetadata } = this.deps.holdingsCalculator.calculateHoldings(inputs.portfolioTransactions);
+    const { balances, assetMetadata } = this.deps.calculateHoldings(inputs.portfolioTransactions);
     const holdings: Record<string, Decimal> = {};
     for (const [assetId, balance] of Object.entries(balances)) {
       if (!balance.isZero()) {

@@ -15,9 +15,10 @@ export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';
 export type {
-  IPortfolioDependencyReader,
-  IPortfolioHoldingsCalculator,
+  CalculatePortfolioHoldings,
   PortfolioHoldingsCalculation,
+  ReadPortfolioAssetReviewSummaries,
+  ReadPortfolioDependencyWatermark,
 } from './portfolio.js';
 export type { IPricingPersistence, PricingContext } from './pricing-persistence.js';
 export type { IPriceCoverageData } from './transaction-price-coverage.js';
