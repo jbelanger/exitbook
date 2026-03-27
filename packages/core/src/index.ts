@@ -1,9 +1,164 @@
-export * from './balance/index.js';
-export * from './import-session/import-session.js';
-export * from './account/account.js';
-export * from './profile/profile.js';
-export * from './transaction/index.js';
-export * from './override/index.js';
-export * from './identity/index.js';
-export * from './asset-review/asset-review.js';
-export * from './projections/index.js';
+export {
+  BalanceSnapshotAssetComparisonStatusSchema,
+  BalanceSnapshotCoverageConfidenceSchema,
+  BalanceSnapshotCoverageStatusSchema,
+  BalanceSnapshotAssetSchema,
+  BalanceSnapshotSchema,
+  BalanceSnapshotVerificationStatusSchema,
+  type BalanceSnapshotAssetComparisonStatus,
+  type BalanceSnapshotCoverageConfidence,
+  type BalanceSnapshotCoverageStatus,
+  type BalanceSnapshot,
+  type BalanceSnapshotAsset,
+  type BalanceSnapshotVerificationStatus,
+} from './balance/index.js';
+
+export {
+  ImportSessionSchema,
+  ImportSessionStatusSchema,
+  type ImportSession,
+  type ImportSessionStatus,
+} from './import-session/import-session.js';
+
+export {
+  AccountSchema,
+  AccountTypeSchema,
+  ExchangeCredentialsSchema,
+  type Account,
+  type AccountType,
+  type ExchangeCredentials,
+} from './account/account.js';
+
+export {
+  DEFAULT_PROFILE_KEY,
+  ProfileSchema,
+  normalizeProfileDisplayName,
+  normalizeProfileKey,
+  type Profile,
+} from './profile/profile.js';
+
+export {
+  PlatformKindSchema,
+  MovementDirectionSchema,
+  PriceAtTxTimeSchema,
+  AssetIdSchema,
+  AssetMovementDraftSchema,
+  AssetMovementSchema,
+  FeeMovementDraftSchema,
+  FeeMovementSchema,
+  computePrimaryMovement,
+  TransactionStatusSchema,
+  OperationCategorySchema,
+  OperationTypeSchema,
+  TransactionNoteSchema,
+  TransactionDraftSchema,
+  TransactionSchema,
+  ProcessingStatusSchema,
+  RawTransactionInputSchema,
+  RawTransactionSchema,
+  UnitIntervalDecimalSchema,
+  LinkTypeSchema,
+  LinkStatusSchema,
+  MatchCriteriaSchema,
+  TransactionLinkScoreBreakdownEntrySchema,
+  SameHashExternalSourceAllocationSchema,
+  TransactionLinkMetadataSchema,
+  TransactionLinkSchema,
+  NewTransactionLinkSchema,
+  isPartialMatchLinkMetadata,
+  hasImpliedFeeAmount,
+  isSameHashExternalLinkMetadata,
+  type PlatformKind,
+  type MovementDirection,
+  type PriceAtTxTime,
+  type AssetMovementDraft,
+  type AssetMovement,
+  type FeeMovementDraft,
+  type FeeMovement,
+  type PrimaryMovement,
+  type TransactionStatus,
+  type OperationCategory,
+  type OperationType,
+  type TransactionNote,
+  type OperationClassification,
+  type TransactionMaterializationScope,
+  type TransactionDraft,
+  type Transaction,
+  type ProcessingStatus,
+  type RawTransactionInput,
+  type RawTransaction,
+  type LinkType,
+  type LinkStatus,
+  type MatchCriteria,
+  type TransactionLinkScoreBreakdownEntry,
+  type SameHashExternalSourceAllocation,
+  type TransactionLinkMetadata,
+  type TransactionLink,
+  type NewTransactionLink,
+} from './transaction/index.js';
+
+export {
+  ScopeSchema,
+  LinkActionSchema,
+  OverrideLinkTypeSchema,
+  PriceOverridePayloadSchema,
+  FxOverridePayloadSchema,
+  LinkOverridePayloadSchema,
+  UnlinkOverridePayloadSchema,
+  TransactionNoteOverridePayloadSchema,
+  AssetExcludePayloadSchema,
+  AssetIncludePayloadSchema,
+  AssetReviewConfirmPayloadSchema,
+  AssetReviewClearPayloadSchema,
+  OverridePayloadSchema,
+  OverrideEventSchema,
+  computeResolvedLinkFingerprint,
+  type Scope,
+  type LinkAction,
+  type OverrideLinkType,
+  type PriceOverridePayload,
+  type FxOverridePayload,
+  type LinkOverridePayload,
+  type UnlinkOverridePayload,
+  type TransactionNoteOverridePayload,
+  type AssetExcludePayload,
+  type AssetIncludePayload,
+  type AssetReviewConfirmPayload,
+  type AssetReviewClearPayload,
+  type OverridePayload,
+  type OverrideEvent,
+  type CreateOverrideEventOptions,
+  type ResolvedLinkIdentity,
+} from './override/index.js';
+
+export {
+  computeAccountFingerprint,
+  computeTxFingerprint,
+  buildAssetMovementCanonicalMaterial,
+  buildFeeMovementCanonicalMaterial,
+  computeMovementFingerprint,
+  type AccountFingerprintInput,
+  type TransactionFingerprintInput,
+  type AssetMovementCanonicalMaterialInput,
+  type FeeMovementCanonicalMaterialInput,
+  type MovementFingerprintInput,
+} from './identity/index.js';
+
+export {
+  AssetReviewEvidenceSchema,
+  AssetReviewSummarySchema,
+  type AssetReviewStatus,
+  type AssetReferenceStatus,
+  type AssetReviewEvidence,
+  type AssetReviewSummary,
+} from './asset-review/asset-review.js';
+
+export {
+  PROJECTION_DEFINITIONS,
+  cascadeInvalidation,
+  rebuildPlan,
+  resetPlan,
+  type ProjectionDefinition,
+  type ProjectionId,
+  type ProjectionStatus,
+} from './projections/index.js';
