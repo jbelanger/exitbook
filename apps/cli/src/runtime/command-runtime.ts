@@ -8,18 +8,15 @@ import { render } from 'ink';
 import type React from 'react';
 
 import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
+import { getDataDir } from '../features/shared/data-dir.js';
+
+import type { CliAppRuntime } from './app-runtime.js';
 import {
   openCliBlockchainProviderRuntime,
   type CliBlockchainProviderRuntimeOptions,
   type OpenedCliBlockchainProviderRuntime,
-} from '../features/shared/blockchain-provider-runtime.js';
-import {
-  openCliPriceProviderRuntime,
-  type CliPriceProviderRuntimeOptions,
-} from '../features/shared/cli-price-provider-runtime.js';
-import { getDataDir } from '../features/shared/data-dir.js';
-
-import type { CliAppRuntime } from './app-runtime.js';
+} from './blockchain-provider-runtime.js';
+import { openCliPriceProviderRuntime, type CliPriceProviderRuntimeOptions } from './cli-price-provider-runtime.js';
 
 const logger = getLogger('command-runtime');
 

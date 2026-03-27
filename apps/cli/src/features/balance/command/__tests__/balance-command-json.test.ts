@@ -41,7 +41,7 @@ vi.mock('../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
 }));
 
-vi.mock('../../../shared/projection-readiness.js', () => ({
+vi.mock('../../../../runtime/projection-readiness.js', () => ({
   ensureProcessedTransactionsReady: mockEnsureProcessedTransactionsReady,
 }));
 

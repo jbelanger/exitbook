@@ -19,7 +19,7 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-vi.mock('../../../shared/projection-reset.js', () => ({
+vi.mock('../../../../runtime/projection-reset.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 

@@ -1,8 +1,7 @@
 import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { CommandRuntime } from '../../runtime/command-runtime.js';
-
+import type { CommandRuntime } from './command-runtime.js';
 import { ensureTransactionPricesReady, type PricePrereqConfig } from './price-readiness.js';
 import {
   ensureAssetReviewReady,

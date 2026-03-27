@@ -2,13 +2,13 @@ import { type LinkingRunParams, type LinkingRunResult } from '@exitbook/accounti
 import { err, wrapError, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
 import {
   abortCliLinkingRuntime,
   createCliLinkingRuntime,
   executeCliLinkingRuntime,
   type CliLinkingRuntime,
 } from '../../../runtime/linking-runtime.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 
 export async function runLinks(
   ctx: CommandRuntime,

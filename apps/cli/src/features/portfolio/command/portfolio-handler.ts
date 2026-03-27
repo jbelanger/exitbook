@@ -3,11 +3,11 @@ import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbo
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { calculateBalances } from '@exitbook/ingestion/balance';
 
+import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
+import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
-import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 /**
  * Create a CLI-wired PortfolioHandler.

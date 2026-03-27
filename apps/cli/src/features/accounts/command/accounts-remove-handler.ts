@@ -7,7 +7,7 @@ import {
   countProjectionResetImpact,
   resetProjections,
   type ProjectionResetImpact,
-} from '../../shared/projection-reset.js';
+} from '../../../runtime/projection-reset.js';
 
 export interface AccountRemovePreview {
   accountIds: number[];

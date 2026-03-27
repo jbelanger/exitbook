@@ -7,16 +7,12 @@ import {
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CommandRuntime } from '../../runtime/command-runtime.js';
-import { createIngestionRuntime } from '../../runtime/ingestion-runtime.js';
-import {
-  abortCliLinkingRuntime,
-  createCliLinkingRuntime,
-  executeCliLinkingRuntime,
-} from '../../runtime/linking-runtime.js';
-import { resolveCommandProfile } from '../profiles/profile-resolution.js';
+import { resolveCommandProfile } from '../features/profiles/profile-resolution.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
+import type { CommandRuntime } from './command-runtime.js';
+import { createIngestionRuntime } from './ingestion-runtime.js';
+import { abortCliLinkingRuntime, createCliLinkingRuntime, executeCliLinkingRuntime } from './linking-runtime.js';
 import { resetProjections } from './projection-reset.js';
 
 const logger = getLogger('projection-readiness');

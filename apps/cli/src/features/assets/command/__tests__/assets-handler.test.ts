@@ -12,8 +12,8 @@ import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createCliAssetReviewProjectionRuntime } from '../../../../runtime/asset-review-projection-runtime.js';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { createCliAssetReviewProjectionRuntime } from '../../../shared/asset-review-projection-runtime.js';
 import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
@@ -24,7 +24,7 @@ const PROFILE_ID = 1;
 const PROFILE_KEY = 'default';
 const OTHER_PROFILE_KEY = 'other';
 
-vi.mock('../../../shared/asset-review-projection-runtime.js', () => ({
+vi.mock('../../../../runtime/asset-review-projection-runtime.js', () => ({
   createCliAssetReviewProjectionRuntime: vi.fn(),
 }));
 

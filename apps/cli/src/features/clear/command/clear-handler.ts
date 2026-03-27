@@ -10,7 +10,7 @@ import {
   countProjectionResetImpact,
   resetProjections,
   type ProjectionResetImpact,
-} from '../../shared/projection-reset.js';
+} from '../../../runtime/projection-reset.js';
 
 const logger = getLogger('ClearHandler');
 

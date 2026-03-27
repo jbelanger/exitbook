@@ -8,7 +8,7 @@ import type { EventBus } from '@exitbook/events';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
-import { getDataDir } from './data-dir.js';
+import { getDataDir } from '../features/shared/data-dir.js';
 
 export interface CliBlockchainProviderRuntimeOptions {
   dataDir?: string | undefined;

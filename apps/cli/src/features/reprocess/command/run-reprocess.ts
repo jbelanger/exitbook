@@ -6,8 +6,8 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
+import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import { resetProjections } from '../../shared/projection-reset.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;

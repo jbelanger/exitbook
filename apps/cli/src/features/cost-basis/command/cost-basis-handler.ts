@@ -18,11 +18,11 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
+import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
-import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 export type { ValidatedCostBasisConfig };
 

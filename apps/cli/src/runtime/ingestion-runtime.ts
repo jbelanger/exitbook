@@ -8,9 +8,9 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
 import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view-components.jsx';
-import type { OpenedCliBlockchainProviderRuntime } from '../features/shared/blockchain-provider-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
+import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 import { createCliProcessingWorkflowRuntime } from './processing-workflow-runtime.js';
 

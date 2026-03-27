@@ -16,7 +16,7 @@ import {
 import { DataSession } from '@exitbook/data/session';
 import { type AssetReferenceStatus, parseDecimal, err, ok, wrapError, type Result } from '@exitbook/foundation';
 
-import { createCliAssetReviewProjectionRuntime } from '../../shared/asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from '../../../runtime/asset-review-projection-runtime.js';
 import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,

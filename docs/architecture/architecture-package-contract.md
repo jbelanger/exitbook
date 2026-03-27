@@ -487,24 +487,28 @@ Default rule:
 
 - root entrypoints are curated, not wildcard barrels
 - large feature packages expose capability subpaths
+- small primitive or infrastructure packages may stay root-only, but that root should still be explicitly curated
 - wildcard barrels are acceptable for private/internal folders, not as the main package API
 
 Use this as the default public shape:
 
-- small primitive or infrastructure packages may keep a curated root-only API when the surface is intentionally small
+- small primitive or infrastructure packages may keep a curated root-only API when the surface is intentionally small and cohesive
+- small primitive or infrastructure packages do not need capability subpaths unless they actually own multiple distinct public capabilities
 - large feature packages should keep the root minimal and expose explicit subpaths such as `@pkg/cost-basis`, `@pkg/linking`, or `@pkg/import`
 - if a package already needs multiple unrelated headings inside `src/index.ts`, it should probably have capability subpaths instead of one larger root barrel
+- do not use `export *` at the package root as a convenience default; even small packages should name their public exports intentionally
 
 For this repo:
 
 - `@exitbook/accounting` should expose capability subpaths such as `./cost-basis`, `./linking`, `./portfolio`, and `./price-enrichment`
 - `@exitbook/ingestion` should expose capability subpaths such as `./adapters`, `./import`, `./process`, `./balance`, `./asset-review`, and `./events`
 - `@exitbook/data` is the reference direction: narrow root plus explicit subpaths
+- packages such as `@exitbook/foundation`, `@exitbook/core`, and `@exitbook/http` should usually stay root-only, but their root `index.ts` files should still be curated explicit export lists rather than wildcard barrels
 
 Avoid:
 
 - broad feature-package roots that become default import hubs
-- mixing curated roots and wildcard roots across sibling packages without an explicit reason
+- mixing curated roots and wildcard roots across sibling packages
 - treating the root entrypoint as a dumping ground for every export that might be useful somewhere
 
 ---

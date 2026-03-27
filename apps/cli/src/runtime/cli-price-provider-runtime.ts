@@ -8,9 +8,9 @@ import {
   type PriceProviderConfig,
 } from '@exitbook/price-providers';
 
-import { buildPriceProviderConfigFromEnv } from '../../runtime/app-runtime.js';
+import { getDataDir } from '../features/shared/data-dir.js';
 
-import { getDataDir } from './data-dir.js';
+import { buildPriceProviderConfigFromEnv } from './app-runtime.js';
 
 export interface CliPriceProviderRuntimeOptions {
   dataDir?: string | undefined;

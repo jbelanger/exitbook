@@ -1,12 +1,12 @@
 import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
 import { err, wrapError, type Result } from '@exitbook/foundation';
 
+import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
   executeCliPriceEnrichmentRuntime,
   withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
-import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 
 export async function runPricesEnrich(
   ctx: CommandRuntime,

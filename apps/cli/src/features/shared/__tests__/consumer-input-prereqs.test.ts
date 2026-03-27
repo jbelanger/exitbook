@@ -64,12 +64,12 @@ vi.mock('@exitbook/accounting/price-enrichment', async () => {
   };
 });
 
-vi.mock('../cli-price-provider-runtime.js', () => ({
+vi.mock('../../../runtime/cli-price-provider-runtime.js', () => ({
   openCliPriceProviderRuntime: mockOpenCliPriceProviderRuntime,
 }));
 
-import { ensureConsumerInputsReady } from '../consumer-input-readiness.js';
-import { resetProjections } from '../projection-reset.js';
+import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
+import { resetProjections } from '../../../runtime/projection-reset.js';
 
 describe('consumer-input-readiness', () => {
   const mockDatabase = {
