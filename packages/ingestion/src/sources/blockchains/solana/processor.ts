@@ -137,7 +137,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
         const processedTransaction: TransactionDraft = {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
-          source: 'solana',
+          platformKey: 'solana',
           sourceType: 'blockchain',
           status: normalizedTx.status,
           from: fundFlow.fromAddress,

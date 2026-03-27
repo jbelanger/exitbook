@@ -152,7 +152,7 @@ export function appendSourceLinkRows(
       package_ref: params.packageRef,
       package_artifact: params.packageArtifact,
       source_type: transactionResult.value.sourceType,
-      source_venue_label: transactionResult.value.source,
+      source_venue_label: transactionResult.value.platformKey,
       source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.platformKey) ?? 0),
       tx_fingerprint: transactionResult.value.txFingerprint,
       source_url: '',

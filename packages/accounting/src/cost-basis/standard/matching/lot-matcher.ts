@@ -238,7 +238,7 @@ export class LotMatcher {
                   variancePct: warning.data.variancePct.toFixed(2),
                   linkedSourceAmount: warning.data.linkedSourceAmount.toFixed(),
                   linkTargetAmount: warning.data.linkTargetAmount.toFixed(),
-                  source: scopedTransaction.tx.source,
+                  source: scopedTransaction.tx.platformKey,
                 },
                 `Transfer variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold (${tolerance.toFixed()}). ` +
                   `Possible hidden fees or incomplete fee metadata. Review exchange fee policies.`

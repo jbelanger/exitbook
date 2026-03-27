@@ -43,7 +43,7 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
   const blockchain =
     transactionFields.sourceType === 'blockchain'
       ? (transactionFields.blockchain ?? {
-          name: transactionFields.source,
+          name: transactionFields.platformKey,
           transaction_hash: identityReference,
           is_confirmed: true,
         })
@@ -51,7 +51,7 @@ export function materializeTestTransaction(transaction: MaterializeTestTransacti
   const persistedTxFingerprint =
     providedTxFingerprint ||
     seedTxFingerprint(
-      transactionFields.source,
+      transactionFields.platformKey,
       transactionFields.sourceType,
       transactionFields.accountId,
       identityReference
@@ -195,11 +195,11 @@ export function buildTransaction(params: {
   id: number;
   inflows?: TestMovementInput[] | undefined;
   outflows?: TestMovementInput[] | undefined;
-  source?: string | undefined;
+  platformKey?: string | undefined;
   sourceType?: 'exchange' | 'blockchain' | undefined;
   type?: OperationType | undefined;
 }): Transaction {
-  const source = params.source ?? 'test';
+  const platformKey = params.platformKey ?? 'test';
   const sourceType = params.sourceType ?? 'exchange';
   const identityReference = `tx-${params.id}`;
 
@@ -207,7 +207,7 @@ export function buildTransaction(params: {
     params.blockchain !== undefined
       ? params.blockchain
       : sourceType === 'blockchain'
-        ? { name: source, transaction_hash: identityReference, is_confirmed: true }
+        ? { name: platformKey, transaction_hash: identityReference, is_confirmed: true }
         : undefined;
 
   return materializeTestTransaction({
@@ -216,7 +216,7 @@ export function buildTransaction(params: {
     identityReference,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
-    source,
+    platformKey,
     sourceType,
     status: 'success',
     movements: {
@@ -368,7 +368,7 @@ export function createBlockchainTx(params: {
     accountId: params.accountId,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
-    source: 'bitcoin',
+    platformKey: 'bitcoin',
     sourceType: 'blockchain',
     status: 'success',
     movements: {
@@ -397,7 +397,7 @@ export function createExchangeTx(params: {
   id: number;
   identityReference: string;
   inflows?: AssetMovementDraft[] | undefined;
-  source: string;
+  platformKey: string;
   type: 'buy' | 'deposit';
 }): Transaction {
   return materializeTestTransaction({
@@ -406,7 +406,7 @@ export function createExchangeTx(params: {
     identityReference: params.identityReference,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
-    source: params.source,
+    platformKey: params.platformKey,
     sourceType: 'exchange',
     status: 'success',
     movements: {
@@ -433,7 +433,7 @@ export function createTransaction(
   options?: {
     category?: 'trade' | 'transfer';
     fees?: FeeMovementDraft[];
-    source?: string;
+    platformKey?: string;
     sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
@@ -441,12 +441,12 @@ export function createTransaction(
   const fees: FeeMovementDraft[] = options?.fees ?? [];
   const accountId = 1;
   const identityReference = `ext-${id}`;
-  const source = options?.source ?? 'test';
+  const platformKey = options?.platformKey ?? 'test';
   const sourceType = options?.sourceType ?? 'exchange';
   const blockchain =
     sourceType === 'blockchain'
       ? {
-          name: source,
+          name: platformKey,
           transaction_hash: identityReference,
           is_confirmed: true,
         }
@@ -457,7 +457,7 @@ export function createTransaction(
     identityReference,
     datetime,
     timestamp: new Date(datetime).getTime(),
-    source,
+    platformKey,
     sourceType,
     status: 'success',
     movements: {
@@ -484,19 +484,19 @@ export function createTransactionFromMovements(
   fees: FeeMovementDraft[] = [],
   options?: {
     category?: 'trade' | 'transfer';
-    source?: string;
+    platformKey?: string;
     sourceType?: 'exchange' | 'blockchain';
     type?: OperationType;
   }
 ): Transaction {
   const accountId = 1;
   const identityReference = `ext-${id}`;
-  const source = options?.source ?? 'test';
+  const platformKey = options?.platformKey ?? 'test';
   const sourceType = options?.sourceType ?? 'exchange';
   const blockchain =
     sourceType === 'blockchain'
       ? {
-          name: source,
+          name: platformKey,
           transaction_hash: identityReference,
           is_confirmed: true,
         }
@@ -505,7 +505,7 @@ export function createTransactionFromMovements(
     id,
     accountId,
     identityReference,
-    source,
+    platformKey,
     sourceType,
     datetime,
     timestamp: new Date(datetime).getTime(),

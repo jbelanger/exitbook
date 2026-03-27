@@ -24,7 +24,7 @@ const createTransaction = (
     id,
     accountId,
     txFingerprint,
-    source,
+    platformKey: source,
     sourceType,
     datetime,
     timestamp,
@@ -40,7 +40,7 @@ const createTransaction = (
     id: id ?? 1,
     accountId: accountId ?? 1,
     txFingerprint: txFingerprint ?? 'ext-1',
-    source: source ?? 'kraken',
+    platformKey: source ?? 'kraken',
     sourceType: sourceType ?? 'exchange',
     datetime: datetime ?? '2024-01-01T12:00:00Z',
     timestamp: timestamp ?? Date.parse('2024-01-01T12:00:00Z'),
@@ -235,7 +235,7 @@ describe('export-utils', () => {
 
     it('should escape values with commas', () => {
       const transaction = createTransaction({
-        source: 'test,source',
+        platformKey: 'test,source',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
@@ -342,7 +342,7 @@ describe('export-utils', () => {
 
     it('should include blockchain information when present', () => {
       const transaction = createTransaction({
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         movements: {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],

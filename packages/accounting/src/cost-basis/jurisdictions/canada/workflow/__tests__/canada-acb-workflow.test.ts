@@ -34,7 +34,7 @@ describe('runCanadaAcbWorkflow', () => {
     const first = buildTransaction({
       id: 1,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'arbitrum',
+      platformKey: 'arbitrum',
       sourceType: 'blockchain',
       inflows: [
         { assetId: 'blockchain:arbitrum:0xaaa', assetSymbol: 'USDC', amount: '10', price: '1', priceCurrency: 'CAD' },
@@ -46,7 +46,7 @@ describe('runCanadaAcbWorkflow', () => {
     const second = buildTransaction({
       id: 2,
       datetime: '2024-01-02T12:00:00Z',
-      source: 'arbitrum',
+      platformKey: 'arbitrum',
       sourceType: 'blockchain',
       outflows: [
         { assetId: 'blockchain:arbitrum:0xbbb', assetSymbol: 'USDC', amount: '5', price: '1', priceCurrency: 'CAD' },
@@ -103,7 +103,7 @@ describe('runCanadaAcbWorkflow', () => {
     const first = buildTransaction({
       id: 3,
       datetime: '2024-01-03T12:00:00Z',
-      source: 'arbitrum',
+      platformKey: 'arbitrum',
       sourceType: 'blockchain',
       inflows: [
         { assetId: 'blockchain:arbitrum:0xaaa', assetSymbol: 'USDC', amount: '10', price: '1', priceCurrency: 'CAD' },
@@ -115,7 +115,7 @@ describe('runCanadaAcbWorkflow', () => {
     const second = buildTransaction({
       id: 4,
       datetime: '2024-01-04T12:00:00Z',
-      source: 'arbitrum',
+      platformKey: 'arbitrum',
       sourceType: 'blockchain',
       outflows: [
         { assetId: 'blockchain:arbitrum:0xbbb', assetSymbol: 'USDC', amount: '5', price: '1', priceCurrency: 'CAD' },
@@ -169,7 +169,7 @@ describe('runCanadaAcbWorkflow', () => {
     const reviewRequired = buildTransaction({
       id: 10,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -198,7 +198,7 @@ describe('runCanadaAcbWorkflow', () => {
     const safeAcquisition = buildTransaction({
       id: 11,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       inflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -213,7 +213,7 @@ describe('runCanadaAcbWorkflow', () => {
     const reviewRequired = buildTransaction({
       id: 12,
       datetime: '2024-01-02T12:00:00Z',
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -246,7 +246,7 @@ describe('runCanadaAcbWorkflow', () => {
     const warningOnly = buildTransaction({
       id: 13,
       datetime: '2024-01-03T12:00:00Z',
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -289,7 +289,7 @@ describe('runCanadaAcbWorkflow', () => {
     const acquisition = buildTransaction({
       id: 1,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       inflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -305,7 +305,7 @@ describe('runCanadaAcbWorkflow', () => {
     const transferOut = buildTransaction({
       id: 2,
       datetime: '2024-01-10T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       outflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -324,7 +324,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 3,
       accountId: 2,
       datetime: '2024-01-10T12:05:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -344,7 +344,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 4,
       accountId: 2,
       datetime: '2024-02-01T12:00:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       outflows: [
         {
@@ -396,7 +396,7 @@ describe('runCanadaAcbWorkflow', () => {
     const acquisition = buildTransaction({
       id: 11,
       datetime: '2024-01-20T12:00:00Z',
-      source: 'coinbase',
+      platformKey: 'coinbase',
       inflows: [
         {
           assetId: 'exchange:coinbase:eth',
@@ -420,7 +420,7 @@ describe('runCanadaAcbWorkflow', () => {
     const disposition = buildTransaction({
       id: 12,
       datetime: '2024-03-01T12:00:00Z',
-      source: 'coinbase',
+      platformKey: 'coinbase',
       outflows: [
         {
           assetId: 'exchange:coinbase:eth',
@@ -450,7 +450,7 @@ describe('runCanadaAcbWorkflow', () => {
     const acquisition = buildTransaction({
       id: 21,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       inflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -466,7 +466,7 @@ describe('runCanadaAcbWorkflow', () => {
     const internalSource = buildTransaction({
       id: 22,
       datetime: '2024-01-10T12:00:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       blockchain: { name: 'bitcoin', transaction_hash: 'hash-fee-only', is_confirmed: true },
       outflows: [
@@ -502,7 +502,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 23,
       accountId: 2,
       datetime: '2024-01-10T12:01:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       blockchain: { name: 'bitcoin', transaction_hash: 'hash-fee-only', is_confirmed: true },
       inflows: [
@@ -522,7 +522,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 24,
       accountId: 2,
       datetime: '2024-02-01T12:00:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       outflows: [
         {
@@ -564,7 +564,7 @@ describe('runCanadaAcbWorkflow', () => {
     const excludedAcquisition = buildTransaction({
       id: 90,
       datetime: '2024-01-01T12:00:00Z',
-      source: 'spam-chain',
+      platformKey: 'spam-chain',
       sourceType: 'blockchain',
       inflows: [
         {

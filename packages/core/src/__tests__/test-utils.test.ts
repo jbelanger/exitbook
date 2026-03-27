@@ -31,7 +31,7 @@ describe('@exitbook/core/test-utils', () => {
     const expected = assertOk(
       computeTxFingerprint({
         accountFingerprint,
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         componentEventIds: ['fill-1'],
       })
@@ -53,7 +53,7 @@ describe('@exitbook/core/test-utils', () => {
     const expected = assertOk(
       computeTxFingerprint({
         accountFingerprint,
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         blockchainTransactionHash: '0xabc',
       })

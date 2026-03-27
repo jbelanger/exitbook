@@ -118,7 +118,7 @@ describe('links-view-utils', () => {
         id: 456,
         accountId: 1,
         txFingerprint: 'tx-456',
-        source: 'test-source',
+        platformKey: 'test-source',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -156,7 +156,7 @@ describe('links-view-utils', () => {
         id: 789,
         accountId: 1,
         txFingerprint: 'tx-789',
-        source: 'test-source',
+        platformKey: 'test-source',
         sourceType: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
@@ -251,10 +251,10 @@ describe('links-view-utils', () => {
     it('renders blockchain to exchange when transaction details contradict the persisted fallback link type', () => {
       const link = createMockLink(123, { confidenceScore: 0.85 });
       const sourceTx = createMockTransaction(1);
-      sourceTx.source = 'bitcoin';
+      sourceTx.platformKey = 'bitcoin';
       sourceTx.sourceType = 'blockchain';
       const targetTx = createMockTransaction(2);
-      targetTx.source = 'kraken';
+      targetTx.platformKey = 'kraken';
       targetTx.sourceType = 'exchange';
 
       const formatted = formatLinkForDisplay(formatLinkInfo(link, sourceTx, targetTx));

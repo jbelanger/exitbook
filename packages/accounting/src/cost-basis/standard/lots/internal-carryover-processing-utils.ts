@@ -248,7 +248,7 @@ export function processFeeOnlyInternalCarryoverTarget(
   const varianceResult = validateTransferVariance(
     transferredQuantity,
     receivedQuantity,
-    targetTransaction.tx.source,
+    targetTransaction.tx.platformKey,
     targetTransaction.tx.id,
     targetInflow.assetSymbol
   );

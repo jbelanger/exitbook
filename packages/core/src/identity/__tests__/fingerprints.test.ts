@@ -127,7 +127,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const fp = assertOk(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         blockchainTransactionHash: '0xabc123',
       })
@@ -138,7 +138,7 @@ describe('computeTxFingerprint (blockchain)', () => {
   it('is deterministic', async () => {
     const input = {
       accountFingerprint: acctFp,
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain' as const,
       blockchainTransactionHash: '0xdef',
     };
@@ -151,7 +151,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
       })
     );
@@ -162,7 +162,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: '',
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
@@ -174,7 +174,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: '',
+        platformKey: '',
         sourceType: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
@@ -191,7 +191,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
@@ -212,7 +212,7 @@ describe('computeTxFingerprint (exchange)', () => {
     const fp = assertOk(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         componentEventIds: ['evt-1', 'evt-2'],
       })
@@ -221,14 +221,14 @@ describe('computeTxFingerprint (exchange)', () => {
   });
 
   it('is order-independent', async () => {
-    const base = { accountFingerprint: acctFp, source: 'kraken', sourceType: 'exchange' as const };
+    const base = { accountFingerprint: acctFp, platformKey: 'kraken', sourceType: 'exchange' as const };
     const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['b', 'a', 'c'] }));
     const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['c', 'a', 'b'] }));
     expect(fp1).toBe(fp2);
   });
 
   it('does not deduplicate event IDs', async () => {
-    const base = { accountFingerprint: acctFp, source: 'kucoin', sourceType: 'exchange' as const };
+    const base = { accountFingerprint: acctFp, platformKey: 'kucoin', sourceType: 'exchange' as const };
     const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b', 'a'] }));
     const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b'] }));
     expect(fp1).not.toBe(fp2);
@@ -238,7 +238,7 @@ describe('computeTxFingerprint (exchange)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         componentEventIds: [],
       })
@@ -250,7 +250,7 @@ describe('computeTxFingerprint (exchange)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
       })
     );
@@ -261,7 +261,7 @@ describe('computeTxFingerprint (exchange)', () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         componentEventIds: ['   '],
       })

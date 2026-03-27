@@ -66,7 +66,7 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
         operationCategory: transaction.operation.category,
         operationType: transaction.operation.type,
         reference: transaction.txFingerprint,
-        platformKey: transaction.source,
+        platformKey: transaction.platformKey,
         transactionDatetime: transaction.datetime,
         transactionId: transaction.id,
       } as TDetail,

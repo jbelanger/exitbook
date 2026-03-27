@@ -24,7 +24,7 @@ function createTransaction(params: {
   includeFeeWithSameAsset?: boolean | undefined;
   isSpam?: boolean | undefined;
   notes?: Transaction['notes'];
-  source?: string | undefined;
+  platformKey?: string | undefined;
   txFingerprint: string;
 }): Transaction {
   const inflows = [
@@ -90,7 +90,7 @@ function createTransaction(params: {
     txFingerprint: params.txFingerprint,
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
-    source: params.source ?? 'ethereum',
+    platformKey: params.platformKey ?? 'ethereum',
     sourceType: 'blockchain',
     status: 'success',
     isSpam: params.isSpam,
@@ -112,8 +112,8 @@ function createMultiAssetTransaction(params: {
   id: number;
   isSpam?: boolean | undefined;
   notes?: Transaction['notes'];
+  platformKey?: string | undefined;
   primaryAssets: { assetId: string; assetSymbol: string }[];
-  source?: string | undefined;
   txFingerprint: string;
 }): Transaction {
   const inflows = params.primaryAssets.map((asset, index) => ({
@@ -137,7 +137,7 @@ function createMultiAssetTransaction(params: {
     txFingerprint: params.txFingerprint,
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
-    source: params.source ?? 'ethereum',
+    platformKey: params.platformKey ?? 'ethereum',
     sourceType: 'blockchain',
     status: 'success',
     isSpam: params.isSpam,
@@ -273,7 +273,7 @@ describe('buildAssetReviewSummaries', () => {
       createMultiAssetTransaction({
         id: 1,
         txFingerprint: 'tx-1',
-        source: 'kraken',
+        platformKey: 'kraken',
         primaryAssets: [
           { assetId: firstAssetId, assetSymbol: 'SCAM' },
           { assetId: secondAssetId, assetSymbol: 'SCAM' },
@@ -364,7 +364,7 @@ describe('buildAssetReviewSummaries', () => {
           txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'USDC',
-          source: 'solana',
+          platformKey: 'solana',
         }),
       ],
       {

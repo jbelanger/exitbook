@@ -83,7 +83,7 @@ export function computeAccountFingerprint(input: AccountFingerprintInput): Resul
 
 export interface TransactionFingerprintInput {
   accountFingerprint: string;
-  source: string;
+  platformKey: string;
   sourceType: 'blockchain' | 'exchange';
   blockchainTransactionHash?: string | undefined;
   componentEventIds?: string[] | undefined;
@@ -92,22 +92,22 @@ export interface TransactionFingerprintInput {
 /**
  * Canonical transaction fingerprint — the only processed transaction identifier.
  *
- * Blockchain: sha256(accountFingerprint|blockchain|source|transactionHash)
- * Exchange:   sha256(accountFingerprint|exchange|source|sortedEventId1|sortedEventId2|...)
+ * Blockchain: sha256(accountFingerprint|blockchain|platformKey|transactionHash)
+ * Exchange:   sha256(accountFingerprint|exchange|platformKey|sortedEventId1|sortedEventId2|...)
  *
  * Keep this rooted in `accountFingerprint`. Notes, links, and movement
  * fingerprints inherit profile isolation automatically from account identity.
  */
 export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
-  const { accountFingerprint, source, sourceType } = input;
+  const { accountFingerprint, platformKey, sourceType } = input;
   const trimmedAccountFingerprint = accountFingerprint.trim();
-  const trimmedSource = source.trim();
+  const trimmedplatformKey = platformKey.trim();
 
   if (trimmedAccountFingerprint === '') {
     return err(new Error('accountFingerprint must not be empty'));
   }
 
-  if (trimmedSource === '') {
+  if (trimmedplatformKey === '') {
     return err(new Error('source must not be empty'));
   }
 
@@ -116,7 +116,7 @@ export function computeTxFingerprint(input: TransactionFingerprintInput): Result
     if (!hash || hash.trim() === '') {
       return err(new Error('blockchainTransactionHash is required for blockchain transactions'));
     }
-    const material = `${trimmedAccountFingerprint}|blockchain|${trimmedSource}|${hash.trim()}`;
+    const material = `${trimmedAccountFingerprint}|blockchain|${trimmedplatformKey}|${hash.trim()}`;
     return sha256Result(material);
   }
 
@@ -131,7 +131,7 @@ export function computeTxFingerprint(input: TransactionFingerprintInput): Result
   }
 
   const sorted = [...normalizedEventIds].sort();
-  const material = `${trimmedAccountFingerprint}|exchange|${trimmedSource}|${sorted.join('|')}`;
+  const material = `${trimmedAccountFingerprint}|exchange|${trimmedplatformKey}|${sorted.join('|')}`;
   return sha256Result(material);
 }
 

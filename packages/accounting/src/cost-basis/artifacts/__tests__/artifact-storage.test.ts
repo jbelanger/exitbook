@@ -28,7 +28,7 @@ function createAcquisitionTransaction(params: {
     identityReference: `tx-${params.id}`,
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
-    source: 'kraken',
+    platformKey: 'kraken',
     sourceType: 'exchange',
     status: 'success',
     movements: {
@@ -67,7 +67,7 @@ function createDispositionTransaction(params: {
     identityReference: `tx-${params.id}`,
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
-    source: 'kraken',
+    platformKey: 'kraken',
     sourceType: 'exchange',
     status: 'success',
     movements: {

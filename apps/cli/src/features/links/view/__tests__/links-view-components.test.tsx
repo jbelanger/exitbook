@@ -584,7 +584,7 @@ function createMockLink(
 function createMockTransaction(id: number, source: string, datetime: string): Transaction {
   return {
     id,
-    source,
+    platformKey: source,
     sourceType: source === 'kraken' || source === 'coinbase' ? 'exchange' : 'blockchain',
     datetime,
     txFingerprint: `ext-${id}`,

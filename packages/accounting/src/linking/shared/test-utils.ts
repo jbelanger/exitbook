@@ -116,7 +116,7 @@ export function createTransaction(params: {
     accountId,
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
-    source: params.source,
+    platformKey: params.source,
     sourceType,
     status: 'success',
     from: params.from,

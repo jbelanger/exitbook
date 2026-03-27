@@ -92,7 +92,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -127,7 +127,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -160,7 +160,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -196,7 +196,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -210,7 +210,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -273,7 +273,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -287,7 +287,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -348,7 +348,7 @@ describe('runCostBasisPipeline', () => {
       [],
       {
         category: 'transfer',
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain',
         type: 'deposit',
       }
@@ -414,7 +414,7 @@ describe('runCostBasisPipeline', () => {
       accountId: 50,
       datetime: '2025-01-01T00:00:00.000Z',
       identityReference: 'acq-10',
-      source: 'kraken',
+      platformKey: 'kraken',
       type: 'buy',
       inflows: [
         {
@@ -470,7 +470,7 @@ describe('runCostBasisPipeline', () => {
       accountId: 90,
       datetime: '2025-05-08T10:16:45.000Z',
       identityReference: hash,
-      source: 'kucoin',
+      platformKey: 'kucoin',
       type: 'deposit',
       inflows: [
         {
@@ -567,7 +567,7 @@ describe('runCostBasisPipeline', () => {
         inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xaaa', 'USDC', '10')],
       },
       [],
-      { source: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+      { platformKey: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
     );
     const second = createTransactionFromMovements(
       2,
@@ -576,7 +576,7 @@ describe('runCostBasisPipeline', () => {
         inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xbbb', 'USDC', '5')],
       },
       [],
-      { source: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+      { platformKey: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
     );
 
     const result = await runCostBasisPipeline([first, second], defaultConfig, store, {

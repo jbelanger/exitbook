@@ -49,7 +49,7 @@ function createTransaction(params: {
     txFingerprint: `tx-${params.id}`,
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: Date.parse('2024-01-01T00:00:00.000Z'),
-    source: 'kraken',
+    platformKey: 'kraken',
     sourceType: 'exchange',
     status: 'success',
     movements: {

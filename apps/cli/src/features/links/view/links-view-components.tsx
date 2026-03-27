@@ -430,10 +430,10 @@ function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): Re
       <Text key={`leg-${leg.link.id}`}>
         {'  '}
         <Text dimColor>Leg {index + 1}: </Text>#{leg.link.id}{' '}
-        <Text color="cyan">{leg.sourceTransaction?.source ?? 'unknown'}</Text>{' '}
+        <Text color="cyan">{leg.sourceTransaction?.platformKey ?? 'unknown'}</Text>{' '}
         <Text dimColor>{leg.sourceTransaction?.datetime ?? '?'}</Text> <Text color="yellow">OUT</Text>{' '}
         <Text color="green">{leg.link.sourceAmount.toFixed()}</Text> {leg.link.assetSymbol} <Text dimColor>→</Text>{' '}
-        <Text color="cyan">{leg.targetTransaction?.source ?? 'unknown'}</Text>{' '}
+        <Text color="cyan">{leg.targetTransaction?.platformKey ?? 'unknown'}</Text>{' '}
         <Text dimColor>{leg.targetTransaction?.datetime ?? '?'}</Text> <Text color="green">IN</Text>{' '}
         <Text color="green">{leg.link.targetAmount.toFixed()}</Text> {leg.link.assetSymbol}
       </Text>
@@ -582,8 +582,8 @@ function formatLinkTypeDisplay(
 }
 
 function formatProposalRoute(proposal: TransferProposalWithTransactions): string {
-  const sourceNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.sourceTransaction?.source ?? 'unknown'));
-  const targetNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.targetTransaction?.source ?? 'unknown'));
+  const sourceNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.sourceTransaction?.platformKey ?? 'unknown'));
+  const targetNames = uniqueNonEmptyValues(proposal.legs.map((leg) => leg.targetTransaction?.platformKey ?? 'unknown'));
 
   return `${formatProposalEndpoint(sourceNames)} → ${formatProposalEndpoint(targetNames)}`;
 }
@@ -637,10 +637,10 @@ const TransactionLine: FC<{
   asset: string;
   direction: 'IN' | 'OUT';
   label: string;
-  transaction: { datetime: string; source: string } | undefined;
+  transaction: { datetime: string; platformKey: string } | undefined;
   txId: number;
 }> = ({ label, txId, transaction, direction, amount, asset }) => {
-  const platformKey = transaction?.source || 'unknown';
+  const platformKey = transaction?.platformKey || 'unknown';
   const timestamp = transaction?.datetime || '?';
   const directionColor = direction === 'IN' ? 'green' : 'yellow';
 

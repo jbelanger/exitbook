@@ -43,7 +43,7 @@ describe('TransactionsExportHandler', () => {
       id: id,
       accountId: 1,
       txFingerprint: `ext-${id}`,
-      source: source,
+      platformKey: source,
       sourceType: 'exchange',
       operation: { category: 'trade', type: 'buy' },
       datetime: '2024-01-01T12:00:00Z',
@@ -114,7 +114,7 @@ describe('TransactionsExportHandler', () => {
       const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as Transaction[];
       expect(parsedContent).toHaveLength(1);
       expect(parsedContent[0]?.id).toBe(1);
-      expect(parsedContent[0]?.source).toBe('kraken');
+      expect(parsedContent[0]?.platformKey).toBe('kraken');
     });
 
     it('should include materialized user notes in JSON exports', async () => {

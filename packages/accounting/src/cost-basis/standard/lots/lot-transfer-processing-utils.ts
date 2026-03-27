@@ -121,7 +121,7 @@ export function processTransferSource(
   const feeValidationResult = validateOutflowFees(
     outflow,
     transaction,
-    rawTransaction.source,
+    rawTransaction.platformKey,
     rawTransaction.id,
     varianceTolerance
   );
@@ -161,7 +161,7 @@ export function processTransferSource(
     const varianceResult = validateTransferVariance(
       transferredAmount,
       validatedLink.link.targetAmount,
-      rawTransaction.source,
+      rawTransaction.platformKey,
       rawTransaction.id,
       outflow.assetSymbol,
       varianceTolerance
@@ -394,7 +394,7 @@ export function processTransferTarget(
   const varianceResult = validateTransferVariance(
     transferredQuantity,
     receivedQuantity,
-    rawTransaction.source,
+    rawTransaction.platformKey,
     rawTransaction.id,
     inflow.assetSymbol,
     varianceTolerance

@@ -15,7 +15,7 @@ import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.
 
 function reseedTxFingerprint(transaction: Transaction, identityReference: string): void {
   transaction.txFingerprint = seedTxFingerprint(
-    transaction.source,
+    transaction.platformKey,
     transaction.sourceType,
     transaction.accountId,
     identityReference
@@ -41,7 +41,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'kraken', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
     const targetTx = createTransactionFromMovements(
@@ -58,7 +58,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'wallet', sourceType: 'blockchain', type: 'deposit' }
+      { category: 'transfer', platformKey: 'wallet', sourceType: 'blockchain', type: 'deposit' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
@@ -125,7 +125,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     firstSourceTx.accountId = 8;
     firstSourceTx.blockchain = {
@@ -149,7 +149,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     secondSourceTx.accountId = 10;
     secondSourceTx.blockchain = {
@@ -172,7 +172,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'kucoin', sourceType: 'exchange', type: 'deposit' }
+      { category: 'transfer', platformKey: 'kucoin', sourceType: 'exchange', type: 'deposit' }
     );
     targetTx.accountId = 20;
     reseedTxFingerprint(targetTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
@@ -243,7 +243,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [createFeeMovement('network', 'on-chain', 'BTC', '0.1', '65000')],
-      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     firstSourceTx.accountId = 101;
     firstSourceTx.blockchain = {
@@ -268,7 +268,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [createFeeMovement('network', 'on-chain', 'BTC', '0.1', '65000')],
-      { category: 'transfer', source: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'bitcoin', sourceType: 'blockchain', type: 'withdrawal' }
     );
     secondSourceTx.accountId = 102;
     secondSourceTx.blockchain = {
@@ -293,7 +293,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'kraken', sourceType: 'exchange', type: 'deposit' }
+      { category: 'transfer', platformKey: 'kraken', sourceType: 'exchange', type: 'deposit' }
     );
     targetTx.accountId = 103;
     reseedTxFingerprint(targetTx, `deposit-${hash}`);
@@ -438,7 +438,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'kucoin', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'kucoin', type: 'withdrawal' }
     );
     reseedTxFingerprint(sourceTx, '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b');
 
@@ -456,7 +456,7 @@ describe('validateScopedTransferLinks', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'ethereum', sourceType: 'blockchain', type: 'deposit' }
+      { category: 'transfer', platformKey: 'ethereum', sourceType: 'blockchain', type: 'deposit' }
     );
     targetTx.blockchain = {
       name: 'ethereum',

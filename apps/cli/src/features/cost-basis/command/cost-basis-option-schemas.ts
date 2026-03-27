@@ -19,7 +19,6 @@ export const CostBasisExportCommandOptionsSchema = z
     method: z.string().optional(),
     jurisdiction: z.string().optional(),
     taxYear: z.string().optional(),
-    fiatCurrency: z.string().optional(),
     asset: z.string().optional(),
     refresh: z.boolean().optional(),
     json: z.boolean().optional(),

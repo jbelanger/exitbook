@@ -91,7 +91,7 @@ describe('LotMatcher - Fee Handling', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
-          { source: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '100', '1')] }
+          { platformKey: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '100', '1')] }
         ),
       ];
 
@@ -118,7 +118,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'ETH', amount: '1', price: '3000' }],
           [{ assetSymbol: 'USD', amount: '3000', price: '1' }],
           {
-            source: 'ethereum',
+            platformKey: 'ethereum',
             sourceType: 'blockchain',
             fees: [createFeeMovement('network', 'on-chain', 'ETH', '0.001', '3000')],
           }
@@ -147,7 +147,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
           {
-            source: 'test-exchange',
+            platformKey: 'test-exchange',
             fees: [
               createFeeMovement('platform', 'balance', 'USD', '100', '1'),
               createFeeMovement('network', 'on-chain', 'BTC', '0.0001', '50000'),
@@ -182,14 +182,18 @@ describe('LotMatcher - Fee Handling', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
-          { source: 'test-exchange' }
+          { platformKey: 'test-exchange' }
         ),
         createTransaction(
           2,
           '2024-02-01T00:00:00Z',
           [{ assetSymbol: 'USD', amount: '60000', price: '1' }],
           [{ assetSymbol: 'BTC', amount: '1', price: '60000' }],
-          { source: 'test-exchange', type: 'sell', fees: [createFeeMovement('platform', 'balance', 'USD', '150', '1')] }
+          {
+            platformKey: 'test-exchange',
+            type: 'sell',
+            fees: [createFeeMovement('platform', 'balance', 'USD', '150', '1')],
+          }
         ),
       ];
 
@@ -219,7 +223,7 @@ describe('LotMatcher - Fee Handling', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'ETH', amount: '1', price: '3000' }],
           [{ assetSymbol: 'USD', amount: '3000', price: '1' }],
-          { source: 'test-exchange' }
+          { platformKey: 'test-exchange' }
         ),
         createTransaction(
           2,
@@ -227,7 +231,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'USD', amount: '3500', price: '1' }],
           [{ assetSymbol: 'ETH', amount: '1', price: '3500' }],
           {
-            source: 'ethereum',
+            platformKey: 'ethereum',
             sourceType: 'blockchain',
             type: 'sell',
             fees: [createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3500')],
@@ -266,7 +270,7 @@ describe('LotMatcher - Fee Handling', () => {
             { assetSymbol: 'ETH', amount: '10', price: '2500' },
           ],
           [{ assetSymbol: 'USD', amount: '75000', price: '1' }],
-          { source: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '75', '1')] }
+          { platformKey: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '75', '1')] }
         ),
       ];
 
@@ -309,7 +313,7 @@ describe('LotMatcher - Fee Handling', () => {
             { assetSymbol: 'BTC', amount: '0.5', price: '50000' },
           ],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
-          { source: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '20', '1')] }
+          { platformKey: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '20', '1')] }
         ),
       ];
 
@@ -351,7 +355,7 @@ describe('LotMatcher - Fee Handling', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
-          { source: 'test-exchange' }
+          { platformKey: 'test-exchange' }
         ),
         createTransaction(
           2,
@@ -361,7 +365,11 @@ describe('LotMatcher - Fee Handling', () => {
             { assetSymbol: 'BTC', amount: '0.6', price: '60000' },
             { assetSymbol: 'BTC', amount: '0.4', price: '60000' },
           ],
-          { source: 'test-exchange', type: 'sell', fees: [createFeeMovement('platform', 'balance', 'USD', '30', '1')] }
+          {
+            platformKey: 'test-exchange',
+            type: 'sell',
+            fees: [createFeeMovement('platform', 'balance', 'USD', '30', '1')],
+          }
         ),
       ];
 
@@ -397,7 +405,7 @@ describe('LotMatcher - Fee Handling', () => {
     it('should fail when crypto fee is missing price', async () => {
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'ETH', amount: '1', price: '3000' }], [], {
-          source: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           category: 'transfer',
           type: 'deposit',
@@ -416,7 +424,7 @@ describe('LotMatcher - Fee Handling', () => {
     it('should use 1:1 fallback for fiat fee in same currency as target movement', async () => {
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '50000' }], [], {
-          source: 'test-exchange',
+          platformKey: 'test-exchange',
           // No priceAtTxTime on fee - should use 1:1 fallback to USD
           fees: [createFeeMovement('platform', 'balance', 'USD', '100')],
         }),
@@ -437,7 +445,7 @@ describe('LotMatcher - Fee Handling', () => {
     it('should fail when fiat fee currency differs from target movement price currency', async () => {
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'BTC', amount: '1', price: '50000' }], [], {
-          source: 'test-exchange',
+          platformKey: 'test-exchange',
           // No priceAtTxTime and different currency - should fail
           fees: [createFeeMovement('platform', 'balance', 'CAD', '100')],
         }),
@@ -457,7 +465,7 @@ describe('LotMatcher - Fee Handling', () => {
       // Fee should be split evenly among zero-value crypto movements
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'XYZ', amount: '100', price: '0' }], [], {
-          source: 'ethereum',
+          platformKey: 'ethereum',
           sourceType: 'blockchain',
           category: 'transfer',
           type: 'deposit',
@@ -492,7 +500,7 @@ describe('LotMatcher - Fee Handling', () => {
           ],
           [],
           {
-            source: 'ethereum',
+            platformKey: 'ethereum',
             sourceType: 'blockchain',
             category: 'transfer',
             type: 'deposit',
@@ -533,7 +541,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'XYZ', amount: '100', price: '0' }],
           [{ assetSymbol: 'USD', amount: '0', price: '1' }],
           {
-            source: 'test-exchange',
+            platformKey: 'test-exchange',
             category: 'transfer',
             type: 'airdrop',
             fees: [createFeeMovement('platform', 'balance', 'USD', '5', '1')],
@@ -564,7 +572,7 @@ describe('LotMatcher - Fee Handling', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'USD', amount: '1000', price: '1' }],
           [{ assetSymbol: 'CAD', amount: '1350', price: '1' }],
-          { source: 'bank', fees: [createFeeMovement('platform', 'balance', 'USD', '5', '1')] }
+          { platformKey: 'bank', fees: [createFeeMovement('platform', 'balance', 'USD', '5', '1')] }
         ),
       ];
 
@@ -590,7 +598,7 @@ describe('LotMatcher - Fee Handling', () => {
             { assetSymbol: 'XYZ', amount: '100', price: '0' },
           ],
           [],
-          { source: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '100', '1')] }
+          { platformKey: 'test-exchange', fees: [createFeeMovement('platform', 'balance', 'USD', '100', '1')] }
         ),
       ];
 
@@ -623,7 +631,7 @@ describe('LotMatcher - Fee Handling', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-01T00:00:00Z',
-          source: 'exchange',
+          platformKey: 'exchange',
           inflows: [{ assetSymbol: 'BTC', amount: '1', assetId: 'test:btc', price: '50000' }],
         }),
         // Same-hash sender with change output
@@ -631,7 +639,7 @@ describe('LotMatcher - Fee Handling', () => {
           id: 2,
           accountId: 2, // Different address in same wallet
           datetime: '2024-02-01T00:00:00Z',
-          source: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           category: 'transfer',
           type: 'withdrawal',
@@ -643,7 +651,7 @@ describe('LotMatcher - Fee Handling', () => {
           id: 3,
           accountId: 3, // Different address in same wallet
           datetime: '2024-02-01T00:00:00Z',
-          source: 'bitcoin',
+          platformKey: 'bitcoin',
           sourceType: 'blockchain',
           category: 'transfer',
           type: 'deposit',

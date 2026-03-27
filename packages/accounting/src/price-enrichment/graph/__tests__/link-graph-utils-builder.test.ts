@@ -21,7 +21,7 @@ function createTransaction(params: {
   return materializeTestTransaction({
     id: params.id,
     accountId: 1,
-    source: params.source,
+    platformKey: params.source,
     sourceType,
     identityReference: `tx-${params.id}`,
     txFingerprint: `txfp:${params.source}-${params.id}`,

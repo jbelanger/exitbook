@@ -535,7 +535,7 @@ function buildInsertValues(
     inflows,
     outflows,
     fees,
-    `transaction ${transaction.source} at ${transaction.datetime}`
+    `transaction ${transaction.platformKey} at ${transaction.datetime}`
   );
   if (validationResult.isErr()) {
     return err(validationResult.error);
@@ -562,7 +562,7 @@ function buildInsertValues(
       notes_json: notesJsonResult.value ?? null,
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
-      platform_key: transaction.source,
+      platform_key: transaction.platformKey,
       source_type: transaction.sourceType,
       to_address: transaction.to ?? null,
       transaction_datetime: transaction.datetime
@@ -1368,7 +1368,7 @@ export class TransactionRepository extends BaseRepository {
       txFingerprint: row.tx_fingerprint,
       datetime,
       timestamp,
-      source: row.platform_key,
+      platformKey: row.platform_key,
       sourceType: row.source_type,
       status,
       from: row.from_address ?? undefined,

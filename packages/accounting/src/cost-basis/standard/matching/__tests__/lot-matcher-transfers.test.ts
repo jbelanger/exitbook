@@ -27,7 +27,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     fees: FeeMovementDraft[] = []
   ): Transaction =>
     createTransactionFromMovements(id, datetime, { inflows, outflows }, fees, {
-      source,
+      platformKey: source,
       category: 'transfer',
       type: 'withdrawal',
     });

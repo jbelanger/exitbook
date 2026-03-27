@@ -33,7 +33,7 @@ function createTransactions(): Transaction[] {
       txFingerprint: 'tx-1',
       datetime: '2026-03-10T00:00:00.000Z',
       timestamp: Date.parse('2026-03-10T00:00:00.000Z'),
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain',
       status: 'success',
       blockchain: {

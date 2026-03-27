@@ -398,7 +398,7 @@ function createLinkGapIssue(params: {
   return {
     transactionId: tx.id,
     txFingerprint: tx.txFingerprint,
-    source: tx.source,
+    source: tx.platformKey,
     blockchain: tx.blockchain?.name,
     timestamp: tx.datetime,
     assetSymbol,

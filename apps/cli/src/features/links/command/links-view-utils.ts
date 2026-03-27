@@ -96,7 +96,7 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
     id: tx.id,
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
-    platform_key: tx.source,
+    platform_key: tx.platformKey,
     source_type: tx.sourceType,
     timestamp: tx.datetime,
     to_address: tx.to,

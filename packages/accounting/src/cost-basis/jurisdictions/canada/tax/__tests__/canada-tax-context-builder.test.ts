@@ -21,7 +21,7 @@ describe('buildCanadaTaxInputContext', () => {
     const transaction = buildTransaction({
       id: 1,
       datetime: '2024-01-15T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       inflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -57,7 +57,7 @@ describe('buildCanadaTaxInputContext', () => {
     const transaction = buildTransaction({
       id: 2,
       datetime: '2024-01-20T12:00:00Z',
-      source: 'coinbase',
+      platformKey: 'coinbase',
       inflows: [
         {
           assetId: 'exchange:coinbase:eth',
@@ -98,7 +98,7 @@ describe('buildCanadaTaxInputContext', () => {
     const withdrawal = buildTransaction({
       id: 10,
       datetime: '2024-02-01T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       outflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -116,7 +116,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 11,
       accountId: 2,
       datetime: '2024-02-01T12:05:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -167,7 +167,7 @@ describe('buildCanadaTaxInputContext', () => {
     const withdrawal = buildTransaction({
       id: 20,
       datetime: '2024-02-10T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       outflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -202,7 +202,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 21,
       accountId: 2,
       datetime: '2024-02-10T12:05:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -249,7 +249,7 @@ describe('buildCanadaTaxInputContext', () => {
     const withdrawal = buildTransaction({
       id: 25,
       datetime: '2024-02-12T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       outflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -284,7 +284,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 26,
       accountId: 2,
       datetime: '2024-02-12T12:05:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -387,7 +387,7 @@ describe('buildCanadaTaxInputContext', () => {
     const withdrawal = buildTransaction({
       id: 27,
       datetime: '2024-02-13T12:00:00Z',
-      source: 'kraken',
+      platformKey: 'kraken',
       outflows: [
         {
           assetId: 'exchange:kraken:btc',
@@ -422,7 +422,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 28,
       accountId: 2,
       datetime: '2024-02-13T12:05:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -442,7 +442,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 29,
       accountId: 3,
       datetime: '2024-02-13T12:06:00Z',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       inflows: [
         {
@@ -521,7 +521,7 @@ describe('buildCanadaTaxInputContext', () => {
     const exchangeAcquisition = buildTransaction({
       id: 30,
       datetime: '2024-01-25T12:00:00Z',
-      source: 'coinbase',
+      platformKey: 'coinbase',
       inflows: [
         {
           assetId: 'exchange:coinbase:usdc',
@@ -538,7 +538,7 @@ describe('buildCanadaTaxInputContext', () => {
       id: 31,
       accountId: 2,
       datetime: '2024-01-26T12:00:00Z',
-      source: 'ethereum',
+      platformKey: 'ethereum',
       sourceType: 'blockchain',
       inflows: [
         {

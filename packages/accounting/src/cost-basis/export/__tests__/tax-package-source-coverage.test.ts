@@ -16,7 +16,7 @@ function createIndexedContext(params?: {
         id: t.id,
         accountId: t.accountId ?? 1,
         datetime: '2024-01-01T00:00:00Z',
-        source: 'test',
+        platformKey: 'test',
       })
     ),
     accounts: (params?.accounts ?? []).map((a) => ({ id: a.id, name: `account-${a.id}` })),

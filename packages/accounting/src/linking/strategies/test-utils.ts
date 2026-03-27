@@ -91,7 +91,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       fees: '0.191373',
       grossAmount: '1021.402541',
       id: 8930,
-      source: 'cardano',
+      platformKey: 'cardano',
       sourceType: 'blockchain',
     }),
     createTransferTransaction({
@@ -102,7 +102,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       fees: '0.191373',
       grossAmount: '975.034581',
       id: 8935,
-      source: 'cardano',
+      platformKey: 'cardano',
       sourceType: 'blockchain',
     }),
     createTransferTransaction({
@@ -113,7 +113,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       fees: '0.191373',
       grossAmount: '672.948242',
       id: 8937,
-      source: 'cardano',
+      platformKey: 'cardano',
       sourceType: 'blockchain',
     }),
     createTransferTransaction({
@@ -123,7 +123,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       identityReference: 'kucoin-9021',
       id: 9021,
       operationType: 'deposit',
-      source: 'kucoin',
+      platformKey: 'kucoin',
       sourceType: 'exchange',
     }),
   ];
@@ -138,7 +138,7 @@ function createTransferTransaction(params: {
   id: number;
   identityReference: string;
   operationType?: 'withdrawal' | 'deposit' | undefined;
-  source: string;
+  platformKey: string;
   sourceType: 'blockchain' | 'exchange';
 }): Transaction {
   const grossAmount = parseDecimal(params.grossAmount ?? params.amount);
@@ -149,7 +149,7 @@ function createTransferTransaction(params: {
     id: params.id,
     accountId: params.accountId,
     identityReference: params.identityReference,
-    source: params.source,
+    platformKey: params.platformKey,
     sourceType: params.sourceType,
     datetime: params.datetime,
     timestamp: Date.parse(params.datetime),
@@ -159,7 +159,10 @@ function createTransferTransaction(params: {
         params.operationType === 'deposit'
           ? [
               {
-                assetId: params.sourceType === 'exchange' ? 'exchange:kucoin:ada' : 'blockchain:cardano:native',
+                assetId:
+                  params.sourceType === 'exchange'
+                    ? `exchange:${params.platformKey}:ada`
+                    : `blockchain:${params.platformKey}:native`,
                 assetSymbol: 'ADA' as Currency,
                 grossAmount,
                 netAmount,
@@ -171,7 +174,10 @@ function createTransferTransaction(params: {
           ? []
           : [
               {
-                assetId: 'blockchain:cardano:native',
+                assetId:
+                  params.sourceType === 'exchange'
+                    ? `exchange:${params.platformKey}:ada`
+                    : `blockchain:${params.platformKey}:native`,
                 assetSymbol: 'ADA' as Currency,
                 grossAmount,
                 netAmount,

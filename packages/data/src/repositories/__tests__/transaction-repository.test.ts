@@ -32,7 +32,7 @@ describe('TransactionRepository', () => {
       ...rest
     } = overrides;
 
-    const source = rest.source ?? 'ethereum';
+    const source = rest.platformKey ?? 'ethereum';
     const sourceType = overrideSourceType ?? 'blockchain';
     const identityReference = overrideIdentityReference ?? overrideBlockchain?.transaction_hash ?? 'tx-default';
 
@@ -52,7 +52,7 @@ describe('TransactionRepository', () => {
           outflows: [],
         },
         operation: { category: 'transfer', type: 'deposit' },
-        source,
+        platformKey: source,
         sourceType: 'exchange',
         status: 'success',
         timestamp: 1_735_689_600_000,
@@ -79,7 +79,7 @@ describe('TransactionRepository', () => {
         outflows: [],
       },
       operation: { category: 'transfer', type: 'deposit' },
-      source,
+      platformKey: source,
       sourceType: 'blockchain',
       status: 'success',
       timestamp: 1_735_689_600_000,
@@ -368,7 +368,7 @@ describe('TransactionRepository', () => {
           type: 'SCAM_TOKEN',
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
@@ -420,7 +420,7 @@ describe('TransactionRepository', () => {
           outflows: [],
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
@@ -458,7 +458,7 @@ describe('TransactionRepository', () => {
           outflows: [],
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
@@ -487,7 +487,7 @@ describe('TransactionRepository', () => {
         isSpam: true,
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
@@ -516,7 +516,7 @@ describe('TransactionRepository', () => {
         isSpam: true,
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
-        source: 'ethereum',
+        platformKey: 'ethereum',
         sourceType: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
@@ -621,7 +621,7 @@ describe('TransactionRepository', () => {
       await seedImportSession(db, 2, 2);
 
       const transaction = makePersistedTransaction({
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         identityReference: 'shared-fill-1',
       });
@@ -727,7 +727,7 @@ describe('TransactionRepository', () => {
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
@@ -851,7 +851,7 @@ describe('TransactionRepository', () => {
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
@@ -987,7 +987,7 @@ describe('TransactionRepository', () => {
         txFingerprint,
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
@@ -1092,7 +1092,7 @@ describe('TransactionRepository', () => {
         txFingerprint: seedTxFingerprint('kraken', 1, 'tx-999'),
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'kraken',
+        platformKey: 'kraken',
         sourceType: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
@@ -1310,12 +1310,12 @@ describe('TransactionRepository', () => {
 
     it('filters findAll by profileId', async () => {
       const txId1 = assertOk(
-        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+        await repo.create(makePersistedTransaction({ platformKey: 'kraken', sourceType: 'exchange' }), 1)
       );
       const txId2 = assertOk(
         await repo.create(
           makePersistedTransaction({
-            source: 'kraken',
+            platformKey: 'kraken',
             sourceType: 'exchange',
             identityReference: 'audit-kraken-1',
           }),
@@ -1332,12 +1332,12 @@ describe('TransactionRepository', () => {
 
     it('handles large account ID filters without exceeding SQLite variable limits', async () => {
       const txId1 = assertOk(
-        await repo.create(makePersistedTransaction({ source: 'kraken', sourceType: 'exchange' }), 1)
+        await repo.create(makePersistedTransaction({ platformKey: 'kraken', sourceType: 'exchange' }), 1)
       );
       const txId2 = assertOk(
         await repo.create(
           makePersistedTransaction({
-            source: 'kraken',
+            platformKey: 'kraken',
             sourceType: 'exchange',
             identityReference: 'audit-kraken-2',
           }),
@@ -1357,7 +1357,11 @@ describe('TransactionRepository', () => {
     it('returns undefined when findById is scoped to a different profile', async () => {
       const transactionId = assertOk(
         await repo.create(
-          makePersistedTransaction({ source: 'kraken', sourceType: 'exchange', identityReference: 'default-kraken-1' }),
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            sourceType: 'exchange',
+            identityReference: 'default-kraken-1',
+          }),
           1
         )
       );

@@ -240,7 +240,7 @@ describe('projectCanadaMovementEvents', () => {
           price: '60000',
         },
       ],
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
     });
 

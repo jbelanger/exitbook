@@ -121,7 +121,7 @@ function createTransaction(
   return {
     id: 100,
     accountId: 1,
-    source: 'bitcoin',
+    platformKey: 'bitcoin',
     sourceType: 'blockchain',
     txFingerprint,
     status: 'success',

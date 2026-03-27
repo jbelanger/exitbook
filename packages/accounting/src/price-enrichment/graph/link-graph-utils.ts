@@ -125,11 +125,11 @@ export function buildLinkGraph(transactions: Transaction[], links: TransactionLi
     // Only group if this is an exchange transaction (not blockchain)
     const isBlockchain = 'blockchain' in tx && tx.blockchain !== undefined;
     if (!isBlockchain) {
-      const existing = txsByExchange.get(tx.source);
+      const existing = txsByExchange.get(tx.platformKey);
       if (existing) {
         existing.push(tx.id);
       } else {
-        txsByExchange.set(tx.source, [tx.id]);
+        txsByExchange.set(tx.platformKey, [tx.id]);
       }
     }
   }
@@ -172,7 +172,7 @@ export function buildLinkGraph(transactions: Transaction[], links: TransactionLi
   // Convert to LinkedTransactionGroup objects with metadata
   return Array.from(groups.values()).map((groupTransactions) => {
     const groupId = randomUUID();
-    const sources = new Set(groupTransactions.map((tx) => tx.source));
+    const sources = new Set(groupTransactions.map((tx) => tx.platformKey));
     const linkChain = extractGroupLinks(groupTransactions, links);
 
     return {

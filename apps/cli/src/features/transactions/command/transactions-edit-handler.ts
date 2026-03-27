@@ -192,7 +192,7 @@ export class TransactionsEditHandler {
     }
 
     return ok({
-      source: transaction.source,
+      source: transaction.platformKey,
       txFingerprint: transaction.txFingerprint,
     });
   }

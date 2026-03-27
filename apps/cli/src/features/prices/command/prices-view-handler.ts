@@ -124,10 +124,10 @@ export class PricesViewHandler {
           detail.base.with_price++;
         } else {
           detail.base.missing_price++;
-          detail.missingSources.set(tx.source, (detail.missingSources.get(tx.source) ?? 0) + 1);
+          detail.missingSources.set(tx.platformKey, (detail.missingSources.get(tx.platformKey) ?? 0) + 1);
         }
 
-        detail.sources.set(tx.source, (detail.sources.get(tx.source) ?? 0) + 1);
+        detail.sources.set(tx.platformKey, (detail.sources.get(tx.platformKey) ?? 0) + 1);
 
         if (tx.datetime < detail.earliest) detail.earliest = tx.datetime;
         if (tx.datetime > detail.latest) detail.latest = tx.datetime;
@@ -188,7 +188,7 @@ export class PricesViewHandler {
 
         movements.push({
           transactionId: tx.id,
-          source: tx.source,
+          source: tx.platformKey,
           datetime: tx.datetime,
           assetSymbol: movement.assetSymbol,
           amount: movement.grossAmount.toFixed(),
@@ -199,7 +199,7 @@ export class PricesViewHandler {
 
         const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
         entry.count++;
-        entry.sourceCounts.set(tx.source, (entry.sourceCounts.get(tx.source) ?? 0) + 1);
+        entry.sourceCounts.set(tx.platformKey, (entry.sourceCounts.get(tx.platformKey) ?? 0) + 1);
         assetMap.set(movement.assetSymbol, entry);
       }
 
@@ -209,7 +209,7 @@ export class PricesViewHandler {
 
         movements.push({
           transactionId: tx.id,
-          source: tx.source,
+          source: tx.platformKey,
           datetime: tx.datetime,
           assetSymbol: movement.assetSymbol,
           amount: movement.grossAmount.toFixed(),
@@ -220,7 +220,7 @@ export class PricesViewHandler {
 
         const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
         entry.count++;
-        entry.sourceCounts.set(tx.source, (entry.sourceCounts.get(tx.source) ?? 0) + 1);
+        entry.sourceCounts.set(tx.platformKey, (entry.sourceCounts.get(tx.platformKey) ?? 0) + 1);
         assetMap.set(movement.assetSymbol, entry);
       }
     }

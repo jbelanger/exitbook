@@ -140,7 +140,7 @@ describe('NearProcessor', () => {
 
       const tx = transactions[0]!;
       expect(tx.blockchain?.transaction_hash).toBe('tx1');
-      expect(tx.source).toBe('near');
+      expect(tx.platformKey).toBe('near');
       expect(tx.status).toBe('success');
       expect(tx.from).toBe('alice.near');
       expect(tx.to).toBeUndefined(); // No inflows, so no 'to' address

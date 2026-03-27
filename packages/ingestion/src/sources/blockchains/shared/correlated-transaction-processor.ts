@@ -164,7 +164,7 @@ export async function processCorrelatedTransactions<
     const processedTransaction: TransactionDraft = {
       datetime: new Date(primaryTx.timestamp).toISOString(),
       timestamp: primaryTx.timestamp,
-      source: params.chainName,
+      platformKey: params.chainName,
       sourceType: 'blockchain',
       status: primaryTx.status,
       from: fundFlow.fromAddress || primaryTx.from,

@@ -2,7 +2,10 @@ import type { TransactionDraft } from '@exitbook/core';
 import { computeTxFingerprint as computeCanonicalTxFingerprint } from '@exitbook/core/identity';
 import type { Result } from '@exitbook/foundation';
 
-type FingerprintTransactionInput = Pick<TransactionDraft, 'blockchain' | 'identityMaterial' | 'source' | 'sourceType'>;
+type FingerprintTransactionInput = Pick<
+  TransactionDraft,
+  'blockchain' | 'identityMaterial' | 'platformKey' | 'sourceType'
+>;
 
 export function deriveTransactionFingerprint(
   input: FingerprintTransactionInput,
@@ -11,7 +14,7 @@ export function deriveTransactionFingerprint(
   if (input.sourceType === 'blockchain') {
     return computeCanonicalTxFingerprint({
       accountFingerprint,
-      source: input.source,
+      platformKey: input.platformKey,
       sourceType: 'blockchain',
       blockchainTransactionHash: input.blockchain?.transaction_hash,
     });
@@ -19,7 +22,7 @@ export function deriveTransactionFingerprint(
 
   return computeCanonicalTxFingerprint({
     accountFingerprint,
-    source: input.source,
+    platformKey: input.platformKey,
     sourceType: 'exchange',
     componentEventIds: input.identityMaterial?.componentEventIds,
   });

@@ -51,7 +51,7 @@ function createBlockchainTx(
     identityReference: `ext-${id}`,
     datetime,
     timestamp: new Date(datetime).getTime(),
-    source: blockchain,
+    platformKey: blockchain,
     sourceType: 'blockchain',
     status: 'success',
     movements: {
@@ -91,7 +91,7 @@ describe('buildCostBasisScopedTransactions', () => {
           '2024-01-01T00:00:00Z',
           [{ assetSymbol: 'BTC', amount: '1', price: '50000' }],
           [{ assetSymbol: 'USD', amount: '50000', price: '1' }],
-          { source: 'kraken' }
+          { platformKey: 'kraken' }
         ),
       ];
 
@@ -816,7 +816,7 @@ describe('buildCostBasisScopedTransactions', () => {
         identityReference: 'ext-1',
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
-        source: 'bitcoin',
+        platformKey: 'bitcoin',
         sourceType: 'blockchain',
         status: 'success',
         movements: {

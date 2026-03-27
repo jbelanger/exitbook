@@ -255,9 +255,9 @@ export class TransferProposalReviewService {
       asset: selectedLink.assetSymbol,
       confidence: `${(selectedLink.confidenceScore.toNumber() * 100).toFixed(1)}%`,
       sourceAmount: selectedLink.sourceAmount.toFixed(),
-      platformKey: sourceTxResult.value?.source ?? 'unknown',
+      platformKey: sourceTxResult.value?.platformKey ?? 'unknown',
       targetAmount: selectedLink.targetAmount.toFixed(),
-      targetName: targetTxResult.value?.source ?? 'unknown',
+      targetName: targetTxResult.value?.platformKey ?? 'unknown',
     });
   }
 }

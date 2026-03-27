@@ -66,7 +66,6 @@ Examples:
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US')
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')
     .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost')
-    .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
     .option('--asset <symbol>', 'Rejected for tax-package export; filing export requires full scope')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--output <dir>', 'Output directory for the tax package')

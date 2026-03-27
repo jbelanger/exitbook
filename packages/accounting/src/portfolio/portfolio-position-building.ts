@@ -823,7 +823,7 @@ export function buildAccountAssetBalances(
   for (const [accountId, balances] of accountBalances.entries()) {
     const fallbackTx = accountTransactions.get(accountId)?.[0];
     const metadata = accountMetadataById.get(accountId) ?? {
-      platformKey: fallbackTx?.source ?? `account-${accountId}`,
+      platformKey: fallbackTx?.platformKey ?? `account-${accountId}`,
       accountType: deriveAccountTypeFromSourceType(fallbackTx?.sourceType),
     };
 

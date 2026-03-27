@@ -76,7 +76,7 @@ function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny,
   return z.object({
     datetime: z.string().min(1, 'Datetime string must not be empty'),
     timestamp: z.number().int().positive('Timestamp must be a positive integer'),
-    source: z.string().min(1, 'Source must not be empty'),
+    platformKey: z.string().min(1, 'Platform key must not be empty'),
     sourceType: SourceTypeSchema,
     status: TransactionStatusSchema,
     from: z.string().optional(),

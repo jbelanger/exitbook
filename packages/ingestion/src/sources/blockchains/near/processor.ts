@@ -492,7 +492,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     const transaction: TransactionDraft = {
       datetime: new Date(timestamp).toISOString(),
       timestamp,
-      source: 'near',
+      platformKey: 'near',
       sourceType: 'blockchain',
       status: correlated.transaction.status ? 'success' : 'failed',
       from,

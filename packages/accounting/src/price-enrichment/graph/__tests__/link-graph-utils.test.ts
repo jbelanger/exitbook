@@ -15,7 +15,7 @@ import { buildLinkGraph } from '../link-graph-utils.js';
 // Helper to create minimal test transactions
 function createTx(
   id: number,
-  source: string,
+  platformKey: string,
   sourceType: 'exchange' | 'blockchain',
   options: { blockchain?: string; datetime?: string } = {}
 ): Transaction {
@@ -23,7 +23,7 @@ function createTx(
     id,
     accountId: 1,
     identityReference: `ext-${id}`,
-    source,
+    platformKey,
     sourceType,
     datetime: options.datetime ?? '2023-01-01T00:00:00Z',
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),

@@ -48,7 +48,7 @@ describe('transfer source accounting regressions', () => {
         ],
       },
       [createFeeMovement('network', 'on-chain', 'BTC', '0.5', '60000')],
-      { category: 'transfer', source: 'kraken', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
@@ -130,7 +130,7 @@ describe('transfer source accounting regressions', () => {
         ],
       },
       [createFeeMovement('platform', 'balance', 'TFUEL', '11.5', '0.08628')],
-      { category: 'transfer', source: 'kucoin', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'kucoin', type: 'withdrawal' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
@@ -212,7 +212,7 @@ describe('transfer source accounting regressions', () => {
         ],
       },
       [],
-      { category: 'transfer', source: 'arbitrum', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'arbitrum', sourceType: 'blockchain', type: 'withdrawal' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
@@ -292,7 +292,7 @@ describe('transfer source accounting regressions', () => {
         ],
       },
       [createFeeMovement('network', 'on-chain', 'BTC', '0.00002', '50000')],
-      { category: 'transfer', source: 'kraken', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
@@ -363,7 +363,7 @@ describe('transfer source accounting regressions', () => {
   it('keeps fee-only carryover fee disposal on the remaining lots after retained quantity matching', () => {
     const rawSourceTransaction = createTransactionFromMovements(11, '2024-03-02T00:00:00Z', {}, [], {
       category: 'transfer',
-      source: 'bitcoin',
+      platformKey: 'bitcoin',
       sourceType: 'blockchain',
       type: 'withdrawal',
     });

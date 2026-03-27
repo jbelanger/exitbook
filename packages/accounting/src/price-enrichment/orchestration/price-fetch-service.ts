@@ -164,7 +164,7 @@ export class PriceFetchService {
           txHadFailure = true;
 
           if (options.onMissing === 'fail') {
-            return err(new PriceFetchAbortError(assetSymbol, String(tx.id), tx.datetime, tx.source, { ...stats }));
+            return err(new PriceFetchAbortError(assetSymbol, String(tx.id), tx.datetime, tx.platformKey, { ...stats }));
           }
 
           continue;

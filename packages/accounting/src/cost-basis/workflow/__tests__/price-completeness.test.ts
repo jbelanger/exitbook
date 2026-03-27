@@ -42,7 +42,7 @@ describe('price-completeness', () => {
         accountId: 50,
         datetime: '2025-01-01T00:00:00.000Z',
         identityReference: 'acq-10',
-        source: 'kraken',
+        platformKey: 'kraken',
         type: 'buy',
         inflows: [
           {
@@ -93,7 +93,7 @@ describe('price-completeness', () => {
         accountId: 90,
         datetime: '2025-05-08T10:16:45.000Z',
         identityReference: hash,
-        source: 'kucoin',
+        platformKey: 'kucoin',
         type: 'deposit',
         inflows: [
           {
@@ -111,7 +111,7 @@ describe('price-completeness', () => {
         accountId: 60,
         datetime: '2025-05-09T00:00:00.000Z',
         identityReference: 'missing-99',
-        source: 'kraken',
+        platformKey: 'kraken',
         type: 'buy',
         inflows: [createMovement('ETH', '2')],
       });
