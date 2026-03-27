@@ -231,9 +231,7 @@ describe('AssetsHandler', () => {
     vi.clearAllMocks();
     mockAssetReviewProjectionRuntime.ensureFresh.mockResolvedValue(ok(undefined));
     mockAssetReviewProjectionRuntime.rebuild.mockResolvedValue(ok(undefined));
-    vi.mocked(createCliAssetReviewProjectionRuntime).mockReturnValue(
-      mockAssetReviewProjectionRuntime as ReturnType<typeof createCliAssetReviewProjectionRuntime>
-    );
+    vi.mocked(createCliAssetReviewProjectionRuntime).mockReturnValue(ok(mockAssetReviewProjectionRuntime));
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
     vi.mocked(invalidateAssetReviewProjection).mockResolvedValue(ok(undefined));
   });

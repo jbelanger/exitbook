@@ -8,7 +8,7 @@ import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
+import { createIngestionRuntime, type CliEvent, type IngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import {
@@ -126,9 +126,13 @@ export async function runImport(
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;
-    const infra = await createIngestionRuntime(ctx, database, {
+    const infraResult = await createIngestionRuntime(ctx, database, {
       presentation: options.isJsonMode ? 'headless' : 'monitor',
     });
+    if (infraResult.isErr()) {
+      return err(infraResult.error);
+    }
+    const infra = infraResult.value;
     const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
 
     ctx.onAbort(() => {
@@ -164,7 +168,11 @@ export async function runImportAll(
       return err(new Error(`No accounts found for profile '${options.profileDisplayName}'`));
     }
 
-    const infra = await createIngestionRuntime(ctx, database, { presentation: 'headless' });
+    const infraResult = await createIngestionRuntime(ctx, database, { presentation: 'headless' });
+    if (infraResult.isErr()) {
+      return err(infraResult.error);
+    }
+    const infra = infraResult.value;
     const runtime = buildImportExecutionRuntime(database, registry, infra);
 
     const batchEventBus = new EventBus<BatchImportMonitorEvent>({
@@ -334,7 +342,7 @@ function buildImportExecutionRuntime(
   database: Awaited<ReturnType<CommandRuntime['database']>>,
   registry: AdapterRegistry,
   infra: {
-    blockchainProviderRuntime: Awaited<ReturnType<typeof createIngestionRuntime>>['blockchainProviderRuntime'];
+    blockchainProviderRuntime: IngestionRuntime['blockchainProviderRuntime'];
     eventBus: EventBusType<CliEvent>;
     instrumentation: InstrumentationCollector;
   },

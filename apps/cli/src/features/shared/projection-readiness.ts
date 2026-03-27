@@ -99,7 +99,11 @@ export async function ensureProcessedTransactionsReady(
         console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
       }
 
-      const ingestionRuntime = await createIngestionRuntime(scope, db, { presentation: 'headless' });
+      const ingestionRuntimeResult = await createIngestionRuntime(scope, db, { presentation: 'headless' });
+      if (ingestionRuntimeResult.isErr()) {
+        return err(ingestionRuntimeResult.error);
+      }
+      const ingestionRuntime = ingestionRuntimeResult.value;
       const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({});
       if (planResult.isErr()) return err(planResult.error);
 
@@ -141,7 +145,18 @@ export async function ensureAssetReviewReady(
   return rebuildIfStale(
     'asset-review',
     () => buildAssetReviewFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
-    async () => createCliAssetReviewProjectionRuntime(db, scope.dataDir, profileScopeResult.value).rebuild()
+    async () => {
+      const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(
+        db,
+        scope.dataDir,
+        profileScopeResult.value
+      );
+      if (assetReviewRuntimeResult.isErr()) {
+        return err(assetReviewRuntimeResult.error);
+      }
+
+      return assetReviewRuntimeResult.value.rebuild();
+    }
   );
 }
 

@@ -445,10 +445,15 @@ export class AssetsHandler {
     profileKey: string,
     assetIds?: string[]
   ): Promise<Result<Map<string, AssetReviewSummary>, Error>> {
-    const freshProjectionResult = await createCliAssetReviewProjectionRuntime(this.db, this.dataDir, {
+    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(this.db, this.dataDir, {
       profileId,
       profileKey,
-    }).ensureFresh();
+    });
+    if (assetReviewRuntimeResult.isErr()) {
+      return err(assetReviewRuntimeResult.error);
+    }
+
+    const freshProjectionResult = await assetReviewRuntimeResult.value.ensureFresh();
     if (freshProjectionResult.isErr()) {
       return err(freshProjectionResult.error);
     }

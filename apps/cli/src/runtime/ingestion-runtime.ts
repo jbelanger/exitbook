@@ -1,6 +1,7 @@
 import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
@@ -16,7 +17,7 @@ const logger = getLogger('ingestion-runtime');
 
 export type CliEvent = IngestionEvent | ProviderEvent;
 
-interface IngestionRuntime {
+export interface IngestionRuntime {
   blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
@@ -32,7 +33,7 @@ export async function createIngestionRuntime(
   ctx: CommandRuntime,
   database: DataSession,
   options: CreateIngestionRuntimeOptions = {}
-): Promise<IngestionRuntime> {
+): Promise<Result<IngestionRuntime, Error>> {
   const appRuntime = ctx.requireAppRuntime();
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
@@ -47,19 +48,23 @@ export async function createIngestionRuntime(
     registerCleanup: false,
   });
   if (providerRuntimeResult.isErr()) {
-    throw providerRuntimeResult.error;
+    return err(providerRuntimeResult.error);
   }
   const providerRuntime = providerRuntimeResult.value;
   const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
 
   try {
-    const { processingWorkflow } = createCliProcessingWorkflowRuntime({
+    const processingWorkflowRuntimeResult = createCliProcessingWorkflowRuntime({
       adapterRegistry: appRuntime.adapterRegistry,
       dataDir: ctx.dataDir,
       database,
       eventBus: eventBus as EventBus<IngestionEvent>,
       providerRuntime,
     });
+    if (processingWorkflowRuntimeResult.isErr()) {
+      return err(processingWorkflowRuntimeResult.error);
+    }
+    const { processingWorkflow } = processingWorkflowRuntimeResult.value;
 
     let ingestionMonitor: EventDrivenController<CliEvent> | undefined;
     if ((options.presentation ?? 'monitor') === 'monitor') {
@@ -100,13 +105,13 @@ export async function createIngestionRuntime(
       }
     });
 
-    return {
+    return ok({
       blockchainProviderRuntime: providerRuntime,
       eventBus,
       ingestionMonitor,
       instrumentation,
       processingWorkflow,
-    };
+    });
   } catch (error) {
     await cleanupBlockchainProviderRuntime().catch((cleanupError: unknown) => {
       logger.warn(
@@ -114,6 +119,6 @@ export async function createIngestionRuntime(
         'Failed to cleanup blockchain provider runtime on setup failure'
       );
     });
-    throw error;
+    return wrapError(error, 'Failed to create ingestion runtime');
   }
 }

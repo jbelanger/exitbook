@@ -2,7 +2,7 @@ import { buildProcessingPorts } from '@exitbook/data/ingestion';
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
-import { err, ok } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { ProcessingWorkflow, type AdapterRegistry, type IngestionEvent } from '@exitbook/ingestion';
 
 import { createCliAssetReviewProjectionRuntime } from '../features/shared/asset-review-projection-runtime.js';
@@ -30,10 +30,15 @@ async function rebuildAllCliAssetReviewProjections(
   }
 
   for (const profile of profilesResult.value) {
-    const rebuildResult = await createCliAssetReviewProjectionRuntime(database, dataDir, {
+    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(database, dataDir, {
       profileId: profile.id,
       profileKey: profile.profileKey,
-    }).rebuild();
+    });
+    if (assetReviewRuntimeResult.isErr()) {
+      return err(assetReviewRuntimeResult.error);
+    }
+
+    const rebuildResult = await assetReviewRuntimeResult.value.rebuild();
     if (rebuildResult.isErr()) {
       return err(
         new Error(`Failed to rebuild asset review for profile ${profile.profileKey}: ${rebuildResult.error.message}`)
@@ -46,19 +51,23 @@ async function rebuildAllCliAssetReviewProjections(
 
 export function createCliProcessingWorkflowRuntime(
   options: CreateCliProcessingWorkflowRuntimeOptions
-): CliProcessingWorkflowRuntime {
-  const overrideStore = new OverrideStore(options.dataDir);
-  const ports = buildProcessingPorts(options.database, {
-    rebuildAssetReviewProjection: () => rebuildAllCliAssetReviewProjections(options.database, options.dataDir),
-    overrideStore,
-  });
+): Result<CliProcessingWorkflowRuntime, Error> {
+  try {
+    const overrideStore = new OverrideStore(options.dataDir);
+    const ports = buildProcessingPorts(options.database, {
+      rebuildAssetReviewProjection: () => rebuildAllCliAssetReviewProjections(options.database, options.dataDir),
+      overrideStore,
+    });
 
-  return {
-    processingWorkflow: new ProcessingWorkflow(
-      ports,
-      options.providerRuntime,
-      options.eventBus,
-      options.adapterRegistry
-    ),
-  };
+    return ok({
+      processingWorkflow: new ProcessingWorkflow(
+        ports,
+        options.providerRuntime,
+        options.eventBus,
+        options.adapterRegistry
+      ),
+    });
+  } catch (error) {
+    return wrapError(error, 'Failed to create CLI processing workflow runtime');
+  }
 }

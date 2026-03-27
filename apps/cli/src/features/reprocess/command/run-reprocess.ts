@@ -100,9 +100,13 @@ export async function runReprocess(
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
-    const infra = await createIngestionRuntime(ctx, database, {
+    const infraResult = await createIngestionRuntime(ctx, database, {
       presentation: options.isJsonMode ? 'headless' : 'monitor',
     });
+    if (infraResult.isErr()) {
+      return err(infraResult.error);
+    }
+    const infra = infraResult.value;
     const runtime: ReprocessExecutionRuntime = {
       database,
       processingWorkflow: infra.processingWorkflow,
