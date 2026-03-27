@@ -1,10 +1,15 @@
-import { LinkingOrchestrator, type LinkingEvent } from '@exitbook/accounting';
+import {
+  LinkingOrchestrator,
+  type LinkingEvent,
+  type LinkingRunParams,
+  type LinkingRunResult,
+} from '@exitbook/accounting';
 import type { OverrideEvent } from '@exitbook/core';
 import { buildLinkingPorts } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { LinksRunMonitor } from '../features/links/view/links-run-components.jsx';
@@ -12,7 +17,7 @@ import { createEventDrivenController, type EventDrivenController } from '../ui/s
 
 const logger = getLogger('cli-linking-runtime');
 
-interface CliLinkingRuntime {
+export interface CliLinkingRuntime {
   controller?: EventDrivenController<LinkingEvent> | undefined;
   orchestrator: LinkingOrchestrator;
   overrideStore: OverrideStore;
@@ -69,4 +74,50 @@ export async function readCliLinkOverrides(
   }
 
   return ok(result.value);
+}
+
+export async function executeCliLinkingRuntime(
+  runtime: CliLinkingRuntime,
+  profileKey: string,
+  params: LinkingRunParams
+): Promise<Result<LinkingRunResult, Error>> {
+  try {
+    const overrides = await readCliLinkOverrides(runtime.overrideStore, profileKey);
+    if (overrides.isErr()) {
+      return err(overrides.error);
+    }
+
+    if (runtime.controller) {
+      await runtime.controller.start();
+    }
+
+    const result = await runtime.orchestrator.execute(params, overrides.value);
+    if (result.isErr()) {
+      if (runtime.controller) {
+        runtime.controller.fail(result.error.message);
+        await runtime.controller.stop();
+      }
+      return err(result.error);
+    }
+
+    if (runtime.controller) {
+      runtime.controller.complete();
+      await runtime.controller.stop();
+    }
+
+    return ok(result.value);
+  } catch (error) {
+    return wrapError(error, 'Failed to run links operation');
+  }
+}
+
+export function abortCliLinkingRuntime(runtime: CliLinkingRuntime): void {
+  if (!runtime.controller) {
+    return;
+  }
+
+  runtime.controller.abort();
+  void runtime.controller.stop().catch((error) => {
+    logger.warn({ error }, 'Failed to stop controller on abort');
+  });
 }

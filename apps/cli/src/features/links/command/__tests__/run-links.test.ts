@@ -5,7 +5,7 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { executeLinksRunWithRuntime, type LinksRunRuntime } from '../run-links.js';
+import { executeCliLinkingRuntime, type CliLinkingRuntime } from '../../../../runtime/linking-runtime.js';
 
 const PROFILE_KEY = 'default';
 
@@ -13,7 +13,7 @@ describe('links run runner helpers', () => {
   let mockOrchestrator: { execute: Mock };
   let mockOverrideStore: { exists: Mock; readByScopes: Mock };
   let mockController: { abort: Mock; complete: Mock; fail: Mock; start: Mock; stop: Mock };
-  let runtime: LinksRunRuntime;
+  let runtime: CliLinkingRuntime;
 
   const params: LinkingRunParams = {
     minConfidenceScore: parseDecimal('0.7'),
@@ -51,7 +51,7 @@ describe('links run runner helpers', () => {
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('Overrides file is invalid')));
 
-    const result = await executeLinksRunWithRuntime(runtime, PROFILE_KEY, params);
+    const result = await executeCliLinkingRuntime(runtime, PROFILE_KEY, params);
 
     const error = assertErr(result);
     expect(error.message).toContain('Overrides file is invalid');
@@ -93,7 +93,7 @@ describe('links run runner helpers', () => {
     );
     mockOrchestrator.execute.mockResolvedValue(ok(linkingResult));
 
-    const result = await executeLinksRunWithRuntime(runtime, PROFILE_KEY, params);
+    const result = await executeCliLinkingRuntime(runtime, PROFILE_KEY, params);
 
     expect(result.isOk()).toBe(true);
     expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['link', 'unlink']);
