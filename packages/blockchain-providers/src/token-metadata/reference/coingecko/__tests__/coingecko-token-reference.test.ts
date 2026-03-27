@@ -12,6 +12,8 @@ import {
   createTokenMetadataDatabase,
   createTokenMetadataQueries,
   initializeTokenMetadataDatabase,
+  isReferenceMatchStale,
+  isReferencePlatformMappingStale,
   type TokenMetadataDB,
 } from '../../../persistence/index.js';
 import { createCoinGeckoTokenReferenceResolver } from '../coingecko-token-reference.js';
@@ -87,10 +89,10 @@ describe('coingecko-token-reference', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T00:00:00.000Z'));
 
-    expect(queries.isReferenceStale(new Date('2026-03-01T00:00:00.000Z'))).toBe(true);
-    expect(queries.isReferenceStale(new Date('2026-03-05T00:00:00.000Z'))).toBe(false);
-    expect(queries.isReferencePlatformMappingStale(new Date('2026-02-01T00:00:00.000Z'))).toBe(true);
-    expect(queries.isReferencePlatformMappingStale(new Date('2026-02-20T00:00:00.000Z'))).toBe(false);
+    expect(isReferenceMatchStale(new Date('2026-03-01T00:00:00.000Z'))).toBe(true);
+    expect(isReferenceMatchStale(new Date('2026-03-05T00:00:00.000Z'))).toBe(false);
+    expect(isReferencePlatformMappingStale(new Date('2026-02-01T00:00:00.000Z'))).toBe(true);
+    expect(isReferencePlatformMappingStale(new Date('2026-02-20T00:00:00.000Z'))).toBe(false);
   });
 
   it('returns reference unknown when CoinGecko is not configured', async () => {

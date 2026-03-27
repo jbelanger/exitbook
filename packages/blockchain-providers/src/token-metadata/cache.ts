@@ -9,6 +9,7 @@ import type { ProviderEvent } from '../events.js';
 
 import type { TokenMetadata, TokenMetadataRecord } from './contracts.js';
 import type { TokenMetadataQueries } from './persistence/queries.js';
+import { isTokenMetadataStale } from './persistence/staleness-policy.js';
 
 const BATCH_SIZE = 100;
 
@@ -49,7 +50,7 @@ export class TokenMetadataCache {
       for (const [address, cached] of cacheResult.value) {
         if (cached) {
           metadataMap.set(address, cached);
-          if (this.queries.isStale(cached.refreshedAt)) {
+          if (isTokenMetadataStale(cached.refreshedAt)) {
             staleContracts.push(address);
           }
         } else {

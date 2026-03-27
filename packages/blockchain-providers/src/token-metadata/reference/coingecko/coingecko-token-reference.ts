@@ -9,6 +9,7 @@ import type {
   TokenMetadataQueries,
   TokenReferenceMatchRecord,
 } from '../../persistence/queries.js';
+import { isReferenceMatchStale, isReferencePlatformMappingStale } from '../../persistence/staleness-policy.js';
 
 const logger = getLogger('coingecko-token-reference');
 
@@ -61,12 +62,7 @@ export interface CoinGeckoTokenReferenceResolverConfig {
 export function createCoinGeckoTokenReferenceResolver(
   queries: Pick<
     TokenMetadataQueries,
-    | 'getReferenceMatches'
-    | 'getReferencePlatformMapping'
-    | 'isReferencePlatformMappingStale'
-    | 'isReferenceStale'
-    | 'saveReferenceMatch'
-    | 'saveReferencePlatformMapping'
+    'getReferenceMatches' | 'getReferencePlatformMapping' | 'saveReferenceMatch' | 'saveReferencePlatformMapping'
   >,
   config: CoinGeckoTokenReferenceResolverConfig = {}
 ): Result<CoinGeckoTokenReferenceResolver, Error> {
@@ -95,12 +91,7 @@ export class CoinGeckoTokenReferenceResolver {
   constructor(
     private readonly queries: Pick<
       TokenMetadataQueries,
-      | 'getReferenceMatches'
-      | 'getReferencePlatformMapping'
-      | 'isReferencePlatformMappingStale'
-      | 'isReferenceStale'
-      | 'saveReferenceMatch'
-      | 'saveReferencePlatformMapping'
+      'getReferenceMatches' | 'getReferencePlatformMapping' | 'saveReferenceMatch' | 'saveReferencePlatformMapping'
     >,
     private readonly httpClient: HttpClient,
     private readonly apiKey?: string | undefined
@@ -147,7 +138,7 @@ export class CoinGeckoTokenReferenceResolver {
       }
 
       results.set(tokenRef, mapReferenceMatchToLookup(cached));
-      if (this.queries.isReferenceStale(cached.refreshedAt)) {
+      if (isReferenceMatchStale(cached.refreshedAt)) {
         tokenRefsToRefresh.push(tokenRef);
       }
     }
@@ -239,7 +230,7 @@ export class CoinGeckoTokenReferenceResolver {
       return err(cachedResult.error);
     }
 
-    if (cachedResult.value && !this.queries.isReferencePlatformMappingStale(cachedResult.value.refreshedAt)) {
+    if (cachedResult.value && !isReferencePlatformMappingStale(cachedResult.value.refreshedAt)) {
       return ok(cachedResult.value);
     }
 
