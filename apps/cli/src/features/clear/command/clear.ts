@@ -20,7 +20,7 @@ export function registerClearCommand(program: Command): void {
 Examples:
   $ exitbook clear
   $ exitbook clear --account-id 12
-  $ exitbook clear --source kraken --profile business
+  $ exitbook clear --platform kraken
   $ exitbook clear --include-raw --confirm
   $ exitbook clear --account-id 12 --json
 
@@ -30,8 +30,7 @@ Notes:
 `
     )
     .option('--account-id <id>', 'Clear data for specific account ID', parseInt)
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
-    .option('--source <name>', 'Clear data for all accounts with this source name')
+    .option('--platform <name>', 'Clear data for all accounts with this platform name')
     .option('--include-raw', 'Also clear raw imported data (WARNING: requires re-import)')
     .option('--confirm', 'Skip confirmation prompt')
     .option('--json', 'Output results in JSON format')

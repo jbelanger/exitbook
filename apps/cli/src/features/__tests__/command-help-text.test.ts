@@ -29,6 +29,23 @@ function collectCommandFiles(relativeDir = ''): string[] {
 }
 
 describe('CLI command help text coverage', () => {
+  it('does not expose a per-command --profile override', () => {
+    const filesWithProfileOverride = collectCommandFiles()
+      .map((relativePath) => {
+        const absolutePath = path.join(featuresDir, relativePath);
+        const fileContents = readFileSync(absolutePath, 'utf8');
+
+        if (!fileContents.includes('--profile <profile>')) {
+          return undefined;
+        }
+
+        return relativePath;
+      })
+      .filter((value): value is string => value !== undefined);
+
+    expect(filesWithProfileOverride).toEqual([]);
+  });
+
   it('adds help text for every user-facing command registration', () => {
     const mismatches = collectCommandFiles()
       .map((relativePath) => {
@@ -47,7 +64,7 @@ describe('CLI command help text coverage', () => {
 
         return `${relativePath}: ${commandCount} command registration(s), ${helpTextCount} help text block(s)`;
       })
-      .filter((value): value is string => value !== null);
+      .filter((value): value is string => value !== undefined);
 
     expect(mismatches).toEqual([]);
   });

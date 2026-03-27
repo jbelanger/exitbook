@@ -176,10 +176,10 @@ const CoverageView: FC<{
 };
 
 const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
-  const { summary, coverage, assetFilter, sourceFilter } = state;
+  const { summary, coverage, assetFilter, platformFilter } = state;
   const filterParts: string[] = [];
   if (assetFilter) filterParts.push(assetFilter);
-  if (sourceFilter) filterParts.push(sourceFilter);
+  if (platformFilter) filterParts.push(platformFilter);
   const filterSuffix = filterParts.length > 0 ? ` (${filterParts.join(', ')})` : '';
 
   return (
@@ -419,7 +419,7 @@ const MissingView: FC<{
 };
 
 const MissingHeader: FC<{ state: PricesViewMissingState }> = ({ state }) => {
-  const { movements, resolvedRows, assetBreakdown, assetFilter, sourceFilter, parentCoverageState } = state;
+  const { movements, resolvedRows, assetBreakdown, assetFilter, platformFilter, parentCoverageState } = state;
   const remaining = movements.length - resolvedRows.size;
   const isDrilledIn = !!parentCoverageState;
 
@@ -443,7 +443,7 @@ const MissingHeader: FC<{ state: PricesViewMissingState }> = ({ state }) => {
 
   const filterParts: string[] = [];
   if (assetFilter) filterParts.push(assetFilter);
-  if (sourceFilter) filterParts.push(sourceFilter);
+  if (platformFilter) filterParts.push(platformFilter);
   const filterSuffix = filterParts.length > 0 ? ` (${filterParts.join(', ')})` : '';
   const assetCount = assetBreakdown.length;
 

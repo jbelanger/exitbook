@@ -19,9 +19,7 @@ import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import { generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
 
-interface ViewTransactionsCommandParams extends ViewTransactionsParams {
-  profile?: string | undefined;
-}
+type ViewTransactionsCommandParams = ViewTransactionsParams;
 
 /**
  * Result data for view transactions command (JSON mode).
@@ -42,8 +40,7 @@ Examples:
   $ exitbook transactions view                            # View latest 50 transactions
   $ exitbook transactions view --limit 100                # View latest 100 transactions
   $ exitbook transactions view --asset BTC                # View Bitcoin transactions only
-  $ exitbook transactions view --source kraken            # View Kraken transactions
-  $ exitbook transactions view --profile business         # View transactions for one profile
+  $ exitbook transactions view --platform kraken          # View Kraken transactions
   $ exitbook transactions view --since 2024-01-01         # View transactions from Jan 2024
   $ exitbook transactions view --operation-type trade     # View trades only
   $ exitbook transactions view --no-price                 # Find transactions missing price data
@@ -55,8 +52,7 @@ Common Usage:
   - Verify imported data accuracy
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
-    .option('--source <name>', 'Filter by exchange or blockchain name')
+    .option('--platform <name>', 'Filter by exchange or blockchain platform')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH)')
     .option('--since <date>', 'Filter by date (ISO 8601 format, e.g., 2024-01-01)')
     .option('--until <date>', 'Filter by date (ISO 8601 format, e.g., 2024-12-31)')
@@ -89,8 +85,7 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
 
   // Build params from options
   const params: ViewTransactionsCommandParams = {
-    profile: options.profile,
-    source: options.source,
+    platform: options.platform,
     assetSymbol: options.asset,
     since: options.since,
     until: options.until,
@@ -113,7 +108,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsCommandParams)
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -130,7 +125,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsCommandParams)
       const transactionsResult = await readTransactionsForCommand({
         db: database,
         profileId: profileResult.value.id,
-        platformKey: params.source,
+        platformKey: params.platform,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -149,7 +144,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsCommandParams)
       const viewItems = params.limit ? allViewItems.slice(0, params.limit) : allViewItems;
 
       const viewFilters = {
-        sourceFilter: params.source,
+        platformFilter: params.platform,
         assetFilter: params.assetSymbol,
         operationTypeFilter: params.operationType,
         noPriceFilter: params.noPrice,
@@ -166,7 +161,7 @@ async function executeTransactionsViewTUI(params: ViewTransactionsCommandParams)
 
           const result = await exportHandler.execute({
             profileId: profileResult.value.id,
-            platformKey: params.source,
+            platformKey: params.platform,
             format,
             csvFormat,
             outputPath,
@@ -220,7 +215,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsCommandParams
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('view-transactions', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -235,7 +230,7 @@ async function executeTransactionsViewJSON(params: ViewTransactionsCommandParams
       const transactionsResult = await readTransactionsForCommand({
         db: database,
         profileId: profileResult.value.id,
-        platformKey: params.source,
+        platformKey: params.platform,
         since: sinceResult.value,
         until: params.until,
         assetSymbol: params.assetSymbol,
@@ -292,8 +287,7 @@ function handleViewTransactionsJSON(
 ): void {
   // Prepare result data for JSON mode
   const filters: Record<string, unknown> = {};
-  if (params.profile) filters['profile'] = params.profile;
-  if (params.source) filters['source'] = params.source;
+  if (params.platform) filters['platform'] = params.platform;
   if (params.assetSymbol) filters['asset'] = params.assetSymbol;
   if (params.since) filters['since'] = params.since;
   if (params.until) filters['until'] = params.until;

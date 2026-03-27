@@ -208,7 +208,7 @@ export class AccountQuery {
 
     return this.ports.findAccounts({
       accountType: params.accountType,
-      platformKey: params.source,
+      platformKey: params.platformKey,
       profileId: params.profileId,
     });
   }

@@ -80,14 +80,12 @@ describe('buildCostBasisInputFromFlags', () => {
     }
   });
 
-  it('should pass through fiatCurrency and date overrides', () => {
+  it('should pass through fiatCurrency overrides', () => {
     const options: CostBasisCommandOptions = {
       method: 'average-cost',
       jurisdiction: 'CA',
       taxYear: 2024,
       fiatCurrency: 'EUR',
-      startDate: '2024-06-01',
-      endDate: '2024-12-31',
     };
 
     const result = buildCostBasisInputFromFlags(options);
@@ -95,8 +93,8 @@ describe('buildCostBasisInputFromFlags', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.currency).toBe('EUR');
-      expect(result.value.startDate?.toISOString().split('T')[0]).toBe('2024-06-01');
-      expect(result.value.endDate?.toISOString().split('T')[0]).toBe('2024-12-31');
+      expect(result.value.startDate).toBeInstanceOf(Date);
+      expect(result.value.endDate).toBeInstanceOf(Date);
     }
   });
 

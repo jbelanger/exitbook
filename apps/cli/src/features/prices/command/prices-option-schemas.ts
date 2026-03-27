@@ -1,13 +1,10 @@
 import { z } from 'zod';
 
-import { ProfileFlagSchema } from '../../shared/option-schema-primitives.js';
-
 export const PricesViewCommandOptionsSchema = z.object({
-  source: z.string().optional(),
+  platform: z.string().optional(),
   asset: z.string().optional(),
   missingOnly: z.boolean().optional(),
   json: z.boolean().optional(),
-  profile: ProfileFlagSchema.shape.profile,
 });
 
 export const PricesEnrichCommandOptionsSchema = z.object({
@@ -17,7 +14,6 @@ export const PricesEnrichCommandOptionsSchema = z.object({
   normalizeOnly: z.boolean().optional(),
   fetchOnly: z.boolean().optional(),
   json: z.boolean().optional(),
-  profile: ProfileFlagSchema.shape.profile,
 });
 
 export const PricesSetCommandOptionsSchema = z.object({

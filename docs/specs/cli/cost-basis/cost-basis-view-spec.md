@@ -1123,8 +1123,6 @@ Options:
   --jurisdiction <code>          Tax jurisdiction: CA, US, UK, EU
   --tax-year <year>              Tax year for calculation (e.g., 2024)
   --fiat-currency <currency>     Fiat currency: USD, CAD, EUR, GBP
-  --start-date <date>            Custom start date (YYYY-MM-DD, requires --end-date)
-  --end-date <date>              Custom end date (YYYY-MM-DD, requires --start-date)
   --asset <symbol>               Filter to specific asset (lands on asset history timeline)
   --json                         Output JSON, bypass TUI
   -h, --help                     Display help
@@ -1142,7 +1140,7 @@ Notes:
 ### Data Flow
 
 1. Parse and validate CLI options at the boundary
-2. If interactive (no flags): run prompt flow (jurisdiction, method, year, currency, dates)
+2. If interactive (no flags): run prompt flow (jurisdiction, method, year)
 3. Initialize database
 4. Show spinner: "Calculating cost basis..."
 5. Call `CostBasisHandler.execute(params)` — returns in-memory lots, disposals, and lot transfers

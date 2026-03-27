@@ -28,7 +28,6 @@ Notes:
   - Confirming review evidence does not automatically clear all accounting blocks if ambiguity remains.
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
@@ -57,7 +56,7 @@ async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('assets-confirm', profileResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
       }

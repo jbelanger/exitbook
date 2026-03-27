@@ -124,7 +124,7 @@ const TransactionsHeader: FC<{ state: TransactionsViewState }> = ({ state }) => 
 
   // Build title with filter label
   let filterLabel = '';
-  if (filters.sourceFilter) filterLabel = ` (${filters.sourceFilter})`;
+  if (filters.platformFilter) filterLabel = ` (${filters.platformFilter})`;
   else if (filters.assetFilter) filterLabel = ` (${filters.assetFilter})`;
   else if (filters.noPriceFilter) filterLabel = ' (missing prices)';
 
@@ -177,7 +177,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
     () =>
       createColumns(transactions, {
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
-        source: { format: (item) => item.source, minWidth: 10 },
+        platform: { format: (item) => item.source, minWidth: 10 },
         operation: { format: (item) => formatOperationShort(item.operationCategory, item.operationType), minWidth: 15 },
         asset: { format: (item) => item.primaryAsset ?? '', minWidth: 10 },
         amount: { format: (item) => formatAmount(item.primaryAmount ?? '', 12), align: 'right', minWidth: 12 },
@@ -222,11 +222,11 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const TransactionRow: FC<{
-  columns: Columns<TransactionViewItem, 'txId' | 'source' | 'operation' | 'asset' | 'amount'>;
+  columns: Columns<TransactionViewItem, 'txId' | 'platform' | 'operation' | 'asset' | 'amount'>;
   isSelected: boolean;
   item: TransactionViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const { txId, source, operation, asset, amount } = columns.format(item);
+  const { txId, platform, operation, asset, amount } = columns.format(item);
   const timestamp = item.datetime.substring(0, 16).replace('T', ' ');
   const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
   const { icon, iconColor } = getPriceStatusIcon(item.priceStatus);
@@ -239,7 +239,7 @@ const TransactionRow: FC<{
         dimWhenUnselected
         isSelected={isSelected}
       >
-        {txId} {source} {timestamp} {operation} {asset} {dir} {amount} {icon}
+        {txId} {platform} {timestamp} {operation} {asset} {dir} {amount} {icon}
       </SelectableRow>
     );
   }
@@ -248,7 +248,7 @@ const TransactionRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      {txId} <Text color="cyan">{source}</Text> <Text dimColor>{timestamp}</Text> <Text dimColor>{operation}</Text>{' '}
+      {txId} <Text color="cyan">{platform}</Text> <Text dimColor>{timestamp}</Text> <Text dimColor>{operation}</Text>{' '}
       {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>{' '}
       <Text color={iconColor}>{icon}</Text>
     </SelectableRow>
@@ -643,7 +643,7 @@ const ControlsBar: FC<{ hasExport: boolean; phase: TransactionsViewPhase }> = ({
 const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state }) => {
   const { filters, totalCount } = state;
   const hasFilters =
-    filters.sourceFilter || filters.assetFilter || filters.operationTypeFilter || filters.noPriceFilter;
+    filters.platformFilter || filters.assetFilter || filters.operationTypeFilter || filters.noPriceFilter;
 
   return (
     <Box flexDirection="column">
@@ -662,7 +662,7 @@ const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state })
         <Text>{'  '}All transactions have price data.</Text>
       ) : (
         <Text>
-          {'  '}No transactions found{filters.sourceFilter ? ` for ${filters.sourceFilter}` : ''}.
+          {'  '}No transactions found{filters.platformFilter ? ` for ${filters.platformFilter}` : ''}.
         </Text>
       )}
       <Text> </Text>

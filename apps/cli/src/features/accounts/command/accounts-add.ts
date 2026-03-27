@@ -41,7 +41,6 @@ Notes:
     .option('--api-key <key>', 'API key for exchange API accounts')
     .option('--api-secret <secret>', 'API secret for exchange API accounts')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange API accounts')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (name: string, rawOptions: unknown) => {
       await executeAddAccountCommand(name, rawOptions, appRuntime);
@@ -54,7 +53,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
   try {
     await runCommand(appRuntime, async (ctx) => {
       const db = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, db, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, db);
       if (profileResult.isErr()) {
         displayCliError('accounts-add', profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }

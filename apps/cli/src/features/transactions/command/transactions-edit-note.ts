@@ -30,7 +30,6 @@ Examples:
 `
     )
     .argument('<transaction-id>', 'ID of the transaction to annotate')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--message <text>', 'Note message to persist for the transaction')
     .option('--clear', 'Clear the currently saved transaction note')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
@@ -69,7 +68,7 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError(
           'transactions-edit-note',

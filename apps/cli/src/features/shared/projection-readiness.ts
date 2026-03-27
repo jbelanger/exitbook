@@ -55,7 +55,7 @@ async function resolvePrereqProfileScope(
     return ok({ profileId: profile.id, profileKey: profile.profileKey });
   }
 
-  const profileResult = await resolveCommandProfile(scope, db, undefined);
+  const profileResult = await resolveCommandProfile(scope, db);
   if (profileResult.isErr()) {
     return err(profileResult.error);
   }

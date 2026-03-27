@@ -12,7 +12,7 @@ interface ClearAccountLookup {
 
 export async function buildScopeLabel(
   accountId: number | undefined,
-  source: string | undefined,
+  platformKey: string | undefined,
   accountRepo: ClearAccountLookup
 ): Promise<string> {
   if (accountId) {
@@ -22,8 +22,8 @@ export async function buildScopeLabel(
     }
     return `#${accountId}`;
   }
-  if (source) {
-    return `(${source})`;
+  if (platformKey) {
+    return `(${platformKey})`;
   }
   return 'all accounts';
 }

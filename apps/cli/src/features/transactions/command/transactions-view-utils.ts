@@ -18,7 +18,8 @@ import type {
 /**
  * Parameters for view transactions command.
  */
-export interface ViewTransactionsParams extends CommonViewFilters {
+export interface ViewTransactionsParams extends Omit<CommonViewFilters, 'source'> {
+  platform?: string | undefined;
   assetSymbol?: string | undefined;
   operationType?: string | undefined;
   noPrice?: boolean | undefined;
@@ -179,7 +180,7 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
  */
 export function generateDefaultPath(filters: TransactionsViewFilters, format: ExportFormat): string {
   const parts: string[] = [];
-  if (filters.sourceFilter) parts.push(filters.sourceFilter);
+  if (filters.platformFilter) parts.push(filters.platformFilter);
   if (filters.assetFilter) parts.push(filters.assetFilter.toLowerCase());
   parts.push('transactions');
   const extension = format === 'json' ? '.json' : '.csv';

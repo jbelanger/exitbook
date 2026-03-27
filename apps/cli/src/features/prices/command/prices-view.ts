@@ -24,9 +24,7 @@ import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 import { PricesViewHandler } from './prices-view-handler.js';
 
-interface ViewPricesCommandParams extends ViewPricesParams {
-  profile?: string | undefined;
-}
+type ViewPricesCommandParams = ViewPricesParams;
 
 /**
  * Result data for view prices command (JSON mode).
@@ -50,8 +48,7 @@ Examples:
   $ exitbook prices view                    # View price coverage for all assets
   $ exitbook prices view --asset BTC        # View price coverage for Bitcoin only
   $ exitbook prices view --missing-only     # Show only assets missing price data
-  $ exitbook prices view --profile business # View one profile only
-  $ exitbook prices view --source kraken    # View coverage for Kraken transactions
+  $ exitbook prices view --platform kraken  # View coverage for Kraken transactions
 
 Common Usage:
   - Identify which assets need price data before generating tax reports
@@ -59,8 +56,7 @@ Common Usage:
   - Find gaps in historical pricing data
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
-    .option('--source <name>', 'Filter by exchange or blockchain name')
+    .option('--platform <name>', 'Filter by exchange or blockchain platform')
     .option('--asset <currency>', 'Filter by specific asset (e.g., BTC, ETH)')
     .option('--missing-only', 'Show only assets with missing price data')
     .option('--json', 'Output results in JSON format')
@@ -77,8 +73,7 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   const isMissingMode = options.missingOnly ?? false;
 
   const params: ViewPricesCommandParams = {
-    profile: options.profile,
-    source: options.source,
+    platform: options.platform,
     asset: options.asset,
     missingOnly: options.missingOnly,
   };
@@ -107,7 +102,7 @@ async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<
   await withCliCommandErrorHandling('prices-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -134,7 +129,7 @@ async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<
         detailResult.value,
         summaryResult.value.summary,
         params.asset,
-        params.source
+        params.platform
       );
 
       const handleLoadMissing = async (asset: string) => {
@@ -186,7 +181,7 @@ async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<v
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const overrideStore = new OverrideStore(ctx.dataDir);
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -204,7 +199,7 @@ async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<v
 
       const { movements, assetBreakdown } = missingResult.value;
 
-      const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.source);
+      const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.platform);
 
       const priceRuntimeUseResult = await withCliPriceProviderRuntime(
         { dataDir: ctx.dataDir },
@@ -248,7 +243,7 @@ async function executeViewPricesJSON(params: ViewPricesCommandParams): Promise<v
   await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -274,8 +269,7 @@ async function executeViewPricesJSON(params: ViewPricesCommandParams): Promise<v
           coverage.length,
           buildDefinedFilters({
             asset: params.asset,
-            source: params.source,
-            profile: params.profile,
+            platform: params.platform,
             missingOnly: params.missingOnly ? true : undefined,
           })
         ),
@@ -308,7 +302,7 @@ async function executeMissingViewJSON(params: ViewPricesCommandParams): Promise<
   await withCliCommandErrorHandling('view-prices', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -343,8 +337,7 @@ async function executeMissingViewJSON(params: ViewPricesCommandParams): Promise<
           movements.length,
           buildDefinedFilters({
             asset: params.asset,
-            source: params.source,
-            profile: params.profile,
+            platform: params.platform,
             missingOnly: true,
           })
         ),

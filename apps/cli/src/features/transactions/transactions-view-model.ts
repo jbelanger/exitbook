@@ -69,7 +69,7 @@ export interface CategoryCounts {
  * Active filters (read-only, applied from CLI args)
  */
 export interface TransactionsViewFilters {
-  sourceFilter?: string | undefined;
+  platformFilter?: string | undefined;
   assetFilter?: string | undefined;
   operationTypeFilter?: string | undefined;
   noPriceFilter?: boolean | undefined;

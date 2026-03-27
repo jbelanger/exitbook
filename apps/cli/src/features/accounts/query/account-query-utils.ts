@@ -6,7 +6,7 @@ export interface AccountQueryParams {
   profileId: number;
   accountId?: number | undefined;
   accountType?: AccountType | undefined;
-  source?: string | undefined;
+  platformKey?: string | undefined;
   showSessions?: boolean | undefined;
 }
 

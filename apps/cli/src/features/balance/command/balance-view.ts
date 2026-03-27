@@ -24,7 +24,6 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
     .command('view')
     .description('View stored balance snapshots without calling live providers')
     .option('--account-id <id>', 'View a specific balance scope', parseInt)
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -32,7 +31,6 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
 Examples:
   $ exitbook balance view
   $ exitbook balance view --account-id 5
-  $ exitbook balance view --profile business
   $ exitbook balance view --json
 
 Notes:
@@ -59,7 +57,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('balance-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -119,7 +117,6 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
           mode: 'view',
           filters: {
             ...(options.accountId ? { accountId: options.accountId } : {}),
-            ...(options.profile ? { profile: options.profile } : {}),
           },
         }
       );
@@ -138,7 +135,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRunt
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) throw profileResult.error;
 
       const readyResult = await ensureProcessedTransactionsReady(ctx, {

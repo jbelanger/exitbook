@@ -23,7 +23,6 @@ export function registerAccountsRemoveCommand(accountsCommand: Command): void {
       `
 Examples:
   $ exitbook accounts remove kraken-main
-  $ exitbook accounts remove wallet-main --profile business
   $ exitbook accounts remove kraken-main --confirm
   $ exitbook accounts remove kraken-main --confirm --json
 
@@ -33,98 +32,92 @@ Notes:
 `
     )
     .argument('<name>', 'Account name')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--confirm', 'Skip confirmation prompt')
     .option('--json', 'Output results in JSON format')
-    .action(
-      async (
-        name: string,
-        options: { confirm?: boolean | undefined; json?: boolean | undefined; profile?: string | undefined }
-      ) => {
-        const format = options.json ? 'json' : 'text';
+    .action(async (name: string, options: { confirm?: boolean | undefined; json?: boolean | undefined }) => {
+      const format = options.json ? 'json' : 'text';
 
-        try {
-          await runCommand(async (ctx) => {
-            if (options.json && !options.confirm) {
-              displayCliError(
-                'accounts-remove',
-                new Error('--confirm is required when using --json for destructive account removal'),
-                ExitCodes.INVALID_ARGS,
-                format
-              );
+      try {
+        await runCommand(async (ctx) => {
+          if (options.json && !options.confirm) {
+            displayCliError(
+              'accounts-remove',
+              new Error('--confirm is required when using --json for destructive account removal'),
+              ExitCodes.INVALID_ARGS,
+              format
+            );
+          }
+
+          const db = await ctx.database();
+          const profileResult = await resolveCommandProfile(ctx, db);
+          if (profileResult.isErr()) {
+            displayCliError('accounts-remove', profileResult.error, ExitCodes.GENERAL_ERROR, format);
+          }
+
+          const accountService = buildCliAccountLifecycleService(db);
+          const accountResult = await accountService.getByName(profileResult.value.id, name);
+          if (accountResult.isErr()) {
+            displayCliError('accounts-remove', accountResult.error, ExitCodes.GENERAL_ERROR, format);
+          }
+          if (!accountResult.value) {
+            displayCliError(
+              'accounts-remove',
+              new Error(`Account '${name.trim().toLowerCase()}' not found`),
+              ExitCodes.GENERAL_ERROR,
+              format
+            );
+          }
+
+          const hierarchyResult = await accountService.collectHierarchy(accountResult.value.id);
+          if (hierarchyResult.isErr()) {
+            displayCliError('accounts-remove', hierarchyResult.error, ExitCodes.GENERAL_ERROR, format);
+          }
+
+          const removeHandler = createAccountRemoveHandler(db);
+          const previewResult = await removeHandler.preview(hierarchyResult.value.map((account) => account.id));
+          if (previewResult.isErr()) {
+            displayCliError('accounts-remove', previewResult.error, ExitCodes.GENERAL_ERROR, format);
+          }
+
+          const flatPreview = flattenAccountRemovePreview(previewResult.value);
+
+          if (!options.confirm && !options.json) {
+            outputRemovalPreview(accountResult.value.name ?? name.trim().toLowerCase(), flatPreview);
+            const shouldProceed = await promptConfirm(
+              `Delete account ${accountResult.value.name ?? name.trim().toLowerCase()} and all attached data?`,
+              false
+            );
+            if (!shouldProceed) {
+              console.error('Account removal cancelled');
+              process.exit(0);
             }
+          }
 
-            const db = await ctx.database();
-            const profileResult = await resolveCommandProfile(ctx, db, options.profile);
-            if (profileResult.isErr()) {
-              displayCliError('accounts-remove', profileResult.error, ExitCodes.GENERAL_ERROR, format);
-            }
+          const removeResult = await removeHandler.execute(hierarchyResult.value.map((account) => account.id));
+          if (removeResult.isErr()) {
+            displayCliError('accounts-remove', removeResult.error, ExitCodes.GENERAL_ERROR, format);
+          }
 
-            const accountService = buildCliAccountLifecycleService(db);
-            const accountResult = await accountService.getByName(profileResult.value.id, name);
-            if (accountResult.isErr()) {
-              displayCliError('accounts-remove', accountResult.error, ExitCodes.GENERAL_ERROR, format);
-            }
-            if (!accountResult.value) {
-              displayCliError(
-                'accounts-remove',
-                new Error(`Account '${name.trim().toLowerCase()}' not found`),
-                ExitCodes.GENERAL_ERROR,
-                format
-              );
-            }
+          if (options.json) {
+            outputSuccess('accounts-remove', {
+              accountName: accountResult.value.name,
+              deleted: removeResult.value.deleted,
+              profile: profileResult.value.profileKey,
+            });
+            return;
+          }
 
-            const hierarchyResult = await accountService.collectHierarchy(accountResult.value.id);
-            if (hierarchyResult.isErr()) {
-              displayCliError('accounts-remove', hierarchyResult.error, ExitCodes.GENERAL_ERROR, format);
-            }
-
-            const removeHandler = createAccountRemoveHandler(db);
-            const previewResult = await removeHandler.preview(hierarchyResult.value.map((account) => account.id));
-            if (previewResult.isErr()) {
-              displayCliError('accounts-remove', previewResult.error, ExitCodes.GENERAL_ERROR, format);
-            }
-
-            const flatPreview = flattenAccountRemovePreview(previewResult.value);
-
-            if (!options.confirm && !options.json) {
-              outputRemovalPreview(accountResult.value.name ?? name.trim().toLowerCase(), flatPreview);
-              const shouldProceed = await promptConfirm(
-                `Delete account ${accountResult.value.name ?? name.trim().toLowerCase()} and all attached data?`,
-                false
-              );
-              if (!shouldProceed) {
-                console.error('Account removal cancelled');
-                process.exit(0);
-              }
-            }
-
-            const removeResult = await removeHandler.execute(hierarchyResult.value.map((account) => account.id));
-            if (removeResult.isErr()) {
-              displayCliError('accounts-remove', removeResult.error, ExitCodes.GENERAL_ERROR, format);
-            }
-
-            if (options.json) {
-              outputSuccess('accounts-remove', {
-                accountName: accountResult.value.name,
-                deleted: removeResult.value.deleted,
-                profile: profileResult.value.profileKey,
-              });
-              return;
-            }
-
-            console.log(`Removed account ${accountResult.value.name}`);
-          });
-        } catch (error) {
-          displayCliError(
-            'accounts-remove',
-            error instanceof Error ? error : new Error(String(error)),
-            ExitCodes.GENERAL_ERROR,
-            format
-          );
-        }
+          console.log(`Removed account ${accountResult.value.name}`);
+        });
+      } catch (error) {
+        displayCliError(
+          'accounts-remove',
+          error instanceof Error ? error : new Error(String(error)),
+          ExitCodes.GENERAL_ERROR,
+          format
+        );
       }
-    );
+    });
 }
 
 function outputRemovalPreview(accountName: string, preview: FlatAccountRemovePreview): void {

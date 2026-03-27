@@ -137,7 +137,7 @@ Rules:
 - Canada requires `average-cost`
 - US rejects `average-cost`
 - `--asset` is rejected
-- custom `--start-date` / `--end-date` windows are rejected
+- partial date-window requests are rejected; export always uses the jurisdiction's full default tax-year range
 - the effective date range must equal the jurisdiction’s full default tax-year range
 
 Invalid export requests:

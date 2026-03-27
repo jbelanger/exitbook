@@ -15,7 +15,7 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error(`\nWARNING: ${profileResult.error.message}`);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -27,7 +27,7 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
       const params = {
         profileId: profileResult.value.id,
         accountId: options.accountId,
-        source: options.source,
+        platformKey: options.platform,
         includeRaw: options.includeRaw ?? false,
       };
 
@@ -50,10 +50,10 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
 
       const previewWithoutRaw = flattenPreview(previewWithoutRawResult.value);
       const previewWithRaw = flattenPreview(previewWithRawResult.value);
-      const scopeLabel = await buildScopeLabel(options.accountId, options.source, database.accounts);
+      const scopeLabel = await buildScopeLabel(options.accountId, options.platform, database.accounts);
 
       const initialState = createClearViewState(
-        { accountId: options.accountId, source: options.source, label: scopeLabel },
+        { accountId: options.accountId, platformKey: options.platform, label: scopeLabel },
         previewWithRaw,
         previewWithoutRaw,
         options.includeRaw ?? false

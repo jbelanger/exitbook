@@ -21,7 +21,7 @@ const logger = getLogger('ClearHandler');
 export interface ClearParams {
   profileId: number;
   accountId?: number | undefined;
-  source?: string | undefined;
+  platformKey?: string | undefined;
   includeRaw: boolean;
 }
 
@@ -84,8 +84,8 @@ export function calculateTotalDeletionItems(flat: FlatDeletionPreview): number {
 // ---------------------------------------------------------------------------
 
 function validateClearParams(params: ClearParams): Result<void, Error> {
-  if (params.accountId && params.source) {
-    return err(new Error('Cannot specify both accountId and source'));
+  if (params.accountId && params.platformKey) {
+    return err(new Error('Cannot specify both accountId and platform'));
   }
   if (params.accountId && params.accountId <= 0) {
     return err(new Error('accountId must be positive'));
@@ -96,7 +96,7 @@ function validateClearParams(params: ClearParams): Result<void, Error> {
 function describeFilters(params: ClearParams): string {
   const parts: string[] = [];
   if (params.accountId !== undefined) parts.push(`accountId=${params.accountId}`);
-  if (params.source !== undefined) parts.push(`source=${params.source}`);
+  if (params.platformKey !== undefined) parts.push(`platform=${params.platformKey}`);
   return parts.join(', ');
 }
 
@@ -116,7 +116,7 @@ export function createClearHandler(deps: ClearHandlerDeps) {
   const { db } = deps;
 
   async function resolveAccountIds(params: ClearParams): Promise<Result<number[] | undefined, Error>> {
-    if (!params.accountId && !params.source) return ok(undefined);
+    if (!params.accountId && !params.platformKey) return ok(undefined);
 
     if (params.accountId) {
       const result = await db.accounts.findAll({ profileId: params.profileId });
@@ -128,8 +128,8 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       return ok([account.id]);
     }
 
-    if (params.source) {
-      const result = await db.accounts.findAll({ profileId: params.profileId, platformKey: params.source });
+    if (params.platformKey) {
+      const result = await db.accounts.findAll({ profileId: params.profileId, platformKey: params.platformKey });
       if (result.isErr()) return err(result.error);
       if (result.value.length === 0) {
         return err(
@@ -189,7 +189,7 @@ export function createClearHandler(deps: ClearHandlerDeps) {
       const accountIds = accountIdsResult.value;
 
       logger.debug(
-        { includeRaw: params.includeRaw, source: params.source, accountId: params.accountId },
+        { includeRaw: params.includeRaw, platformKey: params.platformKey, accountId: params.accountId },
         'Starting data clearing'
       );
 

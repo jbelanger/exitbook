@@ -24,11 +24,9 @@ interface PromptAnswers {
 }
 
 interface PromptSeedValues {
-  endDate?: string | undefined;
   fiatCurrency?: string | undefined;
   jurisdiction?: string | undefined;
   method?: string | undefined;
-  startDate?: string | undefined;
   taxYear?: number | string | undefined;
 }
 
@@ -140,8 +138,6 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
       method: nextAnswers.method,
       taxYear: nextAnswers.taxYear,
       fiatCurrency: initialValues.fiatCurrency,
-      startDate: initialValues.startDate,
-      endDate: initialValues.endDate,
     });
 
     if (inputResult.isErr()) {
@@ -157,7 +153,7 @@ const CostBasisPromptApp: FC<CostBasisPromptAppProps> = ({ initialValues, onComp
       <Text> </Text>
       <Text bold>exitbook cost-basis</Text>
       <Text dimColor>
-        Uses the full tax year and the jurisdiction default fiat currency unless flags override them.
+        Uses the full tax year. Fiat currency defaults by jurisdiction unless you override it with a flag.
       </Text>
       <Text> </Text>
 

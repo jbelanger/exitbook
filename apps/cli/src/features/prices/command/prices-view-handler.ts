@@ -39,7 +39,7 @@ export class PricesViewHandler {
   async execute(params: ViewPricesParams): Promise<Result<ViewPricesResult, Error>> {
     const txResult = await this.db.transactions.findAll({
       profileId: this.profileId,
-      ...(params.source ? { platformKey: params.source } : {}),
+      ...(params.platform ? { platformKey: params.platform } : {}),
     });
 
     if (txResult.isErr()) {
@@ -78,7 +78,7 @@ export class PricesViewHandler {
   async executeCoverageDetail(params: ViewPricesParams): Promise<Result<PriceCoverageDetail[], Error>> {
     const txResult = await this.db.transactions.findAll({
       profileId: this.profileId,
-      ...(params.source ? { platformKey: params.source } : {}),
+      ...(params.platform ? { platformKey: params.platform } : {}),
     });
 
     if (txResult.isErr()) {
@@ -167,7 +167,7 @@ export class PricesViewHandler {
   async executeMissing(params: ViewPricesParams): Promise<Result<MissingPricesResult, Error>> {
     const txResult = await this.db.transactions.findAll({
       profileId: this.profileId,
-      ...(params.source ? { platformKey: params.source } : {}),
+      ...(params.platform ? { platformKey: params.platform } : {}),
     });
 
     if (txResult.isErr()) {

@@ -19,14 +19,12 @@ export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
       `
 Examples:
   $ exitbook assets exclusions
-  $ exitbook assets exclusions --profile business
   $ exitbook assets exclusions --json
 
 Notes:
   - Use "assets include" to re-enable any listed asset.
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeAssetsExclusionsCommand(rawOptions);
@@ -49,7 +47,7 @@ async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError(
           'assets-exclusions',

@@ -52,10 +52,7 @@ Notes:
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US, UK, EU')
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP (defaults by jurisdiction)')
-    .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
-    .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeCostBasisCommand(rawOptions, appRuntime));
@@ -81,7 +78,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
 
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -122,7 +119,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

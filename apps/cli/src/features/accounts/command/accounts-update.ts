@@ -38,7 +38,6 @@ Notes:
     .option('--csv-dir <path>', 'New CSV directory for exchange CSV accounts')
     .option('--provider <name>', 'Preferred blockchain provider for blockchain accounts')
     .option('--xpub-gap <number>', 'Increase the xpub gap limit for xpub accounts', parseInt)
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (name: string, rawOptions: unknown) => {
       await executeUpdateAccountCommand(name, rawOptions, appRuntime);
@@ -55,7 +54,7 @@ async function executeUpdateAccountCommand(
   try {
     await runCommand(appRuntime, async (ctx) => {
       const db = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, db, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, db);
       if (profileResult.isErr()) {
         displayCliError('accounts-update', profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }

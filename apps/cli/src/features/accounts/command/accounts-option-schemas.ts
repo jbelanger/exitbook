@@ -4,14 +4,12 @@ import {
   BlockchainFieldsSchema,
   CsvImportSchema,
   JsonFlagSchema,
-  ProfileFlagSchema,
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
 
 export const AccountsViewCommandOptionsSchema = z.object({
   accountId: z.number().int().positive().optional(),
-  profile: z.string().min(1).optional(),
-  source: z.string().optional(),
+  platform: z.string().optional(),
   type: z.string().optional(),
   showSessions: z.boolean().optional(),
   json: z.boolean().optional(),
@@ -26,7 +24,6 @@ export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(Block
     }).shape
   )
   .extend(CsvImportSchema.shape)
-  .extend(ProfileFlagSchema.shape)
   .extend(JsonFlagSchema.shape)
   .superRefine((data, ctx) => {
     if (data.blockchain && !data.address) {
@@ -91,7 +88,6 @@ export const AccountUpdateCommandOptionsSchema = z
     apiPassphrase: z.string().optional(),
     csvDir: z.string().optional(),
     provider: z.string().optional(),
-    profile: z.string().min(1).optional(),
     json: z.boolean().optional(),
     xpubGap: z.number().int().positive().optional(),
   })

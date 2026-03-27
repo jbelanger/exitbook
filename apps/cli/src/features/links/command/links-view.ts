@@ -58,13 +58,7 @@ type LinksViewCommandResult = ViewCommandResult<LinkInfo[]>;
  * Result data for gaps view command (JSON mode).
  */
 type GapsViewCommandResult = ViewCommandResult<LinkGapIssue[]>;
-interface LinksCommandParams extends LinksViewParams {
-  profile?: string | undefined;
-}
-
-interface LinksGapsCommandParams {
-  profile?: string | undefined;
-}
+type LinksCommandParams = LinksViewParams;
 
 /**
  * Register the links view subcommand.
@@ -78,7 +72,6 @@ export function registerLinksViewCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links view                                # View all transaction links
-  $ exitbook links view --profile business             # View links for one profile
   $ exitbook links view --status suggested             # View AI-suggested links
   $ exitbook links view --status confirmed             # View user-confirmed links
   $ exitbook links view --min-confidence 0.8           # View high-confidence links only
@@ -104,7 +97,6 @@ Confidence Scores:
   <0.3 - Low confidence, needs manual review
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
@@ -124,11 +116,9 @@ export function registerLinksGapsCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links gaps                   # View uncovered inflows and unmatched outflows
-  $ exitbook links gaps --profile audit   # Scope gap analysis to one profile
   $ exitbook links gaps --json            # Output gap analysis as JSON
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
       await executeLinksGapsCommand(rawOptions);
@@ -141,7 +131,6 @@ Examples:
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
   const { format, options } = parseCliCommandOptions('links-view', rawOptions, LinksViewCommandOptionsSchema);
   const params: LinksCommandParams = {
-    profile: options.profile,
     status: options.status,
     minConfidence: options.minConfidence,
     maxConfidence: options.maxConfidence,
@@ -157,16 +146,13 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 }
 
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
-  const params: LinksGapsCommandParams = {
-    profile: options.profile,
-  };
+  const { format } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
   if (format === 'json') {
-    await executeGapsViewJSON(params);
+    await executeGapsViewJSON();
     return;
   }
 
-  await executeGapsViewTUI(params);
+  await executeGapsViewTUI();
 }
 
 /**
@@ -178,7 +164,7 @@ async function executeLinksViewTUI(params: LinksCommandParams): Promise<void> {
   await withCliCommandErrorHandling('links-view', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -249,11 +235,11 @@ async function executeLinksViewTUI(params: LinksCommandParams): Promise<void> {
 /**
  * Execute gaps view in TUI mode (read-only)
  */
-async function executeGapsViewTUI(params: LinksGapsCommandParams): Promise<void> {
+async function executeGapsViewTUI(): Promise<void> {
   await withCliCommandErrorHandling('links-gaps', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -310,7 +296,7 @@ async function executeLinksViewJSON(params: LinksCommandParams): Promise<void> {
   await withCliCommandErrorHandling('links-view', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('links-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -359,11 +345,11 @@ async function executeLinksViewJSON(params: LinksCommandParams): Promise<void> {
 /**
  * Execute gaps view in JSON mode
  */
-async function executeGapsViewJSON(params: LinksGapsCommandParams): Promise<void> {
+async function executeGapsViewJSON(): Promise<void> {
   await withCliCommandErrorHandling('links-gaps', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('links-gaps', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -431,7 +417,6 @@ function handleLinksViewJSON(result: LinksViewResult, params: LinksCommandParams
       count,
       count,
       buildDefinedFilters({
-        profile: params.profile,
         status: params.status,
         min_confidence: params.minConfidence,
         max_confidence: params.maxConfidence,

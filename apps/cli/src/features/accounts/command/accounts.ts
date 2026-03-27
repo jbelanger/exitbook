@@ -33,7 +33,7 @@ Examples:
 
 Notes:
   - Use "accounts list" as an alias for "accounts view".
-  - Accounts are scoped to the active profile unless you pass --profile.
+  - Accounts are always scoped to the active profile.
 `
     );
 

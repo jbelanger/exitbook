@@ -16,7 +16,7 @@ export async function runClearTerminalFlow(options: ClearCommandOptions): Promis
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('clear', profileResult.error, ExitCodes.GENERAL_ERROR, outputMode);
       }
@@ -26,7 +26,7 @@ export async function runClearTerminalFlow(options: ClearCommandOptions): Promis
       const previewResult = await clearHandler.preview({
         profileId: profileResult.value.id,
         accountId: options.accountId,
-        source: options.source,
+        platformKey: options.platform,
         includeRaw,
       });
 
@@ -53,7 +53,7 @@ export async function runClearTerminalFlow(options: ClearCommandOptions): Promis
       const result = await clearHandler.execute({
         profileId: profileResult.value.id,
         accountId: options.accountId,
-        source: options.source,
+        platformKey: options.platform,
         includeRaw,
       });
 

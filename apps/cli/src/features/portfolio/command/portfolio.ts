@@ -41,7 +41,7 @@ Examples:
   $ exitbook portfolio
   $ exitbook portfolio --jurisdiction CA --method average-cost --fiat-currency CAD
   $ exitbook portfolio --as-of 2025-12-31T23:59:59Z
-  $ exitbook portfolio --profile business --json
+  $ exitbook portfolio --json
 
 Notes:
   - Use an ISO 8601 timestamp for --as-of.
@@ -55,7 +55,6 @@ Notes:
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US (default: US)')
     .option('--fiat-currency <currency>', 'Display currency: USD, CAD, EUR, GBP (default: USD)')
     .option('--as-of <datetime>', 'Point-in-time snapshot (ISO 8601, default: now)')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executePortfolioCommand(rawOptions, appRuntime));
 }
@@ -76,7 +75,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
 
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -140,7 +139,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
 
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

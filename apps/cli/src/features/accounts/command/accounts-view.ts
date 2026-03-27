@@ -25,7 +25,6 @@ import { AccountsViewCommandOptionsSchema } from './accounts-option-schemas.js';
 
 interface ViewAccountsParams extends Omit<AccountQueryParams, 'profileId'> {
   accountName?: string | undefined;
-  profile?: string | undefined;
 }
 
 /**
@@ -48,7 +47,7 @@ Examples:
   $ exitbook accounts view                        # View all named accounts
   $ exitbook accounts list                        # Alias for accounts view
   $ exitbook accounts view kraken-main            # View a specific named account
-  $ exitbook accounts view --source kraken        # View Kraken accounts
+  $ exitbook accounts view --platform kraken      # View Kraken accounts
   $ exitbook accounts view --account-id 1         # View specific account by ID
   $ exitbook accounts view --type blockchain      # View blockchain accounts only
   $ exitbook accounts view --show-sessions        # Include session details
@@ -57,15 +56,14 @@ Common Usage:
   - Monitor account verification status
   - Check last stored balance refresh timestamp
   - Review account activity and import history
-  - Identify which sources have been imported
+  - Identify which platforms have been imported
 
 Account Types:
   blockchain, exchange-api, exchange-csv
 `
     )
     .option('--account-id <number>', 'Filter by account ID', parseInt)
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
-    .option('--source <name>', 'Filter by exchange or blockchain name')
+    .option('--platform <name>', 'Filter by exchange or blockchain platform')
     .option('--type <type>', 'Filter by account type (blockchain, exchange-api, exchange-csv)')
     .option('--show-sessions', 'Include import session details for each account')
     .option('--json', 'Output results in JSON format')
@@ -80,10 +78,10 @@ Account Types:
 async function executeViewAccountsCommand(accountName: string | undefined, rawOptions: unknown): Promise<void> {
   const { format, options } = parseCliCommandOptions('accounts-view', rawOptions, AccountsViewCommandOptionsSchema);
 
-  if (accountName && (options.accountId !== undefined || options.source || options.type)) {
+  if (accountName && (options.accountId !== undefined || options.platform || options.type)) {
     displayCliError(
       'accounts-view',
-      new Error('Named account lookup cannot be combined with --account-id, --source, or --type'),
+      new Error('Named account lookup cannot be combined with --account-id, --platform, or --type'),
       ExitCodes.INVALID_ARGS,
       format
     );
@@ -92,8 +90,7 @@ async function executeViewAccountsCommand(accountName: string | undefined, rawOp
   const params: ViewAccountsParams = {
     accountName,
     accountId: options.accountId,
-    profile: options.profile,
-    source: options.source,
+    platformKey: options.platform,
     accountType: options.type as AccountType | undefined,
     showSessions: options.showSessions,
   };
@@ -112,7 +109,7 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
   await withCliCommandErrorHandling('view-accounts', 'text', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         console.error('\n⚠ Error:', profileResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -132,7 +129,7 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
         profileId: profileResult.value.id,
         accountId: accountIdResult.value ?? params.accountId,
         accountType: params.accountType,
-        source: params.source,
+        platformKey: params.platformKey,
         showSessions: params.showSessions,
       });
 
@@ -151,7 +148,7 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
       const initialState = createAccountsViewState(
         viewItems,
         {
-          sourceFilter: params.source,
+          platformFilter: params.platformKey,
           typeFilter: params.accountType,
           showSessions: params.showSessions ?? false,
         },
@@ -176,7 +173,7 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
   await withCliCommandErrorHandling('view-accounts', 'json', async () => {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, params.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('view-accounts', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
         return;
@@ -193,7 +190,7 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
         profileId: profileResult.value.id,
         accountId: accountIdResult.value ?? params.accountId,
         accountType: params.accountType,
-        source: params.source,
+        platformKey: params.platformKey,
         showSessions: params.showSessions,
       });
 
@@ -215,8 +212,7 @@ async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void
           buildDefinedFilters({
             accountName: params.accountName,
             accountId: accountIdResult.value ?? params.accountId,
-            profile: params.profile,
-            source: params.source,
+            platform: params.platformKey,
             accountType: params.accountType,
           })
         ),

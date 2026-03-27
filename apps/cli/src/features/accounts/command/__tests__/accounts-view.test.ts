@@ -184,7 +184,7 @@ describe('registerAccountsViewCommand', () => {
         'view',
         '--account-id',
         '1',
-        '--source',
+        '--platform',
         'kraken',
         '--type',
         'exchange-api',
@@ -201,7 +201,7 @@ describe('registerAccountsViewCommand', () => {
       profileId: 1,
       accountId: 1,
       accountType: 'exchange-api',
-      source: 'kraken',
+      platformKey: 'kraken',
       showSessions: true,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('view-accounts', {
@@ -247,7 +247,7 @@ describe('registerAccountsViewCommand', () => {
         hasMore: false,
         filters: {
           accountId: 1,
-          source: 'kraken',
+          platform: 'kraken',
           accountType: 'exchange-api',
         },
       },
@@ -270,13 +270,13 @@ describe('registerAccountsViewCommand', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['accounts', 'view', '--source', 'kraken'], { from: 'user' });
+    await program.parseAsync(['accounts', 'view', '--platform', 'kraken'], { from: 'user' });
 
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
       accountId: undefined,
       accountType: undefined,
-      source: 'kraken',
+      platformKey: 'kraken',
       showSessions: undefined,
     });
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
@@ -312,7 +312,7 @@ describe('registerAccountsViewCommand', () => {
         },
       ],
       filters: {
-        sourceFilter: 'kraken',
+        platformFilter: 'kraken',
         typeFilter: undefined,
         showSessions: false,
       },
@@ -348,7 +348,7 @@ describe('registerAccountsViewCommand', () => {
       profileId: 1,
       accountId: 1,
       accountType: undefined,
-      source: undefined,
+      platformKey: undefined,
       showSessions: undefined,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('view-accounts', expect.anything());
@@ -365,9 +365,9 @@ describe('registerAccountsViewCommand', () => {
     const program = createAccountsProgram();
 
     await expect(
-      program.parseAsync(['accounts', 'view', 'kraken-main', '--source', 'kraken'], { from: 'user' })
+      program.parseAsync(['accounts', 'view', 'kraken-main', '--platform', 'kraken'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:accounts-view:text:Named account lookup cannot be combined with --account-id, --source, or --type'
+      'CLI:accounts-view:text:Named account lookup cannot be combined with --account-id, --platform, or --type'
     );
 
     expect(mockRunCommand).not.toHaveBeenCalled();

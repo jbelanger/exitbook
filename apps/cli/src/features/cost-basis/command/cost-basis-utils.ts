@@ -10,8 +10,6 @@ export interface CostBasisCommandOptions {
   jurisdiction?: string | undefined;
   taxYear?: string | number | undefined;
   fiatCurrency?: string | undefined;
-  startDate?: string | undefined;
-  endDate?: string | undefined;
   refresh?: boolean | undefined;
   json?: boolean | undefined;
 }
@@ -34,7 +32,5 @@ export function buildCostBasisInputFromFlags(
     jurisdiction: options.jurisdiction,
     taxYear: options.taxYear,
     fiatCurrency: options.fiatCurrency,
-    startDate: options.startDate,
-    endDate: options.endDate,
   });
 }

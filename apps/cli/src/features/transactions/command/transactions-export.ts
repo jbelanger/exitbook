@@ -35,12 +35,10 @@ export function registerTransactionsExportCommand(transactionsCommand: Command):
 Examples:
   $ exitbook transactions export                                # Export all transactions as normalized CSV
   $ exitbook transactions export --format json --output tx.json # Export as JSON
-  $ exitbook transactions export --profile business             # Export one profile only
   $ exitbook transactions export --csv-format simple            # Export as simple CSV
   $ exitbook transactions export --json                         # Output metadata as JSON
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--format <type>', 'Export format (csv|json)', 'csv')
     .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--output <file>', 'Output file path')
@@ -72,7 +70,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError(
           'transactions-export',

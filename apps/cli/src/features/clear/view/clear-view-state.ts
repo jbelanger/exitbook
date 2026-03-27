@@ -14,7 +14,7 @@ export type ClearPhase = 'preview' | 'confirming' | 'executing' | 'complete' | '
  */
 export interface ClearScope {
   accountId?: number | undefined;
-  source?: string | undefined;
+  platformKey?: string | undefined;
   label: string; // "all accounts", "(kraken)", "(#4 bitcoin)"
 }
 

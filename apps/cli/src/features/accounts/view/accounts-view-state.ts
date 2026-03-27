@@ -7,7 +7,7 @@ import type { AccountViewItem, TypeCounts } from '../accounts-view-model.js';
  * Active filters (read-only, applied from CLI args)
  */
 export interface AccountsViewFilters {
-  sourceFilter?: string | undefined;
+  platformFilter?: string | undefined;
   typeFilter?: string | undefined;
   showSessions: boolean;
 }

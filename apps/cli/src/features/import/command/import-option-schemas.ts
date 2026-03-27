@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { JsonFlagSchema, ProfileFlagSchema, VerboseFlagSchema } from '../../shared/option-schema-primitives.js';
+import { JsonFlagSchema, VerboseFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const ImportCommandOptionsSchema = z
   .object({
@@ -8,7 +8,6 @@ export const ImportCommandOptionsSchema = z
     accountId: z.number().int().positive().optional(),
     all: z.boolean().optional(),
   })
-  .extend(ProfileFlagSchema.shape)
   .extend(JsonFlagSchema.shape)
   .extend(VerboseFlagSchema.shape)
   .refine(

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { JsonFlagSchema, ProfileFlagSchema } from '../../shared/option-schema-primitives.js';
+import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const LinksViewCommandOptionsSchema = z
   .object({
@@ -9,7 +9,6 @@ export const LinksViewCommandOptionsSchema = z
     maxConfidence: z.number().min(0).max(1).optional(),
     verbose: z.boolean().optional(),
     json: z.boolean().optional(),
-    profile: ProfileFlagSchema.shape.profile,
   })
   .refine(
     (data) => {
@@ -28,7 +27,6 @@ export const LinksRunCommandOptionsSchema = z
     minConfidence: z.number().min(0).max(1).optional(),
     autoConfirmThreshold: z.number().min(0).max(1).optional(),
     json: z.boolean().optional(),
-    profile: ProfileFlagSchema.shape.profile,
   })
   .refine(
     (data) => {
@@ -42,14 +40,8 @@ export const LinksRunCommandOptionsSchema = z
     }
   );
 
-export const LinksConfirmCommandOptionsSchema = JsonFlagSchema.extend({
-  profile: ProfileFlagSchema.shape.profile,
-});
+export const LinksConfirmCommandOptionsSchema = JsonFlagSchema;
 
-export const LinksRejectCommandOptionsSchema = JsonFlagSchema.extend({
-  profile: ProfileFlagSchema.shape.profile,
-});
+export const LinksRejectCommandOptionsSchema = JsonFlagSchema;
 
-export const LinksGapsCommandOptionsSchema = JsonFlagSchema.extend({
-  profile: ProfileFlagSchema.shape.profile,
-});
+export const LinksGapsCommandOptionsSchema = JsonFlagSchema;

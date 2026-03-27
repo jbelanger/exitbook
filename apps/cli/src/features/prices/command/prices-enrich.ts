@@ -42,7 +42,6 @@ Notes:
   - Use the stage flags to isolate part of the pipeline during debugging.
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--on-missing <behavior>', 'How to handle missing prices: fail (abort on first error)')
     .option('--normalize-only', 'Only run FX rates stage')
@@ -70,23 +69,19 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
   };
 
   if (format === 'json') {
-    await executePricesEnrichJSON(params, options.profile, appRuntime);
+    await executePricesEnrichJSON(params, appRuntime);
   } else {
-    await executePricesEnrichTUI(params, options.profile, appRuntime);
+    await executePricesEnrichTUI(params, appRuntime);
   }
 }
 
 // ─── JSON Mode ───────────────────────────────────────────────────────────────
 
-async function executePricesEnrichJSON(
-  params: PricesEnrichOptions,
-  profile: string | undefined,
-  appRuntime: CliAppRuntime
-): Promise<void> {
+async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -118,15 +113,11 @@ async function executePricesEnrichJSON(
 
 // ─── TUI Mode ────────────────────────────────────────────────────────────────
 
-async function executePricesEnrichTUI(
-  params: PricesEnrichOptions,
-  profile: string | undefined,
-  appRuntime: CliAppRuntime
-): Promise<void> {
+async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

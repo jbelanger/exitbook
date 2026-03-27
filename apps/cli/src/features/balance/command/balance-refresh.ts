@@ -31,7 +31,6 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
     .option('--account-id <id>', 'Refresh a specific balance scope', parseInt)
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
@@ -42,7 +41,6 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
 Examples:
   $ exitbook balance refresh
   $ exitbook balance refresh --account-id 5
-  $ exitbook balance refresh --profile business
   $ exitbook balance refresh --account-id 7 --api-key KEY --api-secret SECRET
   $ exitbook balance refresh --json
 
@@ -73,7 +71,7 @@ async function executeBalanceRefreshJSON(
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('balance-refresh', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -182,7 +180,7 @@ async function executeBalanceRefreshSingleTUI(
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) throw profileResult.error;
 
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
@@ -233,7 +231,7 @@ async function executeBalanceRefreshAllTUI(
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) throw profileResult.error;
 
       const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });

@@ -67,10 +67,7 @@ Examples:
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')
     .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost')
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP')
-    .option('--start-date <date>', 'Custom start date (YYYY-MM-DD, requires --end-date)')
-    .option('--end-date <date>', 'Custom end date (YYYY-MM-DD, requires --start-date)')
     .option('--asset <symbol>', 'Rejected for tax-package export; filing export requires full scope')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--output <dir>', 'Output directory for the tax package')
     .option('--json', 'Output command metadata in JSON format')
@@ -92,7 +89,6 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
     const scopeValidation = validateTaxPackageScope({
       config: params,
       asset: options.asset,
-      hasCustomDateWindow: options.startDate !== undefined || options.endDate !== undefined,
     });
     if (scopeValidation.isErr()) {
       displayCliError('cost-basis-export', scopeValidation.error, ExitCodes.VALIDATION_ERROR, isJson ? 'json' : 'text');
@@ -106,7 +102,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
 
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('cost-basis-export', profileResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }

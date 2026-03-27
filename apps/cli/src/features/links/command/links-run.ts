@@ -129,14 +129,13 @@ Examples:
   $ exitbook links run
   $ exitbook links run --min-confidence 0.8
   $ exitbook links run --min-confidence 0.8 --auto-confirm-threshold 0.98
-  $ exitbook links run --profile business --json
+  $ exitbook links run --json
 
 Notes:
   - --auto-confirm-threshold must be greater than or equal to --min-confidence.
   - In text mode, omitting both thresholds starts an interactive prompt flow.
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)
     .option('--json', 'Output results in JSON format')
@@ -163,7 +162,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -211,7 +210,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
 
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

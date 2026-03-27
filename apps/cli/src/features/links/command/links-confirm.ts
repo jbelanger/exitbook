@@ -38,7 +38,6 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links confirm 123
-  $ exitbook links confirm 123 --profile business
   $ exitbook links confirm 123 --json
 
 Notes:
@@ -46,7 +45,6 @@ Notes:
 `
     )
     .argument('<link-id>', 'ID of the link to confirm')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (linkIdArg: string, rawOptions: unknown) => {
       await executeLinksConfirmCommand(linkIdArg, rawOptions);
@@ -83,7 +81,7 @@ async function executeLinksConfirmCommand(linkIdArg: string, rawOptions: unknown
 
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         stopSpinner(spinner);
         displayCliError('links-confirm', profileResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');

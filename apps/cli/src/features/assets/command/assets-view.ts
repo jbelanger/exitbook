@@ -30,13 +30,11 @@ Examples:
   $ exitbook assets view
   $ exitbook assets view --action-required
   $ exitbook assets view --needs-review
-  $ exitbook assets view --profile business
 
 Notes:
   - --needs-review is an alias for --action-required.
 `
     )
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--action-required', 'Show only flagged assets that still need attention')
     .option('--needs-review', 'Alias for --action-required')
     .option('--json', 'Output results in JSON format')
@@ -70,7 +68,7 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -92,7 +90,6 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
         data: result.value.assets,
         meta: buildViewMeta(result.value.assets.length, 0, result.value.assets.length, result.value.totalCount, {
           ...(actionRequiredOnly ? { actionRequired: true } : {}),
-          ...(options.profile ? { profile: options.profile } : {}),
         }),
       };
 
@@ -112,7 +109,7 @@ async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

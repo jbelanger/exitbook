@@ -85,7 +85,6 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
     .option('--account <name>', 'Named account to sync')
     .option('--account-id <number>', 'Account ID to sync', parseInt)
     .option('--all', 'Sync all top-level accounts in the selected profile')
-    .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')
     .addHelpText(
@@ -93,8 +92,8 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
       `
 Examples:
   $ exitbook import --account kraken-main
-  $ exitbook import --account wallet-main --profile business
-  $ exitbook import --all --profile business
+  $ exitbook import --account wallet-main
+  $ exitbook import --all
   $ exitbook import --account-id 42 --json
 `
     )
@@ -115,7 +114,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -163,7 +162,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database, options.profile);
+      const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }

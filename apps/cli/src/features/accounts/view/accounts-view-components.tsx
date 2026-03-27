@@ -77,7 +77,7 @@ const AccountsHeader: FC<{ state: AccountsViewState }> = ({ state }) => {
   const { typeCounts, filters, totalCount } = state;
 
   let filterLabel = '';
-  if (filters.sourceFilter) filterLabel = ` (${filters.sourceFilter})`;
+  if (filters.platformFilter) filterLabel = ` (${filters.platformFilter})`;
   else if (filters.typeFilter) filterLabel = ` (${filters.typeFilter})`;
 
   const typeParts = buildTypeParts(typeCounts);
@@ -123,7 +123,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
   const columns = createColumns(accounts, {
     acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
-    source: { format: (item) => item.platformKey, minWidth: 12 },
+    platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
 
@@ -167,11 +167,11 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const AccountRow: FC<{
-  columns: Columns<AccountViewItem, 'acctId' | 'source' | 'type'>;
+  columns: Columns<AccountViewItem, 'acctId' | 'platform' | 'type'>;
   isSelected: boolean;
   item: AccountViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const { acctId, source, type } = columns.format(item);
+  const { acctId, platform, type } = columns.format(item);
   const label = truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28);
   const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
   const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
@@ -181,7 +181,7 @@ const AccountRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      {acctId} <Text color="cyan">{source}</Text> <Text dimColor>{type}</Text> <Text bold={!!item.name}>{label}</Text>
+      {acctId} <Text color="cyan">{platform}</Text> <Text dimColor>{type}</Text> <Text bold={!!item.name}>{label}</Text>
       {identifierSuffix ? (
         <>
           <Text> </Text>
@@ -378,7 +378,7 @@ const ControlsBar: FC = () => {
 
 const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
   const { filters, totalCount } = state;
-  const hasFilters = filters.sourceFilter || filters.typeFilter;
+  const hasFilters = filters.platformFilter || filters.typeFilter;
 
   return (
     <Box flexDirection="column">
@@ -394,7 +394,7 @@ const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
         </Box>
       ) : (
         <Text>
-          {'  '}No accounts found{filters.sourceFilter ? ` for ${filters.sourceFilter}` : ''}
+          {'  '}No accounts found{filters.platformFilter ? ` for ${filters.platformFilter}` : ''}
           {filters.typeFilter ? ` of type ${filters.typeFilter}` : ''}.
         </Text>
       )}

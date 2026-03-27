@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
-import { JsonFlagSchema, ProfileFlagSchema } from '../../shared/option-schema-primitives.js';
+import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const BalanceViewCommandOptionsSchema = z
   .object({
     accountId: z.coerce.number().int().positive().optional(),
   })
-  .extend(ProfileFlagSchema.shape)
   .extend(JsonFlagSchema.shape);
 
 export const BalanceRefreshCommandOptionsSchema = z
@@ -20,7 +19,6 @@ export const BalanceRefreshCommandOptionsSchema = z
       apiPassphrase: z.string().optional(),
     }).shape
   )
-  .extend(ProfileFlagSchema.shape)
   .extend(JsonFlagSchema.shape)
   .refine(
     (data) => {
