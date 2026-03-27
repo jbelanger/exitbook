@@ -1,11 +1,15 @@
-import type { Account, AccountType, ImportSession, RawTransactionInput } from '@exitbook/core';
+import type {
+  Account,
+  AccountType,
+  ImportSession,
+  ImportSessionStatus as CoreImportSessionStatus,
+  RawTransactionInput,
+} from '@exitbook/core';
 import type { CursorState, Result } from '@exitbook/foundation';
 
 // ---------------------------------------------------------------------------
 // Individual port interfaces
 // ---------------------------------------------------------------------------
-
-type ImportSessionStatus = 'started' | 'completed' | 'failed' | 'cancelled';
 
 export interface IImportAccountStore {
   create(params: {
@@ -34,7 +38,7 @@ export interface IImportSessionStore {
     sessionId: number,
     updates: {
       error_message?: string | undefined;
-      status?: ImportSessionStatus | undefined;
+      status?: CoreImportSessionStatus | undefined;
       transactions_imported?: number | undefined;
       transactions_skipped?: number | undefined;
     }
@@ -47,7 +51,7 @@ export interface IImportSessionStore {
       metadata?: Record<string, unknown> | undefined;
       skipped: number;
       startTime: number;
-      status: Exclude<ImportSessionStatus, 'started'>;
+      status: Exclude<CoreImportSessionStatus, 'started'>;
     }
   ): Promise<Result<void, Error>>;
   findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;

@@ -6,6 +6,7 @@ import {
   type ConvertedLotDisposal,
   type ConvertedLotTransfer,
   type CostBasisWorkflowResult,
+  SUPPORTED_COST_BASIS_FIAT_CURRENCIES,
   type StandardCostBasisDispositionFilingFact,
   type StandardCostBasisFilingFacts,
 } from '@exitbook/accounting/cost-basis';
@@ -295,6 +296,14 @@ function resolveStandardDisplayTaxableGainLoss(
 
 function formatDateString(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
+}
+
+function toPresentationFiatCurrency(currency: string): CalculationContext['currency'] {
+  if (SUPPORTED_COST_BASIS_FIAT_CURRENCIES.includes(currency as CalculationContext['currency'])) {
+    return currency as CalculationContext['currency'];
+  }
+
+  throw new Error(`Unsupported cost-basis presentation currency '${currency}'`);
 }
 
 function createStandardDisposalMetrics(): StandardDisposalMetrics {
@@ -707,8 +716,9 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
     }
 
     const { summary, report } = costBasisResult;
-    const jurisdiction = filingFacts.jurisdiction;
-    const currency = report?.displayCurrency ?? filingFacts.taxCurrency;
+    const { config } = summary.calculation;
+    const jurisdiction = config.jurisdiction;
+    const currency = toPresentationFiatCurrency(report?.displayCurrency ?? config.currency);
     const assetItems = sortAssetsByAbsGainLoss(buildStandardAssetCostBasisItems(filingFacts, report));
     const summaryTotals = buildSummaryTotalsFromAssetItems(assetItems, {
       includeTaxTreatmentSplit: jurisdiction === 'US',
@@ -718,9 +728,9 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
       assetItems,
       context: {
         calculationId: filingFacts.calculationId,
-        method: filingFacts.method,
+        method: config.method,
         jurisdiction,
-        taxYear: filingFacts.taxYear,
+        taxYear: config.taxYear,
         currency,
         dateRange: {
           startDate: summary.calculation.startDate?.toISOString().split('T')[0] ?? '',
@@ -746,7 +756,9 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
     throw new Error('Expected Canada filing facts for canada-workflow artifact');
   }
 
-  const currency = costBasisResult.displayReport?.displayCurrency ?? filingFacts.taxCurrency;
+  const currency = toPresentationFiatCurrency(
+    costBasisResult.displayReport?.displayCurrency ?? costBasisResult.calculation.displayCurrency
+  );
   const assetItems = sortAssetsByAbsGainLoss(
     buildCanadaAssetCostBasisItems(filingFacts, costBasisResult.displayReport)
   );
@@ -756,9 +768,9 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
     assetItems,
     context: {
       calculationId: filingFacts.calculationId,
-      method: filingFacts.method,
-      jurisdiction: filingFacts.jurisdiction,
-      taxYear: filingFacts.taxYear,
+      method: costBasisResult.calculation.method,
+      jurisdiction: costBasisResult.calculation.jurisdiction,
+      taxYear: costBasisResult.calculation.taxYear,
       currency,
       dateRange: {
         startDate: costBasisResult.calculation.startDate.toISOString().split('T')[0] ?? '',
