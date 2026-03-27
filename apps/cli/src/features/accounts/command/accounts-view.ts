@@ -1,4 +1,3 @@
-// Command registration for accounts view subcommand
 import type { AccountType } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -27,14 +26,8 @@ interface ViewAccountsParams extends Omit<AccountQueryParams, 'profileId'> {
   accountName?: string | undefined;
 }
 
-/**
- * Result data for view accounts command (JSON mode).
- */
 type ViewAccountsCommandResult = ViewCommandResult<AccountViewItem[]>;
 
-/**
- * Register the accounts view subcommand.
- */
 export function registerAccountsViewCommand(accountsCommand: Command): void {
   accountsCommand
     .command('view [name]')
@@ -72,9 +65,6 @@ Account Types:
     });
 }
 
-/**
- * Execute the view accounts command.
- */
 async function executeViewAccountsCommand(accountName: string | undefined, rawOptions: unknown): Promise<void> {
   const { format, options } = parseCliCommandOptions('accounts-view', rawOptions, AccountsViewCommandOptionsSchema);
 
@@ -102,9 +92,6 @@ async function executeViewAccountsCommand(accountName: string | undefined, rawOp
   }
 }
 
-/**
- * Execute accounts view in TUI mode
- */
 async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
   await withCliCommandErrorHandling('view-accounts', 'text', async () => {
     await runCommand(async (ctx) => {
@@ -166,9 +153,6 @@ async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void>
   });
 }
 
-/**
- * Execute accounts view in JSON mode
- */
 async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
   await withCliCommandErrorHandling('view-accounts', 'json', async () => {
     await runCommand(async (ctx) => {

@@ -563,7 +563,7 @@ Before merging new package-level code, verify:
 
 This contract describes the target architecture. Some earlier migration steps have already happened, but key gaps remain:
 
-- **The CLI app layer still lacks a clean command-scope model.** App config, command lifecycle, prereq orchestration, and feature execution are still spread across command files, shared runtime helpers, and handler factories. Migration: converge on one immutable app runtime plus one per-command scope.
+- **The CLI app layer still lacks a clean `command-runtime.ts`-centered scope model.** App config, command lifecycle, prereq orchestration, and feature execution are still spread across command files, shared runtime helpers, and handler factories. Migration: converge on one immutable app runtime plus one per-command scope.
 - **Some account-oriented behavior is still host-local.** Dedicated package boundaries may still need to emerge as account-specific workflows grow.
 - **Some CLI wiring still reflects older handler/factory conventions.** Migration: remove multi-argument `ctx + db + registry` assembly shapes in favor of one scope argument.
 - **Infrastructure classification is still tightening.** `logger`, `http`, `resilience`, `sqlite`, `events`, and `observability` are classified here, but code structure may still lag behind the contract in places.

@@ -1,14 +1,9 @@
-// Utilities and types for links view command
-
 import type { LinkStatus, MatchCriteria } from '@exitbook/core';
 import type { AssetMovementDraft, Transaction, TransactionLink } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
 import type { CommonViewFilters } from '../../shared/view-utils.js';
 
-/**
- * Parameters for links view command.
- */
 export interface LinksViewParams extends CommonViewFilters {
   status?: LinkStatus | undefined;
   minConfidence?: number | undefined;
@@ -16,9 +11,6 @@ export interface LinksViewParams extends CommonViewFilters {
   verbose?: boolean | undefined;
 }
 
-/**
- * Transaction details for verbose display.
- */
 export interface TransactionDetails {
   tx_fingerprint: string;
   from_address: string | undefined;
@@ -31,9 +23,6 @@ export interface TransactionDetails {
   to_address: string | undefined;
 }
 
-/**
- * Link info for display (with transaction details).
- */
 export interface LinkInfo {
   id: number;
   source_transaction_id: number;
@@ -55,17 +44,11 @@ export interface LinkInfo {
   target_transaction?: TransactionDetails | undefined;
 }
 
-/**
- * Result of links view command.
- */
 export interface LinksViewResult {
   links: LinkInfo[];
   count: number;
 }
 
-/**
- * Filter links by confidence score range.
- */
 export function filterLinksByConfidence(
   links: TransactionLink[],
   minConfidence?: number,
@@ -86,9 +69,6 @@ export function filterLinksByConfidence(
   });
 }
 
-/**
- * Map Transaction to TransactionDetails for display.
- */
 export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
   return {
     tx_fingerprint: tx.txFingerprint,
@@ -103,9 +83,6 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
   };
 }
 
-/**
- * Format link info with optional transaction details.
- */
 export function formatLinkInfo(link: TransactionLink, sourceTx?: Transaction, targetTx?: Transaction): LinkInfo {
   const linkInfo: LinkInfo = {
     id: link.id,
@@ -126,7 +103,6 @@ export function formatLinkInfo(link: TransactionLink, sourceTx?: Transaction, ta
     target_timestamp: targetTx?.datetime,
   };
 
-  // Add full transaction details if provided (for verbose mode)
   if (sourceTx) {
     linkInfo.source_transaction = mapTransactionToDetails(sourceTx);
   }
@@ -138,9 +114,6 @@ export function formatLinkInfo(link: TransactionLink, sourceTx?: Transaction, ta
   return linkInfo;
 }
 
-/**
- * Get status icon for link.
- */
 function getLinkStatusIcon(status: LinkStatus): string {
   switch (status) {
     case 'confirmed':
@@ -154,17 +127,11 @@ function getLinkStatusIcon(status: LinkStatus): string {
   }
 }
 
-/**
- * Format confidence score as percentage.
- */
 function formatConfidence(confidence: string | Decimal): string {
   const score = typeof confidence === 'string' ? parseFloat(confidence) : confidence.toNumber();
   return `${(score * 100).toFixed(1)}%`;
 }
 
-/**
- * Format match criteria for display.
- */
 function formatMatchCriteria(criteria: MatchCriteria): string {
   const parts: string[] = [];
 
@@ -189,9 +156,6 @@ function formatMatchCriteria(criteria: MatchCriteria): string {
   return parts.join(', ');
 }
 
-/**
- * Format transaction movements for display.
- */
 function formatMovements(inflows: AssetMovementDraft[], outflows: AssetMovementDraft[]): string {
   const parts: string[] = [];
 
@@ -208,9 +172,6 @@ function formatMovements(inflows: AssetMovementDraft[], outflows: AssetMovementD
   return parts.join(' | ');
 }
 
-/**
- * Format transaction details for display.
- */
 function formatTransactionDetails(tx: TransactionDetails, label: string): string[] {
   const lines: string[] = [];
 
@@ -229,9 +190,6 @@ function formatTransactionDetails(tx: TransactionDetails, label: string): string
   return lines;
 }
 
-/**
- * Format a single link for text display.
- */
 export function formatLinkForDisplay(link: LinkInfo): string {
   const statusIcon = getLinkStatusIcon(link.status);
   const lines: string[] = [];
