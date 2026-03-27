@@ -27,7 +27,8 @@ import { z } from 'zod';
 
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseWithSchema, serializeToJson, withControlledTransaction } from '../utils/db-utils.js';
+import { withControlledTransaction } from '../utils/controlled-transaction.js';
+import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 

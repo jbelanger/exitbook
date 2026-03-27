@@ -6,7 +6,7 @@ import type { Selectable, Updateable } from '@exitbook/sqlite';
 
 import type { ImportSessionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseJson, serializeToJson } from '../utils/db-utils.js';
+import { parseJson, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';

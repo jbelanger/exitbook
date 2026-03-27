@@ -7,10 +7,11 @@ import type { Selectable } from '@exitbook/sqlite';
 
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseJson, toRawTransaction } from '../utils/db-utils.js';
+import { parseJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
+import { toRawTransaction } from './raw-transaction-row-mapper.js';
 
 interface RawTransactionQueryParams {
   accountId?: number | undefined;

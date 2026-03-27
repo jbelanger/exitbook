@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 import type { AccountsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
+import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 
 import { BaseRepository } from './base-repository.js';
 

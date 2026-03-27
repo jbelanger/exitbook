@@ -16,7 +16,7 @@ import { ProjectionStateRepository } from './repositories/projection-state-repos
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
-import { withControlledTransaction } from './utils/db-utils.js';
+import { withControlledTransaction } from './utils/controlled-transaction.js';
 
 const logger = getLogger('data-session');
 
