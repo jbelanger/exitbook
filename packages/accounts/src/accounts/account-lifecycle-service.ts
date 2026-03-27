@@ -105,7 +105,7 @@ export class AccountLifecycleService {
     return this.store.listTopLevel(profileId);
   }
 
-  getById(accountId: number): Promise<Result<Account | undefined, Error>> {
+  findById(accountId: number): Promise<Result<Account | undefined, Error>> {
     return this.store.findById(accountId);
   }
 
