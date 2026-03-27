@@ -58,7 +58,7 @@ function createAcquisitionTransaction(params: {
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     movements: {
       inflows: [
@@ -98,7 +98,7 @@ function createUnpricedAcquisitionTransaction(params: {
     datetime: params.timestamp,
     timestamp: Date.parse(params.timestamp),
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     movements: {
       inflows: [

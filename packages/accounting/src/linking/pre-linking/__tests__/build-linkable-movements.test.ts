@@ -21,14 +21,14 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         datetime: '2026-01-01T00:00:00Z',
         outflows: [{ assetSymbol: 'BTC', amount: '1' }],
       }),
       createTransaction({
         id: 2,
         source: 'blockchain:bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T01:00:00Z',
         inflows: [{ assetSymbol: 'BTC', amount: '0.999' }],
         blockchain: { name: 'bitcoin', transaction_hash: '0xabc', is_confirmed: true },
@@ -55,7 +55,7 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         datetime: '2026-01-01T00:00:00Z',
         inflows: [
           { assetSymbol: 'ETH', amount: '1' },
@@ -108,7 +108,7 @@ describe('buildLinkableMovements', () => {
     const transaction = createTransaction({
       id: 7,
       source: 'kraken',
-      sourceType: 'exchange',
+      platformKind: 'exchange',
       datetime: '2026-01-01T00:00:00Z',
       outflows: [{ assetSymbol: 'BTC', amount: '1' }],
     });
@@ -125,7 +125,7 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         datetime: '2026-01-01T00:00:00Z',
         outflows: [{ assetSymbol: 'USDT', amount: '1000' }],
         inflows: [{ assetSymbol: 'ETH', amount: '0.5' }],
@@ -143,7 +143,7 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'blockchain:near',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T00:00:00Z',
         outflows: [{ assetSymbol: 'NEAR', amount: '10' }],
         inflows: [{ assetSymbol: 'NEAR', amount: '0.1' }],
@@ -162,7 +162,7 @@ describe('buildLinkableMovements', () => {
         id: 1,
         accountId: 1,
         source: 'blockchain:ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T00:00:00Z',
         outflows: [{ assetSymbol: 'ETH', amount: '5', netAmount: '4.99' }],
         blockchain: { name: 'ethereum', transaction_hash: '0xint', is_confirmed: true },
@@ -171,7 +171,7 @@ describe('buildLinkableMovements', () => {
         id: 2,
         accountId: 2,
         source: 'blockchain:ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T00:00:00Z',
         inflows: [{ assetSymbol: 'ETH', amount: '3' }],
         blockchain: { name: 'ethereum', transaction_hash: '0xint', is_confirmed: true },
@@ -221,7 +221,7 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'blockchain:bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T00:00:00Z',
         outflows: [{ assetSymbol: 'BTC', amount: '1' }],
         blockchain: { name: 'bitcoin', transaction_hash: '0x1', is_confirmed: true },
@@ -238,7 +238,7 @@ describe('buildLinkableMovements', () => {
       createTransaction({
         id: 1,
         source: 'blockchain:ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         datetime: '2026-01-01T00:00:00Z',
         inflows: [{ assetSymbol: 'ETH', amount: '1' }],
         blockchain: { name: 'ethereum', transaction_hash: '0xabc-819', is_confirmed: true },

@@ -61,7 +61,7 @@ interface TransactionSummary {
   datetime: string;
   timestamp: number;
   source: string;
-  sourceType: string;
+  platformKind: string;
   status: TransactionStatus;
   from?: string | undefined;
   to?: string | undefined;
@@ -563,7 +563,7 @@ function buildInsertValues(
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
       platform_key: transaction.platformKey,
-      source_type: transaction.sourceType,
+      source_type: transaction.platformKind,
       to_address: transaction.to ?? null,
       transaction_datetime: transaction.datetime
         ? new Date(transaction.datetime).toISOString()
@@ -592,7 +592,7 @@ function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSu
     datetime,
     timestamp,
     source: row.platform_key,
-    sourceType: row.source_type,
+    platformKind: row.source_type,
     status,
     from: row.from_address ?? undefined,
     to: row.to_address ?? undefined,
@@ -1369,7 +1369,7 @@ export class TransactionRepository extends BaseRepository {
       datetime,
       timestamp,
       platformKey: row.platform_key,
-      sourceType: row.source_type,
+      platformKind: row.source_type,
       status,
       from: row.from_address ?? undefined,
       to: row.to_address ?? undefined,

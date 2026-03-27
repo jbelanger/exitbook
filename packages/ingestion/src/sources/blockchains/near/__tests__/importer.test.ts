@@ -132,7 +132,7 @@ describe('NearImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -176,7 +176,7 @@ describe('NearImporter', () => {
       setupDefaultMocks([]);
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       const value = assertOk(result);
@@ -209,7 +209,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       const value = assertOk(result);
@@ -238,7 +238,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: implicitAddress,
       });
       const value = assertOk(result);
@@ -265,7 +265,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: subAccount,
       });
       const value = assertOk(result);
@@ -286,7 +286,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       expect(result.isErr()).toBe(true);
@@ -296,7 +296,7 @@ describe('NearImporter', () => {
     });
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
-      const result = await consumeImportStream(importer, { platformKey: 'near', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, { platformKey: 'near', platformKind: 'blockchain' as const });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.message).toBe('Address required for NEAR transaction import');
@@ -315,7 +315,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       expect(result.isErr()).toBe(true);
@@ -336,7 +336,7 @@ describe('NearImporter', () => {
       });
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       expect(result.isErr()).toBe(true);
@@ -349,7 +349,7 @@ describe('NearImporter', () => {
     test('should call with correct address for named accounts', async () => {
       const importer = createImporter();
       const address = 'alice.near';
-      await consumeImportStream(importer, { platformKey: 'near', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'near', platformKind: 'blockchain' as const, address });
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
@@ -358,7 +358,7 @@ describe('NearImporter', () => {
     test('should call with correct address for implicit accounts', async () => {
       const importer = createImporter();
       const address = '98793cd91a3f870fb126f66285808c7e094afcfc4eda8a970f6648cdf0dbd6de';
-      await consumeImportStream(importer, { platformKey: 'near', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'near', platformKind: 'blockchain' as const, address });
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
@@ -367,7 +367,7 @@ describe('NearImporter', () => {
     test('should call with correct address for sub-accounts', async () => {
       const importer = createImporter();
       const address = 'token.sub.alice.near';
-      await consumeImportStream(importer, { platformKey: 'near', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'near', platformKind: 'blockchain' as const, address });
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
       expect(calls[0]?.[0]).toBe('near');
@@ -408,7 +408,7 @@ describe('NearImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       const value = assertOk(result);
@@ -440,12 +440,12 @@ describe('NearImporter', () => {
       });
       const result1 = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       const result2 = await consumeImportStream(importer, {
         platformKey: 'near',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       const value1 = assertOk(result1);

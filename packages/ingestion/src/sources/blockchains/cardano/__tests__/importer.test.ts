@@ -136,7 +136,7 @@ describe('CardanoImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cardano',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: USER_ADDRESS,
       });
 
@@ -189,7 +189,7 @@ describe('CardanoImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cardano',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: USER_ADDRESS,
       });
 
@@ -234,7 +234,7 @@ describe('CardanoImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cardano',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: USER_ADDRESS,
       });
 
@@ -263,7 +263,7 @@ describe('CardanoImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cardano',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: USER_ADDRESS,
       });
 
@@ -276,7 +276,10 @@ describe('CardanoImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { platformKey: 'cardano', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, {
+        platformKey: 'cardano',
+        platformKind: 'blockchain' as const,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

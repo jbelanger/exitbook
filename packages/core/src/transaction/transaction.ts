@@ -77,7 +77,7 @@ function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny,
     datetime: z.string().min(1, 'Datetime string must not be empty'),
     timestamp: z.number().int().positive('Timestamp must be a positive integer'),
     platformKey: z.string().min(1, 'Platform key must not be empty'),
-    sourceType: SourceTypeSchema,
+    platformKind: SourceTypeSchema,
     status: TransactionStatusSchema,
     from: z.string().optional(),
     to: z.string().optional(),
@@ -150,7 +150,7 @@ export const TransactionDraftSchema = TransactionDraftFieldsSchema.refine(
   (data) => hasAccountingImpact(data),
   accountingImpactValidation
 ).superRefine((transaction, ctx) => {
-  if (transaction.sourceType === 'exchange' && transaction.identityMaterial === undefined) {
+  if (transaction.platformKind === 'exchange' && transaction.identityMaterial === undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Exchange transactions require identityMaterial.componentEventIds',
@@ -158,7 +158,7 @@ export const TransactionDraftSchema = TransactionDraftFieldsSchema.refine(
     });
   }
 
-  if (transaction.sourceType === 'blockchain' && transaction.identityMaterial !== undefined) {
+  if (transaction.platformKind === 'blockchain' && transaction.identityMaterial !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Blockchain transactions must not include identityMaterial',

@@ -10,7 +10,7 @@ export function materializeProcessedTransaction(draft: ConfirmedExchangeTransact
     datetime: new Date(draft.timestamp).toISOString(),
     timestamp: draft.timestamp,
     platformKey: draft.source,
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: draft.status,
     ...(draft.from ? { from: draft.from } : {}),
     ...(draft.to ? { to: draft.to } : {}),

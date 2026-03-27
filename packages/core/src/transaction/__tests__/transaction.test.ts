@@ -216,7 +216,7 @@ describe('TransactionSchema', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'solana',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
           inflows: [],
@@ -244,7 +244,7 @@ describe('TransactionSchema', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'solana',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
           inflows: [
@@ -276,7 +276,7 @@ describe('TransactionSchema', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'solana',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
           inflows: [],
@@ -308,7 +308,7 @@ describe('TransactionSchema', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'solana',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
           inflows: [],

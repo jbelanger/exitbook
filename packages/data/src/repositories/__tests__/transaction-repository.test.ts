@@ -26,17 +26,17 @@ describe('TransactionRepository', () => {
   ): TransactionDraft {
     const {
       identityReference: overrideIdentityReference,
-      sourceType: overrideSourceType,
+      platformKind: overrideSourceType,
       identityMaterial: overrideIdentityMaterial,
       blockchain: overrideBlockchain,
       ...rest
     } = overrides;
 
     const source = rest.platformKey ?? 'ethereum';
-    const sourceType = overrideSourceType ?? 'blockchain';
+    const platformKind = overrideSourceType ?? 'blockchain';
     const identityReference = overrideIdentityReference ?? overrideBlockchain?.transaction_hash ?? 'tx-default';
 
-    if (sourceType === 'exchange') {
+    if (platformKind === 'exchange') {
       return {
         datetime: '2025-01-01T00:00:00.000Z',
         fees: [],
@@ -53,7 +53,7 @@ describe('TransactionRepository', () => {
         },
         operation: { category: 'transfer', type: 'deposit' },
         platformKey: source,
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         status: 'success',
         timestamp: 1_735_689_600_000,
         identityMaterial: overrideIdentityMaterial ?? {
@@ -80,7 +80,7 @@ describe('TransactionRepository', () => {
       },
       operation: { category: 'transfer', type: 'deposit' },
       platformKey: source,
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       status: 'success',
       timestamp: 1_735_689_600_000,
       ...rest,
@@ -369,7 +369,7 @@ describe('TransactionRepository', () => {
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
       };
@@ -421,7 +421,7 @@ describe('TransactionRepository', () => {
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
       };
@@ -459,7 +459,7 @@ describe('TransactionRepository', () => {
         },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
       };
@@ -488,7 +488,7 @@ describe('TransactionRepository', () => {
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
       };
@@ -517,7 +517,7 @@ describe('TransactionRepository', () => {
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         status: 'success' as const,
         timestamp: Date.now(),
       };
@@ -622,7 +622,7 @@ describe('TransactionRepository', () => {
 
       const transaction = makePersistedTransaction({
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         identityReference: 'shared-fill-1',
       });
 
@@ -728,7 +728,7 @@ describe('TransactionRepository', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
         movements: {
@@ -852,7 +852,7 @@ describe('TransactionRepository', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
         movements: {
@@ -988,7 +988,7 @@ describe('TransactionRepository', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
         movements: {
@@ -1093,7 +1093,7 @@ describe('TransactionRepository', () => {
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         status: 'success',
         operation: { category: 'trade', type: 'swap' },
         movements: {
@@ -1310,13 +1310,13 @@ describe('TransactionRepository', () => {
 
     it('filters findAll by profileId', async () => {
       const txId1 = assertOk(
-        await repo.create(makePersistedTransaction({ platformKey: 'kraken', sourceType: 'exchange' }), 1)
+        await repo.create(makePersistedTransaction({ platformKey: 'kraken', platformKind: 'exchange' }), 1)
       );
       const txId2 = assertOk(
         await repo.create(
           makePersistedTransaction({
             platformKey: 'kraken',
-            sourceType: 'exchange',
+            platformKind: 'exchange',
             identityReference: 'audit-kraken-1',
           }),
           2
@@ -1332,13 +1332,13 @@ describe('TransactionRepository', () => {
 
     it('handles large account ID filters without exceeding SQLite variable limits', async () => {
       const txId1 = assertOk(
-        await repo.create(makePersistedTransaction({ platformKey: 'kraken', sourceType: 'exchange' }), 1)
+        await repo.create(makePersistedTransaction({ platformKey: 'kraken', platformKind: 'exchange' }), 1)
       );
       const txId2 = assertOk(
         await repo.create(
           makePersistedTransaction({
             platformKey: 'kraken',
-            sourceType: 'exchange',
+            platformKind: 'exchange',
             identityReference: 'audit-kraken-2',
           }),
           2
@@ -1359,7 +1359,7 @@ describe('TransactionRepository', () => {
         await repo.create(
           makePersistedTransaction({
             platformKey: 'kraken',
-            sourceType: 'exchange',
+            platformKind: 'exchange',
             identityReference: 'default-kraken-1',
           }),
           1

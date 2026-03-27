@@ -35,7 +35,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 1,
       datetime: '2024-01-01T12:00:00Z',
       platformKey: 'arbitrum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         { assetId: 'blockchain:arbitrum:0xaaa', assetSymbol: 'USDC', amount: '10', price: '1', priceCurrency: 'CAD' },
       ],
@@ -47,7 +47,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 2,
       datetime: '2024-01-02T12:00:00Z',
       platformKey: 'arbitrum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       outflows: [
         { assetId: 'blockchain:arbitrum:0xbbb', assetSymbol: 'USDC', amount: '5', price: '1', priceCurrency: 'CAD' },
       ],
@@ -104,7 +104,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 3,
       datetime: '2024-01-03T12:00:00Z',
       platformKey: 'arbitrum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         { assetId: 'blockchain:arbitrum:0xaaa', assetSymbol: 'USDC', amount: '10', price: '1', priceCurrency: 'CAD' },
       ],
@@ -116,7 +116,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 4,
       datetime: '2024-01-04T12:00:00Z',
       platformKey: 'arbitrum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       outflows: [
         { assetId: 'blockchain:arbitrum:0xbbb', assetSymbol: 'USDC', amount: '5', price: '1', priceCurrency: 'CAD' },
       ],
@@ -170,7 +170,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 10,
       datetime: '2024-01-01T12:00:00Z',
       platformKey: 'ethereum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:ethereum:0xscam',
@@ -214,7 +214,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 12,
       datetime: '2024-01-02T12:00:00Z',
       platformKey: 'ethereum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:ethereum:0xscam',
@@ -247,7 +247,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 13,
       datetime: '2024-01-03T12:00:00Z',
       platformKey: 'ethereum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:ethereum:0xwarn',
@@ -325,7 +325,7 @@ describe('runCanadaAcbWorkflow', () => {
       accountId: 2,
       datetime: '2024-01-10T12:05:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -345,7 +345,7 @@ describe('runCanadaAcbWorkflow', () => {
       accountId: 2,
       datetime: '2024-02-01T12:00:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       outflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -467,7 +467,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 22,
       datetime: '2024-01-10T12:00:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       blockchain: { name: 'bitcoin', transaction_hash: 'hash-fee-only', is_confirmed: true },
       outflows: [
         {
@@ -503,7 +503,7 @@ describe('runCanadaAcbWorkflow', () => {
       accountId: 2,
       datetime: '2024-01-10T12:01:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       blockchain: { name: 'bitcoin', transaction_hash: 'hash-fee-only', is_confirmed: true },
       inflows: [
         {
@@ -523,7 +523,7 @@ describe('runCanadaAcbWorkflow', () => {
       accountId: 2,
       datetime: '2024-02-01T12:00:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       outflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -565,7 +565,7 @@ describe('runCanadaAcbWorkflow', () => {
       id: 90,
       datetime: '2024-01-01T12:00:00Z',
       platformKey: 'spam-chain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:spam-chain:0xscam',

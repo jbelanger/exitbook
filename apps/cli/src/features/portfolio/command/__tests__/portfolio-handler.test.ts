@@ -58,7 +58,7 @@ function createTransaction(): Transaction {
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: new Date('2024-01-01T00:00:00.000Z').getTime(),
     source: 'kraken',
-    sourceType: 'exchange-api',
+    platformKind: 'exchange-api',
     status: 'success',
     movements: {
       inflows: [
@@ -93,7 +93,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
     datetime: '2024-01-02T00:00:00.000Z',
     timestamp: new Date('2024-01-02T00:00:00.000Z').getTime(),
     source: 'base',
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     status: 'success',
     movements: {
       inflows: [

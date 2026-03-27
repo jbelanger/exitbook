@@ -16,7 +16,7 @@ import { buildLinkGraph } from '../link-graph-utils.js';
 function createTx(
   id: number,
   platformKey: string,
-  sourceType: 'exchange' | 'blockchain',
+  platformKind: 'exchange' | 'blockchain',
   options: { blockchain?: string; datetime?: string } = {}
 ): Transaction {
   const base = materializeTestTransaction({
@@ -24,7 +24,7 @@ function createTx(
     accountId: 1,
     identityReference: `ext-${id}`,
     platformKey,
-    sourceType,
+    platformKind,
     datetime: options.datetime ?? '2023-01-01T00:00:00Z',
     timestamp: Date.parse(options.datetime ?? '2023-01-01T00:00:00Z'),
     status: 'success',

@@ -4,18 +4,18 @@ import type { Result } from '@exitbook/foundation';
 
 type FingerprintTransactionInput = Pick<
   TransactionDraft,
-  'blockchain' | 'identityMaterial' | 'platformKey' | 'sourceType'
+  'blockchain' | 'identityMaterial' | 'platformKey' | 'platformKind'
 >;
 
 export function deriveTransactionFingerprint(
   input: FingerprintTransactionInput,
   accountFingerprint: string
 ): Result<string, Error> {
-  if (input.sourceType === 'blockchain') {
+  if (input.platformKind === 'blockchain') {
     return computeCanonicalTxFingerprint({
       accountFingerprint,
       platformKey: input.platformKey,
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       blockchainTransactionHash: input.blockchain?.transaction_hash,
     });
   }
@@ -23,7 +23,7 @@ export function deriveTransactionFingerprint(
   return computeCanonicalTxFingerprint({
     accountFingerprint,
     platformKey: input.platformKey,
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     componentEventIds: input.identityMaterial?.componentEventIds,
   });
 }

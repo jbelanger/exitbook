@@ -236,7 +236,7 @@ function groupSameHashTransactionsForCostBasis(
   const txsByBlockchainAndHash = new Map<string, { blockchain: string; normalizedHash: string; txs: Transaction[] }>();
 
   for (const tx of transactions) {
-    if (tx.sourceType !== 'blockchain') continue;
+    if (tx.platformKind !== 'blockchain') continue;
     if (!tx.blockchain?.name || !tx.blockchain?.transaction_hash) continue;
 
     const hasMovements = (tx.movements.inflows?.length ?? 0) > 0 || (tx.movements.outflows?.length ?? 0) > 0;

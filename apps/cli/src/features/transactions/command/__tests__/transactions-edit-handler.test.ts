@@ -17,7 +17,7 @@ function createTransaction(id: number, txFingerprintSeed = `ext-${id}`): Transac
     accountId: 1,
     txFingerprint: `tx:v2:kraken:1:${txFingerprintSeed}`,
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: Date.parse('2024-01-01T00:00:00.000Z'),
     status: 'success',

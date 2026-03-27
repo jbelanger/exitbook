@@ -135,7 +135,7 @@ function createLinkableMovement(
     transactionId: tx.id,
     accountId: tx.accountId,
     platformKey: tx.platformKey,
-    sourceType: tx.sourceType,
+    platformKind: tx.platformKind,
     assetId,
     assetSymbol,
     direction,

@@ -135,7 +135,7 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
   return {
     id: tx.id,
     source: tx.platformKey,
-    sourceType: tx.blockchain ? 'blockchain' : 'exchange',
+    platformKind: tx.blockchain ? 'blockchain' : 'exchange',
     txFingerprint: tx.txFingerprint,
     datetime: tx.datetime,
 

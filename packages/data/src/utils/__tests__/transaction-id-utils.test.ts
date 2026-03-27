@@ -11,11 +11,11 @@ const USD = 'USD' as Currency;
 
 type BlockchainFingerprintInput = TransactionDraft & {
   identityMaterial?: undefined;
-  sourceType: 'blockchain';
+  platformKind: 'blockchain';
 };
 
 type ExchangeFingerprintInput = TransactionDraft & {
-  sourceType: 'exchange';
+  platformKind: 'exchange';
 };
 
 function makeBlockchainTransactionDraft(
@@ -23,7 +23,7 @@ function makeBlockchainTransactionDraft(
 ): BlockchainFingerprintInput {
   return {
     platformKey: 'kraken',
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     datetime: '2023-11-14T22:13:20.000Z',
     status: 'success',
     timestamp: 1_700_000_000_000,
@@ -41,11 +41,11 @@ function makeExchangeTransactionDraft(overrides: Partial<ExchangeFingerprintInpu
   return {
     ...makeBlockchainTransactionDraft({
       platformKey: 'kraken',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       blockchain: undefined,
     }),
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     identityMaterial: {
       componentEventIds: ['evt-a', 'evt-b'],
     },
@@ -59,7 +59,7 @@ describe('deriveTransactionFingerprint', () => {
       deriveTransactionFingerprint(
         makeBlockchainTransactionDraft({
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           blockchain: {
             name: 'bitcoin',
             transaction_hash: '0xabc123',
@@ -149,7 +149,7 @@ describe('deriveTransactionFingerprint', () => {
         {
           ...makeBlockchainTransactionDraft({
             platformKey: 'bitcoin',
-            sourceType: 'blockchain',
+            platformKind: 'blockchain',
           }),
           blockchain: {
             is_confirmed: true,

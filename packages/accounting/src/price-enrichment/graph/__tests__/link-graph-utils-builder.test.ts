@@ -15,14 +15,14 @@ function createTransaction(params: {
   outflows?: { amount: string; assetSymbol: string }[];
   source: string;
 }): Transaction {
-  const sourceType: Transaction['sourceType'] =
+  const platformKind: Transaction['platformKind'] =
     params.source === 'kraken' || params.source === 'coinbase' ? 'exchange' : 'blockchain';
 
   return materializeTestTransaction({
     id: params.id,
     accountId: 1,
     platformKey: params.source,
-    sourceType,
+    platformKind,
     identityReference: `tx-${params.id}`,
     txFingerprint: `txfp:${params.source}-${params.id}`,
     datetime: params.datetime,

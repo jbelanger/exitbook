@@ -11,7 +11,7 @@ export interface StreamingImportParams {
   platformKey: string;
 
   /** Source type (blockchain, exchange-api, or exchange-csv) */
-  sourceType: AccountType;
+  platformKind: AccountType;
 
   /** Wallet address (for blockchain imports) */
   address?: string | undefined;

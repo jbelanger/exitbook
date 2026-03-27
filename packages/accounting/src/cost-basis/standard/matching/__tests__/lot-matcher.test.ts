@@ -119,7 +119,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'USD', amount: '3000', price: '1' }],
           {
             platformKey: 'ethereum',
-            sourceType: 'blockchain',
+            platformKind: 'blockchain',
             fees: [createFeeMovement('network', 'on-chain', 'ETH', '0.001', '3000')],
           }
         ),
@@ -232,7 +232,7 @@ describe('LotMatcher - Fee Handling', () => {
           [{ assetSymbol: 'ETH', amount: '1', price: '3500' }],
           {
             platformKey: 'ethereum',
-            sourceType: 'blockchain',
+            platformKind: 'blockchain',
             type: 'sell',
             fees: [createFeeMovement('network', 'on-chain', 'ETH', '0.002', '3500')],
           }
@@ -406,7 +406,7 @@ describe('LotMatcher - Fee Handling', () => {
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'ETH', amount: '1', price: '3000' }], [], {
           platformKey: 'ethereum',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           category: 'transfer',
           type: 'deposit',
           // Missing priceAtTxTime on fee - this should cause an error
@@ -466,7 +466,7 @@ describe('LotMatcher - Fee Handling', () => {
       const transactions = [
         createTransaction(1, '2024-01-01T00:00:00Z', [{ assetSymbol: 'XYZ', amount: '100', price: '0' }], [], {
           platformKey: 'ethereum',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           category: 'transfer',
           type: 'deposit',
           fees: [createFeeMovement('network', 'on-chain', 'ETH', '0.001', '5000')], // $5 fee
@@ -501,7 +501,7 @@ describe('LotMatcher - Fee Handling', () => {
           [],
           {
             platformKey: 'ethereum',
-            sourceType: 'blockchain',
+            platformKind: 'blockchain',
             category: 'transfer',
             type: 'deposit',
             fees: [createFeeMovement('platform', 'balance', 'USD', '10', '1')],
@@ -640,7 +640,7 @@ describe('LotMatcher - Fee Handling', () => {
           accountId: 2, // Different address in same wallet
           datetime: '2024-02-01T00:00:00Z',
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           category: 'transfer',
           type: 'withdrawal',
           outflows: [{ assetSymbol: 'BTC', amount: '1', assetId: 'test:btc', price: '55000' }],
@@ -652,7 +652,7 @@ describe('LotMatcher - Fee Handling', () => {
           accountId: 3, // Different address in same wallet
           datetime: '2024-02-01T00:00:00Z',
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           category: 'transfer',
           type: 'deposit',
           inflows: [{ assetSymbol: 'BTC', amount: '0.5', assetId: 'test:btc', price: '55000' }], // Change input

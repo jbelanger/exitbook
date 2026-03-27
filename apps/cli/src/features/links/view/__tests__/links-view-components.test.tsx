@@ -581,15 +581,19 @@ function createMockLink(
   };
 }
 
-function createMockTransaction(id: number, source: string, datetime: string): Transaction {
+function createMockTransaction(id: number, platformKey: string, datetime: string): Transaction {
   return {
     id,
-    platformKey: source,
-    sourceType: source === 'kraken' || source === 'coinbase' ? 'exchange' : 'blockchain',
+    platformKey: platformKey,
+    platformKind: platformKey === 'kraken' || platformKey === 'coinbase' ? 'exchange' : 'blockchain',
     datetime,
     txFingerprint: `ext-${id}`,
-    from: source === 'kraken' || source === 'coinbase' ? undefined : '0xABCD1234ABCD1234ABCD1234ABCD1234ABCD1234',
-    to: source === 'ethereum' || source === 'bitcoin' ? '0x1234ABCD1234ABCD1234ABCD1234ABCD1234ABCD' : undefined,
+    from:
+      platformKey === 'kraken' || platformKey === 'coinbase' ? undefined : '0xABCD1234ABCD1234ABCD1234ABCD1234ABCD1234',
+    to:
+      platformKey === 'ethereum' || platformKey === 'bitcoin'
+        ? '0x1234ABCD1234ABCD1234ABCD1234ABCD1234ABCD'
+        : undefined,
     movements: {
       inflows: [],
       outflows: [],

@@ -84,7 +84,7 @@ describe('XrpImporter', () => {
     const result = await consumeImportStream(importer, {
       address: USER_ADDRESS,
       platformKey: 'xrp',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     expect(result.isOk()).toBe(true);
@@ -110,7 +110,7 @@ describe('XrpImporter', () => {
     const result = await consumeImportStream(importer, {
       address: USER_ADDRESS,
       platformKey: 'xrp',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     expect(result.isErr()).toBe(true);
@@ -119,7 +119,7 @@ describe('XrpImporter', () => {
   test('requires address parameter', async () => {
     const result = await consumeImportStream(importer, {
       platformKey: 'xrp',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     expect(result.isErr()).toBe(true);
@@ -164,7 +164,7 @@ describe('XrpImporter', () => {
     const result = await consumeImportStream(importer, {
       address: USER_ADDRESS,
       platformKey: 'xrp',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     expect(result.isOk()).toBe(true);
@@ -202,7 +202,7 @@ describe('XrpImporter', () => {
     await consumeImportStream(importer, {
       address: USER_ADDRESS,
       platformKey: 'xrp',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       cursor: { normal: resumeCursor },
     });
 

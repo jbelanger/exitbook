@@ -32,7 +32,7 @@ describe('@exitbook/core/test-utils', () => {
       computeTxFingerprint({
         accountFingerprint,
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         componentEventIds: ['fill-1'],
       })
     );
@@ -54,7 +54,7 @@ describe('@exitbook/core/test-utils', () => {
       computeTxFingerprint({
         accountFingerprint,
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0xabc',
       })
     );

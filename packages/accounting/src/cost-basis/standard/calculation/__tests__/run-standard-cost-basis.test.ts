@@ -93,7 +93,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -128,7 +128,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -161,7 +161,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -197,7 +197,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -211,7 +211,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -274,7 +274,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -288,7 +288,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -349,7 +349,7 @@ describe('runCostBasisPipeline', () => {
       {
         category: 'transfer',
         platformKey: 'ethereum',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         type: 'deposit',
       }
     );
@@ -567,7 +567,7 @@ describe('runCostBasisPipeline', () => {
         inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xaaa', 'USDC', '10')],
       },
       [],
-      { platformKey: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+      { platformKey: 'arbitrum', platformKind: 'blockchain', category: 'transfer', type: 'deposit' }
     );
     const second = createTransactionFromMovements(
       2,
@@ -576,7 +576,7 @@ describe('runCostBasisPipeline', () => {
         inflows: [createBlockchainTokenMovement('blockchain:arbitrum:0xbbb', 'USDC', '5')],
       },
       [],
-      { platformKey: 'arbitrum', sourceType: 'blockchain', category: 'transfer', type: 'deposit' }
+      { platformKey: 'arbitrum', platformKind: 'blockchain', category: 'transfer', type: 'deposit' }
     );
 
     const result = await runCostBasisPipeline([first, second], defaultConfig, store, {

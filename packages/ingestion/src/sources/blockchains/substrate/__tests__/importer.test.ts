@@ -174,7 +174,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -220,7 +220,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -238,7 +238,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -258,7 +258,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -276,7 +276,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -304,7 +304,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -332,7 +332,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -347,7 +347,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
       });
 
       expect(result.isErr()).toBe(true);
@@ -361,7 +361,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: '',
       });
 
@@ -385,7 +385,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -409,7 +409,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -437,7 +437,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -474,7 +474,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -536,12 +536,12 @@ describe('SubstrateImporter', () => {
 
       const polkadotResult = await consumeImportStream(polkadotImporter, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: polkadotAddress,
       });
       const bittensorResult = await consumeImportStream(bittensorImporter, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: bittensorAddress,
       });
 
@@ -562,7 +562,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { platformKey: 'substrate', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'substrate', platformKind: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
@@ -581,12 +581,12 @@ describe('SubstrateImporter', () => {
 
       await consumeImportStream(polkadotImporter, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
       await consumeImportStream(bittensorImporter, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -604,7 +604,7 @@ describe('SubstrateImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { platformKey: 'substrate', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'substrate', platformKind: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;
@@ -641,7 +641,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -662,7 +662,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -682,7 +682,7 @@ describe('SubstrateImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'substrate',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 

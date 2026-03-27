@@ -278,7 +278,7 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
         accountId: 2,
         datetime: '2024-03-10T00:00:00.000Z',
         source: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         inflows: [{ amount: '0.2', assetSymbol: 'BTC', assetId: 'blockchain:bitcoin:native' }],
         blockchain: {
           name: 'bitcoin',
@@ -483,7 +483,7 @@ export function createStandardPackageBuildContext(): TaxPackageBuildContext {
         accountId: 3,
         datetime: '2024-12-15T00:00:00.000Z',
         source: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         inflows: [{ amount: '0.25', assetSymbol: 'BTC', assetId: 'blockchain:bitcoin:native' }],
         blockchain: {
           name: 'bitcoin',

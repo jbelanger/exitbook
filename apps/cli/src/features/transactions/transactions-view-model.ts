@@ -28,7 +28,7 @@ export interface FeeDisplayItem {
 export interface TransactionViewItem {
   id: number;
   source: string;
-  sourceType: 'exchange' | 'blockchain';
+  platformKind: 'exchange' | 'blockchain';
   txFingerprint: string;
   datetime: string;
   operationCategory: string;

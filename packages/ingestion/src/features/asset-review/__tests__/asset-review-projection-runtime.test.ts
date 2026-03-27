@@ -34,7 +34,7 @@ function createTransactions(): Transaction[] {
       datetime: '2026-03-10T00:00:00.000Z',
       timestamp: Date.parse('2026-03-10T00:00:00.000Z'),
       platformKey: 'ethereum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       status: 'success',
       blockchain: {
         name: 'ethereum',

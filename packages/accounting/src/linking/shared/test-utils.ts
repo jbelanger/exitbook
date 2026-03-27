@@ -16,7 +16,7 @@ export function createLinkableMovement(overrides: Partial<LinkableMovement> = {}
     transactionId: id,
     accountId: 1,
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     assetId: 'test:btc',
     assetSymbol: 'BTC' as Currency,
     direction: 'out',
@@ -94,22 +94,22 @@ export function createTransaction(params: {
   id: number;
   inflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
   outflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
+  platformKind?: 'blockchain' | 'exchange';
   source: string;
-  sourceType?: 'blockchain' | 'exchange';
   to?: string;
 }): Transaction {
-  const sourceType = params.sourceType ?? (params.blockchain ? 'blockchain' : 'exchange');
+  const platformKind = params.platformKind ?? (params.blockchain ? 'blockchain' : 'exchange');
   const accountId = params.accountId ?? 1;
   const identityReference = `${params.source}-${params.id}`;
   const blockchain =
-    sourceType === 'blockchain'
+    platformKind === 'blockchain'
       ? (params.blockchain ?? {
           is_confirmed: true,
           name: params.source,
           transaction_hash: identityReference,
         })
       : undefined;
-  const txFingerprint = seedTxFingerprint(params.source, sourceType, accountId, identityReference);
+  const txFingerprint = seedTxFingerprint(params.source, platformKind, accountId, identityReference);
 
   return materializeTestTransaction({
     id: params.id,
@@ -117,7 +117,7 @@ export function createTransaction(params: {
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     platformKey: params.source,
-    sourceType,
+    platformKind,
     status: 'success',
     from: params.from,
     to: params.to,

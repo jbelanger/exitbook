@@ -18,7 +18,7 @@ const mockCreateExchangeClient = vi.mocked(createExchangeClient);
 function makeParams(overrides: Partial<StreamingImportParams> = {}): StreamingImportParams {
   return {
     platformKey: 'kraken',
-    sourceType: 'exchange-api',
+    platformKind: 'exchange-api',
     credentials: {
       apiKey: 'test-key',
       apiSecret: 'test-secret',

@@ -21,8 +21,8 @@ function inferSeedTxSourceType(source: string): SeedTxSourceType {
   return DEFAULT_BLOCKCHAIN_SOURCES.has(source) ? 'blockchain' : 'exchange';
 }
 
-function buildSeedAccountFingerprint(source: string, sourceType: SeedTxSourceType, accountId: number): string {
-  if (sourceType === 'blockchain') {
+function buildSeedAccountFingerprint(source: string, platformKind: SeedTxSourceType, accountId: number): string {
+  if (platformKind === 'blockchain') {
     return sha256Hex(`default|wallet|${source}|identifier-${accountId}`);
   }
 
@@ -32,7 +32,7 @@ function buildSeedAccountFingerprint(source: string, sourceType: SeedTxSourceTyp
 export function seedTxFingerprint(source: string, accountId: number, identityReference: string): string;
 export function seedTxFingerprint(
   source: string,
-  sourceType: SeedTxSourceType,
+  platformKind: SeedTxSourceType,
   accountId: number,
   identityReference: string
 ): string;
@@ -42,7 +42,8 @@ export function seedTxFingerprint(
   accountIdOrIdentityReference: number | string,
   maybeIdentityReference?: string
 ): string {
-  const sourceType = typeof sourceTypeOrAccountId === 'number' ? inferSeedTxSourceType(source) : sourceTypeOrAccountId;
+  const platformKind =
+    typeof sourceTypeOrAccountId === 'number' ? inferSeedTxSourceType(source) : sourceTypeOrAccountId;
   const accountId =
     typeof sourceTypeOrAccountId === 'number' ? sourceTypeOrAccountId : (accountIdOrIdentityReference as number);
   const identityReference =
@@ -53,9 +54,9 @@ export function seedTxFingerprint(
   }
 
   const normalizedIdentityReference = identityReference.trim();
-  const accountFingerprint = buildSeedAccountFingerprint(source, sourceType, accountId);
+  const accountFingerprint = buildSeedAccountFingerprint(source, platformKind, accountId);
   const canonicalMaterial =
-    sourceType === 'blockchain'
+    platformKind === 'blockchain'
       ? `${accountFingerprint}|blockchain|${source}|${normalizedIdentityReference}`
       : `${accountFingerprint}|exchange|${source}|${[normalizedIdentityReference].sort().join('|')}`;
 

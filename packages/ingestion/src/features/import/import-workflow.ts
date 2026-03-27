@@ -291,31 +291,31 @@ export class ImportWorkflow {
 
   private buildImporter(account: Account): Result<{ importer: IImporter; params: StreamingImportParams }, Error> {
     const platformKey = account.platformKey;
-    const sourceType = account.accountType;
+    const platformKind = account.accountType;
 
-    logger.debug(`Setting up ${sourceType} import for ${platformKey}`);
+    logger.debug(`Setting up ${platformKind} import for ${platformKey}`);
 
     const params: StreamingImportParams = {
       platformKey,
-      sourceType,
+      platformKind,
       cursor: account.lastCursor,
     };
 
-    if (sourceType === 'blockchain') {
+    if (platformKind === 'blockchain') {
       params.address = account.identifier;
       params.providerName = account.providerName ?? undefined;
       if (!params.address) {
         return err(new Error(`Address required for ${platformKey} import`));
       }
-    } else if (sourceType === 'exchange-api') {
+    } else if (platformKind === 'exchange-api') {
       params.credentials = account.credentials ?? undefined;
-    } else if (sourceType === 'exchange-csv') {
+    } else if (platformKind === 'exchange-csv') {
       params.csvDirectory = account.identifier;
     }
 
     const normalizedSourceName = platformKey.toLowerCase();
 
-    if (sourceType === 'blockchain') {
+    if (platformKind === 'blockchain') {
       const adapterResult = this.registry.getBlockchain(normalizedSourceName);
       if (adapterResult.isErr()) return err(adapterResult.error);
       const importer = adapterResult.value.createImporter(this.providerRuntime, params.providerName);
@@ -384,7 +384,7 @@ export class ImportWorkflow {
     this.emit({
       type: 'import.started',
       platformKey,
-      sourceType: account.accountType,
+      platformKind: account.accountType,
       accountId: account.id,
       parentAccountId: account.parentAccountId,
       isNewAccount,

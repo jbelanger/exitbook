@@ -51,7 +51,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
     const links: NewTransactionLink[] = [];
     const consumedCandidateIds = new Set<number>();
     const now = new Date();
-    const exchangeTargets = targets.filter((target) => target.sourceType === 'exchange' && target.direction === 'in');
+    const exchangeTargets = targets.filter((target) => target.platformKind === 'exchange' && target.direction === 'in');
 
     for (const group of buildGroups(sources, targets)) {
       const capacityPlanResult = planSameHashUtxoSourceCapacities(
@@ -124,7 +124,7 @@ function buildGroups(sources: LinkableMovement[], targets: LinkableMovement[]): 
   const candidateGroups = new Map<string, LinkableMovement[]>();
 
   for (const source of sources) {
-    if (source.sourceType !== 'blockchain') continue;
+    if (source.platformKind !== 'blockchain') continue;
     if (source.direction !== 'out') continue;
     if (!source.blockchainTxHash) continue;
     if (!source.toAddress) continue;
@@ -155,7 +155,7 @@ function buildGroups(sources: LinkableMovement[], targets: LinkableMovement[]): 
 
     const siblingInflows = targets.filter(
       (target) =>
-        target.sourceType === 'blockchain' &&
+        target.platformKind === 'blockchain' &&
         target.platformKey === groupSources[0]?.platformKey &&
         target.direction === 'in' &&
         target.blockchainTxHash === hash &&
@@ -164,7 +164,7 @@ function buildGroups(sources: LinkableMovement[], targets: LinkableMovement[]): 
 
     const hasExchangeTargets = targets.some(
       (target) =>
-        target.sourceType === 'exchange' &&
+        target.platformKind === 'exchange' &&
         target.direction === 'in' &&
         target.assetSymbol === groupSources[0]?.assetSymbol
     );

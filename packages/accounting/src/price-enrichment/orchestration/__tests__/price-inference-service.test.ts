@@ -26,7 +26,7 @@ function makeTx(
     datetime: '2024-01-01T10:00:00.000Z',
     timestamp: new Date('2024-01-01T10:00:00.000Z').getTime(),
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     operation: { category: 'trade', type: 'buy' },
     fees: [],
@@ -167,7 +167,7 @@ describe('PriceInferenceService', () => {
         datetime: new Date(baseTime.getTime() + 120_000).toISOString(),
         timestamp: baseTime.getTime() + 120_000,
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         operation: { category: 'transfer', type: 'deposit' },
         movements: {
           inflows: [

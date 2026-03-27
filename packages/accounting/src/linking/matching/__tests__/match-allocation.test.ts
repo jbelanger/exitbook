@@ -115,7 +115,7 @@ describe('allocateMatches invariants', () => {
       direction: 'out',
       amount: parseDecimal('100'),
       platformKey: 'exchange-a',
-      sourceType: 'exchange',
+      platformKind: 'exchange',
     });
 
     // Target with amount > source — will fail validation after 1:1 restoration
@@ -125,7 +125,7 @@ describe('allocateMatches invariants', () => {
       amount: parseDecimal('200'),
       timestamp: new Date('2024-01-01T13:00:00Z'),
       platformKey: 'blockchain-a',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     // Valid target
@@ -135,7 +135,7 @@ describe('allocateMatches invariants', () => {
       amount: parseDecimal('99.5'),
       timestamp: new Date('2024-01-01T13:00:00Z'),
       platformKey: 'blockchain-b',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -384,14 +384,14 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('5'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
     const target2 = createLinkableMovement({
       id: 3,
       amount: parseDecimal('5'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -427,7 +427,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('10'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -462,7 +462,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('0.5'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -493,7 +493,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('0.999'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -524,14 +524,14 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('6'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
     const target2 = createLinkableMovement({
       id: 3,
       amount: parseDecimal('6'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -567,7 +567,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('10'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -602,7 +602,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('10'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [
@@ -636,7 +636,7 @@ describe('allocateMatches scenarios', () => {
       amount: parseDecimal('5'),
       direction: 'in',
       platformKey: 'blockchain',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const matches: PotentialMatch[] = [

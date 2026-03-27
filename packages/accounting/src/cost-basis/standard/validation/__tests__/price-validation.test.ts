@@ -39,7 +39,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [{ assetSymbol: 'BTC', amount: '1.0', price: '50000', priceSource: 'test-provider' }],
           outflows: [{ assetSymbol: 'USD', amount: '50000', price: '1', priceSource: 'test-provider' }],
         }),
@@ -55,7 +55,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
         }),
       ];
@@ -72,7 +72,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [
             {
               assetSymbol: 'BTC',
@@ -97,7 +97,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [
             {
               assetSymbol: 'BTC',
@@ -124,7 +124,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [{ assetSymbol: 'BTC', amount: '1.0' }],
           outflows: [
             {
@@ -168,7 +168,7 @@ describe('price-validation', () => {
         buildTransaction({
           id: 1,
           datetime: '2024-01-15T10:00:00Z',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           inflows: [
             {
               assetSymbol: 'BTC',

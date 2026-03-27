@@ -824,7 +824,7 @@ export function buildAccountAssetBalances(
     const fallbackTx = accountTransactions.get(accountId)?.[0];
     const metadata = accountMetadataById.get(accountId) ?? {
       platformKey: fallbackTx?.platformKey ?? `account-${accountId}`,
-      accountType: deriveAccountTypeFromSourceType(fallbackTx?.sourceType),
+      accountType: deriveAccountTypeFromSourceType(fallbackTx?.platformKind),
     };
 
     if (!accountMetadataById.has(accountId)) {
@@ -859,9 +859,9 @@ export function buildAccountAssetBalances(
 }
 
 function deriveAccountTypeFromSourceType(
-  sourceType: Transaction['sourceType'] | undefined
+  platformKind: Transaction['platformKind'] | undefined
 ): AccountMetadata['accountType'] {
-  if (sourceType === 'blockchain') {
+  if (platformKind === 'blockchain') {
     return 'blockchain';
   }
   return 'exchange-api';

@@ -128,7 +128,7 @@ describe('computeTxFingerprint (blockchain)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0xabc123',
       })
     );
@@ -139,7 +139,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     const input = {
       accountFingerprint: acctFp,
       platformKey: 'ethereum',
-      sourceType: 'blockchain' as const,
+      platformKind: 'blockchain' as const,
       blockchainTransactionHash: '0xdef',
     };
     const fp1 = assertOk(computeTxFingerprint(input));
@@ -152,7 +152,7 @@ describe('computeTxFingerprint (blockchain)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
       })
     );
     expect(e.message).toContain('blockchainTransactionHash');
@@ -163,7 +163,7 @@ describe('computeTxFingerprint (blockchain)', () => {
       computeTxFingerprint({
         accountFingerprint: '',
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
     );
@@ -175,7 +175,7 @@ describe('computeTxFingerprint (blockchain)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: '',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
     );
@@ -192,7 +192,7 @@ describe('computeTxFingerprint (blockchain)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0x1',
       })
     );
@@ -213,7 +213,7 @@ describe('computeTxFingerprint (exchange)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         componentEventIds: ['evt-1', 'evt-2'],
       })
     );
@@ -221,14 +221,14 @@ describe('computeTxFingerprint (exchange)', () => {
   });
 
   it('is order-independent', async () => {
-    const base = { accountFingerprint: acctFp, platformKey: 'kraken', sourceType: 'exchange' as const };
+    const base = { accountFingerprint: acctFp, platformKey: 'kraken', platformKind: 'exchange' as const };
     const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['b', 'a', 'c'] }));
     const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['c', 'a', 'b'] }));
     expect(fp1).toBe(fp2);
   });
 
   it('does not deduplicate event IDs', async () => {
-    const base = { accountFingerprint: acctFp, platformKey: 'kucoin', sourceType: 'exchange' as const };
+    const base = { accountFingerprint: acctFp, platformKey: 'kucoin', platformKind: 'exchange' as const };
     const fp1 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b', 'a'] }));
     const fp2 = assertOk(computeTxFingerprint({ ...base, componentEventIds: ['a', 'b'] }));
     expect(fp1).not.toBe(fp2);
@@ -239,7 +239,7 @@ describe('computeTxFingerprint (exchange)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         componentEventIds: [],
       })
     );
@@ -251,7 +251,7 @@ describe('computeTxFingerprint (exchange)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
       })
     );
     expect(e.message).toContain('componentEventIds');
@@ -262,7 +262,7 @@ describe('computeTxFingerprint (exchange)', () => {
       computeTxFingerprint({
         accountFingerprint: acctFp,
         platformKey: 'kraken',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         componentEventIds: ['   '],
       })
     );

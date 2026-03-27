@@ -117,7 +117,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 2,
       datetime: '2024-02-01T12:05:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -203,7 +203,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 2,
       datetime: '2024-02-10T12:05:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -285,7 +285,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 2,
       datetime: '2024-02-12T12:05:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -423,7 +423,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 2,
       datetime: '2024-02-13T12:05:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -443,7 +443,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 3,
       datetime: '2024-02-13T12:06:00Z',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:bitcoin:native',
@@ -539,7 +539,7 @@ describe('buildCanadaTaxInputContext', () => {
       accountId: 2,
       datetime: '2024-01-26T12:00:00Z',
       platformKey: 'ethereum',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       inflows: [
         {
           assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',

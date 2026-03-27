@@ -151,7 +151,7 @@ export function appendSourceLinkRows(
     const row: TaxPackageSourceLinkRow = {
       package_ref: params.packageRef,
       package_artifact: params.packageArtifact,
-      source_type: transactionResult.value.sourceType,
+      source_type: transactionResult.value.platformKind,
       source_venue_label: transactionResult.value.platformKey,
       source_account_label: formatAccountLabel(account, params.sourceNameCounts.get(account.platformKey) ?? 0),
       tx_fingerprint: transactionResult.value.txFingerprint,

@@ -280,11 +280,11 @@ export class ProcessingWorkflow {
       }
 
       const account = accountResult.value;
-      const sourceType = account.accountType;
+      const platformKind = account.accountType;
       const platformKey = account.platformKey;
 
       // Choose batch provider based on source type
-      const batchProvider = this.createBatchProvider(sourceType, platformKey, accountId);
+      const batchProvider = this.createBatchProvider(platformKind, platformKey, accountId);
 
       // Process using batch provider
       return this.processAccountWithBatchProvider(accountId, account, batchProvider);
@@ -338,13 +338,13 @@ export class ProcessingWorkflow {
   /**
    * Create appropriate batch provider based on source type and name.
    */
-  private createBatchProvider(sourceType: string, platformKey: string, accountId: number): IRawDataBatchProvider {
+  private createBatchProvider(platformKind: string, platformKey: string, accountId: number): IRawDataBatchProvider {
     // NEAR requires special multi-stream batch provider
-    if (sourceType === 'blockchain' && platformKey.toLowerCase() === 'near') {
+    if (platformKind === 'blockchain' && platformKey.toLowerCase() === 'near') {
       return new NearStreamBatchProvider(this.ports.nearBatchSource, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
 
-    if (sourceType === 'blockchain') {
+    if (platformKind === 'blockchain') {
       // Hash-grouped batching for blockchains to ensure correlation integrity
       return new HashGroupedBatchProvider(this.ports.batchSource, accountId, RAW_DATA_HASH_BATCH_SIZE);
     }
@@ -548,10 +548,10 @@ export class ProcessingWorkflow {
 
   private createProcessor(
     platformKey: string,
-    sourceType: string,
+    platformKind: string,
     accountId: number
   ): Result<ITransactionProcessor, Error> {
-    if (sourceType === 'blockchain') {
+    if (platformKind === 'blockchain') {
       const adapterResult = this.registry.getBlockchain(platformKey);
       if (adapterResult.isErr()) {
         return err(adapterResult.error);
@@ -574,9 +574,9 @@ export class ProcessingWorkflow {
     }
   }
 
-  private unpackForProcessor(rawDataItems: RawTransaction[], sourceType: string): Result<unknown[], Error> {
+  private unpackForProcessor(rawDataItems: RawTransaction[], platformKind: string): Result<unknown[], Error> {
     const processorInputs: unknown[] = [];
-    const isExchange = sourceType === 'exchange-api' || sourceType === 'exchange-csv';
+    const isExchange = platformKind === 'exchange-api' || platformKind === 'exchange-csv';
 
     for (const item of rawDataItems) {
       if (isExchange) {

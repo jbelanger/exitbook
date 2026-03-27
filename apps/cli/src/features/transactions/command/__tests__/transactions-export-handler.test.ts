@@ -44,7 +44,7 @@ describe('TransactionsExportHandler', () => {
       accountId: 1,
       txFingerprint: `ext-${id}`,
       platformKey: source,
-      sourceType: 'exchange',
+      platformKind: 'exchange',
       operation: { category: 'trade', type: 'buy' },
       datetime: '2024-01-01T12:00:00Z',
       timestamp: Date.parse('2024-01-01T12:00:00Z'),

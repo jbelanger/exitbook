@@ -91,7 +91,7 @@ function createTransaction(params: {
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
     platformKey: params.platformKey ?? 'ethereum',
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     status: 'success',
     isSpam: params.isSpam,
     movements: {
@@ -138,7 +138,7 @@ function createMultiAssetTransaction(params: {
     datetime: '2025-01-01T00:00:00.000Z',
     timestamp: Date.parse('2025-01-01T00:00:00.000Z'),
     platformKey: params.platformKey ?? 'ethereum',
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     status: 'success',
     isSpam: params.isSpam,
     movements: {

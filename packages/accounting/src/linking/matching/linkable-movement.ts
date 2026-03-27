@@ -10,7 +10,7 @@ export const LinkableMovementSchema = z.object({
   transactionId: z.number(),
   accountId: z.number(),
   platformKey: z.string(),
-  sourceType: SourceTypeSchema,
+  platformKind: SourceTypeSchema,
   assetId: z.string(),
   assetSymbol: CurrencySchema,
   direction: z.enum(['in', 'out']),

@@ -48,7 +48,7 @@ function makeTx(
     datetime: '2023-01-15T10:00:00.000Z',
     timestamp: new Date('2023-01-15T10:00:00.000Z').getTime(),
     platformKey: 'test-exchange',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     operation: { category: 'trade', type: 'buy' },
     fees: [],

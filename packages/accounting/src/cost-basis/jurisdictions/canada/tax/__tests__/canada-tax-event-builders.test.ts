@@ -241,7 +241,7 @@ describe('projectCanadaMovementEvents', () => {
         },
       ],
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     });
 
     const scopedWithdrawal = buildScopedTransaction(withdrawalTx);

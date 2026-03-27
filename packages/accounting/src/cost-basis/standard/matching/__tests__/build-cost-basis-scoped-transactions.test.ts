@@ -52,7 +52,7 @@ function createBlockchainTx(
     datetime,
     timestamp: new Date(datetime).getTime(),
     platformKey: blockchain,
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     status: 'success',
     movements: {
       inflows: inflows.map((i) => ({
@@ -817,7 +817,7 @@ describe('buildCostBasisScopedTransactions', () => {
         datetime: '2024-01-01T00:00:00Z',
         timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
         platformKey: 'bitcoin',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
         status: 'success',
         movements: {
           inflows: [],

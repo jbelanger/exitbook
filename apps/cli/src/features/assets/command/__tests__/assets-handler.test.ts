@@ -50,7 +50,7 @@ function createTransaction(params: {
     datetime: '2024-01-01T00:00:00.000Z',
     timestamp: Date.parse('2024-01-01T00:00:00.000Z'),
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     movements: {
       inflows: inflows.map((movement) => ({

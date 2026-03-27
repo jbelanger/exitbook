@@ -128,7 +128,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
           datetime: new Date(transaction.timestamp).toISOString(),
           timestamp: transaction.timestamp,
           platformKey: this.chainConfig.chainName,
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           status: transaction.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,

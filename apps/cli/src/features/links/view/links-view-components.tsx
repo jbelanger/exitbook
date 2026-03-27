@@ -562,19 +562,19 @@ function formatLinkTypeDisplay(
   sourceTransaction: LinkWithTransactions['sourceTransaction'],
   targetTransaction: LinkWithTransactions['targetTransaction']
 ): string {
-  if (sourceTransaction?.sourceType === 'blockchain' && targetTransaction?.sourceType === 'exchange') {
+  if (sourceTransaction?.platformKind === 'blockchain' && targetTransaction?.platformKind === 'exchange') {
     return 'blockchain to exchange';
   }
 
-  if (sourceTransaction?.sourceType === 'exchange' && targetTransaction?.sourceType === 'blockchain') {
+  if (sourceTransaction?.platformKind === 'exchange' && targetTransaction?.platformKind === 'blockchain') {
     return 'exchange to blockchain';
   }
 
-  if (sourceTransaction?.sourceType === 'blockchain' && targetTransaction?.sourceType === 'blockchain') {
+  if (sourceTransaction?.platformKind === 'blockchain' && targetTransaction?.platformKind === 'blockchain') {
     return link.linkType === 'blockchain_internal' ? 'blockchain internal' : 'blockchain to blockchain';
   }
 
-  if (sourceTransaction?.sourceType === 'exchange' && targetTransaction?.sourceType === 'exchange') {
+  if (sourceTransaction?.platformKind === 'exchange' && targetTransaction?.platformKind === 'exchange') {
     return 'exchange to exchange';
   }
 

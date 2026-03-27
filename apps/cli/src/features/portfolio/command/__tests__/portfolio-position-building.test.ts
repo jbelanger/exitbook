@@ -83,7 +83,7 @@ function createTransaction(params: {
     datetime: params.datetime,
     timestamp: new Date(params.datetime).getTime(),
     source: params.source,
-    sourceType: 'exchange-api',
+    platformKind: 'exchange-api',
     status: 'success',
     from: params.from,
     to: params.to,

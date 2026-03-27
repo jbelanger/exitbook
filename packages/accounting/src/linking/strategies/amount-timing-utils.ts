@@ -75,24 +75,24 @@ export function isTimingValid(sourceTime: Date, targetTime: Date, config: Matchi
 /**
  * Determine link type based on source and target types
  *
- * @param sourceType - Source transaction type
+ * @param platformKind - Source transaction type
  * @param targetType - Target transaction type
  * @returns Link type
  */
-export function determineLinkType(sourceType: SourceType, targetType: SourceType): LinkType {
-  if (sourceType === 'exchange' && targetType === 'blockchain') {
+export function determineLinkType(platformKind: SourceType, targetType: SourceType): LinkType {
+  if (platformKind === 'exchange' && targetType === 'blockchain') {
     return 'exchange_to_blockchain';
   }
 
-  if (sourceType === 'blockchain' && targetType === 'exchange') {
+  if (platformKind === 'blockchain' && targetType === 'exchange') {
     return 'blockchain_to_exchange';
   }
 
-  if (sourceType === 'blockchain' && targetType === 'blockchain') {
+  if (platformKind === 'blockchain' && targetType === 'blockchain') {
     return 'blockchain_to_blockchain';
   }
 
-  if (sourceType === 'exchange' && targetType === 'exchange') {
+  if (platformKind === 'exchange' && targetType === 'exchange') {
     return 'exchange_to_exchange';
   }
 
@@ -333,8 +333,8 @@ function isLikelyCrossSourceTokenMigration(
   }
 
   const isExchangeBlockchainPair =
-    (source.sourceType === 'exchange' && target.sourceType === 'blockchain') ||
-    (source.sourceType === 'blockchain' && target.sourceType === 'exchange');
+    (source.platformKind === 'exchange' && target.platformKind === 'blockchain') ||
+    (source.platformKind === 'blockchain' && target.platformKind === 'exchange');
 
   if (!isExchangeBlockchainPair) {
     return false;
@@ -378,7 +378,7 @@ export function scoreAndFilterMatches(
 
     // Check for transaction hash match (perfect match)
     const hashMatch = checkTransactionHashMatch(source, target);
-    const bothAreBlockchain = source.sourceType === 'blockchain' && target.sourceType === 'blockchain';
+    const bothAreBlockchain = source.platformKind === 'blockchain' && target.platformKind === 'blockchain';
 
     // blockchain_internal links (same tx hash, different tracked addresses) are created by
     // detectInternalBlockchainTransfers — skip heuristic matching for these pairs entirely.
@@ -412,7 +412,7 @@ export function scoreAndFilterMatches(
           // Fall through to normal matching logic
         } else {
           // Valid multi-output: source amount >= sum of targets
-          const linkType = determineLinkType(source.sourceType, target.sourceType);
+          const linkType = determineLinkType(source.platformKind, target.platformKind);
           const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
           const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
 
@@ -434,7 +434,7 @@ export function scoreAndFilterMatches(
         }
       } else {
         // Single target with hash match - always valid
-        const linkType = determineLinkType(source.sourceType, target.sourceType);
+        const linkType = determineLinkType(source.platformKind, target.platformKind);
         const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
         const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
 
@@ -483,7 +483,7 @@ export function scoreAndFilterMatches(
     }
 
     // Determine link type
-    const linkType = determineLinkType(source.sourceType, target.sourceType);
+    const linkType = determineLinkType(source.platformKind, target.platformKind);
 
     matches.push({
       sourceMovement: source,

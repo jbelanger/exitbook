@@ -143,7 +143,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -185,7 +185,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -218,7 +218,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -237,7 +237,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -261,7 +261,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -274,7 +274,10 @@ describe('CosmosImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { platformKey: 'cosmos', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, {
+        platformKey: 'cosmos',
+        platformKind: 'blockchain' as const,
+      });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -287,7 +290,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address: '',
       });
 
@@ -315,7 +318,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -336,7 +339,7 @@ describe('CosmosImporter', () => {
 
       const result = await consumeImportStream(osmosisImporter, {
         platformKey: 'cosmos',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
       });
 
       expect(result.isErr()).toBe(true);
@@ -353,7 +356,7 @@ describe('CosmosImporter', () => {
 
       setupMockData([]);
 
-      await consumeImportStream(importer, { platformKey: 'cosmos', sourceType: 'blockchain' as const, address });
+      await consumeImportStream(importer, { platformKey: 'cosmos', platformKind: 'blockchain' as const, address });
 
       const calls: Parameters<IBlockchainProviderRuntime['streamAddressTransactions']>[] =
         mockProviderManager.streamAddressTransactions.mock.calls;

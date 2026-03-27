@@ -200,7 +200,7 @@ describe('EvmImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'evm',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -279,7 +279,7 @@ describe('EvmImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'evm',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -292,7 +292,7 @@ describe('EvmImporter', () => {
     test('should return error if address is not provided', async () => {
       const importer = createImporter();
 
-      const result = await consumeImportStream(importer, { platformKey: 'evm', sourceType: 'blockchain' as const });
+      const result = await consumeImportStream(importer, { platformKey: 'evm', platformKind: 'blockchain' as const });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -326,7 +326,7 @@ describe('EvmImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'evm',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -384,7 +384,7 @@ describe('EvmImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'evm',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 
@@ -427,7 +427,7 @@ describe('EvmImporter', () => {
 
       const result = await consumeImportStream(importer, {
         platformKey: 'evm',
-        sourceType: 'blockchain' as const,
+        platformKind: 'blockchain' as const,
         address,
       });
 

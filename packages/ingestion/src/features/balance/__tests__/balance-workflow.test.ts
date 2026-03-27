@@ -122,7 +122,7 @@ function createTransaction(
     id: 100,
     accountId: 1,
     platformKey: 'bitcoin',
-    sourceType: 'blockchain',
+    platformKind: 'blockchain',
     txFingerprint,
     status: 'success',
     datetime: '2026-02-20T00:00:00.000Z',

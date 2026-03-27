@@ -13,7 +13,7 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
       transactionId: 8930,
       accountId: 61,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       assetId: 'blockchain:cardano:native',
       assetSymbol: 'ADA' as Currency,
       amount: parseDecimal('1021.211168'),
@@ -30,7 +30,7 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
       transactionId: 8935,
       accountId: 63,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       assetId: 'blockchain:cardano:native',
       assetSymbol: 'ADA' as Currency,
       amount: parseDecimal('974.843208'),
@@ -47,7 +47,7 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
       transactionId: 8937,
       accountId: 65,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       assetId: 'blockchain:cardano:native',
       assetSymbol: 'ADA' as Currency,
       amount: parseDecimal('672.756869'),
@@ -67,7 +67,7 @@ export function createImpossibleMultiSourceAdaHashPartialScenario() {
       transactionId: 9021,
       accountId: 90,
       platformKey: 'kucoin',
-      sourceType: 'exchange',
+      platformKind: 'exchange',
       assetId: 'exchange:kucoin:ada',
       assetSymbol: 'ADA' as Currency,
       amount: parseDecimal('2679.718442'),
@@ -92,7 +92,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       grossAmount: '1021.402541',
       id: 8930,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     }),
     createTransferTransaction({
       accountId: 63,
@@ -103,7 +103,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       grossAmount: '975.034581',
       id: 8935,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     }),
     createTransferTransaction({
       accountId: 65,
@@ -114,7 +114,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       grossAmount: '672.948242',
       id: 8937,
       platformKey: 'cardano',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
     }),
     createTransferTransaction({
       accountId: 90,
@@ -124,7 +124,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
       id: 9021,
       operationType: 'deposit',
       platformKey: 'kucoin',
-      sourceType: 'exchange',
+      platformKind: 'exchange',
     }),
   ];
 }
@@ -139,7 +139,7 @@ function createTransferTransaction(params: {
   identityReference: string;
   operationType?: 'withdrawal' | 'deposit' | undefined;
   platformKey: string;
-  sourceType: 'blockchain' | 'exchange';
+  platformKind: 'blockchain' | 'exchange';
 }): Transaction {
   const grossAmount = parseDecimal(params.grossAmount ?? params.amount);
   const netAmount = parseDecimal(params.amount);
@@ -150,7 +150,7 @@ function createTransferTransaction(params: {
     accountId: params.accountId,
     identityReference: params.identityReference,
     platformKey: params.platformKey,
-    sourceType: params.sourceType,
+    platformKind: params.platformKind,
     datetime: params.datetime,
     timestamp: Date.parse(params.datetime),
     status: 'success',
@@ -160,7 +160,7 @@ function createTransferTransaction(params: {
           ? [
               {
                 assetId:
-                  params.sourceType === 'exchange'
+                  params.platformKind === 'exchange'
                     ? `exchange:${params.platformKey}:ada`
                     : `blockchain:${params.platformKey}:native`,
                 assetSymbol: 'ADA' as Currency,
@@ -175,7 +175,7 @@ function createTransferTransaction(params: {
           : [
               {
                 assetId:
-                  params.sourceType === 'exchange'
+                  params.platformKind === 'exchange'
                     ? `exchange:${params.platformKey}:ada`
                     : `blockchain:${params.platformKey}:native`,
                 assetSymbol: 'ADA' as Currency,

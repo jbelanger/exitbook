@@ -84,7 +84,7 @@ export function computeAccountFingerprint(input: AccountFingerprintInput): Resul
 export interface TransactionFingerprintInput {
   accountFingerprint: string;
   platformKey: string;
-  sourceType: 'blockchain' | 'exchange';
+  platformKind: 'blockchain' | 'exchange';
   blockchainTransactionHash?: string | undefined;
   componentEventIds?: string[] | undefined;
 }
@@ -99,7 +99,7 @@ export interface TransactionFingerprintInput {
  * fingerprints inherit profile isolation automatically from account identity.
  */
 export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
-  const { accountFingerprint, platformKey, sourceType } = input;
+  const { accountFingerprint, platformKey, platformKind } = input;
   const trimmedAccountFingerprint = accountFingerprint.trim();
   const trimmedplatformKey = platformKey.trim();
 
@@ -111,7 +111,7 @@ export function computeTxFingerprint(input: TransactionFingerprintInput): Result
     return err(new Error('source must not be empty'));
   }
 
-  if (sourceType === 'blockchain') {
+  if (platformKind === 'blockchain') {
     const hash = input.blockchainTransactionHash;
     if (!hash || hash.trim() === '') {
       return err(new Error('blockchainTransactionHash is required for blockchain transactions'));

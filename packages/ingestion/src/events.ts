@@ -24,7 +24,7 @@ export type ImportEvent =
        */
       parentAccountId?: number | undefined;
       platformKey: string;
-      sourceType: 'blockchain' | 'exchange-api' | 'exchange-csv';
+      platformKind: 'blockchain' | 'exchange-api' | 'exchange-csv';
       /**
        * Transaction counts by stream type (only present for existing accounts)
        */

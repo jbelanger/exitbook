@@ -42,7 +42,7 @@ export class ExactHashStrategy implements ILinkingStrategy {
         if (source.platformKey === target.platformKey) continue;
 
         // Skip both-blockchain pairs (handled by pre-linking internal detection)
-        if (source.sourceType === 'blockchain' && target.sourceType === 'blockchain') continue;
+        if (source.platformKind === 'blockchain' && target.platformKind === 'blockchain') continue;
 
         const hashMatch = checkTransactionHashMatch(source, target);
         if (hashMatch === true) {
@@ -63,7 +63,7 @@ export class ExactHashStrategy implements ILinkingStrategy {
 
       // Create links for each hash-matched target
       for (const target of hashTargets) {
-        const linkType = determineLinkType(source.sourceType, target.sourceType);
+        const linkType = determineLinkType(source.platformKind, target.platformKind);
         const timingHours = calculateTimeDifferenceHours(source.timestamp, target.timestamp);
         const timingValid = isTimingValid(source.timestamp, target.timestamp, config);
 

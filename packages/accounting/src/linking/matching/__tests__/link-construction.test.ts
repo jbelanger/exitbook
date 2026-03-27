@@ -14,7 +14,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           amount: parseDecimal('0.9995'),
           direction: 'in',
@@ -52,7 +52,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           amount: parseDecimal('0.95'),
           direction: 'in',
@@ -79,7 +79,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           amount: parseDecimal('1.5'),
           direction: 'in',
@@ -104,7 +104,7 @@ describe('link-construction', () => {
         sourceMovement: createLinkableMovement({
           id: 1,
           platformKey: 'cardano',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-07-25T20:32:02.000Z'),
           assetSymbol: 'ADA' as Currency,
           amount: parseDecimal('2669.193991'),
@@ -114,7 +114,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'kucoin',
-          sourceType: 'exchange',
+          platformKind: 'exchange',
           timestamp: new Date('2024-07-25T20:35:47.000Z'),
           assetSymbol: 'ADA' as Currency,
           amount: parseDecimal('2679.718442'), // ~0.39% higher
@@ -143,7 +143,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           amount: parseDecimal('0.85'),
           direction: 'in',
@@ -169,7 +169,7 @@ describe('link-construction', () => {
         targetMovement: createLinkableMovement({
           id: 2,
           platformKey: 'bitcoin',
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           timestamp: new Date('2024-01-01T12:30:00Z'),
           amount: parseDecimal('0.95'),
           direction: 'in',
@@ -198,7 +198,7 @@ describe('link-construction', () => {
         amount: parseDecimal('5'),
         direction: 'in',
         platformKey: 'blockchain',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
       });
 
       const match: PotentialMatch = {
@@ -228,7 +228,7 @@ describe('link-construction', () => {
         amount: parseDecimal('10'),
         direction: 'in',
         platformKey: 'blockchain',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
       });
 
       const match: PotentialMatch = {
@@ -253,7 +253,7 @@ describe('link-construction', () => {
         amount: parseDecimal('0.999'),
         direction: 'in',
         platformKey: 'blockchain',
-        sourceType: 'blockchain',
+        platformKind: 'blockchain',
       });
 
       const match: PotentialMatch = {

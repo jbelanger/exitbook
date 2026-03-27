@@ -26,7 +26,7 @@ export interface TransactionDetails {
   movements_inflows: AssetMovementDraft[];
   movements_outflows: AssetMovementDraft[];
   platform_key: string;
-  source_type: Transaction['sourceType'];
+  source_type: Transaction['platformKind'];
   timestamp: string;
   to_address: string | undefined;
 }
@@ -97,7 +97,7 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
     platform_key: tx.platformKey,
-    source_type: tx.sourceType,
+    source_type: tx.platformKind,
     timestamp: tx.datetime,
     to_address: tx.to,
   };
@@ -276,22 +276,22 @@ export function formatLinkForDisplay(link: LinkInfo): string {
 }
 
 function formatDisplayLinkType(link: LinkInfo): string {
-  const sourceType = link.source_transaction?.source_type;
+  const platformKind = link.source_transaction?.source_type;
   const targetType = link.target_transaction?.source_type;
 
-  if (sourceType === 'blockchain' && targetType === 'exchange') {
+  if (platformKind === 'blockchain' && targetType === 'exchange') {
     return 'blockchain to exchange';
   }
 
-  if (sourceType === 'exchange' && targetType === 'blockchain') {
+  if (platformKind === 'exchange' && targetType === 'blockchain') {
     return 'exchange to blockchain';
   }
 
-  if (sourceType === 'blockchain' && targetType === 'blockchain') {
+  if (platformKind === 'blockchain' && targetType === 'blockchain') {
     return link.link_type === 'blockchain_internal' ? 'blockchain internal' : 'blockchain to blockchain';
   }
 
-  if (sourceType === 'exchange' && targetType === 'exchange') {
+  if (platformKind === 'exchange' && targetType === 'exchange') {
     return 'exchange to exchange';
   }
 

@@ -39,7 +39,7 @@ describe('normalizeTransactionMovements', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       platformKey: 'test-exchange',
-      sourceType: 'exchange' as const,
+      platformKind: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -92,7 +92,7 @@ describe('normalizeTransactionMovements', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       platformKey: 'test-exchange',
-      sourceType: 'exchange' as const,
+      platformKind: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -137,7 +137,7 @@ describe('normalizeTransactionMovements', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       platformKey: 'test-exchange',
-      sourceType: 'exchange' as const,
+      platformKind: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -182,7 +182,7 @@ describe('normalizeTransactionMovements', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       platformKey: 'test-exchange',
-      sourceType: 'exchange' as const,
+      platformKind: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [
@@ -231,7 +231,7 @@ describe('normalizeTransactionMovements', () => {
       datetime: '2023-01-15T10:00:00Z',
       timestamp: Date.parse('2023-01-15T10:00:00Z'),
       platformKey: 'test-exchange',
-      sourceType: 'exchange' as const,
+      platformKind: 'exchange' as const,
       status: 'success',
       movements: {
         inflows: [

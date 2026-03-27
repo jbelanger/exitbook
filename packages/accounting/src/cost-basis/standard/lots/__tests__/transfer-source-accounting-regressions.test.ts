@@ -212,7 +212,7 @@ describe('transfer source accounting regressions', () => {
         ],
       },
       [],
-      { category: 'transfer', platformKey: 'arbitrum', sourceType: 'blockchain', type: 'withdrawal' }
+      { category: 'transfer', platformKey: 'arbitrum', platformKind: 'blockchain', type: 'withdrawal' }
     );
 
     const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
@@ -364,7 +364,7 @@ describe('transfer source accounting regressions', () => {
     const rawSourceTransaction = createTransactionFromMovements(11, '2024-03-02T00:00:00Z', {}, [], {
       category: 'transfer',
       platformKey: 'bitcoin',
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       type: 'withdrawal',
     });
 

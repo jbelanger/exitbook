@@ -79,9 +79,9 @@ export function buildLinkFromOrphanedOverride(
     return err(new Error('Cannot resolve orphaned override: exact target movement identity no longer resolves'));
   }
 
-  // Derive structural link type from source/target transaction sourceType
+  // Derive structural link type from source/target transaction platformKind
   // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
-  const linkType = determineLinkType(sourceTx.sourceType, targetTx.sourceType);
+  const linkType = determineLinkType(sourceTx.platformKind, targetTx.platformKind);
 
   return ok({
     sourceTransactionId: entry.sourceTransactionId,

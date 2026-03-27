@@ -53,7 +53,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
 
@@ -76,7 +76,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
 
@@ -105,7 +105,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
 
@@ -130,7 +130,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
       cursor: {
         [`csv:kucoin:${completedFilePath}`]: {
@@ -180,7 +180,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
 
@@ -220,7 +220,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -241,7 +241,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -262,7 +262,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -299,7 +299,7 @@ user123,mainAccount,ORDER001,2024-01-01 10:00:00,BTC-USDT,buy,limit,42000.00,0.1
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -319,7 +319,7 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -338,7 +338,7 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
 
     const result = await consumeImportStream(importer, {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     });
 
@@ -364,7 +364,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
   test('returns error when csvDirectory is not provided', async () => {
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: undefined,
     };
 
@@ -385,7 +385,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/invalid',
     };
 
@@ -405,7 +405,7 @@ describe('KucoinCsvImporter - Error Handling', () => {
 
     const params: StreamingImportParams = {
       platformKey: 'kucoin',
-      sourceType: 'exchange-csv' as const,
+      platformKind: 'exchange-csv' as const,
       csvDirectory: '/test/csv',
     };
 

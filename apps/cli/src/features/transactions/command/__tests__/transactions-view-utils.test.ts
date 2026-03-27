@@ -20,7 +20,7 @@ function createTestTransaction(
     datetime: '2024-01-15T10:30:00Z',
     timestamp: 1705318200,
     platformKey: 'kraken',
-    sourceType: 'exchange',
+    platformKind: 'exchange',
     status: 'success',
     from: undefined,
     to: undefined,

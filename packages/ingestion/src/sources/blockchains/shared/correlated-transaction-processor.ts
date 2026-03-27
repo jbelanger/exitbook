@@ -165,7 +165,7 @@ export async function processCorrelatedTransactions<
       datetime: new Date(primaryTx.timestamp).toISOString(),
       timestamp: primaryTx.timestamp,
       platformKey: params.chainName,
-      sourceType: 'blockchain',
+      platformKind: 'blockchain',
       status: primaryTx.status,
       from: fundFlow.fromAddress || primaryTx.from,
       to: fundFlow.toAddress || primaryTx.to,

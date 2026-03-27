@@ -119,7 +119,7 @@ describe('links-view-utils', () => {
         accountId: 1,
         txFingerprint: 'tx-456',
         platformKey: 'test-source',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
@@ -157,7 +157,7 @@ describe('links-view-utils', () => {
         accountId: 1,
         txFingerprint: 'tx-789',
         platformKey: 'test-source',
-        sourceType: 'exchange',
+        platformKind: 'exchange',
         datetime: '2024-01-01T12:00:00Z',
         timestamp: Date.parse('2024-01-01T12:00:00Z'),
         status: 'success',
@@ -252,10 +252,10 @@ describe('links-view-utils', () => {
       const link = createMockLink(123, { confidenceScore: 0.85 });
       const sourceTx = createMockTransaction(1);
       sourceTx.platformKey = 'bitcoin';
-      sourceTx.sourceType = 'blockchain';
+      sourceTx.platformKind = 'blockchain';
       const targetTx = createMockTransaction(2);
       targetTx.platformKey = 'kraken';
-      targetTx.sourceType = 'exchange';
+      targetTx.platformKind = 'exchange';
 
       const formatted = formatLinkForDisplay(formatLinkInfo(link, sourceTx, targetTx));
 

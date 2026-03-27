@@ -90,7 +90,7 @@ export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           platformKey: this.chainConfig.chainName,
-          sourceType: 'blockchain',
+          platformKind: 'blockchain',
           status: normalizedTx.status,
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
