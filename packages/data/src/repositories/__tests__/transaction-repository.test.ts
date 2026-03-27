@@ -631,7 +631,7 @@ describe('TransactionRepository', () => {
 
       expect(secondId).not.toBe(firstId);
 
-      const transactions = await db.selectFrom('transactions').select(['id']).orderBy('id asc').execute();
+      const transactions = await db.selectFrom('transactions').select(['id']).orderBy('id', 'asc').execute();
       expect(transactions).toHaveLength(2);
     });
   });

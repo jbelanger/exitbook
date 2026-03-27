@@ -8,7 +8,19 @@ import { registerTransactionsEditNoteCommand } from './transactions-edit-note.js
 export function registerTransactionsEditCommand(transactionsCommand: Command): void {
   const editCommand = transactionsCommand
     .command('edit')
-    .description('Edit durable transaction overrides such as notes');
+    .description('Edit durable transaction overrides such as notes')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook transactions edit note 123 --message "Internal transfer"
+  $ exitbook transactions edit note 123 --clear
+  $ exitbook transactions edit note 123 --message "Cold storage withdrawal" --json
+
+Notes:
+  - "note" is currently the supported durable override under "transactions edit".
+`
+    );
 
   registerTransactionsEditNoteCommand(editCommand);
 }

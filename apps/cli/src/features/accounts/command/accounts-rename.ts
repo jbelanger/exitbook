@@ -11,6 +11,20 @@ export function registerAccountsRenameCommand(accountsCommand: Command): void {
   accountsCommand
     .command('rename')
     .description('Rename a named account')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook accounts rename kraken-main kraken-primary
+  $ exitbook accounts rename wallet-main treasury-wallet
+  $ exitbook accounts rename wallet-main treasury-wallet --profile business
+  $ exitbook accounts rename kraken-main kraken-primary --json
+
+Notes:
+  - Renaming keeps the underlying account data and import history intact.
+  - Account names must remain unique within a profile.
+`
+    )
     .argument('<current-name>', 'Existing account name')
     .argument('<next-name>', 'New account name')
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')

@@ -14,6 +14,18 @@ export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
     .command('exclusions')
     .description('List asset IDs currently excluded from accounting')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets exclusions
+  $ exitbook assets exclusions --profile business
+  $ exitbook assets exclusions --json
+
+Notes:
+  - Use "assets include" to re-enable any listed asset.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {

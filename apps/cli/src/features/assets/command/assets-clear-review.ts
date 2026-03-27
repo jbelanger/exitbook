@@ -14,6 +14,19 @@ export function registerAssetsClearReviewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('clear-review')
     .description('Clear a prior review confirmation for an asset')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets clear-review --asset-id blockchain:ethereum:0xa0b8...
+  $ exitbook assets clear-review --symbol USDC
+  $ exitbook assets clear-review --symbol USDC --reason "Reopened after metadata change"
+  $ exitbook assets clear-review --asset-id blockchain:solana:EPjFWd... --json
+
+Notes:
+  - Use this when a previously confirmed asset needs manual review again.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')

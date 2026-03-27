@@ -17,6 +17,20 @@ export function registerAccountsAddCommand(accountsCommand: Command, appRuntime:
   accountsCommand
     .command('add')
     .description('Add a named account')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
+  $ exitbook accounts add kucoin-csv --exchange kucoin --csv-dir ./exports/kucoin
+  $ exitbook accounts add wallet-main --blockchain ethereum --address 0xabc...
+  $ exitbook accounts add wallet-xpub --blockchain bitcoin --address xpub... --xpub-gap 20
+
+Notes:
+  - Create exactly one account type per command: exchange API, exchange CSV, or blockchain wallet.
+  - Use --provider and --xpub-gap only for blockchain accounts.
+`
+    )
     .argument('<name>', 'Account name')
     .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, solana)')

@@ -38,6 +38,19 @@ export function registerReprocessCommand(program: Command, appRuntime: CliAppRun
   program
     .command('reprocess')
     .description('Clear all derived data and reprocess from raw data')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook reprocess
+  $ exitbook reprocess --account-id 7
+  $ exitbook reprocess --json
+
+Notes:
+  - Reprocess rebuilds derived data from stored raw imports only.
+  - Use "exitbook import" first if you need to refresh raw data from providers or CSV exports.
+`
+    )
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
     .option('--verbose', 'Show verbose logging output')

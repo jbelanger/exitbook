@@ -10,6 +10,18 @@ export function registerProfilesAddCommand(profilesCommand: Command): void {
   profilesCommand
     .command('add')
     .description('Create a new profile')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook profiles add business
+  $ exitbook profiles add tax-audit
+  $ exitbook profiles add business --json
+
+Notes:
+  - The profile key is the stable identifier used by other commands and state files.
+`
+    )
     .argument('<profile>', 'Stable profile key used for deterministic identity')
     .option('--json', 'Output results in JSON format')
     .action(async (profileKey: string, options: { json?: boolean | undefined }) => {

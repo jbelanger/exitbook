@@ -19,7 +19,23 @@ import { registerAccountsViewCommand } from './accounts-view.js';
  *   accounts remove             - Remove a named account and all attached data
  */
 export function registerAccountsCommand(program: Command, appRuntime: CliAppRuntime): void {
-  const accounts = program.command('accounts').description('Manage named accounts');
+  const accounts = program
+    .command('accounts')
+    .description('Manage named accounts')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook accounts view
+  $ exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
+  $ exitbook accounts update wallet-main --provider blockchair
+  $ exitbook accounts remove kraken-main
+
+Notes:
+  - Use "accounts list" as an alias for "accounts view".
+  - Accounts are scoped to the active profile unless you pass --profile.
+`
+    );
 
   registerAccountsAddCommand(accounts, appRuntime);
   registerAccountsViewCommand(accounts);

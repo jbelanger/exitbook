@@ -14,6 +14,19 @@ export function registerAssetsIncludeCommand(assetsCommand: Command): void {
   assetsCommand
     .command('include')
     .description('Re-include a previously excluded asset in accounting-scoped processing')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets include --asset-id blockchain:ethereum:0xa0b8...
+  $ exitbook assets include --symbol USDC
+  $ exitbook assets include --symbol USDC --reason "Verified legitimate contract"
+  $ exitbook assets include --asset-id blockchain:solana:mint123 --json
+
+Notes:
+  - Re-inclusion only affects assets that were previously excluded from accounting.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')

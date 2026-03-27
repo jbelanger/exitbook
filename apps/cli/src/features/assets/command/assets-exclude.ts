@@ -14,6 +14,19 @@ export function registerAssetsExcludeCommand(assetsCommand: Command): void {
   assetsCommand
     .command('exclude')
     .description('Exclude an asset from accounting-scoped cost basis and portfolio processing')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets exclude --asset-id blockchain:ethereum:0xa0b8...
+  $ exitbook assets exclude --symbol USDC
+  $ exitbook assets exclude --symbol USDC --reason "Spam token"
+  $ exitbook assets exclude --asset-id blockchain:solana:mint123 --json
+
+Notes:
+  - Exclusion removes the asset from accounting-scoped cost basis and portfolio calculations.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')

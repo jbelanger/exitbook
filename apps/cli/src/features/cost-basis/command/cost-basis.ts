@@ -34,6 +34,20 @@ export function registerCostBasisCommand(program: Command, appRuntime: CliAppRun
   const costBasisCommand = program
     .command('cost-basis')
     .description('Calculate cost basis and capital gains/losses for tax reporting')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook cost-basis --jurisdiction CA --tax-year 2024
+  $ exitbook cost-basis --jurisdiction US --tax-year 2024 --method fifo --fiat-currency USD
+  $ exitbook cost-basis --jurisdiction CA --tax-year 2024 --asset BTC
+  $ exitbook cost-basis export --format tax-package --jurisdiction CA --tax-year 2024
+
+Notes:
+  - In text mode, missing required tax parameters are collected interactively.
+  - Use "cost-basis export" to write a filing package after calculation.
+`
+    )
     .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost (CA defaults to ACB)')
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US, UK, EU')
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')

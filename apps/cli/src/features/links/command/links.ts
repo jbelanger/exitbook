@@ -18,7 +18,22 @@ import { registerLinksGapsCommand, registerLinksViewCommand } from './links-view
  *   links reject <id>       - Reject a suggested link
  */
 export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime): void {
-  const links = program.command('links').description('Manage transaction links (run algorithm, view, confirm, reject)');
+  const links = program
+    .command('links')
+    .description('Manage transaction links (run algorithm, view, confirm, reject)')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links run
+  $ exitbook links view --status suggested
+  $ exitbook links confirm 123
+  $ exitbook links gaps --json
+
+Notes:
+  - Run "links run" to generate suggestions before using the review commands.
+`
+    );
 
   // Register subcommands
   registerLinksRunCommand(links, appRuntime);

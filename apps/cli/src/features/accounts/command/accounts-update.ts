@@ -17,6 +17,20 @@ export function registerAccountsUpdateCommand(accountsCommand: Command, appRunti
   accountsCommand
     .command('update')
     .description('Update sync config for a named account')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook accounts update kraken-main --api-key NEW_KEY --api-secret NEW_SECRET
+  $ exitbook accounts update kucoin-csv --csv-dir ./exports/kucoin-2026
+  $ exitbook accounts update wallet-main --provider blockchair
+  $ exitbook accounts update wallet-xpub --xpub-gap 30
+
+Notes:
+  - Supply only the fields you want to change.
+  - --xpub-gap can increase the stored gap limit for xpub accounts.
+`
+    )
     .argument('<name>', 'Account name')
     .option('--api-key <key>', 'New API key for exchange API accounts')
     .option('--api-secret <secret>', 'New API secret for exchange API accounts')

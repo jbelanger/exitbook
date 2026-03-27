@@ -21,6 +21,20 @@ export function registerPricesSetFxCommand(pricesCommand: Command): void {
   pricesCommand
     .command('set-fx')
     .description('Manually set FX rate between two currencies')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook prices set-fx --from EUR --to USD --date 2024-01-15T00:00:00Z --rate 1.08
+  $ exitbook prices set-fx --from CAD --to USD --date 2024-01-15T00:00:00Z --rate 0.74
+  $ exitbook prices set-fx --from EUR --to USD --date 2024-01-15T00:00:00Z --rate 1.08 --source analyst-review
+  $ exitbook prices set-fx --from EUR --to USD --date 2024-01-15T00:00:00Z --rate 1.08 --json
+
+Notes:
+  - Timestamps must use ISO 8601 format.
+  - Manual FX rates are stored as profile-scoped override data.
+`
+    )
     .requiredOption('--from <currency>', 'Source currency (e.g., EUR, CAD)')
     .requiredOption('--to <currency>', 'Target currency (e.g., USD)')
     .requiredOption('--date <datetime>', 'Date/time (ISO 8601 format, e.g., 2024-01-15T10:30:00Z)')

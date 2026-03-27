@@ -8,7 +8,22 @@ import { registerAssetsIncludeCommand } from './assets-include.js';
 import { registerAssetsViewCommand } from './assets-view.js';
 
 export function registerAssetsCommand(program: Command): void {
-  const assets = program.command('assets').description('View assets and manage review or exclusion decisions');
+  const assets = program
+    .command('assets')
+    .description('View assets and manage review or exclusion decisions')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets view --action-required
+  $ exitbook assets confirm --symbol USDC
+  $ exitbook assets exclude --asset-id blockchain:ethereum:0xa0b8...
+  $ exitbook assets exclusions
+
+Notes:
+  - Use review and exclusion commands to resolve ambiguous or suspicious assets before accounting.
+`
+    );
 
   registerAssetsViewCommand(assets);
   registerAssetsConfirmCommand(assets);

@@ -34,6 +34,20 @@ export function registerPortfolioCommand(program: Command, appRuntime: CliAppRun
   program
     .command('portfolio')
     .description('View current portfolio holdings, allocation, and unrealized P&L')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook portfolio
+  $ exitbook portfolio --jurisdiction CA --method average-cost --fiat-currency CAD
+  $ exitbook portfolio --as-of 2025-12-31T23:59:59Z
+  $ exitbook portfolio --profile business --json
+
+Notes:
+  - Use an ISO 8601 timestamp for --as-of.
+  - Jurisdiction can change the default cost-basis method.
+`
+    )
     .option(
       '--method <method>',
       'Cost basis method: fifo, lifo, average-cost (default: fifo; CA defaults to average-cost)'

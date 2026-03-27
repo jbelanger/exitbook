@@ -23,6 +23,19 @@ export function registerAssetsViewCommand(assetsCommand: Command): void {
   assetsCommand
     .command('view')
     .description('View assets and review flagged ones')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets view
+  $ exitbook assets view --action-required
+  $ exitbook assets view --needs-review
+  $ exitbook assets view --profile business
+
+Notes:
+  - --needs-review is an alias for --action-required.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--action-required', 'Show only flagged assets that still need attention')
     .option('--needs-review', 'Alias for --action-required')

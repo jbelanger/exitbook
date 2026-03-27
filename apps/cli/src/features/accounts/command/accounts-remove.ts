@@ -18,6 +18,20 @@ export function registerAccountsRemoveCommand(accountsCommand: Command): void {
   accountsCommand
     .command('remove')
     .description('Remove a named account, purge its imported data, and reset affected projections')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook accounts remove kraken-main
+  $ exitbook accounts remove wallet-main --profile business
+  $ exitbook accounts remove kraken-main --confirm
+  $ exitbook accounts remove kraken-main --confirm --json
+
+Notes:
+  - This deletes the named account, attached raw data, and affected derived projections.
+  - --confirm is required with --json because JSON mode cannot prompt interactively.
+`
+    )
     .argument('<name>', 'Account name')
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--confirm', 'Skip confirmation prompt')

@@ -14,6 +14,20 @@ export function registerAssetsConfirmCommand(assetsCommand: Command): void {
   assetsCommand
     .command('confirm')
     .description('Confirm the current review evidence for a suspicious asset')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook assets confirm --asset-id blockchain:ethereum:0xa0b8...
+  $ exitbook assets confirm --symbol USDC
+  $ exitbook assets confirm --symbol USDC --reason "Reviewed issuer and contract"
+  $ exitbook assets confirm --asset-id blockchain:solana:EPjFWd... --json
+
+Notes:
+  - Use either --asset-id or --symbol.
+  - Confirming review evidence does not automatically clear all accounting blocks if ambiguity remains.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset-id <asset-id>', 'Exact asset ID (e.g., blockchain:ethereum:0xa0b8...)')
     .option('--symbol <symbol>', 'Asset symbol when it resolves to exactly one stored asset ID')

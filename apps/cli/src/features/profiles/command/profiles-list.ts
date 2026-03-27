@@ -11,6 +11,17 @@ export function registerProfilesListCommand(profilesCommand: Command): void {
   profilesCommand
     .command('list')
     .description('List profiles')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook profiles list
+  $ exitbook profiles list --json
+
+Notes:
+  - In text output, "*" marks the active profile.
+`
+    )
     .option('--json', 'Output results in JSON format')
     .action(async (options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';

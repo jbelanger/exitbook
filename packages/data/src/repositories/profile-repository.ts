@@ -112,7 +112,7 @@ export class ProfileRepository extends BaseRepository {
         .selectFrom('profiles')
         .selectAll()
         .orderBy(sql`lower(display_name)`)
-        .orderBy('profile_key asc')
+        .orderBy('profile_key', 'asc')
         .execute();
       return ok(rows.map((row) => toProfile(row)));
     } catch (error) {

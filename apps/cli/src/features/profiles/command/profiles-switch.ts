@@ -11,6 +11,17 @@ export function registerProfilesSwitchCommand(profilesCommand: Command): void {
   profilesCommand
     .command('switch')
     .description('Set the default active profile for future commands')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook profiles switch business
+  $ exitbook profiles switch default --json
+
+Notes:
+  - This updates the default profile used by future commands in this data directory.
+`
+    )
     .argument('<profile>', 'Profile key')
     .option('--json', 'Output results in JSON format')
     .action(async (profileKey: string, options: { json?: boolean | undefined }) => {

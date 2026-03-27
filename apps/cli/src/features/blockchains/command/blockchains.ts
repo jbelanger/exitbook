@@ -13,7 +13,20 @@ import { registerBlockchainsViewCommand } from './blockchains-view.js';
 export function registerBlockchainsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const blockchains = program
     .command('blockchains')
-    .description('Browse supported blockchains and provider configuration');
+    .description('Browse supported blockchains and provider configuration')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook blockchains view
+  $ exitbook blockchains view --category evm
+  $ exitbook blockchains view --requires-api-key
+  $ exitbook blockchains view --json
+
+Notes:
+  - Use this command to discover supported chains before adding blockchain accounts.
+`
+    );
 
   registerBlockchainsViewCommand(blockchains, appRuntime);
 }

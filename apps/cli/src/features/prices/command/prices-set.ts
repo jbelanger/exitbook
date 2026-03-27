@@ -20,6 +20,20 @@ export function registerPricesSetCommand(pricesCommand: Command): void {
   pricesCommand
     .command('set')
     .description('Manually set price for an asset at a specific time')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook prices set --asset BTC --date 2024-01-15T10:30:00Z --price 45000.50
+  $ exitbook prices set --asset ETH --date 2024-01-15T10:30:00Z --price 3200 --currency CAD
+  $ exitbook prices set --asset BTC --date 2024-01-15T10:30:00Z --price 45000.50 --source analyst-review
+  $ exitbook prices set --asset BTC --date 2024-01-15T10:30:00Z --price 45000.50 --json
+
+Notes:
+  - Timestamps must use ISO 8601 format.
+  - Manual prices are stored as profile-scoped override data.
+`
+    )
     .requiredOption('--asset <symbol>', 'Asset symbol (e.g., BTC, ETH)')
     .requiredOption('--date <datetime>', 'Date/time (ISO 8601 format, e.g., 2024-01-15T10:30:00Z)')
     .requiredOption('--price <amount>', 'Price value (e.g., 45000.50)')

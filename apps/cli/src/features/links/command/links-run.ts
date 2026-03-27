@@ -122,6 +122,20 @@ export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAp
   linksCommand
     .command('run')
     .description('Run the linking algorithm to find matching transactions across sources')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links run
+  $ exitbook links run --min-confidence 0.8
+  $ exitbook links run --min-confidence 0.8 --auto-confirm-threshold 0.98
+  $ exitbook links run --profile business --json
+
+Notes:
+  - --auto-confirm-threshold must be greater than or equal to --min-confidence.
+  - In text mode, omitting both thresholds starts an interactive prompt flow.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--min-confidence <score>', 'Minimum confidence threshold (0-1, default: 0.7)', parseFloat)
     .option('--auto-confirm-threshold <score>', 'Auto-confirm above this score (0-1, default: 0.95)', parseFloat)

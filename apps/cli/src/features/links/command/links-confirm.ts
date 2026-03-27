@@ -33,6 +33,18 @@ export function registerLinksConfirmCommand(linksCommand: Command): void {
   linksCommand
     .command('confirm')
     .description('Confirm a suggested transaction link')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links confirm 123
+  $ exitbook links confirm 123 --profile business
+  $ exitbook links confirm 123 --json
+
+Notes:
+  - Confirming a proposal may update multiple related link rows in the same suggestion group.
+`
+    )
     .argument('<link-id>', 'ID of the link to confirm')
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--json', 'Output results in JSON format')

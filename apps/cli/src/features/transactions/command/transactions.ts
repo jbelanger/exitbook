@@ -15,7 +15,20 @@ import { registerTransactionsViewCommand } from './transactions-view.js';
 export function registerTransactionsCommand(program: Command): void {
   const transactions = program
     .command('transactions')
-    .description('Manage processed transactions (view, edit, and export transaction history)');
+    .description('Manage processed transactions (view, edit, and export transaction history)')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook transactions view --asset BTC
+  $ exitbook transactions edit note 123 --message "Moved to Ledger"
+  $ exitbook transactions export --format json --output tx.json
+  $ exitbook transactions view --json
+
+Notes:
+  - Use "transactions edit note" for durable analyst context without changing transaction amounts.
+`
+    );
 
   registerTransactionsViewCommand(transactions);
   registerTransactionsEditCommand(transactions);

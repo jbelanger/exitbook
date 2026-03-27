@@ -28,6 +28,20 @@ export function registerPricesEnrichCommand(pricesCommand: Command, appRuntime: 
   pricesCommand
     .command('enrich')
     .description('Enrich prices via derive → fetch → normalize pipeline')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook prices enrich
+  $ exitbook prices enrich --asset BTC --asset ETH
+  $ exitbook prices enrich --derive-only
+  $ exitbook prices enrich --fetch-only --on-missing fail --json
+
+Notes:
+  - Repeat --asset to scope enrichment to a small set of symbols.
+  - Use the stage flags to isolate part of the pipeline during debugging.
+`
+    )
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--on-missing <behavior>', 'How to handle missing prices: fail (abort on first error)')

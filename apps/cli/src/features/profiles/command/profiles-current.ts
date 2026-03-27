@@ -10,6 +10,17 @@ export function registerProfilesCurrentCommand(profilesCommand: Command): void {
   profilesCommand
     .command('current')
     .description('Show the active profile for this command')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook profiles current
+  $ exitbook profiles current --json
+
+Notes:
+  - The output includes the resolved profile and whether it came from default, env, or saved state.
+`
+    )
     .option('--json', 'Output results in JSON format')
     .action(async (options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';

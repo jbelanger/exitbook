@@ -14,6 +14,21 @@ export function registerClearCommand(program: Command): void {
   program
     .command('clear')
     .description('Clear processed data (keeps raw data by default for reprocessing)')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook clear
+  $ exitbook clear --account-id 12
+  $ exitbook clear --source kraken --profile business
+  $ exitbook clear --include-raw --confirm
+  $ exitbook clear --account-id 12 --json
+
+Notes:
+  - By default this keeps raw imports so you can run "exitbook reprocess" afterward.
+  - Use --include-raw only when you also want to delete imported source data.
+`
+    )
     .option('--account-id <id>', 'Clear data for specific account ID', parseInt)
     .option('--profile <profile>', 'Use a specific profile key instead of the active profile')
     .option('--source <name>', 'Clear data for all accounts with this source name')

@@ -10,6 +10,18 @@ export function registerProfilesRenameCommand(profilesCommand: Command): void {
   profilesCommand
     .command('rename')
     .description('Rename a profile display label')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook profiles rename business "Business Holdings"
+  $ exitbook profiles rename default "Personal"
+  $ exitbook profiles rename business "Business Holdings" --json
+
+Notes:
+  - Renaming changes the display label only; the profile key stays the same.
+`
+    )
     .argument('<profile>', 'Profile key')
     .argument('<display-name>', 'Profile display name')
     .option('--json', 'Output results in JSON format')
