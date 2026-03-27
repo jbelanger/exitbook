@@ -5,7 +5,7 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { executeCliLinkingRuntime, type CliLinkingRuntime } from '../../../../runtime/linking-runtime.js';
+import { executeCliLinkingRuntime, type CliLinkingRuntime } from '../../../../../runtime/linking-runtime.js';
 
 const PROFILE_KEY = 'default';
 

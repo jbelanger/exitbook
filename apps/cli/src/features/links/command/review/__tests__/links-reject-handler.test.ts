@@ -10,7 +10,7 @@ import {
   createMockDataContext,
   createMockTransactionObjects,
   createMockLink,
-} from '../../__tests__/test-utils.ts';
+} from '../../../__tests__/test-utils.ts';
 import { LinksReviewHandler, type LinksReviewParams } from '../links-review-handler.js';
 
 const PROFILE_ID = 1;

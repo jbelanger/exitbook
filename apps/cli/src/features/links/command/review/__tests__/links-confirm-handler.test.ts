@@ -11,7 +11,7 @@ import {
   createMockOverrideStore,
   createMockTransactionObjects,
   createMockTransactionRepository,
-} from '../../__tests__/test-utils.js';
+} from '../../../__tests__/test-utils.js';
 import { LinksReviewHandler, type LinksReviewParams } from '../links-review-handler.js';
 
 const PROFILE_ID = 1;

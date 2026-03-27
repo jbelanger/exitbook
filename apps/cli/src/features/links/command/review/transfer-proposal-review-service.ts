@@ -9,7 +9,7 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import { resolveTransferProposal } from '../transfer-proposals.js';
+import { resolveTransferProposal } from '../../transfer-proposals.js';
 
 import { getDefaultReviewer } from './link-review-policy.js';
 import { writeLinkOverrideEvent, writeUnlinkOverrideEvent } from './links-override-utils.js';

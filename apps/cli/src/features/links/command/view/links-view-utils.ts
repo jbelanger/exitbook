@@ -2,7 +2,7 @@ import type { LinkStatus, MatchCriteria } from '@exitbook/core';
 import type { AssetMovementDraft, Transaction, TransactionLink } from '@exitbook/core';
 import type { Decimal } from 'decimal.js';
 
-import type { CommonViewFilters } from '../../shared/view-utils.js';
+import type { CommonViewFilters } from '../../../shared/view-utils.js';
 
 export interface LinksViewParams extends CommonViewFilters {
   status?: LinkStatus | undefined;

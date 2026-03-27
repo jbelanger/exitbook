@@ -2,7 +2,7 @@ import type { Account, Transaction, TransactionLink } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from '../links-gap-model.js';
+import type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from '../../links-gap-model.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);

@@ -2,7 +2,7 @@ import type { Transaction, TransactionLink } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { createMockLink, createMockTransaction } from '../../__tests__/test-utils.ts';
+import { createMockLink, createMockTransaction } from '../../../__tests__/test-utils.ts';
 import {
   filterLinksByConfidence,
   formatLinkForDisplay,

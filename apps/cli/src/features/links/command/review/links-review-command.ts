@@ -2,15 +2,15 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
-import { createSpinner, stopSpinner } from '../../shared/spinner.js';
-import { LinkActionError, LinkActionResult } from '../view/index.js';
+import { runCommand } from '../../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
+import { displayCliError } from '../../../shared/cli-error.js';
+import { ExitCodes } from '../../../shared/exit-codes.js';
+import { outputSuccess } from '../../../shared/json-output.js';
+import { createSpinner, stopSpinner } from '../../../shared/spinner.js';
+import { LinkActionError, LinkActionResult } from '../../view/index.js';
+import { LinksReviewCommandOptionsSchema } from '../links-option-schemas.js';
 
-import { LinksReviewCommandOptionsSchema } from './links-option-schemas.js';
 import { type LinksReviewAction, type LinksReviewActionResult, LinksReviewHandler } from './links-review-handler.js';
 
 type LinksReviewStatus = 'confirmed' | 'rejected';
