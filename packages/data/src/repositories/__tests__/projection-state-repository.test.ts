@@ -45,6 +45,25 @@ describe('ProjectionStateRepository', () => {
       expect(row!.lastBuiltAt).toEqual(new Date('2026-01-01T00:00:00.000Z'));
       expect(row!.metadata).toEqual({ accountHash: 'abc123' });
     });
+
+    it('returns a contextual error when persisted metadata is malformed', async () => {
+      await db
+        .insertInto('projection_state')
+        .values({
+          projection_id: 'processed-transactions',
+          scope_key: 'profile:demo',
+          status: 'fresh',
+          metadata_json: '[]',
+        })
+        .execute();
+
+      const result = await repo.get('processed-transactions', 'profile:demo');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('processed-transactions');
+        expect(result.error.message).toContain('profile:demo');
+      }
+    });
   });
 
   describe('markStale', () => {
@@ -160,6 +179,10 @@ describe('ProjectionStateRepository', () => {
 
       const result = await repo.get('processed-transactions');
       expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('processed-transactions');
+        expect(result.error.message).toContain('__global__');
+      }
     });
   });
 });
