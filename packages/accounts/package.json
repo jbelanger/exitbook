@@ -17,8 +17,7 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/foundation": "workspace:*",
-    "@exitbook/logger": "workspace:*"
+    "@exitbook/foundation": "workspace:*"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"
