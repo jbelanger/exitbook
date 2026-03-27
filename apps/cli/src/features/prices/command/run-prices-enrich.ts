@@ -1,4 +1,4 @@
-import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting';
+import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
 import { err, wrapError, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';

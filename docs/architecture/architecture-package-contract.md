@@ -479,6 +479,36 @@ Examples:
 
 ---
 
+## Public package surface rules
+
+Package roots are public contracts and must stay intentional.
+
+Default rule:
+
+- root entrypoints are curated, not wildcard barrels
+- large feature packages expose capability subpaths
+- wildcard barrels are acceptable for private/internal folders, not as the main package API
+
+Use this as the default public shape:
+
+- small primitive or infrastructure packages may keep a curated root-only API when the surface is intentionally small
+- large feature packages should keep the root minimal and expose explicit subpaths such as `@pkg/cost-basis`, `@pkg/linking`, or `@pkg/import`
+- if a package already needs multiple unrelated headings inside `src/index.ts`, it should probably have capability subpaths instead of one larger root barrel
+
+For this repo:
+
+- `@exitbook/accounting` should expose capability subpaths such as `./cost-basis`, `./linking`, `./portfolio`, and `./price-enrichment`
+- `@exitbook/ingestion` should expose capability subpaths such as `./adapters`, `./import`, `./process`, `./balance`, `./asset-review`, and `./events`
+- `@exitbook/data` is the reference direction: narrow root plus explicit subpaths
+
+Avoid:
+
+- broad feature-package roots that become default import hubs
+- mixing curated roots and wildcard roots across sibling packages without an explicit reason
+- treating the root entrypoint as a dumping ground for every export that might be useful somewhere
+
+---
+
 ## Composition guidance
 
 Each app should expose a clear app runtime and a clear request/command scope.

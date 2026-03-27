@@ -45,17 +45,22 @@ vi.mock('@exitbook/data/projections', () => ({
   buildProcessedTransactionsResetPorts: mockBuildProcessedTransactionsResetPorts,
 }));
 
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual('@exitbook/accounting');
-  class MockPriceEnrichmentPipeline {
-    execute = mockPipelineExecute;
-  }
-  class MockStandardFxRateProvider {}
+vi.mock('@exitbook/accounting/cost-basis', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/cost-basis');
   return {
     ...actual,
     checkTransactionPriceCoverage: mockCheckTransactionPriceCoverage,
+  };
+});
+
+vi.mock('@exitbook/accounting/price-enrichment', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/price-enrichment');
+  class MockPriceEnrichmentPipeline {
+    execute = mockPipelineExecute;
+  }
+  return {
+    ...actual,
     PriceEnrichmentPipeline: MockPriceEnrichmentPipeline,
-    StandardFxRateProvider: MockStandardFxRateProvider,
   };
 });
 

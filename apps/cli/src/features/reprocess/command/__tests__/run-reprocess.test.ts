@@ -1,7 +1,7 @@
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
-import type { ProcessingWorkflow } from '@exitbook/ingestion';
+import type { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
 import {

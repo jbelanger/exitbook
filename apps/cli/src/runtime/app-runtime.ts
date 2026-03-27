@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion';
+import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion/adapters';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import { getDataDir } from '../features/shared/data-dir.js';

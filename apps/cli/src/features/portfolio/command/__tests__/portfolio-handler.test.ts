@@ -1,14 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import {
-  type CalculatePortfolioHoldings,
   persistCostBasisFailureSnapshot,
-  PortfolioHandler,
-  type ReadPortfolioAssetReviewSummaries,
-  type ReadPortfolioDependencyWatermark,
   runCanadaCostBasisCalculation,
   type ICostBasisContextReader,
   type ICostBasisFailureSnapshotStore,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
+import {
+  type CalculatePortfolioHoldings,
+  PortfolioHandler,
+  type ReadPortfolioAssetReviewSummaries,
+  type ReadPortfolioDependencyWatermark,
+} from '@exitbook/accounting/portfolio';
 import type { Transaction } from '@exitbook/core';
 import { err, ok, type Currency } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';

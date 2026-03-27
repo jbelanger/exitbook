@@ -1,11 +1,11 @@
+import { createAccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
 import {
-  initializeStats,
-  extractAssetsNeedingPrices,
   createPriceQuery,
-  createAccountingExclusionPolicy,
-  validateAssetFilter,
   determineEnrichmentStages,
-} from '@exitbook/accounting';
+  extractAssetsNeedingPrices,
+  initializeStats,
+  validateAssetFilter,
+} from '@exitbook/accounting/price-enrichment';
 import type { Transaction, TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';

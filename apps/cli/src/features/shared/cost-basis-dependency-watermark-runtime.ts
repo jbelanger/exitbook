@@ -2,7 +2,7 @@ import {
   buildAccountingExclusionFingerprint,
   type AccountingExclusionPolicy,
   type CostBasisDependencyWatermark,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { buildCostBasisArtifactFreshnessPorts } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { err, type Result } from '@exitbook/foundation';

@@ -3,7 +3,9 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { ProcessingWorkflow, type AdapterRegistry, type IngestionEvent } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
+import type { IngestionEvent } from '@exitbook/ingestion/events';
+import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 
 import { createCliAssetReviewProjectionRuntime } from '../features/shared/asset-review-projection-runtime.js';
 import type { OpenedCliBlockchainProviderRuntime } from '../features/shared/blockchain-provider-runtime.js';

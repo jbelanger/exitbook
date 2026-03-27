@@ -1,4 +1,4 @@
-import { buildCostBasisInput, type ValidatedCostBasisConfig } from '@exitbook/accounting';
+import { buildCostBasisInput, type ValidatedCostBasisConfig } from '@exitbook/accounting/cost-basis';
 import { err, type Result } from '@exitbook/foundation';
 
 /**

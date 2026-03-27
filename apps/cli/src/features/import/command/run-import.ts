@@ -2,8 +2,10 @@ import type { Account, ImportSession } from '@exitbook/core';
 import { buildImportPorts } from '@exitbook/data/ingestion';
 import { EventBus, type EventBus as EventBusType } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
-import { ImportWorkflow, isUtxoAdapter } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
+import { isUtxoAdapter } from '@exitbook/ingestion/adapters';
+import type { IngestionEvent } from '@exitbook/ingestion/events';
+import { ImportWorkflow, type ImportParams } from '@exitbook/ingestion/import';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { CreateNamedAccountInput, UpdateNamedAccountInput } from '@exitbook/accounts';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { type AdapterRegistry, isUtxoAdapter } from '@exitbook/ingestion';
+import { isUtxoAdapter, type AdapterRegistry } from '@exitbook/ingestion/adapters';
 
 import type { AccountAddCommandOptions, AccountUpdateCommandOptions } from './accounts-option-schemas.js';
 

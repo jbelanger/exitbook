@@ -5,7 +5,10 @@ import {
 import { buildAssetReviewRuntimePorts } from '@exitbook/data/projections';
 import type { DataSession } from '@exitbook/data/session';
 import { ok, wrapError, type Result } from '@exitbook/foundation';
-import { createAssetReviewProjectionRuntime, type AssetReviewProjectionRuntime } from '@exitbook/ingestion';
+import {
+  createAssetReviewProjectionRuntime,
+  type AssetReviewProjectionRuntime,
+} from '@exitbook/ingestion/asset-review';
 
 import { buildPriceProviderConfigFromEnv } from '../../runtime/app-runtime.js';
 

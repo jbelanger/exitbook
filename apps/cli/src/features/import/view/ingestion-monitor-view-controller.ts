@@ -5,7 +5,7 @@
 import { performance } from 'node:perf_hooks';
 
 import { type IBlockchainProviderRuntime, type ProviderEvent } from '@exitbook/blockchain-providers';
-import type { IngestionEvent } from '@exitbook/ingestion';
+import type { IngestionEvent } from '@exitbook/ingestion/events';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { IngestionMonitorState, ImportOperation } from './ingestion-monitor-view-state.js';

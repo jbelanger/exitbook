@@ -1,4 +1,4 @@
-import type { PricingEvent } from '@exitbook/accounting';
+import type { PricingEvent } from '@exitbook/accounting/price-enrichment';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { InstrumentationCollector } from '@exitbook/observability';

@@ -3,7 +3,7 @@ import {
   type LinkingEvent,
   type LinkingRunParams,
   type LinkingRunResult,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/linking';
 import type { OverrideEvent } from '@exitbook/core';
 import { buildLinkingPorts } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';

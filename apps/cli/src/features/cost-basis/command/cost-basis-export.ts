@@ -11,7 +11,7 @@ import {
   type TaxPackageFile,
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 

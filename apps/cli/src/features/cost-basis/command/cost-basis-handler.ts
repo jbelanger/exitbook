@@ -2,11 +2,11 @@ import {
   CostBasisArtifactService,
   CostBasisWorkflow,
   persistCostBasisFailureSnapshot,
-  type CostBasisContext,
   type AccountingExclusionPolicy,
+  type CostBasisContext,
   type ValidatedCostBasisConfig,
   type CostBasisWorkflowResult,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import type { AssetReviewSummary } from '@exitbook/core';
 import {
   buildCostBasisArtifactStore,

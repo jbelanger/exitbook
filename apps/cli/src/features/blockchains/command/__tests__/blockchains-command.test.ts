@@ -1,5 +1,5 @@
 import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

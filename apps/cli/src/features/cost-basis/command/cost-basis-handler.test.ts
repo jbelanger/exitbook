@@ -1,4 +1,8 @@
-import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
+import {
+  CostBasisArtifactService,
+  CostBasisWorkflow,
+  persistCostBasisFailureSnapshot,
+} from '@exitbook/accounting/cost-basis';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { readPriceCacheFreshness } from '@exitbook/price-providers';
@@ -10,8 +14,8 @@ import { CostBasisHandler } from './cost-basis-handler.js';
 
 const PROFILE_ID = 1;
 
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual('@exitbook/accounting');
+vi.mock('@exitbook/accounting/cost-basis', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/cost-basis');
   return {
     ...actual,
     CostBasisArtifactService: vi.fn(),

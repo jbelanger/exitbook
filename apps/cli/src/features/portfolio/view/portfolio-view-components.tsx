@@ -2,7 +2,7 @@
  * Portfolio view TUI components.
  */
 
-import type { PortfolioPositionItem } from '@exitbook/accounting';
+import type { PortfolioPositionItem } from '@exitbook/accounting/portfolio';
 import { Decimal } from 'decimal.js';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useReducer, type FC } from 'react';

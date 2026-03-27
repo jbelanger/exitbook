@@ -1,4 +1,7 @@
-import { buildCostBasisScopedTransactions, validateTransferProposalConfirmability } from '@exitbook/accounting';
+import {
+  buildCostBasisScopedTransactions,
+  validateTransferProposalConfirmability,
+} from '@exitbook/accounting/cost-basis';
 import type { TransactionLink } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';

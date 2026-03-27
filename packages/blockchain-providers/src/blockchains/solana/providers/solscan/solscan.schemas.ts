@@ -89,12 +89,6 @@ export const SolscanAccountTransactionsResponseSchema = z.object({
   data: SolscanAccountTransactionsDataSchema.nullish(),
 });
 
-export const SolscanLegacyTransactionsResponseSchema = z.object({
-  success: z.boolean(),
-  message: z.string().nullish(),
-  data: z.array(SolscanTransactionSchema).nullish(),
-});
-
 // Type exports inferred from schemas
 export type SolscanTransaction = z.infer<typeof SolscanTransactionSchema>;
 export type SolscanResponse<T = unknown> = Omit<z.infer<typeof SolscanResponseSchema>, 'data'> & {

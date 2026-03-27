@@ -3,7 +3,7 @@ import {
   getExplicitTransferProposalKey,
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/linking';
 import type { LinkStatus, TransactionLink } from '@exitbook/core';
 
 interface TransferProposal {

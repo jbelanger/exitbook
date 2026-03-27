@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
-import type { LinkingRunParams } from '@exitbook/accounting';
+import type { LinkingRunParams } from '@exitbook/accounting/linking';
 import { parseDecimal } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { render } from 'ink';

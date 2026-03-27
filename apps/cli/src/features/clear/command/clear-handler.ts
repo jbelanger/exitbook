@@ -3,7 +3,7 @@ import { buildCostBasisResetPorts } from '@exitbook/data/accounting';
 import { buildIngestionPurgePorts } from '@exitbook/data/ingestion';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { IngestionPurgeImpact } from '@exitbook/ingestion';
+import type { IngestionPurgeImpact } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
 import {

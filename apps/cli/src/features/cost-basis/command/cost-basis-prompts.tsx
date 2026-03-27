@@ -6,7 +6,7 @@ import {
   type ValidatedCostBasisConfig,
   type CostBasisJurisdiction,
   type CostBasisMethod,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { Box, render, Text } from 'ink';
 import React, { useState, type FC } from 'react';
 

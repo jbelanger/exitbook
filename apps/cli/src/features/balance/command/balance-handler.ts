@@ -3,7 +3,7 @@ import type { ExchangeCredentials } from '@exitbook/core';
 import { buildBalancePorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion';
+import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { EventRelay } from '../../../ui/shared/event-relay.js';

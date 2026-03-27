@@ -1,4 +1,4 @@
-import { validateMethodJurisdictionCombination } from '@exitbook/accounting';
+import { validateMethodJurisdictionCombination } from '@exitbook/accounting/cost-basis';
 import { z } from 'zod';
 
 export const JsonFlagSchema = z.object({

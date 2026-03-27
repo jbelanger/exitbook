@@ -1,6 +1,6 @@
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { ProcessingWorkflow } from '@exitbook/ingestion';
+import type { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 

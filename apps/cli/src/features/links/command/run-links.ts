@@ -1,4 +1,4 @@
-import { type LinkingRunParams, type LinkingRunResult } from '@exitbook/accounting';
+import { type LinkingRunParams, type LinkingRunResult } from '@exitbook/accounting/linking';
 import { err, wrapError, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';

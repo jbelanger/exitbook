@@ -8,7 +8,7 @@ import {
   type CostBasisWorkflowResult,
   type StandardCostBasisDispositionFilingFact,
   type StandardCostBasisFilingFacts,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { Decimal } from 'decimal.js';
 
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';

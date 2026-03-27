@@ -2,7 +2,8 @@ import { type ProviderEvent } from '@exitbook/blockchain-providers';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { type IngestionEvent, ProcessingWorkflow } from '@exitbook/ingestion';
+import type { IngestionEvent } from '@exitbook/ingestion/events';
+import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 

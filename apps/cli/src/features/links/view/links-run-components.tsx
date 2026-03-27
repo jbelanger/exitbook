@@ -4,7 +4,7 @@
 
 import { performance } from 'node:perf_hooks';
 
-import type { LinkingEvent } from '@exitbook/accounting';
+import type { LinkingEvent } from '@exitbook/accounting/linking';
 import { Box, Text } from 'ink';
 import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 

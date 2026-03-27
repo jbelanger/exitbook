@@ -7,7 +7,7 @@
  * 3. Market prices - Fetch missing crypto prices from external providers
  * 4. Price rederive - Use newly fetched/normalized prices for ratio calculations
  */
-import type { PricesEnrichOptions } from '@exitbook/accounting';
+import type { PricesEnrichOptions } from '@exitbook/accounting/price-enrichment';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';

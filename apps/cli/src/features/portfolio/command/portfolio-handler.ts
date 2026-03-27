@@ -1,7 +1,7 @@
-import { PortfolioHandler } from '@exitbook/accounting';
+import { PortfolioHandler } from '@exitbook/accounting/portfolio';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { calculateBalances } from '@exitbook/ingestion';
+import { calculateBalances } from '@exitbook/ingestion/balance';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';

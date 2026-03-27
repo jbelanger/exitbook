@@ -1,7 +1,7 @@
 import type { Account, BalanceSnapshotAsset, Transaction } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
-import type { BalanceVerificationResult } from '@exitbook/ingestion';
+import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 

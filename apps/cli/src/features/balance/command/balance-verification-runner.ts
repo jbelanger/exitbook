@@ -2,7 +2,7 @@ import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion';
+import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';

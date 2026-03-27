@@ -1,4 +1,10 @@
-import { PriceEnrichmentPipeline, type AccountingExclusionPolicy, type PricingEvent } from '@exitbook/accounting';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
+import {
+  PriceEnrichmentPipeline,
+  type PricingEvent,
+  type PricesEnrichOptions,
+  type PricesEnrichResult,
+} from '@exitbook/accounting/price-enrichment';
 import { buildPricingPorts } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
@@ -30,14 +36,11 @@ interface CreateCliPriceEnrichmentRuntimeOptions {
   scope: CommandRuntime;
 }
 
-export interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = import('@exitbook/accounting').PricesEnrichResult> {
+export interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrichResult> {
   afterSuccess?:
-    | ((
-        result: import('@exitbook/accounting').PricesEnrichResult,
-        runtime: CliPriceEnrichmentRuntime
-      ) => Promise<Result<TSuccess, Error>>)
+    | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
     | undefined;
-  params: import('@exitbook/accounting').PricesEnrichOptions;
+  params: PricesEnrichOptions;
 }
 
 export interface WithCliPriceEnrichmentRuntimeOptions {
@@ -119,7 +122,7 @@ export async function createCliPriceEnrichmentRuntime(
   }
 }
 
-export async function executeCliPriceEnrichmentRuntime<TSuccess = import('@exitbook/accounting').PricesEnrichResult>(
+export async function executeCliPriceEnrichmentRuntime<TSuccess = PricesEnrichResult>(
   runtime: CliPriceEnrichmentRuntime,
   options: ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess>
 ): Promise<Result<TSuccess, Error>> {

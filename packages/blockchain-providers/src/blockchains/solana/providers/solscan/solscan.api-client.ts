@@ -27,11 +27,7 @@ import { isValidSolanaAddress } from '../../utils.js';
 
 import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
-import {
-  SolscanAccountBalanceResponseSchema,
-  SolscanAccountTransactionsResponseSchema,
-  SolscanLegacyTransactionsResponseSchema,
-} from './solscan.schemas.js';
+import { SolscanAccountBalanceResponseSchema, SolscanAccountTransactionsResponseSchema } from './solscan.schemas.js';
 
 export const solscanMetadata: ProviderMetadata = {
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
@@ -250,34 +246,9 @@ export class SolscanApiClient extends BaseApiClient {
         );
       }
 
-      // If primary endpoint failed or returned no data, try legacy endpoint (V1)
-      // This endpoint is deprecated but may work for some addresses/keys where V2 fails.
-      if (items.length === 0) {
-        this.logger.debug(`Attempting legacy Solscan endpoint - Address: ${maskAddress(address)}`);
-
-        const legacyResult = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
-          `/account/transaction?address=${address}&limit=${limit}&offset=${offset}`,
-          { schema: SolscanLegacyTransactionsResponseSchema }
-        );
-
-        if (legacyResult.isOk()) {
-          const legacyResponse = legacyResult.value;
-          if (legacyResponse && legacyResponse.success && legacyResponse.data) {
-            items = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
-            // Clear error if legacy succeeded
-            fetchError = undefined;
-          }
-        } else if (!fetchError) {
-          // If primary succeeded (but empty) and legacy failed, keep primary success (empty)
-          // If primary failed and legacy failed, keep primary error (or legacy error?)
-          // Let's keep primary error if it exists, otherwise legacy error
-          fetchError = legacyResult.error;
-        }
-      }
-
       if (fetchError && items.length === 0) {
         this.logger.error(
-          `All Solscan endpoints failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(fetchError)}`
+          `Solscan transaction request failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(fetchError)}`
         );
         return err(fetchError);
       }
