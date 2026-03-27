@@ -1,13 +1,9 @@
-import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { AssetsHandler, type AssetReviewOverrideResult } from './assets-handler.js';
+import { executeAssetOverrideCommand } from './asset-override-command.js';
+import type { AssetReviewOverrideResult } from './assets-handler.js';
 import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
 
 export function registerAssetsConfirmCommand(assetsCommand: Command): void {
@@ -38,53 +34,20 @@ Notes:
 }
 
 async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
-
-  const parseResult = AssetsConfirmCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'assets-confirm',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
-
-  try {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('assets-confirm', profileResult.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-      }
-
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.confirmReview({
+  await executeAssetOverrideCommand(
+    'assets-confirm',
+    rawOptions,
+    AssetsConfirmCommandOptionsSchema,
+    (handler, { options, profileId, profileKey }) =>
+      handler.confirmReview({
         assetId: options.assetId,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
+        profileId,
+        profileKey,
         symbol: options.symbol,
         reason: options.reason,
-      });
-
-      if (result.isErr()) {
-        displayCliError('assets-confirm', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-      }
-
-      handleAssetsConfirmSuccess(options.json ?? false, result.value);
-    });
-  } catch (error) {
-    displayCliError(
-      'assets-confirm',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
-    );
-  }
+      }),
+    handleAssetsConfirmSuccess
+  );
 }
 
 function handleAssetsConfirmSuccess(isJsonMode: boolean, result: AssetReviewOverrideResult): void {

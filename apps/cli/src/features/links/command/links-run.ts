@@ -23,6 +23,14 @@ import { runLinks } from './run-links.js';
  */
 type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
 
+function hasExplicitLinksRunThresholds(options: LinksRunCommandOptions): boolean {
+  return options.minConfidence !== undefined || options.autoConfirmThreshold !== undefined;
+}
+
+function normalizeThresholdInput(input: string, fallback: string): string {
+  return input.trim() === '' ? fallback : input;
+}
+
 /**
  * Build links run parameters from validated CLI options.
  */
@@ -92,9 +100,10 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
             return;
           }
 
-          // Validate auto-confirm >= min confidence
-          const minConfidence = Number(minConfidenceInput);
-          const autoConfirm = Number(autoConfirmInput);
+          const normalizedMinConfidence = normalizeThresholdInput(minConfidenceInput, '0.7');
+          const normalizedAutoConfirm = normalizeThresholdInput(autoConfirmInput, '0.95');
+          const minConfidence = Number(normalizedMinConfidence);
+          const autoConfirm = Number(normalizedAutoConfirm);
           if (autoConfirm < minConfidence) {
             console.error('\u26A0 Error: Auto-confirm threshold must be >= minimum confidence score');
             resolve(null);
@@ -102,8 +111,8 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           }
 
           resolve({
-            minConfidenceScore: parseDecimal(minConfidenceInput),
-            autoConfirmThreshold: parseDecimal(autoConfirmInput),
+            minConfidenceScore: parseDecimal(normalizedMinConfidence),
+            autoConfirmThreshold: parseDecimal(normalizedAutoConfirm),
           });
         },
         onCancel: () => {
@@ -197,7 +206,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
 async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     let params: LinkingRunParams;
-    if (!options.minConfidence && !options.autoConfirmThreshold) {
+    if (!hasExplicitLinksRunThresholds(options)) {
       const prompted = await promptForLinksRunParams();
       if (!prompted) {
         console.log('Transaction linking cancelled.');
