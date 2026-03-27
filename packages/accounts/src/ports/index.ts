@@ -28,7 +28,7 @@ export interface IAccountLifecycleStore {
     profileId: number;
   }): Promise<Result<Account | undefined, Error>>;
   findByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>>;
-  findChildren(parentAccountId: number): Promise<Result<Account[], Error>>;
+  findChildren(parentAccountId: number, profileId: number): Promise<Result<Account[], Error>>;
   listTopLevel(profileId: number): Promise<Result<Account[], Error>>;
   update(
     accountId: number,

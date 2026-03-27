@@ -464,6 +464,82 @@ describe('AccountRepository', () => {
         expect(result.error.message).toContain('Child accounts must not have names');
       }
     });
+
+    it('rejects child accounts whose profile does not match the parent', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const parent = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-root',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-parent',
+        })
+      );
+
+      const result = await repo.create({
+        profileId: 2,
+        parentAccountId: parent.id,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Child account profile must match parent account profile');
+      }
+    });
+
+    it('blocks cross-profile child rows at the database layer', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const parent = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-root',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-parent',
+        })
+      );
+
+      await expect(
+        db
+          .insertInto('accounts')
+          .values({
+            profile_id: 2,
+            parent_account_id: parent.id,
+            account_type: 'blockchain',
+            platform_key: 'bitcoin',
+            identifier: 'bc1q-child',
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          })
+          .executeTakeFirstOrThrow()
+      ).rejects.toThrow('Child account profile must match parent account profile');
+    });
   });
 
   describe('update', () => {
@@ -516,6 +592,35 @@ describe('AccountRepository', () => {
 
       expect(after.providerName).toBe('existing-provider');
       expect(after.updatedAt?.toISOString()).toBe(before.updatedAt?.toISOString());
+    });
+
+    it('rejects reparenting an account under a different profile', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const foreignParent = assertOk(
+        await repo.create({
+          profileId: 2,
+          name: 'foreign-root',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'xpub-foreign',
+        })
+      );
+
+      const result = await repo.update(account.id, { parentAccountId: foreignParent.id });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Child account profile must match parent account profile');
+      }
     });
 
     it('updates the account name', async () => {

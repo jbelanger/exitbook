@@ -68,7 +68,7 @@ Notes:
             );
           }
 
-          const hierarchyResult = await accountService.collectHierarchy(accountResult.value.id);
+          const hierarchyResult = await accountService.collectHierarchy(profileResult.value.id, accountResult.value.id);
           if (hierarchyResult.isErr()) {
             displayCliError('accounts-remove', hierarchyResult.error, ExitCodes.GENERAL_ERROR, format);
           }

@@ -224,13 +224,10 @@ export class AccountLifecycleService {
     return this.requireAccount(account.id);
   }
 
-  async collectHierarchy(rootAccountId: number): Promise<Result<Account[], Error>> {
-    const rootResult = await this.store.findById(rootAccountId);
+  async collectHierarchy(profileId: number, rootAccountId: number): Promise<Result<Account[], Error>> {
+    const rootResult = await this.requireOwned(profileId, rootAccountId);
     if (rootResult.isErr()) {
       return err(rootResult.error);
-    }
-    if (!rootResult.value) {
-      return err(new Error(`Account ${rootAccountId} not found`));
     }
 
     const ordered: Account[] = [rootResult.value];
@@ -238,7 +235,7 @@ export class AccountLifecycleService {
 
     while (queue.length > 0) {
       const parentId = queue.shift()!;
-      const childrenResult = await this.store.findChildren(parentId);
+      const childrenResult = await this.store.findChildren(parentId, profileId);
       if (childrenResult.isErr()) {
         return err(childrenResult.error);
       }

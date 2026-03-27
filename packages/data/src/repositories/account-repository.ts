@@ -79,6 +79,14 @@ function isExchangeAccountType(accountType: AccountType): boolean {
   return EXCHANGE_ACCOUNT_TYPES.includes(accountType);
 }
 
+function profilesMatch(leftProfileId: number | null | undefined, rightProfileId: number | null | undefined): boolean {
+  if (isUnsetProfileId(leftProfileId) && isUnsetProfileId(rightProfileId)) {
+    return true;
+  }
+
+  return leftProfileId === rightProfileId;
+}
+
 function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
   return resultDo(function* () {
     const credentials = yield* parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
@@ -253,6 +261,16 @@ export class AccountRepository extends BaseRepository {
         if (params.parentAccountId !== undefined && params.name !== undefined) {
           yield* err('Child accounts must not have names');
         }
+        if (params.parentAccountId !== undefined) {
+          const parentAccount = yield* await self.findById(params.parentAccountId);
+          if (!parentAccount) {
+            yield* err(`Parent account ${params.parentAccountId} not found`);
+          }
+          const parentProfileId = parentAccount!.profileId;
+          if (!profilesMatch(parentProfileId, params.profileId)) {
+            yield* err('Child account profile must match parent account profile');
+          }
+        }
 
         let normalizedName: string | null = null;
         if (params.name !== undefined) {
@@ -327,6 +345,15 @@ export class AccountRepository extends BaseRepository {
         };
 
         if (updates.parentAccountId !== undefined) {
+          const currentAccount = yield* await self.getById(accountId);
+          const parentAccount = yield* await self.findById(updates.parentAccountId);
+          if (!parentAccount) {
+            yield* err(`Parent account ${updates.parentAccountId} not found`);
+          }
+          const parentProfileId = parentAccount!.profileId;
+          if (!profilesMatch(parentProfileId, currentAccount.profileId)) {
+            yield* err('Child account profile must match parent account profile');
+          }
           updateData.parent_account_id = updates.parentAccountId;
         }
 

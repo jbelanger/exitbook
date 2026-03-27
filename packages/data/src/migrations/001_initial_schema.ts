@@ -66,6 +66,28 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   // Create index on parent_account_id for efficient child account queries (xpub hierarchies)
   await db.schema.createIndex('idx_accounts_parent_account_id').on('accounts').column('parent_account_id').execute();
 
+  await sql`
+    CREATE TRIGGER trg_accounts_child_profile_match_insert
+    BEFORE INSERT ON accounts
+    FOR EACH ROW
+    WHEN NEW.parent_account_id IS NOT NULL
+    BEGIN
+      SELECT RAISE(ABORT, 'Child account profile must match parent account profile')
+      WHERE COALESCE((SELECT profile_id FROM accounts WHERE id = NEW.parent_account_id), 0) != COALESCE(NEW.profile_id, 0);
+    END
+  `.execute(db);
+
+  await sql`
+    CREATE TRIGGER trg_accounts_child_profile_match_update
+    BEFORE UPDATE OF parent_account_id, profile_id ON accounts
+    FOR EACH ROW
+    WHEN NEW.parent_account_id IS NOT NULL
+    BEGIN
+      SELECT RAISE(ABORT, 'Child account profile must match parent account profile')
+      WHERE COALESCE((SELECT profile_id FROM accounts WHERE id = NEW.parent_account_id), 0) != COALESCE(NEW.profile_id, 0);
+    END
+  `.execute(db);
+
   // Create import_sessions table
   await db.schema
     .createTable('import_sessions')

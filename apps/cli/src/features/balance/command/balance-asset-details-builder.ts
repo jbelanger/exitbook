@@ -91,9 +91,16 @@ export class BalanceAssetDetailsBuilder {
   }
 
   private async loadAccountTransactions(account: Account): Promise<Result<Transaction[], Error>> {
+    if (account.profileId === undefined) {
+      return err(new Error(`Account #${account.id} is missing profile scope`));
+    }
+
     const memberAccountsResult = await loadBalanceScopeMemberAccounts(account, {
       findChildAccounts: async (parentAccountId: number) => {
-        const childAccountsResult = await this.db.accounts.findAll({ parentAccountId });
+        const childAccountsResult = await this.db.accounts.findAll({
+          parentAccountId,
+          profileId: account.profileId,
+        });
         if (childAccountsResult.isErr()) {
           return err(childAccountsResult.error);
         }

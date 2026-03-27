@@ -81,8 +81,10 @@ function createStore(initialAccounts: Account[] = []) {
       async findByName(profileId: number, name: string) {
         return ok(accounts.find((account) => account.profileId === profileId && account.name === name));
       },
-      async findChildren(parentAccountId: number) {
-        return ok(accounts.filter((account) => account.parentAccountId === parentAccountId));
+      async findChildren(parentAccountId: number, profileId: number) {
+        return ok(
+          accounts.filter((account) => account.parentAccountId === parentAccountId && account.profileId === profileId)
+        );
       },
       async listTopLevel(profileId: number) {
         return ok(
@@ -397,8 +399,42 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const hierarchy = assertOk(await service.collectHierarchy(1));
+    const hierarchy = assertOk(await service.collectHierarchy(1, 1));
 
     expect(hierarchy.map((account) => account.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('keeps hierarchy traversal inside the selected profile', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 1,
+        profileId: 1,
+        name: 'root',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'root',
+      }),
+      createAccount({
+        id: 2,
+        profileId: 1,
+        parentAccountId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'child-a',
+      }),
+      createAccount({
+        id: 3,
+        profileId: 2,
+        parentAccountId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'cross-profile-child',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const hierarchy = assertOk(await service.collectHierarchy(1, 1));
+
+    expect(hierarchy.map((account) => account.id)).toEqual([1, 2]);
   });
 });
