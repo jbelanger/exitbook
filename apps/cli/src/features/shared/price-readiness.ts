@@ -4,7 +4,10 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CommandRuntime } from '../../runtime/command-runtime.js';
-import { executePricesEnrichRuntime, withPricesEnrichRuntime } from '../prices/command/run-prices-enrich.js';
+import {
+  executeCliPriceEnrichmentRuntime,
+  withCliPriceEnrichmentRuntime,
+} from '../../runtime/price-enrichment-runtime.js';
 
 import type { PrereqExecutionOptions } from './projection-readiness.js';
 
@@ -45,7 +48,7 @@ export async function ensureTransactionPricesReady(
     console.log('\nPrices missing for requested date range, running enrichment...\n');
   }
 
-  return withPricesEnrichRuntime(
+  return withCliPriceEnrichmentRuntime(
     {
       accountingExclusionPolicy,
       database: db,
@@ -56,7 +59,7 @@ export async function ensureTransactionPricesReady(
       scope,
     },
     (runtime) =>
-      executePricesEnrichRuntime(runtime, {
+      executeCliPriceEnrichmentRuntime(runtime, {
         params: {},
         afterSuccess: async () => {
           const postCoverageResult = await verifyTransactionPriceCoverage(
