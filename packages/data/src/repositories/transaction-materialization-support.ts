@@ -7,17 +7,22 @@ import {
   type AssetMovement,
   type FeeMovement,
   type Transaction,
+  type TransactionMaterializationScope,
   type TransactionNote,
   type TransactionStatus,
 } from '@exitbook/core';
 import { CurrencySchema, parseDecimal } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
+import type { Logger } from '@exitbook/logger';
 import type { Selectable } from '@exitbook/sqlite';
 import { z } from 'zod';
 
 import type { TransactionMovementsTable, TransactionsTable } from '../database-schema.js';
+import type { KyselyDB } from '../database.js';
+import { withControlledTransaction } from '../utils/controlled-transaction.js';
 import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 export interface TransactionSummary {
   id: number;
@@ -42,10 +47,8 @@ interface WarningLogger {
   warn(context: unknown, message: string): void;
 }
 
-interface MaterializeTransactionNoteOverridesParams {
-  accountIds?: number[] | undefined;
+export interface MaterializeTransactionNoteOverridesParams extends TransactionMaterializationScope {
   notesByFingerprint: ReadonlyMap<string, string>;
-  transactionIds?: number[] | undefined;
 }
 
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
@@ -430,4 +433,94 @@ export function serializeMaterializedNotes(notes: TransactionNote[] | undefined)
   return notes ? serializeToJson(notes) : ok(undefined);
 }
 
-export type { MaterializeTransactionNoteOverridesParams };
+export async function materializeTransactionNoteOverrides(
+  db: KyselyDB,
+  logger: Logger,
+  params: MaterializeTransactionNoteOverridesParams
+): Promise<Result<number, Error>> {
+  if (params.accountIds !== undefined && params.accountIds.length === 0) {
+    return ok(0);
+  }
+
+  if (params.transactionIds !== undefined && params.transactionIds.length === 0) {
+    return ok(0);
+  }
+
+  return withControlledTransaction(
+    db,
+    logger,
+    async (trx) => {
+      const rowsById = new Map<number, { id: number; notes_json: unknown; tx_fingerprint: string }>();
+      const batchedTransactionIds =
+        params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+          ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
+          : [params.transactionIds];
+      const batchedAccountIds =
+        !params.transactionIds && params.accountIds && params.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+          ? chunkItems(params.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)
+          : [params.accountIds];
+
+      for (const transactionIdBatch of batchedTransactionIds) {
+        for (const accountIdBatch of batchedAccountIds) {
+          let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+
+          if (accountIdBatch) {
+            batchedQuery = batchedQuery.where('account_id', 'in', accountIdBatch);
+          }
+
+          if (transactionIdBatch) {
+            batchedQuery = batchedQuery.where('id', 'in', transactionIdBatch);
+          }
+
+          const rows = await batchedQuery.execute();
+          for (const row of rows) {
+            rowsById.set(row.id, row);
+          }
+        }
+      }
+
+      const rows = [...rowsById.values()].sort((left, right) => left.id - right.id);
+      let updatedCount = 0;
+
+      for (const row of rows) {
+        const existingNotesResult = parseStoredNotes(row.notes_json as string | null);
+        if (existingNotesResult.isErr()) {
+          return err(
+            new Error(`Failed to parse notes for transaction ${row.id}: ${existingNotesResult.error.message}`)
+          );
+        }
+
+        const nextNotes = projectOverrideStoreUserNote(
+          existingNotesResult.value,
+          params.notesByFingerprint.get(row.tx_fingerprint)
+        );
+
+        if (JSON.stringify(existingNotesResult.value ?? []) === JSON.stringify(nextNotes ?? [])) {
+          continue;
+        }
+
+        const notesJsonResult = serializeMaterializedNotes(nextNotes);
+        if (notesJsonResult.isErr()) {
+          return err(
+            new Error(`Failed to serialize notes for transaction ${row.id}: ${notesJsonResult.error.message}`)
+          );
+        }
+
+        await trx
+          .updateTable('transactions')
+          .set({
+            // eslint-disable-next-line unicorn/no-null -- clearing persisted JSON column requires null
+            notes_json: notesJsonResult.value ?? null,
+            updated_at: new Date().toISOString(),
+          })
+          .where('id', '=', row.id)
+          .execute();
+
+        updatedCount++;
+      }
+
+      return ok(updatedCount);
+    },
+    'Failed to materialize transaction note overrides'
+  );
+}

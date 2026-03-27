@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import type { AssetReviewEvidence, AssetReviewSummary } from '@exitbook/core';
+import type { AssetReferenceStatus, AssetReviewEvidence, AssetReviewStatus, AssetReviewSummary } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { AssetReviewEvidenceTable, AssetReviewStateTable } from '../database-schema.js';
@@ -16,19 +16,19 @@ interface AssetReviewStateRecord {
   confirmation_is_stale: number | boolean;
   confirmed_evidence_fingerprint: string | null;
   evidence_fingerprint: string;
-  reference_status: string;
-  review_status: string;
+  reference_status: AssetReferenceStatus;
+  review_status: AssetReviewStatus;
   warning_summary: string | null;
 }
 
 interface AssetReviewEvidenceRecord {
   profile_id: number;
   asset_id: string;
-  kind: string;
+  kind: AssetReviewEvidence['kind'];
   message: string;
   metadata_json: unknown;
   position: number;
-  severity: string;
+  severity: AssetReviewEvidence['severity'];
 }
 
 export class AssetReviewRepository extends BaseRepository {
@@ -207,14 +207,14 @@ export class AssetReviewRepository extends BaseRepository {
       evidence.push(
         metadata
           ? {
-              kind: row.kind as AssetReviewEvidence['kind'],
-              severity: row.severity as AssetReviewEvidence['severity'],
+              kind: row.kind,
+              severity: row.severity,
               message: row.message,
               metadata,
             }
           : {
-              kind: row.kind as AssetReviewEvidence['kind'],
-              severity: row.severity as AssetReviewEvidence['severity'],
+              kind: row.kind,
+              severity: row.severity,
               message: row.message,
             }
       );
@@ -225,8 +225,8 @@ export class AssetReviewRepository extends BaseRepository {
       stateRows.map((row) => {
         const summary: AssetReviewSummary = {
           assetId: row.asset_id,
-          reviewStatus: row.review_status as AssetReviewSummary['reviewStatus'],
-          referenceStatus: row.reference_status as AssetReviewSummary['referenceStatus'],
+          reviewStatus: row.review_status,
+          referenceStatus: row.reference_status,
           evidenceFingerprint: row.evidence_fingerprint,
           confirmationIsStale: Boolean(row.confirmation_is_stale),
           accountingBlocked: Boolean(row.accounting_blocked),

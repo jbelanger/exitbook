@@ -1,5 +1,12 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import type { BalanceSnapshot, BalanceSnapshotAsset } from '@exitbook/core';
+import type {
+  BalanceSnapshot,
+  BalanceSnapshotAsset,
+  BalanceSnapshotAssetComparisonStatus,
+  BalanceSnapshotCoverageConfidence,
+  BalanceSnapshotCoverageStatus,
+  BalanceSnapshotVerificationStatus,
+} from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
@@ -9,8 +16,8 @@ import { BaseRepository } from './base-repository.js';
 
 interface BalanceSnapshotRecord {
   calculated_at: string | null;
-  coverage_confidence: string | null;
-  coverage_status: string | null;
+  coverage_confidence: BalanceSnapshotCoverageConfidence | null;
+  coverage_status: BalanceSnapshotCoverageStatus | null;
   failed_address_count: number | null;
   failed_asset_count: number | null;
   last_error: string | null;
@@ -24,7 +31,7 @@ interface BalanceSnapshotRecord {
   successful_address_count: number | null;
   suggestion: string | null;
   total_asset_count: number | null;
-  verification_status: string;
+  verification_status: BalanceSnapshotVerificationStatus;
   warning_count: number;
 }
 
@@ -32,7 +39,7 @@ interface BalanceSnapshotAssetRecord {
   asset_id: string;
   asset_symbol: string;
   calculated_balance: string;
-  comparison_status: string | null;
+  comparison_status: BalanceSnapshotAssetComparisonStatus | null;
   difference: string | null;
   excluded_from_accounting: number | boolean;
   live_balance: string | null;
@@ -281,11 +288,9 @@ export class BalanceSnapshotRepository extends BaseRepository {
       scopeAccountId: row.scope_account_id,
       calculatedAt: row.calculated_at ? new Date(row.calculated_at) : undefined,
       lastRefreshAt: row.last_refresh_at ? new Date(row.last_refresh_at) : undefined,
-      verificationStatus: row.verification_status as BalanceSnapshot['verificationStatus'],
-      coverageStatus: row.coverage_status ? (row.coverage_status as BalanceSnapshot['coverageStatus']) : undefined,
-      coverageConfidence: row.coverage_confidence
-        ? (row.coverage_confidence as BalanceSnapshot['coverageConfidence'])
-        : undefined,
+      verificationStatus: row.verification_status,
+      coverageStatus: row.coverage_status ?? undefined,
+      coverageConfidence: row.coverage_confidence ?? undefined,
       requestedAddressCount: row.requested_address_count ?? undefined,
       successfulAddressCount: row.successful_address_count ?? undefined,
       failedAddressCount: row.failed_address_count ?? undefined,
@@ -309,9 +314,7 @@ export class BalanceSnapshotRepository extends BaseRepository {
       calculatedBalance: row.calculated_balance,
       liveBalance: row.live_balance ?? undefined,
       difference: row.difference ?? undefined,
-      comparisonStatus: row.comparison_status
-        ? (row.comparison_status as BalanceSnapshotAsset['comparisonStatus'])
-        : undefined,
+      comparisonStatus: row.comparison_status ?? undefined,
       excludedFromAccounting: Boolean(row.excluded_from_accounting),
     };
   }

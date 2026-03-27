@@ -1,21 +1,17 @@
-/* eslint-disable unicorn/no-null -- Kysely queries require null for IS NULL checks */
-import { type TransactionMaterializationScope, type Transaction, type TransactionDraft } from '@exitbook/core';
+/* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
+import { type Transaction, type TransactionDraft } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
-import type { Selectable } from '@exitbook/sqlite';
 
-import type { TransactionsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { withControlledTransaction } from '../utils/controlled-transaction.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 import {
-  parseStoredNotes,
-  projectOverrideStoreUserNote,
+  materializeTransactionNoteOverrides,
+  type MaterializeTransactionNoteOverridesParams,
   rowToTransaction,
-  serializeMaterializedNotes,
   toTransactionSummary,
   type MovementRow,
   type TransactionSummary,
@@ -27,15 +23,7 @@ import {
   resolveExistingTransactionConflict,
   validatePriceDataForPersistence,
 } from './transaction-persistence-support.js';
-
-interface TransactionQueryParams {
-  profileId?: number | undefined;
-  platformKey?: string | undefined;
-  since?: number | undefined;
-  accountId?: number | undefined;
-  accountIds?: number[] | undefined;
-  includeExcluded?: boolean | undefined;
-}
+import { countTransactionRows, findTransactionRows, type TransactionQueryParams } from './transaction-query-support.js';
 
 interface FullTransactionQueryParams extends TransactionQueryParams {
   projection?: 'full' | undefined;
@@ -43,10 +31,6 @@ interface FullTransactionQueryParams extends TransactionQueryParams {
 
 interface SummaryTransactionQueryParams extends TransactionQueryParams {
   projection: 'summary';
-}
-
-interface MaterializeTransactionNoteOverridesParams extends TransactionMaterializationScope {
-  notesByFingerprint: ReadonlyMap<string, string>;
 }
 
 const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
@@ -84,7 +68,8 @@ export class TransactionRepository extends BaseRepository {
 
       if (!txResult) {
         const existingResult = await resolveExistingTransactionConflict(this.db, {
-          blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
+          blockchainTransactionHash:
+            values.blockchain_transaction_hash === undefined ? null : values.blockchain_transaction_hash,
           txFingerprint,
         });
         if (existingResult.isErr()) {
@@ -154,7 +139,8 @@ export class TransactionRepository extends BaseRepository {
 
         if (!txResult) {
           const existingResult = await resolveExistingTransactionConflict(this.db, {
-            blockchainTransactionHash: values.blockchain_transaction_hash ?? null,
+            blockchainTransactionHash:
+              values.blockchain_transaction_hash === undefined ? null : values.blockchain_transaction_hash,
             txFingerprint,
           });
           if (existingResult.isErr()) {
@@ -198,76 +184,7 @@ export class TransactionRepository extends BaseRepository {
   ): Promise<Result<Transaction[] | TransactionSummary[], Error>> {
     try {
       const projection = filters?.projection ?? 'full';
-
-      let query = this.db
-        .selectFrom('transactions')
-        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
-        .selectAll('transactions');
-
-      if (filters) {
-        if (filters.profileId !== undefined) {
-          query = query.where('accounts.profile_id', '=', filters.profileId);
-        }
-
-        if (filters.platformKey) {
-          query = query.where('transactions.platform_key', '=', filters.platformKey);
-        }
-
-        if (filters.since) {
-          const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
-        }
-
-        if (filters.accountId !== undefined) {
-          query = query.where('transactions.account_id', '=', filters.accountId);
-        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          query = query.where('transactions.account_id', 'in', filters.accountIds);
-        }
-      }
-
-      if (!filters?.includeExcluded) {
-        query = query.where('transactions.excluded_from_accounting', '=', false);
-      }
-
-      query = query.orderBy('transactions.transaction_datetime', 'asc');
-
-      let rows: Selectable<TransactionsTable>[] = [];
-      if (
-        filters?.accountId === undefined &&
-        filters?.accountIds !== undefined &&
-        filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
-      ) {
-        for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
-          let batchedQuery = this.db
-            .selectFrom('transactions')
-            .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
-            .selectAll('transactions');
-
-          if (filters.profileId !== undefined) {
-            batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
-          }
-
-          if (filters.platformKey) {
-            batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
-          }
-
-          if (filters.since) {
-            const sinceDate = new Date(filters.since * 1000).toISOString();
-            batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
-          }
-
-          batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
-
-          if (!filters.includeExcluded) {
-            batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
-          }
-
-          rows.push(...(await batchedQuery.orderBy('transactions.transaction_datetime', 'asc').execute()));
-        }
-        rows.sort((left, right) => left.transaction_datetime.localeCompare(right.transaction_datetime));
-      } else {
-        rows = await query.execute();
-      }
+      const rows = await findTransactionRows(this.db, filters ?? {});
 
       if (projection === 'summary') {
         const summaries: TransactionSummary[] = [];
@@ -454,164 +371,12 @@ export class TransactionRepository extends BaseRepository {
   async materializeTransactionNoteOverrides(
     params: MaterializeTransactionNoteOverridesParams
   ): Promise<Result<number, Error>> {
-    if (params.accountIds !== undefined && params.accountIds.length === 0) {
-      return ok(0);
-    }
-
-    if (params.transactionIds !== undefined && params.transactionIds.length === 0) {
-      return ok(0);
-    }
-
-    return withControlledTransaction(
-      this.db,
-      this.logger,
-      async (trx) => {
-        const rowsById = new Map<number, { id: number; notes_json: unknown; tx_fingerprint: string }>();
-        const batchedTransactionIds =
-          params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
-            ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
-            : [params.transactionIds];
-        const batchedAccountIds =
-          !params.transactionIds && params.accountIds && params.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
-            ? chunkItems(params.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)
-            : [params.accountIds];
-
-        for (const transactionIdBatch of batchedTransactionIds) {
-          for (const accountIdBatch of batchedAccountIds) {
-            let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
-
-            if (accountIdBatch) {
-              batchedQuery = batchedQuery.where('account_id', 'in', accountIdBatch);
-            }
-
-            if (transactionIdBatch) {
-              batchedQuery = batchedQuery.where('id', 'in', transactionIdBatch);
-            }
-
-            const rows = await batchedQuery.execute();
-            for (const row of rows) {
-              rowsById.set(row.id, row);
-            }
-          }
-        }
-
-        const rows = [...rowsById.values()].sort((left, right) => left.id - right.id);
-        let updatedCount = 0;
-
-        for (const row of rows) {
-          const existingNotesResult = parseStoredNotes(row.notes_json as string | null);
-          if (existingNotesResult.isErr()) {
-            return err(
-              new Error(`Failed to parse notes for transaction ${row.id}: ${existingNotesResult.error.message}`)
-            );
-          }
-
-          const nextNotes = projectOverrideStoreUserNote(
-            existingNotesResult.value,
-            params.notesByFingerprint.get(row.tx_fingerprint)
-          );
-
-          if (JSON.stringify(existingNotesResult.value ?? []) === JSON.stringify(nextNotes ?? [])) {
-            continue;
-          }
-
-          const notesJsonResult = serializeMaterializedNotes(nextNotes);
-          if (notesJsonResult.isErr()) {
-            return err(
-              new Error(`Failed to serialize notes for transaction ${row.id}: ${notesJsonResult.error.message}`)
-            );
-          }
-
-          await trx
-            .updateTable('transactions')
-            .set({
-              notes_json: notesJsonResult.value ?? null,
-              updated_at: new Date().toISOString(),
-            })
-            .where('id', '=', row.id)
-            .execute();
-
-          updatedCount++;
-        }
-
-        return ok(updatedCount);
-      },
-      'Failed to materialize transaction note overrides'
-    );
+    return materializeTransactionNoteOverrides(this.db, this.logger, params);
   }
 
   async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {
     try {
-      let query = this.db
-        .selectFrom('transactions')
-        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
-        .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
-
-      if (filters) {
-        if (filters.profileId !== undefined) {
-          query = query.where('accounts.profile_id', '=', filters.profileId);
-        }
-
-        if (filters.platformKey) {
-          query = query.where('transactions.platform_key', '=', filters.platformKey);
-        }
-
-        if (filters.since) {
-          const sinceDate = new Date(filters.since * 1000).toISOString();
-          query = query.where('transactions.created_at', '>=', sinceDate as unknown as string);
-        }
-
-        if (filters.accountId !== undefined) {
-          query = query.where('transactions.account_id', '=', filters.accountId);
-        } else if (filters.accountIds !== undefined && filters.accountIds.length > 0) {
-          if (filters.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE) {
-            let totalCount = 0;
-            for (const accountIdBatch of chunkItems(filters.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
-              let batchedQuery = this.db
-                .selectFrom('transactions')
-                .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
-                .select(({ fn }) => [fn.count<number>('transactions.id').as('count')]);
-
-              if (filters.profileId !== undefined) {
-                batchedQuery = batchedQuery.where('accounts.profile_id', '=', filters.profileId);
-              }
-
-              if (filters.platformKey) {
-                batchedQuery = batchedQuery.where('transactions.platform_key', '=', filters.platformKey);
-              }
-
-              if (filters.since) {
-                const sinceDate = new Date(filters.since * 1000).toISOString();
-                batchedQuery = batchedQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
-              }
-
-              batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
-
-              if (!filters.includeExcluded) {
-                batchedQuery = batchedQuery.where('transactions.excluded_from_accounting', '=', false);
-              }
-
-              const result = await batchedQuery.executeTakeFirst();
-              totalCount += result?.count ?? 0;
-            }
-
-            return ok(totalCount);
-          }
-
-          query = query.where('transactions.account_id', 'in', filters.accountIds);
-        } else if (filters.accountIds !== undefined && filters.accountIds.length === 0) {
-          return ok(0);
-        }
-
-        if (!filters.includeExcluded) {
-          query = query.where('transactions.excluded_from_accounting', '=', false);
-        }
-      } else {
-        query = query.where('transactions.excluded_from_accounting', '=', false);
-      }
-
-      const result = await query.executeTakeFirst();
-      return ok(result?.count ?? 0);
+      return ok(await countTransactionRows(this.db, filters ?? {}));
     } catch (error) {
       return wrapError(error, 'Failed to count transactions');
     }
