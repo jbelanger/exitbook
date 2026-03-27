@@ -64,7 +64,7 @@ Preferred shape:
 ```text
 runtime/
   app-runtime.ts
-  command-scope.ts
+  command-runtime.ts
 
 features/<feature>/command/
   <feature>.ts         - Commander registration, option parsing, JSON/TUI dispatch, rendering

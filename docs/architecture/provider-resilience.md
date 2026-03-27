@@ -93,7 +93,7 @@ The CLI applies a 30-second recovery timeout on load (shorter than the standard 
 
 **Why**: The `reprocess` command needs to clear derived transaction data without losing expensive cached data. Price lookups hit rate-limited external APIs (CoinGecko, CoinMarketCap). Token metadata requires per-contract API calls. Provider health represents accumulated operational knowledge. If these lived in `transactions.db`, every reprocess would wipe them and force re-fetching — a process that can take hours for large portfolios.
 
-Each database is owned by its respective package and initialized independently. The CLI's `runtime/command-scope.ts` initializes `transactions.db`; other databases are initialized by their owning packages on first use.
+Each database is owned by its respective package and initialized independently. The CLI's `runtime/command-runtime.ts` initializes `transactions.db`; other databases are initialized by their owning packages on first use.
 
 **Alternative considered**: A single database with selective table deletion. This works but creates coupling between the `clear` command and every cache table. Adding a new cache table requires updating the clear logic. Separate databases make the boundary explicit: "clear derived data" means "operate on `transactions.db`."
 

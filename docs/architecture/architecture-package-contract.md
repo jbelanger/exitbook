@@ -486,7 +486,7 @@ Each app should expose a clear app runtime and a clear request/command scope.
 For the CLI, the preferred shape is:
 
 - one immutable app runtime, for example `apps/cli/src/runtime/app-runtime.ts`
-- one per-command scope, for example `apps/cli/src/runtime/command-scope.ts`
+- one per-command scope, for example `apps/cli/src/runtime/command-runtime.ts`
 - explicit feature runner functions under feature command directories
 - explicit prereq helpers under `apps/cli/src/features/shared/`, currently split across:
   `consumer-input-readiness.ts`, `projection-readiness.ts`, `projection-reset.ts`, and `price-readiness.ts`
