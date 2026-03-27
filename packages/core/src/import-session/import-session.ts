@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Source type schema - blockchain or exchange
  */
-export const SourceTypeSchema = z.enum(['blockchain', 'exchange']);
+export const PlatformKindSchema = z.enum(['blockchain', 'exchange']);
 
 /**
  * Import Session status schema - lifecycle states
@@ -33,6 +33,6 @@ export const ImportSessionSchema = z.object({
 /**
  * Type exports inferred from schemas
  */
-export type SourceType = z.infer<typeof SourceTypeSchema>;
+export type SourceType = z.infer<typeof PlatformKindSchema>;
 export type ImportSessionStatus = z.infer<typeof ImportSessionStatusSchema>;
 export type ImportSession = z.infer<typeof ImportSessionSchema>;

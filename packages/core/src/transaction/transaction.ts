@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SourceTypeSchema } from '../import-session/import-session.js';
+import { PlatformKindSchema } from '../import-session/import-session.js';
 
 import {
   AssetMovementDraftSchema,
@@ -77,7 +77,7 @@ function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny,
     datetime: z.string().min(1, 'Datetime string must not be empty'),
     timestamp: z.number().int().positive('Timestamp must be a positive integer'),
     platformKey: z.string().min(1, 'Platform key must not be empty'),
-    platformKind: SourceTypeSchema,
+    platformKind: PlatformKindSchema,
     status: TransactionStatusSchema,
     from: z.string().optional(),
     to: z.string().optional(),

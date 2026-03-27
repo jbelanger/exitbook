@@ -1,4 +1,4 @@
-import { SourceTypeSchema } from '@exitbook/core';
+import { PlatformKindSchema } from '@exitbook/core';
 import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
@@ -10,7 +10,7 @@ export const LinkableMovementSchema = z.object({
   transactionId: z.number(),
   accountId: z.number(),
   platformKey: z.string(),
-  platformKind: SourceTypeSchema,
+  platformKind: PlatformKindSchema,
   assetId: z.string(),
   assetSymbol: CurrencySchema,
   direction: z.enum(['in', 'out']),
