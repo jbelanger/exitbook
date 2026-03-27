@@ -2,8 +2,7 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
-import { registerLinksConfirmCommand } from './links-confirm.js';
-import { registerLinksRejectCommand } from './links-reject.js';
+import { registerLinksConfirmCommand, registerLinksRejectCommand } from './links-review-command.js';
 import { registerLinksRunCommand } from './links-run.js';
 import { registerLinksGapsCommand, registerLinksViewCommand } from './links-view.js';
 
