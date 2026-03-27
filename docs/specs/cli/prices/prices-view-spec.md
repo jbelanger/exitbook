@@ -477,11 +477,11 @@ enter save · esc cancel
 
 ## Filters
 
-### Source Filter (`--source`)
+### Platform Filter (`--platform`)
 
 ```bash
-exitbook prices view --source kraken     # Only Kraken transactions
-exitbook prices view --missing-only --source solana  # Missing prices on Solana
+exitbook prices view --platform kraken    # Only Kraken transactions
+exitbook prices view --missing-only --platform solana  # Missing prices on Solana
 ```
 
 ### Asset Filter (`--asset`)
@@ -807,7 +807,7 @@ PricesViewApp
 exitbook prices view [options]
 
 Options:
-  --source <name>      Filter by exchange or blockchain name
+  --platform <name>    Filter by exchange or blockchain name
   --asset <currency>   Filter by specific asset (e.g., BTC, ETH)
   --missing-only       Show only movements missing price data (enables set-price)
   --json               Output JSON, bypass TUI

@@ -54,7 +54,7 @@ interface LinkableMovement {
   transactionId: number;
   accountId: number;
   platformKey: string;
-  sourceType: SourceType;
+  platformKind: PlatformKind;
   assetId: string;
   assetSymbol: Currency;
   direction: 'in' | 'out';
@@ -403,7 +403,7 @@ Required behavior:
 2. resolve the exact source outflow movement by `transactionId + direction='out' + sourceMovementFingerprint + sourceAssetId`
 3. resolve the exact target inflow movement by `transactionId + direction='in' + targetMovementFingerprint + targetAssetId`
 4. materialize only when both exact movements resolve
-5. derive the persisted link type from the source and target `sourceType`
+5. derive the persisted link type from the source and target `platformKind`
 6. persist `sourceAssetId`, `targetAssetId`, `sourceAmount`, `targetAmount`, `sourceMovementFingerprint`, and `targetMovementFingerprint` from those resolved linkable movements
 7. persist `status='confirmed'`, `confidenceScore=1`, and override metadata
 8. otherwise log and skip materialization

@@ -232,7 +232,7 @@ Flags narrow the initial state. They do not imply a non-TUI path.
 Examples:
 
 - `transactions view --asset BTC` means "open the transaction browser scoped to BTC"
-- `prices view --missing-only --source kraken` means "open the missing-price browser scoped to Kraken"
+- `prices view --missing-only --platform kraken` means "open the missing-price browser scoped to Kraken"
 - `cost-basis --asset ETH` means "calculate as requested, then land directly on ETH details"
 
 ### Workflow Commands

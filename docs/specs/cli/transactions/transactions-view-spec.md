@@ -472,11 +472,11 @@ The `transactions view` may display a limited subset (e.g., `--limit 50` of 847 
 
 ## Filters
 
-### Source Filter (`--source`)
+### Platform Filter (`--platform`)
 
 ```bash
-exitbook transactions view --source kraken     # Only Kraken transactions
-exitbook transactions view --source solana      # Only Solana transactions
+exitbook transactions view --platform kraken    # Only Kraken transactions
+exitbook transactions view --platform solana    # Only Solana transactions
 ```
 
 ### Asset Filter (`--asset`)
@@ -565,24 +565,32 @@ Bypasses the TUI. Returns structured transaction data.
   "data": [
     {
       "id": 2456,
-      "source_name": "kraken",
-      "source_type": "exchange",
-      "tx_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "transaction_datetime": "2024-11-28T16:20:45Z",
-      "operation_category": "trade",
-      "operation_type": "buy",
-      "movements_primary_asset": "BTC",
-      "movements_primary_amount": "0.5000",
-      "movements_primary_direction": "in",
-      "from_address": null,
-      "to_address": null,
-      "blockchain_transaction_hash": null
+      "source": "kraken",
+      "platformKind": "exchange",
+      "txFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "datetime": "2024-11-28T16:20:45Z",
+      "operationCategory": "trade",
+      "operationType": "buy",
+      "primaryAsset": "BTC",
+      "primaryAmount": "0.5000",
+      "primaryDirection": "in",
+      "inflows": [],
+      "outflows": [],
+      "fees": [],
+      "priceStatus": "all",
+      "blockchain": null,
+      "from": null,
+      "to": null,
+      "notes": [],
+      "excludedFromAccounting": false,
+      "isSpam": false
     }
   ],
   "meta": {
-    "total": 847,
-    "displayed": 50,
+    "count": 50,
+    "offset": 0,
     "limit": 50,
+    "hasMore": true,
     "filters": {}
   }
 }
@@ -717,7 +725,7 @@ interface TransactionViewItem {
   // Identity
   id: number;
   source: string;
-  sourceType: 'exchange' | 'blockchain';
+  platformKind: 'exchange' | 'blockchain';
   txFingerprint: string;
   datetime: string;
 
@@ -850,7 +858,7 @@ The `transactions` namespace is canonical for both browsing and export. There is
 exitbook transactions view [options]
 
 Options:
-  --source <name>           Filter by exchange or blockchain name
+  --platform <name>         Filter by exchange or blockchain name
   --asset <currency>        Filter by specific asset (e.g., BTC, ETH)
   --since <date>            Filter from date (ISO 8601, e.g., 2024-01-01)
   --until <date>            Filter until date (ISO 8601, e.g., 2024-12-31)

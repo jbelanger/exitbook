@@ -164,7 +164,7 @@ Materialization rules:
 2. revalidate the exact movement fingerprints and asset ids captured in the
    override against the current linkable movement set
 3. materialize only when both exact movements resolve
-4. derive link type structurally from source and target `sourceType`
+4. derive link type structurally from source and target `platformKind`
 5. persist:
    - `sourceAssetId`
    - `targetAssetId`

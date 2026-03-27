@@ -119,7 +119,7 @@ Original imported data from exchanges and blockchains
 ↑↓/j/k · d delete · r toggle raw · q cancel
 ```
 
-### With --source Filter
+### With --platform Filter
 
 ```
 Clear data — (kraken) · 226 items · raw data: preserved
@@ -165,11 +165,11 @@ The "items" count shows only items that WILL be deleted (excludes preserved).
 
 ### Scope Labels
 
-| Filter Type    | Display            | Example                     |
-| -------------- | ------------------ | --------------------------- |
-| None           | `all accounts`     | `Clear data — all accounts` |
-| `--source`     | `({source})`       | `Clear data — (kraken)`     |
-| `--account-id` | `(#{id} {source})` | `Clear data — (#4 bitcoin)` |
+| Filter Type    | Display              | Example                     |
+| -------------- | -------------------- | --------------------------- |
+| None           | `all accounts`       | `Clear data — all accounts` |
+| `--platform`   | `({platform})`       | `Clear data — (kraken)`     |
+| `--account-id` | `(#{id} {platform})` | `Clear data — (#4 bitcoin)` |
 
 ---
 
@@ -225,7 +225,7 @@ The "items" count shows only items that WILL be deleted (excludes preserved).
 
 When `includeRaw` is off, raw data rows always show the ACTUAL item counts (from the pre-fetched include-raw preview) with the `preserved` label. This tells the user "this data exists and is safe." When `includeRaw` is on, the same counts display as "will delete" with red icons.
 
-The `Accounts` row is special: it only shows a count when both `includeRaw` is on AND a scoped filter (`--account-id` or `--source`) is applied. For unscoped clear, accounts are never deleted — the row shows 0 and `·` dim.
+The `Accounts` row is special: it only shows a count when both `includeRaw` is on AND a scoped filter (`--account-id` or `--platform`) is applied. For unscoped clear, accounts are never deleted — the row shows 0 and `·` dim.
 
 ---
 
@@ -771,7 +771,7 @@ exitbook clear [options]
 
 Options:
   --account-id <id>    Clear data for specific account ID
-  --source <name>      Clear data for all accounts with this source name
+  --platform <name>    Clear data for all accounts with this platform name
   --include-raw        Also delete raw imported data (WARNING: requires re-import)
   --confirm            Skip TUI, execute immediately
   --json               Output JSON, bypass TUI
@@ -816,7 +816,7 @@ The `previewDeletion` service only returns non-zero raw data counts when `includ
 
 ### Accounts Row Behavior
 
-Accounts are only deleted when `includeRaw: true` AND a scoped filter (`--account-id` or `--source`) is applied. For unscoped clear-all, `previewWithRaw.accounts` is always 0 (the service preserves accounts for future imports). The accounts row reflects this — it shows 0 with `·` dim icon for unscoped clear regardless of the include-raw toggle.
+Accounts are only deleted when `includeRaw: true` AND a scoped filter (`--account-id` or `--platform`) is applied. For unscoped clear-all, `previewWithRaw.accounts` is always 0 (the service preserves accounts for future imports). The accounts row reflects this — it shows 0 with `·` dim icon for unscoped clear regardless of the include-raw toggle.
 
 ### Terminal Size
 

@@ -334,11 +334,11 @@ Default: by account ID ascending.
 
 ## Filters
 
-### Source Filter (`--source`)
+### Platform Filter (`--platform`)
 
 ```bash
-exitbook accounts view --source kraken     # Only Kraken accounts
-exitbook accounts view --source bitcoin    # Only Bitcoin accounts
+exitbook accounts view --platform kraken    # Only Kraken accounts
+exitbook accounts view --platform bitcoin   # Only Bitcoin accounts
 ```
 
 ### Type Filter (`--type`)
@@ -618,7 +618,7 @@ exitbook accounts view [options]
 
 Options:
   --account-id <number>    View specific account by ID
-  --source <name>          Filter by exchange or blockchain name
+  --platform <name>        Filter by exchange or blockchain name
   --type <type>            Filter by account type (blockchain, exchange-api, exchange-csv)
   --show-sessions          Include import session history in detail panel
   --json                   Output JSON, bypass TUI
