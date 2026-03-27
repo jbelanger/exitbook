@@ -2,12 +2,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BufferedSink } from '../buffered-sink.js';
-import { flushLoggers, getLogger, initLogger, type LogEntry, type Sink } from '../logger.js';
+import { flushLoggers, getLogger, initLogger, resetLoggerForTests, type LogEntry, type Sink } from '../logger.js';
 import { ConsoleSink } from '../sinks/console.js';
 
 describe('Logger', () => {
   beforeEach(() => {
-    initLogger({ sinks: [] });
+    resetLoggerForTests();
   });
 
   it('should be silent by default when not initialized', () => {
@@ -183,8 +183,7 @@ describe('ConsoleSink', () => {
 
 describe('Advanced Logger Features', () => {
   beforeEach(() => {
-    // Reset logger state before each test
-    initLogger({ level: 'info', sinks: [] });
+    resetLoggerForTests();
   });
 
   it('should serialize BigInt in context', () => {
@@ -240,7 +239,7 @@ describe('Advanced Logger Features', () => {
     expect(flush2).toHaveBeenCalledOnce();
   });
 
-  it('should clear logger cache on re-initialization', () => {
+  it('should only allow explicit re-initialization', () => {
     const entries1: LogEntry[] = [];
     const entries2: LogEntry[] = [];
     const sink1: Sink = {
@@ -256,13 +255,17 @@ describe('Advanced Logger Features', () => {
     const logger1 = getLogger('test');
     logger1.info('message 1');
 
-    initLogger({ level: 'info', sinks: [sink2] });
-    const logger2 = getLogger('test'); // Get new logger after re-init
+    expect(() => initLogger({ level: 'info', sinks: [sink2] })).toThrow(
+      'Logger has already been initialized for this process.'
+    );
+
+    initLogger({ level: 'info', sinks: [sink2] }, { allowReinitialize: true });
+    const logger2 = getLogger('test');
     logger2.info('message 2');
 
     expect(entries1).toHaveLength(1);
     expect(entries2).toHaveLength(1);
-    expect(logger1).not.toBe(logger2); // Cache was cleared, so different instance
+    expect(logger1).not.toBe(logger2);
   });
 
   it('should cache loggers by category', () => {
@@ -379,6 +382,10 @@ describe('BufferedSink', () => {
 });
 
 describe('Logger initialization order', () => {
+  beforeEach(() => {
+    resetLoggerForTests();
+  });
+
   it('should allow loggers created before initLogger to work after init', () => {
     const entries: LogEntry[] = [];
     const mockSink: Sink = {
@@ -402,7 +409,7 @@ describe('Logger initialization order', () => {
     expect(entries[0]?.msg).toBe('after init');
   });
 
-  it('should respect log level changes after re-initialization', () => {
+  it('should require explicit opt-in for log level changes after initialization', () => {
     const entries: LogEntry[] = [];
     const mockSink: Sink = {
       write: (entry: LogEntry) => entries.push(entry),
@@ -421,8 +428,11 @@ describe('Logger initialization order', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.level).toBe('warn');
 
-    // Re-initialize with 'debug' level
-    initLogger({ level: 'debug', sinks: [mockSink] });
+    expect(() => initLogger({ level: 'debug', sinks: [mockSink] })).toThrow(
+      'Logger has already been initialized for this process.'
+    );
+
+    initLogger({ level: 'debug', sinks: [mockSink] }, { allowReinitialize: true });
 
     logger.debug('debug message 2');
 

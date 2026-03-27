@@ -245,7 +245,7 @@ describe('registerBlockchainsViewCommand', () => {
     await expect(
       program.parseAsync(['blockchains', 'view', '--category', 'invalid', '--json'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana'
+      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other'
     );
 
     expect(mockListBlockchainProviders).not.toHaveBeenCalled();

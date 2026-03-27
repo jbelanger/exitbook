@@ -19,8 +19,8 @@ import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from '..
 import { LinksReviewHandler } from '../review/links-review-handler.js';
 
 import { analyzeLinkGaps } from './links-gap-analysis.js';
-import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-utils.js';
-import { filterLinksByConfidence, formatLinkInfo } from './links-view-utils.js';
+import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-presenter.js';
+import { filterLinksByConfidence, formatLinkInfo } from './links-view-presenter.js';
 
 /**
  * Fetch transactions for a list of links.

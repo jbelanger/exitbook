@@ -31,6 +31,10 @@ export interface LoggerConfig {
   sinks?: Sink[];
 }
 
+export interface LoggerInitOptions {
+  allowReinitialize?: boolean | undefined;
+}
+
 const levelOrder: Record<LogLevel, number> = {
   trace: 0,
   debug: 1,
@@ -135,20 +139,29 @@ class LoggerImpl implements Logger {
   }
 }
 
-// Global logger state
-let globalConfig: Required<LoggerConfig> = {
+const DEFAULT_LOGGER_CONFIG: Required<LoggerConfig> = {
   level: 'info',
   sinks: [],
 };
 
+// Global logger state
+let globalConfig: Required<LoggerConfig> = DEFAULT_LOGGER_CONFIG;
+let isInitialized = false;
 const loggerCache = new Map<string, Logger>();
 
-export function initLogger(config: LoggerConfig): void {
+export function initLogger(config: LoggerConfig, options?: LoggerInitOptions): void {
+  if (isInitialized && !options?.allowReinitialize) {
+    throw new Error(
+      'Logger has already been initialized for this process. Initialize it once at the executable boundary, or call resetLoggerForTests() before reinitializing in tests.'
+    );
+  }
+
   globalConfig = {
     level: config.level ?? 'info',
     sinks: config.sinks ?? [],
   };
   loggerCache.clear();
+  isInitialized = true;
 }
 
 export function getLogger(category: string): Logger {
@@ -165,4 +178,10 @@ export function flushLoggers(): void {
   for (const sink of globalConfig.sinks) {
     sink.flush();
   }
+}
+
+export function resetLoggerForTests(): void {
+  globalConfig = DEFAULT_LOGGER_CONFIG;
+  loggerCache.clear();
+  isInitialized = false;
 }
