@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { DataSession } from '@exitbook/data/session';
-import type { Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { render } from 'ink';
@@ -246,6 +246,45 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
       throw cleanupResult.error ?? new Error('Cleanup failed');
     }
   };
+}
+
+export async function withCommandPriceProviderRuntime<T>(
+  runtime: CommandRuntime,
+  options: (CliPriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
+  operation: (priceRuntime: IPriceProviderRuntime) => Promise<T>
+): Promise<Result<T, Error>> {
+  const priceRuntimeResult = await runtime.openPriceProviderRuntime({
+    ...options,
+    registerCleanup: false,
+  });
+  if (priceRuntimeResult.isErr()) {
+    return err(priceRuntimeResult.error);
+  }
+
+  const priceRuntime = priceRuntimeResult.value;
+  let value: T | undefined;
+  let operationError: Error | undefined;
+
+  try {
+    value = await operation(priceRuntime);
+  } catch (error) {
+    operationError = error instanceof Error ? error : new Error(String(error));
+  }
+
+  const cleanupResult = await priceRuntime.cleanup();
+  if (cleanupResult.isErr()) {
+    if (operationError) {
+      return err(new AggregateError([operationError, cleanupResult.error], 'Price provider runtime operation failed'));
+    }
+
+    return err(cleanupResult.error);
+  }
+
+  if (operationError) {
+    return err(operationError);
+  }
+
+  return ok(value as T);
 }
 
 /**

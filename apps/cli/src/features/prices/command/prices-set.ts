@@ -3,10 +3,8 @@
 
 import type { Command } from 'commander';
 
-import { resolveCliProfileSelection } from '../../profiles/profile-state.js';
+import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
-import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -68,42 +66,39 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
 
   try {
     const { OverrideStore } = await import('@exitbook/data/overrides');
-    const dataDir = getDataDir();
-    const profileSelectionResult = resolveCliProfileSelection(dataDir);
-    if (profileSelectionResult.isErr()) {
-      displayCliError(
-        'prices-set',
-        profileSelectionResult.error,
-        ExitCodes.GENERAL_ERROR,
-        options.json ? 'json' : 'text'
-      );
-    }
-    const overrideStore = new OverrideStore(dataDir);
-    const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
-      const handler = new PricesSetHandler(priceRuntime, overrideStore);
-      return handler.execute({
-        asset: options.asset,
-        date: options.date,
-        price: options.price,
-        currency: options.currency,
-        source: options.source,
-        profileKey: profileSelectionResult.value.profileKey,
+    await runCommand(async (ctx) => {
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const result = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const handler = new PricesSetHandler(priceRuntime, overrideStore);
+        const executeResult = await handler.execute({
+          asset: options.asset,
+          date: options.date,
+          price: options.price,
+          currency: options.currency,
+          source: options.source,
+          profileKey: ctx.activeProfileKey,
+        });
+        if (executeResult.isErr()) {
+          throw executeResult.error;
+        }
+
+        return executeResult.value;
       });
+
+      if (result.isErr()) {
+        displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+      }
+
+      if (options.json) {
+        outputSuccess('prices-set', result.value);
+      } else {
+        console.log('✅ Price set successfully');
+        console.log(`   Asset: ${result.value.asset}`);
+        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+        console.log(`   Price: ${result.value.price} ${result.value.currency}`);
+        console.log(`   Source: ${result.value.source}`);
+      }
     });
-
-    if (result.isErr()) {
-      displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-    }
-
-    if (options.json) {
-      outputSuccess('prices-set', result.value);
-    } else {
-      console.log('✅ Price set successfully');
-      console.log(`   Asset: ${result.value.asset}`);
-      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-      console.log(`   Price: ${result.value.price} ${result.value.currency}`);
-      console.log(`   Source: ${result.value.source}`);
-    }
   } catch (error) {
     displayCliError(
       'prices-set',

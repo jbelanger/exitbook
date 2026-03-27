@@ -3,10 +3,9 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { renderApp, runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -138,33 +137,30 @@ async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<
         return result.value;
       };
 
-      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
-        { dataDir: ctx.dataDir },
-        async (priceRuntime) => {
-          const overrideStore = new OverrideStore(ctx.dataDir);
-          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
+      const priceRuntimeUseResult = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const overrideStore = new OverrideStore(ctx.dataDir);
+        const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
-          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({
-              asset,
-              date,
-              price,
-              source: 'manual-tui',
-              profileKey: profileResult.value.profileKey,
-            });
-            if (result.isErr()) throw result.error;
-          };
+        const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+          const result = await pricesSetHandler.execute({
+            asset,
+            date,
+            price,
+            source: 'manual-tui',
+            profileKey: profileResult.value.profileKey,
+          });
+          if (result.isErr()) throw result.error;
+        };
 
-          await renderApp((unmount) =>
-            React.createElement(PricesViewApp, {
-              initialState,
-              onLoadMissing: handleLoadMissing,
-              onSetPrice: handleSetPrice,
-              onQuit: unmount,
-            })
-          );
-        }
-      );
+        await renderApp((unmount) =>
+          React.createElement(PricesViewApp, {
+            initialState,
+            onLoadMissing: handleLoadMissing,
+            onSetPrice: handleSetPrice,
+            onQuit: unmount,
+          })
+        );
+      });
       if (priceRuntimeUseResult.isErr()) {
         console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;
@@ -201,33 +197,30 @@ async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<v
 
       const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.platform);
 
-      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
-        { dataDir: ctx.dataDir },
-        async (priceRuntime) => {
-          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
+      const priceRuntimeUseResult = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
-          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({
-              asset,
-              date,
-              price,
-              source: 'manual-tui',
-              profileKey: profileResult.value.profileKey,
-            });
-            if (result.isErr()) {
-              throw result.error;
-            }
-          };
+        const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+          const result = await pricesSetHandler.execute({
+            asset,
+            date,
+            price,
+            source: 'manual-tui',
+            profileKey: profileResult.value.profileKey,
+          });
+          if (result.isErr()) {
+            throw result.error;
+          }
+        };
 
-          await renderApp((unmount) =>
-            React.createElement(PricesViewApp, {
-              initialState,
-              onSetPrice: handleSetPrice,
-              onQuit: unmount,
-            })
-          );
-        }
-      );
+        await renderApp((unmount) =>
+          React.createElement(PricesViewApp, {
+            initialState,
+            onSetPrice: handleSetPrice,
+            onQuit: unmount,
+          })
+        );
+      });
       if (priceRuntimeUseResult.isErr()) {
         console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
         ctx.exitCode = ExitCodes.GENERAL_ERROR;

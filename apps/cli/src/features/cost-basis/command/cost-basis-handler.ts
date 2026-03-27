@@ -15,12 +15,11 @@ import {
 } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { PriceProviderConfig } from '@exitbook/price-providers';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
@@ -41,6 +40,8 @@ interface PreparedCostBasisArtifactResult {
   assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
 }
 
+type OpenCostBasisPriceRuntime = () => Promise<Result<IPriceProviderRuntime, Error>>;
+
 /**
  * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisWorkflow.
  */
@@ -50,7 +51,7 @@ export class CostBasisHandler {
     private readonly dataDir: string,
     private readonly profileId: number,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() },
-    private readonly priceProviderConfig?: PriceProviderConfig | undefined
+    private readonly openPriceRuntime: OpenCostBasisPriceRuntime
   ) {}
 
   async execute(
@@ -95,10 +96,7 @@ export class CostBasisHandler {
     const contextReader = buildCostBasisPorts(this.db, this.profileId);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
-    const priceRuntimeResult = await openCliPriceProviderRuntime({
-      dataDir: this.dataDir,
-      providers: this.priceProviderConfig,
-    });
+    const priceRuntimeResult = await this.openPriceRuntime();
     if (priceRuntimeResult.isErr()) {
       return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
     }
@@ -229,12 +227,8 @@ export async function createCostBasisHandler(
 
     prereqAbort = undefined;
     return ok(
-      new CostBasisHandler(
-        database,
-        ctx.dataDir,
-        options.profileId,
-        accountingExclusionPolicyResult.value,
-        ctx.requireAppRuntime().priceProviderConfig
+      new CostBasisHandler(database, ctx.dataDir, options.profileId, accountingExclusionPolicyResult.value, () =>
+        ctx.openPriceProviderRuntime({ registerCleanup: false })
       )
     );
   } catch (error) {

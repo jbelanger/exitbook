@@ -4,10 +4,8 @@
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
-import { resolveCliProfileSelection } from '../../profiles/profile-state.js';
+import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
-import { getDataDir } from '../../shared/data-dir.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -68,43 +66,40 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   const options = parseResult.data;
 
   try {
-    const dataDir = getDataDir();
-    const profileSelectionResult = resolveCliProfileSelection(dataDir);
-    if (profileSelectionResult.isErr()) {
-      displayCliError(
-        'prices-set-fx',
-        profileSelectionResult.error,
-        ExitCodes.GENERAL_ERROR,
-        options.json ? 'json' : 'text'
-      );
-    }
-    const overrideStore = new OverrideStore(dataDir);
-    const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
-      const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
-      return handler.execute({
-        from: options.from,
-        to: options.to,
-        date: options.date,
-        rate: options.rate,
-        source: options.source,
-        profileKey: profileSelectionResult.value.profileKey,
+    await runCommand(async (ctx) => {
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const result = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
+        const executeResult = await handler.execute({
+          from: options.from,
+          to: options.to,
+          date: options.date,
+          rate: options.rate,
+          source: options.source,
+          profileKey: ctx.activeProfileKey,
+        });
+        if (executeResult.isErr()) {
+          throw executeResult.error;
+        }
+
+        return executeResult.value;
       });
+
+      if (result.isErr()) {
+        displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+      }
+
+      if (options.json) {
+        outputSuccess('prices-set-fx', result.value);
+      } else {
+        console.log('✅ FX rate set successfully');
+        console.log(`   From: ${result.value.from}`);
+        console.log(`   To: ${result.value.to}`);
+        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
+        console.log(`   Rate: ${result.value.rate}`);
+        console.log(`   Source: ${result.value.source}`);
+      }
     });
-
-    if (result.isErr()) {
-      displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-    }
-
-    if (options.json) {
-      outputSuccess('prices-set-fx', result.value);
-    } else {
-      console.log('✅ FX rate set successfully');
-      console.log(`   From: ${result.value.from}`);
-      console.log(`   To: ${result.value.to}`);
-      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-      console.log(`   Rate: ${result.value.rate}`);
-      console.log(`   Source: ${result.value.source}`);
-    }
   } catch (error) {
     displayCliError(
       'prices-set-fx',

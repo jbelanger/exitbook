@@ -5,7 +5,6 @@ import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
@@ -24,10 +23,6 @@ vi.mock('@exitbook/accounting', async () => {
 
 vi.mock('@exitbook/price-providers', () => ({
   readPriceCacheFreshness: vi.fn(),
-}));
-
-vi.mock('../../shared/cli-price-provider-runtime.js', () => ({
-  openCliPriceProviderRuntime: vi.fn(),
 }));
 
 vi.mock('@exitbook/logger', () => ({
@@ -54,6 +49,7 @@ describe('CostBasisHandler', () => {
   let mockTransactionsFindAll: Mock;
   let mockTransactionLinksFindAll: Mock;
   let mockAccountsFindAll: Mock;
+  let openPriceRuntime: Mock;
 
   const validParams = {
     method: 'fifo' as const,
@@ -99,7 +95,7 @@ describe('CostBasisHandler', () => {
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(ok(mockPriceRuntime));
+    openPriceRuntime = vi.fn().mockResolvedValue(ok(mockPriceRuntime));
     vi.mocked(readPriceCacheFreshness).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
@@ -130,12 +126,18 @@ describe('CostBasisHandler', () => {
 
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    handler = new CostBasisHandler(mockDb, '/tmp/test-data', PROFILE_ID);
+    handler = new CostBasisHandler(
+      mockDb,
+      '/tmp/test-data',
+      PROFILE_ID,
+      { excludedAssetIds: new Set<string>() },
+      openPriceRuntime
+    );
   });
 
   describe('execute', () => {
     it('returns error when price manager creation fails', async () => {
-      vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(err(new Error('DB init failed')));
+      openPriceRuntime.mockResolvedValue(err(new Error('DB init failed')));
 
       const result = await handler.execute(validParams);
 
@@ -155,7 +157,13 @@ describe('CostBasisHandler', () => {
           get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
         },
       } as unknown as DataSession;
-      handler = new CostBasisHandler(failingDb, '/tmp/test-data', PROFILE_ID);
+      handler = new CostBasisHandler(
+        failingDb,
+        '/tmp/test-data',
+        PROFILE_ID,
+        { excludedAssetIds: new Set<string>() },
+        openPriceRuntime
+      );
 
       const result = await handler.execute(validParams);
 
