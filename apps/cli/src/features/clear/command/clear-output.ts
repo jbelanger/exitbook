@@ -1,25 +1,11 @@
-import type { Result } from '@exitbook/foundation';
-
 import { outputSuccess } from '../../shared/json-output.js';
 import { stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
 
 import type { ClearCommandResult } from './clear-command-types.js';
 import { flattenPreview, type ClearResult, type FlatDeletionPreview } from './clear-handler.js';
 
-interface ClearAccountLookup {
-  findById(accountId: number): Promise<Result<{ platformKey: string } | undefined, Error>>;
-}
-
-export async function buildScopeLabel(
-  accountId: number | undefined,
-  platformKey: string | undefined,
-  accountRepo: ClearAccountLookup
-): Promise<string> {
+export function buildScopeLabel(accountId: number | undefined, platformKey: string | undefined): string {
   if (accountId) {
-    const accountResult = await accountRepo.findById(accountId);
-    if (accountResult.isOk() && accountResult.value) {
-      return `#${accountId} ${accountResult.value.platformKey}`;
-    }
     return `#${accountId}`;
   }
   if (platformKey) {

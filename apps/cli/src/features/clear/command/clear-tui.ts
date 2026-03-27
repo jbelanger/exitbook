@@ -50,7 +50,7 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
 
       const previewWithoutRaw = flattenPreview(previewWithoutRawResult.value);
       const previewWithRaw = flattenPreview(previewWithRawResult.value);
-      const scopeLabel = await buildScopeLabel(options.accountId, options.platform, database.accounts);
+      const scopeLabel = buildScopeLabel(options.accountId, options.platform);
 
       const initialState = createClearViewState(
         { accountId: options.accountId, platformKey: options.platform, label: scopeLabel },
