@@ -9,7 +9,11 @@ import { getLogger } from '@exitbook/logger';
 
 import type { CommandRuntime } from '../../runtime/command-runtime.js';
 import { createIngestionRuntime } from '../../runtime/ingestion-runtime.js';
-import { createCliLinkingRuntime, readCliLinkOverrides } from '../../runtime/linking-runtime.js';
+import {
+  abortCliLinkingRuntime,
+  createCliLinkingRuntime,
+  executeCliLinkingRuntime,
+} from '../../runtime/linking-runtime.js';
 import { resolveCommandProfile } from '../profiles/profile-resolution.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
@@ -191,55 +195,26 @@ export async function ensureLinksReady(
       }
 
       const linkingRuntime = linkingRuntimeResult.value;
-      const overridesResult = await readCliLinkOverrides(
-        linkingRuntime.overrideStore,
-        profileScopeResult.value.profileKey
-      );
-      if (overridesResult.isErr()) {
-        return err(overridesResult.error);
-      }
 
       if (options.isJsonMode) {
-        const result = await linkingRuntime.orchestrator.execute(params, overridesResult.value);
+        const result = await executeCliLinkingRuntime(linkingRuntime, profileScopeResult.value.profileKey, params);
         if (result.isErr()) return err(result.error);
         logger.info('Linking completed (JSON mode)');
         return ok(undefined);
       }
 
       console.log('\nTransaction links are stale, running linking...\n');
-      const controller = linkingRuntime.controller;
-      if (!controller) {
+      if (!linkingRuntime.controller) {
         return err(new Error('Links controller was not created for interactive linking'));
       }
-      const abort = () => {
-        controller.abort();
-        void controller.stop().catch((cleanupErr) => {
-          logger.warn({ cleanupErr }, 'Failed to stop links controller on abort');
-        });
-      };
 
-      options.setAbort?.(abort);
+      options.setAbort?.(() => abortCliLinkingRuntime(linkingRuntime));
       try {
-        await controller.start();
-
-        const result = await linkingRuntime.orchestrator.execute(params, overridesResult.value);
-
-        if (result.isErr()) {
-          controller.fail(result.error.message);
-          return err(result.error);
-        }
-
-        controller.complete();
+        const result = await executeCliLinkingRuntime(linkingRuntime, profileScopeResult.value.profileKey, params);
+        if (result.isErr()) return err(result.error);
         return ok(undefined);
-      } catch (error) {
-        const caughtError = error instanceof Error ? error : new Error(String(error));
-        controller.fail(caughtError.message);
-        return err(caughtError);
       } finally {
         options.setAbort?.(undefined);
-        await controller.stop().catch((cleanupErr) => {
-          logger.warn({ cleanupErr }, 'Failed to stop links controller during cleanup');
-        });
       }
     }
   );
