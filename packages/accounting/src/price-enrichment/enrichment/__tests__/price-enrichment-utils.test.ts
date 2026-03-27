@@ -19,7 +19,7 @@ import {
   createFee,
 } from '../../../__tests__/test-utils.js';
 import type { LinkedTransactionGroup } from '../../shared/types.js';
-import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-enrichment-utils.js';
+import { enrichFeePricesFromMovements, inferMultiPass, propagatePricesAcrossLinks } from '../price-inference-rules.js';
 
 function createTestLink(params: {
   id: number;

@@ -11,8 +11,8 @@ import { getLogger } from '@exitbook/logger';
 
 import { resolveTransferProposal } from '../transfer-proposals.js';
 
+import { getDefaultReviewer } from './link-review-policy.js';
 import { writeLinkOverrideEvent, writeUnlinkOverrideEvent } from './links-override-utils.js';
-import { getDefaultReviewer } from './links-utils.js';
 
 const logger = getLogger('TransferProposalReviewService');
 
