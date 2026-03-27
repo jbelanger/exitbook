@@ -1,4 +1,4 @@
-import type { LinkType, MatchCriteria, SourceType } from '@exitbook/core';
+import type { LinkType, MatchCriteria, PlatformKind } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
@@ -75,11 +75,11 @@ export function isTimingValid(sourceTime: Date, targetTime: Date, config: Matchi
 /**
  * Determine link type based on source and target types
  *
- * @param platformKind - Source transaction type
- * @param targetType - Target transaction type
+ * @param platformKind - Source transaction platform kind
+ * @param targetType - Target transaction platform kind
  * @returns Link type
  */
-export function determineLinkType(platformKind: SourceType, targetType: SourceType): LinkType {
+export function determineLinkType(platformKind: PlatformKind, targetType: PlatformKind): LinkType {
   if (platformKind === 'exchange' && targetType === 'blockchain') {
     return 'exchange_to_blockchain';
   }
@@ -96,7 +96,7 @@ export function determineLinkType(platformKind: SourceType, targetType: SourceTy
     return 'exchange_to_exchange';
   }
 
-  // Shouldn't happen for current source types; preserve a deterministic fallback.
+  // Shouldn't happen for current platform kinds; preserve a deterministic fallback.
   return 'exchange_to_blockchain';
 }
 

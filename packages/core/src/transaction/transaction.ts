@@ -1,13 +1,12 @@
 import { z } from 'zod';
 
-import { PlatformKindSchema } from '../import-session/import-session.js';
-
 import {
   AssetMovementDraftSchema,
   FeeMovementDraftSchema,
   AssetMovementSchema,
   FeeMovementSchema,
 } from './movement.js';
+import { PlatformKindSchema } from './platform-kind.js';
 
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'success']);

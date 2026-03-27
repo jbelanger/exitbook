@@ -1,5 +1,5 @@
 import { type IBlockchainProviderRuntime, type RawBalanceData } from '@exitbook/blockchain-providers';
-import type { SourceType } from '@exitbook/core';
+import type { PlatformKind } from '@exitbook/core';
 import type { IExchangeClient } from '@exitbook/exchange-providers';
 import {
   buildBlockchainNativeAssetId,
@@ -32,7 +32,7 @@ export interface UnifiedBalanceSnapshot {
   balances: Record<string, string>;
   assetMetadata: Record<string, string>;
   timestamp: number;
-  platformKind: SourceType;
+  platformKind: PlatformKind;
   platformKey: string;
   coverage?: BalanceCoverageStats | undefined;
   partialFailures?: BalancePartialFailure[] | undefined;

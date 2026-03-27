@@ -1,3 +1,4 @@
+export * from './platform-kind.js';
 export * from './movement.js';
 export * from './movement-utils.js';
 export * from './transaction.js';

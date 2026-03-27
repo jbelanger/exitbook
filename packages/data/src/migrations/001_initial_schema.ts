@@ -142,7 +142,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('platform_key', 'text', (col) => col.notNull())
-    .addColumn('source_type', 'text', (col) => col.notNull())
+    .addColumn('platform_kind', 'text', (col) => col.notNull())
     .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
     .addColumn('transaction_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('transaction_datetime', 'text', (col) => col.notNull())
@@ -163,7 +163,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('blockchain_is_confirmed', 'boolean')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
-    .addCheckConstraint('transactions_source_type_valid', sql`source_type IN ('blockchain', 'exchange')`)
+    .addCheckConstraint('transactions_platform_kind_valid', sql`platform_kind IN ('blockchain', 'exchange')`)
     .addCheckConstraint(
       'transactions_status_valid',
       sql`transaction_status IN ('pending', 'success', 'failed', 'open', 'closed', 'canceled')`

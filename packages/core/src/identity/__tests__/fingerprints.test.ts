@@ -170,7 +170,7 @@ describe('computeTxFingerprint (blockchain)', () => {
     expect(e.message).toContain('accountFingerprint');
   });
 
-  it('rejects empty source', async () => {
+  it('rejects empty platformKey', async () => {
     const e = assertErr(
       computeTxFingerprint({
         accountFingerprint: acctFp,
@@ -179,7 +179,7 @@ describe('computeTxFingerprint (blockchain)', () => {
         blockchainTransactionHash: '0x1',
       })
     );
-    expect(e.message).toContain('source');
+    expect(e.message).toContain('platformKey');
   });
 
   it('returns Err when SHA-256 digest fails', async () => {

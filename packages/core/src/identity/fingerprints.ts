@@ -101,14 +101,14 @@ export interface TransactionFingerprintInput {
 export function computeTxFingerprint(input: TransactionFingerprintInput): Result<string, Error> {
   const { accountFingerprint, platformKey, platformKind } = input;
   const trimmedAccountFingerprint = accountFingerprint.trim();
-  const trimmedplatformKey = platformKey.trim();
+  const trimmedPlatformKey = platformKey.trim();
 
   if (trimmedAccountFingerprint === '') {
     return err(new Error('accountFingerprint must not be empty'));
   }
 
-  if (trimmedplatformKey === '') {
-    return err(new Error('source must not be empty'));
+  if (trimmedPlatformKey === '') {
+    return err(new Error('platformKey must not be empty'));
   }
 
   if (platformKind === 'blockchain') {
@@ -116,7 +116,7 @@ export function computeTxFingerprint(input: TransactionFingerprintInput): Result
     if (!hash || hash.trim() === '') {
       return err(new Error('blockchainTransactionHash is required for blockchain transactions'));
     }
-    const material = `${trimmedAccountFingerprint}|blockchain|${trimmedplatformKey}|${hash.trim()}`;
+    const material = `${trimmedAccountFingerprint}|blockchain|${trimmedPlatformKey}|${hash.trim()}`;
     return sha256Result(material);
   }
 
@@ -131,7 +131,7 @@ export function computeTxFingerprint(input: TransactionFingerprintInput): Result
   }
 
   const sorted = [...normalizedEventIds].sort();
-  const material = `${trimmedAccountFingerprint}|exchange|${trimmedplatformKey}|${sorted.join('|')}`;
+  const material = `${trimmedAccountFingerprint}|exchange|${trimmedPlatformKey}|${sorted.join('|')}`;
   return sha256Result(material);
 }
 

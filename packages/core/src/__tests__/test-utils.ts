@@ -15,50 +15,50 @@ const DEFAULT_BLOCKCHAIN_SOURCES = new Set([
   'xrp',
 ]);
 
-type SeedTxSourceType = 'blockchain' | 'exchange';
+type SeedTxPlatformKind = 'blockchain' | 'exchange';
 
-function inferSeedTxSourceType(source: string): SeedTxSourceType {
-  return DEFAULT_BLOCKCHAIN_SOURCES.has(source) ? 'blockchain' : 'exchange';
+function inferSeedTxPlatformKind(platformKey: string): SeedTxPlatformKind {
+  return DEFAULT_BLOCKCHAIN_SOURCES.has(platformKey) ? 'blockchain' : 'exchange';
 }
 
-function buildSeedAccountFingerprint(source: string, platformKind: SeedTxSourceType, accountId: number): string {
+function buildSeedAccountFingerprint(platformKey: string, platformKind: SeedTxPlatformKind, accountId: number): string {
   if (platformKind === 'blockchain') {
-    return sha256Hex(`default|wallet|${source}|identifier-${accountId}`);
+    return sha256Hex(`default|wallet|${platformKey}|identifier-${accountId}`);
   }
 
-  return sha256Hex(`default|exchange|${source}`);
+  return sha256Hex(`default|exchange|${platformKey}`);
 }
 
-export function seedTxFingerprint(source: string, accountId: number, identityReference: string): string;
+export function seedTxFingerprint(platformKey: string, accountId: number, identityReference: string): string;
 export function seedTxFingerprint(
-  source: string,
-  platformKind: SeedTxSourceType,
+  platformKey: string,
+  platformKind: SeedTxPlatformKind,
   accountId: number,
   identityReference: string
 ): string;
 export function seedTxFingerprint(
-  source: string,
-  sourceTypeOrAccountId: SeedTxSourceType | number,
+  platformKey: string,
+  platformKindOrAccountId: SeedTxPlatformKind | number,
   accountIdOrIdentityReference: number | string,
   maybeIdentityReference?: string
 ): string {
   const platformKind =
-    typeof sourceTypeOrAccountId === 'number' ? inferSeedTxSourceType(source) : sourceTypeOrAccountId;
+    typeof platformKindOrAccountId === 'number' ? inferSeedTxPlatformKind(platformKey) : platformKindOrAccountId;
   const accountId =
-    typeof sourceTypeOrAccountId === 'number' ? sourceTypeOrAccountId : (accountIdOrIdentityReference as number);
+    typeof platformKindOrAccountId === 'number' ? platformKindOrAccountId : (accountIdOrIdentityReference as number);
   const identityReference =
-    typeof sourceTypeOrAccountId === 'number' ? accountIdOrIdentityReference : maybeIdentityReference;
+    typeof platformKindOrAccountId === 'number' ? accountIdOrIdentityReference : maybeIdentityReference;
 
   if (typeof identityReference !== 'string') {
     throw new Error('identityReference is required');
   }
 
   const normalizedIdentityReference = identityReference.trim();
-  const accountFingerprint = buildSeedAccountFingerprint(source, platformKind, accountId);
+  const accountFingerprint = buildSeedAccountFingerprint(platformKey, platformKind, accountId);
   const canonicalMaterial =
     platformKind === 'blockchain'
-      ? `${accountFingerprint}|blockchain|${source}|${normalizedIdentityReference}`
-      : `${accountFingerprint}|exchange|${source}|${[normalizedIdentityReference].sort().join('|')}`;
+      ? `${accountFingerprint}|blockchain|${platformKey}|${normalizedIdentityReference}`
+      : `${accountFingerprint}|exchange|${platformKey}|${[normalizedIdentityReference].sort().join('|')}`;
 
   return sha256Hex(canonicalMaterial);
 }

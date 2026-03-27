@@ -31,7 +31,7 @@ describe('buildLinksResetPorts', () => {
       .values({
         account_id: 1,
         platform_key: 'test',
-        source_type: 'exchange',
+        platform_kind: 'exchange',
         tx_fingerprint: seedTxFingerprint('test', 1, tx1Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
@@ -47,7 +47,7 @@ describe('buildLinksResetPorts', () => {
       .values({
         account_id: 2,
         platform_key: 'test',
-        source_type: 'exchange',
+        platform_kind: 'exchange',
         tx_fingerprint: seedTxFingerprint('test', 2, tx2Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',

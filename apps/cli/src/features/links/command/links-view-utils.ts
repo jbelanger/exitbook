@@ -26,7 +26,7 @@ export interface TransactionDetails {
   movements_inflows: AssetMovementDraft[];
   movements_outflows: AssetMovementDraft[];
   platform_key: string;
-  source_type: Transaction['platformKind'];
+  platform_kind: Transaction['platformKind'];
   timestamp: string;
   to_address: string | undefined;
 }
@@ -97,7 +97,7 @@ export function mapTransactionToDetails(tx: Transaction): TransactionDetails {
     movements_inflows: tx.movements?.inflows ?? [],
     movements_outflows: tx.movements?.outflows ?? [],
     platform_key: tx.platformKey,
-    source_type: tx.platformKind,
+    platform_kind: tx.platformKind,
     timestamp: tx.datetime,
     to_address: tx.to,
   };
@@ -215,7 +215,7 @@ function formatTransactionDetails(tx: TransactionDetails, label: string): string
   const lines: string[] = [];
 
   lines.push(`   ${label}:`);
-  lines.push(`      ID: #${tx.id} | Source: ${tx.platform_key}`);
+  lines.push(`      ID: #${tx.id} | Platform: ${tx.platform_key}`);
   lines.push(`      Time: ${tx.timestamp}`);
   lines.push(`      Movement: ${formatMovements(tx.movements_inflows, tx.movements_outflows)}`);
 
@@ -276,8 +276,8 @@ export function formatLinkForDisplay(link: LinkInfo): string {
 }
 
 function formatDisplayLinkType(link: LinkInfo): string {
-  const platformKind = link.source_transaction?.source_type;
-  const targetType = link.target_transaction?.source_type;
+  const platformKind = link.source_transaction?.platform_kind;
+  const targetType = link.target_transaction?.platform_kind;
 
   if (platformKind === 'blockchain' && targetType === 'exchange') {
     return 'blockchain to exchange';

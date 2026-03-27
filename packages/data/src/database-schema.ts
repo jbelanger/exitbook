@@ -1,4 +1,4 @@
-import type { ImportSessionStatus, ProcessingStatus, SourceType } from '@exitbook/core';
+import type { ImportSessionStatus, PlatformKind, ProcessingStatus } from '@exitbook/core';
 import type { Generated, ColumnType } from '@exitbook/sqlite';
 
 /**
@@ -108,7 +108,7 @@ export interface TransactionsTable {
   id: Generated<number>;
   account_id: number; // FK to accounts.id
   platform_key: string;
-  source_type: SourceType;
+  platform_kind: PlatformKind;
   tx_fingerprint: string; // Canonical persisted transaction identity
 
   // Transaction metadata
