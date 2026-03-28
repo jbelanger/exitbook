@@ -57,10 +57,14 @@ describe('serializeToJson', () => {
 describe('parseWithSchema', () => {
   const TestSchema = z.object({ name: z.string(), value: z.number() });
 
-  it('returns undefined for falsy input', () => {
+  it('returns undefined only for nullish input', () => {
     expect(assertOk(parseWithSchema(null, TestSchema))).toBeUndefined();
     expect(assertOk(parseWithSchema(undefined, TestSchema))).toBeUndefined();
-    expect(assertOk(parseWithSchema('', TestSchema))).toBeUndefined();
+  });
+
+  it('preserves falsy non-null values for schema validation', () => {
+    expect(assertOk(parseWithSchema(false, z.boolean()))).toBe(false);
+    expect(assertOk(parseWithSchema(0, z.number()))).toBe(0);
   });
 
   it('parses valid JSON string against schema', () => {
@@ -82,13 +86,17 @@ describe('parseWithSchema', () => {
     const error = assertErr(parseWithSchema('not json', TestSchema));
     expect(error.message).toContain('Failed to parse JSON');
   });
+
+  it('returns error for empty-string JSON instead of treating it as missing', () => {
+    const error = assertErr(parseWithSchema('', TestSchema));
+    expect(error.message).toContain('Failed to parse JSON');
+  });
 });
 
 describe('parseJson', () => {
-  it('returns undefined for falsy input', () => {
+  it('returns undefined only for nullish input', () => {
     expect(assertOk(parseJson(null))).toBeUndefined();
     expect(assertOk(parseJson(undefined))).toBeUndefined();
-    expect(assertOk(parseJson(''))).toBeUndefined();
   });
 
   it('parses valid JSON string', () => {
@@ -99,10 +107,17 @@ describe('parseJson', () => {
   it('passes through non-string values', () => {
     const obj = { key: 'value' };
     expect(assertOk(parseJson(obj))).toBe(obj);
+    expect(assertOk(parseJson(false))).toBe(false);
+    expect(assertOk(parseJson(0))).toBe(0);
   });
 
   it('returns error for invalid JSON', () => {
     const error = assertErr(parseJson('not json'));
+    expect(error.message).toContain('Failed to parse JSON');
+  });
+
+  it('returns error for empty-string JSON instead of treating it as missing', () => {
+    const error = assertErr(parseJson(''));
     expect(error.message).toContain('Failed to parse JSON');
   });
 });

@@ -37,8 +37,12 @@ export function serializeToJson(data: unknown): Result<string | undefined, Error
   }
 }
 
+function isMissingJsonValue(value: unknown): value is null | undefined {
+  return value === null || value === undefined;
+}
+
 export function parseWithSchema<T>(value: unknown, schema: z.ZodType<T>): Result<T | undefined, Error> {
-  if (!value) {
+  if (isMissingJsonValue(value)) {
     return ok(undefined);
   }
 
@@ -57,7 +61,7 @@ export function parseWithSchema<T>(value: unknown, schema: z.ZodType<T>): Result
 }
 
 export function parseJson(value: unknown): Result<unknown, Error> {
-  if (!value) {
+  if (isMissingJsonValue(value)) {
     return ok(undefined);
   }
 
