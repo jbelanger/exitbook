@@ -1,5 +1,5 @@
 export { AdapterRegistry } from './shared/types/adapter-registry.js';
-export { allBlockchainAdapters } from './sources/blockchains/index.js';
+export { allBlockchainAdapters, createBlockchainAdapters } from './sources/blockchains/index.js';
 export { allExchangeAdapters } from './sources/exchanges/index.js';
 export {
   isUtxoAdapter,

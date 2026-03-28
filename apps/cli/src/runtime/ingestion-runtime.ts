@@ -39,7 +39,6 @@ export async function createIngestionRuntime(
   database: DataSession,
   options: CreateIngestionRuntimeOptions = {}
 ): Promise<Result<IngestionRuntime, Error>> {
-  const appRuntime = ctx.requireAppRuntime();
   const instrumentation = new InstrumentationCollector();
   const eventBus = new EventBus<CliEvent>({
     onError: (error) => {
@@ -58,7 +57,6 @@ export async function createIngestionRuntime(
     });
     cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const processingWorkflowRuntimeResult = createCliProcessingWorkflowRuntime({
-      adapterRegistry: appRuntime.adapterRegistry,
       dataDir: ctx.dataDir,
       database,
       eventBus: eventBus as EventBus<IngestionEvent>,

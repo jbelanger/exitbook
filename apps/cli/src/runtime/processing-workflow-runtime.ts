@@ -4,7 +4,7 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
+import { AdapterRegistry, allExchangeAdapters, createBlockchainAdapters } from '@exitbook/ingestion/adapters';
 import type { IngestionEvent } from '@exitbook/ingestion/events';
 import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 
@@ -14,7 +14,6 @@ interface CliProcessingWorkflowRuntime {
 }
 
 interface CreateCliProcessingWorkflowRuntimeOptions {
-  adapterRegistry: AdapterRegistry;
   dataDir: string;
   database: DataSession;
   eventBus: EventBus<IngestionEvent>;
@@ -59,13 +58,17 @@ export function createCliProcessingWorkflowRuntime(
       rebuildAssetReviewProjection: () => rebuildAllCliAssetReviewProjections(options.database, options.dataDir),
       overrideStore,
     });
+    const processingAdapterRegistry = new AdapterRegistry(
+      createBlockchainAdapters({ nearBatchSource: ports.nearBatchSource }),
+      allExchangeAdapters
+    );
 
     return ok({
       processingWorkflow: new ProcessingWorkflow(
         ports,
         options.providerRuntime,
         options.eventBus,
-        options.adapterRegistry
+        processingAdapterRegistry
       ),
     });
   } catch (error) {

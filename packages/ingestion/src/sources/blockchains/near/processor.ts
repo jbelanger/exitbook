@@ -47,8 +47,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
     providerRuntime: IBlockchainProviderRuntime,
     scamDetectionService?: IScamDetectionService,
-    private readonly nearBatchSource?: INearBatchSource,
-    private readonly accountId?: number | undefined
+    private readonly nearBatchSource?: INearBatchSource
   ) {
     super('near', providerRuntime, scamDetectionService);
   }
@@ -78,7 +77,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
       let previousBalances = new Map<string, string>();
 
       if (missingDeltas) {
-        const previousResult = await this.loadPreviousBalances(balanceChanges);
+        const previousResult = await this.loadPreviousBalances(balanceChanges, context.accountId);
         if (previousResult.isErr()) {
           return err(previousResult.error);
         }
@@ -210,8 +209,11 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
     return ok(transactions);
   }
 
-  private async loadPreviousBalances(balanceChanges: NearBalanceChange[]): Promise<Result<Map<string, string>, Error>> {
-    if (!this.nearBatchSource || this.accountId === undefined) {
+  private async loadPreviousBalances(
+    balanceChanges: NearBalanceChange[],
+    accountId?: number  
+  ): Promise<Result<Map<string, string>, Error>> {
+    if (!this.nearBatchSource || accountId === undefined) {
       this.logger.warn('NEAR processor missing nearBatchSource/accountId. Proceeding without previous balance lookup.');
       return ok(new Map());
     }
@@ -232,7 +234,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
 
     const affectedAccounts = Array.from(earliestByAccount.keys());
     const processedResult = await this.nearBatchSource.findProcessedBalanceChanges(
-      this.accountId,
+      accountId,
       affectedAccounts,
       maxTimestamp
     );
