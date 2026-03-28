@@ -1,15 +1,24 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import { err } from '@exitbook/foundation';
-import type { IAssetReviewProjectionDataSource, IAssetReviewProjectionStore } from '@exitbook/ingestion/ports';
+import { err, type Result } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
 
 import { buildProfileProjectionScopeKey } from './profile-scope-key.js';
 
+interface AssetReviewProjectionDataPorts {
+  listTransactions: () => ReturnType<DataSession['transactions']['findAll']>;
+  markAssetReviewBuilding: () => ReturnType<DataSession['projectionState']['markBuilding']>;
+  replaceAssetReviewProjection: (
+    summaries: Iterable<AssetReviewSummary>,
+    metadata: { assetCount: number }
+  ) => Promise<Result<void, Error>>;
+  markAssetReviewFailed: () => ReturnType<DataSession['projectionState']['markFailed']>;
+}
+
 export function buildAssetReviewProjectionDataPorts(
   db: DataSession,
   profileId: number
-): IAssetReviewProjectionDataSource & IAssetReviewProjectionStore {
+): AssetReviewProjectionDataPorts {
   const scopeKey = buildProfileProjectionScopeKey(profileId);
 
   return {

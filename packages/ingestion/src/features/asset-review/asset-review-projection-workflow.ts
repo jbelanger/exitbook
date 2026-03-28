@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { AssetReviewProjectionPorts } from '../../ports/asset-review-projection-ports.js';
+import type { AssetReviewProjectionWorkflowPorts } from '../../ports/asset-review-projection-ports.js';
 
 import {
   buildAssetReviewSummaries,
@@ -17,7 +17,7 @@ export interface AssetReviewProjectionRebuildOptions {
 }
 
 export class AssetReviewProjectionWorkflow {
-  constructor(private readonly ports: AssetReviewProjectionPorts) {}
+  constructor(private readonly ports: AssetReviewProjectionWorkflowPorts) {}
 
   async rebuild(options: AssetReviewProjectionRebuildOptions = {}): Promise<Result<void, Error>> {
     const buildingResult = await this.ports.markAssetReviewBuilding();

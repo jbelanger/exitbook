@@ -10,33 +10,27 @@ import { markDownstreamProjectionsStale } from '../projections/projection-invali
  */
 export function buildImportPorts(db: DataSession): ImportPorts {
   return {
-    accounts: {
-      create: (params) => db.accounts.create(params),
-      findById: (accountId) => db.accounts.findById(accountId),
-      findAll: (filters) => db.accounts.findAll(filters),
-      update: (id, updates) => db.accounts.update(id, updates),
-      updateCursor: (id, streamType, cursor) => db.accounts.updateCursor(id, streamType, cursor),
-    },
+    createAccount: (params) => db.accounts.create(params),
+    findAccountById: (accountId) => db.accounts.findById(accountId),
+    findAccounts: (filters) => db.accounts.findAll(filters),
+    updateAccount: (id, updates) => db.accounts.update(id, updates),
+    updateAccountCursor: (id, streamType, cursor) => db.accounts.updateCursor(id, streamType, cursor),
 
-    importSessions: {
-      create: (accountId) => db.importSessions.create(accountId),
-      findLatestIncomplete: (accountId) => db.importSessions.findLatestIncomplete(accountId),
-      update: (sessionId, updates) => {
-        // Strip undefined values — exactOptionalPropertyTypes means the Kysely
-        // Updateable type does not accept explicit undefined for status.
-        const cleaned = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
-        return db.importSessions.update(sessionId, cleaned);
-      },
-      finalize: (sessionId, { status, startTime, imported, skipped, errorMessage, metadata }) => {
-        return db.importSessions.finalize(sessionId, status, startTime, imported, skipped, errorMessage, metadata);
-      },
-      findById: (sessionId) => db.importSessions.findById(sessionId),
+    createImportSession: (accountId) => db.importSessions.create(accountId),
+    findLatestIncompleteImportSession: (accountId) => db.importSessions.findLatestIncomplete(accountId),
+    updateImportSession: (sessionId, updates) => {
+      // Strip undefined values — exactOptionalPropertyTypes means the Kysely
+      // Updateable type does not accept explicit undefined for status.
+      const cleaned = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
+      return db.importSessions.update(sessionId, cleaned);
     },
+    finalizeImportSession: (sessionId, { status, startTime, imported, skipped, errorMessage, metadata }) => {
+      return db.importSessions.finalize(sessionId, status, startTime, imported, skipped, errorMessage, metadata);
+    },
+    findImportSessionById: (sessionId) => db.importSessions.findById(sessionId),
 
-    rawTransactions: {
-      createBatch: (accountId, transactions) => db.rawTransactions.createBatch(accountId, transactions),
-      countByStreamType: (accountId) => db.rawTransactions.countByStreamType(accountId),
-    },
+    createRawTransactionBatch: (accountId, transactions) => db.rawTransactions.createBatch(accountId, transactions),
+    countRawTransactionsByStreamType: (accountId) => db.rawTransactions.countByStreamType(accountId),
 
     invalidateProjections: (accountIds, reason) =>
       resultDoAsync(async function* () {

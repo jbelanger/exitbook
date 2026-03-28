@@ -28,10 +28,10 @@ describe('buildImportPorts', () => {
     it('strips undefined values before forwarding to repo', async () => {
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       const ports = buildImportPorts(ctx);
-      const sessionId = assertOk(await ports.importSessions.create(1));
+      const sessionId = assertOk(await ports.createImportSession(1));
 
       // Update with some undefined values — should not fail
-      const result = await ports.importSessions.update(sessionId, {
+      const result = await ports.updateImportSession(sessionId, {
         status: 'completed',
         error_message: undefined,
       });
@@ -87,7 +87,7 @@ describe('buildImportPorts', () => {
 
       const result = await ports.withTransaction(async (txPorts) => {
         const account = assertOk(
-          await txPorts.accounts.create({
+          await txPorts.createAccount({
             profileId: 1,
             parentAccountId: 1,
             accountType: 'blockchain',

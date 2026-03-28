@@ -53,7 +53,7 @@ export class ImportWorkflow {
   }
 
   private async loadAccount(accountId: number): Promise<Result<Account, Error>> {
-    const accountResult = await this.ports.accounts.findById(accountId);
+    const accountResult = await this.ports.findAccountById(accountId);
     if (accountResult.isErr()) {
       return err(accountResult.error);
     }
@@ -102,7 +102,7 @@ export class ImportWorkflow {
 
     logger.debug(`Processing xpub import for ${blockchain}`);
 
-    const existingChildrenResult = await this.ports.accounts.findAll({ parentAccountId: parentAccount.id });
+    const existingChildrenResult = await this.ports.findAccounts({ parentAccountId: parentAccount.id });
     if (existingChildrenResult.isErr()) return err(existingChildrenResult.error);
 
     const existingChildren = existingChildrenResult.value;
@@ -179,7 +179,7 @@ export class ImportWorkflow {
           continue;
         }
 
-        const childResult = await this.ports.accounts.create({
+        const childResult = await this.ports.createAccount({
           profileId: parentAccount.profileId,
           parentAccountId: parentAccount.id,
           accountType: 'blockchain',
@@ -207,7 +207,7 @@ export class ImportWorkflow {
         durationMs: derivationDuration,
       });
 
-      const metadataResult = await this.ports.accounts.update(parentAccount.id, {
+      const metadataResult = await this.ports.updateAccount(parentAccount.id, {
         metadata: {
           xpub: {
             gapLimit: requestedGap,
@@ -336,7 +336,7 @@ export class ImportWorkflow {
     const platformKey = account.platformKey;
 
     // Session create/resume (crash recovery)
-    const incompleteResult = await this.ports.importSessions.findLatestIncomplete(account.id);
+    const incompleteResult = await this.ports.findLatestIncompleteImportSession(account.id);
     if (incompleteResult.isErr()) return err(incompleteResult.error);
 
     const incompleteSession = incompleteResult.value;
@@ -354,10 +354,10 @@ export class ImportWorkflow {
         `Resuming import from import session #${importSessionId} (total so far: ${totalImported} imported, ${totalSkipped} skipped)`
       );
 
-      const updateResult = await this.ports.importSessions.update(importSessionId, { status: 'started' });
+      const updateResult = await this.ports.updateImportSession(importSessionId, { status: 'started' });
       if (updateResult.isErr()) return err(updateResult.error);
     } else {
-      const createResult = await this.ports.importSessions.create(account.id);
+      const createResult = await this.ports.createImportSession(account.id);
       if (createResult.isErr()) return err(createResult.error);
       importSessionId = createResult.value;
       logger.info(`Created new import session #${importSessionId}`);
@@ -369,7 +369,7 @@ export class ImportWorkflow {
     let transactionCounts: Map<string, number> | undefined;
     let transactionCountWarning: string | undefined;
     if (!isNewAccount) {
-      const countsResult = await this.ports.rawTransactions.countByStreamType(account.id);
+      const countsResult = await this.ports.countRawTransactionsByStreamType(account.id);
       if (countsResult.isOk()) {
         transactionCounts = countsResult.value;
       } else {
@@ -409,7 +409,7 @@ export class ImportWorkflow {
 
       for await (const batchResult of batchIterator) {
         if (this.abortController.signal.aborted) {
-          await this.ports.importSessions.update(importSessionId, {
+          await this.ports.updateImportSession(importSessionId, {
             status: 'failed',
             error_message: 'Import aborted by user',
             transactions_imported: totalImported,
@@ -419,7 +419,7 @@ export class ImportWorkflow {
         }
 
         if (batchResult.isErr()) {
-          await this.ports.importSessions.update(importSessionId, {
+          await this.ports.updateImportSession(importSessionId, {
             status: 'failed',
             error_message: batchResult.error.message,
             transactions_imported: totalImported,
@@ -450,27 +450,27 @@ export class ImportWorkflow {
 
         // Atomically: save raw transactions + update session totals + advance cursor
         const batchCommitResult = await this.ports.withTransaction(async (tx) => {
-          const saveResult = await tx.rawTransactions.createBatch(account.id, batch.rawTransactions);
+          const saveResult = await tx.createRawTransactionBatch(account.id, batch.rawTransactions);
           if (saveResult.isErr()) return err(saveResult.error);
 
           const { inserted, skipped } = saveResult.value;
           const newTotalImported = totalImported + inserted;
           const newTotalSkipped = totalSkipped + skipped;
 
-          const sessionUpdateResult = await tx.importSessions.update(importSessionId, {
+          const sessionUpdateResult = await tx.updateImportSession(importSessionId, {
             transactions_imported: newTotalImported,
             transactions_skipped: newTotalSkipped,
           });
           if (sessionUpdateResult.isErr()) return err(sessionUpdateResult.error);
 
-          const cursorUpdateResult = await tx.accounts.updateCursor(account.id, batch.streamType, batch.cursor);
+          const cursorUpdateResult = await tx.updateAccountCursor(account.id, batch.streamType, batch.cursor);
           if (cursorUpdateResult.isErr()) return err(cursorUpdateResult.error);
 
           return ok({ inserted, skipped });
         });
 
         if (batchCommitResult.isErr()) {
-          await this.ports.importSessions.update(importSessionId, {
+          await this.ports.updateImportSession(importSessionId, {
             status: 'failed',
             error_message: batchCommitResult.error.message,
             transactions_imported: totalImported,
@@ -517,7 +517,7 @@ export class ImportWorkflow {
       if (allWarnings.length > 0) {
         const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
 
-        const finalizeResult = await this.ports.importSessions.finalize(importSessionId, {
+        const finalizeResult = await this.ports.finalizeImportSession(importSessionId, {
           status: 'failed',
           startTime,
           imported: totalImported,
@@ -542,7 +542,7 @@ export class ImportWorkflow {
       // Success: finalize session + invalidate projections atomically
       if (totalImported > 0) {
         const finalizeResult = await this.ports.withTransaction(async (tx) => {
-          const finalize = await tx.importSessions.finalize(importSessionId, {
+          const finalize = await tx.finalizeImportSession(importSessionId, {
             status: 'completed',
             startTime,
             imported: totalImported,
@@ -560,7 +560,7 @@ export class ImportWorkflow {
         });
         if (finalizeResult.isErr()) return err(finalizeResult.error);
       } else {
-        const finalizeResult = await this.ports.importSessions.finalize(importSessionId, {
+        const finalizeResult = await this.ports.finalizeImportSession(importSessionId, {
           status: 'completed',
           startTime,
           imported: totalImported,
@@ -586,7 +586,7 @@ export class ImportWorkflow {
         durationMs: Date.now() - startTime,
       });
 
-      const sessionResult = await this.ports.importSessions.findById(importSessionId);
+      const sessionResult = await this.ports.findImportSessionById(importSessionId);
       if (sessionResult.isErr()) return err(sessionResult.error);
       if (!sessionResult.value) {
         return err(new Error(`Import session #${importSessionId} not found after finalization`));
@@ -596,7 +596,7 @@ export class ImportWorkflow {
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
 
-      await this.ports.importSessions.finalize(importSessionId, {
+      await this.ports.finalizeImportSession(importSessionId, {
         status: 'failed',
         startTime,
         imported: totalImported,

@@ -3,10 +3,10 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AssetReviewProjectionPorts } from '../../../ports/asset-review-projection-ports.js';
+import type { AssetReviewProjectionWorkflowPorts } from '../../../ports/asset-review-projection-ports.js';
 import { AssetReviewProjectionWorkflow } from '../asset-review-projection-workflow.js';
 
-function createPorts(): AssetReviewProjectionPorts {
+function createPorts(): AssetReviewProjectionWorkflowPorts {
   return {
     markAssetReviewBuilding: vi.fn().mockResolvedValue(ok(undefined)),
     listTransactions: vi.fn().mockResolvedValue(ok([])),
