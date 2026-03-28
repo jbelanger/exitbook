@@ -68,7 +68,7 @@ export function buildProcessingPorts(
   db: DataSession,
   options: {
     overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
-    rebuildAssetReviewProjection: () => Promise<import('@exitbook/foundation').Result<void, Error>>;
+    rebuildAssetReviewProjection: (accountIds: number[]) => Promise<import('@exitbook/foundation').Result<void, Error>>;
   }
 ): ProcessingPorts {
   return {
@@ -156,7 +156,7 @@ export function buildProcessingPorts(
 
     markProcessedTransactionsFailed: () => db.projectionState.markFailed('processed-transactions'),
 
-    rebuildAssetReviewProjection: options.rebuildAssetReviewProjection,
+    rebuildAssetReviewProjection: (accountIds) => options.rebuildAssetReviewProjection(accountIds),
 
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb, options))),
   };

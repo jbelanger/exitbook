@@ -20,18 +20,50 @@ interface CreateCliProcessingWorkflowRuntimeOptions {
   providerRuntime: IBlockchainProviderRuntime;
 }
 
-async function rebuildAllCliAssetReviewProjections(
+export async function rebuildCliAssetReviewProjectionsForAccounts(
   database: DataSession,
-  dataDir: string
+  dataDir: string,
+  accountIds: number[]
 ): Promise<import('@exitbook/foundation').Result<void, Error>> {
+  if (accountIds.length === 0) {
+    return ok(undefined);
+  }
+
   const profilesResult = await database.profiles.list();
   if (profilesResult.isErr()) {
     return err(profilesResult.error);
   }
 
-  for (const profile of profilesResult.value) {
-    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(database, dataDir, {
+  const profilesById = new Map(profilesResult.value.map((profile) => [profile.id, profile]));
+  const scopedProfiles = new Map<number, { profileId: number; profileKey: string }>();
+
+  for (const accountId of [...new Set(accountIds)]) {
+    const accountResult = await database.accounts.getById(accountId);
+    if (accountResult.isErr()) {
+      return err(
+        new Error(`Failed to resolve account ${accountId} for asset review rebuild: ${accountResult.error.message}`)
+      );
+    }
+
+    const profileId = accountResult.value.profileId;
+    if (profileId === undefined) {
+      return err(new Error(`Profile not set for account ${accountId} during asset review rebuild`));
+    }
+
+    const profile = profilesById.get(profileId);
+    if (!profile) {
+      return err(new Error(`Profile ${String(profileId)} not found for account ${accountId}`));
+    }
+
+    scopedProfiles.set(profile.id, {
       profileId: profile.id,
+      profileKey: profile.profileKey,
+    });
+  }
+
+  for (const profile of scopedProfiles.values()) {
+    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(database, dataDir, {
+      profileId: profile.profileId,
       profileKey: profile.profileKey,
     });
     if (assetReviewRuntimeResult.isErr()) {
@@ -55,7 +87,8 @@ export function createCliProcessingWorkflowRuntime(
   try {
     const overrideStore = new OverrideStore(options.dataDir);
     const ports = buildProcessingPorts(options.database, {
-      rebuildAssetReviewProjection: () => rebuildAllCliAssetReviewProjections(options.database, options.dataDir),
+      rebuildAssetReviewProjection: (accountIds) =>
+        rebuildCliAssetReviewProjectionsForAccounts(options.database, options.dataDir, accountIds),
       overrideStore,
     });
     const processingAdapterRegistry = new AdapterRegistry(

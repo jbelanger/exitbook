@@ -94,4 +94,19 @@ describe('buildProcessingPorts', () => {
       },
     ]);
   });
+
+  it('threads processed account scope through the asset-review rebuild port', async () => {
+    const rebuildAssetReviewProjection = vi.fn().mockResolvedValue(ok(undefined));
+    const ports = buildProcessingPorts(ctx, {
+      rebuildAssetReviewProjection,
+      overrideStore: {
+        exists: vi.fn().mockReturnValue(false),
+        readByScopes: vi.fn().mockResolvedValue(ok([])),
+      },
+    });
+
+    assertOk(await ports.rebuildAssetReviewProjection([1]));
+
+    expect(rebuildAssetReviewProjection).toHaveBeenCalledWith([1]);
+  });
 });

@@ -112,7 +112,7 @@ export class ProcessingWorkflow {
         const freshResult = await this.ports.markProcessedTransactionsFresh(accountIds);
         if (freshResult.isErr()) return err(freshResult.error);
 
-        const assetReviewResult = await this.ports.rebuildAssetReviewProjection();
+        const assetReviewResult = await this.ports.rebuildAssetReviewProjection(accountIds);
         if (assetReviewResult.isErr()) {
           const errorMessage = `Processed transactions were rebuilt, but asset review projection failed: ${assetReviewResult.error.message}`;
 
