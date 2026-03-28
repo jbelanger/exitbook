@@ -399,6 +399,57 @@ describe('BalanceWorkflow', () => {
     });
   });
 
+  it('fails verification when import session lookup fails', async () => {
+    const account = createAccount();
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+    ports.findByAccountIds = vi
+      .fn()
+      .mockResolvedValueOnce(ok([createCompletedImportSession(account.id)]))
+      .mockResolvedValueOnce(ok([createCompletedImportSession(account.id)]))
+      .mockResolvedValueOnce(err(new Error('session lookup failed')));
+
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '100000000',
+      decimalAmount: '1.0',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to fetch import sessions for balance verification scope 1');
+      expect(result.error.cause).toBeInstanceOf(Error);
+    }
+
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith(1);
+  });
+
   it('falls back to a calculated-only unavailable snapshot when no provider supports live balances', async () => {
     const account = createAccount({ platformKey: 'lukso', identifier: '0xlukso' });
     const normalTransactions = [

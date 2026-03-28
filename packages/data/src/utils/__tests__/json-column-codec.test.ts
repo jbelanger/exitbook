@@ -51,6 +51,10 @@ describe('serializeToJson', () => {
     circular['self'] = circular;
     const result = serializeToJson(circular);
     expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to serialize JSON');
+      expect(result.error.cause).toBeInstanceOf(Error);
+    }
   });
 });
 
@@ -85,6 +89,7 @@ describe('parseWithSchema', () => {
   it('returns error for invalid JSON', () => {
     const error = assertErr(parseWithSchema('not json', TestSchema));
     expect(error.message).toContain('Failed to parse JSON');
+    expect(error.cause).toBeInstanceOf(Error);
   });
 
   it('returns error for empty-string JSON instead of treating it as missing', () => {
@@ -114,6 +119,7 @@ describe('parseJson', () => {
   it('returns error for invalid JSON', () => {
     const error = assertErr(parseJson('not json'));
     expect(error.message).toContain('Failed to parse JSON');
+    expect(error.cause).toBeInstanceOf(Error);
   });
 
   it('returns error for empty-string JSON instead of treating it as missing', () => {

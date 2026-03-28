@@ -213,7 +213,10 @@ export class BalanceWorkflow {
       this.appendPartialCoverageWarnings(warnings, coverage);
       this.appendTokenCoverageWarnings(warnings, scopeContext.scopeAccount);
 
-      const lastImportTimestamp = await this.getLastImportTimestamp(scopeContext);
+      const lastImportTimestampResult = await this.getLastImportTimestamp(scopeContext);
+      if (lastImportTimestampResult.isErr()) return err(lastImportTimestampResult.error);
+
+      const lastImportTimestamp = lastImportTimestampResult.value;
       const hasTransactions = Object.keys(calculatedBalances).length > 0;
       const verificationResult = createVerificationResult(
         scopeContext.scopeAccount,
@@ -364,29 +367,33 @@ export class BalanceWorkflow {
     }
   }
 
-  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<number | undefined> {
+  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<Result<number | undefined, Error>> {
+    const accountIds = scopeContext.memberAccounts.map((account) => account.id);
+
     try {
-      const sessionsResult: Result<ImportSession[], Error> = await this.ports.findByAccountIds(
-        scopeContext.memberAccounts.map((account) => account.id)
-      );
+      const sessionsResult: Result<ImportSession[], Error> = await this.ports.findByAccountIds(accountIds);
 
       if (sessionsResult.isErr()) {
-        logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
-        return undefined;
+        return wrapError(
+          sessionsResult.error,
+          `Failed to fetch import sessions for balance verification scope ${scopeContext.scopeAccount.id}`
+        );
       }
 
       const completedSessions = sessionsResult.value.filter((s) => s.status === 'completed');
-      if (completedSessions.length === 0) return undefined;
+      if (completedSessions.length === 0) return ok(undefined);
 
       const mostRecent = completedSessions.reduce((best, current) => {
         if (!current.completedAt) return best;
         if (!best.completedAt) return current;
         return current.completedAt > best.completedAt ? current : best;
       });
-      return mostRecent.completedAt?.getTime();
+      return ok(mostRecent.completedAt?.getTime());
     } catch (error) {
-      logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
-      return undefined;
+      return wrapError(
+        error,
+        `Failed to fetch import sessions for balance verification scope ${scopeContext.scopeAccount.id}`
+      );
     }
   }
 

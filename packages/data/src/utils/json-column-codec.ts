@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import type { z } from 'zod';
 
@@ -33,7 +33,7 @@ export function serializeToJson(data: unknown): Result<string | undefined, Error
     );
     return ok(serialized);
   } catch (error) {
-    return err(new Error(`Failed to serialize JSON: ${error instanceof Error ? error.message : String(error)}`));
+    return wrapError(error, 'Failed to serialize JSON');
   }
 }
 
@@ -56,7 +56,7 @@ export function parseWithSchema<T>(value: unknown, schema: z.ZodType<T>): Result
 
     return ok(result.data);
   } catch (error) {
-    return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
+    return wrapError(error, 'Failed to parse JSON');
   }
 }
 
@@ -69,6 +69,6 @@ export function parseJson(value: unknown): Result<unknown, Error> {
     const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value;
     return ok(parsed);
   } catch (error) {
-    return err(new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`));
+    return wrapError(error, 'Failed to parse JSON');
   }
 }

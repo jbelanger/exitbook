@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { flushLoggers, initLogger, type LogLevel } from '@exitbook/logger';
+import { wrapError } from '@exitbook/foundation';
+import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
 import { FileSink } from '@exitbook/logger';
 import { Command } from 'commander';
 
@@ -22,10 +23,14 @@ import { registerReprocessCommand } from './features/reprocess/command/reprocess
 import { registerTransactionsCommand } from './features/transactions/command/transactions.js';
 import { createCliAppRuntime } from './runtime/app-runtime.js';
 
+const logger = getLogger('cli');
+
 function readCliVersion(): string {
+  const filename = fileURLToPath(import.meta.url);
+  const packageJsonPath = join(dirname(filename), '../package.json');
+
   try {
-    const filename = fileURLToPath(import.meta.url);
-    const packageJson: unknown = JSON.parse(readFileSync(join(dirname(filename), '../package.json'), 'utf-8'));
+    const packageJson: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
     if (
       typeof packageJson === 'object' &&
       packageJson !== null &&
@@ -34,10 +39,18 @@ function readCliVersion(): string {
     ) {
       return packageJson.version;
     }
-  } catch {
+  } catch (error) {
+    const wrappedError = wrapError(error, `Failed to read CLI version from ${packageJsonPath}`);
+    if (wrappedError.isErr()) {
+      logger.warn({ error: wrappedError.error, packageJsonPath }, 'Falling back to development CLI version');
+    }
     return '0.0.0';
   }
 
+  logger.warn(
+    { packageJsonPath },
+    'CLI package metadata missing string version; falling back to development CLI version'
+  );
   return '0.0.0';
 }
 
