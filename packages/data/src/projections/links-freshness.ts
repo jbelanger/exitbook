@@ -19,7 +19,7 @@ export function buildLinksFreshnessPorts(db: DataSession, profileId: number): IL
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {
-        const state = yield* await db.projectionState.get('links', scopeKey);
+        const state = yield* await db.projectionState.find('links', scopeKey);
 
         if (state && (state.status === 'stale' || state.status === 'failed' || state.status === 'building')) {
           return { status: state.status, reason: state.invalidatedBy ?? `projection is ${state.status}` };

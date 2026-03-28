@@ -20,7 +20,7 @@ export function buildAssetReviewFreshnessPorts(
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {
-        const state = yield* await db.projectionState.get('asset-review', scopeKey);
+        const state = yield* await db.projectionState.find('asset-review', scopeKey);
 
         if (state && (state.status === 'stale' || state.status === 'failed' || state.status === 'building')) {
           return { status: state.status, reason: state.invalidatedBy ?? `projection is ${state.status}` };

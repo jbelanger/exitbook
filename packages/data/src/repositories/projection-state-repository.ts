@@ -34,7 +34,7 @@ export class ProjectionStateRepository extends BaseRepository {
     super(db, 'projection-state-repository');
   }
 
-  async get(
+  async find(
     projectionId: ProjectionId,
     scopeKey: string = DEFAULT_SCOPE_KEY
   ): Promise<Result<ProjectionStateRow | undefined, Error>> {

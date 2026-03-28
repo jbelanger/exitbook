@@ -26,7 +26,7 @@ export function buildAssetReviewRuntimePorts(
     loadReviewDecisions: () => readAssetReviewDecisions(overrideStore, profile.profileKey),
     checkAssetReviewFreshness: () => freshnessPorts.checkFreshness(),
     async getLastAssetReviewBuiltAt(): Promise<Result<Date | undefined, Error>> {
-      const stateResult = await db.projectionState.get('asset-review', scopeKey);
+      const stateResult = await db.projectionState.find('asset-review', scopeKey);
       if (stateResult.isErr()) {
         return err(stateResult.error);
       }

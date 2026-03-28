@@ -47,18 +47,18 @@ describe('buildImportPorts', () => {
       assertOk(await ports.invalidateProjections([1], 'new-import'));
 
       const repo = new ProjectionStateRepository(db);
-      const ptState = assertOk(await repo.get('processed-transactions'));
+      const ptState = assertOk(await repo.find('processed-transactions'));
       expect(ptState?.status).toBe('stale');
       expect(ptState?.invalidatedBy).toBe('new-import');
 
       // Downstream projections should also be stale
-      const assetReviewState = assertOk(await repo.get('asset-review', buildProfileProjectionScopeKey(1)));
+      const assetReviewState = assertOk(await repo.find('asset-review', buildProfileProjectionScopeKey(1)));
       expect(assetReviewState?.status).toBe('stale');
-      const linksState = assertOk(await repo.get('links', buildProfileProjectionScopeKey(1)));
+      const linksState = assertOk(await repo.find('links', buildProfileProjectionScopeKey(1)));
       expect(linksState?.status).toBe('stale');
-      expect(assertOk(await repo.get('links'))).toBeUndefined();
+      expect(assertOk(await repo.find('links'))).toBeUndefined();
 
-      const balancesState = assertOk(await repo.get('balances', 'balance:1'));
+      const balancesState = assertOk(await repo.find('balances', 'balance:1'));
       expect(balancesState?.status).toBe('stale');
       expect(balancesState?.invalidatedBy).toBe('upstream-import:processed-transactions');
     });
@@ -71,11 +71,11 @@ describe('buildImportPorts', () => {
       assertOk(await ports.invalidateProjections([2], 'new-import'));
 
       const repo = new ProjectionStateRepository(db);
-      const parentScopeState = assertOk(await repo.get('balances', 'balance:1'));
+      const parentScopeState = assertOk(await repo.find('balances', 'balance:1'));
       expect(parentScopeState?.status).toBe('stale');
       expect(parentScopeState?.invalidatedBy).toBe('upstream-import:processed-transactions');
 
-      const childScopeState = assertOk(await repo.get('balances', 'balance:2'));
+      const childScopeState = assertOk(await repo.find('balances', 'balance:2'));
       expect(childScopeState).toBeUndefined();
     });
   });
