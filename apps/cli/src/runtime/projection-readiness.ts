@@ -193,7 +193,7 @@ export async function ensureLinksReady(
       const linkingRuntime = linkingRuntimeResult.value;
 
       if (options.isJsonMode) {
-        const result = await executeCliLinkingRuntime(linkingRuntime, profileScopeResult.value.profileKey, params);
+        const result = await executeCliLinkingRuntime(linkingRuntime, params);
         if (result.isErr()) return err(result.error);
         logger.info('Linking completed (JSON mode)');
         return ok(undefined);
@@ -206,7 +206,7 @@ export async function ensureLinksReady(
 
       options.setAbort?.(() => abortCliLinkingRuntime(linkingRuntime));
       try {
-        const result = await executeCliLinkingRuntime(linkingRuntime, profileScopeResult.value.profileKey, params);
+        const result = await executeCliLinkingRuntime(linkingRuntime, params);
         if (result.isErr()) return err(result.error);
         return ok(undefined);
       } finally {

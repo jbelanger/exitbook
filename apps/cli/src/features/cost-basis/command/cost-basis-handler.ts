@@ -18,10 +18,9 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
+import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 
 export type { ValidatedCostBasisConfig };
@@ -167,53 +166,32 @@ export async function createCostBasisHandler(
 ): Promise<Result<CostBasisHandler, Error>> {
   try {
     const database = await ctx.database();
-    let prereqAbort: (() => void) | undefined;
-    if (!options.isJsonMode) {
-      ctx.onAbort(() => {
-        prereqAbort?.();
-      });
-    }
-
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
-    if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
-    }
-
     const { params } = options;
-    const priceConfig =
-      params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
-
-    const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
+    const pricedRuntimeResult = await preparePricedConsumerRuntime(ctx, {
       isJsonMode: options.isJsonMode,
+      priceConfig: {
+        startDate: params.startDate,
+        endDate: params.endDate,
+      },
       profileId: options.profileId,
       profileKey: options.profileKey,
-      priceConfig,
-      accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-      setAbort: (abort) => {
-        prereqAbort = abort;
-      },
+      target: 'cost-basis',
     });
-    if (readyResult.isErr()) {
-      return err(readyResult.error);
-    }
-
-    prereqAbort = undefined;
-    const priceRuntimeResult = await ctx.openPriceProviderRuntime();
-    if (priceRuntimeResult.isErr()) {
-      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
+    if (pricedRuntimeResult.isErr()) {
+      return err(pricedRuntimeResult.error);
     }
 
     return ok(
       new CostBasisHandler(
         database,
         options.profileId,
-        accountingExclusionPolicyResult.value,
-        priceRuntimeResult.value,
+        pricedRuntimeResult.value.accountingExclusionPolicy,
+        pricedRuntimeResult.value.priceRuntime,
         () =>
           readCostBasisDependencyWatermark(
             database,
             ctx.dataDir,
-            accountingExclusionPolicyResult.value,
+            pricedRuntimeResult.value.accountingExclusionPolicy,
             options.profileId
           )
       )

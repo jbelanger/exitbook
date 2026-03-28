@@ -43,6 +43,7 @@ describe('links run runner helpers', () => {
     runtime = {
       orchestrator: mockOrchestrator as never,
       overrideStore: mockOverrideStore as unknown as OverrideStore,
+      profileKey: PROFILE_KEY,
       controller: mockController as never,
     };
   });
@@ -51,7 +52,7 @@ describe('links run runner helpers', () => {
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('Overrides file is invalid')));
 
-    const result = await executeCliLinkingRuntime(runtime, PROFILE_KEY, params);
+    const result = await executeCliLinkingRuntime(runtime, params);
 
     const error = assertErr(result);
     expect(error.message).toContain('Overrides file is invalid');
@@ -93,7 +94,7 @@ describe('links run runner helpers', () => {
     );
     mockOrchestrator.execute.mockResolvedValue(ok(linkingResult));
 
-    const result = await executeCliLinkingRuntime(runtime, PROFILE_KEY, params);
+    const result = await executeCliLinkingRuntime(runtime, params);
 
     expect(result.isOk()).toBe(true);
     expect(mockOverrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['link', 'unlink']);
@@ -105,5 +106,18 @@ describe('links run runner helpers', () => {
     expect(readOverridesCallOrder).toBeDefined();
     expect(controllerStartCallOrder).toBeDefined();
     expect(readOverridesCallOrder!).toBeLessThan(controllerStartCallOrder!);
+  });
+
+  it('should fail and stop the controller when orchestration throws', async () => {
+    mockOverrideStore.exists.mockReturnValue(false);
+    mockOrchestrator.execute.mockRejectedValue(new Error('Unexpected linking failure'));
+
+    const result = await executeCliLinkingRuntime(runtime, params);
+
+    const error = assertErr(result);
+    expect(error.message).toContain('Failed to run links operation');
+    expect(mockController.start).toHaveBeenCalledOnce();
+    expect(mockController.fail).toHaveBeenCalledWith('Unexpected linking failure');
+    expect(mockController.stop).toHaveBeenCalledOnce();
   });
 });

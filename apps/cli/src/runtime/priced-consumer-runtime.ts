@@ -1,0 +1,67 @@
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+
+import { loadAccountingExclusionPolicy } from './accounting-exclusion-policy.js';
+import type { CommandRuntime } from './command-runtime.js';
+import { ensureConsumerInputsReady } from './consumer-input-readiness.js';
+import type { PricePrereqConfig } from './price-readiness.js';
+
+type PricedConsumerTarget = 'cost-basis' | 'portfolio';
+
+export interface PreparedPricedConsumerRuntime {
+  accountingExclusionPolicy: AccountingExclusionPolicy;
+  priceRuntime: IPriceProviderRuntime;
+}
+
+export async function preparePricedConsumerRuntime(
+  ctx: CommandRuntime,
+  options: {
+    isJsonMode: boolean;
+    priceConfig: PricePrereqConfig;
+    profileId: number;
+    profileKey: string;
+    target: PricedConsumerTarget;
+  }
+): Promise<Result<PreparedPricedConsumerRuntime, Error>> {
+  try {
+    let prereqAbort: (() => void) | undefined;
+    if (!options.isJsonMode) {
+      ctx.onAbort(() => {
+        prereqAbort?.();
+      });
+    }
+
+    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
+    if (accountingExclusionPolicyResult.isErr()) {
+      return err(accountingExclusionPolicyResult.error);
+    }
+
+    const readyResult = await ensureConsumerInputsReady(ctx, options.target, {
+      isJsonMode: options.isJsonMode,
+      profileId: options.profileId,
+      profileKey: options.profileKey,
+      priceConfig: options.priceConfig,
+      accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+      setAbort: (abort) => {
+        prereqAbort = abort;
+      },
+    });
+    if (readyResult.isErr()) {
+      return err(readyResult.error);
+    }
+
+    prereqAbort = undefined;
+    const priceRuntimeResult = await ctx.openPriceProviderRuntime();
+    if (priceRuntimeResult.isErr()) {
+      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
+    }
+
+    return ok({
+      accountingExclusionPolicy: accountingExclusionPolicyResult.value,
+      priceRuntime: priceRuntimeResult.value,
+    });
+  } catch (error) {
+    return wrapError(error, `Failed to prepare ${options.target} runtime`);
+  }
+}

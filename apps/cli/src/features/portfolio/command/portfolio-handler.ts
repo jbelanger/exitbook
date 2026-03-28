@@ -3,10 +3,9 @@ import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbo
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { calculateBalances } from '@exitbook/ingestion/balance';
 
-import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
+import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 
 /**
@@ -24,50 +23,31 @@ export async function createPortfolioHandler(
 ): Promise<Result<PortfolioHandler, Error>> {
   try {
     const database = await ctx.database();
-    const dataDir = ctx.dataDir;
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(dataDir, options.profileKey);
-    if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
-    }
-    const accountingExclusionPolicy = accountingExclusionPolicyResult.value;
-
-    let prereqAbort: (() => void) | undefined;
-    if (!options.isJsonMode) {
-      ctx.onAbort(() => {
-        prereqAbort?.();
-      });
-    }
-
-    const readyResult = await ensureConsumerInputsReady(ctx, 'portfolio', {
+    const pricedRuntimeResult = await preparePricedConsumerRuntime(ctx, {
       isJsonMode: options.isJsonMode,
       profileId: options.profileId,
       profileKey: options.profileKey,
       priceConfig: { startDate: new Date(0), endDate: options.asOf },
-      accountingExclusionPolicy,
-      setAbort: (abort) => {
-        prereqAbort = abort;
-      },
+      target: 'portfolio',
     });
-    if (readyResult.isErr()) {
-      return err(readyResult.error);
+    if (pricedRuntimeResult.isErr()) {
+      return err(pricedRuntimeResult.error);
     }
-
-    const priceRuntimeResult = await ctx.openPriceProviderRuntime();
-    if (priceRuntimeResult.isErr()) {
-      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
-    }
-
-    prereqAbort = undefined;
     return ok(
       new PortfolioHandler({
-        accountingExclusionPolicy,
+        accountingExclusionPolicy: pricedRuntimeResult.value.accountingExclusionPolicy,
         calculateHoldings: (transactions) => calculateBalances(transactions),
         costBasisStore: buildCostBasisPorts(database, options.profileId),
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
-        priceRuntime: priceRuntimeResult.value,
+        priceRuntime: pricedRuntimeResult.value.priceRuntime,
         readAssetReviewSummaries: () => readAssetReviewProjectionSummaries(database, options.profileId),
         readDependencyWatermark: () =>
-          readCostBasisDependencyWatermark(database, ctx.dataDir, accountingExclusionPolicy, options.profileId),
+          readCostBasisDependencyWatermark(
+            database,
+            ctx.dataDir,
+            pricedRuntimeResult.value.accountingExclusionPolicy,
+            options.profileId
+          ),
       })
     );
   } catch (error) {

@@ -21,6 +21,7 @@ export interface CliLinkingRuntime {
   controller?: EventDrivenController<LinkingEvent> | undefined;
   orchestrator: LinkingOrchestrator;
   overrideStore: OverrideStore;
+  profileKey: string;
 }
 
 interface CreateCliLinkingRuntimeOptions {
@@ -40,6 +41,7 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
       return ok({
         orchestrator: new LinkingOrchestrator(store),
         overrideStore,
+        profileKey: options.profileKey,
       });
     }
 
@@ -54,6 +56,7 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
       controller,
       orchestrator: new LinkingOrchestrator(store, eventBus),
       overrideStore,
+      profileKey: options.profileKey,
     });
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
@@ -78,11 +81,10 @@ export async function readCliLinkOverrides(
 
 export async function executeCliLinkingRuntime(
   runtime: CliLinkingRuntime,
-  profileKey: string,
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   try {
-    const overrides = await readCliLinkOverrides(runtime.overrideStore, profileKey);
+    const overrides = await readCliLinkOverrides(runtime.overrideStore, runtime.profileKey);
     if (overrides.isErr()) {
       return err(overrides.error);
     }
@@ -107,6 +109,13 @@ export async function executeCliLinkingRuntime(
 
     return ok(result.value);
   } catch (error) {
+    if (runtime.controller) {
+      const message = error instanceof Error ? error.message : String(error);
+      runtime.controller.fail(message);
+      await runtime.controller.stop().catch((controllerError) => {
+        logger.warn({ controllerError }, 'Failed to stop controller after exception');
+      });
+    }
     return wrapError(error, 'Failed to run links operation');
   }
 }

@@ -39,7 +39,7 @@ export async function runLinks(
 
     const runtime: CliLinkingRuntime = runtimeResult.value;
     ctx.onAbort(() => abortCliLinkingRuntime(runtime));
-    return executeCliLinkingRuntime(runtime, options.profileKey, params);
+    return executeCliLinkingRuntime(runtime, params);
   } catch (error) {
     return wrapError(error, 'Failed to run links operation');
   }
