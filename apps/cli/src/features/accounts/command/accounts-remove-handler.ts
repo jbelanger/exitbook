@@ -9,7 +9,7 @@ import {
   type ProjectionResetImpact,
 } from '../../../runtime/projection-reset.js';
 
-export interface AccountRemovePreview {
+interface AccountRemovePreview {
   accountIds: number[];
   deleted: {
     assetReview: ProjectionResetImpact['assetReview'];
@@ -37,7 +37,7 @@ export interface FlatAccountRemovePreview {
   rawData: number;
 }
 
-export interface AccountRemoveResult {
+interface AccountRemoveResult {
   deleted: FlatAccountRemovePreview;
 }
 

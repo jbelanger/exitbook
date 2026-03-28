@@ -17,12 +17,12 @@ import { runCanadaAcbEngine } from './canada-acb-engine.js';
 
 const logger = getLogger('canada-acb-workflow');
 
-export interface CanadaAcbWorkflowResult {
+interface CanadaAcbWorkflowResult {
   acbEngineResult: CanadaAcbEngineResult;
   inputContext: CanadaTaxInputContext;
 }
 
-export interface CanadaAcbWorkflowOptions {
+interface CanadaAcbWorkflowOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   relaxedTaxIdentitySymbols?: readonly string[] | undefined;

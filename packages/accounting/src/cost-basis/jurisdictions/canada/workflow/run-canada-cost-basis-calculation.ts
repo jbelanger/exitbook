@@ -16,7 +16,7 @@ import { runCanadaSuperficialLossEngine } from './canada-superficial-loss-engine
 
 const logger = getLogger('run-canada-cost-basis-calculation');
 
-export interface RunCanadaCostBasisCalculationParams {
+interface RunCanadaCostBasisCalculationParams {
   input: ValidatedCostBasisConfig;
   transactions: Transaction[];
   confirmedLinks: TransactionLink[];

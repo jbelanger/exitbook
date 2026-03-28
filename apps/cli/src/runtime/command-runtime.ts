@@ -31,14 +31,14 @@ interface ResultCleanupOutcome {
   isErr(): boolean;
 }
 
-export interface BlockchainProviderRuntimeOptions {
+interface BlockchainProviderRuntimeOptions {
   dataDir?: string | undefined;
   eventBus?: EventBus<ProviderEvent> | undefined;
   explorerConfig?: BlockchainExplorersConfig | undefined;
   instrumentation?: InstrumentationCollector | undefined;
 }
 
-export interface PriceProviderRuntimeOptions {
+interface PriceProviderRuntimeOptions {
   dataDir?: string | undefined;
   eventBus?: EventBus<PricingEvent> | undefined;
   instrumentation?: InstrumentationCollector | undefined;

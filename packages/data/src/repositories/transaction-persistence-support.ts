@@ -11,7 +11,6 @@ import {
   type FeeMovementDraft,
   type TransactionDraft,
 } from '@exitbook/core';
-import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import type { Insertable } from '@exitbook/sqlite';
@@ -22,7 +21,7 @@ import type { KyselyDB } from '../database.js';
 import { serializeToJson } from '../utils/json-column-codec.js';
 import { deriveTransactionFingerprint } from '../utils/transaction-id-utils.js';
 
-export interface BuildInsertValuesResult {
+interface BuildInsertValuesResult {
   insertValues: Insertable<TransactionsTable>;
   txFingerprint: string;
 }
@@ -364,8 +363,4 @@ export function buildInsertValues(
     },
     txFingerprint,
   });
-}
-
-export function wrapTransactionPersistenceError(error: unknown, context: string): Result<never, Error> {
-  return wrapError(error, context);
 }

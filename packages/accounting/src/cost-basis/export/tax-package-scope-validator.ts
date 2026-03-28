@@ -4,7 +4,7 @@ import { getDefaultDateRange } from '../model/cost-basis-config.js';
 
 import type { TaxPackageConfigScope } from './tax-package-types.js';
 
-export type TaxPackageScopeValidationErrorCode =
+type TaxPackageScopeValidationErrorCode =
   | 'PARTIAL_SCOPE'
   | 'UNSUPPORTED_JURISDICTION'
   | 'UNSUPPORTED_METHOD_FOR_JURISDICTION';

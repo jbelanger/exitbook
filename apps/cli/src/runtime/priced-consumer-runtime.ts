@@ -11,7 +11,7 @@ import type { PricePrereqConfig } from './price-readiness.js';
 
 type PricedConsumerTarget = 'cost-basis' | 'portfolio';
 
-export interface PreparedPricedConsumerRuntime {
+interface PreparedPricedConsumerRuntime {
   accountingExclusionPolicy: AccountingExclusionPolicy;
   priceRuntime: IPriceProviderRuntime;
 }

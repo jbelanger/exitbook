@@ -36,7 +36,7 @@ export interface MaterializeTransactionNoteOverridesParams extends TransactionMa
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
 
-export function parseStoredNotes(notesJson: string | null): Result<TransactionNote[] | undefined, Error> {
+function parseStoredNotes(notesJson: string | null): Result<TransactionNote[] | undefined, Error> {
   if (!notesJson) {
     return ok(undefined);
   }
@@ -51,7 +51,7 @@ function isMaterializedOverrideStoreUserNote(note: TransactionNote): boolean {
   );
 }
 
-export function projectOverrideStoreUserNote(
+function projectOverrideStoreUserNote(
   existingNotes: TransactionNote[] | undefined,
   overrideNote: string | undefined
 ): TransactionNote[] | undefined {
@@ -377,7 +377,7 @@ export function rowToTransaction(
   return ok(transaction);
 }
 
-export function serializeMaterializedNotes(notes: TransactionNote[] | undefined): Result<string | undefined, Error> {
+function serializeMaterializedNotes(notes: TransactionNote[] | undefined): Result<string | undefined, Error> {
   return notes ? serializeToJson(notes) : ok(undefined);
 }
 

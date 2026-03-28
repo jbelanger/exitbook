@@ -11,7 +11,7 @@ export { providerToSummary, type ProviderSummary } from '../../shared/provider-s
 /**
  * Blockchain categories surfaced in view data.
  */
-export const BLOCKCHAIN_DISPLAY_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other'] as const;
+const BLOCKCHAIN_DISPLAY_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other'] as const;
 
 /**
  * Blockchain category filters accepted at the CLI boundary.

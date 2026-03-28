@@ -7,7 +7,7 @@ import { isUtxoAdapter, type AdapterRegistry } from '@exitbook/ingestion/adapter
 
 import type { AccountAddCommandOptions, AccountUpdateCommandOptions } from './accounts-option-schemas.js';
 
-export function normalizeCsvDir(csvDir: string): string {
+function normalizeCsvDir(csvDir: string): string {
   return path.normalize(csvDir).replace(/[/\\]+$/, '');
 }
 

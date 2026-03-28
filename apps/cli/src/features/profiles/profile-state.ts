@@ -12,7 +12,7 @@ interface CliStateFile {
   activeProfileKey?: string | undefined;
 }
 
-export interface CliProfileSelection {
+interface CliProfileSelection {
   profileKey: string;
   source: ActiveProfileSource;
 }

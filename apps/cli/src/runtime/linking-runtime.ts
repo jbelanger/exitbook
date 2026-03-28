@@ -64,7 +64,7 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
   }
 }
 
-export async function readCliLinkOverrides(
+async function readCliLinkOverrides(
   overrideStore: OverrideStore,
   profileKey: string
 ): Promise<Result<OverrideEvent[], Error>> {

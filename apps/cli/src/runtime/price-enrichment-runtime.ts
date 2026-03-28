@@ -21,7 +21,7 @@ import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 
 const logger = getLogger('cli-price-enrichment-runtime');
 
-export interface CliPriceEnrichmentRuntime {
+interface CliPriceEnrichmentRuntime {
   controller?: EventDrivenController<PricingEvent> | undefined;
   instrumentation: InstrumentationCollector;
   pipeline: PriceEnrichmentPipeline;
@@ -37,14 +37,14 @@ interface CreateCliPriceEnrichmentRuntimeOptions {
   scope: CommandRuntime;
 }
 
-export interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrichResult> {
+interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrichResult> {
   afterSuccess?:
     | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
     | undefined;
   params: PricesEnrichOptions;
 }
 
-export interface WithCliPriceEnrichmentRuntimeOptions {
+interface WithCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: Awaited<ReturnType<CommandRuntime['database']>>;
   format: CliOutputFormat;
@@ -54,7 +54,7 @@ export interface WithCliPriceEnrichmentRuntimeOptions {
   scope: CommandRuntime;
 }
 
-export async function createCliPriceEnrichmentRuntime(
+async function createCliPriceEnrichmentRuntime(
   options: CreateCliPriceEnrichmentRuntimeOptions
 ): Promise<Result<CliPriceEnrichmentRuntime, Error>> {
   let controller: EventDrivenController<PricingEvent> | undefined;
