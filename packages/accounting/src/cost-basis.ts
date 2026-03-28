@@ -61,11 +61,13 @@ export {
   COST_BASIS_STORAGE_SCHEMA_VERSION,
   evaluateCostBasisArtifactFreshness,
   readCostBasisSnapshotArtifact,
+} from './cost-basis/artifacts/artifact-snapshot-storage.js';
+export {
   StoredCanadaCostBasisArtifactSchema,
   StoredCostBasisArtifactEnvelopeSchema,
   StoredCostBasisDebugSchema,
   StoredStandardCostBasisArtifactSchema,
-} from './cost-basis/artifacts/artifact-storage.js';
+} from './cost-basis/artifacts/artifact-storage-schemas.js';
 export { buildCostBasisFilingFacts } from './cost-basis/filing-facts/filing-facts-builder.js';
 export type {
   CanadaCostBasisFilingFacts,

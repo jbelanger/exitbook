@@ -16,7 +16,7 @@ import {
   evaluateCostBasisArtifactFreshness,
   readCostBasisSnapshotArtifact,
   type CostBasisArtifactDebugPayload,
-} from './artifact-storage.js';
+} from './artifact-snapshot-storage.js';
 
 const logger = getLogger('cost-basis.artifacts.service');
 

@@ -7,7 +7,7 @@ import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { createCanadaPriceRuntime } from '../../jurisdictions/canada/__tests__/test-utils.js';
 import { CostBasisWorkflow } from '../../workflow/cost-basis-workflow.js';
-import { buildCostBasisSnapshotRecord, readCostBasisSnapshotArtifact } from '../artifact-storage.js';
+import { buildCostBasisSnapshotRecord, readCostBasisSnapshotArtifact } from '../artifact-snapshot-storage.js';
 
 const BTC = 'BTC' as Currency;
 const CAD = 'CAD' as Currency;
@@ -102,7 +102,7 @@ function createStore(transactions: Transaction[]): ICostBasisContextReader {
   };
 }
 
-describe('cost-basis-artifact-storage', () => {
+describe('cost-basis-artifact-snapshot-storage', () => {
   it('maps a standard workflow result to storage JSON and back', async () => {
     const transactions = [
       createAcquisitionTransaction({

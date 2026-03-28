@@ -13,7 +13,7 @@ import {
   COST_BASIS_CALCULATION_ENGINE_VERSION,
   COST_BASIS_STORAGE_SCHEMA_VERSION,
   buildCostBasisScopeKey,
-} from '../artifact-storage.js';
+} from '../artifact-snapshot-storage.js';
 
 const dependencyWatermark: CostBasisDependencyWatermark = {
   links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
