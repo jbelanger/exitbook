@@ -12,9 +12,7 @@ import {
   materializeTransactionNoteOverrides,
   type MaterializeTransactionNoteOverridesParams,
   rowToTransaction,
-  toTransactionSummary,
   type MovementRow,
-  type TransactionSummary,
 } from './transaction-materialization-support.js';
 import {
   buildInsertValues,
@@ -24,14 +22,6 @@ import {
   validatePriceDataForPersistence,
 } from './transaction-persistence-support.js';
 import { countTransactionRows, findTransactionRows, type TransactionQueryParams } from './transaction-query-support.js';
-
-interface FullTransactionQueryParams extends TransactionQueryParams {
-  projection?: 'full' | undefined;
-}
-
-interface SummaryTransactionQueryParams extends TransactionQueryParams {
-  projection: 'summary';
-}
 
 const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
 
@@ -177,22 +167,9 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
-  findAll(filters: SummaryTransactionQueryParams): Promise<Result<TransactionSummary[], Error>>;
-  findAll(filters?: FullTransactionQueryParams): Promise<Result<Transaction[], Error>>;
-  async findAll(
-    filters?: FullTransactionQueryParams | SummaryTransactionQueryParams
-  ): Promise<Result<Transaction[] | TransactionSummary[], Error>> {
+  async findAll(filters?: TransactionQueryParams): Promise<Result<Transaction[], Error>> {
     try {
-      const projection = filters?.projection ?? 'full';
       const rows = await findTransactionRows(this.db, filters ?? {});
-
-      if (projection === 'summary') {
-        const summaries: TransactionSummary[] = [];
-        for (const row of rows) {
-          summaries.push(toTransactionSummary(row));
-        }
-        return ok(summaries);
-      }
 
       const transactionIds = rows.map((r) => r.id);
       const movementsMapResult = await this.findMovementsForIds(transactionIds);

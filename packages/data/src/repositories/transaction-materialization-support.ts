@@ -9,7 +9,6 @@ import {
   type Transaction,
   type TransactionMaterializationScope,
   type TransactionNote,
-  type TransactionStatus,
 } from '@exitbook/core';
 import { CurrencySchema, parseDecimal } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
@@ -24,23 +23,6 @@ import { withControlledTransaction } from '../utils/controlled-transaction.js';
 import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
-export interface TransactionSummary {
-  id: number;
-  accountId: number;
-  txFingerprint: string;
-  datetime: string;
-  timestamp: number;
-  platformKey: string;
-  platformKind: string;
-  status: TransactionStatus;
-  from?: string | undefined;
-  to?: string | undefined;
-  operation: { category: string; type: string };
-  isSpam?: boolean | undefined;
-  excludedFromAccounting?: boolean | undefined;
-  blockchain?: { name: string; transaction_hash: string } | undefined;
-}
-
 export type MovementRow = Selectable<TransactionMovementsTable>;
 
 interface WarningLogger {
@@ -53,40 +35,6 @@ export interface MaterializeTransactionNoteOverridesParams extends TransactionMa
 
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
-
-export function toTransactionSummary(row: Selectable<TransactionsTable>): TransactionSummary {
-  const datetime = row.transaction_datetime;
-  const timestamp = new Date(datetime).getTime();
-  const status: TransactionStatus = row.transaction_status;
-
-  const summary: TransactionSummary = {
-    id: row.id,
-    accountId: row.account_id,
-    txFingerprint: row.tx_fingerprint,
-    datetime,
-    timestamp,
-    platformKey: row.platform_key,
-    platformKind: row.platform_kind,
-    status,
-    from: row.from_address ?? undefined,
-    to: row.to_address ?? undefined,
-    operation: {
-      category: row.operation_category ?? 'transfer',
-      type: row.operation_type ?? 'transfer',
-    },
-    isSpam: row.is_spam ? true : undefined,
-    excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
-  };
-
-  if (row.blockchain_name) {
-    summary.blockchain = {
-      name: row.blockchain_name,
-      transaction_hash: row.blockchain_transaction_hash ?? '',
-    };
-  }
-
-  return summary;
-}
 
 export function parseStoredNotes(notesJson: string | null): Result<TransactionNote[] | undefined, Error> {
   if (!notesJson) {
