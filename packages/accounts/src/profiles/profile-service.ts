@@ -1,10 +1,16 @@
 import { DEFAULT_PROFILE_KEY, normalizeProfileDisplayName, normalizeProfileKey, type Profile } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { IProfileLifecycleStore } from '../ports/index.js';
+interface ProfileLifecycleStore {
+  create(input: { displayName: string; profileKey: string }): Promise<Result<Profile, Error>>;
+  findByKey(profileKey: string): Promise<Result<Profile | undefined, Error>>;
+  findOrCreateDefault(): Promise<Result<Profile, Error>>;
+  list(): Promise<Result<Profile[], Error>>;
+  updateDisplayName(profileKey: string, displayName: string): Promise<Result<Profile, Error>>;
+}
 
 export class ProfileService {
-  constructor(private readonly store: IProfileLifecycleStore) {}
+  constructor(private readonly store: ProfileLifecycleStore) {}
 
   create(profileKey: string): Promise<Result<Profile, Error>> {
     const normalizedKeyResult = normalizeProfileKey(profileKey);

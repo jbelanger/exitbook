@@ -1,8 +1,17 @@
-import type { IAccountLifecycleStore, IProfileLifecycleStore } from '@exitbook/accounts';
-
 import type { DataSession } from './data-session.js';
 
-export function buildProfileLifecycleStore(db: DataSession): IProfileLifecycleStore {
+type ProfileLifecycleStore = Pick<
+  DataSession['profiles'],
+  'create' | 'findByKey' | 'findOrCreateDefault' | 'list' | 'updateDisplayName'
+>;
+
+type AccountLifecycleStore = Pick<DataSession['accounts'], 'create' | 'findById' | 'findByName' | 'update'> & {
+  findByKey: DataSession['accounts']['findBy'];
+  findChildren(parentAccountId: number, profileId: number): ReturnType<DataSession['accounts']['findAll']>;
+  listTopLevel(profileId: number): ReturnType<DataSession['accounts']['findAll']>;
+};
+
+export function buildProfileLifecycleStore(db: DataSession): ProfileLifecycleStore {
   return {
     create: (input) => db.profiles.create(input),
     findByKey: (profileKey) => db.profiles.findByKey(profileKey),
@@ -12,7 +21,7 @@ export function buildProfileLifecycleStore(db: DataSession): IProfileLifecycleSt
   };
 }
 
-export function buildAccountLifecycleStore(db: DataSession): IAccountLifecycleStore {
+export function buildAccountLifecycleStore(db: DataSession): AccountLifecycleStore {
   return {
     create: (input) => db.accounts.create(input),
     findById: (accountId) => db.accounts.findById(accountId),
