@@ -62,7 +62,9 @@ export const alchemyMetadata: ProviderMetadata = {
       'getAddressInfo',
       'getAddressBalances',
       'getAddressTokenBalances',
-      'getAddressTransactions',
+      // Intentionally disabled: transaction ingestion needs per-transaction receipt
+      // lookups for gas fees, which is too expensive for this provider path today.
+      // 'getAddressTransactions',
       'getTokenMetadata',
     ],
     supportedTransactionTypes: ['normal', 'internal', 'token'],

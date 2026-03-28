@@ -22,7 +22,10 @@ interface CanadaAcbWorkflowResult {
   inputContext: CanadaTaxInputContext;
 }
 
-interface CanadaAcbWorkflowOptions {
+export interface RunCanadaAcbWorkflowParams {
+  transactions: Transaction[];
+  confirmedLinks: TransactionLink[];
+  priceRuntime: IPriceProviderRuntime;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   relaxedTaxIdentitySymbols?: readonly string[] | undefined;
@@ -30,26 +33,23 @@ interface CanadaAcbWorkflowOptions {
 }
 
 export async function runCanadaAcbWorkflow(
-  transactions: Transaction[],
-  confirmedLinks: TransactionLink[],
-  priceRuntime: IPriceProviderRuntime,
-  options?: CanadaAcbWorkflowOptions
+  params: RunCanadaAcbWorkflowParams
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   const canadaConfig = getJurisdictionConfig('CA');
   if (!canadaConfig) {
     return err(new Error('Canada jurisdiction config is not registered'));
   }
 
-  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
+  const scopedResult = buildCostBasisScopedTransactions(params.transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
 
-  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, options?.accountingExclusionPolicy);
+  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, params.accountingExclusionPolicy);
 
   const assetReviewResult = assertNoScopedAssetsRequireReview(
     exclusionApplied.scopedBuildResult.transactions,
-    options?.assetReviewSummaries
+    params.assetReviewSummaries
   );
   if (assetReviewResult.isErr()) {
     return err(assetReviewResult.error);
@@ -57,7 +57,7 @@ export async function runCanadaAcbWorkflow(
 
   const validatedLinksResult = validateScopedTransferLinks(
     exclusionApplied.scopedBuildResult.transactions,
-    confirmedLinks
+    params.confirmedLinks
   );
   if (validatedLinksResult.isErr()) {
     return err(validatedLinksResult.error);
@@ -67,10 +67,10 @@ export async function runCanadaAcbWorkflow(
     scopedTransactions: exclusionApplied.scopedBuildResult.transactions,
     validatedTransfers: validatedLinksResult.value,
     feeOnlyInternalCarryovers: exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
-    priceRuntime,
+    priceRuntime: params.priceRuntime,
     identityConfig: {
-      relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
-      taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
+      relaxedTaxIdentitySymbols: params.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
+      taxAssetIdentityPolicy: params.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
     },
   });
   if (inputContextResult.isErr()) {
