@@ -42,7 +42,7 @@ export interface ProviderMetadata {
   blockchain: string; // Primary blockchain (for backward compatibility)
   baseUrl: string; // Default base URL (used if no chain-specific override)
   requiresApiKey?: boolean | undefined;
-  apiKeyEnvVar?: string | undefined; // Environment variable name for API key
+  apiKeyEnvName?: string | undefined; // Environment variable name for API key
   capabilities: ProviderCapabilities;
   defaultConfig: {
     rateLimit: RateLimitConfig;

@@ -30,7 +30,7 @@ import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
 import { SolscanAccountBalanceResponseSchema, SolscanAccountTransactionsResponseSchema } from './solscan.schemas.js';
 
 export const solscanMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'SOLSCAN_API_KEY',
+  apiKeyEnvName: 'SOLSCAN_API_KEY',
   baseUrl: 'https://pro-api.solscan.io/v2.0',
   blockchain: 'solana',
   capabilities: {

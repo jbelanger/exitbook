@@ -28,7 +28,7 @@ export interface ProviderViewItem {
   name: string;
   displayName: string;
   requiresApiKey: boolean;
-  apiKeyEnvVar?: string | undefined;
+  apiKeyEnvName?: string | undefined;
   apiKeyConfigured?: boolean | undefined;
   blockchains: ProviderBlockchainItem[];
   chainCount: number;

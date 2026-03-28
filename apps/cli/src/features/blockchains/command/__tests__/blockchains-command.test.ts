@@ -95,7 +95,7 @@ function createBlockchainProviderDescriptor(
     displayName: overrides.displayName,
     name: overrides.name,
     requiresApiKey: overrides.requiresApiKey ?? false,
-    apiKeyEnvVar: overrides.apiKeyEnvVar,
+    apiKeyEnvName: overrides.apiKeyEnvName,
   };
 }
 
@@ -136,7 +136,7 @@ describe('registerBlockchainsViewCommand', () => {
         name: 'mempool',
       }),
       createBlockchainProviderDescriptor({
-        apiKeyEnvVar: 'HELIUS_API_KEY',
+        apiKeyEnvName: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',
         name: 'helius',
@@ -186,7 +186,7 @@ describe('registerBlockchainsViewCommand', () => {
     mockCreateBlockchainsViewState.mockReturnValue(initialState);
     mockListBlockchainProviders.mockReturnValue([
       createBlockchainProviderDescriptor({
-        apiKeyEnvVar: 'HELIUS_API_KEY',
+        apiKeyEnvName: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',
         name: 'helius',

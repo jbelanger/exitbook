@@ -51,7 +51,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
 };
 
 export const moralisMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'MORALIS_API_KEY',
+  apiKeyEnvName: 'MORALIS_API_KEY',
   baseUrl: 'https://deep-index.moralis.io/api/v2.2',
   blockchain: 'ethereum',
   capabilities: {

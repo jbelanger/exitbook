@@ -34,7 +34,7 @@ import type { TaostatsBalanceResponse, TaostatsTransaction } from './taostats.sc
 import { TaostatsBalanceResponseSchema, TaostatsTransactionsResponseSchema } from './taostats.schemas.js';
 
 export const taostatsMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'TAOSTATS_API_KEY',
+  apiKeyEnvName: 'TAOSTATS_API_KEY',
   baseUrl: 'https://api.taostats.io/api',
   blockchain: 'bittensor',
   capabilities: {

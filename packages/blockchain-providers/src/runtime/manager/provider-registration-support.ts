@@ -9,10 +9,10 @@ interface ApiKeyValidationResult {
  * Validate that required API key is available in environment.
  */
 export function validateProviderApiKey(
-  metadata: Pick<ProviderMetadata, 'apiKeyEnvVar' | 'displayName' | 'name' | 'requiresApiKey'>,
+  metadata: Pick<ProviderMetadata, 'apiKeyEnvName' | 'displayName' | 'name' | 'requiresApiKey'>,
   apiKey?: string
 ): ApiKeyValidationResult {
-  const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+  const envVar = metadata.apiKeyEnvName || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
   const resolvedApiKey = apiKey ?? process.env[envVar];
   const available = Boolean(resolvedApiKey && resolvedApiKey !== 'YourApiKeyToken');
 

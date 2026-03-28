@@ -138,7 +138,7 @@ async function executeProvidersViewJSON(
       name: p.name,
       displayName: p.displayName,
       requiresApiKey: p.requiresApiKey,
-      apiKeyEnvVar: p.apiKeyEnvVar,
+      apiKeyEnvName: p.apiKeyEnvName,
       apiKeyConfigured: p.apiKeyConfigured,
       blockchains: p.blockchains.map((b) => ({
         name: b.name,

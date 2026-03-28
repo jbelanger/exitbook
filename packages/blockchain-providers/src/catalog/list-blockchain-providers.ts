@@ -2,7 +2,7 @@ import type { ProviderInfo } from '../contracts/registry.js';
 import { createProviderRegistry } from '../initialize.js';
 
 export interface BlockchainProviderDescriptor extends ProviderInfo {
-  apiKeyEnvVar?: string | undefined;
+  apiKeyEnvName?: string | undefined;
 }
 
 export function listBlockchainProviders(): BlockchainProviderDescriptor[] {
@@ -10,6 +10,6 @@ export function listBlockchainProviders(): BlockchainProviderDescriptor[] {
 
   return registry.getAllProviders().map((provider) => ({
     ...provider,
-    apiKeyEnvVar: registry.getMetadata(provider.blockchain, provider.name)?.apiKeyEnvVar ?? undefined,
+    apiKeyEnvName: registry.getMetadata(provider.blockchain, provider.name)?.apiKeyEnvName ?? undefined,
   }));
 }

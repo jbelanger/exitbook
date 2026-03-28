@@ -64,8 +64,8 @@ function listProviders(): void {
 
       // Show API key environment variable if available
       const metadata = registry.getMetadata(blockchain, provider.name);
-      if (metadata?.apiKeyEnvVar && provider.requiresApiKey) {
-        console.log(`    Environment Variable: ${metadata.apiKeyEnvVar}`);
+      if (metadata?.apiKeyEnvName && provider.requiresApiKey) {
+        console.log(`    Environment Variable: ${metadata.apiKeyEnvName}`);
       }
 
       console.log(`    Rate Limits: ${formatRateLimit(provider.defaultConfig.rateLimit)}`);

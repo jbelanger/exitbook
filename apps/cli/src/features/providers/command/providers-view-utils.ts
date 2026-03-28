@@ -200,7 +200,7 @@ export function buildProviderViewItems(
     const providerInfo = firstEntry.providerInfo;
 
     // Get API key env var from metadata
-    const apiKeyEnvVar = providerInfo.requiresApiKey ? providerInfo.apiKeyEnvVar : undefined;
+    const apiKeyEnvName = providerInfo.requiresApiKey ? providerInfo.apiKeyEnvName : undefined;
 
     // Build per-blockchain items
     const blockchainNames = entries.map((e) => e.blockchain);
@@ -253,7 +253,7 @@ export function buildProviderViewItems(
     const aggregateStats = computeAggregateStats(perChainStatsForAggregate);
     const healthStatus = computeHealthStatus(perChainStatsForAggregate);
 
-    const apiKeyConfigured = checkApiKeyStatus(apiKeyEnvVar);
+    const apiKeyConfigured = checkApiKeyStatus(apiKeyEnvName);
     const configSource = detectConfigSource(providerName, blockchainNames, explorerConfig);
     const rateLimit = getRateLimit(providerInfo);
     const errorInfo = findLastError(providerStatsRows);
@@ -262,7 +262,7 @@ export function buildProviderViewItems(
       name: providerName,
       displayName: providerInfo.displayName,
       requiresApiKey: providerInfo.requiresApiKey,
-      apiKeyEnvVar,
+      apiKeyEnvName,
       apiKeyConfigured,
       blockchains: blockchainItems,
       chainCount: entries.length,

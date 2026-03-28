@@ -39,7 +39,7 @@ import {
 } from './helius.schemas.js';
 
 export const heliusMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'HELIUS_API_KEY',
+  apiKeyEnvName: 'HELIUS_API_KEY',
   baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
   capabilities: {

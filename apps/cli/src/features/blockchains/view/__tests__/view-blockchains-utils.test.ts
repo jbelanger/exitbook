@@ -286,7 +286,7 @@ describe('view-blockchains-utils', () => {
             name: 'alchemy',
             displayName: 'Alchemy',
             requiresApiKey: true,
-            apiKeyEnvVar: 'TEST_NONEXISTENT_KEY_12345',
+            apiKeyEnvName: 'TEST_NONEXISTENT_KEY_12345',
             capabilities: ['txs', 'balance'],
             rateLimit: '5/sec',
           },

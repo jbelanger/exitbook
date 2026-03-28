@@ -30,7 +30,7 @@ import { mapThetaScanTransaction } from './thetascan.mapper-utils.js';
 import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.schemas.js';
 
 export const thetaScanMetadata: ProviderMetadata = {
-  apiKeyEnvVar: undefined,
+  apiKeyEnvName: undefined,
   baseUrl: 'http://www.thetascan.io/api',
   blockchain: 'theta',
   capabilities: {

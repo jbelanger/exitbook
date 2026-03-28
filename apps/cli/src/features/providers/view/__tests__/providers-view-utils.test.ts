@@ -526,7 +526,7 @@ describe('view-providers-utils', () => {
                 name: 'alchemy',
                 blockchain: 'ethereum',
                 requiresApiKey: true,
-                apiKeyEnvVar: 'PATH',
+                apiKeyEnvName: 'PATH',
               }),
             },
             {
@@ -535,7 +535,7 @@ describe('view-providers-utils', () => {
                 name: 'alchemy',
                 blockchain: 'polygon',
                 requiresApiKey: true,
-                apiKeyEnvVar: 'PATH',
+                apiKeyEnvName: 'PATH',
               }),
             },
           ],

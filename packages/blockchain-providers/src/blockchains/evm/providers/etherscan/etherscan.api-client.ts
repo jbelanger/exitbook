@@ -137,7 +137,7 @@ const ETHERSCAN_SUPPORTED_CHAINS = [
  * Note: This provider only supports streaming operations. Use executeStreaming() for all operations.
  */
 export const etherscanMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'ETHERSCAN_API_KEY',
+  apiKeyEnvName: 'ETHERSCAN_API_KEY',
   baseUrl: 'https://api.etherscan.io/v2/api',
   blockchain: 'ethereum',
   capabilities: {

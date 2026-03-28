@@ -100,8 +100,8 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
           for (const [providerName, override] of sortedOverrides) {
             const metadata = registry.getMetadata(blockchain, providerName);
             const apiKeyInfo = metadata?.requiresApiKey
-              ? metadata.apiKeyEnvVar
-                ? ` (${metadata.apiKeyEnvVar})`
+              ? metadata.apiKeyEnvName
+                ? ` (${metadata.apiKeyEnvName})`
                 : ' (API key required)'
               : '';
             const enabledStr = override.enabled === false ? 'disabled' : 'enabled';

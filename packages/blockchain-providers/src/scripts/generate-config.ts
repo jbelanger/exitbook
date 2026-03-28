@@ -129,8 +129,8 @@ function generateConfiguration(): void {
     if (apiKeyProviders.length > 0) {
       for (const provider of apiKeyProviders) {
         const metadata = registry.getMetadata(provider.blockchain, provider.name);
-        if (metadata?.apiKeyEnvVar) {
-          console.log(`     export ${metadata.apiKeyEnvVar}="your_${provider.name}_api_key"`);
+        if (metadata?.apiKeyEnvName) {
+          console.log(`     export ${metadata.apiKeyEnvName}="your_${provider.name}_api_key"`);
         }
       }
     }

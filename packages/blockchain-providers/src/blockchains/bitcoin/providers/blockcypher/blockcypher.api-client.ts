@@ -55,7 +55,7 @@ import {
 import { calculateSimpleBalance } from './blockcypher.utils.js';
 
 export const blockcypherMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
+  apiKeyEnvName: 'BLOCKCYPHER_API_KEY',
   baseUrl: 'https://api.blockcypher.com/v1/btc/main',
   blockchain: 'bitcoin',
   capabilities: {

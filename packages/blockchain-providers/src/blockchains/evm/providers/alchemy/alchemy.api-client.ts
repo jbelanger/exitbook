@@ -54,7 +54,7 @@ import {
 } from './alchemy.schemas.js';
 
 export const alchemyMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'ALCHEMY_API_KEY',
+  apiKeyEnvName: 'ALCHEMY_API_KEY',
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2',
   blockchain: 'ethereum',
   capabilities: {
