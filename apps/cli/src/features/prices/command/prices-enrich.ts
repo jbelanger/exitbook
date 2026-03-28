@@ -12,12 +12,12 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
+import { withPricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
 import { runPricesEnrich } from './run-prices-enrich.js';
 
@@ -80,20 +80,8 @@ async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAp
 async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const result = await runPricesEnrich(
-        ctx,
-        {
-          format: 'json',
-          profileId: profileResult.value.id,
-          profileKey: profileResult.value.profileKey,
-        },
-        params
+      const result = await withPricesEnrichCommandScope(ctx, (scope) =>
+        runPricesEnrich(scope, { format: 'json' }, params)
       );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
@@ -116,20 +104,8 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: 
 async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('prices-enrich', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      const result = await runPricesEnrich(
-        ctx,
-        {
-          format: 'text',
-          profileId: profileResult.value.id,
-          profileKey: profileResult.value.profileKey,
-        },
-        params
+      const result = await withPricesEnrichCommandScope(ctx, (scope) =>
+        runPricesEnrich(scope, { format: 'text' }, params)
       );
       if (result.isErr()) {
         displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');

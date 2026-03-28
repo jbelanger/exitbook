@@ -1,33 +1,28 @@
 import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { wrapError, type Result } from '@exitbook/foundation';
 
-import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
   executeCliPriceEnrichmentRuntime,
   withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
 import type { CliOutputFormat } from '../../shared/command-options.js';
 
+import type { PricesEnrichCommandScope } from './prices-enrich-command-scope.js';
+
 export async function runPricesEnrich(
-  ctx: CommandRuntime,
-  options: { format: CliOutputFormat; profileId: number; profileKey: string },
+  scope: PricesEnrichCommandScope,
+  options: { format: CliOutputFormat },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
-    const database = await ctx.database();
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
-    if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
-    }
     return withCliPriceEnrichmentRuntime(
       {
-        accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-        database,
+        accountingExclusionPolicy: scope.accountingExclusionPolicy,
+        database: scope.database,
         format: options.format,
-        onAbortRegistered: (abort: () => void) => ctx.onAbort(abort),
-        profileId: options.profileId,
-        scope: ctx,
+        onAbortRegistered: (abort: () => void) => scope.runtime.onAbort(abort),
+        profileId: scope.profile.id,
+        scope: scope.runtime,
       },
       (runtime) =>
         executeCliPriceEnrichmentRuntime(runtime, {
