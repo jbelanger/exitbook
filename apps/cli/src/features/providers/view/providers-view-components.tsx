@@ -235,8 +235,8 @@ const ProviderRow: FC<{
 
   // API key info
   let apiKeyText = '';
-  if (item.requiresApiKey && item.apiKeyEnvVar) {
-    apiKeyText = item.apiKeyEnvVar;
+  if (item.requiresApiKey && item.apiKeyEnvName) {
+    apiKeyText = item.apiKeyEnvName;
   }
 
   // No-stats rows are entirely dim
@@ -369,15 +369,15 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
     );
   }
 
-  if (selected.requiresApiKey && selected.apiKeyEnvVar) {
+  if (selected.requiresApiKey && selected.apiKeyEnvName) {
     rows.push(
       <Text key="api-key">
         <Text dimColor>{'  '}API key: </Text>
         {selected.apiKeyConfigured ? (
-          <Text color="green">{selected.apiKeyEnvVar} ✓</Text>
+          <Text color="green">{selected.apiKeyEnvName} ✓</Text>
         ) : (
           <>
-            <Text color="yellow">{selected.apiKeyEnvVar}</Text>
+            <Text color="yellow">{selected.apiKeyEnvName}</Text>
             <Text color="red"> ✗</Text>
             <Text color="yellow"> missing</Text>
           </>

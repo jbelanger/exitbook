@@ -305,14 +305,14 @@ const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
           <Text dimColor>{rateLimit}</Text>
         </>
       )}
-      {provider.requiresApiKey && provider.apiKeyEnvVar && (
+      {provider.requiresApiKey && provider.apiKeyEnvName && (
         <>
           {'   '}
           {provider.apiKeyConfigured ? (
-            <Text color="green">{provider.apiKeyEnvVar} ✓</Text>
+            <Text color="green">{provider.apiKeyEnvName} ✓</Text>
           ) : (
             <>
-              <Text color="yellow">{provider.apiKeyEnvVar}</Text> <Text color="red">✗</Text>
+              <Text color="yellow">{provider.apiKeyEnvName}</Text> <Text color="red">✗</Text>
             </>
           )}
         </>

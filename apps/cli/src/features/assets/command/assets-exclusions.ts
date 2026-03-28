@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -32,29 +33,14 @@ Notes:
 }
 
 async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
-  const parseResult = AssetsExclusionsCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'assets-exclusions',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format } = parseCliCommandOptions('assets-exclusions', rawOptions, AssetsExclusionsCommandOptionsSchema);
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
-        displayCliError(
-          'assets-exclusions',
-          profileResult.error,
-          ExitCodes.GENERAL_ERROR,
-          options.json ? 'json' : 'text'
-        );
+        displayCliError('assets-exclusions', profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }
 
       const overrideStore = new OverrideStore(ctx.dataDir);
@@ -62,17 +48,17 @@ async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void
       const result = await handler.listExclusions(profileResult.value.id, profileResult.value.profileKey);
 
       if (result.isErr()) {
-        displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      handleAssetsExclusionsSuccess(options.json ?? false, result.value);
+      handleAssetsExclusionsSuccess(format === 'json', result.value);
     });
   } catch (error) {
     displayCliError(
       'assets-exclusions',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

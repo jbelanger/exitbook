@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
@@ -44,19 +45,9 @@ Notes:
 }
 
 async function executeAssetsViewCommand(rawOptions: unknown): Promise<void> {
-  const parseResult = AssetsViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'assets-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
+  const { format, options } = parseCliCommandOptions('assets-view', rawOptions, AssetsViewCommandOptionsSchema);
 
-  const options = parseResult.data;
-
-  if (options.json) {
+  if (format === 'json') {
     await executeAssetsViewJson(options);
     return;
   }
