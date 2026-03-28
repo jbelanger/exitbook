@@ -12,13 +12,14 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { CoinNotFoundError, PriceDataUnavailableError } from '../../contracts/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import type { PricesDB } from '../../price-cache/persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import {
   createProviderCatalogQueries,
   type ProviderCatalogQueries,
 } from '../../provider-catalog/persistence/queries.js';
 import { BasePriceProvider } from '../../runtime/base-provider.js';
-import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import type { ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import { buildPriceProvider } from '../shared/provider-construction.js';
 
 import {
   canUseSimplePrice,
@@ -84,53 +85,42 @@ export function createCoinGeckoProvider(
   config: CoinGeckoProviderConfig = {},
   instrumentation?: InstrumentationCollector
 ): Result<CoinGeckoProvider, Error> {
-  try {
-    const apiKey = config.apiKey;
-    const useProApi = config.useProApi ?? false;
+  const apiKey = config.apiKey;
+  const useProApi = config.useProApi ?? false;
 
-    if (useProApi && !apiKey) {
-      return err(new Error('CoinGecko Pro API requires an apiKey'));
-    }
+  if (useProApi && !apiKey) {
+    return err(new Error('CoinGecko Pro API requires an apiKey'));
+  }
 
-    // Determine base URL based on API type
-    const baseUrl = useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
+  const baseUrl = useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
+  const rateLimit = useProApi
+    ? COINGECKO_RATE_LIMITS.pro
+    : apiKey
+      ? COINGECKO_RATE_LIMITS.demo
+      : COINGECKO_RATE_LIMITS.free;
 
-    // Determine rate limits based on tier
-    const rateLimit = useProApi
-      ? COINGECKO_RATE_LIMITS.pro // Pro API with API key
-      : apiKey
-        ? COINGECKO_RATE_LIMITS.demo // Standard API with API key
-        : COINGECKO_RATE_LIMITS.free; // No API key (free tier)
-
-    // Create HTTP client
-    const httpClient = createProviderHttpClient({
+  return buildPriceProvider({
+    buildAdditionalDeps: (pricesDb) => ({
+      providerRepo: createProviderCatalogQueries(pricesDb),
+    }),
+    buildProvider: ({ httpClient, priceQueries, providerRepo }) =>
+      new CoinGeckoProvider(httpClient, priceQueries, providerRepo, { apiKey, useProApi }, rateLimit),
+    creationError: 'Failed to create CoinGecko provider',
+    db,
+    http: {
+      apiKey,
+      apiKeyHeader: 'x-cg-demo-api-key',
       baseUrl,
       instrumentation,
       providerName: 'CoinGecko',
-      apiKey,
-      apiKeyHeader: 'x-cg-demo-api-key',
       rateLimit,
-    });
-
-    // Create queries
-    const priceQueries = createPriceQueries(db);
-    const providerRepo = createProviderCatalogQueries(db);
-
-    // Create provider
-    const provider = new CoinGeckoProvider(httpClient, priceQueries, providerRepo, { apiKey, useProApi }, rateLimit);
-
-    return ok(provider);
-  } catch (error) {
-    return wrapError(error, 'Failed to create CoinGecko provider');
-  }
+    },
+  });
 }
 
 /**
  * CoinGecko price provider
  * Free tier: 10-50 calls/minute
- *
- * Imperative shell managing HTTP client, DB repositories, and orchestration
- * Uses pure functions from coingecko-utils.js for all transformations
  */
 export class CoinGeckoProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
@@ -189,10 +179,6 @@ export class CoinGeckoProvider extends BasePriceProvider {
     return ok(undefined);
   }
 
-  /**
-   * Fetch single price (implements BasePriceProvider)
-   * Query is already validated and currency is normalized by BasePriceProvider
-   */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       // Currency is guaranteed to be set by BasePriceProvider
