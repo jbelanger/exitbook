@@ -1,13 +1,10 @@
 import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { ExchangeCredentials } from '@exitbook/core';
-import { buildBalancePorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
-import { ok, wrapError, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion/balance';
+import type { Result } from '@exitbook/foundation';
+import type { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
-import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import type { BalanceEvent } from '../view/balance-view-state.js';
 
 import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
@@ -76,32 +73,5 @@ export class BalanceHandler {
 
   startStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): void {
     this.verificationRunner.startStream(accounts, relay);
-  }
-}
-
-export async function createBalanceHandler(
-  ctx: CommandRuntime,
-  options: { needsWorkflow: boolean }
-): Promise<Result<BalanceHandler, Error>> {
-  try {
-    const database = await ctx.database();
-    const accountService = buildCliAccountLifecycleService(database);
-    if (!options.needsWorkflow) {
-      return ok(new BalanceHandler(database, undefined, accountService));
-    }
-
-    const providerRuntime = await ctx.openBlockchainProviderRuntime({ registerCleanup: false });
-    const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
-    const balancePorts = buildBalancePorts(database);
-    const balanceWorkflow = new BalanceWorkflow(balancePorts, providerRuntime);
-    const handler = new BalanceHandler(database, balanceWorkflow, accountService);
-    ctx.onCleanup(async () => {
-      await handler.awaitStream();
-      await cleanupBlockchainProviderRuntime();
-    });
-
-    return ok(handler);
-  } catch (error) {
-    return wrapError(error, 'Failed to create balance handler');
   }
 }

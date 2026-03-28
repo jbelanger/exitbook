@@ -1,21 +1,20 @@
 import type { Account, ImportSession } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
-import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
+import { withImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import type { BatchImportExecuteResult, ImportExecuteResult } from './run-import.js';
-import { runImport, runImportAll } from './run-import.js';
+import { resolveImportAccount, runImport, runImportAll } from './run-import.js';
 
 type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
@@ -113,40 +112,37 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
 async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
+      const executionResult = await withImportCommandScope(ctx, async (scope) => {
+        if (options.all) {
+          const result = await runImportAll(scope, { format: 'json' });
+          if (result.isErr()) {
+            return err(result.error);
+          }
 
-      if (options.all) {
-        const result = await runImportAll(ctx, {
-          format: 'json',
-          profileId: profileResult.value.id,
-          profileDisplayName: profileResult.value.displayName,
-        });
+          outputSuccess('import', buildBatchImportResult(result.value));
+          return ok(result.value.failedCount);
+        }
+
+        const accountResult = await resolveImportAccount(scope, options);
+        if (accountResult.isErr()) {
+          return err(accountResult.error);
+        }
+
+        const result = await runImport(scope, { format: 'json' }, { accountId: accountResult.value.id });
         if (result.isErr()) {
-          displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
+          return err(result.error);
         }
 
-        outputSuccess('import', buildBatchImportResult(result.value));
-        if (result.value.failedCount > 0) {
-          ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        }
-        return;
+        outputSuccess('import', buildImportResult(result.value, accountResult.value));
+        return ok(0);
+      });
+      if (executionResult.isErr()) {
+        displayCliError('import', executionResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
-      if (accountResult.isErr()) {
-        displayCliError('import', accountResult.error, ExitCodes.GENERAL_ERROR, 'json');
+      if (executionResult.value > 0) {
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
       }
-
-      const result = await runImport(ctx, { format: 'json' }, { accountId: accountResult.value.id });
-      if (result.isErr()) {
-        displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      outputSuccess('import', buildImportResult(result.value, accountResult.value));
     });
   } catch (error) {
     displayCliError(
@@ -161,55 +157,53 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
 async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('import', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
+      const executionResult = await withImportCommandScope(ctx, async (scope) => {
+        if (options.all) {
+          const result = await runImportAll(scope, { format: 'text' });
+          if (result.isErr()) {
+            return err(result.error);
+          }
 
-      if (options.all) {
-        const result = await runImportAll(ctx, {
-          format: 'text',
-          profileId: profileResult.value.id,
-          profileDisplayName: profileResult.value.displayName,
-        });
+          return ok(result.value.failedCount);
+        }
+
+        const accountResult = await resolveImportAccount(scope, options);
+        if (accountResult.isErr()) {
+          return err(accountResult.error);
+        }
+
+        const result = await runImport(
+          scope,
+          { format: 'text' },
+          {
+            accountId: accountResult.value.id,
+            onSingleAddressWarning: async () => {
+              process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
+              process.stderr.write('Single address tracking has limitations:\n');
+              process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
+              process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
+              process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
+              process.stderr.write('For complete wallet tracking, create a separate xpub account instead:\n');
+              process.stderr.write(
+                `  $ exitbook accounts add wallet-xpub --blockchain ${accountResult.value.platformKey} --address xpub... --xpub-gap 20\n`
+              );
+              process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
+              process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
+              return await promptConfirm('Continue with single address import?', false);
+            },
+          }
+        );
         if (result.isErr()) {
-          displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
+          return err(result.error);
         }
-        if (result.value.failedCount > 0) {
-          ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        }
-        return;
-      }
 
-      const accountResult = await resolveImportAccount(database, profileResult.value.id, options);
-      if (accountResult.isErr()) {
-        displayCliError('import', accountResult.error, ExitCodes.GENERAL_ERROR, 'text');
+        return ok(0);
+      });
+      if (executionResult.isErr()) {
+        displayCliError('import', executionResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
-
-      const result = await runImport(
-        ctx,
-        { format: 'text' },
-        {
-          accountId: accountResult.value.id,
-          onSingleAddressWarning: async () => {
-            process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
-            process.stderr.write('Single address tracking has limitations:\n');
-            process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
-            process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
-            process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
-            process.stderr.write('For complete wallet tracking, create a separate xpub account instead:\n');
-            process.stderr.write(
-              `  $ exitbook accounts add wallet-xpub --blockchain ${accountResult.value.platformKey} --address xpub... --xpub-gap 20\n`
-            );
-            process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
-            process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
-            return await promptConfirm('Continue with single address import?', false);
-          },
-        }
-      );
-      if (result.isErr()) {
-        displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'text');
+      if (executionResult.value > 0) {
+        ctx.exitCode = ExitCodes.GENERAL_ERROR;
       }
     });
   } catch (error) {
@@ -220,34 +214,6 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
       'text'
     );
   }
-}
-
-async function resolveImportAccount(
-  database: Parameters<typeof buildCliAccountLifecycleService>[0],
-  profileId: number,
-  options: ImportCommandOptions
-): Promise<Result<Account, Error>> {
-  const accountService = buildCliAccountLifecycleService(database);
-
-  if (options.accountId !== undefined) {
-    const accountResult = await accountService.requireOwned(profileId, options.accountId);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    return ok(accountResult.value);
-  }
-
-  const requestedAccountName = options.account?.trim() ?? '';
-  const accountResult = await accountService.getByName(profileId, requestedAccountName);
-  if (accountResult.isErr()) {
-    return err(accountResult.error);
-  }
-  if (!accountResult.value) {
-    return err(new Error(`Account '${requestedAccountName.toLowerCase()}' not found`));
-  }
-
-  return ok(accountResult.value);
 }
 
 function buildImportResult(importResult: ImportExecuteResult, account: Account): ImportCommandResult {

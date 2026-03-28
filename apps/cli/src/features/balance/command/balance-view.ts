@@ -4,8 +4,6 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -14,8 +12,9 @@ import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
-import { createBalanceHandler } from './balance-handler.js';
+import { withBalanceCommandScope } from './balance-command-scope.js';
 import { BalanceViewCommandOptionsSchema } from './balance-option-schemas.js';
+import { runBalanceView } from './run-balance.js';
 
 type BalanceViewCommandOptions = z.infer<typeof BalanceViewCommandOptionsSchema>;
 
@@ -56,30 +55,15 @@ async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliApp
 async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('balance-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const readyResult = await ensureProcessedTransactionsReady(ctx, {
-        format: 'json',
-        profileId: profileResult.value.id,
-      });
-      if (readyResult.isErr()) {
-        displayCliError('balance-view', readyResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
-      if (handlerResult.isErr()) {
-        displayCliError('balance-view', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({
-        accountId: options.accountId,
-        profileId: profileResult.value.id,
-      });
+      const result = await withBalanceCommandScope(
+        ctx,
+        {
+          format: 'json',
+          needsWorkflow: true,
+          prepareStoredSnapshots: true,
+        },
+        (scope) => runBalanceView(scope, { accountId: options.accountId })
+      );
       if (result.isErr()) {
         displayCliError('balance-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -134,24 +118,15 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
 async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) throw profileResult.error;
-
-      const readyResult = await ensureProcessedTransactionsReady(ctx, {
-        format: 'text',
-        profileId: profileResult.value.id,
-      });
-      if (readyResult.isErr()) throw readyResult.error;
-
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
-      if (handlerResult.isErr()) throw handlerResult.error;
-
-      const handler = handlerResult.value;
-      const result = await handler.viewStoredSnapshots({
-        accountId: options.accountId,
-        profileId: profileResult.value.id,
-      });
+      const result = await withBalanceCommandScope(
+        ctx,
+        {
+          format: 'text',
+          needsWorkflow: true,
+          prepareStoredSnapshots: true,
+        },
+        (scope) => runBalanceView(scope, { accountId: options.accountId })
+      );
       if (result.isErr()) throw result.error;
 
       await ctx.closeDatabase();

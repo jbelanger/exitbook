@@ -87,7 +87,7 @@ function createMockDb(params: {
         .mockImplementation(async (scopeAccountId: number) => ok(snapshotsByScopeId.get(scopeAccountId))),
     },
     projectionState: {
-      get: vi.fn().mockImplementation(async (_projectionId: string, scopeKey: string) => {
+      find: vi.fn().mockImplementation(async (_projectionId: string, scopeKey: string) => {
         const scopeAccountId = Number(scopeKey.replace('balance:', ''));
         const reason = params.staleScopes?.get(scopeAccountId);
         if (!reason) {
@@ -186,7 +186,7 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
           .mockImplementation(async (scopeAccountId: number) => ok(snapshotsByScopeId.get(scopeAccountId))),
       },
       projectionState: {
-        get: vi.fn().mockImplementation(async () =>
+        find: vi.fn().mockImplementation(async () =>
           ok(
             snapshotsByScopeId.has(parentAccount.id)
               ? undefined

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- Vitest command-scope mocks intentionally use partial test doubles. */
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -5,23 +6,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
-  mockCreateBalanceHandler,
   mockCtx,
   mockDisplayCliError,
-  mockEnsureProcessedTransactionsReady,
   mockOutputSuccess,
-  mockResolveCommandProfile,
+  mockRunBalanceRefreshSingle,
+  mockRunBalanceView,
   mockRunCommand,
+  mockWithBalanceCommandScope,
 } = vi.hoisted(() => ({
-  mockCreateBalanceHandler: vi.fn(),
   mockCtx: {
     database: vi.fn(),
   },
   mockDisplayCliError: vi.fn(),
-  mockEnsureProcessedTransactionsReady: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
+  mockRunBalanceRefreshSingle: vi.fn(),
+  mockRunBalanceView: vi.fn(),
   mockRunCommand: vi.fn(),
+  mockWithBalanceCommandScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -37,16 +38,17 @@ vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../balance-command-scope.js', () => ({
+  withBalanceCommandScope: mockWithBalanceCommandScope,
 }));
 
-vi.mock('../../../../runtime/projection-readiness.js', () => ({
-  ensureProcessedTransactionsReady: mockEnsureProcessedTransactionsReady,
-}));
-
-vi.mock('../balance-handler.js', () => ({
-  createBalanceHandler: mockCreateBalanceHandler,
+vi.mock('../run-balance.js', () => ({
+  abortBalanceVerification: vi.fn(),
+  loadBalanceVerificationAccounts: vi.fn(),
+  runBalanceRefreshAll: vi.fn(),
+  runBalanceRefreshSingle: mockRunBalanceRefreshSingle,
+  runBalanceView: mockRunBalanceView,
+  startBalanceVerificationStream: vi.fn(),
 }));
 
 import { registerBalanceRefreshCommand } from '../balance-refresh.js';
@@ -88,10 +90,6 @@ function createAccount(overrides: {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCtx.database.mockResolvedValue({});
-  mockResolveCommandProfile.mockResolvedValue(
-    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-  );
-  mockEnsureProcessedTransactionsReady.mockResolvedValue(ok(undefined));
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);
@@ -99,6 +97,17 @@ beforeEach(() => {
       throw new Error('fn is not a function');
     }
   });
+  mockWithBalanceCommandScope.mockImplementation(async (_ctx, _options, operation) =>
+    operation({
+      handler: {},
+      profile: {
+        id: 1,
+        profileKey: 'default',
+        displayName: 'default',
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      },
+    })
+  );
   mockDisplayCliError.mockImplementation(
     (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${error.message}`);
@@ -136,16 +145,21 @@ describe('balance command JSON mode', () => {
       })
     );
 
-    mockCreateBalanceHandler.mockResolvedValue(ok({ viewStoredSnapshots }));
+    mockRunBalanceView.mockImplementation(viewStoredSnapshots);
 
     await program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' });
 
-    expect(mockEnsureProcessedTransactionsReady).toHaveBeenCalledWith(mockCtx, {
-      isJsonMode: true,
-      profileId: 1,
-    });
-    expect(mockCreateBalanceHandler).toHaveBeenCalledWith(mockCtx, { needsWorkflow: true });
-    expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
+    expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
+      mockCtx,
+      { format: 'json', needsWorkflow: true, prepareStoredSnapshots: true },
+      expect.any(Function)
+    );
+    expect(viewStoredSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { accountId: 2 }
+    );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-view',
@@ -189,13 +203,13 @@ describe('balance command JSON mode', () => {
     const program = createBalanceCommand();
     const prerequisiteError = new Error('processing failed');
 
-    mockEnsureProcessedTransactionsReady.mockResolvedValue(err(prerequisiteError));
+    mockWithBalanceCommandScope.mockResolvedValue(err(prerequisiteError));
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:balance-view:json:processing failed'
     );
 
-    expect(mockCreateBalanceHandler).not.toHaveBeenCalled();
+    expect(mockRunBalanceView).not.toHaveBeenCalled();
     expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', prerequisiteError, 1, 'json');
   });
 
@@ -204,13 +218,18 @@ describe('balance command JSON mode', () => {
     const failClosedError = new Error('stored snapshot read failed');
 
     const viewStoredSnapshots = vi.fn().mockResolvedValue(err(failClosedError));
-    mockCreateBalanceHandler.mockResolvedValue(ok({ viewStoredSnapshots }));
+    mockRunBalanceView.mockImplementation(viewStoredSnapshots);
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:balance-view:json:stored snapshot read failed'
     );
 
-    expect(viewStoredSnapshots).toHaveBeenCalledWith({ accountId: 2, profileId: 1 });
+    expect(viewStoredSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { accountId: 2 }
+    );
     expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', failClosedError, 1, 'json');
   });
 
@@ -275,11 +294,16 @@ describe('balance command JSON mode', () => {
       })
     );
 
-    mockCreateBalanceHandler.mockResolvedValue(ok({ refreshSingleScope }));
+    mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
 
     await program.parseAsync(['refresh', '--account-id', '2', '--json'], { from: 'user' });
 
-    expect(refreshSingleScope).toHaveBeenCalledWith({ accountId: 2, credentials: undefined, profileId: 1 });
+    expect(refreshSingleScope).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { accountId: 2, credentials: undefined }
+    );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-refresh',
@@ -368,11 +392,16 @@ describe('balance command JSON mode', () => {
       })
     );
 
-    mockCreateBalanceHandler.mockResolvedValue(ok({ refreshSingleScope }));
+    mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
 
     await program.parseAsync(['refresh', '--account-id', '74', '--json'], { from: 'user' });
 
-    expect(refreshSingleScope).toHaveBeenCalledWith({ accountId: 74, credentials: undefined, profileId: 1 });
+    expect(refreshSingleScope).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { accountId: 74, credentials: undefined }
+    );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'balance-refresh',
