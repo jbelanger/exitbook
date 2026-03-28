@@ -9,14 +9,18 @@ import { evaluateTaxPackageReadiness } from './tax-package-review-gate.js';
 import type { TaxPackageValidatedScope } from './tax-package-scope-validator.js';
 import type {
   ExportTaxPackageArtifactRef,
-  ITaxPackageFileWriter,
   TaxPackageBuildResult,
   TaxPackageExportResult,
   TaxPackageFile,
   TaxPackageManifest,
   TaxPackageReadinessMetadata,
+  WrittenTaxPackageFile,
 } from './tax-package-types.js';
 import { buildUsTaxPackage } from './us-tax-package-builder.js';
+
+interface TaxPackageFileWriter {
+  writeAll(files: readonly TaxPackageFile[]): Promise<Result<WrittenTaxPackageFile[], Error>>;
+}
 
 export interface ExportTaxPackageInput {
   context: TaxPackageBuildContext;
@@ -28,7 +32,7 @@ export async function exportTaxPackage(
   input: ExportTaxPackageInput,
   deps: {
     now: () => Date;
-    writer: ITaxPackageFileWriter;
+    writer: TaxPackageFileWriter;
   }
 ): Promise<Result<TaxPackageExportResult, Error>> {
   const readiness = evaluateTaxPackageReadiness({

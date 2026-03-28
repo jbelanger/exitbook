@@ -84,7 +84,6 @@ export {
   validateTaxPackageScope,
 } from './cost-basis/export/tax-package-scope-validator.js';
 export type {
-  ITaxPackageFileWriter,
   TaxPackageExportResult,
   TaxPackageFile,
   TaxPackageIssue,

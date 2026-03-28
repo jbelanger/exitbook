@@ -5,7 +5,6 @@ import {
   buildTaxPackageBuildContext,
   deriveTaxPackageReadinessMetadata,
   exportTaxPackage,
-  type ITaxPackageFileWriter,
   type TaxPackageExportResult,
   validateTaxPackageScope,
   type TaxPackageFile,
@@ -192,7 +191,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
   }
 }
 
-export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
+export class TaxPackageDirectoryWriter {
   constructor(private readonly outputDir: string) {}
 
   async writeAll(files: readonly TaxPackageFile[]): Promise<Result<WrittenTaxPackageFile[], Error>> {
