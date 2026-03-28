@@ -5,6 +5,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import type { AssetReviewOverrideResult } from './assets-handler.js';
 import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
+import { runAssetsConfirmReview } from './run-assets.js';
 
 export function registerAssetsConfirmCommand(assetsCommand: Command): void {
   assetsCommand
@@ -38,11 +39,9 @@ async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
     'assets-confirm',
     rawOptions,
     AssetsConfirmCommandOptionsSchema,
-    (handler, { options, profileId, profileKey }) =>
-      handler.confirmReview({
+    (scope, options) =>
+      runAssetsConfirmReview(scope, {
         assetId: options.assetId,
-        profileId,
-        profileKey,
         symbol: options.symbol,
         reason: options.reason,
       }),

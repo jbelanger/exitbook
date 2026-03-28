@@ -5,6 +5,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import type { AssetReviewOverrideResult } from './assets-handler.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';
+import { runAssetsClearReview } from './run-assets.js';
 
 export function registerAssetsClearReviewCommand(assetsCommand: Command): void {
   assetsCommand
@@ -37,11 +38,9 @@ async function executeAssetsClearReviewCommand(rawOptions: unknown): Promise<voi
     'assets-clear-review',
     rawOptions,
     AssetsClearReviewCommandOptionsSchema,
-    (handler, { options, profileId, profileKey }) =>
-      handler.clearReview({
+    (scope, options) =>
+      runAssetsClearReview(scope, {
         assetId: options.assetId,
-        profileId,
-        profileKey,
         symbol: options.symbol,
         reason: options.reason,
       }),

@@ -3,7 +3,6 @@ import { render } from 'ink';
 import React from 'react';
 
 import { runCommand } from '../../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { displayCliError } from '../../../shared/cli-error.js';
 import { parseCliCommandOptions, type CliOutputFormat } from '../../../shared/command-options.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
@@ -12,7 +11,9 @@ import { createSpinner, stopSpinner } from '../../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../../view/index.js';
 import { LinksReviewCommandOptionsSchema } from '../links-option-schemas.js';
 
-import { type LinksReviewAction, type LinksReviewActionResult, LinksReviewHandler } from './links-review-handler.js';
+import { withLinksReviewCommandScope } from './links-review-command-scope.js';
+import { type LinksReviewAction, type LinksReviewActionResult } from './links-review-handler.js';
+import { runLinksReview } from './run-links-review.js';
 
 type LinksReviewStatus = 'confirmed' | 'rejected';
 
@@ -94,30 +95,18 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
   const linkId = parseInt(linkIdArg, 10);
   if (!linkIdArg || isNaN(linkId)) {
     displayCliError(definition.commandId, new Error('Link ID must be a valid integer'), ExitCodes.INVALID_ARGS, 'text');
+    return;
   }
 
   const { format } = parseCliCommandOptions(definition.commandId, rawOptions, LinksReviewCommandOptionsSchema);
 
   try {
     const spinner = createSpinner(definition.spinnerText, format === 'json');
-    const { OverrideStore } = await import('@exitbook/data/overrides');
 
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        stopSpinner(spinner);
-        displayCliError(definition.commandId, profileResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
-
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new LinksReviewHandler(
-        database,
-        profileResult.value.id,
-        profileResult.value.profileKey,
-        overrideStore
+      const result = await withLinksReviewCommandScope(ctx, (scope) =>
+        runLinksReview(scope, { linkId }, definition.action)
       );
-      const result = await handler.executeTyped({ linkId }, definition.action);
 
       stopSpinner(spinner);
 
@@ -133,6 +122,7 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
         }
 
         displayCliError(definition.commandId, result.error, ExitCodes.GENERAL_ERROR, format);
+        return;
       }
 
       handleLinksReviewSuccess(definition, format, result.value);

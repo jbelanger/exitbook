@@ -1,10 +1,8 @@
-import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -13,8 +11,16 @@ import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.j
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
 import { createAssetsViewState } from '../view/assets-view-state.js';
 
-import { AssetsHandler, type AssetViewItem } from './assets-handler.js';
+import { withAssetsCommandScope } from './assets-command-scope.js';
+import type { AssetViewItem } from './assets-handler.js';
 import { AssetsViewCommandOptionsSchema } from './assets-option-schemas.js';
+import {
+  runAssetsClearReview,
+  runAssetsConfirmReview,
+  runAssetsExclude,
+  runAssetsInclude,
+  runAssetsView,
+} from './run-assets.js';
 
 type AssetsViewCommandOptions = z.infer<typeof AssetsViewCommandOptionsSchema>;
 
@@ -58,33 +64,27 @@ async function executeAssetsViewCommand(rawOptions: unknown): Promise<void> {
 async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({
-        actionRequiredOnly,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
+      const commandResult = await withAssetsCommandScope(ctx, async (scope) => {
+        const result = await runAssetsView(scope, { actionRequiredOnly });
+        if (result.isErr()) {
+          return result;
+        }
+
+        const payload: ViewAssetsCommandResult = {
+          data: result.value.assets,
+          meta: buildViewMeta(result.value.assets.length, 0, result.value.assets.length, result.value.totalCount, {
+            ...(actionRequiredOnly ? { actionRequired: true } : {}),
+          }),
+        };
+
+        outputSuccess('assets-view', payload);
+        return result;
       });
 
-      if (result.isErr()) {
-        displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
+      if (commandResult.isErr()) {
+        displayCliError('assets-view', commandResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
-
-      const payload: ViewAssetsCommandResult = {
-        data: result.value.assets,
-        meta: buildViewMeta(result.value.assets.length, 0, result.value.assets.length, result.value.totalCount, {
-          ...(actionRequiredOnly ? { actionRequired: true } : {}),
-        }),
-      };
-
-      outputSuccess('assets-view', payload);
     });
   } catch (error) {
     displayCliError(
@@ -99,80 +99,60 @@ async function executeAssetsViewJson(options: AssetsViewCommandOptions): Promise
 async function executeAssetsViewTui(options: AssetsViewCommandOptions): Promise<void> {
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('assets-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
       const actionRequiredOnly = options.actionRequired || options.needsReview;
-      const result = await handler.view({
-        actionRequiredOnly,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
+      const commandResult = await withAssetsCommandScope(ctx, async (scope) => {
+        const result = await runAssetsView(scope, { actionRequiredOnly });
+
+        if (result.isErr()) {
+          return result;
+        }
+
+        const initialState = createAssetsViewState(
+          result.value.assets,
+          {
+            totalCount: result.value.totalCount,
+            excludedCount: result.value.excludedCount,
+            actionRequiredCount: result.value.actionRequiredCount,
+          },
+          actionRequiredOnly ? 'action-required' : 'default'
+        );
+
+        await renderApp((unmount) =>
+          React.createElement(AssetsViewApp, {
+            initialState,
+            onQuit: unmount,
+            onToggleExclusion: async (assetId, excluded) => {
+              const actionResult = excluded
+                ? await runAssetsInclude(scope, { assetId })
+                : await runAssetsExclude(scope, { assetId });
+              if (actionResult.isErr()) {
+                throw actionResult.error;
+              }
+              return actionResult.value;
+            },
+            onConfirmReview: async (assetId) => {
+              const actionResult = await runAssetsConfirmReview(scope, { assetId });
+              if (actionResult.isErr()) {
+                throw actionResult.error;
+              }
+              return actionResult.value;
+            },
+            onClearReview: async (assetId) => {
+              const actionResult = await runAssetsClearReview(scope, { assetId });
+              if (actionResult.isErr()) {
+                throw actionResult.error;
+              }
+              return actionResult.value;
+            },
+          })
+        );
+
+        return result;
       });
 
-      if (result.isErr()) {
-        displayCliError('assets-view', result.error, ExitCodes.GENERAL_ERROR, 'text');
+      if (commandResult.isErr()) {
+        displayCliError('assets-view', commandResult.error, ExitCodes.GENERAL_ERROR, 'text');
       }
-
-      const initialState = createAssetsViewState(
-        result.value.assets,
-        {
-          totalCount: result.value.totalCount,
-          excludedCount: result.value.excludedCount,
-          actionRequiredCount: result.value.actionRequiredCount,
-        },
-        actionRequiredOnly ? 'action-required' : 'default'
-      );
-
-      await renderApp((unmount) =>
-        React.createElement(AssetsViewApp, {
-          initialState,
-          onQuit: unmount,
-          onToggleExclusion: async (assetId, excluded) => {
-            const actionResult = excluded
-              ? await handler.include({
-                  assetId,
-                  profileId: profileResult.value.id,
-                  profileKey: profileResult.value.profileKey,
-                })
-              : await handler.exclude({
-                  assetId,
-                  profileId: profileResult.value.id,
-                  profileKey: profileResult.value.profileKey,
-                });
-            if (actionResult.isErr()) {
-              throw actionResult.error;
-            }
-            return actionResult.value;
-          },
-          onConfirmReview: async (assetId) => {
-            const actionResult = await handler.confirmReview({
-              assetId,
-              profileId: profileResult.value.id,
-              profileKey: profileResult.value.profileKey,
-            });
-            if (actionResult.isErr()) {
-              throw actionResult.error;
-            }
-            return actionResult.value;
-          },
-          onClearReview: async (assetId) => {
-            const actionResult = await handler.clearReview({
-              assetId,
-              profileId: profileResult.value.id,
-              profileKey: profileResult.value.profileKey,
-            });
-            if (actionResult.isErr()) {
-              throw actionResult.error;
-            }
-            return actionResult.value;
-          },
-        })
-      );
     });
   } catch (error) {
     displayCliError(

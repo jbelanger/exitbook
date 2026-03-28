@@ -5,6 +5,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import type { AssetOverrideResult } from './assets-handler.js';
 import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
+import { runAssetsInclude } from './run-assets.js';
 
 export function registerAssetsIncludeCommand(assetsCommand: Command): void {
   assetsCommand
@@ -37,11 +38,9 @@ async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
     'assets-include',
     rawOptions,
     AssetsIncludeCommandOptionsSchema,
-    (handler, { options, profileId, profileKey }) =>
-      handler.include({
+    (scope, options) =>
+      runAssetsInclude(scope, {
         assetId: options.assetId,
-        profileId,
-        profileKey,
         symbol: options.symbol,
         reason: options.reason,
       }),

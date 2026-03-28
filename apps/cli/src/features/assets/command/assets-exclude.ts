@@ -5,6 +5,7 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import type { AssetOverrideResult } from './assets-handler.js';
 import { AssetsExcludeCommandOptionsSchema } from './assets-option-schemas.js';
+import { runAssetsExclude } from './run-assets.js';
 
 export function registerAssetsExcludeCommand(assetsCommand: Command): void {
   assetsCommand
@@ -37,11 +38,9 @@ async function executeAssetsExcludeCommand(rawOptions: unknown): Promise<void> {
     'assets-exclude',
     rawOptions,
     AssetsExcludeCommandOptionsSchema,
-    (handler, { options, profileId, profileKey }) =>
-      handler.exclude({
+    (scope, options) =>
+      runAssetsExclude(scope, {
         assetId: options.assetId,
-        profileId,
-        profileKey,
         symbol: options.symbol,
         reason: options.reason,
       }),
