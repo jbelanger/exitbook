@@ -54,14 +54,11 @@ export async function preparePricedConsumerRuntime(
     }
 
     prereqAbort = undefined;
-    const priceRuntimeResult = await ctx.openPriceProviderRuntime();
-    if (priceRuntimeResult.isErr()) {
-      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
-    }
+    const priceRuntime = await ctx.openPriceProviderRuntime();
 
     return ok({
       accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-      priceRuntime: priceRuntimeResult.value,
+      priceRuntime,
     });
   } catch (error) {
     return wrapError(error, `Failed to prepare ${options.target} runtime`);

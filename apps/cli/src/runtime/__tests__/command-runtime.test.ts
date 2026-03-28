@@ -6,12 +6,13 @@ import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommandRuntime, renderApp, runCommand } from '../command-runtime.js';
+import { CommandRuntime, renderApp, runCommand, withCommandPriceProviderRuntime } from '../command-runtime.js';
 
 // Hoisted so they're accessible inside vi.mock factory
-const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
+const { mockInitialize, mockInkRender, mockOpenCliPriceProviderRuntime } = vi.hoisted(() => ({
   mockInitialize: vi.fn(),
   mockInkRender: vi.fn(),
+  mockOpenCliPriceProviderRuntime: vi.fn(),
 }));
 
 // Mock the DataSession class — replace with object exposing mocked static method
@@ -29,18 +30,35 @@ vi.mock('ink', () => ({
   render: mockInkRender,
 }));
 
+vi.mock('../cli-price-provider-runtime.js', () => ({
+  openCliPriceProviderRuntime: mockOpenCliPriceProviderRuntime,
+}));
+
 // Mock process.exit to prevent test runner from exiting
 const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
 // Module-level close mock so it's accessible across both describe blocks
 let mockClose: ReturnType<typeof vi.fn>;
 let mockDataContext: DataSession;
+let mockPriceRuntime: {
+  cleanup: ReturnType<typeof vi.fn>;
+  fetchPrice: ReturnType<typeof vi.fn>;
+  setManualFxRate: ReturnType<typeof vi.fn>;
+  setManualPrice: ReturnType<typeof vi.fn>;
+};
 
 describe('CommandRuntime', () => {
   beforeEach(() => {
     mockClose = vi.fn().mockResolvedValue(ok(undefined));
     mockDataContext = { close: mockClose } as unknown as DataSession;
     mockInitialize.mockResolvedValue(ok(mockDataContext));
+    mockPriceRuntime = {
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+      fetchPrice: vi.fn(),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+    mockOpenCliPriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
   });
 
   afterEach(() => {
@@ -187,6 +205,16 @@ describe('CommandRuntime', () => {
       await expect(ctx.dispose()).rejects.toThrow('close failed');
     });
   });
+
+  describe('openPriceProviderRuntime()', () => {
+    it('should throw when the raw opener fails', async () => {
+      mockOpenCliPriceProviderRuntime.mockResolvedValue(err(new Error('price runtime init failed')));
+
+      const ctx = new CommandRuntime();
+
+      await expect(ctx.openPriceProviderRuntime()).rejects.toThrow('price runtime init failed');
+    });
+  });
 });
 
 describe('renderApp', () => {
@@ -289,5 +317,50 @@ describe('runCommand', () => {
 
     // DB close was still attempted
     expect(mockClose).toHaveBeenCalled();
+  });
+});
+
+describe('withCommandPriceProviderRuntime', () => {
+  beforeEach(() => {
+    mockPriceRuntime = {
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+      fetchPrice: vi.fn(),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+    mockOpenCliPriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('cleans up the runtime even when the operation throws', async () => {
+    const ctx = new CommandRuntime();
+
+    const result = await withCommandPriceProviderRuntime(ctx, undefined, async () => {
+      throw new Error('operation failed');
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('operation failed');
+    }
+    expect(mockPriceRuntime.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it('returns an aggregate error when operation and cleanup both fail', async () => {
+    mockPriceRuntime.cleanup.mockResolvedValue(err(new Error('cleanup failed')));
+
+    const ctx = new CommandRuntime();
+    const result = await withCommandPriceProviderRuntime(ctx, undefined, async () => {
+      throw new Error('operation failed');
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(AggregateError);
+      expect(result.error.message).toBe('Price provider runtime operation failed');
+    }
   });
 });

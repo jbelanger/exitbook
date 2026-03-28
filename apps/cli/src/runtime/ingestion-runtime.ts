@@ -43,18 +43,16 @@ export async function createIngestionRuntime(
     },
   });
 
-  const providerRuntimeResult = await ctx.openBlockchainProviderRuntime({
-    instrumentation,
-    eventBus: eventBus as EventBus<ProviderEvent>,
-    registerCleanup: false,
-  });
-  if (providerRuntimeResult.isErr()) {
-    return err(providerRuntimeResult.error);
-  }
-  const providerRuntime = providerRuntimeResult.value;
-  const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
+  let providerRuntime: OpenedCliBlockchainProviderRuntime | undefined;
+  let cleanupBlockchainProviderRuntime: (() => Promise<void>) | undefined;
 
   try {
+    providerRuntime = await ctx.openBlockchainProviderRuntime({
+      instrumentation,
+      eventBus: eventBus as EventBus<ProviderEvent>,
+      registerCleanup: false,
+    });
+    cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const processingWorkflowRuntimeResult = createCliProcessingWorkflowRuntime({
       adapterRegistry: appRuntime.adapterRegistry,
       dataDir: ctx.dataDir,
@@ -88,7 +86,7 @@ export async function createIngestionRuntime(
       }
 
       try {
-        await cleanupBlockchainProviderRuntime();
+        await cleanupBlockchainProviderRuntime!();
       } catch (error) {
         const cleanupError = error instanceof Error ? error : new Error(String(error));
         if (stopError) {
@@ -114,7 +112,7 @@ export async function createIngestionRuntime(
       processingWorkflow,
     });
   } catch (error) {
-    await cleanupBlockchainProviderRuntime().catch((cleanupError: unknown) => {
+    await cleanupBlockchainProviderRuntime?.().catch((cleanupError: unknown) => {
       logger.warn(
         { error: cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)) },
         'Failed to cleanup blockchain provider runtime on setup failure'

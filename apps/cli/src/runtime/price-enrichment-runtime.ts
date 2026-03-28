@@ -65,15 +65,10 @@ export async function createCliPriceEnrichmentRuntime(
     const instrumentation = new InstrumentationCollector();
 
     if (options.format === 'json') {
-      const priceRuntimeResult = await options.scope.openPriceProviderRuntime({
+      priceRuntime = await options.scope.openPriceProviderRuntime({
         instrumentation,
         registerCleanup: options.registerCleanup,
       });
-      if (priceRuntimeResult.isErr()) {
-        return err(priceRuntimeResult.error);
-      }
-
-      priceRuntime = priceRuntimeResult.value;
       return ok({
         instrumentation,
         pipeline: new PriceEnrichmentPipeline(store, undefined, instrumentation, options.accountingExclusionPolicy),
@@ -88,18 +83,11 @@ export async function createCliPriceEnrichmentRuntime(
     });
     controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-    const priceRuntimeResult = await options.scope.openPriceProviderRuntime({
+    priceRuntime = await options.scope.openPriceProviderRuntime({
       instrumentation,
       eventBus,
       registerCleanup: options.registerCleanup,
     });
-    if (priceRuntimeResult.isErr()) {
-      controller.fail(priceRuntimeResult.error.message);
-      await controller.stop();
-      return err(priceRuntimeResult.error);
-    }
-
-    priceRuntime = priceRuntimeResult.value;
     return ok({
       controller,
       instrumentation,

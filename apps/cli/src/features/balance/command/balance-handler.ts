@@ -2,7 +2,7 @@ import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { ExchangeCredentials } from '@exitbook/core';
 import { buildBalancePorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import { ok, wrapError, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -91,11 +91,7 @@ export async function createBalanceHandler(
       return ok(new BalanceHandler(database, undefined, accountService));
     }
 
-    const providerRuntimeResult = await ctx.openBlockchainProviderRuntime({ registerCleanup: false });
-    if (providerRuntimeResult.isErr()) {
-      return err(providerRuntimeResult.error);
-    }
-    const providerRuntime = providerRuntimeResult.value;
+    const providerRuntime = await ctx.openBlockchainProviderRuntime({ registerCleanup: false });
     const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const balancePorts = buildBalancePorts(database);
     const balanceWorkflow = new BalanceWorkflow(balancePorts, providerRuntime);
