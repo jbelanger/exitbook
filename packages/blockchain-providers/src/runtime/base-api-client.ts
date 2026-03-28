@@ -78,7 +78,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   /**
    * Execute operation with streaming pagination
-   * Default implementation throws error - providers should implement when ready for Phase 1+
+   * Default implementation yields a single Err result - providers should implement when ready for Phase 1+
    */
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     _operation: StreamingOperation,

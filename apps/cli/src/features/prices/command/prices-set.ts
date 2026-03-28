@@ -4,6 +4,7 @@
 import type { Command } from 'commander';
 
 import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -53,6 +54,12 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   try {
     const { OverrideStore } = await import('@exitbook/data/overrides');
     await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database);
+      if (profileResult.isErr()) {
+        displayCliError('prices-set', profileResult.error, ExitCodes.GENERAL_ERROR, format);
+      }
+
       const overrideStore = new OverrideStore(ctx.dataDir);
       const result = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
         const handler = new PricesSetHandler(priceRuntime, overrideStore);
@@ -62,7 +69,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
           price: options.price,
           currency: options.currency,
           source: options.source,
-          profileKey: ctx.activeProfileKey,
+          profileKey: profileResult.value.profileKey,
         });
         if (executeResult.isErr()) {
           throw executeResult.error;
