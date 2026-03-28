@@ -4,10 +4,10 @@ import { err, wrapError, type Result } from '@exitbook/foundation';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
-import { createClearHandler, type ClearHandler } from './clear-handler.js';
+import { ClearService } from './clear-service.js';
 
 export interface ClearCommandScope {
-  handler: ClearHandler;
+  clearService: ClearService;
   profile: Profile;
 }
 
@@ -23,7 +23,7 @@ export async function withClearCommandScope<T>(
     }
 
     return operation({
-      handler: createClearHandler({ db: database }),
+      clearService: new ClearService(database),
       profile: profileResult.value,
     });
   } catch (error) {

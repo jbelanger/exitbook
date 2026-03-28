@@ -3,8 +3,8 @@ import type { Command } from 'commander';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
-import type { AssetOverrideResult } from './assets-handler.js';
 import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
+import type { AssetOverrideResult } from './assets-types.js';
 import { runAssetsInclude } from './run-assets.js';
 
 export function registerAssetsIncludeCommand(assetsCommand: Command): void {

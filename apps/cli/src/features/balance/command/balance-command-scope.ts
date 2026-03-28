@@ -9,11 +9,14 @@ import { buildCliAccountLifecycleService } from '../../accounts/account-service.
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import type { CliOutputFormat } from '../../shared/command-options.js';
 
-import { BalanceHandler } from './balance-handler.js';
+import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
+import { BalanceStoredSnapshotReader } from './balance-stored-snapshot-reader.js';
+import { BalanceVerificationRunner } from './balance-verification-runner.js';
 
 export interface BalanceCommandScope {
-  handler: BalanceHandler;
   profile: Profile;
+  snapshotReader: BalanceStoredSnapshotReader;
+  verificationRunner: BalanceVerificationRunner;
 }
 
 export async function withBalanceCommandScope<T>(
@@ -43,25 +46,48 @@ export async function withBalanceCommandScope<T>(
     }
 
     const accountService = buildCliAccountLifecycleService(database);
+    const assetDetailsBuilder = new BalanceAssetDetailsBuilder(database);
+    const snapshotReader = new BalanceStoredSnapshotReader({
+      accountService,
+      assetDetailsBuilder,
+      balanceOperation: undefined,
+      db: database,
+    });
+
     if (!options.needsWorkflow) {
       return operation({
-        handler: new BalanceHandler(database, undefined, accountService),
         profile: profileResult.value,
+        snapshotReader,
+        verificationRunner: new BalanceVerificationRunner({
+          accountService,
+          assetDetailsBuilder,
+          balanceOperation: undefined,
+        }),
       });
     }
 
     const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
     const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const balanceWorkflow = new BalanceWorkflow(buildBalancePorts(database), providerRuntime);
-    const handler = new BalanceHandler(database, balanceWorkflow, accountService);
+    const verificationRunner = new BalanceVerificationRunner({
+      accountService,
+      assetDetailsBuilder,
+      balanceOperation: balanceWorkflow,
+    });
     runtime.onCleanup(async () => {
-      await handler.awaitStream();
+      await verificationRunner.awaitStream();
       await cleanupBlockchainProviderRuntime();
     });
 
     return operation({
-      handler,
       profile: profileResult.value,
+      snapshotReader: new BalanceStoredSnapshotReader({
+        accountService,
+        assetDetailsBuilder,
+        balanceOperation: balanceWorkflow,
+        db: database,
+      }),
+      verificationRunner,
     });
   } catch (error) {
     return wrapError(error, 'Failed to prepare balance command scope');

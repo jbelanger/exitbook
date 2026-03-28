@@ -12,8 +12,8 @@ import { AssetsViewApp } from '../view/assets-view-components.jsx';
 import { createAssetsViewState } from '../view/assets-view-state.js';
 
 import { withAssetsCommandScope } from './assets-command-scope.js';
-import type { AssetViewItem } from './assets-handler.js';
 import { AssetsViewCommandOptionsSchema } from './assets-option-schemas.js';
+import type { AssetViewItem } from './assets-types.js';
 import {
   runAssetsClearReview,
   runAssetsConfirmReview,

@@ -2,7 +2,7 @@ import type { DataSession } from '@exitbook/data/session';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-import { calculateTotalDeletionItems, createClearHandler, flattenPreview } from './clear-handler.js';
+import { calculateTotalDeletionItems, ClearService, flattenPreview } from './clear-service.js';
 
 vi.mock('../../../runtime/projection-reset.js', () => ({
   countProjectionResetImpact: vi.fn().mockResolvedValue(
@@ -16,7 +16,7 @@ vi.mock('../../../runtime/projection-reset.js', () => ({
   resetProjections: vi.fn(),
 }));
 
-describe('clear-handler', () => {
+describe('ClearService', () => {
   it('includes cost-basis snapshot impact in preview and flattened totals', async () => {
     const db = {
       costBasisSnapshots: {
@@ -30,9 +30,9 @@ describe('clear-handler', () => {
       executeInTransaction: vi.fn(),
     } as unknown as DataSession;
 
-    const handler = createClearHandler({ db });
+    const clearService = new ClearService(db);
 
-    const previewResult = await handler.preview({ profileId: 1, includeRaw: false });
+    const previewResult = await clearService.preview({ profileId: 1, includeRaw: false });
 
     expect(previewResult.isOk()).toBe(true);
     if (previewResult.isErr()) {

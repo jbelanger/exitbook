@@ -3,8 +3,8 @@ import type { Command } from 'commander';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
-import type { AssetReviewOverrideResult } from './assets-handler.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';
+import type { AssetReviewOverrideResult } from './assets-types.js';
 import { runAssetsClearReview } from './run-assets.js';
 
 export function registerAssetsClearReviewCommand(assetsCommand: Command): void {

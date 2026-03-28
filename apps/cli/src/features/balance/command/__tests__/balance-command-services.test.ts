@@ -4,7 +4,9 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BalanceHandler } from '../balance-handler.js';
+import { BalanceAssetDetailsBuilder } from '../balance-asset-details-builder.js';
+import { BalanceStoredSnapshotReader } from '../balance-stored-snapshot-reader.js';
+import { BalanceVerificationRunner } from '../balance-verification-runner.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   return {
@@ -130,7 +132,29 @@ function createMockAccountService(accounts: Account[]) {
   };
 }
 
-describe('BalanceHandler.viewStoredSnapshots', () => {
+function createBalanceServices(
+  mockDb: ReturnType<typeof createMockDb> | Record<string, unknown>,
+  balanceOperation: unknown,
+  accountService: ReturnType<typeof createMockAccountService>
+) {
+  const assetDetailsBuilder = new BalanceAssetDetailsBuilder(mockDb as unknown as DataSession);
+
+  return {
+    snapshotReader: new BalanceStoredSnapshotReader({
+      accountService,
+      assetDetailsBuilder,
+      balanceOperation: balanceOperation as never,
+      db: mockDb as unknown as DataSession,
+    }),
+    verificationRunner: new BalanceVerificationRunner({
+      accountService,
+      assetDetailsBuilder,
+      balanceOperation: balanceOperation as never,
+    }),
+  };
+}
+
+describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
   it('does not fall back to child snapshot rows when the owning scope snapshot is missing', async () => {
     const parentAccount = createAccount({ id: 1, identifier: 'xpub-parent' });
     const childAccount = createAccount({ id: 2, identifier: 'bc1-child', parentAccountId: parentAccount.id });
@@ -140,8 +164,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       snapshotAssets: [createSnapshotAsset(childAccount.id, 'blockchain:bitcoin:native', 'BTC')],
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: childAccount.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: childAccount.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toContain('scope account #1');
@@ -219,8 +243,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       }),
     };
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, balanceOperation as never, accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: childAccount.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, balanceOperation, accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: childAccount.id, profileId: 1 });
     const value = assertOk(result);
 
     expect(balanceOperation.rebuildCalculatedSnapshot).toHaveBeenCalledWith({ accountId: childAccount.id });
@@ -245,8 +269,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       staleScopes: new Map([[account.id, 'upstream-rebuilt:processed-transactions']]),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toContain('has not been built yet');
@@ -263,8 +287,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       staleScopes: new Map([[account.id, 'upstream-reset:processed-transactions']]),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
@@ -293,12 +317,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       }),
     };
 
-    const handler = new BalanceHandler(
-      mockDb as unknown as DataSession,
-      balanceOperation as never,
-      mockDb.accountService
-    );
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, balanceOperation, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const value = assertOk(result);
 
     expect(balanceOperation.rebuildCalculatedSnapshot).toHaveBeenCalledWith({ accountId: account.id });
@@ -321,8 +341,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       snapshotAssets: [createSnapshotAsset(rootAccount.id, 'blockchain:bitcoin:native', 'BTC')],
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: grandchildAccount.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: grandchildAccount.id, profileId: 1 });
     const value = assertOk(result);
 
     expect(value.accounts).toHaveLength(1);
@@ -350,8 +370,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       transactionError: new Error('transactions unavailable'),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toBe('Failed to load transactions for diagnostics for account #1: transactions unavailable');
@@ -366,8 +386,8 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       childAccountError: new Error('child lookup failed'),
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toBe(
@@ -383,15 +403,15 @@ describe('BalanceHandler.viewStoredSnapshots', () => {
       snapshotAssets: [createSnapshotAsset(account.id, 'blockchain:bitcoin:native', 'BTC')],
     });
 
-    const handler = new BalanceHandler(mockDb as unknown as DataSession, undefined, mockDb.accountService);
-    const result = await handler.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
+    const { snapshotReader } = createBalanceServices(mockDb, undefined, mockDb.accountService);
+    const result = await snapshotReader.viewStoredSnapshots({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toContain('does not belong to the selected profile');
   });
 });
 
-describe('BalanceHandler.refreshAllScopes', () => {
+describe('BalanceVerificationRunner.refreshAllScopes', () => {
   it('counts calculated-only warning results as verified totals', async () => {
     const account = createAccount({ id: 74, platformKey: 'lukso', identifier: '0xlukso' });
     const mockDb = createMockDb({
@@ -431,12 +451,8 @@ describe('BalanceHandler.refreshAllScopes', () => {
       ),
     };
 
-    const handler = new BalanceHandler(
-      mockDb as unknown as DataSession,
-      balanceOperation as never,
-      mockDb.accountService
-    );
-    const result = await handler.refreshAllScopes(1);
+    const { verificationRunner } = createBalanceServices(mockDb, balanceOperation, mockDb.accountService);
+    const result = await verificationRunner.refreshAllScopes(1);
     const value = assertOk(result);
 
     expect(value.totals).toMatchObject({

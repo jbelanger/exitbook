@@ -2,7 +2,7 @@ import type { Result } from '@exitbook/foundation';
 
 import type { ClearCommandScope } from './clear-command-scope.js';
 import type { ClearCommandOptions } from './clear-command-types.js';
-import type { ClearParams, ClearResult, DeletionPreview } from './clear-handler.js';
+import type { ClearParams, ClearResult, DeletionPreview } from './clear-service.js';
 
 export function buildClearParams(scope: ClearCommandScope, options: ClearCommandOptions): ClearParams {
   return {
@@ -17,9 +17,9 @@ export async function previewClear(
   scope: ClearCommandScope,
   params: ClearParams
 ): Promise<Result<DeletionPreview, Error>> {
-  return scope.handler.preview(params);
+  return scope.clearService.preview(params);
 }
 
 export async function runClear(scope: ClearCommandScope, params: ClearParams): Promise<Result<ClearResult, Error>> {
-  return scope.handler.execute(params);
+  return scope.clearService.execute(params);
 }

@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AssetsViewState } from '../../view/assets-view-state.js';
-import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-handler.js';
+import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-types.js';
 
 const {
   mockCtx,
@@ -88,13 +88,14 @@ describe('assets command modules', () => {
   const PROFILE_KEY = 'default';
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
   const assetsScope = {
-    handler: {},
+    overrideService: {},
     profile: {
       id: 1,
       profileKey: PROFILE_KEY,
       displayName: PROFILE_KEY,
       createdAt: new Date('2026-03-01T00:00:00.000Z'),
     },
+    snapshotReader: {},
   };
 
   beforeEach(() => {

@@ -10,7 +10,7 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
-import type { FlatDeletionPreview } from '../command/clear-handler.js';
+import type { FlatDeletionPreview } from '../command/clear-service.js';
 
 import { CHROME_LINES } from './clear-view-components.jsx';
 import type { ClearViewState } from './clear-view-state.js';

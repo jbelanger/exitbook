@@ -9,8 +9,8 @@ import { createClearViewState } from '../view/clear-view-state.js';
 
 import { withClearCommandScope } from './clear-command-scope.js';
 import type { ClearCommandOptions } from './clear-command-types.js';
-import { flattenPreview } from './clear-handler.js';
 import { buildScopeLabel } from './clear-output.js';
+import { flattenPreview } from './clear-service.js';
 import { buildClearParams, previewClear } from './run-clear.js';
 
 export async function runClearTuiFlow(options: ClearCommandOptions): Promise<void> {
@@ -50,7 +50,7 @@ export async function runClearTuiFlow(options: ClearCommandOptions): Promise<voi
         await renderApp((unmount) =>
           React.createElement(ClearViewApp, {
             initialState,
-            clearHandler: scope.handler,
+            clearService: scope.clearService,
             params,
             onQuit: unmount,
           })

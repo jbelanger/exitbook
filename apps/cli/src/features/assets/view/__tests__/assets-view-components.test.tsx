@@ -1,7 +1,7 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { AssetViewItem } from '../../command/assets-handler.js';
+import type { AssetViewItem } from '../../command/assets-types.js';
 import { AssetsViewApp } from '../assets-view-components.jsx';
 import { createAssetsViewState } from '../assets-view-state.js';
 

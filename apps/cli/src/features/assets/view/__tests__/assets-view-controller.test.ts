@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AssetViewItem } from '../../command/assets-handler.js';
+import type { AssetViewItem } from '../../command/assets-types.js';
 import { assetsViewReducer, handleAssetsKeyboardInput, type AssetsViewAction } from '../assets-view-controller.js';
 import { createAssetsViewState } from '../assets-view-state.js';
 

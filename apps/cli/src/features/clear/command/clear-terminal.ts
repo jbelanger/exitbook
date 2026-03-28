@@ -8,8 +8,8 @@ import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 
 import { withClearCommandScope } from './clear-command-scope.js';
 import type { ClearCommandOptions } from './clear-command-types.js';
-import { calculateTotalDeletionItems, flattenPreview } from './clear-handler.js';
 import { handleClearSuccess, outputClearEmptyResult, outputClearPreview } from './clear-output.js';
+import { calculateTotalDeletionItems, flattenPreview } from './clear-service.js';
 import { buildClearParams, previewClear, runClear } from './run-clear.js';
 
 export async function runClearTerminalFlow(options: ClearCommandOptions): Promise<void> {

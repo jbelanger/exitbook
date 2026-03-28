@@ -99,13 +99,14 @@ beforeEach(() => {
   });
   mockWithBalanceCommandScope.mockImplementation(async (_ctx, _options, operation) =>
     operation({
-      handler: {},
       profile: {
         id: 1,
         profileKey: 'default',
         displayName: 'default',
         createdAt: new Date('2026-03-01T00:00:00.000Z'),
       },
+      snapshotReader: {},
+      verificationRunner: {},
     })
   );
   mockDisplayCliError.mockImplementation(

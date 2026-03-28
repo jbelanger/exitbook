@@ -123,8 +123,8 @@ beforeEach(() => {
     async (
       _ctx: unknown,
       operation: (scope: {
+        accountRemovalService: object;
         accountService: object;
-        handler: object;
         profile: {
           createdAt: Date;
           displayName: string;
@@ -135,7 +135,7 @@ beforeEach(() => {
     ) =>
       operation({
         accountService: {},
-        handler: {},
+        accountRemovalService: {},
         profile: {
           id: 1,
           profileKey: 'default',

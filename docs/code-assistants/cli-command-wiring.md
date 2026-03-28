@@ -80,8 +80,10 @@ features/shared/
   asset-review-projection-runtime.ts
 ```
 
-Existing `*-handler.ts` files may remain as internal execution objects, but
-command files should not depend on CLI-wired `create*Handler(...)` factories.
+Existing `*-handler.ts` files may remain as internal execution objects when they
+represent a real stateful role. Prefer precise names such as `Reader`,
+`Runner`, or `Service` when the responsibility is clear. Treat closure-factory
+`create*Handler(...)` method bags as legacy shape, not new architecture.
 
 ## Rules
 
@@ -118,7 +120,7 @@ Feature command-scope helpers should:
 
 - resolve the selected profile when the feature needs one
 - run feature-specific prereq orchestration
-- construct feature-local execution helpers or handlers
+- construct feature-local execution helpers with explicit role names
 - keep cleanup ownership inside `CommandRuntime`
 
 ## Prereqs

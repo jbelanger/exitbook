@@ -4,7 +4,7 @@ import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
 import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/index.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
-import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-handler.js';
+import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-types.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
 import { ASSET_DETAIL_LINES, getAssetsVisibleRows } from './assets-view-layout.js';

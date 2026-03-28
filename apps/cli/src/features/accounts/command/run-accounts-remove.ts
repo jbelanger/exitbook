@@ -1,8 +1,8 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
+import type { FlatAccountRemovePreview } from './account-removal-service.js';
+import { flattenAccountRemovePreview } from './account-removal-service.js';
 import type { AccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
-import type { FlatAccountRemovePreview } from './accounts-remove-handler.js';
-import { flattenAccountRemovePreview } from './accounts-remove-handler.js';
 
 export interface AccountRemovalPreparation {
   accountIds: number[];
@@ -28,7 +28,7 @@ export async function prepareAccountRemoval(
   }
 
   const accountIds = hierarchyResult.value.map((account) => account.id);
-  const previewResult = await scope.handler.preview(accountIds);
+  const previewResult = await scope.accountRemovalService.preview(accountIds);
   if (previewResult.isErr()) {
     return err(previewResult.error);
   }
@@ -43,6 +43,6 @@ export async function prepareAccountRemoval(
 export async function runAccountRemoval(
   scope: AccountsRemoveCommandScope,
   accountIds: number[]
-): Promise<ReturnType<AccountsRemoveCommandScope['handler']['execute']>> {
-  return scope.handler.execute(accountIds);
+): Promise<ReturnType<AccountsRemoveCommandScope['accountRemovalService']['execute']>> {
+  return scope.accountRemovalService.execute(accountIds);
 }

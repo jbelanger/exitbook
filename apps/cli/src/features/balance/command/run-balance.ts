@@ -18,7 +18,7 @@ export async function runBalanceView(
     accountId?: number | undefined;
   }
 ): Promise<Result<StoredSnapshotBalanceResult, Error>> {
-  return scope.handler.viewStoredSnapshots({
+  return scope.snapshotReader.viewStoredSnapshots({
     accountId: params.accountId,
     profileId: scope.profile.id,
   });
@@ -31,7 +31,7 @@ export async function runBalanceRefreshSingle(
     credentials?: ExchangeCredentials | undefined;
   }
 ): Promise<Result<SingleRefreshResult, Error>> {
-  return scope.handler.refreshSingleScope({
+  return scope.verificationRunner.refreshSingleScope({
     accountId: params.accountId,
     credentials: params.credentials,
     profileId: scope.profile.id,
@@ -41,13 +41,13 @@ export async function runBalanceRefreshSingle(
 export async function runBalanceRefreshAll(
   scope: BalanceCommandScope
 ): Promise<Result<AllAccountsVerificationResult, Error>> {
-  return scope.handler.refreshAllScopes(scope.profile.id);
+  return scope.verificationRunner.refreshAllScopes(scope.profile.id);
 }
 
 export async function loadBalanceVerificationAccounts(
   scope: BalanceCommandScope
 ): Promise<Result<SortedVerificationAccount[], Error>> {
-  return scope.handler.loadAccountsForVerification(scope.profile.id);
+  return scope.verificationRunner.loadAccountsForVerification(scope.profile.id);
 }
 
 export function startBalanceVerificationStream(
@@ -55,9 +55,9 @@ export function startBalanceVerificationStream(
   accounts: SortedVerificationAccount[],
   relay: EventRelay<BalanceEvent>
 ): void {
-  scope.handler.startStream(accounts, relay);
+  scope.verificationRunner.startStream(accounts, relay);
 }
 
 export function abortBalanceVerification(scope: BalanceCommandScope): void {
-  scope.handler.abort();
+  scope.verificationRunner.abort();
 }

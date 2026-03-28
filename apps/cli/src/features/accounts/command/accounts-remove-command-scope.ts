@@ -5,11 +5,11 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
-import { createAccountRemoveHandler, type AccountRemoveHandler } from './accounts-remove-handler.js';
+import { AccountRemovalService } from './account-removal-service.js';
 
 export interface AccountsRemoveCommandScope {
   accountService: ReturnType<typeof buildCliAccountLifecycleService>;
-  handler: AccountRemoveHandler;
+  accountRemovalService: AccountRemovalService;
   profile: Profile;
 }
 
@@ -26,7 +26,7 @@ export async function withAccountsRemoveCommandScope<T>(
 
     return operation({
       accountService: buildCliAccountLifecycleService(database),
-      handler: createAccountRemoveHandler(database),
+      accountRemovalService: new AccountRemovalService(database),
       profile: profileResult.value,
     });
   } catch (error) {

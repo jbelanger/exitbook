@@ -7,8 +7,8 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
 import { withAssetsCommandScope } from './assets-command-scope.js';
-import type { AssetExclusionsResult } from './assets-handler.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
+import type { AssetExclusionsResult } from './assets-types.js';
 import { runAssetsExclusions } from './run-assets.js';
 
 export function registerAssetsExclusionsCommand(assetsCommand: Command): void {

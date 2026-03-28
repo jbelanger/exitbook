@@ -5,11 +5,13 @@ import { err, wrapError, type Result } from '@exitbook/foundation';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
-import { AssetsHandler } from './assets-handler.js';
+import { AssetOverrideService } from './asset-override-service.js';
+import { AssetSnapshotReader } from './asset-snapshot-reader.js';
 
 export interface AssetsCommandScope {
-  handler: AssetsHandler;
+  overrideService: AssetOverrideService;
   profile: Profile;
+  snapshotReader: AssetSnapshotReader;
 }
 
 export async function withAssetsCommandScope<T>(
@@ -23,9 +25,13 @@ export async function withAssetsCommandScope<T>(
       return err(profileResult.error);
     }
 
+    const overrideStore = new OverrideStore(runtime.dataDir);
+    const snapshotReader = new AssetSnapshotReader(database, overrideStore, runtime.dataDir);
+
     return operation({
-      handler: new AssetsHandler(database, new OverrideStore(runtime.dataDir), runtime.dataDir),
+      overrideService: new AssetOverrideService(database, overrideStore, snapshotReader),
       profile: profileResult.value,
+      snapshotReader,
     });
   } catch (error) {
     return wrapError(error, 'Failed to prepare assets command scope');

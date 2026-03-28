@@ -7,8 +7,8 @@ import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
+import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
-import type { FlatAccountRemovePreview } from './accounts-remove-handler.js';
 import { prepareAccountRemoval, runAccountRemoval } from './run-accounts-remove.js';
 
 export function registerAccountsRemoveCommand(accountsCommand: Command): void {

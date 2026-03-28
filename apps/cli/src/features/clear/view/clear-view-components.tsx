@@ -15,7 +15,7 @@ import {
   getSelectionCursor,
   StatusIcon,
 } from '../../../ui/shared/index.js';
-import { flattenPreview, type ClearHandler, type ClearParams } from '../command/clear-handler.js';
+import { flattenPreview, type ClearParams, ClearService } from '../command/clear-service.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
 import {
@@ -42,11 +42,11 @@ import { formatCount, getCategoryDescription } from './clear-view-utils.js';
  * Main clear view app component
  */
 export const ClearViewApp: FC<{
-  clearHandler: ClearHandler;
+  clearService: ClearService;
   initialState: ClearViewState;
   onQuit: () => void;
   params: ClearParams;
-}> = ({ initialState, clearHandler, params, onQuit }) => {
+}> = ({ initialState, clearService, params, onQuit }) => {
   const [state, dispatch] = useReducer(clearViewReducer, initialState);
 
   const { stdout } = useStdout();
@@ -55,7 +55,7 @@ export const ClearViewApp: FC<{
 
   // Execution callback
   const executeDelete = async () => {
-    const result = await clearHandler.execute({
+    const result = await clearService.execute({
       ...params,
       includeRaw: state.includeRaw,
     });

@@ -18,7 +18,8 @@ import {
   invalidateAssetReviewProjection,
   readAssetReviewProjectionSummaries,
 } from '../../../shared/asset-review-projection-store.js';
-import { AssetsHandler } from '../assets-handler.js';
+import { AssetOverrideService } from '../asset-override-service.js';
+import { AssetSnapshotReader } from '../asset-snapshot-reader.js';
 
 const PROFILE_ID = 1;
 const PROFILE_KEY = 'default';
@@ -132,7 +133,7 @@ function createMockDb(
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
     },
     projectionState: {
-      get: vi.fn().mockImplementation(async (_projectionId: string, scopeKey: string) => {
+      find: vi.fn().mockImplementation(async (_projectionId: string, scopeKey: string) => {
         const scopeAccountId = Number(scopeKey.replace('balance:', ''));
         const freshness = options?.freshnessByScope?.get(scopeAccountId);
         if (!freshness || freshness.status === 'fresh') {
@@ -221,7 +222,27 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
   };
 }
 
-describe('AssetsHandler', () => {
+function createAssetsServices(
+  db: ReturnType<typeof createMockDb>,
+  overrideStore: ReturnType<typeof createMockOverrideStore>
+) {
+  const snapshotReader = new AssetSnapshotReader(
+    db as unknown as DataSession,
+    overrideStore as unknown as OverrideStore,
+    '/tmp/exitbook-assets'
+  );
+
+  return {
+    snapshotReader,
+    overrideService: new AssetOverrideService(
+      db as unknown as DataSession,
+      overrideStore as unknown as OverrideStore,
+      snapshotReader
+    ),
+  };
+}
+
+describe('asset command services', () => {
   const mockAssetReviewProjectionRuntime = {
     ensureFresh: vi.fn(),
     rebuild: vi.fn(),
@@ -247,13 +268,9 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.exclude({
+    const result = await overrideService.exclude({
       symbol: 'scam',
       reason: 'junk airdrop',
       profileId: PROFILE_ID,
@@ -294,13 +311,9 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.exclude({ symbol: 'USDC', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await overrideService.exclude({ symbol: 'USDC', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
 
     const error = assertErr(result);
     expect(error.message).toContain("Symbol 'USDC' is ambiguous");
@@ -319,13 +332,9 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.include({
+    const result = await overrideService.include({
       assetId: 'blockchain:ethereum:0xscam',
       profileId: PROFILE_ID,
       profileKey: PROFILE_KEY,
@@ -363,13 +372,9 @@ describe('AssetsHandler', () => {
       return Promise.resolve(ok([]));
     });
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
+    const result = await snapshotReader.listExclusions(PROFILE_ID, PROFILE_KEY);
 
     const value = assertOk(result);
     expect(value.excludedAssets).toEqual([
@@ -388,13 +393,9 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(true);
     mockOverrideStore.readByScopes.mockResolvedValue(err(new Error('overrides are invalid')));
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
+    const result = await snapshotReader.listExclusions(PROFILE_ID, PROFILE_KEY);
 
     const error = assertErr(result);
     expect(error.message).toContain('Failed to read asset exclusion override events');
@@ -431,13 +432,13 @@ describe('AssetsHandler', () => {
       )
     );
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({
+      actionRequiredOnly: true,
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -460,20 +461,16 @@ describe('AssetsHandler', () => {
       return Promise.resolve(ok([]));
     });
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const viewResult = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const viewResult = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const viewValue = assertOk(viewResult);
 
     expect(viewValue.assets).toEqual([]);
     expect(viewValue.excludedCount).toBe(0);
     expect(viewValue.totalCount).toBe(0);
 
-    const exclusionsResult = await handler.listExclusions(PROFILE_ID, PROFILE_KEY);
+    const exclusionsResult = await snapshotReader.listExclusions(PROFILE_ID, PROFILE_KEY);
     const exclusionsValue = assertOk(exclusionsResult);
 
     expect(exclusionsValue.excludedAssets).toEqual([
@@ -500,13 +497,9 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -524,13 +517,9 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const error = assertErr(result);
 
     expect(error.message).toContain('Assets view requires fresh balance snapshots');
@@ -545,13 +534,9 @@ describe('AssetsHandler', () => {
     const mockOverrideStore = createMockOverrideStore();
     mockOverrideStore.exists.mockReturnValue(false);
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const error = assertErr(result);
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
@@ -566,13 +551,9 @@ describe('AssetsHandler', () => {
     mockOverrideStore.exists.mockReturnValue(false);
     mockOverrideStore.append.mockResolvedValue(ok(undefined));
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.exclude({ symbol: 'dust', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await overrideService.exclude({ symbol: 'dust', profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assetId).toBe(assetId);
@@ -633,13 +614,13 @@ describe('AssetsHandler', () => {
       )
     );
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({
+      actionRequiredOnly: true,
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -680,13 +661,13 @@ describe('AssetsHandler', () => {
       )
     );
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ actionRequiredOnly: true, profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({
+      actionRequiredOnly: true,
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
     const value = assertOk(result);
 
     expect(value.assets).toEqual([]);
@@ -713,13 +694,9 @@ describe('AssetsHandler', () => {
       return Promise.resolve(ok([]));
     });
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
     expect(value.assets).toHaveLength(1);
@@ -761,13 +738,9 @@ describe('AssetsHandler', () => {
         )
       );
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.confirmReview({
+    const result = await overrideService.confirmReview({
       assetId: scamAssetId,
       reason: 'intentional contract',
       profileId: PROFILE_ID,
@@ -836,13 +809,9 @@ describe('AssetsHandler', () => {
         )
       );
 
-    const handler = new AssetsHandler(
-      mockDb as unknown as DataSession,
-      mockOverrideStore as unknown as Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>,
-      '/tmp/test-data'
-    );
+    const { overrideService } = createAssetsServices(mockDb, mockOverrideStore);
 
-    const result = await handler.clearReview({
+    const result = await overrideService.clearReview({
       assetId: scamAssetId,
       reason: 'reopen review',
       profileId: PROFILE_ID,
