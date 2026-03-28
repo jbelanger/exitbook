@@ -14,6 +14,7 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import { PricesEnrichMonitor } from '../features/prices/view/prices-enrich-components.jsx';
+import type { CliOutputFormat } from '../features/shared/command-options.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
@@ -30,7 +31,7 @@ export interface CliPriceEnrichmentRuntime {
 interface CreateCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: DataSession;
-  isJsonMode: boolean;
+  format: CliOutputFormat;
   profileId: number;
   registerCleanup?: boolean | undefined;
   scope: CommandRuntime;
@@ -46,7 +47,7 @@ export interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrich
 export interface WithCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: Awaited<ReturnType<CommandRuntime['database']>>;
-  isJsonMode: boolean;
+  format: CliOutputFormat;
   onAbortRegistered?: ((abort: () => void) => void) | undefined;
   onAbortReleased?: (() => void) | undefined;
   profileId: number;
@@ -63,7 +64,7 @@ export async function createCliPriceEnrichmentRuntime(
     const store = buildPricingPorts(options.database, options.profileId);
     const instrumentation = new InstrumentationCollector();
 
-    if (options.isJsonMode) {
+    if (options.format === 'json') {
       const priceRuntimeResult = await options.scope.openPriceProviderRuntime({
         instrumentation,
         registerCleanup: options.registerCleanup,
@@ -177,7 +178,7 @@ export async function withCliPriceEnrichmentRuntime<T>(
   const runtimeResult = await createCliPriceEnrichmentRuntime({
     accountingExclusionPolicy: options.accountingExclusionPolicy,
     database: options.database,
-    isJsonMode: options.isJsonMode,
+    format: options.format,
     profileId: options.profileId,
     registerCleanup: false,
     scope: options.scope,

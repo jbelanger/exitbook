@@ -8,6 +8,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
 import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;
@@ -95,13 +96,13 @@ export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void 
 
 export async function runReprocess(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  options: { format: CliOutputFormat },
   params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
     const infraResult = await createIngestionRuntime(ctx, database, {
-      presentation: options.isJsonMode ? 'headless' : 'monitor',
+      presentation: options.format === 'json' ? 'headless' : 'monitor',
     });
     if (infraResult.isErr()) {
       return err(infraResult.error);

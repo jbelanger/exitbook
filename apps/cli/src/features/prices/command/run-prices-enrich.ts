@@ -7,10 +7,11 @@ import {
   executeCliPriceEnrichmentRuntime,
   withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
 export async function runPricesEnrich(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean; profileId: number; profileKey: string },
+  options: { format: CliOutputFormat; profileId: number; profileKey: string },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
@@ -23,7 +24,7 @@ export async function runPricesEnrich(
       {
         accountingExclusionPolicy: accountingExclusionPolicyResult.value,
         database,
-        isJsonMode: options.isJsonMode,
+        format: options.format,
         onAbortRegistered: (abort: () => void) => ctx.onAbort(abort),
         profileId: options.profileId,
         scope: ctx,

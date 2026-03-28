@@ -84,7 +84,7 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
       }
 
       const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: true,
+        format: 'json',
         params,
         profileId: profileResult.value.id,
         profileKey: profileResult.value.profileKey,
@@ -146,7 +146,7 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
 
       // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
       const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: false,
+        format: 'text',
         params,
         profileId: profileResult.value.id,
         profileKey: profileResult.value.profileKey,

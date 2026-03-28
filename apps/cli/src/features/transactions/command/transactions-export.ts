@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -52,18 +53,11 @@ Examples:
  * Execute the transactions export command.
  */
 async function executeTransactionsExportCommand(rawOptions: unknown): Promise<void> {
-  const parseResult = TransactionsExportCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'transactions-export',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
+  const { format: outputFormat, options } = parseCliCommandOptions(
+    'transactions-export',
+    rawOptions,
+    TransactionsExportCommandOptionsSchema
+  );
 
   const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
 
@@ -72,39 +66,34 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       const database = await ctx.database();
       const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
-        displayCliError(
-          'transactions-export',
-          profileResult.error,
-          ExitCodes.GENERAL_ERROR,
-          isJsonMode ? 'json' : 'text'
-        );
+        displayCliError('transactions-export', profileResult.error, ExitCodes.GENERAL_ERROR, outputFormat);
       }
 
       const exportHandler = new TransactionsExportHandler(database);
 
-      const format = options.format ?? 'csv';
-      const csvFormat = options.csvFormat ?? (format === 'csv' ? 'normalized' : undefined);
-      const outputPath = options.output ?? `data/transactions.${format === 'json' ? 'json' : 'csv'}`;
+      const exportFormat = options.format ?? 'csv';
+      const csvFormat = options.csvFormat ?? (exportFormat === 'csv' ? 'normalized' : undefined);
+      const outputPath = options.output ?? `data/transactions.${exportFormat === 'json' ? 'json' : 'csv'}`;
 
       const result = await exportHandler.execute({
         profileId: profileResult.value.id,
-        format,
+        format: exportFormat,
         csvFormat,
         outputPath,
       });
 
       if (result.isErr()) {
-        displayCliError('transactions-export', result.error, ExitCodes.GENERAL_ERROR, isJsonMode ? 'json' : 'text');
+        displayCliError('transactions-export', result.error, ExitCodes.GENERAL_ERROR, outputFormat);
       }
 
       if (result.value.transactionCount === 0) {
-        if (!isJsonMode) {
+        if (outputFormat !== 'json') {
           console.log('No transactions found to export.');
         } else {
           const jsonResult: TransactionsExportCommandResult = {
             data: {
               transactionCount: 0,
-              format,
+              format: exportFormat,
               csvFormat,
               outputPaths: [],
             },
@@ -117,17 +106,12 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       // Write files atomically
       const writeResult = await writeFilesWithAtomicRenames(result.value.outputs);
       if (writeResult.isErr()) {
-        displayCliError(
-          'transactions-export',
-          writeResult.error,
-          ExitCodes.GENERAL_ERROR,
-          isJsonMode ? 'json' : 'text'
-        );
+        displayCliError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR, outputFormat);
       }
 
       const outputPaths = writeResult.value;
 
-      if (isJsonMode) {
+      if (outputFormat === 'json') {
         const jsonResult: TransactionsExportCommandResult = {
           data: {
             transactionCount: result.value.transactionCount,
@@ -153,7 +137,7 @@ async function executeTransactionsExportCommand(rawOptions: unknown): Promise<vo
       'transactions-export',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      isJsonMode ? 'json' : 'text'
+      outputFormat
     );
   }
 }

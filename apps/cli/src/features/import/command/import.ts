@@ -121,7 +121,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
 
       if (options.all) {
         const result = await runImportAll(ctx, {
-          isJsonMode: true,
+          format: 'json',
           profileId: profileResult.value.id,
           profileDisplayName: profileResult.value.displayName,
         });
@@ -141,7 +141,7 @@ async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliA
         displayCliError('import', accountResult.error, ExitCodes.GENERAL_ERROR, 'json');
       }
 
-      const result = await runImport(ctx, { isJsonMode: true }, { accountId: accountResult.value.id });
+      const result = await runImport(ctx, { format: 'json' }, { accountId: accountResult.value.id });
       if (result.isErr()) {
         displayCliError('import', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -169,7 +169,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
 
       if (options.all) {
         const result = await runImportAll(ctx, {
-          isJsonMode: false,
+          format: 'text',
           profileId: profileResult.value.id,
           profileDisplayName: profileResult.value.displayName,
         });
@@ -189,7 +189,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
 
       const result = await runImport(
         ctx,
-        { isJsonMode: false },
+        { format: 'text' },
         {
           accountId: accountResult.value.id,
           onSingleAddressWarning: async () => {

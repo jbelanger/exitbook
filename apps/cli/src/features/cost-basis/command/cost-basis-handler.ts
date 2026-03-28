@@ -22,6 +22,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
 export type { ValidatedCostBasisConfig };
 
@@ -158,7 +159,7 @@ export class CostBasisHandler {
 export async function createCostBasisHandler(
   ctx: CommandRuntime,
   options: {
-    isJsonMode: boolean;
+    format: CliOutputFormat;
     params: ValidatedCostBasisConfig;
     profileId: number;
     profileKey: string;
@@ -168,7 +169,7 @@ export async function createCostBasisHandler(
     const database = await ctx.database();
     const { params } = options;
     const pricedRuntimeResult = await preparePricedConsumerRuntime(ctx, {
-      isJsonMode: options.isJsonMode,
+      format: options.format,
       priceConfig: {
         startDate: params.startDate,
         endDate: params.endDate,

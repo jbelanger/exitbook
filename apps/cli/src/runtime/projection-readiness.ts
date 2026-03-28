@@ -8,6 +8,7 @@ import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { resolveCommandProfile } from '../features/profiles/profile-resolution.js';
+import type { CliOutputFormat } from '../features/shared/command-options.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type { CommandRuntime } from './command-runtime.js';
@@ -25,7 +26,7 @@ interface PrereqFreshnessResult {
 type RebuildablePrereqId = Exclude<ProjectionId, 'balances'>;
 
 export interface PrereqExecutionOptions {
-  isJsonMode: boolean;
+  format: CliOutputFormat;
   profileId?: number | undefined;
   profileKey?: string | undefined;
   setAbort?: ((abort: (() => void) | undefined) => void) | undefined;
@@ -95,7 +96,7 @@ export async function ensureProcessedTransactionsReady(
     'processed-transactions',
     () => buildProcessedTransactionsFreshnessPorts(db).checkFreshness(),
     async (freshness) => {
-      if (!options.isJsonMode) {
+      if (options.format !== 'json') {
         console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
       }
 
@@ -182,7 +183,7 @@ export async function ensureLinksReady(
       const linkingRuntimeResult = createCliLinkingRuntime({
         dataDir: scope.dataDir,
         database: db,
-        isJsonMode: options.isJsonMode,
+        format: options.format,
         profileId: profileScopeResult.value.profileId,
         profileKey: profileScopeResult.value.profileKey,
       });
@@ -192,7 +193,7 @@ export async function ensureLinksReady(
 
       const linkingRuntime = linkingRuntimeResult.value;
 
-      if (options.isJsonMode) {
+      if (options.format === 'json') {
         const result = await executeCliLinkingRuntime(linkingRuntime, params);
         if (result.isErr()) return err(result.error);
         logger.info('Linking completed (JSON mode)');

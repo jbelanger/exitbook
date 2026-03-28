@@ -5,6 +5,7 @@ import React from 'react';
 import { runCommand } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { displayCliError } from '../../../shared/cli-error.js';
+import { parseCliCommandOptions, type CliOutputFormat } from '../../../shared/command-options.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
 import { outputSuccess } from '../../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../../shared/spinner.js';
@@ -95,20 +96,10 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
     displayCliError(definition.commandId, new Error('Link ID must be a valid integer'), ExitCodes.INVALID_ARGS, 'text');
   }
 
-  const parseResult = LinksReviewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      definition.commandId,
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format } = parseCliCommandOptions(definition.commandId, rawOptions, LinksReviewCommandOptionsSchema);
 
   try {
-    const spinner = createSpinner(definition.spinnerText, options.json ?? false);
+    const spinner = createSpinner(definition.spinnerText, format === 'json');
     const { OverrideStore } = await import('@exitbook/data/overrides');
 
     await runCommand(async (ctx) => {
@@ -116,12 +107,7 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
       const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
         stopSpinner(spinner);
-        displayCliError(
-          definition.commandId,
-          profileResult.error,
-          ExitCodes.GENERAL_ERROR,
-          options.json ? 'json' : 'text'
-        );
+        displayCliError(definition.commandId, profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }
 
       const overrideStore = new OverrideStore(ctx.dataDir);
@@ -136,7 +122,7 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
       stopSpinner(spinner);
 
       if (result.isErr()) {
-        if (!options.json) {
+        if (format !== 'json') {
           const { unmount } = render(
             React.createElement(LinkActionError, {
               linkId,
@@ -146,27 +132,27 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
           setTimeout(() => unmount(), 100);
         }
 
-        displayCliError(definition.commandId, result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError(definition.commandId, result.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      handleLinksReviewSuccess(definition, options.json ?? false, result.value);
+      handleLinksReviewSuccess(definition, format, result.value);
     });
   } catch (error) {
     displayCliError(
       definition.commandId,
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }
 
 function handleLinksReviewSuccess<TAction extends LinksReviewAction>(
   definition: LinksReviewCommandDefinition<TAction>,
-  isJsonMode: boolean,
+  format: CliOutputFormat,
   result: LinksReviewActionResult<TAction>
 ): void {
-  if (!isJsonMode) {
+  if (format !== 'json') {
     if (
       result.asset &&
       result.sourceAmount &&
@@ -207,7 +193,7 @@ function handleLinksReviewSuccess<TAction extends LinksReviewAction>(
     reviewedBy: result.reviewedBy,
   };
 
-  if (isJsonMode) {
+  if (format === 'json') {
     outputSuccess(definition.commandId, resultData);
   }
 }

@@ -166,7 +166,7 @@ describe('consumer-input-readiness', () => {
     };
 
     const result = await ensureConsumerInputsReady(ctx as never, 'cost-basis', {
-      isJsonMode: true,
+      format: 'json',
       profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
@@ -206,7 +206,7 @@ describe('consumer-input-readiness', () => {
     };
 
     const result = await ensureConsumerInputsReady(ctx as never, 'portfolio', {
-      isJsonMode: true,
+      format: 'json',
       profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),

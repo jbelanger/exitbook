@@ -81,7 +81,7 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
       }
 
       const handlerResult = await createPortfolioHandler(ctx, {
-        isJsonMode: true,
+        format: 'json',
         asOf: normalized.asOf,
         profileId: profileResult.value.id,
         profileKey: profileResult.value.profileKey,
@@ -145,7 +145,7 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
       }
 
       const handlerResult = await createPortfolioHandler(ctx, {
-        isJsonMode: false,
+        format: 'text',
         asOf: normalized.asOf,
         profileId: profileResult.value.id,
         profileKey: profileResult.value.profileKey,

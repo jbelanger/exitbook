@@ -6,6 +6,7 @@ import type { Command } from 'commander';
 
 import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -48,22 +49,7 @@ Notes:
  * Execute the prices set-fx command.
  */
 async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
-
-  // Validate options at CLI boundary
-  const parseResult = PricesSetFxCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'prices-set-fx',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format, options } = parseCliCommandOptions('prices-set-fx', rawOptions, PricesSetFxCommandOptionsSchema);
 
   try {
     await runCommand(async (ctx) => {
@@ -86,10 +72,10 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       });
 
       if (result.isErr()) {
-        displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      if (options.json) {
+      if (format === 'json') {
         outputSuccess('prices-set-fx', result.value);
       } else {
         console.log('✅ FX rate set successfully');
@@ -105,7 +91,7 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       'prices-set-fx',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

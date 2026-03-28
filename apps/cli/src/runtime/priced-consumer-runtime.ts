@@ -2,6 +2,8 @@ import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis'
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import type { CliOutputFormat } from '../features/shared/command-options.js';
+
 import { loadAccountingExclusionPolicy } from './accounting-exclusion-policy.js';
 import type { CommandRuntime } from './command-runtime.js';
 import { ensureConsumerInputsReady } from './consumer-input-readiness.js';
@@ -17,7 +19,7 @@ export interface PreparedPricedConsumerRuntime {
 export async function preparePricedConsumerRuntime(
   ctx: CommandRuntime,
   options: {
-    isJsonMode: boolean;
+    format: CliOutputFormat;
     priceConfig: PricePrereqConfig;
     profileId: number;
     profileKey: string;
@@ -26,7 +28,7 @@ export async function preparePricedConsumerRuntime(
 ): Promise<Result<PreparedPricedConsumerRuntime, Error>> {
   try {
     let prereqAbort: (() => void) | undefined;
-    if (!options.isJsonMode) {
+    if (options.format !== 'json') {
       ctx.onAbort(() => {
         prereqAbort?.();
       });
@@ -38,7 +40,7 @@ export async function preparePricedConsumerRuntime(
     }
 
     const readyResult = await ensureConsumerInputsReady(ctx, options.target, {
-      isJsonMode: options.isJsonMode,
+      format: options.format,
       profileId: options.profileId,
       profileKey: options.profileKey,
       priceConfig: options.priceConfig,

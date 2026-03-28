@@ -63,7 +63,7 @@ async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRun
       }
 
       const readyResult = await ensureProcessedTransactionsReady(ctx, {
-        isJsonMode: true,
+        format: 'json',
         profileId: profileResult.value.id,
       });
       if (readyResult.isErr()) {
@@ -139,7 +139,7 @@ async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRunt
       if (profileResult.isErr()) throw profileResult.error;
 
       const readyResult = await ensureProcessedTransactionsReady(ctx, {
-        isJsonMode: false,
+        format: 'text',
         profileId: profileResult.value.id,
       });
       if (readyResult.isErr()) throw readyResult.error;

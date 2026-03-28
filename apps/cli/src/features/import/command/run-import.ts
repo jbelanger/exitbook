@@ -13,6 +13,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createIngestionRuntime, type CliEvent, type IngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
@@ -122,14 +123,14 @@ export function abortImportRuntime(runtime: ImportExecutionRuntime): void {
 
 export async function runImport(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  options: { format: CliOutputFormat },
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
 ): Promise<Result<ImportExecuteResult, Error>> {
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;
     const infraResult = await createIngestionRuntime(ctx, database, {
-      presentation: options.isJsonMode ? 'headless' : 'monitor',
+      presentation: options.format === 'json' ? 'headless' : 'monitor',
     });
     if (infraResult.isErr()) {
       return err(infraResult.error);
@@ -149,7 +150,7 @@ export async function runImport(
 export async function runImportAll(
   ctx: CommandRuntime,
   options: {
-    isJsonMode: boolean;
+    format: CliOutputFormat;
     profileDisplayName: string;
     profileId: number;
   }
@@ -183,7 +184,7 @@ export async function runImportAll(
       },
     });
 
-    if (!options.isJsonMode) {
+    if (options.format !== 'json') {
       batchController = createEventDrivenController(batchEventBus, BatchImportMonitor, {
         instrumentation: infra.instrumentation,
         providerRuntime: infra.blockchainProviderRuntime,

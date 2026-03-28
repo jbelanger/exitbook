@@ -7,6 +7,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
 /**
  * Create a CLI-wired PortfolioHandler.
@@ -16,7 +17,7 @@ export async function createPortfolioHandler(
   ctx: CommandRuntime,
   options: {
     asOf: Date;
-    isJsonMode: boolean;
+    format: CliOutputFormat;
     profileId: number;
     profileKey: string;
   }
@@ -24,7 +25,7 @@ export async function createPortfolioHandler(
   try {
     const database = await ctx.database();
     const pricedRuntimeResult = await preparePricedConsumerRuntime(ctx, {
-      isJsonMode: options.isJsonMode,
+      format: options.format,
       profileId: options.profileId,
       profileKey: options.profileKey,
       priceConfig: { startDate: new Date(0), endDate: options.asOf },

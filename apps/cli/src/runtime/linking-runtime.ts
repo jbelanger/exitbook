@@ -13,6 +13,7 @@ import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { LinksRunMonitor } from '../features/links/view/links-run-components.jsx';
+import type { CliOutputFormat } from '../features/shared/command-options.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
 const logger = getLogger('cli-linking-runtime');
@@ -27,7 +28,7 @@ export interface CliLinkingRuntime {
 interface CreateCliLinkingRuntimeOptions {
   dataDir: string;
   database: DataSession;
-  isJsonMode: boolean;
+  format: CliOutputFormat;
   profileId: number;
   profileKey: string;
 }
@@ -37,7 +38,7 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
     const overrideStore = new OverrideStore(options.dataDir);
     const store = buildLinkingPorts(options.database, options.profileId);
 
-    if (options.isJsonMode) {
+    if (options.format === 'json') {
       return ok({
         orchestrator: new LinkingOrchestrator(store),
         overrideStore,

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -40,8 +41,11 @@ Examples:
 }
 
 async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawOptions: unknown): Promise<void> {
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
+  const { format, options } = parseCliCommandOptions(
+    'transactions-edit-note',
+    rawOptions,
+    TransactionsEditNoteCommandOptionsSchema
+  );
 
   const transactionIdResult = TransactionIdArgumentSchema.safeParse(rawTransactionId);
   if (!transactionIdResult.success) {
@@ -49,33 +53,16 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
       'transactions-edit-note',
       new Error(transactionIdResult.error.issues[0]?.message ?? 'Invalid transaction ID'),
       ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
+      format
     );
   }
-
-  const parseResult = TransactionsEditNoteCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'transactions-edit-note',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
 
   try {
     await runCommand(async (ctx) => {
       const database = await ctx.database();
       const profileResult = await resolveCommandProfile(ctx, database);
       if (profileResult.isErr()) {
-        displayCliError(
-          'transactions-edit-note',
-          profileResult.error,
-          ExitCodes.GENERAL_ERROR,
-          options.json ? 'json' : 'text'
-        );
+        displayCliError('transactions-edit-note', profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }
 
       const overrideStore = new OverrideStore(ctx.dataDir);
@@ -97,15 +84,10 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
           });
 
       if (result.isErr()) {
-        displayCliError(
-          'transactions-edit-note',
-          result.error,
-          ExitCodes.GENERAL_ERROR,
-          options.json ? 'json' : 'text'
-        );
+        displayCliError('transactions-edit-note', result.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      if (options.json) {
+      if (format === 'json') {
         outputSuccess('transactions-edit-note', result.value);
         return;
       }
@@ -117,7 +99,7 @@ async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawO
       'transactions-edit-note',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

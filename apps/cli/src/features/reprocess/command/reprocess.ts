@@ -71,7 +71,7 @@ async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRu
 async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runReprocess(ctx, { isJsonMode: true }, { accountId: options.accountId });
+      const result = await runReprocess(ctx, { format: 'json' }, { accountId: options.accountId });
       if (result.isErr()) {
         displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -93,7 +93,7 @@ async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: 
 async function executeReprocessTUI(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const result = await runReprocess(ctx, { isJsonMode: false }, { accountId: options.accountId });
+      const result = await runReprocess(ctx, { format: 'text' }, { accountId: options.accountId });
       if (result.isErr()) {
         displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }

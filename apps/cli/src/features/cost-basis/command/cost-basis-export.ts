@@ -107,7 +107,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
       }
 
       const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: isJson,
+        format: isJson ? 'json' : 'text',
         params,
         profileId: profileResult.value.id,
         profileKey: profileResult.value.profileKey,

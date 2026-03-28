@@ -9,16 +9,17 @@ import {
   executeCliLinkingRuntime,
   type CliLinkingRuntime,
 } from '../../../../runtime/linking-runtime.js';
+import type { CliOutputFormat } from '../../../shared/command-options.js';
 
 export async function runLinks(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean; profileId: number; profileKey: string },
+  options: { format: CliOutputFormat; profileId: number; profileKey: string },
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   try {
     const database = await ctx.database();
     const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
-      isJsonMode: options.isJsonMode,
+      format: options.format,
       profileId: options.profileId,
       profileKey: options.profileKey,
     });
@@ -29,7 +30,7 @@ export async function runLinks(
     const runtimeResult = createCliLinkingRuntime({
       dataDir: ctx.dataDir,
       database,
-      isJsonMode: options.isJsonMode,
+      format: options.format,
       profileId: options.profileId,
       profileKey: options.profileKey,
     });

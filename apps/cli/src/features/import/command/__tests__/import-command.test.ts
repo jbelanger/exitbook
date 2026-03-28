@@ -189,7 +189,7 @@ describe('import command', () => {
     await program.parseAsync(['import', '--account', 'kraken-main', '--json'], { from: 'user' });
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockRunImport).toHaveBeenCalledWith(mockCtx, { isJsonMode: true }, { accountId: 7 });
+    expect(mockRunImport).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { accountId: 7 });
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
 
     const [, payload] = mockOutputSuccess.mock.calls[0] as [
@@ -279,7 +279,7 @@ describe('import command', () => {
     await program.parseAsync(['import', '--all', '--json'], { from: 'user' });
 
     expect(mockRunImportAll).toHaveBeenCalledWith(mockCtx, {
-      isJsonMode: true,
+      format: 'json',
       profileId: 3,
       profileDisplayName: 'business',
     });

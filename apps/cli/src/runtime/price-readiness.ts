@@ -24,7 +24,7 @@ export async function ensureTransactionPricesReady(
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
-  const { isJsonMode, setAbort } = options;
+  const { format, setAbort } = options;
   if (options.profileId === undefined) {
     return err(new Error('Price readiness requires a resolved profile scope'));
   }
@@ -40,7 +40,7 @@ export async function ensureTransactionPricesReady(
 
   logger.info({ reason: coverageResult.value.reason }, 'Price coverage incomplete, running enrichment');
 
-  if (!isJsonMode) {
+  if (format !== 'json') {
     console.log('\nPrices missing for requested date range, running enrichment...\n');
   }
 
@@ -48,7 +48,7 @@ export async function ensureTransactionPricesReady(
     {
       accountingExclusionPolicy,
       database: db,
-      isJsonMode,
+      format,
       onAbortRegistered: (abort) => setAbort?.(abort),
       onAbortReleased: () => setAbort?.(undefined),
       profileId: options.profileId,
@@ -68,7 +68,7 @@ export async function ensureTransactionPricesReady(
             return err(postCoverageResult.error);
           }
 
-          if (isJsonMode) {
+          if (format === 'json') {
             logger.info('Price enrichment completed (JSON mode)');
           }
 

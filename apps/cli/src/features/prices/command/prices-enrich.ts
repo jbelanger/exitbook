@@ -89,7 +89,7 @@ async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: 
       const result = await runPricesEnrich(
         ctx,
         {
-          isJsonMode: true,
+          format: 'json',
           profileId: profileResult.value.id,
           profileKey: profileResult.value.profileKey,
         },
@@ -125,7 +125,7 @@ async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: C
       const result = await runPricesEnrich(
         ctx,
         {
-          isJsonMode: false,
+          format: 'text',
           profileId: profileResult.value.id,
           profileKey: profileResult.value.profileKey,
         },

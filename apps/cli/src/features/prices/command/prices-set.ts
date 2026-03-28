@@ -5,6 +5,7 @@ import type { Command } from 'commander';
 
 import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -47,22 +48,7 @@ Notes:
  * Execute the prices set command.
  */
 async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
-
-  // Validate options at CLI boundary
-  const parseResult = PricesSetCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'prices-set',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format, options } = parseCliCommandOptions('prices-set', rawOptions, PricesSetCommandOptionsSchema);
 
   try {
     const { OverrideStore } = await import('@exitbook/data/overrides');
@@ -86,10 +72,10 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       });
 
       if (result.isErr()) {
-        displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      if (options.json) {
+      if (format === 'json') {
         outputSuccess('prices-set', result.value);
       } else {
         console.log('✅ Price set successfully');
@@ -104,7 +90,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       'prices-set',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

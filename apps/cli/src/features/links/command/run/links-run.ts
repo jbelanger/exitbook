@@ -179,7 +179,7 @@ async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: 
       const result = await runLinks(
         ctx,
         {
-          isJsonMode: true,
+          format: 'json',
           profileId: profileResult.value.id,
           profileKey: profileResult.value.profileKey,
         },
@@ -227,7 +227,7 @@ async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: C
       const result = await runLinks(
         ctx,
         {
-          isJsonMode: false,
+          format: 'text',
           profileId: profileResult.value.id,
           profileKey: profileResult.value.profileKey,
         },
