@@ -198,6 +198,7 @@ describe('HeliusApiClient', () => {
         decimalAmount: '5',
         decimals: 9,
       });
+      expect(mockPost).toHaveBeenCalledWith('/?api-key=test-helius-api-key', expect.any(Object), expect.any(Object));
     });
 
     it('should handle zero balance', async () => {
@@ -534,9 +535,9 @@ describe('HeliusApiClient', () => {
   });
 
   describe('getHealthCheckConfig', () => {
-    it('should target / endpoint via POST', () => {
+    it('should target the signed RPC endpoint via POST', () => {
       const config = client.getHealthCheckConfig();
-      expect(config.endpoint).toBe('/');
+      expect(config.endpoint).toBe('/?api-key=test-helius-api-key');
       expect(config.method).toBe('POST');
     });
 

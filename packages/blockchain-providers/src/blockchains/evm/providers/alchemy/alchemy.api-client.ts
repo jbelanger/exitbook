@@ -62,7 +62,7 @@ export const alchemyMetadata: ProviderMetadata = {
       'getAddressInfo',
       'getAddressBalances',
       'getAddressTokenBalances',
-      //'getAddressTransactions', DISABLING, need to getReceipts for gas fees which is expensive
+      'getAddressTransactions',
       'getTokenMetadata',
     ],
     supportedTransactionTypes: ['normal', 'internal', 'token'],

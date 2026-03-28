@@ -77,16 +77,6 @@ export const heliusFactory: ProviderFactory = {
 export class HeliusApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
-
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
-      this.reinitializeHttpClient({
-        baseUrl: heliusUrl,
-        defaultHeaders: {
-          'Content-Type': 'application/json',
-        },
-      });
-    }
   }
 
   extractCursors(transaction: SolanaTransaction): PaginationCursor[] {
@@ -174,7 +164,7 @@ export class HeliusApiClient extends BaseApiClient {
         jsonrpc: '2.0',
         method: 'getHealth',
       },
-      endpoint: '/',
+      endpoint: this.rpcEndpoint(),
       method: 'POST' as const,
       validate: (response: unknown) => {
         const data = response as JsonRpcResponse<string>;
@@ -191,7 +181,7 @@ export class HeliusApiClient extends BaseApiClient {
     // For batch requests, use getAssetBatch method
     if (mintAddresses.length > 1) {
       const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -223,7 +213,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     // Single address - use getAsset method
     const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -265,6 +255,14 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
+  private rpcEndpoint(): string {
+    if (!this.apiKey || this.apiKey === 'YourApiKeyToken') {
+      return '/';
+    }
+
+    return `/?api-key=${this.apiKey}`;
+  }
+
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
@@ -275,7 +273,7 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     const result = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -320,7 +318,7 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
     const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -363,7 +361,7 @@ export class HeliusApiClient extends BaseApiClient {
 
   private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -426,7 +424,7 @@ export class HeliusApiClient extends BaseApiClient {
 
       // Fetch signatures for main address
       const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -453,7 +451,7 @@ export class HeliusApiClient extends BaseApiClient {
       const transactions: HeliusTransaction[] = [];
       for (const sig of signatures) {
         const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
-          '/',
+          this.rpcEndpoint(),
           {
             id: 1,
             jsonrpc: '2.0',
@@ -568,7 +566,7 @@ export class HeliusApiClient extends BaseApiClient {
 
       // Fetch signatures for current token account
       const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -597,7 +595,7 @@ export class HeliusApiClient extends BaseApiClient {
       const transactions: HeliusTransaction[] = [];
       for (const sig of signatures) {
         const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
-          '/',
+          this.rpcEndpoint(),
           {
             id: 1,
             jsonrpc: '2.0',

@@ -109,6 +109,7 @@ describe('AlchemyApiClient', () => {
       expect(capabilities.supportedOperations).toContain('getAddressInfo');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
       expect(capabilities.supportedOperations).toContain('getAddressTokenBalances');
+      expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getTokenMetadata');
       expect(capabilities.preferredCursorType).toBe('pageToken');
       expect(capabilities.replayWindow).toEqual({ blocks: 2 });
