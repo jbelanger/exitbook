@@ -1,3 +1,4 @@
+import type { IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { buildProcessingPorts } from '@exitbook/data/ingestion';
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
@@ -8,8 +9,6 @@ import type { IngestionEvent } from '@exitbook/ingestion/events';
 import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
-import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
-
 interface CliProcessingWorkflowRuntime {
   processingWorkflow: ProcessingWorkflow;
 }
@@ -19,7 +18,7 @@ interface CreateCliProcessingWorkflowRuntimeOptions {
   dataDir: string;
   database: DataSession;
   eventBus: EventBus<IngestionEvent>;
-  providerRuntime: OpenedCliBlockchainProviderRuntime;
+  providerRuntime: IBlockchainProviderRuntime;
 }
 
 async function rebuildAllCliAssetReviewProjections(

@@ -1,4 +1,4 @@
-import { type ProviderEvent } from '@exitbook/blockchain-providers';
+import { type IBlockchainProviderRuntime, type ProviderEvent } from '@exitbook/blockchain-providers';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
@@ -10,7 +10,6 @@ import { InstrumentationCollector } from '@exitbook/observability';
 import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view-components.jsx';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
-import type { OpenedCliBlockchainProviderRuntime } from './blockchain-provider-runtime.js';
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 import { createCliProcessingWorkflowRuntime } from './processing-workflow-runtime.js';
 
@@ -19,7 +18,7 @@ const logger = getLogger('ingestion-runtime');
 export type CliEvent = IngestionEvent | ProviderEvent;
 
 export interface IngestionRuntime {
-  blockchainProviderRuntime: OpenedCliBlockchainProviderRuntime;
+  blockchainProviderRuntime: IBlockchainProviderRuntime;
   eventBus: EventBus<CliEvent>;
   ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
   instrumentation: InstrumentationCollector;
@@ -43,7 +42,7 @@ export async function createIngestionRuntime(
     },
   });
 
-  let providerRuntime: OpenedCliBlockchainProviderRuntime | undefined;
+  let providerRuntime: IBlockchainProviderRuntime | undefined;
   let cleanupBlockchainProviderRuntime: (() => Promise<void>) | undefined;
 
   try {

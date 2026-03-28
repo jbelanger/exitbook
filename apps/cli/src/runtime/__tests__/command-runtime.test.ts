@@ -9,10 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandRuntime, renderApp, runCommand, withCommandPriceProviderRuntime } from '../command-runtime.js';
 
 // Hoisted so they're accessible inside vi.mock factory
-const { mockInitialize, mockInkRender, mockOpenCliPriceProviderRuntime } = vi.hoisted(() => ({
+const { mockCreatePriceProviderRuntime, mockInitialize, mockInkRender } = vi.hoisted(() => ({
+  mockCreatePriceProviderRuntime: vi.fn(),
   mockInitialize: vi.fn(),
   mockInkRender: vi.fn(),
-  mockOpenCliPriceProviderRuntime: vi.fn(),
 }));
 
 // Mock the DataSession class — replace with object exposing mocked static method
@@ -30,9 +30,13 @@ vi.mock('ink', () => ({
   render: mockInkRender,
 }));
 
-vi.mock('../cli-price-provider-runtime.js', () => ({
-  openCliPriceProviderRuntime: mockOpenCliPriceProviderRuntime,
-}));
+vi.mock('@exitbook/price-providers', async () => {
+  const actual = await vi.importActual('@exitbook/price-providers');
+  return {
+    ...actual,
+    createPriceProviderRuntime: mockCreatePriceProviderRuntime,
+  };
+});
 
 // Mock process.exit to prevent test runner from exiting
 const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -58,7 +62,7 @@ describe('CommandRuntime', () => {
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    mockOpenCliPriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
+    mockCreatePriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
   });
 
   afterEach(() => {
@@ -208,7 +212,7 @@ describe('CommandRuntime', () => {
 
   describe('openPriceProviderRuntime()', () => {
     it('should throw when the raw opener fails', async () => {
-      mockOpenCliPriceProviderRuntime.mockResolvedValue(err(new Error('price runtime init failed')));
+      mockCreatePriceProviderRuntime.mockResolvedValue(err(new Error('price runtime init failed')));
 
       const ctx = new CommandRuntime();
 
@@ -328,7 +332,7 @@ describe('withCommandPriceProviderRuntime', () => {
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    mockOpenCliPriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
+    mockCreatePriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
   });
 
   afterEach(() => {

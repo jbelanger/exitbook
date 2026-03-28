@@ -1,9 +1,22 @@
 import path from 'node:path';
 
+import type { PricingEvent } from '@exitbook/accounting/price-enrichment';
+import {
+  createBlockchainProviderRuntime,
+  type BlockchainExplorersConfig,
+  type IBlockchainProviderRuntime,
+  type ProviderEvent,
+} from '@exitbook/blockchain-providers';
 import { DataSession } from '@exitbook/data/session';
+import type { EventBus } from '@exitbook/events';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { InstrumentationCollector } from '@exitbook/observability';
+import {
+  createPriceProviderRuntime,
+  type IPriceProviderRuntime,
+  type PriceProviderConfig,
+} from '@exitbook/price-providers';
 import { render } from 'ink';
 import type React from 'react';
 
@@ -11,18 +24,26 @@ import { resolveCliProfileSelection } from '../features/profiles/profile-state.j
 import { getDataDir } from '../features/shared/data-dir.js';
 
 import type { CliAppRuntime } from './app-runtime.js';
-import {
-  openCliBlockchainProviderRuntime,
-  type CliBlockchainProviderRuntimeOptions,
-  type OpenedCliBlockchainProviderRuntime,
-} from './blockchain-provider-runtime.js';
-import { openCliPriceProviderRuntime, type CliPriceProviderRuntimeOptions } from './cli-price-provider-runtime.js';
 
 const logger = getLogger('command-runtime');
 
 interface ResultCleanupOutcome {
   error?: Error | undefined;
   isErr(): boolean;
+}
+
+export interface BlockchainProviderRuntimeOptions {
+  dataDir?: string | undefined;
+  eventBus?: EventBus<ProviderEvent> | undefined;
+  explorerConfig?: BlockchainExplorersConfig | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
+}
+
+export interface PriceProviderRuntimeOptions {
+  dataDir?: string | undefined;
+  eventBus?: EventBus<PricingEvent> | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
+  providers?: PriceProviderConfig | undefined;
 }
 
 /**
@@ -108,10 +129,10 @@ export class CommandRuntime {
   }
 
   async openBlockchainProviderRuntime(
-    options?: CliBlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
-  ): Promise<OpenedCliBlockchainProviderRuntime> {
-    const runtimeResult = await openCliBlockchainProviderRuntime({
-      dataDir: this.dataDir,
+    options?: BlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+  ): Promise<IBlockchainProviderRuntime> {
+    const runtimeResult = await createBlockchainProviderRuntime({
+      dataDir: options?.dataDir ?? this.dataDir,
       explorerConfig: options?.explorerConfig ?? this.app?.blockchainExplorersConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
@@ -128,10 +149,10 @@ export class CommandRuntime {
   }
 
   async openPriceProviderRuntime(
-    options?: CliPriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+    options?: PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
   ): Promise<IPriceProviderRuntime> {
-    const runtimeResult = await openCliPriceProviderRuntime({
-      dataDir: this.dataDir,
+    const runtimeResult = await createPriceProviderRuntime({
+      dataDir: options?.dataDir ?? this.dataDir,
       providers: options?.providers ?? this.app?.priceProviderConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
@@ -247,7 +268,7 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
 
 export async function withCommandPriceProviderRuntime<T>(
   runtime: CommandRuntime,
-  options: (CliPriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
+  options: (PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
   operation: (priceRuntime: IPriceProviderRuntime) => Promise<T>
 ): Promise<Result<T, Error>> {
   let priceRuntime: IPriceProviderRuntime | undefined;
