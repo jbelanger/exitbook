@@ -132,3 +132,5 @@ export function createAccountRemoveHandler(db: DataSession) {
     },
   };
 }
+
+export type AccountRemoveHandler = ReturnType<typeof createAccountRemoveHandler>;

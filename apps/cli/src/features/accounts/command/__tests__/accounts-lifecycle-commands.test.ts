@@ -8,40 +8,38 @@ const {
   mockBuildCliAccountLifecycleService,
   mockBuildNamedAccountDraft,
   mockBuildUpdatedAccountDraft,
-  mockCollectHierarchy,
-  mockCreateAccountRemoveHandler,
   mockCreateNamed,
   mockCtx,
   mockDisplayCliError,
-  mockExecuteRemove,
   mockGetByName,
   mockOutputSuccess,
-  mockPreviewRemove,
+  mockPrepareAccountRemoval,
   mockPromptConfirm,
   mockRename,
   mockResolveCommandProfile,
+  mockRunAccountRemoval,
   mockRunCommand,
   mockUpdateNamed,
+  mockWithAccountsRemoveCommandScope,
 } = vi.hoisted(() => ({
   mockBuildCliAccountLifecycleService: vi.fn(),
   mockBuildNamedAccountDraft: vi.fn(),
   mockBuildUpdatedAccountDraft: vi.fn(),
-  mockCollectHierarchy: vi.fn(),
-  mockCreateAccountRemoveHandler: vi.fn(),
   mockCreateNamed: vi.fn(),
   mockCtx: {
     database: vi.fn(),
   },
   mockDisplayCliError: vi.fn(),
-  mockExecuteRemove: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockPreviewRemove: vi.fn(),
+  mockPrepareAccountRemoval: vi.fn(),
   mockPromptConfirm: vi.fn(),
   mockRename: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
+  mockRunAccountRemoval: vi.fn(),
   mockRunCommand: vi.fn(),
   mockUpdateNamed: vi.fn(),
+  mockWithAccountsRemoveCommandScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -70,30 +68,13 @@ vi.mock('../account-draft-utils.js', () => ({
   buildUpdatedAccountDraft: mockBuildUpdatedAccountDraft,
 }));
 
-vi.mock('../accounts-remove-handler.js', () => ({
-  createAccountRemoveHandler: mockCreateAccountRemoveHandler,
-  flattenAccountRemovePreview: (preview: {
-    deleted: {
-      accounts: number;
-      assetReview: { assets: number };
-      balances: { assetRows: number; scopes: number };
-      costBasisSnapshots: { snapshots: number };
-      links: { links: number };
-      processedTransactions: { transactions: number };
-      rawData: number;
-      sessions: number;
-    };
-  }) => ({
-    accounts: preview.deleted.accounts,
-    rawData: preview.deleted.rawData,
-    sessions: preview.deleted.sessions,
-    transactions: preview.deleted.processedTransactions.transactions,
-    links: preview.deleted.links.links,
-    assetReviewStates: preview.deleted.assetReview.assets,
-    balanceSnapshots: preview.deleted.balances.scopes,
-    balanceSnapshotAssets: preview.deleted.balances.assetRows,
-    costBasisSnapshots: preview.deleted.costBasisSnapshots.snapshots,
-  }),
+vi.mock('../accounts-remove-command-scope.js', () => ({
+  withAccountsRemoveCommandScope: mockWithAccountsRemoveCommandScope,
+}));
+
+vi.mock('../run-accounts-remove.js', () => ({
+  prepareAccountRemoval: mockPrepareAccountRemoval,
+  runAccountRemoval: mockRunAccountRemoval,
 }));
 
 vi.mock('../../../shared/prompts.js', () => ({
@@ -136,13 +117,33 @@ beforeEach(() => {
     createNamed: mockCreateNamed,
     rename: mockRename,
     getByName: mockGetByName,
-    collectHierarchy: mockCollectHierarchy,
     updateNamed: mockUpdateNamed,
   });
-  mockCreateAccountRemoveHandler.mockReturnValue({
-    preview: mockPreviewRemove,
-    execute: mockExecuteRemove,
-  });
+  mockWithAccountsRemoveCommandScope.mockImplementation(
+    async (
+      _ctx: unknown,
+      operation: (scope: {
+        accountService: object;
+        handler: object;
+        profile: {
+          createdAt: Date;
+          displayName: string;
+          id: number;
+          profileKey: string;
+        };
+      }) => Promise<unknown>
+    ) =>
+      operation({
+        accountService: {},
+        handler: {},
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      })
+  );
   mockPromptConfirm.mockResolvedValue(true);
   mockDisplayCliError.mockImplementation(
     (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
@@ -343,58 +344,24 @@ describe('accounts lifecycle commands', () => {
   it('removes a named account in JSON mode when confirmed', async () => {
     const program = createAccountsProgram();
 
-    mockGetByName.mockResolvedValue(
-      ok({
-        id: 7,
-        profileId: 1,
-        name: 'kraken-main',
-        parentAccountId: undefined,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        providerName: undefined,
-        credentials: undefined,
-        lastCursor: undefined,
-        metadata: undefined,
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-        updatedAt: undefined,
-      })
-    );
-    mockCollectHierarchy.mockResolvedValue(
-      ok([
-        {
-          id: 7,
-          profileId: 1,
-          name: 'kraken-main',
-          parentAccountId: undefined,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          identifier: 'api-key-1',
-          providerName: undefined,
-          credentials: undefined,
-          lastCursor: undefined,
-          metadata: undefined,
-          createdAt: new Date('2026-01-02T00:00:00.000Z'),
-          updatedAt: undefined,
-        },
-      ])
-    );
-    mockPreviewRemove.mockResolvedValue(
+    mockPrepareAccountRemoval.mockResolvedValue(
       ok({
         accountIds: [7],
-        deleted: {
+        accountName: 'kraken-main',
+        preview: {
           accounts: 1,
           rawData: 4,
           sessions: 2,
-          processedTransactions: { transactions: 8 },
-          links: { links: 3 },
-          assetReview: { assets: 1 },
-          balances: { scopes: 1, assetRows: 5 },
-          costBasisSnapshots: { snapshots: 6 },
+          transactions: 8,
+          links: 3,
+          assetReviewStates: 1,
+          balanceSnapshots: 1,
+          balanceSnapshotAssets: 5,
+          costBasisSnapshots: 6,
         },
       })
     );
-    mockExecuteRemove.mockResolvedValue(
+    mockRunAccountRemoval.mockResolvedValue(
       ok({
         deleted: {
           accounts: 1,
@@ -412,10 +379,20 @@ describe('accounts lifecycle commands', () => {
 
     await program.parseAsync(['accounts', 'remove', 'kraken-main', '--json', '--confirm'], { from: 'user' });
 
-    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockCollectHierarchy).toHaveBeenCalledWith(7);
-    expect(mockPreviewRemove).toHaveBeenCalledWith([7]);
-    expect(mockExecuteRemove).toHaveBeenCalledWith([7]);
+    expect(mockWithAccountsRemoveCommandScope).toHaveBeenCalledWith(mockCtx, expect.any(Function));
+    const [prepareScope, prepareName] = mockPrepareAccountRemoval.mock.calls[0] as [
+      { profile: { id: number; profileKey: string } },
+      string,
+    ];
+    expect(prepareScope.profile).toMatchObject({ id: 1, profileKey: 'default' });
+    expect(prepareName).toBe('kraken-main');
+
+    const [removeScope, removeAccountIds] = mockRunAccountRemoval.mock.calls[0] as [
+      { profile: { id: number; profileKey: string } },
+      number[],
+    ];
+    expect(removeScope.profile).toMatchObject({ id: 1, profileKey: 'default' });
+    expect(removeAccountIds).toEqual([7]);
     expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-remove', {
       accountName: 'kraken-main',
       deleted: {
