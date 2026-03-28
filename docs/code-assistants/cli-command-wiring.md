@@ -4,6 +4,7 @@ The preferred end-state CLI wiring model is:
 
 - one immutable app runtime
 - one per-command scope
+- one feature-specific command-scope helper
 - command files that parse/render only
 - feature runner functions that execute against the scope
 
@@ -38,11 +39,11 @@ This is the resource ownership boundary for the CLI.
 
 ### Feature runner functions
 
-Command files should call feature runner functions with the scope:
+Command files should call `with*CommandScope(...)`, then feature runner functions with the prepared feature scope:
 
 ```ts
 await runCommand(appRuntime, async (scope) => {
-  const result = await runImport(scope, params);
+  const result = await withImportCommandScope(scope, (importScope) => runImport(importScope, params));
   if (result.isErr()) throw result.error;
 });
 ```
@@ -67,8 +68,9 @@ runtime/
   command-runtime.ts
 
 features/<feature>/command/
-  <feature>.ts         - Commander registration, option parsing, JSON/TUI dispatch, rendering
-  run-<feature>.ts     - feature execution against CommandScope
+  <feature>.ts               - Commander registration, option parsing, JSON/TUI dispatch, rendering
+  <feature>-command-scope.ts - feature-owned preparation of profile/prereqs/runtime wiring
+  run-<feature>.ts           - feature execution against the prepared feature scope
 
 features/shared/
   consumer-input-readiness.ts
@@ -78,8 +80,8 @@ features/shared/
   asset-review-projection-runtime.ts
 ```
 
-Existing `*-handler.ts` files may remain during migration, but they are not the
-desired long-term wiring pattern.
+Existing `*-handler.ts` files may remain as internal execution objects, but
+command files should not depend on CLI-wired `create*Handler(...)` factories.
 
 ## Rules
 
@@ -87,16 +89,23 @@ Command files should:
 
 - validate CLI flags
 - choose presentation mode
+- call `with*CommandScope(...)` for infrastructure-heavy feature execution
 - call a feature runner function
 - format output or render TUI
 
 Command files should not:
 
 - assemble registries
-- open databases directly
 - open provider runtimes directly
 - spread host config manually
 - perform prereq orchestration inline
+- own feature-scoped runtime wiring
+
+Lightweight render concerns are still fine in command files:
+
+- prompt for missing interactive input
+- close the database early before long-lived TUI render-only phases
+- map runner output into JSON payloads or TUI state
 
 Feature runner functions should:
 
@@ -104,6 +113,13 @@ Feature runner functions should:
 - call explicit prereq helpers when needed
 - obtain command-scoped resources from the scope
 - use local `try/finally` only for short-lived local resources
+
+Feature command-scope helpers should:
+
+- resolve the selected profile when the feature needs one
+- run feature-specific prereq orchestration
+- construct feature-local execution helpers or handlers
+- keep cleanup ownership inside `CommandRuntime`
 
 ## Prereqs
 
@@ -146,7 +162,8 @@ The code should make that distinction obvious.
 Avoid introducing new code that depends on:
 
 - `createFooHandler(ctx, database, registry)`
+- `createFooHandler(ctx, options)` as a CLI composition shortcut
 - `composeFooHandler(appRuntime, ctx, ...)`
 - tiered handler taxonomies
 - generic consumer-prereq registries
-- command files manually calling `ctx.database()` for infrastructure-heavy flows
+- command files manually assembling feature runtimes for infrastructure-heavy flows

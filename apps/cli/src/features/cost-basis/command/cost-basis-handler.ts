@@ -15,18 +15,14 @@ import {
   buildCostBasisPorts,
 } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
-import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
 
 export type { ValidatedCostBasisConfig };
 
-interface CostBasisArtifactExecutionResult {
+export interface CostBasisArtifactExecutionResult {
   artifact: CostBasisWorkflowResult;
   scopeKey: string;
   snapshotId: string;
@@ -149,55 +145,5 @@ export class CostBasisHandler {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
-  }
-}
-
-/**
- * Create a CostBasisHandler with prereqs (reprocess + linking + price enrichment) run first.
- * Factory runs prereqs via ensureConsumerInputsReady -- command files NEVER call prereqs directly.
- */
-export async function createCostBasisHandler(
-  ctx: CommandRuntime,
-  options: {
-    format: CliOutputFormat;
-    params: ValidatedCostBasisConfig;
-    profileId: number;
-    profileKey: string;
-  }
-): Promise<Result<CostBasisHandler, Error>> {
-  try {
-    const database = await ctx.database();
-    const { params } = options;
-    const pricedRuntimeResult = await preparePricedConsumerRuntime(ctx, {
-      format: options.format,
-      priceConfig: {
-        startDate: params.startDate,
-        endDate: params.endDate,
-      },
-      profileId: options.profileId,
-      profileKey: options.profileKey,
-      target: 'cost-basis',
-    });
-    if (pricedRuntimeResult.isErr()) {
-      return err(pricedRuntimeResult.error);
-    }
-
-    return ok(
-      new CostBasisHandler(
-        database,
-        options.profileId,
-        pricedRuntimeResult.value.accountingExclusionPolicy,
-        pricedRuntimeResult.value.priceRuntime,
-        () =>
-          readCostBasisDependencyWatermark(
-            database,
-            ctx.dataDir,
-            pricedRuntimeResult.value.accountingExclusionPolicy,
-            options.profileId
-          )
-      )
-    );
-  } catch (error) {
-    return wrapError(error, 'Failed to create cost basis handler');
   }
 }
