@@ -15,13 +15,13 @@ import type {
   ValidatedScopedTransferLink,
   ValidatedScopedTransferSet,
 } from '../../../../standard/matching/validated-scoped-transfer-links.js';
+import { applyCarryoverSemantics } from '../canada-tax-event-carryover.js';
 import {
-  applyCarryoverSemantics,
   applyGenericFeeAdjustments,
   buildSameAssetTransferFeeAdjustments,
   buildValidatedTransferTargetFeeAdjustments,
-  projectCanadaMovementEvents,
-} from '../canada-tax-event-builders.js';
+} from '../canada-tax-event-fee-adjustments.js';
+import { projectCanadaMovementEvents } from '../canada-tax-event-projection.js';
 import type { CanadaAcquisitionEvent, CanadaFeeAdjustmentEvent } from '../canada-tax-types.js';
 
 // ---------------------------------------------------------------------------
