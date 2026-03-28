@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type AssetReferenceStatus, maskAddress, wrapError, pickLatestDate } from '@exitbook/foundation';
+import { type AssetReferenceStatus, wrapError, pickLatestDate } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -93,8 +93,6 @@ function mapReferencePlatformMappingRow(row: ReferencePlatformMappingSelectableR
 export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
   const logger = getLogger('token-metadata-queries');
 
-  const maskContractAddress = (contractAddress: string) => maskAddress(contractAddress);
-
   function mapTokenMetadataRow(row: TokenMetadataSelectableRow): TokenMetadataRecord {
     return {
       blockchain: row.blockchain,
@@ -128,20 +126,19 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         .executeTakeFirst();
 
       if (!row) {
-        logger.debug(
-          `Token metadata not found - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}`
-        );
+        logger.debug({ blockchain }, 'Token metadata not found for contract lookup');
         return ok(undefined);
       }
 
       const metadata = mapTokenMetadataRow(row);
 
       logger.debug(
-        `Token metadata found - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${metadata.symbol ?? 'unknown'}`
+        { blockchain, hasSymbol: metadata.symbol !== undefined },
+        'Token metadata found for contract lookup'
       );
       return ok(metadata);
     } catch (error) {
-      logger.error({ error }, 'Failed to get token metadata by contract');
+      logger.error('Failed to get token metadata by contract');
       return wrapError(error, 'Failed to get token metadata by contract');
     }
   }
@@ -174,12 +171,13 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       }
 
       logger.debug(
-        `Batch token metadata lookup - Blockchain: ${blockchain}, Requested: ${contractAddresses.length}, Found: ${rows.length}`
+        { blockchain, foundCount: rows.length, requestedCount: contractAddresses.length },
+        'Batch token metadata lookup complete'
       );
 
       return ok(metadataMap);
     } catch (error) {
-      logger.error({ error }, 'Failed to get token metadata by contracts (batch)');
+      logger.error('Failed to get token metadata by contracts (batch)');
       return wrapError(error, 'Failed to get token metadata by contracts (batch)');
     }
   }
@@ -188,12 +186,12 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
     try {
       const contractsResult = await listContractsForSymbol(db, blockchain, symbol);
       if (contractsResult.isErr()) {
-        logger.error({ error: contractsResult.error, blockchain, symbol }, 'Failed to load symbol index entries');
+        logger.error({ blockchain }, 'Failed to load symbol index entries');
         return err(contractsResult.error);
       }
 
       if (contractsResult.value.length === 0) {
-        logger.debug(`Token metadata not found for symbol - Blockchain: ${blockchain}, Symbol: ${symbol}`);
+        logger.debug({ blockchain }, 'Token metadata not found for symbol lookup');
         return ok([]);
       }
 
@@ -206,12 +204,10 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       const results = rows.map((row) => mapTokenMetadataRow(row));
 
-      logger.debug(
-        `Token metadata found for symbol - Blockchain: ${blockchain}, Symbol: ${symbol}, Contracts found: ${results.length}`
-      );
+      logger.debug({ blockchain, resultCount: results.length }, 'Token metadata found for symbol lookup');
       return ok(results);
     } catch (error) {
-      logger.error({ error }, 'Failed to get token metadata by symbol');
+      logger.error('Failed to get token metadata by symbol');
       return wrapError(error, 'Failed to get token metadata by symbol');
     }
   }
@@ -296,27 +292,24 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
       if (existing?.symbol && existing.symbol !== mergedSymbol) {
         const deleteResult = await deleteSymbolIndex(db, logger, blockchain, existing.symbol, contractAddress);
         if (deleteResult.isErr()) {
-          logger.warn(
-            `Failed to delete old symbol index - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Old Symbol: ${existing.symbol}, Error: ${deleteResult.error.message}`
-          );
+          logger.warn({ blockchain }, 'Failed to delete old token symbol index entry');
         }
       }
 
       if (mergedSymbol) {
         const symbolIndexResult = await upsertSymbolIndex(db, logger, blockchain, mergedSymbol, contractAddress);
         if (symbolIndexResult.isErr()) {
-          logger.warn(
-            `Failed to update symbol index - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${mergedSymbol}, Error: ${symbolIndexResult.error.message}`
-          );
+          logger.warn({ blockchain }, 'Failed to update token symbol index entry');
         }
       }
 
       logger.debug(
-        `Token metadata saved - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${mergedSymbol ?? 'unknown'}, Source: ${metadata.source}`
+        { blockchain, hasSymbol: mergedSymbol !== undefined, source: metadata.source },
+        'Token metadata saved'
       );
       return ok(undefined);
     } catch (error) {
-      logger.error({ error }, 'Failed to save token metadata');
+      logger.error('Failed to save token metadata');
       return wrapError(error, 'Failed to save token metadata');
     }
   }
@@ -337,7 +330,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       return ok(row ? mapTokenReferenceMatchRow(row) : undefined);
     } catch (error) {
-      logger.error({ error }, 'Failed to get token reference match');
+      logger.error('Failed to get token reference match');
       return wrapError(error, 'Failed to get token reference match');
     }
   }
@@ -371,7 +364,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       return ok(matches);
     } catch (error) {
-      logger.error({ error }, 'Failed to get token reference matches');
+      logger.error('Failed to get token reference matches');
       return wrapError(error, 'Failed to get token reference matches');
     }
   }
@@ -410,7 +403,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       return ok(undefined);
     } catch (error) {
-      logger.error({ error }, 'Failed to save token reference match');
+      logger.error('Failed to save token reference match');
       return wrapError(error, 'Failed to save token reference match');
     }
   }
@@ -429,7 +422,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       return ok(row ? mapReferencePlatformMappingRow(row) : undefined);
     } catch (error) {
-      logger.error({ error }, 'Failed to get reference platform mapping');
+      logger.error('Failed to get reference platform mapping');
       return wrapError(error, 'Failed to get reference platform mapping');
     }
   }
@@ -458,7 +451,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
 
       return ok(undefined);
     } catch (error) {
-      logger.error({ error }, 'Failed to save reference platform mapping');
+      logger.error('Failed to save reference platform mapping');
       return wrapError(error, 'Failed to save reference platform mapping');
     }
   }
@@ -505,7 +498,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         pickLatestDate(latestTokenMetadataAt.value, latestReferenceMatchAt.value, latestPlatformMappingAt.value)
       );
     } catch (error) {
-      logger.error({ error }, 'Failed to load latest token metadata refresh timestamp');
+      logger.error('Failed to load latest token metadata refresh timestamp');
       return wrapError(error, 'Failed to load latest token metadata refresh timestamp');
     }
   }

@@ -1,7 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 import { getErrorMessage, parseDecimal } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 
 import type {
   OneShotOperation,
@@ -97,9 +96,7 @@ export class ThetaScanApiClient extends BaseApiClient {
   async execute<TOperation extends OneShotOperation>(
     operation: TOperation
   ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
-    );
+    this.logger.debug(`Executing operation - Type: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressBalances':
@@ -155,7 +152,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return err(new Error(`Invalid Theta address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw address balance');
 
     const urlParams = new URLSearchParams({
       address: address,
@@ -164,15 +161,13 @@ export class ThetaScanApiClient extends BaseApiClient {
     const result = await this.httpClient.get(`/balance/?${urlParams.toString()}`);
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw address balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
     const balanceData = result.value as ThetaScanBalanceResponse;
 
-    this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${balanceData.tfuel} TFUEL`);
+    this.logger.debug('Retrieved raw address balance');
 
     // ThetaScan API may return numbers instead of strings, ensure conversion
     const total = String(balanceData.tfuel || '0');
@@ -194,11 +189,11 @@ export class ThetaScanApiClient extends BaseApiClient {
       return err(new Error(`Invalid Theta address: ${address}`));
     }
 
-    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching token balances');
 
     // If no contract addresses specified, we can't fetch balances (ThetaScan requires contract address)
     if (!contractAddresses || contractAddresses.length === 0) {
-      this.logger.debug('No contract addresses provided, skipping token balance fetch');
+      this.logger.debug('Skipping token balance fetch without token filters');
       return ok([]);
     }
 
@@ -214,9 +209,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       const result = await this.httpClient.get(`/contract/?${urlParams.toString()}`);
 
       if (result.isErr()) {
-        this.logger.warn(
-          `Failed to fetch balance for contract ${contractAddress} - Error: ${getErrorMessage(result.error)}`
-        );
+        this.logger.warn(`Failed to fetch token balance - Error: ${getErrorMessage(result.error)}`);
         // Continue with other contracts
         continue;
       }
@@ -246,7 +239,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       }
     }
 
-    this.logger.debug(`Retrieved ${balances.length} token balances for ${maskAddress(address)}`);
+    this.logger.debug({ tokenBalanceCount: balances.length }, 'Retrieved token balances');
     return ok(balances);
   }
 
@@ -278,9 +271,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       const result = await this.httpClient.get(url);
 
       if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-        );
+        this.logger.error(`Failed to fetch transactions - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
@@ -307,9 +298,7 @@ export class ThetaScanApiClient extends BaseApiClient {
         const mapped = mapThetaScanTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
+          this.logger.error(`Provider data validation failed - Error: ${errorMessage}`);
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 

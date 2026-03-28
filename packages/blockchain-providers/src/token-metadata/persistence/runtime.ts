@@ -35,11 +35,11 @@ export async function initTokenMetadataPersistence(dataDir: string): Promise<Res
   const migrationResult = await initializeTokenMetadataDatabase(database);
 
   if (migrationResult.isErr()) {
-    logger.error({ error: migrationResult.error }, 'Failed to initialize token metadata database');
+    logger.error('Failed to initialize token metadata database');
 
     const closeResult = await closeTokenMetadataDatabase(database);
     if (closeResult.isErr()) {
-      logger.warn({ error: closeResult.error }, 'Failed to close token metadata database after initialization failure');
+      logger.warn('Failed to close token metadata database after initialization failure');
     }
 
     return err(migrationResult.error);

@@ -1,7 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import type {
@@ -156,12 +155,11 @@ export class MoralisApiClient extends BaseApiClient {
     switch (operation.type) {
       case 'getAddressBalances': {
         const { address } = operation;
-        this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+        this.logger.debug('Fetching raw address balance');
         return (await this.getAddressBalances(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
-        this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<
           OneShotOperationResult<TOperation>,
           Error
@@ -169,7 +167,6 @@ export class MoralisApiClient extends BaseApiClient {
       }
       case 'getTokenMetadata': {
         const { contractAddresses } = operation;
-        this.logger.debug(`Fetching token metadata - Contracts: ${contractAddresses.length} addresses`);
         return (await this.getTokenMetadata(contractAddresses)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       default:
@@ -193,7 +190,7 @@ export class MoralisApiClient extends BaseApiClient {
     const streamType = operation.streamType || 'normal';
     if (streamType === 'internal' || streamType === 'token') {
       this.logger.info(
-        `Moralis wallet history includes ${streamType} transactions in the normal stream - yielding empty batch for ${maskAddress(operation.address)}`
+        `Moralis wallet history includes ${streamType} transactions in the normal stream - yielding empty batch`
       );
       yield ok({
         data: [],
@@ -227,6 +224,8 @@ export class MoralisApiClient extends BaseApiClient {
       return ok([]);
     }
 
+    const requestedTokenCount = contractAddresses.length;
+
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -241,7 +240,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     if (result.isErr()) {
       this.logger.warn(
-        `Failed to fetch token metadata for ${contractAddresses.length} addresses: ${getErrorMessage(result.error)}`
+        `Failed to fetch token metadata for ${requestedTokenCount} contracts: ${getErrorMessage(result.error)}`
       );
       return err(result.error);
     }
@@ -281,9 +280,7 @@ export class MoralisApiClient extends BaseApiClient {
     const result = await this.httpClient.get(endpoint, { schema: MoralisNativeBalanceSchema });
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw address balance for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to fetch raw address balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -292,7 +289,7 @@ export class MoralisApiClient extends BaseApiClient {
     // Convert from wei to decimal
     const balanceDecimal = convertWeiToDecimal(response.balance, this.chainConfig.nativeDecimals);
 
-    this.logger.debug(`Found raw native balance for ${maskAddress(address)}: ${balanceDecimal}`);
+    this.logger.debug('Found raw native balance');
     return ok({
       rawAmount: response.balance,
       symbol: this.chainConfig.nativeCurrency,
@@ -319,9 +316,7 @@ export class MoralisApiClient extends BaseApiClient {
     const result = await this.httpClient.get(endpoint, { schema: z.array(MoralisTokenBalanceSchema) });
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch raw token balances for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to fetch raw token balances - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -332,9 +327,7 @@ export class MoralisApiClient extends BaseApiClient {
     for (const balance of rawBalances) {
       // Skip tokens with missing decimals - we can't accurately convert them
       if (balance.decimals === null || balance.decimals === undefined) {
-        this.logger.warn(
-          `Skipping token ${maskAddress(balance.token_address)} with missing decimals (name: ${balance.name || 'unknown'}, symbol: ${balance.symbol || 'unknown'})`
-        );
+        this.logger.warn('Skipping token balance with missing decimals metadata');
         continue;
       }
 
@@ -350,7 +343,7 @@ export class MoralisApiClient extends BaseApiClient {
       });
     }
 
-    this.logger.debug(`Found ${balances.length} raw token balances for ${maskAddress(address)}`);
+    this.logger.debug({ tokenBalanceCount: balances.length }, 'Found raw token balances');
     return ok(balances);
   }
 
@@ -387,9 +380,7 @@ export class MoralisApiClient extends BaseApiClient {
       const result = await this.httpClient.get(endpoint, { schema: MoralisWalletHistoryResponseSchema });
 
       if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch wallet history for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
+        this.logger.error(`Failed to fetch wallet history - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
@@ -410,9 +401,7 @@ export class MoralisApiClient extends BaseApiClient {
         const mapped = mapMoralisWalletHistoryTransaction(raw, this.chainConfig.nativeCurrency);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
+          this.logger.error(`Provider data validation failed - Error: ${errorMessage}`);
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 

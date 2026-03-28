@@ -11,7 +11,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 import { HttpClient } from '@exitbook/http';
 import { z } from 'zod';
 
@@ -243,17 +242,16 @@ export class AlchemyApiClient extends BaseApiClient {
     switch (operation.type) {
       case 'getAddressInfo': {
         const { address } = operation;
-        this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
+        this.logger.debug('Fetching address info');
         return (await this.getAddressInfo(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressBalances': {
         const { address } = operation;
-        this.logger.debug(`Fetching native balance - Address: ${maskAddress(address)}`);
+        this.logger.debug('Fetching native balance');
         return (await this.getAddressBalances(address)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
-        this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}`);
         return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<
           OneShotOperationResult<TOperation>,
           Error
@@ -261,7 +259,6 @@ export class AlchemyApiClient extends BaseApiClient {
       }
       case 'getTokenMetadata': {
         const { contractAddresses } = operation;
-        this.logger.debug(`Fetching token metadata for ${contractAddresses.length} contracts`);
         return (await this.getTokenMetadata(contractAddresses)) as Result<OneShotOperationResult<TOperation>, Error>;
       }
       default:
@@ -350,7 +347,7 @@ export class AlchemyApiClient extends BaseApiClient {
 
     const response = result.value;
     if (typeof response.result !== 'string') {
-      this.logger.warn({ response: response.result, address: maskAddress(address) }, 'Unexpected eth_getCode response');
+      this.logger.warn({ response: response.result }, 'Unexpected eth_getCode response');
       return err(new Error('Invalid eth_getCode response'));
     }
 
@@ -381,9 +378,7 @@ export class AlchemyApiClient extends BaseApiClient {
     });
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch native balance for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to fetch native balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -393,7 +388,7 @@ export class AlchemyApiClient extends BaseApiClient {
     const nativeBalance = tokenBalances.find((balance) => isNativeToken(balance.tokenAddress));
 
     if (!nativeBalance) {
-      this.logger.debug(`No native balance found for ${maskAddress(address)}`);
+      this.logger.debug('No native balance found');
       return ok({
         rawAmount: '0',
         symbol: this.chainConfig.nativeCurrency,
@@ -406,9 +401,7 @@ export class AlchemyApiClient extends BaseApiClient {
     const symbol = metadata?.symbol || this.chainConfig.nativeCurrency;
     const decimals = metadata?.decimals ?? 18;
 
-    this.logger.debug(
-      `Found native balance for ${maskAddress(address)}: ${nativeBalance.tokenBalance} (${symbol}, ${decimals} decimals)`
-    );
+    this.logger.debug({ decimals, symbol }, 'Found native balance');
 
     return ok({
       rawAmount: nativeBalance.tokenBalance,
@@ -441,9 +434,7 @@ export class AlchemyApiClient extends BaseApiClient {
     });
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to fetch token balances for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to fetch token balances - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -471,7 +462,7 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     }
 
-    this.logger.debug(`Found ${balances.length} token balances for ${maskAddress(address)}`);
+    this.logger.debug({ tokenBalanceCount: balances.length }, 'Found token balances');
     return ok(balances);
   }
 
@@ -483,7 +474,8 @@ export class AlchemyApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    this.logger.debug(`Fetching metadata for ${contractAddresses.length} tokens via alchemy_getTokenMetadata`);
+    const requestedTokenCount = contractAddresses.length;
+    this.logger.debug({ requestedTokenCount }, 'Fetching token metadata via alchemy_getTokenMetadata');
 
     // Fetch metadata for each contract in parallel
     const metadataPromises = contractAddresses.map((contractAddress) => this.fetchSingleTokenMetadata(contractAddress));
@@ -503,10 +495,10 @@ export class AlchemyApiClient extends BaseApiClient {
     }
 
     if (failureCount > 0) {
-      this.logger.warn(`Failed to fetch metadata for ${failureCount}/${contractAddresses.length} tokens`);
+      this.logger.warn({ failureCount, requestedTokenCount }, 'Failed to fetch some token metadata');
     }
 
-    this.logger.debug(`Successfully fetched metadata for ${metadata.length}/${contractAddresses.length} tokens`);
+    this.logger.debug({ fetchedTokenCount: metadata.length, requestedTokenCount }, 'Fetched token metadata');
     return ok(metadata);
   }
 
@@ -611,9 +603,7 @@ export class AlchemyApiClient extends BaseApiClient {
       );
 
       if (fromResult.isErr()) {
-        this.logger.error(
-          `Failed to fetch FROM ${label} transfers for ${maskAddress(address)} - Error: ${getErrorMessage(fromResult.error)}`
-        );
+        this.logger.error(`Failed to fetch FROM ${label} transfers - Error: ${getErrorMessage(fromResult.error)}`);
         return err(fromResult.error);
       }
 
@@ -636,9 +626,7 @@ export class AlchemyApiClient extends BaseApiClient {
       );
 
       if (toResult.isErr()) {
-        this.logger.error(
-          `Failed to fetch TO ${label} transfers for ${maskAddress(address)} - Error: ${getErrorMessage(toResult.error)}`
-        );
+        this.logger.error(`Failed to fetch TO ${label} transfers - Error: ${getErrorMessage(toResult.error)}`);
         return err(toResult.error);
       }
 
@@ -714,9 +702,7 @@ export class AlchemyApiClient extends BaseApiClient {
         if (mapped.isErr()) {
           totalSkipped++;
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.warn(
-            `Skipping transaction due to data quality issue - Address: ${maskAddress(address)}, Hash: ${raw.hash}, Error: ${errorMessage}`
-          );
+          this.logger.warn(`Skipping transaction due to data quality issue - Error: ${errorMessage}`);
 
           // Warn if skip rate exceeds 5% (indicates systemic provider issues)
           const skipRate = (totalSkipped / totalProcessed) * 100;
