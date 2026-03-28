@@ -2,9 +2,9 @@ import type { DataSession } from '@exitbook/data/session';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-import { calculateTotalDeletionItems, ClearService, flattenPreview } from './clear-service.js';
+import { calculateTotalDeletionItems, ClearService, flattenPreview } from '../clear-service.js';
 
-vi.mock('../../../runtime/projection-reset.js', () => ({
+vi.mock('../../../../runtime/projection-reset.js', () => ({
   countProjectionResetImpact: vi.fn().mockResolvedValue(
     ok({
       processedTransactions: { transactions: 5 },

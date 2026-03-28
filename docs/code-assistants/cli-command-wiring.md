@@ -83,7 +83,7 @@ features/shared/
 Existing `*-handler.ts` files may remain as internal execution objects when they
 represent a real stateful role. Prefer precise names such as `Reader`,
 `Runner`, or `Service` when the responsibility is clear. Treat closure-factory
-`create*Handler(...)` method bags as legacy shape, not new architecture.
+`create*Handler(...)` method bags as an obsolete pattern, not new architecture.
 
 ## Rules
 
