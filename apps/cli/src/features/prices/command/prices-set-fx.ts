@@ -78,19 +78,15 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
         return executeResult.value;
       });
 
-      if (result.isErr()) {
-        displayCliError('prices-set-fx', result.error, ExitCodes.GENERAL_ERROR, format);
-      }
-
       if (format === 'json') {
-        outputSuccess('prices-set-fx', result.value);
+        outputSuccess('prices-set-fx', result);
       } else {
         console.log('✅ FX rate set successfully');
-        console.log(`   From: ${result.value.from}`);
-        console.log(`   To: ${result.value.to}`);
-        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-        console.log(`   Rate: ${result.value.rate}`);
-        console.log(`   Source: ${result.value.source}`);
+        console.log(`   From: ${result.from}`);
+        console.log(`   To: ${result.to}`);
+        console.log(`   Date: ${result.timestamp.toISOString()}`);
+        console.log(`   Rate: ${result.rate}`);
+        console.log(`   Source: ${result.source}`);
       }
     });
   } catch (error) {

@@ -9,7 +9,6 @@ import {
 } from '@exitbook/blockchain-providers';
 import { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
-import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 import {
@@ -270,7 +269,7 @@ export async function withCommandPriceProviderRuntime<T>(
   runtime: CommandRuntime,
   options: (PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
   operation: (priceRuntime: IPriceProviderRuntime) => Promise<T>
-): Promise<Result<T, Error>> {
+): Promise<T> {
   let priceRuntime: IPriceProviderRuntime | undefined;
   let value: T | undefined;
   let operationError: Error | undefined;
@@ -286,23 +285,23 @@ export async function withCommandPriceProviderRuntime<T>(
   }
 
   if (!priceRuntime) {
-    return err(operationError ?? new Error('Price provider runtime was not created'));
+    throw operationError ?? new Error('Price provider runtime was not created');
   }
 
   const cleanupResult = await priceRuntime.cleanup();
   if (cleanupResult.isErr()) {
     if (operationError) {
-      return err(new AggregateError([operationError, cleanupResult.error], 'Price provider runtime operation failed'));
+      throw new AggregateError([operationError, cleanupResult.error], 'Price provider runtime operation failed');
     }
 
-    return err(cleanupResult.error);
+    throw cleanupResult.error;
   }
 
   if (operationError) {
-    return err(operationError);
+    throw operationError;
   }
 
-  return ok(value as T);
+  return value as T;
 }
 
 /**

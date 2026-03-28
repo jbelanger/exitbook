@@ -78,18 +78,14 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
         return executeResult.value;
       });
 
-      if (result.isErr()) {
-        displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, format);
-      }
-
       if (format === 'json') {
-        outputSuccess('prices-set', result.value);
+        outputSuccess('prices-set', result);
       } else {
         console.log('✅ Price set successfully');
-        console.log(`   Asset: ${result.value.asset}`);
-        console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-        console.log(`   Price: ${result.value.price} ${result.value.currency}`);
-        console.log(`   Source: ${result.value.source}`);
+        console.log(`   Asset: ${result.asset}`);
+        console.log(`   Date: ${result.timestamp.toISOString()}`);
+        console.log(`   Price: ${result.price} ${result.currency}`);
+        console.log(`   Source: ${result.source}`);
       }
     });
   } catch (error) {

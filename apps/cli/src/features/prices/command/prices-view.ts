@@ -136,32 +136,33 @@ async function executePricesViewTUI(params: ViewPricesCommandParams, mode: Price
       return;
     }
 
-    const priceRuntimeUseResult = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
-      const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-        const result = await pricesSetHandler.execute({
-          asset,
-          date,
-          price,
-          source: 'manual-tui',
-          profileKey: profileResult.value.profileKey,
-        });
-        if (result.isErr()) {
-          throw result.error;
-        }
-      };
+    try {
+      await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const overrideStore = new OverrideStore(ctx.dataDir);
+        const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
+        const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+          const result = await pricesSetHandler.execute({
+            asset,
+            date,
+            price,
+            source: 'manual-tui',
+            profileKey: profileResult.value.profileKey,
+          });
+          if (result.isErr()) {
+            throw result.error;
+          }
+        };
 
-      await renderApp((unmount) =>
-        React.createElement(PricesViewApp, {
-          ...initialStateResult.value,
-          onSetPrice: handleSetPrice,
-          onQuit: unmount,
-        })
-      );
-    });
-    if (priceRuntimeUseResult.isErr()) {
-      console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
+        await renderApp((unmount) =>
+          React.createElement(PricesViewApp, {
+            ...initialStateResult.value,
+            onSetPrice: handleSetPrice,
+            onQuit: unmount,
+          })
+        );
+      });
+    } catch (error) {
+      console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
       ctx.exitCode = ExitCodes.GENERAL_ERROR;
     }
   });

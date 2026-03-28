@@ -342,29 +342,23 @@ describe('withCommandPriceProviderRuntime', () => {
   it('cleans up the runtime even when the operation throws', async () => {
     const ctx = new CommandRuntime();
 
-    const result = await withCommandPriceProviderRuntime(ctx, undefined, async () => {
-      throw new Error('operation failed');
-    });
+    await expect(
+      withCommandPriceProviderRuntime(ctx, undefined, async () => {
+        throw new Error('operation failed');
+      })
+    ).rejects.toThrow('operation failed');
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('operation failed');
-    }
     expect(mockPriceRuntime.cleanup).toHaveBeenCalledOnce();
   });
 
-  it('returns an aggregate error when operation and cleanup both fail', async () => {
+  it('throws an aggregate error when operation and cleanup both fail', async () => {
     mockPriceRuntime.cleanup.mockResolvedValue(err(new Error('cleanup failed')));
 
     const ctx = new CommandRuntime();
-    const result = await withCommandPriceProviderRuntime(ctx, undefined, async () => {
-      throw new Error('operation failed');
-    });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBeInstanceOf(AggregateError);
-      expect(result.error.message).toBe('Price provider runtime operation failed');
-    }
+    await expect(
+      withCommandPriceProviderRuntime(ctx, undefined, async () => {
+        throw new Error('operation failed');
+      })
+    ).rejects.toThrow('Price provider runtime operation failed');
   });
 });
