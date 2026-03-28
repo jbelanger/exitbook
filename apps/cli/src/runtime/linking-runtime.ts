@@ -33,6 +33,11 @@ interface CreateCliLinkingRuntimeOptions {
   profileKey: string;
 }
 
+interface WithCliLinkingRuntimeOptions extends CreateCliLinkingRuntimeOptions {
+  onAbortRegistered?: ((abort: () => void) => void) | undefined;
+  onAbortReleased?: (() => void) | undefined;
+}
+
 export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions): Result<CliLinkingRuntime, Error> {
   try {
     const overrideStore = new OverrideStore(options.dataDir);
@@ -61,6 +66,25 @@ export function createCliLinkingRuntime(options: CreateCliLinkingRuntimeOptions)
     });
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+export async function withCliLinkingRuntime<T>(
+  options: WithCliLinkingRuntimeOptions,
+  operation: (runtime: CliLinkingRuntime) => Promise<Result<T, Error>>
+): Promise<Result<T, Error>> {
+  const runtimeResult = createCliLinkingRuntime(options);
+  if (runtimeResult.isErr()) {
+    return err(runtimeResult.error);
+  }
+
+  const runtime = runtimeResult.value;
+  options.onAbortRegistered?.(() => abortCliLinkingRuntime(runtime));
+
+  try {
+    return await operation(runtime);
+  } finally {
+    options.onAbortReleased?.();
   }
 }
 

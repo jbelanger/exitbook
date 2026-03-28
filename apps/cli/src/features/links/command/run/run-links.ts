@@ -3,12 +3,7 @@ import { err, wrapError, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../../../runtime/consumer-input-readiness.js';
-import {
-  abortCliLinkingRuntime,
-  createCliLinkingRuntime,
-  executeCliLinkingRuntime,
-  type CliLinkingRuntime,
-} from '../../../../runtime/linking-runtime.js';
+import { executeCliLinkingRuntime, withCliLinkingRuntime } from '../../../../runtime/linking-runtime.js';
 import type { CliOutputFormat } from '../../../shared/command-options.js';
 
 export async function runLinks(
@@ -27,20 +22,17 @@ export async function runLinks(
       return err(readyResult.error);
     }
 
-    const runtimeResult = createCliLinkingRuntime({
-      dataDir: ctx.dataDir,
-      database,
-      format: options.format,
-      profileId: options.profileId,
-      profileKey: options.profileKey,
-    });
-    if (runtimeResult.isErr()) {
-      return err(runtimeResult.error);
-    }
-
-    const runtime: CliLinkingRuntime = runtimeResult.value;
-    ctx.onAbort(() => abortCliLinkingRuntime(runtime));
-    return executeCliLinkingRuntime(runtime, params);
+    return withCliLinkingRuntime(
+      {
+        dataDir: ctx.dataDir,
+        database,
+        format: options.format,
+        onAbortRegistered: (abort) => ctx.onAbort(abort),
+        profileId: options.profileId,
+        profileKey: options.profileKey,
+      },
+      (runtime) => executeCliLinkingRuntime(runtime, params)
+    );
   } catch (error) {
     return wrapError(error, 'Failed to run links operation');
   }

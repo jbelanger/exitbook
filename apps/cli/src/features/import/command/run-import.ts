@@ -10,7 +10,7 @@ import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { createIngestionRuntime, type CliEvent, type IngestionRuntime } from '../../../runtime/ingestion-runtime.js';
+import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import type { CliOutputFormat } from '../../shared/command-options.js';
@@ -129,19 +129,23 @@ export async function runImport(
   try {
     const database = await ctx.database();
     const registry = ctx.requireAppRuntime().adapterRegistry;
-    const infraResult = await createIngestionRuntime(ctx, database, {
-      presentation: options.format === 'json' ? 'headless' : 'monitor',
-    });
-    if (infraResult.isErr()) {
-      return err(infraResult.error);
-    }
-    const infra = infraResult.value;
-    const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
-
-    ctx.onAbort(() => {
-      abortImportRuntime(runtime);
-    });
-    return executeImportWithRuntime(runtime, params);
+    return withIngestionRuntime(
+      ctx,
+      database,
+      {
+        presentation: options.format === 'json' ? 'headless' : 'monitor',
+        onAbortRegistered: (infra) => {
+          const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
+          ctx.onAbort(() => {
+            abortImportRuntime(runtime);
+          });
+        },
+      },
+      async (infra) => {
+        const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
+        return executeImportWithRuntime(runtime, params);
+      }
+    );
   } catch (error) {
     return wrapError(error, 'Failed to run import');
   }
@@ -171,124 +175,120 @@ export async function runImportAll(
       return err(new Error(`No accounts found for profile '${options.profileDisplayName}'`));
     }
 
-    const infraResult = await createIngestionRuntime(ctx, database, { presentation: 'headless' });
-    if (infraResult.isErr()) {
-      return err(infraResult.error);
-    }
-    const infra = infraResult.value;
-    const runtime = buildImportExecutionRuntime(database, registry, infra);
-
     const batchEventBus = new EventBus<BatchImportMonitorEvent>({
       onError: (error) => {
         logger.error({ error }, 'Batch import event bus error');
       },
     });
+    return withIngestionRuntime(ctx, database, { presentation: 'headless' }, async (infra) => {
+      const runtime = buildImportExecutionRuntime(database, registry, infra);
 
-    if (options.format !== 'json') {
-      batchController = createEventDrivenController(batchEventBus, BatchImportMonitor, {
-        instrumentation: infra.instrumentation,
-        providerRuntime: infra.blockchainProviderRuntime,
-      });
-      await batchController.start();
-      unsubscribeCliEvents = infra.eventBus.subscribe((event: CliEvent) => {
-        batchEventBus.emit(event);
-      });
-    }
-
-    ctx.onAbort(() => {
-      runtime.importWorkflow.abort();
-      if (!batchController) {
-        return;
+      if (options.format !== 'json') {
+        batchController = createEventDrivenController(batchEventBus, BatchImportMonitor, {
+          instrumentation: infra.instrumentation,
+          providerRuntime: infra.blockchainProviderRuntime,
+        });
+        await batchController.start();
+        unsubscribeCliEvents = infra.eventBus.subscribe((event: CliEvent) => {
+          batchEventBus.emit(event);
+        });
       }
 
-      batchController.abort();
-      void batchController.stop().catch((error) => {
-        logger.warn({ error }, 'Failed to stop batch import monitor on abort');
-      });
-    });
-
-    batchEventBus.emit({
-      type: 'batch.started',
-      profileDisplayName: options.profileDisplayName,
-      rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
-        accountId: batchAccount.account.id,
-        accountType: batchAccount.account.accountType,
-        name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
-        platformKey: batchAccount.account.platformKey,
-        syncMode: batchAccount.syncMode,
-      })),
-    });
-
-    const accountResults: BatchImportAccountResult[] = [];
-    let failedCount = 0;
-
-    for (const [index, batchAccount] of batchAccounts.entries()) {
-      batchEventBus.emit({
-        type: 'batch.account.started',
-        accountId: batchAccount.account.id,
-        index,
-      });
-
-      const importResult = await executeImportWithRuntime(runtime, {
-        accountId: batchAccount.account.id,
-      });
-
-      if (importResult.isErr()) {
-        failedCount += 1;
-        const countsResult = await loadFailedImportCounts(database, batchAccount.account.id);
-        if (countsResult.isErr()) {
-          return err(countsResult.error);
+      ctx.onAbort(() => {
+        runtime.importWorkflow.abort();
+        if (!batchController) {
+          return;
         }
 
-        batchEventBus.emit({
-          type: 'batch.account.failed',
+        batchController.abort();
+        void batchController.stop().catch((error) => {
+          logger.warn({ error }, 'Failed to stop batch import monitor on abort');
+        });
+      });
+
+      batchEventBus.emit({
+        type: 'batch.started',
+        profileDisplayName: options.profileDisplayName,
+        rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
           accountId: batchAccount.account.id,
-          error: importResult.error.message,
-          imported: countsResult.value.imported,
-          skipped: countsResult.value.skipped,
+          accountType: batchAccount.account.accountType,
+          name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
+          platformKey: batchAccount.account.platformKey,
+          syncMode: batchAccount.syncMode,
+        })),
+      });
+
+      const accountResults: BatchImportAccountResult[] = [];
+      let failedCount = 0;
+
+      for (const [index, batchAccount] of batchAccounts.entries()) {
+        batchEventBus.emit({
+          type: 'batch.account.started',
+          accountId: batchAccount.account.id,
+          index,
+        });
+
+        const importResult = await executeImportWithRuntime(runtime, {
+          accountId: batchAccount.account.id,
+        });
+
+        if (importResult.isErr()) {
+          failedCount += 1;
+          const countsResult = await loadFailedImportCounts(database, batchAccount.account.id);
+          if (countsResult.isErr()) {
+            return err(countsResult.error);
+          }
+
+          batchEventBus.emit({
+            type: 'batch.account.failed',
+            accountId: batchAccount.account.id,
+            error: importResult.error.message,
+            imported: countsResult.value.imported,
+            skipped: countsResult.value.skipped,
+          });
+
+          accountResults.push({
+            account: toBatchImportAccount(batchAccount.account),
+            counts: countsResult.value,
+            errorMessage: importResult.error.message,
+            status: 'failed',
+            syncMode: batchAccount.syncMode,
+          });
+          continue;
+        }
+
+        const counts = summarizeImportSessions(importResult.value.sessions);
+        batchEventBus.emit({
+          type: 'batch.account.completed',
+          accountId: batchAccount.account.id,
+          imported: counts.imported,
+          skipped: counts.skipped,
         });
 
         accountResults.push({
           account: toBatchImportAccount(batchAccount.account),
-          counts: countsResult.value,
-          errorMessage: importResult.error.message,
-          status: 'failed',
+          counts,
+          status: 'completed',
           syncMode: batchAccount.syncMode,
         });
-        continue;
       }
 
-      const counts = summarizeImportSessions(importResult.value.sessions);
       batchEventBus.emit({
-        type: 'batch.account.completed',
-        accountId: batchAccount.account.id,
-        imported: counts.imported,
-        skipped: counts.skipped,
+        type: 'batch.completed',
+        completedCount: accountResults.length - failedCount,
+        failedCount,
+        totalCount: accountResults.length,
       });
 
-      accountResults.push({
-        account: toBatchImportAccount(batchAccount.account),
-        counts,
-        status: 'completed',
-        syncMode: batchAccount.syncMode,
+      await batchController?.stop();
+
+      return ok({
+        accounts: accountResults,
+        failedCount,
+        profileDisplayName: options.profileDisplayName,
+        runStats: runtime.instrumentation.getSummary(),
+        totalCount: accountResults.length,
       });
-    }
-
-    batchEventBus.emit({
-      type: 'batch.completed',
-      completedCount: accountResults.length - failedCount,
-      failedCount,
-      totalCount: accountResults.length,
-    });
-
-    await batchController?.stop();
-
-    return ok({
-      accounts: accountResults,
-      failedCount,
-      profileDisplayName: options.profileDisplayName,
-      runStats: runtime.instrumentation.getSummary(),
-      totalCount: accountResults.length,
     });
   } catch (error) {
     const batchError = error instanceof Error ? error : new Error(String(error));

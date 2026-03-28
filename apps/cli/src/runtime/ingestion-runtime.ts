@@ -29,6 +29,11 @@ interface CreateIngestionRuntimeOptions {
   presentation?: 'headless' | 'monitor' | undefined;
 }
 
+interface WithIngestionRuntimeOptions extends CreateIngestionRuntimeOptions {
+  onAbortRegistered?: ((runtime: IngestionRuntime) => void) | undefined;
+  onAbortReleased?: (() => void) | undefined;
+}
+
 export async function createIngestionRuntime(
   ctx: CommandRuntime,
   database: DataSession,
@@ -118,5 +123,28 @@ export async function createIngestionRuntime(
       );
     });
     return wrapError(error, 'Failed to create ingestion runtime');
+  }
+}
+
+export async function withIngestionRuntime<T>(
+  ctx: CommandRuntime,
+  database: DataSession,
+  options: WithIngestionRuntimeOptions,
+  operation: (runtime: IngestionRuntime) => Promise<Result<T, Error>>
+): Promise<Result<T, Error>> {
+  const runtimeResult = await createIngestionRuntime(ctx, database, {
+    presentation: options.presentation,
+  });
+  if (runtimeResult.isErr()) {
+    return err(runtimeResult.error);
+  }
+
+  const runtime = runtimeResult.value;
+  options.onAbortRegistered?.(runtime);
+
+  try {
+    return await operation(runtime);
+  } finally {
+    options.onAbortReleased?.();
   }
 }

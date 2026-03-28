@@ -12,8 +12,8 @@ import type { CliOutputFormat } from '../features/shared/command-options.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type { CommandRuntime } from './command-runtime.js';
-import { createIngestionRuntime } from './ingestion-runtime.js';
-import { abortCliLinkingRuntime, createCliLinkingRuntime, executeCliLinkingRuntime } from './linking-runtime.js';
+import { withIngestionRuntime } from './ingestion-runtime.js';
+import { executeCliLinkingRuntime, withCliLinkingRuntime } from './linking-runtime.js';
 import { resetProjections } from './projection-reset.js';
 
 const logger = getLogger('projection-readiness');
@@ -100,34 +100,31 @@ export async function ensureProcessedTransactionsReady(
         console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
       }
 
-      const ingestionRuntimeResult = await createIngestionRuntime(scope, db, { presentation: 'headless' });
-      if (ingestionRuntimeResult.isErr()) {
-        return err(ingestionRuntimeResult.error);
-      }
-      const ingestionRuntime = ingestionRuntimeResult.value;
-      const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({});
-      if (planResult.isErr()) return err(planResult.error);
+      return withIngestionRuntime(scope, db, { presentation: 'headless' }, async (ingestionRuntime) => {
+        const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({});
+        if (planResult.isErr()) return err(planResult.error);
 
-      if (!planResult.value) {
-        logger.info('No raw data found to reprocess');
+        if (!planResult.value) {
+          logger.info('No raw data found to reprocess');
+          return ok(undefined);
+        }
+
+        const { accountIds } = planResult.value;
+
+        const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
+        if (resetResult.isErr()) return err(resetResult.error);
+
+        const processResult = await ingestionRuntime.processingWorkflow.processImportedSessions(accountIds);
+        if (processResult.isErr()) return err(processResult.error);
+
+        logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
+
+        if (processResult.value.errors.length > 0) {
+          logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
+        }
+
         return ok(undefined);
-      }
-
-      const { accountIds } = planResult.value;
-
-      const resetResult = await resetProjections(db, 'processed-transactions', accountIds);
-      if (resetResult.isErr()) return err(resetResult.error);
-
-      const processResult = await ingestionRuntime.processingWorkflow.processImportedSessions(accountIds);
-      if (processResult.isErr()) return err(processResult.error);
-
-      logger.info({ processed: processResult.value.processed }, 'Reprocess complete');
-
-      if (processResult.value.errors.length > 0) {
-        logger.warn({ errors: processResult.value.errors.slice(0, 5) }, 'Processing had errors');
-      }
-
-      return ok(undefined);
+      });
     }
   );
 }
@@ -180,39 +177,34 @@ export async function ensureLinksReady(
         autoConfirmThreshold: parseDecimal('0.95'),
       };
 
-      const linkingRuntimeResult = createCliLinkingRuntime({
-        dataDir: scope.dataDir,
-        database: db,
-        format: options.format,
-        profileId: profileScopeResult.value.profileId,
-        profileKey: profileScopeResult.value.profileKey,
-      });
-      if (linkingRuntimeResult.isErr()) {
-        return err(linkingRuntimeResult.error);
-      }
+      return withCliLinkingRuntime(
+        {
+          dataDir: scope.dataDir,
+          database: db,
+          format: options.format,
+          onAbortRegistered: (abort) => options.setAbort?.(abort),
+          onAbortReleased: () => options.setAbort?.(undefined),
+          profileId: profileScopeResult.value.profileId,
+          profileKey: profileScopeResult.value.profileKey,
+        },
+        async (linkingRuntime) => {
+          if (options.format === 'json') {
+            const result = await executeCliLinkingRuntime(linkingRuntime, params);
+            if (result.isErr()) return err(result.error);
+            logger.info('Linking completed (JSON mode)');
+            return ok(undefined);
+          }
 
-      const linkingRuntime = linkingRuntimeResult.value;
+          console.log('\nTransaction links are stale, running linking...\n');
+          if (!linkingRuntime.controller) {
+            return err(new Error('Links controller was not created for interactive linking'));
+          }
 
-      if (options.format === 'json') {
-        const result = await executeCliLinkingRuntime(linkingRuntime, params);
-        if (result.isErr()) return err(result.error);
-        logger.info('Linking completed (JSON mode)');
-        return ok(undefined);
-      }
-
-      console.log('\nTransaction links are stale, running linking...\n');
-      if (!linkingRuntime.controller) {
-        return err(new Error('Links controller was not created for interactive linking'));
-      }
-
-      options.setAbort?.(() => abortCliLinkingRuntime(linkingRuntime));
-      try {
-        const result = await executeCliLinkingRuntime(linkingRuntime, params);
-        if (result.isErr()) return err(result.error);
-        return ok(undefined);
-      } finally {
-        options.setAbort?.(undefined);
-      }
+          const result = await executeCliLinkingRuntime(linkingRuntime, params);
+          if (result.isErr()) return err(result.error);
+          return ok(undefined);
+        }
+      );
     }
   );
 }
