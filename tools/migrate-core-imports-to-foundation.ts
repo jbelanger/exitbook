@@ -169,7 +169,7 @@ function migratePackage(packageDirArg: string): PackageMigrationResult {
     }
   }
 
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
+  const packageJson = readPackageJson(packageJsonPath);
   const usesFoundation =
     packageContainsImport(packageDir, foundationRootModule) ||
     packageContainsImport(packageDir, foundationTestUtilsModule);
@@ -192,6 +192,15 @@ function migratePackage(packageDirArg: string): PackageMigrationResult {
     addedFoundationDependency,
     removedCoreDependency,
   };
+}
+
+function readPackageJson(packageJsonPath: string): Record<string, unknown> {
+  try {
+    return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse package.json at ${packageJsonPath}: ${errorMessage}`);
+  }
 }
 
 function collectImportTypeEdits(

@@ -281,7 +281,9 @@ export class MoralisApiClient extends BaseApiClient {
     const result = await this.httpClient.get(endpoint, { schema: MoralisNativeBalanceSchema });
 
     if (result.isErr()) {
-      this.logger.error(`Failed to fetch raw address balance for ${address} - Error: ${getErrorMessage(result.error)}`);
+      this.logger.error(
+        `Failed to fetch raw address balance for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+      );
       return err(result.error);
     }
 
@@ -290,7 +292,7 @@ export class MoralisApiClient extends BaseApiClient {
     // Convert from wei to decimal
     const balanceDecimal = convertWeiToDecimal(response.balance, this.chainConfig.nativeDecimals);
 
-    this.logger.debug(`Found raw native balance for ${address}: ${balanceDecimal}`);
+    this.logger.debug(`Found raw native balance for ${maskAddress(address)}: ${balanceDecimal}`);
     return ok({
       rawAmount: response.balance,
       symbol: this.chainConfig.nativeCurrency,
@@ -317,7 +319,9 @@ export class MoralisApiClient extends BaseApiClient {
     const result = await this.httpClient.get(endpoint, { schema: z.array(MoralisTokenBalanceSchema) });
 
     if (result.isErr()) {
-      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
+      this.logger.error(
+        `Failed to fetch raw token balances for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+      );
       return err(result.error);
     }
 
@@ -329,7 +333,7 @@ export class MoralisApiClient extends BaseApiClient {
       // Skip tokens with missing decimals - we can't accurately convert them
       if (balance.decimals === null || balance.decimals === undefined) {
         this.logger.warn(
-          `Skipping token ${balance.token_address} with missing decimals (name: ${balance.name || 'unknown'}, symbol: ${balance.symbol || 'unknown'})`
+          `Skipping token ${maskAddress(balance.token_address)} with missing decimals (name: ${balance.name || 'unknown'}, symbol: ${balance.symbol || 'unknown'})`
         );
         continue;
       }
@@ -346,7 +350,7 @@ export class MoralisApiClient extends BaseApiClient {
       });
     }
 
-    this.logger.debug(`Found ${balances.length} raw token balances for ${address}`);
+    this.logger.debug(`Found ${balances.length} raw token balances for ${maskAddress(address)}`);
     return ok(balances);
   }
 

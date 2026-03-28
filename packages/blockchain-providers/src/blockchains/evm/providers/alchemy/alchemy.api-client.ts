@@ -381,7 +381,9 @@ export class AlchemyApiClient extends BaseApiClient {
     });
 
     if (result.isErr()) {
-      this.logger.error(`Failed to fetch native balance for ${address} - Error: ${getErrorMessage(result.error)}`);
+      this.logger.error(
+        `Failed to fetch native balance for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+      );
       return err(result.error);
     }
 
@@ -391,7 +393,7 @@ export class AlchemyApiClient extends BaseApiClient {
     const nativeBalance = tokenBalances.find((balance) => isNativeToken(balance.tokenAddress));
 
     if (!nativeBalance) {
-      this.logger.debug(`No native balance found for ${address}`);
+      this.logger.debug(`No native balance found for ${maskAddress(address)}`);
       return ok({
         rawAmount: '0',
         symbol: this.chainConfig.nativeCurrency,
@@ -405,7 +407,7 @@ export class AlchemyApiClient extends BaseApiClient {
     const decimals = metadata?.decimals ?? 18;
 
     this.logger.debug(
-      `Found native balance for ${address}: ${nativeBalance.tokenBalance} (${symbol}, ${decimals} decimals)`
+      `Found native balance for ${maskAddress(address)}: ${nativeBalance.tokenBalance} (${symbol}, ${decimals} decimals)`
     );
 
     return ok({
@@ -439,7 +441,9 @@ export class AlchemyApiClient extends BaseApiClient {
     });
 
     if (result.isErr()) {
-      this.logger.error(`Failed to fetch token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
+      this.logger.error(
+        `Failed to fetch token balances for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
+      );
       return err(result.error);
     }
 
@@ -467,7 +471,7 @@ export class AlchemyApiClient extends BaseApiClient {
       });
     }
 
-    this.logger.debug(`Found ${balances.length} token balances for ${address}`);
+    this.logger.debug(`Found ${balances.length} token balances for ${maskAddress(address)}`);
     return ok(balances);
   }
 

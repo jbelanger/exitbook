@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import { type AssetReferenceStatus, wrapError, pickLatestDate } from '@exitbook/foundation';
+import { type AssetReferenceStatus, maskAddress, wrapError, pickLatestDate } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -93,6 +93,8 @@ function mapReferencePlatformMappingRow(row: ReferencePlatformMappingSelectableR
 export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
   const logger = getLogger('token-metadata-queries');
 
+  const maskContractAddress = (contractAddress: string) => maskAddress(contractAddress);
+
   function mapTokenMetadataRow(row: TokenMetadataSelectableRow): TokenMetadataRecord {
     return {
       blockchain: row.blockchain,
@@ -126,14 +128,16 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         .executeTakeFirst();
 
       if (!row) {
-        logger.debug(`Token metadata not found - Blockchain: ${blockchain}, Contract: ${contractAddress}`);
+        logger.debug(
+          `Token metadata not found - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}`
+        );
         return ok(undefined);
       }
 
       const metadata = mapTokenMetadataRow(row);
 
       logger.debug(
-        `Token metadata found - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${metadata.symbol ?? 'unknown'}`
+        `Token metadata found - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${metadata.symbol ?? 'unknown'}`
       );
       return ok(metadata);
     } catch (error) {
@@ -293,7 +297,7 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         const deleteResult = await deleteSymbolIndex(db, logger, blockchain, existing.symbol, contractAddress);
         if (deleteResult.isErr()) {
           logger.warn(
-            `Failed to delete old symbol index - Blockchain: ${blockchain}, Contract: ${contractAddress}, Old Symbol: ${existing.symbol}, Error: ${deleteResult.error.message}`
+            `Failed to delete old symbol index - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Old Symbol: ${existing.symbol}, Error: ${deleteResult.error.message}`
           );
         }
       }
@@ -302,13 +306,13 @@ export function createTokenMetadataQueries(db: Kysely<TokenMetadataDatabase>) {
         const symbolIndexResult = await upsertSymbolIndex(db, logger, blockchain, mergedSymbol, contractAddress);
         if (symbolIndexResult.isErr()) {
           logger.warn(
-            `Failed to update symbol index - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${mergedSymbol}, Error: ${symbolIndexResult.error.message}`
+            `Failed to update symbol index - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${mergedSymbol}, Error: ${symbolIndexResult.error.message}`
           );
         }
       }
 
       logger.debug(
-        `Token metadata saved - Blockchain: ${blockchain}, Contract: ${contractAddress}, Symbol: ${mergedSymbol ?? 'unknown'}, Source: ${metadata.source}`
+        `Token metadata saved - Blockchain: ${blockchain}, Contract: ${maskContractAddress(contractAddress)}, Symbol: ${mergedSymbol ?? 'unknown'}, Source: ${metadata.source}`
       );
       return ok(undefined);
     } catch (error) {

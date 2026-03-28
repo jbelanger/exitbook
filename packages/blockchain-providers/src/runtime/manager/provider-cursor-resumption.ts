@@ -64,7 +64,7 @@ export function resolveCursorForResumption(
 
   if (resumeCursor.primary.type === 'pageToken' && resumeCursor.primary.providerName === config.providerName) {
     resolved.pageToken = resumeCursor.primary.value;
-    logger.info(`Resuming from ${config.providerName} pageToken: ${resolved.pageToken}`);
+    logger.info(`Resuming from ${config.providerName} pageToken`);
     return resolved;
   }
 
