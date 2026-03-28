@@ -38,7 +38,6 @@ export class BalanceHandler {
     });
     this.verificationRunner = new BalanceVerificationRunner({
       accountService,
-      db,
       balanceOperation,
       assetDetailsBuilder,
     });

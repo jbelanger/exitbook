@@ -60,7 +60,7 @@ async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: Cli
   } else if (options.accountId) {
     await executeBalanceRefreshSingleTUI(options, appRuntime);
   } else {
-    await executeBalanceRefreshAllTUI(options, appRuntime);
+    await executeBalanceRefreshAllTUI(appRuntime);
   }
 }
 
@@ -224,10 +224,7 @@ async function executeBalanceRefreshSingleTUI(
   }
 }
 
-async function executeBalanceRefreshAllTUI(
-  options: BalanceRefreshCommandOptions,
-  appRuntime: CliAppRuntime
-): Promise<void> {
+async function executeBalanceRefreshAllTUI(appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
       const database = await ctx.database();

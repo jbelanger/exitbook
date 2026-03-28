@@ -77,7 +77,7 @@ function createMockOverrideStore(
     exists: vi.fn().mockImplementation(() => events.length > 0),
     readByScopes: vi
       .fn()
-      .mockImplementation(async (profileKey: string, scopes: OverrideEvent['scope'][]) =>
+      .mockImplementation(async (_profileKey: string, scopes: OverrideEvent['scope'][]) =>
         ok(events.filter((event) => scopes.includes(event.scope)))
       ),
   };
