@@ -131,8 +131,8 @@ const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Providers{filterLabel}</Text>
-      <Text> </Text>
-      <Text>{totalCount} total</Text>
+      <Text dimColor> </Text>
+      <Text dimColor>{totalCount} total</Text>
       {healthParts.length > 0 && (
         <>
           {healthParts.map((part) => (
@@ -153,9 +153,8 @@ const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
       )}
       {apiKeyRequiredCount > 0 && (
         <>
-          <Text> </Text>
-          <Text>{apiKeyRequiredCount}</Text>
-          <Text dimColor> require API key</Text>
+          <Text dimColor> · </Text>
+          <Text dimColor>{apiKeyRequiredCount} require API key</Text>
         </>
       )}
     </Box>

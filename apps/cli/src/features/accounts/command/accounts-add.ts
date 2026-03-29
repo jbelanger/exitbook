@@ -10,13 +10,13 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 import { maskIdentifier } from '../query/account-query-utils.js';
 
-import { buildNamedAccountDraft } from './account-draft-utils.js';
+import { buildCreateAccountInput } from './account-draft-utils.js';
 import { AccountAddCommandOptionsSchema } from './accounts-option-schemas.js';
 
 export function registerAccountsAddCommand(accountsCommand: Command, appRuntime: CliAppRuntime): void {
   accountsCommand
     .command('add')
-    .description('Add a named account')
+    .description('Add an account')
     .addHelpText(
       'after',
       `
@@ -58,12 +58,12 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
         displayCliError('accounts-add', profileResult.error, ExitCodes.GENERAL_ERROR, format);
       }
 
-      const draftResult = buildNamedAccountDraft(name, profileResult.value.id, options, appRuntime.adapterRegistry);
+      const draftResult = buildCreateAccountInput(name, profileResult.value.id, options, appRuntime.adapterRegistry);
       if (draftResult.isErr()) {
         displayCliError('accounts-add', draftResult.error, ExitCodes.INVALID_ARGS, format);
       }
 
-      const addResult = await buildCliAccountLifecycleService(db).createNamed(draftResult.value);
+      const addResult = await buildCliAccountLifecycleService(db).create(draftResult.value);
       if (addResult.isErr()) {
         displayCliError('accounts-add', addResult.error, ExitCodes.GENERAL_ERROR, format);
       }

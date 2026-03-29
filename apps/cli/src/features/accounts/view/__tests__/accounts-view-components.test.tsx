@@ -1,5 +1,5 @@
 import { render } from 'ink-testing-library';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AccountViewItem } from '../../accounts-view-model.js';
 import { AccountsViewApp } from '../accounts-view-components.jsx';
@@ -28,6 +28,35 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
 }
 
 describe('AccountsViewApp', () => {
+  it('renders a single tip line in the empty state', () => {
+    vi.useFakeTimers();
+    const onQuit = vi.fn();
+    const state = createAccountsViewState([], { showSessions: false }, 0);
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={onQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('No accounts found.');
+    expect(frame).toContain('Tip: exitbook accounts add my-wallet --blockchain ethereum --address 0x...');
+    expect(frame).not.toContain('Create an account first');
+    expect(frame).not.toContain('q quit');
+    expect(onQuit).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(100);
+    expect(onQuit).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+
   it('renders warning verification status without falling back to unknown', () => {
     const state = createAccountsViewState(
       [createAccountViewItem({ balanceProjectionStatus: 'fresh', verificationStatus: 'warning' })],
@@ -48,7 +77,7 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('0 sess ✓proj !ver');
+    expect(frame).toContain('0 imports proj:fresh ver:warn');
     expect(frame).not.toContain('unknown');
   });
 
@@ -77,7 +106,7 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('0 sess ✓proj ?ver');
+    expect(frame).toContain('0 imports proj:fresh ver:n/a');
     expect(frame).not.toContain('unknown');
   });
 
@@ -106,7 +135,7 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('0 sess !proj ✓ver');
+    expect(frame).toContain('0 imports proj:stale ver:ok');
     expect(frame).not.toContain('unknown');
   });
 
@@ -142,5 +171,44 @@ describe('AccountsViewApp', () => {
     expect(frame).toContain('kraken-main');
     expect(frame).toContain('abcdefghijk123');
     expect(frame).toContain('Name: kraken-main');
+  });
+
+  it('does not emit duplicate key warnings when child and session ids overlap', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const state = createAccountsViewState(
+      [
+        createAccountViewItem({
+          childAccounts: [
+            {
+              id: 2,
+              identifier: 'bc1qchildaddress',
+              sessionCount: 1,
+              balanceProjectionStatus: 'fresh',
+              verificationStatus: 'warning',
+            },
+          ],
+          sessions: [
+            {
+              id: 2,
+              status: 'completed',
+              startedAt: '2026-03-12T10:00:00.000Z',
+              completedAt: '2026-03-12T10:05:00.000Z',
+            },
+          ],
+        }),
+      ],
+      { showSessions: true },
+      1
+    );
+
+    render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('Encountered two children with the same key');
+    consoleError.mockRestore();
   });
 });

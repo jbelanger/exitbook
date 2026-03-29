@@ -351,7 +351,7 @@ Notes:
 - [Asset Review](../../asset-review.md)
 - [Balance Projection](../../balance-projection.md)
 - [Balance CLI](../balance/balance-view-spec.md)
-- [CLI Surface V2](../cli-surface-v2-spec.md)
+- [CLI Surface V3](../cli-surface-v3-spec.md)
 
 ---
 

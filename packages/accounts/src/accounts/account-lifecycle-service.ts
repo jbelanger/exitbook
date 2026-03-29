@@ -35,7 +35,7 @@ interface AccountLifecycleStore {
   ): Promise<Result<void, Error>>;
 }
 
-export interface CreateNamedAccountInput {
+export interface CreateAccountInput {
   profileId: number;
   name: string;
   accountType: AccountType;
@@ -46,7 +46,7 @@ export interface CreateNamedAccountInput {
   metadata?: Account['metadata'] | undefined;
 }
 
-export interface UpdateNamedAccountInput {
+export interface UpdateAccountInput {
   credentials?: ExchangeCredentials | undefined;
   identifier?: string | undefined;
   metadata?: Account['metadata'] | undefined;
@@ -66,7 +66,7 @@ function normalizeAccountName(name: string): Result<string, Error> {
 export class AccountLifecycleService {
   constructor(private readonly store: AccountLifecycleStore) {}
 
-  async createNamed(input: CreateNamedAccountInput): Promise<Result<Account, Error>> {
+  async create(input: CreateAccountInput): Promise<Result<Account, Error>> {
     const normalizedNameResult = normalizeAccountName(input.name);
     if (normalizedNameResult.isErr()) {
       return err(normalizedNameResult.error);
@@ -111,7 +111,7 @@ export class AccountLifecycleService {
 
       return err(
         new Error(
-          `Account config already exists as unnamed account #${existingByKey.id}. Clear and recreate that profile data before adding it again.`
+          `Account config already exists as top-level account #${existingByKey.id}. Clear and recreate that profile data before adding it again.`
         )
       );
     }
@@ -199,7 +199,7 @@ export class AccountLifecycleService {
     return this.requireAccount(accountResult.value.id);
   }
 
-  async updateNamed(profileId: number, name: string, input: UpdateNamedAccountInput): Promise<Result<Account, Error>> {
+  async update(profileId: number, name: string, input: UpdateAccountInput): Promise<Result<Account, Error>> {
     if (
       input.identifier === undefined &&
       input.providerName === undefined &&
@@ -242,7 +242,7 @@ export class AccountLifecycleService {
 
         return err(
           new Error(
-            `Account config is already tracked by unnamed account #${duplicate.id}. Clear and recreate that profile data before reusing this config.`
+            `Account config is already tracked by top-level account #${duplicate.id}. Clear and recreate that profile data before reusing this config.`
           )
         );
       }

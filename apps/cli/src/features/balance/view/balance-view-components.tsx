@@ -180,7 +180,7 @@ const VerificationHeader: FC<{ state: BalanceVerificationState }> = ({ state }) 
     return (
       <Box>
         <Text bold>Balance Verification</Text>
-        <Text>
+        <Text dimColor>
           {'  '}
           {accounts.length} accounts
         </Text>
@@ -192,7 +192,7 @@ const VerificationHeader: FC<{ state: BalanceVerificationState }> = ({ state }) 
   return (
     <Box>
       <Text bold>Balance Verification</Text>
-      <Text>
+      <Text dimColor>
         {'  '}
         {summary.verified} verified
       </Text>
@@ -605,7 +605,7 @@ const StoredSnapshotHeader: FC<{ state: BalanceStoredSnapshotState }> = ({ state
     <Box>
       <Text bold>Balances</Text>
       <Text dimColor> (stored snapshots{filterLabel})</Text>
-      <Text>
+      <Text dimColor>
         {'  '}
         {state.totalAccounts} accounts
       </Text>

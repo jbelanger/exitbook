@@ -1,9 +1,12 @@
 ---
 last_verified: 2026-03-29
-status: draft
+status: superseded-draft
+superseded_by: cli-surface-v3-spec.md
 ---
 
 # CLI Surface V2 Specification
+
+> Superseded by [CLI Surface V3](./cli-surface-v3-spec.md). Retained for migration history only.
 
 > Code is law: if this document disagrees with implementation, the implementation is correct and this spec must be updated.
 
@@ -13,12 +16,13 @@ This spec defines the command taxonomy, presentation mode rules, naming conventi
 
 | Concept                   | Rule                                                  |
 | ------------------------- | ----------------------------------------------------- |
-| Browse commands           | TUI by default; `--text` for snapshots                |
+| Bare namespace commands   | `text` by default; quick snapshot only                |
+| `view` explorer commands  | `tui` on terminal; `text` fallback off-terminal       |
 | Workflow commands         | `text-progress` by default; `--tui` for Ink dashboard |
 | Mutate / export           | `text` always; no TUI unless explicitly justified     |
 | `--json`                  | Machine output; never launches TUI or text-progress   |
 | `--json`/`--text`/`--tui` | Mutually exclusive; CLI exits with validation error   |
-| Browse flags              | Narrow initial state; do not force text mode          |
+| Browse flags              | Narrow initial state; do not replace the depth model  |
 | Long-running workflows    | One execution engine, multiple renderers              |
 | Acceptance scope          | Applies to the full currently registered CLI surface  |
 
@@ -50,6 +54,7 @@ The current CLI mostly uses a binary output model:
 That model is too coarse.
 
 - Browse commands need filters and still should open in TUI.
+- Domain namespaces should answer a quick question without forcing users through `view`.
 - Long-running workflows need live progress in both interactive and non-interactive contexts.
 - One-shot action commands should remain fast, plain, and legible without requiring TUI.
 - "Non-TUI" is not a useful internal product concept because it conflates snapshot output with live progress output.
@@ -58,13 +63,13 @@ That model is too coarse.
 
 Intent drives presentation, but user journeys drive information architecture. The current CLI surface should read as five coherent workflows:
 
-| Journey              | Goal                                                        | Commands                                                                              |
-| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Workspace setup      | choose a working dataset and inspect available integrations | `profiles`, `accounts`, `blockchains`, `providers`                                    |
-| Sync and rebuild     | fetch or regenerate current derived state                   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`                |
-| Review and resolve   | inspect suspicious, missing, or ambiguous data              | `accounts view`, `transactions view`, `links view`, `links gaps`, `assets view`       |
-| Analyze and export   | inspect outcomes and emit artifacts                         | `portfolio`, `balance view`, `cost-basis`, `transactions export`, `cost-basis export` |
-| Cleanup and recovery | safely remove or reset data                                 | `clear`                                                                               |
+| Journey              | Goal                                                        | Commands                                                                         |
+| -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Workspace setup      | choose a working dataset and inspect available integrations | `profiles`, `accounts`, `blockchains`, `providers`                               |
+| Sync and rebuild     | fetch or regenerate current derived state                   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`           |
+| Review and resolve   | inspect suspicious, missing, or ambiguous data              | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`, `balance` |
+| Analyze and export   | inspect outcomes and emit artifacts                         | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`            |
+| Cleanup and recovery | safely remove or reset data                                 | `clear`                                                                          |
 
 The journey overlay is what keeps new namespaces from feeling arbitrary. A new command must fit both a command intent and a user journey.
 
@@ -97,6 +102,24 @@ type PresentationMode = 'json' | 'text' | 'text-progress' | 'tui';
 - `text-progress`: human-readable progress updates during a running workflow
 - `tui`: interactive Ink application
 
+### Browse Entrypoint Roles
+
+Browse-heavy namespaces expose two standard entrypoint roles:
+
+| Entrypoint role | Typical syntax           | Human goal                            | Default presentation |
+| --------------- | ------------------------ | ------------------------------------- | -------------------- |
+| `snapshot`      | `exitbook accounts`      | get a quick answer                    | `text`               |
+| `explorer`      | `exitbook accounts view` | browse, drill down, act interactively | `tui`                |
+
+Focused landing inside the explorer may still accept a selector such as:
+
+```text
+exitbook accounts view kraken-main
+```
+
+Static detail, when needed, should be expressed as a dedicated subcommand rather than a positional variant of the snapshot entrypoint.
+When an explorer command falls back to non-interactive text, it must collapse to one static surface: either a list/table or a detail card. It must not try to preserve the TUI's master-detail layout.
+
 ### Interactive Terminal
 
 A command is considered interactive when all of the following are true:
@@ -113,87 +136,96 @@ Common edge case: `exitbook transactions view | head` is non-interactive for pre
 
 ### Core Rule
 
-Default presentation follows directly from command intent:
+Default presentation follows from the entrypoint role, not just the semantic intent:
 
-| Intent               | Default (interactive) | Default (non-interactive) |
+| Entrypoint role      | Default (interactive) | Default (non-interactive) |
 | -------------------- | --------------------- | ------------------------- |
-| `browse`             | `tui`                 | `text`                    |
+| `snapshot`           | `text`                | `text`                    |
+| `explorer`           | `tui`                 | `text`                    |
 | `workflow`           | `text-progress`       | `text-progress`           |
 | `mutate`             | `text`                | `text`                    |
 | `export`             | `text`                | `text`                    |
 | `destructive-review` | `tui`                 | `text` (no execute)       |
 
-TUI is reserved for commands with real interaction value: list/detail navigation, drill-down, inline actions. Workflow monitors — progress displays without keyboard interaction — use `text-progress` by default. Users can opt into the Ink dashboard for workflows via `--tui`.
+TUI is reserved for explorer entrypoints with real interaction value: list/detail navigation, drill-down, inline actions. Snapshot entrypoints are intentionally text-first even on interactive terminals. Workflow monitors — progress displays without keyboard interaction — use `text-progress` by default. Users can opt into the Ink dashboard for workflows via `--tui`.
 
 `json` remains the machine-facing mode.
 
 ### Browse Commands May Trigger Workflow-Style Prereqs
 
-Some browse commands (`cost-basis`, `portfolio`, `balance view`) implicitly rebuild upstream projections (processed transactions, links, price coverage) before rendering. When a browse command triggers a prereq rebuild, the rebuild uses its own presenter selected by the current presentation mode — it does not inherit the browse command's static text renderer. This means a `cost-basis --text` invocation may emit `text-progress` output for stale projections before printing the final text snapshot.
+Some browse commands (`cost-basis`, `portfolio`, `balance`, `balance view`) implicitly rebuild upstream projections (processed transactions, links, price coverage) before rendering. When a browse command triggers a prereq rebuild, the rebuild uses its own presenter selected by the current presentation mode — it does not inherit the browse command's static text renderer. This means a `cost-basis --text` invocation may emit `text-progress` output for stale projections before printing the final text snapshot.
 
 This is intentional: the prereq rebuild is a workflow sub-operation with different rendering needs than the parent browse command. Phase 4 of the migration plan formalizes this by introducing a projection monitor contract.
 
 ### Command Taxonomy
 
-The taxonomy below is exhaustive for the current runnable CLI surface. Aliases such as `accounts list` are covered by their canonical target (`accounts view`).
+The taxonomy below is the target surface model for browse-heavy namespaces. Aliases such as `accounts list` are covered by their canonical target.
 
 #### Workspace Setup
 
-| Command               | Intent     | Default on interactive terminal | Default off terminal / CI |
-| --------------------- | ---------- | ------------------------------- | ------------------------- |
-| `profiles list`       | `export`   | `text`                          | `text`                    |
-| `profiles current`    | `export`   | `text`                          | `text`                    |
-| `profiles add`        | `mutate`   | `text`                          | `text`                    |
-| `profiles rename`     | `mutate`   | `text`                          | `text`                    |
-| `profiles switch`     | `mutate`   | `text`                          | `text`                    |
-| `accounts view`       | `browse`   | `tui`                           | `text`                    |
-| `accounts add`        | `mutate`   | `text`                          | `text`                    |
-| `accounts update`     | `mutate`   | `text`                          | `text`                    |
-| `accounts rename`     | `mutate`   | `text`                          | `text`                    |
-| `accounts remove`     | `mutate`   | `text`                          | `text`                    |
-| `blockchains view`    | `browse`   | `tui`                           | `text`                    |
-| `providers view`      | `browse`   | `tui`                           | `text`                    |
-| `providers benchmark` | `workflow` | `text-progress`                 | `text-progress`           |
+| Command               | Role / intent | Default on interactive terminal | Default off terminal / CI |
+| --------------------- | ------------- | ------------------------------- | ------------------------- |
+| `profiles`            | `snapshot`    | `text`                          | `text`                    |
+| `profiles current`    | `export`      | `text`                          | `text`                    |
+| `profiles add`        | `mutate`      | `text`                          | `text`                    |
+| `profiles rename`     | `mutate`      | `text`                          | `text`                    |
+| `profiles switch`     | `mutate`      | `text`                          | `text`                    |
+| `accounts`            | `snapshot`    | `text`                          | `text`                    |
+| `accounts view`       | `explorer`    | `tui`                           | `text`                    |
+| `accounts add`        | `mutate`      | `text`                          | `text`                    |
+| `accounts update`     | `mutate`      | `text`                          | `text`                    |
+| `accounts rename`     | `mutate`      | `text`                          | `text`                    |
+| `accounts remove`     | `mutate`      | `text`                          | `text`                    |
+| `blockchains`         | `snapshot`    | `text`                          | `text`                    |
+| `blockchains view`    | `explorer`    | `tui`                           | `text`                    |
+| `providers`           | `snapshot`    | `text`                          | `text`                    |
+| `providers view`      | `explorer`    | `tui`                           | `text`                    |
+| `providers benchmark` | `workflow`    | `text-progress`                 | `text-progress`           |
 
 #### Sync And Rebuild
 
-| Command           | Intent     | Default on interactive terminal | Default off terminal / CI |
-| ----------------- | ---------- | ------------------------------- | ------------------------- |
-| `import`          | `workflow` | `text-progress`                 | `text-progress`           |
-| `reprocess`       | `workflow` | `text-progress`                 | `text-progress`           |
-| `links run`       | `workflow` | `text-progress`                 | `text-progress`           |
-| `prices enrich`   | `workflow` | `text-progress`                 | `text-progress`           |
-| `balance refresh` | `workflow` | `text-progress`                 | `text-progress`           |
+| Command           | Role / intent | Default on interactive terminal | Default off terminal / CI |
+| ----------------- | ------------- | ------------------------------- | ------------------------- |
+| `import`          | `workflow`    | `text-progress`                 | `text-progress`           |
+| `reprocess`       | `workflow`    | `text-progress`                 | `text-progress`           |
+| `links run`       | `workflow`    | `text-progress`                 | `text-progress`           |
+| `prices enrich`   | `workflow`    | `text-progress`                 | `text-progress`           |
+| `balance refresh` | `workflow`    | `text-progress`                 | `text-progress`           |
 
 #### Review And Resolve
 
-| Command                  | Intent   | Default on interactive terminal | Default off terminal / CI |
-| ------------------------ | -------- | ------------------------------- | ------------------------- |
-| `transactions view`      | `browse` | `tui`                           | `text`                    |
-| `transactions edit note` | `mutate` | `text`                          | `text`                    |
-| `links view`             | `browse` | `tui`                           | `text`                    |
-| `links gaps`             | `browse` | `tui`                           | `text`                    |
-| `links confirm`          | `mutate` | `text`                          | `text`                    |
-| `links reject`           | `mutate` | `text`                          | `text`                    |
-| `assets view`            | `browse` | `tui`                           | `text`                    |
-| `assets confirm`         | `mutate` | `text`                          | `text`                    |
-| `assets clear-review`    | `mutate` | `text`                          | `text`                    |
-| `assets include`         | `mutate` | `text`                          | `text`                    |
-| `assets exclude`         | `mutate` | `text`                          | `text`                    |
-| `assets exclusions`      | `export` | `text`                          | `text`                    |
-| `prices view`            | `browse` | `tui`                           | `text`                    |
-| `prices set`             | `mutate` | `text`                          | `text`                    |
-| `prices set-fx`          | `mutate` | `text`                          | `text`                    |
-| `balance view`           | `browse` | `tui`                           | `text`                    |
+| Command                  | Role / intent | Default on interactive terminal | Default off terminal / CI |
+| ------------------------ | ------------- | ------------------------------- | ------------------------- |
+| `transactions`           | `snapshot`    | `text`                          | `text`                    |
+| `transactions view`      | `explorer`    | `tui`                           | `text`                    |
+| `transactions edit note` | `mutate`      | `text`                          | `text`                    |
+| `links`                  | `snapshot`    | `text`                          | `text`                    |
+| `links view`             | `explorer`    | `tui`                           | `text`                    |
+| `links gaps`             | `explorer`    | `tui`                           | `text`                    |
+| `links confirm`          | `mutate`      | `text`                          | `text`                    |
+| `links reject`           | `mutate`      | `text`                          | `text`                    |
+| `assets`                 | `snapshot`    | `text`                          | `text`                    |
+| `assets view`            | `explorer`    | `tui`                           | `text`                    |
+| `assets confirm`         | `mutate`      | `text`                          | `text`                    |
+| `assets clear-review`    | `mutate`      | `text`                          | `text`                    |
+| `assets include`         | `mutate`      | `text`                          | `text`                    |
+| `assets exclude`         | `mutate`      | `text`                          | `text`                    |
+| `assets exclusions`      | `export`      | `text`                          | `text`                    |
+| `prices`                 | `snapshot`    | `text`                          | `text`                    |
+| `prices view`            | `explorer`    | `tui`                           | `text`                    |
+| `prices set`             | `mutate`      | `text`                          | `text`                    |
+| `prices set-fx`          | `mutate`      | `text`                          | `text`                    |
+| `balance`                | `snapshot`    | `text`                          | `text`                    |
+| `balance view`           | `explorer`    | `tui`                           | `text`                    |
 
 #### Analyze And Export
 
-| Command               | Intent   | Default on interactive terminal | Default off terminal / CI |
-| --------------------- | -------- | ------------------------------- | ------------------------- |
-| `portfolio`           | `browse` | `tui`                           | `text`                    |
-| `cost-basis`          | `browse` | `tui`                           | `text`                    |
-| `cost-basis export`   | `export` | `text`                          | `text`                    |
-| `transactions export` | `export` | `text`                          | `text`                    |
+| Command               | Role / intent | Default on interactive terminal | Default off terminal / CI |
+| --------------------- | ------------- | ------------------------------- | ------------------------- |
+| `portfolio`           | `snapshot`    | `text`                          | `text`                    |
+| `cost-basis`          | `snapshot`    | `text`                          | `text`                    |
+| `cost-basis export`   | `export`      | `text`                          | `text`                    |
+| `transactions export` | `export`      | `text`                          | `text`                    |
 
 #### Cleanup And Recovery
 
@@ -201,7 +233,7 @@ The taxonomy below is exhaustive for the current runnable CLI surface. Aliases s
 | ------- | -------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
 | `clear` | `destructive-review` | `tui`                           | `text` preview only; execution requires `--confirm`, otherwise exit non-zero |
 
-Top-level namespace commands such as `accounts`, `assets`, `balance`, `blockchains`, `links`, `prices`, `profiles`, `providers`, and `transactions` are grouping commands, not standalone execution targets, so they are not assigned intents separately.
+Top-level namespace commands such as `accounts`, `assets`, `balance`, `blockchains`, `links`, `prices`, `profiles`, `providers`, and `transactions` should become standalone snapshot entrypoints rather than dead-end grouping commands.
 
 ## Mode Selection Rules
 
@@ -211,7 +243,7 @@ Mode resolution follows this order:
 
 1. `--json`
 2. `--text`
-3. command-intent default
+3. entrypoint-role default
 4. fallback safety rule
 
 ### Override Flags
@@ -219,11 +251,11 @@ Mode resolution follows this order:
 This spec standardizes two explicit output overrides:
 
 - `--text` — force human-readable text output without TUI or live progress. Command intent determines whether the renderer is `text` or `text-progress`.
-- `--tui` — force the Ink dashboard for workflow commands. Only meaningful for `workflow` intent; ignored or errors for other intents.
+- `--tui` — force the Ink dashboard for workflow commands. Snapshot commands should not use this flag; use the explicit `view` explorer command instead.
 
-`--tui` exists because workflow commands default to `text-progress`, not TUI. Users who prefer the Ink progress dashboard can opt in per invocation. Browse commands do not need `--tui` because they already default to TUI on interactive terminals.
+`--tui` exists because workflow commands default to `text-progress`, not TUI. Users who prefer the Ink progress dashboard can opt in per invocation. Explorer commands already encode the TUI choice in the command shape itself.
 
-For `mutate` and `export` commands, `--text` is a no-op because these commands already default to `text` in all contexts. Implementations should accept the flag silently rather than erroring, but should not register special `--text` handling for these intents.
+For `snapshot`, `mutate`, and `export` commands, `--text` is a no-op because these commands already default to `text` in all contexts. Implementations should accept the flag silently rather than erroring, but should not register special `--text` handling for these entrypoint roles.
 
 `--no-tui` is not the preferred surface because it describes implementation rather than output behavior. It may exist as a temporary compatibility alias for `--text` during migration, but it is not the canonical flag.
 
@@ -243,17 +275,18 @@ function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOpti
   if (options.json === true) return 'json';
 
   if (options.tui === true) {
-    if (spec.intent !== 'workflow' && spec.intent !== 'browse' && spec.intent !== 'destructive-review') {
-      throw new Error('--tui is not supported for this command');
+    if (spec.role === 'workflow' || spec.role === 'explorer' || spec.role === 'destructive-review') {
+      return 'tui';
     }
-    return 'tui';
+
+    throw new Error('--tui is not supported for this command; use the explicit view command instead');
   }
 
   if (options.text === true) {
     return spec.nonTuiOverrideMode;
   }
 
-  if (spec.intent === 'mutate' || spec.intent === 'export') {
+  if (spec.role === 'snapshot' || spec.role === 'mutate' || spec.role === 'export') {
     return 'text';
   }
 
@@ -265,26 +298,41 @@ function resolvePresentationMode(spec: CommandPresentationSpec, options: RawOpti
 }
 ```
 
-This resolves the top-level command's presentation mode. Browse commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 4 governs that behavior — the resolver above does not override it.
+This resolves the selected entrypoint's presentation mode. Browse snapshot commands that trigger upstream projection rebuilds (e.g., `cost-basis`, `portfolio`, `balance`) may internally use a `text-progress` presenter for those sub-operations even when the parent command resolves to `text`. The projection monitor contract in Phase 4 governs that behavior — the resolver above does not override it.
 
 ### Fallback Safety Rules
 
-- `browse` commands off-terminal must not try to mount Ink. They render a text snapshot instead.
+- `snapshot` commands must always remain text-first.
+- `explorer` commands off-terminal must not try to mount Ink.
+- preferred behavior for `explorer` commands off-terminal is a text fallback rendered as one static surface: either a table/list or a detail card, depending on the requested scope.
+- explorer fallbacks must never emulate the TUI's master-detail layout in static output.
+- until a given explorer has a snapshot fallback, it may exit with a single-line CLI error that explains the TTY requirement and points to a non-interactive mode.
+- React or Ink stack traces are never an acceptable non-interactive failure mode.
 - `workflow` commands off-terminal must not silently degrade to a bare success line. They render progress and completion in `text-progress`.
 - Both `text` and `text-progress` must be CI-safe, line-oriented terminal output. They must not depend on cursor control, spinners, or full-screen terminal behavior.
 - `--json` remains the only mode intended for machine parsing.
 
 ## Flag Semantics
 
-### Browse Commands
+### Snapshot And Explorer Commands
 
-Flags narrow the initial state. They do not imply a non-TUI path.
+Browse-heavy namespaces expose two human-facing depths:
+
+- bare namespace commands for text snapshots
+- explicit `view` commands for immersive exploration
+- dedicated detail subcommands for focused non-interactive detail, if a family truly needs them
+- explorer fallbacks collapse to one static surface; they do not become static master-detail views
+
+Flags narrow the initial state at either depth. They do not replace the depth model.
 
 Examples:
 
-- `transactions view --asset BTC` means "open the transaction browser scoped to BTC"
+- `accounts` means "show me the quick account snapshot"
+- `accounts view` means "open the interactive account explorer"
+- `accounts view kraken-main` means "open the interactive account explorer focused on that account"
+- `transactions view --asset BTC` means "open the transaction explorer scoped to BTC"
 - `prices view --missing-only --platform kraken` means "open the missing-price browser scoped to Kraken"
-- `cost-basis --asset ETH` means "calculate as requested, then land directly on ETH details"
+- `cost-basis --asset ETH` means "calculate as requested, then scope the report to ETH"
 
 ### Workflow Commands
 
@@ -373,7 +421,7 @@ Use verbs consistently:
 
 | Verb                  | Meaning                                |
 | --------------------- | -------------------------------------- |
-| `view`                | Open a browse/review surface           |
+| `view`                | Open the immersive explorer/TUI        |
 | `run`                 | Execute a workflow process             |
 | `refresh`             | Rebuild and re-verify stored state     |
 | `enrich`              | Fill gaps in existing domain data      |
@@ -401,11 +449,13 @@ Replace the current boolean `isJsonMode` branching with explicit presentation co
 
 ```ts
 type CommandIntent = 'browse' | 'workflow' | 'mutate' | 'destructive-review' | 'export';
+type CommandEntrypointRole = 'snapshot' | 'explorer' | 'workflow' | 'mutate' | 'export' | 'destructive-review';
 
 interface CommandPresentationSpec {
   /** Identifies the command in diagnostics and logging; not used by the resolver. */
   commandId: string;
   intent: CommandIntent;
+  role: CommandEntrypointRole;
   interactiveDefaultMode: Extract<PresentationMode, 'tui' | 'text' | 'text-progress'>;
   nonTuiOverrideMode: Extract<PresentationMode, 'text' | 'text-progress'>;
   fallbackNonInteractiveMode: Extract<PresentationMode, 'text' | 'text-progress'>;
@@ -414,13 +464,25 @@ interface CommandPresentationSpec {
 
 Each command must define its spec as a const export co-located with the command registration. The shared resolver consumes these directly — there is no central registry map. A registry is unnecessary because `resolvePresentationMode` receives the spec from the caller; it does not look it up by name.
 
-For commands with fixed presentation behavior, use intent-based helper constructors to eliminate boilerplate:
+For commands with fixed presentation behavior, use entrypoint-role helper constructors to eliminate boilerplate:
 
 ```ts
-function browsePresentationSpec(commandId: string): CommandPresentationSpec {
+function snapshotPresentationSpec(commandId: string): CommandPresentationSpec {
   return {
     commandId,
     intent: 'browse',
+    role: 'snapshot',
+    interactiveDefaultMode: 'text',
+    nonTuiOverrideMode: 'text',
+    fallbackNonInteractiveMode: 'text',
+  };
+}
+
+function explorerPresentationSpec(commandId: string): CommandPresentationSpec {
+  return {
+    commandId,
+    intent: 'browse',
+    role: 'explorer',
     interactiveDefaultMode: 'tui',
     nonTuiOverrideMode: 'text',
     fallbackNonInteractiveMode: 'text',
@@ -431,6 +493,7 @@ function workflowPresentationSpec(commandId: string): CommandPresentationSpec {
   return {
     commandId,
     intent: 'workflow',
+    role: 'workflow',
     interactiveDefaultMode: 'text-progress',
     nonTuiOverrideMode: 'text-progress',
     fallbackNonInteractiveMode: 'text-progress',
@@ -441,6 +504,7 @@ function mutatePresentationSpec(commandId: string): CommandPresentationSpec {
   return {
     commandId,
     intent: 'mutate',
+    role: 'mutate',
     interactiveDefaultMode: 'text',
     nonTuiOverrideMode: 'text',
     fallbackNonInteractiveMode: 'text',
@@ -451,6 +515,7 @@ function exportPresentationSpec(commandId: string): CommandPresentationSpec {
   return {
     commandId,
     intent: 'export',
+    role: 'export',
     interactiveDefaultMode: 'text',
     nonTuiOverrideMode: 'text',
     fallbackNonInteractiveMode: 'text',
@@ -494,6 +559,46 @@ The orchestrator or pipeline must not know which presenter is active.
 
 Human-readable progress output should not be interleaved with JSON payloads.
 Human-readable text modes must remain CI-safe and readable in log streams.
+TUI commands must guard terminal readiness before calling Ink. A non-interactive invocation may fall back to `text`, or fail with one clean CLI error line when no snapshot renderer exists yet, but it must never dump an Ink raw-mode stack trace.
+
+### Snapshot Rendering Contract
+
+`text` snapshot mode should preserve the TUI's information hierarchy while dropping interactive chrome.
+
+#### Header
+
+- Use the same header copy as the TUI for the equivalent surface
+- Keep the same count/filter language and ordering
+- Render one blank line before the header and one blank line after it
+
+Example:
+
+```text
+
+Accounts  3 total · 3 blockchain
+
+```
+
+#### Body
+
+- Render the primary table or summary block immediately after the header
+- Do not insert blank lines between table rows
+- Keep output compact; static mode is a terminal snapshot, not a prose document
+- Do not emulate TUI detail panes, selected-row expansions, or nested detail tables in snapshot mode
+- If a command needs detailed non-interactive output, define a dedicated detail subcommand with its own text contract
+
+#### Footer
+
+- Do not render controls bars or interaction hints in static mode
+- The shell prompt returning is the natural end of output
+- Only render a trailing line like `... and N more (use --limit to adjust)` when truncation actually occurred
+
+#### Whitespace
+
+- one blank line before the header
+- one blank line after the header
+- no blank lines between rows
+- one trailing newline at the end of output
 
 ### Text-Progress Rendering Contract
 
@@ -554,8 +659,8 @@ Add a new shared presentation module family:
 
 Expected files:
 
-- `presentation-mode.ts` — `PresentationMode`, `CommandIntent`
-- `command-presentation.ts` — `CommandPresentationSpec`, intent-based helper constructors (`browsePresentationSpec`, `workflowPresentationSpec`, `mutatePresentationSpec`, `exportPresentationSpec`), `resolvePresentationMode()`
+- `presentation-mode.ts` — `PresentationMode`, `CommandIntent`, `CommandEntrypointRole`
+- `command-presentation.ts` — `CommandPresentationSpec`, helper constructors (`snapshotPresentationSpec`, `explorerPresentationSpec`, `workflowPresentationSpec`, `mutatePresentationSpec`, `exportPresentationSpec`), `resolvePresentationMode()`
 - `interactive-terminal.ts` — `isInteractiveTerminal()`
 
 Also provide shared option helpers for `--json`, `--text`, and `--tui`, including the mutual-exclusion validation.
@@ -740,7 +845,8 @@ No phase is complete until every command touched in that phase has explicit mode
 
 - Every command has an explicit intent and presentation policy.
 - The migration checklist (Appendix A) covers the full currently registered runnable CLI surface with no omissions.
-- Browse commands with filters still open in TUI by default on an interactive terminal.
+- Bare namespace browse commands produce useful text snapshots by default.
+- Explicit `view` explorer commands still open in TUI by default on an interactive terminal.
 - Workflow commands default to `text-progress` on all terminals, with `--tui` opt-in for the Ink dashboard.
 - Workflow `text-progress` output satisfies the rendering contract: state changes, heartbeat summaries, final per-provider summaries. It must not be less observable than the current Ink monitors.
 - `balance refresh` uses the same shared workflow presenter architecture as the other workflow commands.
@@ -760,11 +866,11 @@ No phase is complete until every command touched in that phase has explicit mode
 
 ## Decisions & Smells
 
-- Decision: model the surface around command intent, not around whether flags were supplied.
+- Decision: model the surface around command intent plus entrypoint role, not around whether flags were supplied.
 - Decision: keep `--json` as the single machine-output switch.
 - Decision: keep `text` and `text-progress` as distinct internal renderer categories because snapshot output and workflow progress have different requirements.
 - Decision: workflow commands default to `text-progress`, not TUI. The current Ink monitors are progress displays, not interactive apps — full-screen TUI is heavier, harder to copy from, worse in scrollback, and creates more implementation complexity for monitors that have no keyboard interaction. `--tui` opts into the Ink dashboard.
-- Decision: `--text` is the canonical non-TUI override for browse commands. `--tui` is the canonical TUI opt-in for workflow commands. `--json` is machine output. The three are mutually exclusive.
+- Decision: bare namespace commands are the canonical text snapshot entrypoints for browse-heavy domains, while `view` is the canonical explorer/TUI verb. `--tui` remains the TUI opt-in for workflow commands. `--json` is machine output. The flags remain mutually exclusive.
 - Decision: `text-progress` must preserve operational visibility — provider state changes, heartbeat summaries, and final rollups are not optional. Moving workflows off TUI must not make them less observable.
 - Decision: `--verbose` controls detail level within a presentation mode (e.g., per-request logging in text-progress). It is orthogonal to presenter selection.
 - Decision: `clear` fails closed in CI and other non-interactive contexts; preview without `--confirm` is an error path, not a silent no-op success.

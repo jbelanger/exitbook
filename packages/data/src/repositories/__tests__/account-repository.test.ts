@@ -373,8 +373,8 @@ describe('AccountRepository', () => {
       expect(children[0]?.identifier).toBe('bc1q-child1...');
     });
 
-    it('lists only top-level named accounts when requested', async () => {
-      const namedTopLevel = assertOk(
+    it('lists only top-level accounts with names when requested', async () => {
+      const topLevelAccount = assertOk(
         await repo.create({
           profileId: 1,
           name: 'kraken-main',
@@ -394,7 +394,7 @@ describe('AccountRepository', () => {
       assertOk(
         await repo.create({
           profileId: 1,
-          parentAccountId: namedTopLevel.id,
+          parentAccountId: topLevelAccount.id,
           accountType: 'blockchain',
           platformKey: 'bitcoin',
           identifier: 'bc1q-child',

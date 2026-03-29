@@ -54,7 +54,7 @@ The key boundary is deliberate:
 The CLI or future API composes profile/account lifecycle with ingestion:
 
 - resolve the active or overridden profile
-- resolve a named account or account ID inside that profile
+- resolve an account by name or account ID inside that profile
 - call `ImportWorkflow.execute({ accountId })`
 
 Examples:
@@ -132,7 +132,7 @@ The CLI resolves profile scope first, then resolves the target account within th
 - `import --account-id <id>`
 - `import --all`
 
-`import --all` enumerates top-level named accounts for one profile and runs each sync sequentially.
+`import --all` enumerates top-level accounts for one profile and runs each sync sequentially.
 
 ### 2. Create Or Resume A Session
 

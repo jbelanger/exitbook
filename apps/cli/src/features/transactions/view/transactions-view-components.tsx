@@ -134,19 +134,17 @@ const TransactionsHeader: FC<{ state: TransactionsViewState }> = ({ state }) => 
   return (
     <Box>
       <Text bold>Transactions{filterLabel}</Text>
-      <Text> </Text>
-      <Text>{totalCount} total</Text>
-      {categoryParts.length > 0 && (
-        <>
-          <Text dimColor> · </Text>
-          {categoryParts.map((part, i) => (
-            <Text key={part.label}>
-              {i > 0 && <Text dimColor> · </Text>}
-              {part.count} <Text dimColor>{part.label}</Text>
-            </Text>
-          ))}
-        </>
-      )}
+      <Text dimColor> </Text>
+      <Text dimColor>{totalCount} total</Text>
+      {categoryParts.map((part) => (
+        <Text
+          key={part.label}
+          dimColor
+        >
+          {' · '}
+          {part.count} {part.label}
+        </Text>
+      ))}
       {isLimited && (
         <>
           <Text dimColor> · </Text>

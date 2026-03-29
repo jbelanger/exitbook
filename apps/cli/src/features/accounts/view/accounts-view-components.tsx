@@ -3,7 +3,7 @@
  */
 
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useReducer, type FC, type ReactElement } from 'react';
+import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
 import {
   calculateChromeLines,
@@ -14,12 +14,23 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type { AccountViewItem, ChildAccountViewItem, SessionViewItem, TypeCounts } from '../accounts-view-model.js';
+import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../accounts-view-model.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
+import {
+  buildTypeParts,
+  formatAccountType,
+  formatImportCount,
+  formatTimestamp,
+  getProjectionDisplay,
+  getSessionDisplay,
+  getVerificationDisplay,
+  truncateIdentifier,
+  truncateLabel,
+} from './accounts-view-formatters.js';
 import type { AccountsViewState } from './accounts-view-state.js';
 
-const ACCOUNT_DETAIL_LINES = 8;
+const ACCOUNT_DETAIL_LINES = 10;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
@@ -51,7 +62,12 @@ export const AccountsViewApp: FC<{
   });
 
   if (state.accounts.length === 0) {
-    return <AccountsEmptyState state={state} />;
+    return (
+      <AccountsEmptyState
+        state={state}
+        onQuit={onQuit}
+      />
+    );
   }
 
   return (
@@ -85,36 +101,21 @@ const AccountsHeader: FC<{ state: AccountsViewState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Accounts{filterLabel}</Text>
-      <Text> </Text>
-      <Text>{totalCount} total</Text>
-      {typeParts.length > 0 && (
-        <>
-          <Text dimColor> · </Text>
-          {typeParts.map((part, i) => (
-            <Text key={part.label}>
-              {i > 0 && <Text dimColor> · </Text>}
-              {part.count} <Text dimColor>{part.label}</Text>
-            </Text>
-          ))}
-        </>
-      )}
-      {filters.showSessions && (
-        <>
-          <Text dimColor> · </Text>
-          <Text dimColor>sessions visible</Text>
-        </>
-      )}
+      <Text dimColor> </Text>
+      <Text dimColor>{totalCount} total</Text>
+      {typeParts.map((part) => (
+        <Text
+          key={part.label}
+          dimColor
+        >
+          {' · '}
+          {part.count} {part.label}
+        </Text>
+      ))}
+      {filters.showSessions && <Text dimColor>{' · '}sessions visible</Text>}
     </Box>
   );
 };
-
-function buildTypeParts(counts: TypeCounts): { count: number; label: string }[] {
-  const parts: { count: number; label: string }[] = [];
-  if (counts.blockchain > 0) parts.push({ label: 'blockchain', count: counts.blockchain });
-  if (counts.exchangeApi > 0) parts.push({ label: 'exchange-api', count: counts.exchangeApi });
-  if (counts.exchangeCsv > 0) parts.push({ label: 'exchange-csv', count: counts.exchangeCsv });
-  return parts;
-}
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
@@ -174,10 +175,10 @@ const AccountRow: FC<{
   const { acctId, platform, type } = columns.format(item);
   const label = truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28);
   const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
-  const sessions = item.sessionCount !== undefined ? `${item.sessionCount} sess` : '';
+  const imports = item.sessionCount !== undefined ? formatImportCount(item.sessionCount) : '';
   const projection = getProjectionDisplay(item.balanceProjectionStatus);
   const verification = getVerificationDisplay(item.verificationStatus);
-  const children = item.childAccounts ? ` +${item.childAccounts.length}` : '';
+  const children = item.childAccounts && item.childAccounts.length > 0 ? ` +${item.childAccounts.length} derived` : '';
 
   return (
     <SelectableRow isSelected={isSelected}>
@@ -189,12 +190,14 @@ const AccountRow: FC<{
         </>
       ) : null}{' '}
       <Text dimColor>
-        {sessions}
+        {imports}
         {children}
       </Text>{' '}
-      <Text color={projection.iconColor}>{projection.icon}</Text>
-      <Text dimColor>proj</Text> <Text color={verification.iconColor}>{verification.icon}</Text>
-      <Text dimColor>ver</Text>
+      <Text dimColor>proj:</Text>
+      <Text color={projection.iconColor}>{projection.listLabel}</Text>
+      <Text> </Text>
+      <Text dimColor>ver:</Text>
+      <Text color={verification.iconColor}>{verification.listLabel}</Text>
     </SelectableRow>
   );
 };
@@ -209,6 +212,11 @@ const AccountDetailPanel: FC<{ state: AccountsViewState }> = ({ state }) => {
     <FixedHeightDetail
       height={ACCOUNT_DETAIL_LINES}
       rows={buildAccountDetailRows(selected)}
+      overflowRow={(hiddenRowCount) => (
+        <Text dimColor>
+          {`  ... ${hiddenRowCount} more detail line${hiddenRowCount === 1 ? '' : 's'}. Rerun with --json for full details.`}
+        </Text>
+      )}
     />
   );
 };
@@ -270,10 +278,10 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   }
   if (selected.sessionCount !== undefined) {
     rows.push(
-      <Text key="sessions">
+      <Text key="imports-count">
         {'  '}
-        <Text dimColor>Sessions: </Text>
-        <Text>{selected.sessionCount}</Text>
+        <Text dimColor>Imports: </Text>
+        <Text>{formatImportCount(selected.sessionCount)}</Text>
       </Text>
     );
   }
@@ -302,13 +310,15 @@ function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[]
     ...children.slice(0, 5).map((child) => {
       const projection = getProjectionDisplay(child.balanceProjectionStatus);
       const verification = getVerificationDisplay(child.verificationStatus);
-      const sessions = child.sessionCount !== undefined ? `${child.sessionCount} sess` : '';
+      const imports = child.sessionCount !== undefined ? formatImportCount(child.sessionCount) : '';
       return (
-        <Text key={child.id}>
-          {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{sessions}</Text>{' '}
-          <Text color={projection.iconColor}>{projection.icon}</Text>
-          <Text dimColor>proj</Text> <Text color={verification.iconColor}>{verification.icon}</Text>
-          <Text dimColor>ver</Text>
+        <Text key={`child-${child.id}`}>
+          {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{imports}</Text>{' '}
+          <Text dimColor>proj:</Text>
+          <Text color={projection.iconColor}>{projection.listLabel}</Text>
+          <Text> </Text>
+          <Text dimColor>ver:</Text>
+          <Text color={verification.iconColor}>{verification.listLabel}</Text>
         </Text>
       );
     })
@@ -344,7 +354,7 @@ function buildSessionRows(sessions: SessionViewItem[]): ReactElement[] {
       const { icon, iconColor } = getSessionDisplay(session.status);
       const completed = session.completedAt ? ` -> ${formatTimestamp(session.completedAt)}` : ' -> -';
       return (
-        <Text key={session.id}>
+        <Text key={`session-${session.id}`}>
           {'    '}
           <Text color={iconColor}>{icon}</Text> #{session.id} <Text color={iconColor}>{session.status}</Text>{' '}
           <Text dimColor>
@@ -376,9 +386,19 @@ const ControlsBar: FC = () => {
   return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · q/esc quit</Text>;
 };
 
-const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
+const AccountsEmptyState: FC<{ onQuit: () => void; state: AccountsViewState }> = ({ state, onQuit }) => {
   const { filters, totalCount } = state;
   const hasFilters = filters.platformFilter || filters.typeFilter;
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      onQuit();
+    }, 100);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [onQuit]);
 
   return (
     <Box flexDirection="column">
@@ -387,123 +407,17 @@ const AccountsEmptyState: FC<{ state: AccountsViewState }> = ({ state }) => {
       <Text> </Text>
       {!hasFilters && totalCount === 0 ? (
         <Box flexDirection="column">
-          <Text>{'  '}No accounts found.</Text>
+          <Text>No accounts found.</Text>
           <Text> </Text>
-          <Text>{'  '}Create an account first:</Text>
-          <Text dimColor>{'  '}exitbook accounts add main-wallet --blockchain bitcoin --address bc1q...</Text>
+          <Text dimColor>Tip: exitbook accounts add my-wallet --blockchain ethereum --address 0x...</Text>
         </Box>
       ) : (
         <Text>
-          {'  '}No accounts found{filters.platformFilter ? ` for ${filters.platformFilter}` : ''}
+          No accounts found{filters.platformFilter ? ` for ${filters.platformFilter}` : ''}
           {filters.typeFilter ? ` of type ${filters.typeFilter}` : ''}.
         </Text>
       )}
       <Text> </Text>
-      <Text dimColor>q quit</Text>
     </Box>
   );
 };
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatAccountType(accountType: string): string {
-  switch (accountType) {
-    case 'blockchain':
-      return 'blockchain';
-    case 'exchange-api':
-      return 'exchange-api';
-    case 'exchange-csv':
-      return 'exchange-csv';
-    default:
-      return accountType;
-  }
-}
-
-function getVerificationDisplay(status: AccountViewItem['verificationStatus']): {
-  icon: string;
-  iconColor: string;
-  label: string;
-} {
-  switch (status) {
-    case 'match':
-      return { icon: '✓', iconColor: 'green', label: 'verified' };
-    case 'warning':
-      return { icon: '!', iconColor: 'yellow', label: 'warning' };
-    case 'mismatch':
-      return { icon: '✗', iconColor: 'red', label: 'mismatch' };
-    case 'unavailable':
-      return { icon: '?', iconColor: 'yellow', label: 'unavailable' };
-    case 'never-checked':
-      return { icon: '⊘', iconColor: 'dim', label: 'never checked' };
-    case undefined:
-      return { icon: '·', iconColor: 'dim', label: 'unknown' };
-  }
-
-  const exhaustiveCheck: never = status;
-  return exhaustiveCheck;
-}
-
-function getProjectionDisplay(status: AccountViewItem['balanceProjectionStatus']): {
-  icon: string;
-  iconColor: string;
-  label: string;
-} {
-  switch (status) {
-    case 'fresh':
-      return { icon: '✓', iconColor: 'green', label: 'fresh' };
-    case 'stale':
-      return { icon: '!', iconColor: 'yellow', label: 'stale' };
-    case 'building':
-      return { icon: '~', iconColor: 'cyan', label: 'building' };
-    case 'failed':
-      return { icon: '✗', iconColor: 'red', label: 'failed' };
-    case 'never-built':
-      return { icon: '⊘', iconColor: 'dim', label: 'never built' };
-    case undefined:
-      return { icon: '·', iconColor: 'dim', label: 'unknown' };
-  }
-
-  const exhaustiveCheck: never = status;
-  return exhaustiveCheck;
-}
-
-function getSessionDisplay(status: string): { icon: string; iconColor: string } {
-  switch (status) {
-    case 'completed':
-      return { icon: '✓', iconColor: 'green' };
-    case 'failed':
-      return { icon: '✗', iconColor: 'red' };
-    case 'started':
-      return { icon: '⏳', iconColor: 'yellow' };
-    case 'cancelled':
-      return { icon: '⊘', iconColor: 'dim' };
-    default:
-      return { icon: '•', iconColor: 'dim' };
-  }
-}
-
-function truncateIdentifier(identifier: string, accountType: string, maxWidth: number): string {
-  if (identifier.length <= maxWidth) return identifier.padEnd(maxWidth);
-
-  // For blockchain addresses, show prefix...suffix
-  if (accountType === 'blockchain') {
-    const prefixLen = Math.floor((maxWidth - 3) / 2);
-    const suffixLen = maxWidth - 3 - prefixLen;
-    return `${identifier.substring(0, prefixLen)}...${identifier.substring(identifier.length - suffixLen)}`;
-  }
-
-  // For exchange identifiers, just truncate
-  return identifier.substring(0, maxWidth - 3) + '...';
-}
-
-function truncateLabel(label: string, maxWidth: number): string {
-  if (label.length <= maxWidth) {
-    return label.padEnd(maxWidth);
-  }
-
-  return `${label.slice(0, maxWidth - 3)}...`;
-}
-
-function formatTimestamp(isoString: string): string {
-  return isoString.replace('T', ' ').replace('Z', '').substring(0, 19);
-}

@@ -7,6 +7,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandRuntime, renderApp, runCommand, withCommandPriceProviderRuntime } from '../command-runtime.js';
+import { NonInteractiveTuiError } from '../interactive-terminal.js';
 
 // Hoisted so they're accessible inside vi.mock factory
 const { mockCreatePriceProviderRuntime, mockInitialize, mockInkRender } = vi.hoisted(() => ({
@@ -50,6 +51,8 @@ let mockPriceRuntime: {
   setManualFxRate: ReturnType<typeof vi.fn>;
   setManualPrice: ReturnType<typeof vi.fn>;
 };
+const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
 
 describe('CommandRuntime', () => {
   beforeEach(() => {
@@ -224,9 +227,13 @@ describe('CommandRuntime', () => {
 describe('renderApp', () => {
   afterEach(() => {
     vi.clearAllMocks();
+    restoreTTYFlags();
+    vi.unstubAllEnvs();
   });
 
   it('waits one event-loop turn before waiting for Ink exit', async () => {
+    setTTYFlags(true, true);
+
     const mockUnmount = vi.fn();
     let immediateRan = false;
 
@@ -245,6 +252,29 @@ describe('renderApp', () => {
 
     expect(mockInkRender).toHaveBeenCalledOnce();
     expect(mockUnmount).toHaveBeenCalled();
+  });
+
+  it('fails before mounting Ink when the terminal is non-interactive', async () => {
+    setTTYFlags(true, false);
+
+    await expect(renderApp(() => React.createElement('mock-app'))).rejects.toBeInstanceOf(NonInteractiveTuiError);
+    expect(mockInkRender).not.toHaveBeenCalled();
+  });
+
+  it('does not throw if the provided unmount callback is called before Ink instance assignment', async () => {
+    setTTYFlags(true, true);
+
+    mockInkRender.mockReturnValue({
+      unmount: vi.fn(),
+      waitUntilExit: vi.fn(async () => undefined),
+    });
+
+    await expect(
+      renderApp((unmount) => {
+        unmount();
+        return React.createElement('mock-app');
+      })
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -362,3 +392,24 @@ describe('withCommandPriceProviderRuntime', () => {
     ).rejects.toThrow('Price provider runtime operation failed');
   });
 });
+
+function setTTYFlags(stdinIsTTY: boolean, stdoutIsTTY: boolean): void {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    configurable: true,
+    value: stdinIsTTY,
+  });
+  Object.defineProperty(process.stdout, 'isTTY', {
+    configurable: true,
+    value: stdoutIsTTY,
+  });
+}
+
+function restoreTTYFlags(): void {
+  if (originalStdinTTYDescriptor) {
+    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
+  }
+
+  if (originalStdoutTTYDescriptor) {
+    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
+  }
+}

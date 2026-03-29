@@ -104,9 +104,9 @@ Semantics:
 ### Account Lifecycle
 
 - top-level accounts are created through `accounts add`, not through `import`
-- `accounts update` mutates sync config for an existing named account
+- `accounts update` mutates sync config for an existing account
 - `accounts remove` is destructive for that account and its attached data
-- `import --all` enumerates top-level named accounts for one profile only
+- `import --all` enumerates top-level accounts for one profile only
 
 ### Account Identity
 

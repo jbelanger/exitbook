@@ -104,7 +104,7 @@ describe('registerAccountsCommand', () => {
 
     const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
     expect(accountsCommand).toBeDefined();
-    expect(accountsCommand?.description()).toBe('Manage named accounts');
+    expect(accountsCommand?.description()).toBe('Manage accounts');
     expect(accountsCommand?.commands.map((command) => command.name())).toEqual(
       expect.arrayContaining(['add', 'view', 'update', 'rename', 'remove'])
     );

@@ -14,7 +14,7 @@ import { prepareAccountRemoval, runAccountRemoval } from './run-accounts-remove.
 export function registerAccountsRemoveCommand(accountsCommand: Command): void {
   accountsCommand
     .command('remove')
-    .description('Remove a named account, purge its imported data, and reset affected projections')
+    .description('Remove an account, purge its imported data, and reset affected projections')
     .addHelpText(
       'after',
       `
@@ -24,7 +24,7 @@ Examples:
   $ exitbook accounts remove kraken-main --confirm --json
 
 Notes:
-  - This deletes the named account, attached raw data, and affected derived projections.
+  - This deletes the account, attached raw data, and affected derived projections.
   - --confirm is required with --json because JSON mode cannot prompt interactively.
 `
     )

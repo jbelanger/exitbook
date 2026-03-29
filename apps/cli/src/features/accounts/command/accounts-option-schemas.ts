@@ -6,13 +6,13 @@ import {
   JsonFlagSchema,
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
+import { PresentationFlagSchema } from '../../shared/presentation/presentation-options.js';
 
-export const AccountsViewCommandOptionsSchema = z.object({
+export const AccountsViewCommandOptionsSchema = PresentationFlagSchema.extend({
   accountId: z.number().int().positive().optional(),
   platform: z.string().optional(),
   type: z.string().optional(),
   showSessions: z.boolean().optional(),
-  json: z.boolean().optional(),
 });
 
 export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(BlockchainFieldsSchema.shape)

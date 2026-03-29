@@ -23,6 +23,7 @@ import { resolveCliProfileSelection } from '../features/profiles/profile-state.j
 import { getDataDir } from '../features/shared/data-dir.js';
 
 import type { CliAppRuntime } from './app-runtime.js';
+import { createNonInteractiveTuiError, isInteractiveTerminal } from './interactive-terminal.js';
 
 const logger = getLogger('command-runtime');
 
@@ -361,9 +362,13 @@ export async function runCommand(
  * @param create - Receives unmount function, returns React element
  */
 export async function renderApp(create: (unmount: () => void) => React.ReactElement): Promise<void> {
+  if (!isInteractiveTerminal()) {
+    throw createNonInteractiveTuiError();
+  }
+
   let inkInstance: { unmount: () => void; waitUntilExit: () => Promise<void> } | undefined;
   try {
-    const instance = render(create(() => instance?.unmount()));
+    const instance = render(create(() => inkInstance?.unmount()));
     inkInstance = instance as { unmount: () => void; waitUntilExit: () => Promise<void> };
     // Ink enables raw stdin in useEffect/useInput after the first commit. Give that
     // one event-loop turn to run before waitUntilExit() arms beforeExit auto-unmount.

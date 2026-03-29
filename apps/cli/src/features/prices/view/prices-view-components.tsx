@@ -185,8 +185,8 @@ const CoverageHeader: FC<{ state: PricesViewCoverageState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Price Coverage{filterSuffix}</Text>
-      <Text> </Text>
-      <Text>
+      <Text dimColor> </Text>
+      <Text dimColor>
         {coverage.length} asset{coverage.length !== 1 ? 's' : ''}
       </Text>
       <Text dimColor> · </Text>
@@ -428,7 +428,7 @@ const MissingHeader: FC<{ state: PricesViewMissingState }> = ({ state }) => {
       <Box>
         <Text dimColor>← </Text>
         <Text bold>{assetFilter} Missing Prices</Text>
-        <Text> </Text>
+        <Text dimColor> </Text>
         <Text color="yellow">{remaining}</Text>
         <Text dimColor> movement{remaining !== 1 ? 's' : ''}</Text>
         {resolvedRows.size > 0 && (
@@ -450,11 +450,12 @@ const MissingHeader: FC<{ state: PricesViewMissingState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Missing Prices{filterSuffix}</Text>
-      <Text> </Text>
+      <Text dimColor> </Text>
       <Text color="yellow">{remaining}</Text>
       <Text dimColor> movement{remaining !== 1 ? 's' : ''} across </Text>
-      <Text>{assetCount}</Text>
-      <Text dimColor> asset{assetCount !== 1 ? 's' : ''}</Text>
+      <Text dimColor>
+        {assetCount} asset{assetCount !== 1 ? 's' : ''}
+      </Text>
       {resolvedRows.size > 0 && (
         <>
           <Text dimColor> · </Text>

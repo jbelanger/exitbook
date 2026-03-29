@@ -180,7 +180,7 @@ describe('ImportCommandOptionsSchema', () => {
 });
 
 describe('import command', () => {
-  it('resolves a named account and outputs JSON results', async () => {
+  it('resolves an account name and outputs JSON results', async () => {
     const program = createImportProgram();
 
     await program.parseAsync(['import', '--account', 'kraken-main', '--json'], { from: 'user' });

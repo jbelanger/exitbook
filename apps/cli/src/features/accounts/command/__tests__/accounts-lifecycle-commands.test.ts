@@ -6,9 +6,9 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockBuildCliAccountLifecycleService,
-  mockBuildNamedAccountDraft,
-  mockBuildUpdatedAccountDraft,
-  mockCreateNamed,
+  mockBuildCreateAccountInput,
+  mockBuildUpdateAccountInput,
+  mockCreate,
   mockCtx,
   mockDisplayCliError,
   mockGetByName,
@@ -19,13 +19,13 @@ const {
   mockResolveCommandProfile,
   mockRunAccountRemoval,
   mockRunCommand,
-  mockUpdateNamed,
+  mockUpdate,
   mockWithAccountsRemoveCommandScope,
 } = vi.hoisted(() => ({
   mockBuildCliAccountLifecycleService: vi.fn(),
-  mockBuildNamedAccountDraft: vi.fn(),
-  mockBuildUpdatedAccountDraft: vi.fn(),
-  mockCreateNamed: vi.fn(),
+  mockBuildCreateAccountInput: vi.fn(),
+  mockBuildUpdateAccountInput: vi.fn(),
+  mockCreate: vi.fn(),
   mockCtx: {
     database: vi.fn(),
   },
@@ -38,7 +38,7 @@ const {
   mockResolveCommandProfile: vi.fn(),
   mockRunAccountRemoval: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockUpdateNamed: vi.fn(),
+  mockUpdate: vi.fn(),
   mockWithAccountsRemoveCommandScope: vi.fn(),
 }));
 
@@ -64,8 +64,8 @@ vi.mock('../../account-service.js', () => ({
 }));
 
 vi.mock('../account-draft-utils.js', () => ({
-  buildNamedAccountDraft: mockBuildNamedAccountDraft,
-  buildUpdatedAccountDraft: mockBuildUpdatedAccountDraft,
+  buildCreateAccountInput: mockBuildCreateAccountInput,
+  buildUpdateAccountInput: mockBuildUpdateAccountInput,
 }));
 
 vi.mock('../accounts-remove-command-scope.js', () => ({
@@ -114,10 +114,10 @@ beforeEach(() => {
     ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-01-01T00:00:00.000Z') })
   );
   mockBuildCliAccountLifecycleService.mockReturnValue({
-    createNamed: mockCreateNamed,
+    create: mockCreate,
     rename: mockRename,
     getByName: mockGetByName,
-    updateNamed: mockUpdateNamed,
+    update: mockUpdate,
   });
   mockWithAccountsRemoveCommandScope.mockImplementation(
     async (
@@ -153,10 +153,10 @@ beforeEach(() => {
 });
 
 describe('accounts lifecycle commands', () => {
-  it('adds a named account in JSON mode', async () => {
+  it('adds an account in JSON mode', async () => {
     const program = createAccountsProgram();
 
-    mockBuildNamedAccountDraft.mockReturnValue(
+    mockBuildCreateAccountInput.mockReturnValue(
       ok({
         profileId: 1,
         name: 'kraken-main',
@@ -165,7 +165,7 @@ describe('accounts lifecycle commands', () => {
         identifier: 'apikey1',
       })
     );
-    mockCreateNamed.mockResolvedValue(
+    mockCreate.mockResolvedValue(
       ok({
         id: 7,
         name: 'kraken-main',
@@ -193,7 +193,7 @@ describe('accounts lifecycle commands', () => {
       { from: 'user' }
     );
 
-    expect(mockBuildNamedAccountDraft).toHaveBeenCalledWith(
+    expect(mockBuildCreateAccountInput).toHaveBeenCalledWith(
       'kraken-main',
       1,
       expect.objectContaining({
@@ -203,7 +203,7 @@ describe('accounts lifecycle commands', () => {
       }),
       {}
     );
-    expect(mockCreateNamed).toHaveBeenCalledWith(
+    expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'kraken-main',
         profileId: 1,
@@ -223,7 +223,7 @@ describe('accounts lifecycle commands', () => {
     });
   });
 
-  it('renames a named account in JSON mode', async () => {
+  it('renames an account in JSON mode', async () => {
     const program = createAccountsProgram();
 
     mockRename.mockResolvedValue(
@@ -250,7 +250,7 @@ describe('accounts lifecycle commands', () => {
     });
   });
 
-  it('updates a named account config in JSON mode', async () => {
+  it('updates an account config in JSON mode', async () => {
     const program = createAccountsProgram();
 
     mockGetByName.mockResolvedValue(
@@ -270,7 +270,7 @@ describe('accounts lifecycle commands', () => {
         updatedAt: undefined,
       })
     );
-    mockBuildUpdatedAccountDraft.mockReturnValue(
+    mockBuildUpdateAccountInput.mockReturnValue(
       ok({
         identifier: 'new-key',
         credentials: {
@@ -280,7 +280,7 @@ describe('accounts lifecycle commands', () => {
         resetCursor: true,
       })
     );
-    mockUpdateNamed.mockResolvedValue(
+    mockUpdate.mockResolvedValue(
       ok({
         id: 7,
         name: 'kraken-main',
@@ -298,7 +298,7 @@ describe('accounts lifecycle commands', () => {
     );
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockBuildUpdatedAccountDraft).toHaveBeenCalledWith(
+    expect(mockBuildUpdateAccountInput).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 7,
         name: 'kraken-main',
@@ -309,7 +309,7 @@ describe('accounts lifecycle commands', () => {
       }),
       {}
     );
-    expect(mockUpdateNamed).toHaveBeenCalledWith(
+    expect(mockUpdate).toHaveBeenCalledWith(
       1,
       'kraken-main',
       expect.objectContaining({
@@ -331,6 +331,62 @@ describe('accounts lifecycle commands', () => {
     });
   });
 
+  it('prints the specific fields changed during a text-mode update', async () => {
+    const program = createAccountsProgram();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        name: 'ethereum-main',
+        parentAccountId: undefined,
+        accountType: 'blockchain',
+        platformKey: 'ethereum',
+        identifier: '0xabc',
+        providerName: undefined,
+        credentials: undefined,
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockBuildUpdateAccountInput.mockReturnValue(
+      ok({
+        providerName: 'alchemy',
+      })
+    );
+    mockUpdate.mockResolvedValue(
+      ok({
+        id: 7,
+        name: 'ethereum-main',
+        accountType: 'blockchain',
+        platformKey: 'ethereum',
+        identifier: '0xabc',
+        providerName: 'alchemy',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      })
+    );
+
+    await program.parseAsync(['accounts', 'update', 'ethereum-main', '--provider', 'alchemy'], { from: 'user' });
+
+    expect(consoleLog).toHaveBeenNthCalledWith(1, 'Updated account ethereum-main');
+    expect(consoleLog).toHaveBeenNthCalledWith(2, '  Provider set to: alchemy');
+    consoleLog.mockRestore();
+  });
+
+  it('routes missing accounts through the not-found update error path', async () => {
+    const program = createAccountsProgram();
+
+    mockGetByName.mockResolvedValue(ok(undefined));
+
+    await expect(
+      program.parseAsync(['accounts', 'update', 'ghost-wallet', '--provider', 'alchemy'], { from: 'user' })
+    ).rejects.toThrow("CLI:accounts-update:text:Account 'ghost-wallet' not found");
+    expect(mockDisplayCliError).toHaveBeenCalledWith('accounts-update', expect.any(Error), 4, 'text');
+  });
+
   it('requires --confirm for JSON account removal', async () => {
     const program = createAccountsProgram();
 
@@ -341,7 +397,7 @@ describe('accounts lifecycle commands', () => {
     expect(mockRunCommand).toHaveBeenCalledOnce();
   });
 
-  it('removes a named account in JSON mode when confirmed', async () => {
+  it('removes an account in JSON mode when confirmed', async () => {
     const program = createAccountsProgram();
 
     mockPrepareAccountRemoval.mockResolvedValue(

@@ -4,12 +4,20 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { renderApp, runCommand, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
+import { CliCommandError } from '../../shared/cli-command-error.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { parseCliPresentationOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
+import {
+  explorerPresentationSpec,
+  type CommandPresentationSpec,
+} from '../../shared/presentation/command-presentation.js';
+import type { PresentationMode } from '../../shared/presentation/presentation-mode.js';
+import { toCliOutputFormat } from '../../shared/presentation/presentation-mode.js';
+import { addPresentationOptions } from '../../shared/presentation/presentation-options.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
@@ -17,8 +25,9 @@ import { toAccountViewItem } from '../account-view-projection.js';
 import type { AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
+import { outputAccountsTextSnapshot } from '../view/accounts-text-renderer.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
-import { computeTypeCounts, createAccountsViewState } from '../view/accounts-view-state.js';
+import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
 
 import { AccountsViewCommandOptionsSchema } from './accounts-option-schemas.js';
 
@@ -28,18 +37,25 @@ interface ViewAccountsParams extends Omit<AccountQueryParams, 'profileId'> {
 
 type ViewAccountsCommandResult = ViewCommandResult<AccountViewItem[]>;
 
+export const AccountsViewPresentationSpec: CommandPresentationSpec = explorerPresentationSpec('accounts-view');
+
+interface AccountsViewPresentation {
+  initialState: AccountsViewState;
+  jsonResult: ViewAccountsCommandResult;
+}
+
 export function registerAccountsViewCommand(accountsCommand: Command): void {
-  accountsCommand
+  const viewCommand = accountsCommand
     .command('view [name]')
     .alias('list')
-    .description('View named accounts')
+    .description('View accounts')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook accounts view                        # View all named accounts
+  $ exitbook accounts view                        # View all accounts
   $ exitbook accounts list                        # Alias for accounts view
-  $ exitbook accounts view kraken-main            # View a specific named account
+  $ exitbook accounts view kraken-main            # View a specific account
   $ exitbook accounts view --platform kraken      # View Kraken accounts
   $ exitbook accounts view --account-id 1         # View specific account by ID
   $ exitbook accounts view --type blockchain      # View blockchain accounts only
@@ -58,22 +74,32 @@ Account Types:
     .option('--account-id <number>', 'Filter by account ID', parseInt)
     .option('--platform <name>', 'Filter by exchange or blockchain platform')
     .option('--type <type>', 'Filter by account type (blockchain, exchange-api, exchange-csv)')
-    .option('--show-sessions', 'Include import session details for each account')
-    .option('--json', 'Output results in JSON format')
-    .action(async (name: string | undefined, rawOptions: unknown) => {
-      await executeViewAccountsCommand(name, rawOptions);
-    });
+    .option('--show-sessions', 'Include import session details for each account');
+
+  addPresentationOptions(viewCommand, {
+    textDescription: 'Force the static text snapshot instead of the Ink explorer',
+    tuiDescription: 'Force the Ink explorer',
+  });
+
+  viewCommand.action(async (name: string | undefined, rawOptions: unknown) => {
+    await executeViewAccountsCommand(name, rawOptions);
+  });
 }
 
 async function executeViewAccountsCommand(accountName: string | undefined, rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions('accounts-view', rawOptions, AccountsViewCommandOptionsSchema);
+  const { mode, options } = parseCliPresentationOptions(
+    'accounts-view',
+    rawOptions,
+    AccountsViewCommandOptionsSchema,
+    AccountsViewPresentationSpec
+  );
 
   if (accountName && (options.accountId !== undefined || options.platform || options.type)) {
     displayCliError(
       'accounts-view',
-      new Error('Named account lookup cannot be combined with --account-id, --platform, or --type'),
+      new Error('Account name lookup cannot be combined with --account-id, --platform, or --type'),
       ExitCodes.INVALID_ARGS,
-      format
+      toCliOutputFormat(mode)
     );
   }
 
@@ -85,129 +111,103 @@ async function executeViewAccountsCommand(accountName: string | undefined, rawOp
     showSessions: options.showSessions,
   };
 
-  if (format === 'json') {
-    await executeAccountsViewJSON(params);
-  } else {
-    await executeAccountsViewTUI(params);
-  }
+  await executeAccountsView(params, mode);
 }
 
-async function executeAccountsViewTUI(params: ViewAccountsParams): Promise<void> {
-  await withCliCommandErrorHandling('view-accounts', 'text', async () => {
+async function executeAccountsView(params: ViewAccountsParams, mode: PresentationMode): Promise<void> {
+  await withCliCommandErrorHandling('view-accounts', toCliOutputFormat(mode), async () => {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        console.error('\n⚠ Error:', profileResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+      const presentation = await buildAccountsViewPresentation(ctx, params);
+
+      if (mode === 'tui') {
+        await ctx.closeDatabase();
       }
 
-      const accountIdResult = await resolveNamedAccountId(database, profileResult.value.id, params.accountName);
-      if (accountIdResult.isErr()) {
-        console.error('\n⚠ Error:', accountIdResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
+      await presentAccountsView(presentation, mode);
+    });
+  });
+}
 
-      const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
+async function buildAccountsViewPresentation(
+  ctx: CommandRuntime,
+  params: ViewAccountsParams
+): Promise<AccountsViewPresentation> {
+  const database = await ctx.database();
+  const profileResult = await resolveCommandProfile(ctx, database);
+  if (profileResult.isErr()) {
+    throw new CliCommandError(profileResult.error.message, ExitCodes.GENERAL_ERROR, { cause: profileResult.error });
+  }
 
-      const result = await accountQuery.list({
-        profileId: profileResult.value.id,
-        accountId: accountIdResult.value ?? params.accountId,
-        accountType: params.accountType,
-        platformKey: params.platformKey,
-        showSessions: params.showSessions,
-      });
+  const accountIdResult = await resolveAccountIdByName(database, profileResult.value.id, params.accountName);
+  if (accountIdResult.isErr()) {
+    throw new CliCommandError(accountIdResult.error.message, ExitCodes.NOT_FOUND, { cause: accountIdResult.error });
+  }
 
-      if (result.isErr()) {
-        console.error('\n⚠ Error:', result.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
+  const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
+  const result = await accountQuery.list({
+    profileId: profileResult.value.id,
+    accountId: accountIdResult.value ?? params.accountId,
+    accountType: params.accountType,
+    platformKey: params.platformKey,
+    showSessions: params.showSessions,
+  });
+  if (result.isErr()) {
+    throw new CliCommandError(result.error.message, ExitCodes.GENERAL_ERROR, { cause: result.error });
+  }
 
-      const { accounts, sessions } = result.value;
-      const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
-      const typeCounts = computeTypeCounts(viewItems);
+  const { accounts, count, sessions } = result.value;
+  const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
+  const filters = {
+    platformFilter: params.platformKey,
+    typeFilter: params.accountType,
+    showSessions: params.showSessions ?? false,
+  };
 
-      await ctx.closeDatabase();
+  return {
+    initialState: createAccountsViewState(viewItems, filters, count, computeTypeCounts(viewItems)),
+    jsonResult: {
+      data: viewItems,
+      meta: buildViewMeta(
+        count,
+        0,
+        count,
+        count,
+        buildDefinedFilters({
+          accountName: params.accountName,
+          accountId: accountIdResult.value ?? params.accountId,
+          platform: params.platformKey,
+          accountType: params.accountType,
+        })
+      ),
+    },
+  };
+}
 
-      const initialState = createAccountsViewState(
-        viewItems,
-        {
-          platformFilter: params.platformKey,
-          typeFilter: params.accountType,
-          showSessions: params.showSessions ?? false,
-        },
-        viewItems.length,
-        typeCounts
-      );
-
+async function presentAccountsView(presentation: AccountsViewPresentation, mode: PresentationMode): Promise<void> {
+  switch (mode) {
+    case 'json':
+      outputSuccess('view-accounts', presentation.jsonResult);
+      return;
+    case 'text':
+      outputAccountsTextSnapshot(presentation.initialState);
+      return;
+    case 'tui':
       await renderApp((unmount) =>
         React.createElement(AccountsViewApp, {
-          initialState,
+          initialState: presentation.initialState,
           onQuit: unmount,
         })
       );
-    });
-  });
+      return;
+    case 'text-progress':
+      throw new Error('Accounts view does not support text-progress presentation');
+  }
+
+  const exhaustiveCheck: never = mode;
+  return exhaustiveCheck;
 }
 
-async function executeAccountsViewJSON(params: ViewAccountsParams): Promise<void> {
-  await withCliCommandErrorHandling('view-accounts', 'json', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('view-accounts', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const accountIdResult = await resolveNamedAccountId(database, profileResult.value.id, params.accountName);
-      if (accountIdResult.isErr()) {
-        displayCliError('view-accounts', accountIdResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
-
-      const result = await accountQuery.list({
-        profileId: profileResult.value.id,
-        accountId: accountIdResult.value ?? params.accountId,
-        accountType: params.accountType,
-        platformKey: params.platformKey,
-        showSessions: params.showSessions,
-      });
-
-      if (result.isErr()) {
-        displayCliError('view-accounts', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const { accounts, count, sessions } = result.value;
-      const viewItems = accounts.map((account) => toAccountViewItem(account, sessions));
-
-      const resultData: ViewAccountsCommandResult = {
-        data: viewItems,
-        meta: buildViewMeta(
-          count,
-          0,
-          count,
-          count,
-          buildDefinedFilters({
-            accountName: params.accountName,
-            accountId: accountIdResult.value ?? params.accountId,
-            platform: params.platformKey,
-            accountType: params.accountType,
-          })
-        ),
-      };
-
-      outputSuccess('view-accounts', resultData);
-    });
-  });
-}
-
-async function resolveNamedAccountId(
+async function resolveAccountIdByName(
   database: DataSession,
   profileId: number,
   accountName?: string

@@ -5,7 +5,8 @@ Exitbook's CLI specs are organized around user goals, not package boundaries. St
 ## Shared Language
 
 - [`cli-design-language-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/cli-design-language-spec.md): user mental model, information architecture, copy rules, and growth rules for new commands
-- [`cli-surface-v2-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/cli-surface-v2-spec.md): presentation modes, command intents, and cross-command output behavior
+- [`cli-surface-v3-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/cli-surface-v3-spec.md): command shape, static vs TUI browse surfaces, workflow behavior, and cross-command output rules
+- [`cli-surface-v2-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/cli-surface-v2-spec.md): superseded draft retained for migration history
 
 ## Workspace Setup
 

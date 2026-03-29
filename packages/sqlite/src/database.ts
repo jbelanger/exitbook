@@ -12,6 +12,9 @@ import { sqliteTypeAdapterPlugin } from './plugins/sqlite-type-adapter-plugin.js
 
 const logger = getLogger('SqliteDatabase');
 
+const BETTER_SQLITE3_NATIVE_MODULE_HINT = 'Failed to load better-sqlite3 native module';
+const BETTER_SQLITE3_REBUILD_COMMAND = 'pnpm rebuild better-sqlite3';
+
 export interface CreateSqliteDatabaseOptions {
   /** Additional Kysely plugins (sqliteTypeAdapterPlugin is always applied) */
   plugins?: KyselyPlugin[] | undefined;
@@ -56,6 +59,52 @@ export function createSqliteDatabase<T>(
     return ok(kysely);
   } catch (error) {
     logger.error({ error }, `Error creating SQLite database: ${dbPath}`);
-    return wrapError(error, `Failed to create SQLite database: ${dbPath}`);
+    return wrapError(error, getSqliteDatabaseErrorContext(dbPath, error));
   }
+}
+
+function getSqliteDatabaseErrorContext(dbPath: string, error: unknown): string {
+  const baseContext = `Failed to create SQLite database: ${dbPath}`;
+
+  if (!(error instanceof Error)) {
+    return baseContext;
+  }
+
+  const errorMessage = error.message.toLowerCase();
+
+  if (isBetterSqliteBinaryMismatchError(errorMessage)) {
+    return `${baseContext}. ${BETTER_SQLITE3_NATIVE_MODULE_HINT}. This usually means node_modules contains a binary built for a different OS, CPU architecture, or runtime. Rebuild it with \`${BETTER_SQLITE3_REBUILD_COMMAND}\` or reinstall dependencies on this machine.`;
+  }
+
+  if (isBetterSqliteNodeAbiMismatchError(errorMessage)) {
+    return `${baseContext}. ${BETTER_SQLITE3_NATIVE_MODULE_HINT}. The installed binary was compiled for a different Node.js version. Rebuild it with \`${BETTER_SQLITE3_REBUILD_COMMAND}\` after switching Node versions.`;
+  }
+
+  return baseContext;
+}
+
+function isBetterSqliteBinaryMismatchError(errorMessage: string): boolean {
+  return (
+    mentionsBetterSqliteNativeModule(errorMessage) &&
+    [
+      'slice is not valid mach-o file',
+      'not a mach-o file',
+      'invalid elf header',
+      'wrong elf class',
+      'exec format error',
+    ].some((pattern) => errorMessage.includes(pattern))
+  );
+}
+
+function isBetterSqliteNodeAbiMismatchError(errorMessage: string): boolean {
+  return (
+    mentionsBetterSqliteNativeModule(errorMessage) &&
+    ['node_module_version', 'module version mismatch', 'compiled against a different node.js version'].some((pattern) =>
+      errorMessage.includes(pattern)
+    )
+  );
+}
+
+function mentionsBetterSqliteNativeModule(errorMessage: string): boolean {
+  return errorMessage.includes('better_sqlite3.node') || errorMessage.includes('better-sqlite3');
 }

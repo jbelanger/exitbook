@@ -1,7 +1,7 @@
 import { ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockBuildCliAccountLifecycleService,
@@ -11,6 +11,7 @@ const {
   mockGetByName,
   mockList,
   mockOutputSuccess,
+  mockOutputAccountsTextSnapshot,
   mockRenderApp,
   mockResolveCommandProfile,
   mockRunCommand,
@@ -27,10 +28,14 @@ const {
   mockGetByName: vi.fn(),
   mockList: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockOutputAccountsTextSnapshot: vi.fn(),
   mockRenderApp: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
+
+const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
@@ -67,6 +72,10 @@ vi.mock('../../query/account-query.js', () => ({
 
 vi.mock('../../view/accounts-view-components.jsx', () => ({
   AccountsViewApp: 'AccountsViewApp',
+}));
+
+vi.mock('../../view/accounts-text-renderer.js', () => ({
+  outputAccountsTextSnapshot: mockOutputAccountsTextSnapshot,
 }));
 
 import { registerAccountsViewCommand } from '../accounts-view.js';
@@ -116,6 +125,7 @@ function createAccountSummary() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setTTYFlags(true, true);
   mockCtx.database.mockResolvedValue({ tag: 'db' });
   mockCtx.closeDatabase.mockResolvedValue(undefined);
   mockCtx.exitCode = 0;
@@ -151,6 +161,16 @@ beforeEach(() => {
       throw new Error(`CLI:${command}:${format}:${error.message}`);
     }
   );
+});
+
+afterAll(() => {
+  if (originalStdinTTYDescriptor) {
+    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
+  }
+
+  if (originalStdoutTTYDescriptor) {
+    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
+  }
 });
 
 describe('registerAccountsViewCommand', () => {
@@ -327,7 +347,126 @@ describe('registerAccountsViewCommand', () => {
     });
   });
 
-  it('resolves a named account before querying', async () => {
+  it('renders the empty-state TUI when no accounts match', async () => {
+    const program = createAccountsProgram();
+    let renderedElement: ReactElement | undefined;
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [],
+        count: 0,
+        sessions: undefined,
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['accounts', 'view'], { from: 'user' });
+
+    expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('AccountsViewApp');
+    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toEqual({
+      accounts: [],
+      filters: {
+        platformFilter: undefined,
+        typeFilter: undefined,
+        showSessions: false,
+      },
+      selectedIndex: 0,
+      scrollOffset: 0,
+      totalCount: 0,
+      typeCounts: {
+        blockchain: 0,
+        exchangeApi: 0,
+        exchangeCsv: 0,
+      },
+    });
+  });
+
+  it('renders the text snapshot when explicitly requested', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'view', '--text'], { from: 'user' });
+
+    expect(mockOutputAccountsTextSnapshot).toHaveBeenCalledWith({
+      accounts: [
+        {
+          id: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          name: 'kraken-main',
+          identifier: 'acct-1',
+          parentAccountId: undefined,
+          providerName: 'kraken-api',
+          balanceProjectionStatus: 'fresh',
+          balanceProjectionReason: undefined,
+          lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+          lastRefreshAt: '2026-03-12T12:30:00.000Z',
+          verificationStatus: 'match',
+          sessionCount: 2,
+          childAccounts: [
+            {
+              id: 2,
+              identifier: 'acct-child',
+              sessionCount: 1,
+              balanceProjectionStatus: 'fresh',
+              verificationStatus: 'warning',
+            },
+          ],
+          sessions: undefined,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      filters: {
+        platformFilter: undefined,
+        typeFilter: undefined,
+        showSessions: false,
+      },
+      selectedIndex: 0,
+      scrollOffset: 0,
+      totalCount: 1,
+      typeCounts: {
+        blockchain: 0,
+        exchangeApi: 1,
+        exchangeCsv: 0,
+      },
+    });
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the text snapshot off-terminal without mounting Ink', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    setTTYFlags(true, false);
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'view'], { from: 'user' });
+
+    expect(mockOutputAccountsTextSnapshot).toHaveBeenCalledOnce();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('resolves an account name before querying', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
@@ -361,13 +500,26 @@ describe('registerAccountsViewCommand', () => {
     });
   });
 
-  it('routes conflicting named-account filters through the text error path', async () => {
+  it('routes missing accounts through the not-found error path', async () => {
+    const program = createAccountsProgram();
+
+    mockGetByName.mockResolvedValue(ok(undefined));
+
+    await expect(program.parseAsync(['accounts', 'view', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
+      "CLI:view-accounts:text:Account 'ghost-wallet' not found"
+    );
+
+    expect(mockDisplayCliError).toHaveBeenCalledWith('view-accounts', expect.any(Error), 4, 'text');
+    expect(mockList).not.toHaveBeenCalled();
+  });
+
+  it('routes conflicting account-name filters through the text error path', async () => {
     const program = createAccountsProgram();
 
     await expect(
       program.parseAsync(['accounts', 'view', 'kraken-main', '--platform', 'kraken'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:accounts-view:text:Named account lookup cannot be combined with --account-id, --platform, or --type'
+      'CLI:accounts-view:text:Account name lookup cannot be combined with --account-id, --platform, or --type'
     );
 
     expect(mockRunCommand).not.toHaveBeenCalled();
@@ -384,3 +536,14 @@ describe('registerAccountsViewCommand', () => {
     expect(mockRunCommand).not.toHaveBeenCalled();
   });
 });
+
+function setTTYFlags(stdinIsTTY: boolean, stdoutIsTTY: boolean): void {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    configurable: true,
+    value: stdinIsTTY,
+  });
+  Object.defineProperty(process.stdout, 'isTTY', {
+    configurable: true,
+    value: stdoutIsTTY,
+  });
+}

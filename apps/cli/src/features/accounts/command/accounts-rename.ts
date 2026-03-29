@@ -10,7 +10,7 @@ import { buildCliAccountLifecycleService } from '../account-service.js';
 export function registerAccountsRenameCommand(accountsCommand: Command): void {
   accountsCommand
     .command('rename')
-    .description('Rename a named account')
+    .description('Rename an account')
     .addHelpText(
       'after',
       `

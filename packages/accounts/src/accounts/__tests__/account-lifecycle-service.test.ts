@@ -137,12 +137,12 @@ function createStore(initialAccounts: Account[] = []) {
 }
 
 describe('AccountLifecycleService', () => {
-  it('creates a new named account when the config is new', async () => {
+  it('creates a new account when the config is new', async () => {
     const { store } = createStore();
     const service = new AccountLifecycleService(store);
 
     const result = assertOk(
-      await service.createNamed({
+      await service.create({
         profileId: 1,
         name: 'kraken-main',
         accountType: 'exchange-api',
@@ -167,7 +167,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.createNamed({
+    const result = await service.create({
       profileId: 1,
       name: 'kraken-secondary',
       accountType: 'exchange-csv',
@@ -181,7 +181,7 @@ describe('AccountLifecycleService', () => {
     }
   });
 
-  it('rejects existing unnamed top-level accounts instead of auto-adopting them', async () => {
+  it('rejects existing top-level accounts instead of auto-adopting them', async () => {
     const { accounts, store } = createStore([
       createAccount({
         id: 7,
@@ -193,7 +193,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.createNamed({
+    const result = await service.create({
       profileId: 1,
       name: 'kraken-main',
       accountType: 'exchange-api',
@@ -206,7 +206,7 @@ describe('AccountLifecycleService', () => {
     expect(accounts[0]?.name).toBeUndefined();
     expect(accounts[0]?.providerName).toBeUndefined();
     if (result.isErr()) {
-      expect(result.error.message).toContain('unnamed account #7');
+      expect(result.error.message).toContain('top-level account #7');
     }
   });
 
@@ -223,7 +223,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.createNamed({
+    const result = await service.create({
       profileId: 1,
       name: 'btc-child',
       accountType: 'blockchain',
@@ -237,7 +237,7 @@ describe('AccountLifecycleService', () => {
     }
   });
 
-  it('renames an existing named account', async () => {
+  it('renames an existing account', async () => {
     const { store } = createStore([
       createAccount({
         id: 7,
@@ -255,7 +255,7 @@ describe('AccountLifecycleService', () => {
     expect(renamed.name).toBe('kraken-primary');
   });
 
-  it('updates account config for an existing named account', async () => {
+  it('updates account config for an existing account', async () => {
     const { store } = createStore([
       createAccount({
         id: 7,
@@ -280,7 +280,7 @@ describe('AccountLifecycleService', () => {
     const service = new AccountLifecycleService(store);
 
     const updated = assertOk(
-      await service.updateNamed(1, 'kraken-main', {
+      await service.update(1, 'kraken-main', {
         identifier: 'new-key',
         credentials: {
           apiKey: 'new-key',
@@ -319,7 +319,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.updateNamed(1, 'btc-main', {
+    const result = await service.update(1, 'btc-main', {
       identifier: 'bc1q-new',
     });
 

@@ -23,13 +23,13 @@ Every command should clearly belong to one of those questions.
 
 ## User Journey Map
 
-| Journey              | User question                                | Primary commands                                                                      |
-| -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                                    |
-| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`                |
-| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts view`, `transactions view`, `links view`, `links gaps`, `assets view`       |
-| Analyze and export   | "What does my data mean?"                    | `portfolio`, `balance view`, `cost-basis`, `transactions export`, `cost-basis export` |
-| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                               |
+| Journey              | User question                                | Primary commands                                                                 |
+| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
+| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                               |
+| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`           |
+| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`, `balance` |
+| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`            |
+| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                          |
 
 These journeys are the primary navigation system for humans. Technical ownership and package layout are secondary.
 
@@ -66,6 +66,33 @@ Examples:
 
 The namespace should describe the object the user is reasoning about, not the implementation technique.
 
+### Namespaces Need A Default Landing Surface
+
+A bare namespace command should do something useful when that namespace has a primary browse surface. It should not just dump help and force the user to remember `view`.
+
+The standard interaction ladder for browse-heavy namespaces is:
+
+- bare noun: quick static list/table
+- bare noun + stable selector: focused static detail card
+- explicit `view`: immersive TUI explorer
+- explicit `view` + selector: same explorer, pre-selected on that entity
+
+Example:
+
+- `exitbook accounts`
+- `exitbook accounts kraken-main`
+- `exitbook accounts view`
+- `exitbook accounts view kraken-main`
+
+This makes the CLI feel faster and more product-like:
+
+- quick answer without leaving scrollback
+- deeper inspection through stable command shapes, not output flags
+- one stable explorer verb for TUI-heavy flows
+
+When a browse family has a stable, obvious selector, the bare namespace plus selector should open a static detail card. If the selector contract is not yet stable, a dedicated detail subcommand is acceptable temporarily, but it should not become the default pattern.
+Static output may be a list/table or a detail card, but master-detail is reserved for the TUI explorer.
+
 ### Ambient Context Beats Repeated Flags
 
 Profile selection is context, not routine input. The default CLI posture should be:
@@ -85,7 +112,7 @@ Reserve verbs for stable meanings across the whole CLI.
 
 | Verb           | Meaning                                                             |
 | -------------- | ------------------------------------------------------------------- |
-| `view`         | Open or print a review surface                                      |
+| `view`         | Open the immersive explorer/TUI for a domain                        |
 | `run`          | Execute a workflow that changes derived state                       |
 | `refresh`      | Rebuild and re-verify a stored snapshot                             |
 | `enrich`       | Fill missing derived information                                    |
@@ -156,6 +183,22 @@ Human-facing CLI copy should use text-style symbols, not emoji presentation.
 - Avoid: `✅`, `⚠️`, or other glyphs that render like mobile emoji
 - When in doubt, prefer a plain text label over a pictographic icon
 
+## Visual Hierarchy
+
+### Header Tiers
+
+Explorer and static-surface headers should have one visual headline and one metadata tier.
+
+- the command title is the headline: white/bold
+- inline counts, scope labels, type counts, provider counts, and `showing X of Y` text are supporting context: dim
+- use brighter colors in headers only for true status or warning signals, not for routine counts
+- if a header metric is the primary payload of the surface rather than supporting context, it may stay emphasized, but this should be deliberate and uncommon
+
+Example:
+
+- preferred: `Accounts` in bold, `0 total · 3 blockchain` in dim
+- avoid: `Accounts` in bold, `0 total` in normal white, then other metadata in dim
+
 ### Error Copy
 
 Errors must answer three things quickly:
@@ -186,12 +229,38 @@ Avoid low-signal confirmations like:
 
 ### Review Surfaces
 
-Browse commands should feel like inspection tools:
+Browse-heavy namespaces should expose three human-facing browse surfaces:
 
-- filters narrow the initial state
-- the command lands directly in the most useful review surface
+- bare noun commands should return a fast static list/table by default
+- bare noun + selector should return a static detail card when the selector is stable
+- explicit `view` commands should open the richer explorer surface
+- focused selection inside Ink remains valid and important
+- `view` + selector should open the same explorer pre-selected on that entity
+- filters narrow the initial state at either depth
+- human-facing surface is chosen by command shape, not by generic `--text` / `--tui` flags
 - JSON bypasses the TUI entirely
-- non-interactive terminals degrade to readable text snapshots
+- `--json` is the only generic output override; command-specific flags such as `--interactive` are about prompting or execution, not presentation
+- non-interactive terminals degrade to the matching static surface: list/table or detail card
+- explorer commands must detect non-interactive terminals before Ink mounts
+- interactive `view` commands may short-circuit to the matching static empty state when the initial collection is truly empty
+- missing selectors should use the shared not-found path instead of mounting an empty explorer
+- a zero-result filtered slice inside an otherwise valid explorer should not, by itself, change the chosen surface
+- never leak React or Ink stack traces for terminal-readiness failures
+- if a static fallback is not implemented yet, fail with one clean CLI error line and a non-interactive hint instead of a framework crash
+
+### Static Output Layout
+
+Static human output should reuse the TUI's information design without imitating the TUI chrome.
+
+- keep the header text identical to the TUI header when the command already has one
+- render one blank line before the header and one blank line after it
+- go straight into the primary table or detail card with no extra document-style spacing
+- do not render controls bars, quit hints, or other interaction footers
+- only render a trailing truncation hint when results were actually cut off
+
+Static output is not a master-detail surface. Static output may be a compact list/table or a single detail card, but it must never embed detail panes, selected-row expansions, or any other imitation of the TUI's master-detail layout. If a family cannot support noun-plus-selector detail yet because its selector contract is not stable, a dedicated detail subcommand is acceptable temporarily.
+
+The shell prompt returning is the natural end of static output. It should feel compact and scannable, not like a pasted report.
 
 ### Workflows
 

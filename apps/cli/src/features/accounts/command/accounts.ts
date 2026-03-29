@@ -12,16 +12,16 @@ import { registerAccountsViewCommand } from './accounts-view.js';
  * Register the unified accounts command with all subcommands.
  *
  * Structure:
- *   accounts add                - Create a named account
- *   accounts view/list          - View named accounts and hierarchy
- *   accounts update             - Update sync config for a named account
- *   accounts rename             - Rename a named account
- *   accounts remove             - Remove a named account and all attached data
+ *   accounts add                - Create an account
+ *   accounts view/list          - View accounts and hierarchy
+ *   accounts update             - Update sync config for an account
+ *   accounts rename             - Rename an account
+ *   accounts remove             - Remove an account and all attached data
  */
 export function registerAccountsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const accounts = program
     .command('accounts')
-    .description('Manage named accounts')
+    .description('Manage accounts')
     .addHelpText(
       'after',
       `

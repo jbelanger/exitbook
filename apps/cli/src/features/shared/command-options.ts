@@ -1,7 +1,11 @@
 import type { z } from 'zod';
 
+import { getCliCommandErrorExitCode } from './cli-command-error.js';
 import { displayCliError } from './cli-error.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
+import type { CommandPresentationSpec } from './presentation/command-presentation.js';
+import { resolvePresentationMode } from './presentation/command-presentation.js';
+import type { PresentationMode } from './presentation/presentation-mode.js';
 
 export type CliOutputFormat = 'json' | 'text';
 
@@ -17,7 +21,7 @@ function hasBooleanJsonFlag(value: unknown): value is { json?: boolean | undefin
   return typeof (value as { json: unknown }).json === 'boolean';
 }
 
-function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
+export function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
   return hasBooleanJsonFlag(rawOptions) && rawOptions.json === true ? 'json' : 'text';
 }
 
@@ -45,6 +49,38 @@ export function parseCliCommandOptions<T>(
   };
 }
 
+export function parseCliPresentationOptions<T>(
+  command: string,
+  rawOptions: unknown,
+  schema: z.ZodType<T>,
+  spec: CommandPresentationSpec,
+  invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
+): { mode: PresentationMode; options: T } {
+  const format = detectCliOutputFormat(rawOptions);
+  const parseResult = schema.safeParse(rawOptions);
+
+  if (!parseResult.success) {
+    displayCliError(
+      command,
+      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
+      invalidExitCode,
+      format
+    );
+  }
+
+  let mode: PresentationMode;
+  try {
+    mode = resolvePresentationMode(spec, rawOptions);
+  } catch (error) {
+    displayCliError(command, toCliError(error), invalidExitCode, format);
+  }
+
+  return {
+    mode,
+    options: parseResult.data,
+  };
+}
+
 function toCliError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -58,6 +94,6 @@ export async function withCliCommandErrorHandling(
   try {
     await action();
   } catch (error) {
-    displayCliError(command, toCliError(error), exitCode, format);
+    displayCliError(command, toCliError(error), getCliCommandErrorExitCode(error) ?? exitCode, format);
   }
 }

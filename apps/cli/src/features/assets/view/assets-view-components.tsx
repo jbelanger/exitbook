@@ -137,9 +137,10 @@ const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
     return (
       <Box>
         <Text bold>Review Queue</Text>
-        <Text> </Text>
-        <Text>{state.filteredAssets.length}</Text>
-        <Text dimColor> flagged {pluralize(state.filteredAssets.length, 'asset')}</Text>
+        <Text dimColor> </Text>
+        <Text color="yellow">
+          {state.filteredAssets.length} flagged {pluralize(state.filteredAssets.length, 'asset')}
+        </Text>
         <Text dimColor> · </Text>
         <Text dimColor>{excludedLabel}</Text>
       </Box>
@@ -154,8 +155,8 @@ const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
   return (
     <Box>
       <Text bold>Assets</Text>
-      <Text> </Text>
-      <Text>{countLabel}</Text>
+      <Text dimColor> </Text>
+      <Text dimColor>{countLabel}</Text>
       <Text dimColor> · </Text>
       <Text color="yellow">{flaggedLabel}</Text>
       <Text dimColor> · </Text>

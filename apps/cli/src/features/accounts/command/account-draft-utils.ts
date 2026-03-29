@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { CreateNamedAccountInput, UpdateNamedAccountInput } from '@exitbook/accounts';
+import type { CreateAccountInput, UpdateAccountInput } from '@exitbook/accounts';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { isUtxoAdapter, type AdapterRegistry } from '@exitbook/ingestion/adapters';
@@ -11,12 +11,21 @@ function normalizeCsvDir(csvDir: string): string {
   return path.normalize(csvDir).replace(/[/\\]+$/, '');
 }
 
-export function buildNamedAccountDraft(
+function buildUnknownBlockchainError(name: string): Error {
+  return new Error(`Unknown blockchain: ${name}. Run 'exitbook blockchains view' to see supported blockchains.`);
+}
+
+function buildUnknownExchangeError(name: string, registry: AdapterRegistry): Error {
+  const supportedExchanges = registry.getAllExchanges();
+  return new Error(`Unknown exchange: ${name}. Supported exchanges: ${supportedExchanges.join(', ')}`);
+}
+
+export function buildCreateAccountInput(
   name: string,
   profileId: number,
   options: AccountAddCommandOptions,
   registry: AdapterRegistry
-): Result<CreateNamedAccountInput, Error> {
+): Result<CreateAccountInput, Error> {
   if (options.blockchain) {
     if (!options.address) {
       return err(new Error('--address is required for blockchain accounts'));
@@ -24,7 +33,7 @@ export function buildNamedAccountDraft(
 
     const adapterResult = registry.getBlockchain(options.blockchain.toLowerCase());
     if (adapterResult.isErr()) {
-      return err(adapterResult.error);
+      return err(buildUnknownBlockchainError(options.blockchain));
     }
 
     const adapter = adapterResult.value;
@@ -64,7 +73,7 @@ export function buildNamedAccountDraft(
 
   const exchangeAdapterResult = registry.getExchange(options.exchange.toLowerCase());
   if (exchangeAdapterResult.isErr()) {
-    return err(exchangeAdapterResult.error);
+    return err(buildUnknownExchangeError(options.exchange, registry));
   }
   const exchangeAdapter = exchangeAdapterResult.value;
 
@@ -107,11 +116,11 @@ export function buildNamedAccountDraft(
   });
 }
 
-export function buildUpdatedAccountDraft(
+export function buildUpdateAccountInput(
   account: Account,
   options: AccountUpdateCommandOptions,
   registry: AdapterRegistry
-): Result<UpdateNamedAccountInput, Error> {
+): Result<UpdateAccountInput, Error> {
   const hasApiFlags =
     options.apiKey !== undefined || options.apiSecret !== undefined || options.apiPassphrase !== undefined;
   const hasCsvDir = options.csvDir !== undefined;
@@ -187,7 +196,7 @@ export function buildUpdatedAccountDraft(
         return err(new Error('blockchain accounts can only be updated with --provider or --xpub-gap'));
       }
 
-      const updates: UpdateNamedAccountInput = {};
+      const updates: UpdateAccountInput = {};
       if (hasProvider && options.provider !== account.providerName) {
         updates.providerName = options.provider;
       }
@@ -195,7 +204,7 @@ export function buildUpdatedAccountDraft(
       if (options.xpubGap !== undefined) {
         const adapterResult = registry.getBlockchain(account.platformKey.toLowerCase());
         if (adapterResult.isErr()) {
-          return err(adapterResult.error);
+          return err(buildUnknownBlockchainError(account.platformKey));
         }
 
         const adapter = adapterResult.value;
