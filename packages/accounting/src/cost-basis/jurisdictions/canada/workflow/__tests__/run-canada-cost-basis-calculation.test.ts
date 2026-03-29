@@ -256,10 +256,12 @@ describe('runCanadaCostBasisCalculation', () => {
 
     expect(result.isOk()).toBe(true);
     expect(mockRunCanadaAcbWorkflow).toHaveBeenCalledWith(
-      [pricedTransaction],
-      [],
-      expect.anything(),
-      expect.anything()
+      expect.objectContaining({
+        transactions: [pricedTransaction],
+        confirmedLinks: [],
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- acceptable for tests
+        priceRuntime: expect.anything(),
+      })
     );
     if (result.isOk()) {
       expect(result.value.executionMeta).toEqual({

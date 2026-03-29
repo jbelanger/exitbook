@@ -232,12 +232,8 @@ const ProviderRow: FC<{
   const { displayName, chains, avgResponse, errorRate, totalReqs } = columns.format(item);
 
   const hasStats = item.stats !== undefined;
-
-  // API key info
-  let apiKeyText = '';
-  if (item.requiresApiKey && item.apiKeyEnvName) {
-    apiKeyText = item.apiKeyEnvName;
-  }
+  const environmentConfigurationStatus =
+    item.requiresApiKey && item.apiKeyEnvName ? getEnvironmentConfigurationStatus(item.apiKeyConfigured) : undefined;
 
   // No-stats rows are entirely dim
   if (item.healthStatus === 'no-stats') {
@@ -247,7 +243,7 @@ const ProviderRow: FC<{
         isSelected={isSelected}
       >
         {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
-        {apiKeyText ? `   ${apiKeyText}` : ''}
+        {environmentConfigurationStatus ? `   ${environmentConfigurationStatus.text}` : ''}
       </SelectableRow>
     );
   }
@@ -267,21 +263,26 @@ const ProviderRow: FC<{
         <Text dimColor>{errorRate}</Text>
       )}{' '}
       {totalReqs}
-      {apiKeyText && (
+      {environmentConfigurationStatus && (
         <>
           {'   '}
-          {item.apiKeyConfigured ? (
-            <Text color="green">{apiKeyText} ✓</Text>
-          ) : (
-            <>
-              <Text color="yellow">{apiKeyText}</Text> <Text color="red">✗</Text>
-            </>
-          )}
+          <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
         </>
       )}
     </SelectableRow>
   );
 };
+
+function getEnvironmentConfigurationStatus(apiKeyConfigured: boolean | undefined): {
+  color: 'green' | 'yellow';
+  text: string;
+} {
+  if (apiKeyConfigured) {
+    return { color: 'green', text: 'env configured ✓' };
+  }
+
+  return { color: 'yellow', text: 'env missing ✗' };
+}
 
 // --- Detail Panel ---
 
@@ -370,18 +371,12 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
   }
 
   if (selected.requiresApiKey && selected.apiKeyEnvName) {
+    const environmentConfigurationStatus = getEnvironmentConfigurationStatus(selected.apiKeyConfigured);
+
     rows.push(
       <Text key="api-key">
         <Text dimColor>{'  '}API key: </Text>
-        {selected.apiKeyConfigured ? (
-          <Text color="green">{selected.apiKeyEnvName} ✓</Text>
-        ) : (
-          <>
-            <Text color="yellow">{selected.apiKeyEnvName}</Text>
-            <Text color="red"> ✗</Text>
-            <Text color="yellow"> missing</Text>
-          </>
-        )}
+        <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
       </Text>
     );
   }

@@ -55,9 +55,9 @@ interface TaxPackageTransactionIssueDetailBase {
   transactionId: number;
 }
 
-export interface TaxPackageUnknownTransactionClassificationDetail extends TaxPackageTransactionIssueDetailBase {}
+export type TaxPackageUnknownTransactionClassificationDetail = TaxPackageTransactionIssueDetailBase;
 
-export interface TaxPackageUncertainProceedsAllocationDetail extends TaxPackageTransactionIssueDetailBase {}
+export type TaxPackageUncertainProceedsAllocationDetail = TaxPackageTransactionIssueDetailBase;
 
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;

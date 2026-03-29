@@ -798,7 +798,7 @@ function createMockItems(): TransactionViewItem[] {
   return [
     {
       id: 2456,
-      source: 'kraken',
+      platformKey: 'kraken',
       platformKind: 'exchange',
       txFingerprint: 'tx-001',
       datetime: '2024-11-28T16:20:45Z',
@@ -820,7 +820,7 @@ function createMockItems(): TransactionViewItem[] {
     },
     {
       id: 2412,
-      source: 'ethereum',
+      platformKey: 'ethereum',
       platformKind: 'blockchain',
       txFingerprint: 'tx-002',
       datetime: '2024-11-15T08:33:12Z',
@@ -855,7 +855,7 @@ function createMockItems(): TransactionViewItem[] {
     },
     {
       id: 2389,
-      source: 'solana',
+      platformKey: 'solana',
       platformKind: 'blockchain',
       txFingerprint: 'tx-003',
       datetime: '2024-11-10T14:45:22Z',
@@ -882,7 +882,7 @@ function createMockItems(): TransactionViewItem[] {
     },
     {
       id: 2312,
-      source: 'kraken',
+      platformKey: 'kraken',
       platformKind: 'exchange',
       txFingerprint: 'tx-004',
       datetime: '2024-10-28T09:12:00Z',

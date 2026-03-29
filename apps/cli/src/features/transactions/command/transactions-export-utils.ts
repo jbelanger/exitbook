@@ -106,7 +106,7 @@ export function convertToCSV(transactions: Transaction[]): string {
   const headers = [
     'id',
     'tx_fingerprint',
-    'source',
+    'platform_key',
     'operation_category',
     'operation_type',
     'datetime',
@@ -171,7 +171,7 @@ export function convertToNormalizedCSV(
     'id',
     'tx_fingerprint',
     'account_id',
-    'source',
+    'platform_key',
     'operation_category',
     'operation_type',
     'datetime',

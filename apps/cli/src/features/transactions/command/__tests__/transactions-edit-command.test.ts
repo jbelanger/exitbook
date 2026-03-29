@@ -103,7 +103,7 @@ describe('transactions edit command', () => {
         txFingerprint: 'trade-123',
         note: 'Moved to Ledger',
         reason: 'wallet transfer',
-        source: 'kraken',
+        platformKey: 'kraken',
         transactionId: 123,
       })
     );
@@ -136,7 +136,7 @@ describe('transactions edit command', () => {
       changed: true,
       txFingerprint: 'trade-123',
       reason: 'duplicate reminder',
-      source: 'kraken',
+      platformKey: 'kraken',
       transactionId: 123,
     };
     mockClearNote.mockResolvedValue(ok(result));

@@ -27,7 +27,11 @@ import { isValidSolanaAddress } from '../../utils.js';
 
 import { mapSolscanTransaction } from './solscan.mapper-utils.js';
 import type { SolscanTransaction, SolscanResponse } from './solscan.schemas.js';
-import { SolscanAccountBalanceResponseSchema, SolscanAccountTransactionsResponseSchema } from './solscan.schemas.js';
+import {
+  SolscanAccountBalanceResponseSchema,
+  SolscanAccountTransactionsResponseSchema,
+  SolscanLegacyTransactionsResponseSchema,
+} from './solscan.schemas.js';
 
 export const solscanMetadata: ProviderMetadata = {
   apiKeyEnvName: 'SOLSCAN_API_KEY',
@@ -246,9 +250,30 @@ export class SolscanApiClient extends BaseApiClient {
         );
       }
 
+      // Retry the deprecated V1 endpoint when V2 fails or returns no items.
+      // Some keys and addresses still only work there.
+      if (items.length === 0) {
+        this.logger.debug(`Attempting legacy Solscan endpoint - Address: ${maskAddress(address)}`);
+
+        const legacyResult = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
+          `/account/transaction?address=${address}&limit=${limit}&offset=${offset}`,
+          { schema: SolscanLegacyTransactionsResponseSchema }
+        );
+
+        if (legacyResult.isOk()) {
+          const legacyResponse = legacyResult.value;
+          if (legacyResponse && legacyResponse.success && legacyResponse.data) {
+            items = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
+            fetchError = undefined;
+          }
+        } else if (!fetchError) {
+          fetchError = legacyResult.error;
+        }
+      }
+
       if (fetchError && items.length === 0) {
         this.logger.error(
-          `Solscan transaction request failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(fetchError)}`
+          `All Solscan endpoints failed - Address: ${maskAddress(address)}, Error: ${getErrorMessage(fetchError)}`
         );
         return err(fetchError);
       }

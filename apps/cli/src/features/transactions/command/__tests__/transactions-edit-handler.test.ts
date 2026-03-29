@@ -107,11 +107,11 @@ describe('TransactionsEditHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'set',
       changed: true,
+      platformKey: 'kraken',
       transactionId: 42,
       txFingerprint: 'tx:v2:kraken:1:trade-42',
       note: 'Moved to hardware wallet',
       reason: 'manual reminder',
-      source: 'kraken',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,
