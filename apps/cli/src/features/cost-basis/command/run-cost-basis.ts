@@ -4,7 +4,9 @@ import type { Result } from '@exitbook/foundation';
 import type { CostBasisCommandScope } from './cost-basis-command-scope.js';
 import type { CostBasisArtifactExecutionResult } from './cost-basis-handler.js';
 
-interface CostBasisRunOptions { refresh?: boolean | undefined }
+interface CostBasisRunOptions {
+  refresh?: boolean | undefined;
+}
 
 export async function runCostBasis(
   scope: CostBasisCommandScope,

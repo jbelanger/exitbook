@@ -211,7 +211,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
 
   private async loadPreviousBalances(
     balanceChanges: NearBalanceChange[],
-    accountId?: number  
+    accountId?: number
   ): Promise<Result<Map<string, string>, Error>> {
     if (!this.nearBatchSource || accountId === undefined) {
       this.logger.warn('NEAR processor missing nearBatchSource/accountId. Proceeding without previous balance lookup.');
