@@ -10,7 +10,7 @@ import { writeCliStateFile } from '../profile-state.js';
 export function registerProfilesSwitchCommand(profilesCommand: Command): void {
   profilesCommand
     .command('switch')
-    .description('Set the default active profile for future commands')
+    .description('Set the default profile for future commands in this data directory')
     .addHelpText(
       'after',
       `

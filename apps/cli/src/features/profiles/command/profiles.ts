@@ -9,7 +9,7 @@ import { registerProfilesSwitchCommand } from './profiles-switch.js';
 export function registerProfilesCommand(program: Command): void {
   const profiles = program
     .command('profiles')
-    .description('Manage CLI profiles')
+    .description('Manage isolated profiles within one data directory')
     .addHelpText(
       'after',
       `
@@ -20,7 +20,8 @@ Examples:
   $ exitbook profiles current
 
 Notes:
-  - Profiles let you isolate independent datasets and workflows in the same data directory.
+  - Profiles isolate independent datasets and reporting contexts in the same data directory.
+  - EXITBOOK_PROFILE overrides the saved default profile for the current process.
 `
     );
 

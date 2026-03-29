@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-15
+last_verified: 2026-03-29
 status: draft
 ---
 
@@ -29,6 +29,7 @@ This spec defines the command taxonomy, presentation mode rules, naming conventi
 - Separate execution logic from rendering logic for workflow commands.
 - Preserve scriptability without degrading interactive review flows.
 - Define naming rules so new commands fit the surface without ad hoc exceptions.
+- Cover the full runnable CLI surface, including recently added profile, export, and maintenance commands.
 
 ## Non-Goals
 
@@ -52,6 +53,20 @@ That model is too coarse.
 - Long-running workflows need live progress in both interactive and non-interactive contexts.
 - One-shot action commands should remain fast, plain, and legible without requiring TUI.
 - "Non-TUI" is not a useful internal product concept because it conflates snapshot output with live progress output.
+
+## User Journey Overlay
+
+Intent drives presentation, but user journeys drive information architecture. The current CLI surface should read as five coherent workflows:
+
+| Journey              | Goal                                                        | Commands                                                                              |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Workspace setup      | choose a working dataset and inspect available integrations | `profiles`, `accounts`, `blockchains`, `providers`                                    |
+| Sync and rebuild     | fetch or regenerate current derived state                   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`                |
+| Review and resolve   | inspect suspicious, missing, or ambiguous data              | `accounts view`, `transactions view`, `links view`, `links gaps`, `assets view`       |
+| Analyze and export   | inspect outcomes and emit artifacts                         | `portfolio`, `balance view`, `cost-basis`, `transactions export`, `cost-basis export` |
+| Cleanup and recovery | safely remove or reset data                                 | `clear`                                                                               |
+
+The journey overlay is what keeps new namespaces from feeling arbitrary. A new command must fit both a command intent and a user journey.
 
 ## Definitions
 
@@ -120,37 +135,73 @@ This is intentional: the prereq rebuild is a workflow sub-operation with differe
 
 ### Command Taxonomy
 
-| Command               | Intent               | Default on interactive terminal | Default off terminal / CI                                                    |
-| --------------------- | -------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
-| `accounts view`       | `browse`             | `tui`                           | `text`                                                                       |
-| `transactions view`   | `browse`             | `tui`                           | `text`                                                                       |
-| `links view`          | `browse`             | `tui`                           | `text`                                                                       |
-| `prices view`         | `browse`             | `tui`                           | `text`                                                                       |
-| `providers view`      | `browse`             | `tui`                           | `text`                                                                       |
-| `blockchains view`    | `browse`             | `tui`                           | `text`                                                                       |
-| `assets view`         | `browse`             | `tui`                           | `text`                                                                       |
-| `portfolio`           | `browse`             | `tui`                           | `text`                                                                       |
-| `cost-basis`          | `browse`             | `tui`                           | `text`                                                                       |
-| `balance view`        | `browse`             | `tui`                           | `text`                                                                       |
-| `balance refresh`     | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `import`              | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `reprocess`           | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `links run`           | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `prices enrich`       | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `providers benchmark` | `workflow`           | `text-progress`                 | `text-progress`                                                              |
-| `links confirm`       | `mutate`             | `text`                          | `text`                                                                       |
-| `links reject`        | `mutate`             | `text`                          | `text`                                                                       |
-| `prices set`          | `mutate`             | `text`                          | `text`                                                                       |
-| `prices set-fx`       | `mutate`             | `text`                          | `text`                                                                       |
-| `assets include`      | `mutate`             | `text`                          | `text`                                                                       |
-| `assets exclude`      | `mutate`             | `text`                          | `text`                                                                       |
-| `assets confirm`      | `mutate`             | `text`                          | `text`                                                                       |
-| `assets clear-review` | `mutate`             | `text`                          | `text`                                                                       |
-| `assets exclusions`   | `export`             | `text`                          | `text`                                                                       |
-| `transactions export` | `export`             | `text`                          | `text`                                                                       |
-| `clear`               | `destructive-review` | `tui`                           | `text` preview only; execution requires `--confirm`, otherwise exit non-zero |
+The taxonomy below is exhaustive for the current runnable CLI surface. Aliases such as `accounts list` are covered by their canonical target (`accounts view`).
 
-The taxonomy table above is exhaustive for the current runnable CLI surface. Top-level namespace commands such as `accounts`, `assets`, `balance`, `blockchains`, `links`, `prices`, `providers`, and `transactions` are grouping commands, not standalone execution targets, so they are not assigned intents separately.
+#### Workspace Setup
+
+| Command               | Intent     | Default on interactive terminal | Default off terminal / CI |
+| --------------------- | ---------- | ------------------------------- | ------------------------- |
+| `profiles list`       | `export`   | `text`                          | `text`                    |
+| `profiles current`    | `export`   | `text`                          | `text`                    |
+| `profiles add`        | `mutate`   | `text`                          | `text`                    |
+| `profiles rename`     | `mutate`   | `text`                          | `text`                    |
+| `profiles switch`     | `mutate`   | `text`                          | `text`                    |
+| `accounts view`       | `browse`   | `tui`                           | `text`                    |
+| `accounts add`        | `mutate`   | `text`                          | `text`                    |
+| `accounts update`     | `mutate`   | `text`                          | `text`                    |
+| `accounts rename`     | `mutate`   | `text`                          | `text`                    |
+| `accounts remove`     | `mutate`   | `text`                          | `text`                    |
+| `blockchains view`    | `browse`   | `tui`                           | `text`                    |
+| `providers view`      | `browse`   | `tui`                           | `text`                    |
+| `providers benchmark` | `workflow` | `text-progress`                 | `text-progress`           |
+
+#### Sync And Rebuild
+
+| Command           | Intent     | Default on interactive terminal | Default off terminal / CI |
+| ----------------- | ---------- | ------------------------------- | ------------------------- |
+| `import`          | `workflow` | `text-progress`                 | `text-progress`           |
+| `reprocess`       | `workflow` | `text-progress`                 | `text-progress`           |
+| `links run`       | `workflow` | `text-progress`                 | `text-progress`           |
+| `prices enrich`   | `workflow` | `text-progress`                 | `text-progress`           |
+| `balance refresh` | `workflow` | `text-progress`                 | `text-progress`           |
+
+#### Review And Resolve
+
+| Command                  | Intent   | Default on interactive terminal | Default off terminal / CI |
+| ------------------------ | -------- | ------------------------------- | ------------------------- |
+| `transactions view`      | `browse` | `tui`                           | `text`                    |
+| `transactions edit note` | `mutate` | `text`                          | `text`                    |
+| `links view`             | `browse` | `tui`                           | `text`                    |
+| `links gaps`             | `browse` | `tui`                           | `text`                    |
+| `links confirm`          | `mutate` | `text`                          | `text`                    |
+| `links reject`           | `mutate` | `text`                          | `text`                    |
+| `assets view`            | `browse` | `tui`                           | `text`                    |
+| `assets confirm`         | `mutate` | `text`                          | `text`                    |
+| `assets clear-review`    | `mutate` | `text`                          | `text`                    |
+| `assets include`         | `mutate` | `text`                          | `text`                    |
+| `assets exclude`         | `mutate` | `text`                          | `text`                    |
+| `assets exclusions`      | `export` | `text`                          | `text`                    |
+| `prices view`            | `browse` | `tui`                           | `text`                    |
+| `prices set`             | `mutate` | `text`                          | `text`                    |
+| `prices set-fx`          | `mutate` | `text`                          | `text`                    |
+| `balance view`           | `browse` | `tui`                           | `text`                    |
+
+#### Analyze And Export
+
+| Command               | Intent   | Default on interactive terminal | Default off terminal / CI |
+| --------------------- | -------- | ------------------------------- | ------------------------- |
+| `portfolio`           | `browse` | `tui`                           | `text`                    |
+| `cost-basis`          | `browse` | `tui`                           | `text`                    |
+| `cost-basis export`   | `export` | `text`                          | `text`                    |
+| `transactions export` | `export` | `text`                          | `text`                    |
+
+#### Cleanup And Recovery
+
+| Command | Intent               | Default on interactive terminal | Default off terminal / CI                                                    |
+| ------- | -------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
+| `clear` | `destructive-review` | `tui`                           | `text` preview only; execution requires `--confirm`, otherwise exit non-zero |
+
+Top-level namespace commands such as `accounts`, `assets`, `balance`, `blockchains`, `links`, `prices`, `profiles`, `providers`, and `transactions` are grouping commands, not standalone execution targets, so they are not assigned intents separately.
 
 ## Mode Selection Rules
 
@@ -324,12 +375,21 @@ Use verbs consistently:
 | --------------------- | -------------------------------------- |
 | `view`                | Open a browse/review surface           |
 | `run`                 | Execute a workflow process             |
+| `refresh`             | Rebuild and re-verify stored state     |
 | `enrich`              | Fill gaps in existing domain data      |
 | `benchmark`           | Run a measurement workflow             |
 | `export`              | Emit report/file output                |
+| `add`                 | Create a named resource                |
+| `update`              | Change stored sync/config fields       |
+| `rename`              | Change a human-facing label or name    |
+| `switch`              | Change the default active context      |
+| `current`             | Show the currently resolved context    |
+| `list`                | Emit a short textual/export snapshot   |
 | `set`                 | Write one explicit value               |
 | `confirm` / `reject`  | Resolve a suggested state change       |
 | `include` / `exclude` | Toggle accounting policy or visibility |
+| `remove`              | Delete a named resource directly       |
+| `gaps`                | Show unresolved coverage gaps          |
 
 Avoid introducing additional near-synonyms unless a domain has a materially different workflow.
 

@@ -9,7 +9,7 @@ import { resolveCommandProfile } from '../profile-resolution.js';
 export function registerProfilesCurrentCommand(profilesCommand: Command): void {
   profilesCommand
     .command('current')
-    .description('Show the active profile for this command')
+    .description('Show which profile this command will use')
     .addHelpText(
       'after',
       `

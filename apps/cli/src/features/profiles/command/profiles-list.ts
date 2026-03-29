@@ -10,7 +10,7 @@ import { buildCliProfileService } from '../profile-service.js';
 export function registerProfilesListCommand(profilesCommand: Command): void {
   profilesCommand
     .command('list')
-    .description('List profiles')
+    .description('List profiles and mark the active one')
     .addHelpText(
       'after',
       `

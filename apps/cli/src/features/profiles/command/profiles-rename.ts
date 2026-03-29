@@ -9,7 +9,7 @@ import { buildCliProfileService } from '../profile-service.js';
 export function registerProfilesRenameCommand(profilesCommand: Command): void {
   profilesCommand
     .command('rename')
-    .description('Rename a profile display label')
+    .description('Rename a profile label without changing its key')
     .addHelpText(
       'after',
       `

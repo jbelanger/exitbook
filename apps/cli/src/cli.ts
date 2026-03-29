@@ -74,7 +74,33 @@ function createProgram(): Command {
   }
   const appRuntime = appRuntimeResult.value;
 
-  program.name('exitbook').description('Crypto transaction reconciliation and reports').version(readCliVersion());
+  program
+    .name('exitbook')
+    .description('Track crypto activity across accounts, reconcile it, and produce tax-ready reports')
+    .version(readCliVersion())
+    .showSuggestionAfterError()
+    .showHelpAfterError()
+    .addHelpText(
+      'after',
+      `
+Start Here:
+  $ exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
+  $ exitbook import --account kraken-main
+  $ exitbook prices enrich
+  $ exitbook portfolio
+
+Command Journeys:
+  Workspace setup      profiles, accounts, blockchains, providers
+  Sync and rebuild     import, reprocess, links run, prices enrich, balance refresh
+  Review and resolve   transactions view, links view, links gaps, assets view, accounts view
+  Analyze and export   portfolio, balance view, cost-basis, transactions export, cost-basis export
+  Cleanup and recovery clear
+
+Notes:
+  - Use the active profile as your workspace boundary. See "exitbook profiles --help".
+  - Add --json when you need machine-readable output.
+`
+    );
 
   registerImportCommand(program, appRuntime);
   registerProfilesCommand(program);

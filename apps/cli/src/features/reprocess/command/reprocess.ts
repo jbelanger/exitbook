@@ -37,7 +37,7 @@ interface ReprocessCommandResult {
 export function registerReprocessCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('reprocess')
-    .description('Clear all derived data and reprocess from raw data')
+    .description('Rebuild derived data from saved raw imports')
     .addHelpText(
       'after',
       `
@@ -47,8 +47,8 @@ Examples:
   $ exitbook reprocess --json
 
 Notes:
-  - Reprocess rebuilds derived data from stored raw imports only.
-  - Use "exitbook import" first if you need to refresh raw data from providers or CSV exports.
+  - Use this after processing logic changes, projection resets, or failed derived-data rebuilds.
+  - Reprocess uses stored raw imports only. Run "exitbook import" first if raw data itself is stale.
 `
     )
     .option('--account-id <id>', 'Reprocess only a specific account ID')

@@ -9,7 +9,7 @@ import { buildCliProfileService } from '../profile-service.js';
 export function registerProfilesAddCommand(profilesCommand: Command): void {
   profilesCommand
     .command('add')
-    .description('Create a new profile')
+    .description('Create a new isolated profile')
     .addHelpText(
       'after',
       `
