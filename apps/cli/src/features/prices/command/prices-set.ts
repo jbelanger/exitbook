@@ -81,7 +81,7 @@ async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
       if (format === 'json') {
         outputSuccess('prices-set', result);
       } else {
-        console.log('✅ Price set successfully');
+        console.log('✓ Price set successfully');
         console.log(`   Asset: ${result.asset}`);
         console.log(`   Date: ${result.timestamp.toISOString()}`);
         console.log(`   Price: ${result.price} ${result.currency}`);

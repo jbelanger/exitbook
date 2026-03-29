@@ -57,7 +57,7 @@ function handleAssetsIncludeSuccess(isJsonMode: boolean, result: AssetOverrideRe
   if (!result.changed) {
     console.log('Asset is already included in accounting');
   } else {
-    console.log('✅ Asset included in accounting');
+    console.log('✓ Asset included in accounting');
   }
 
   console.log(`   Asset ID: ${result.assetId}`);

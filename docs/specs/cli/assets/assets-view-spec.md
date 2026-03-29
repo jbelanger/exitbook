@@ -5,7 +5,7 @@ status: canonical
 
 # Assets View CLI Specification
 
-> ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
+> ⚠ **Code is law**: If this document disagrees with implementation, update the spec to match code.
 
 How `exitbook assets view` assembles its read model, presents asset review state, and wires inline include/exclude and review actions.
 

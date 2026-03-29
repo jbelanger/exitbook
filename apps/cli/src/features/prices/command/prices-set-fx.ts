@@ -81,7 +81,7 @@ async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
       if (format === 'json') {
         outputSuccess('prices-set-fx', result);
       } else {
-        console.log('✅ FX rate set successfully');
+        console.log('✓ FX rate set successfully');
         console.log(`   From: ${result.from}`);
         console.log(`   To: ${result.to}`);
         console.log(`   Date: ${result.timestamp.toISOString()}`);

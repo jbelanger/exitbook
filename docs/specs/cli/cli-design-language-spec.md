@@ -149,6 +149,13 @@ Every non-trivial command should use this order:
 
 Examples must move from common to specific. The first example should match the most likely user task.
 
+### Character Style
+
+Human-facing CLI copy should use text-style symbols, not emoji presentation.
+
+- Avoid: `✅`, `⚠️`, or other glyphs that render like mobile emoji
+- When in doubt, prefer a plain text label over a pictographic icon
+
 ### Error Copy
 
 Errors must answer three things quickly:

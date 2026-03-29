@@ -57,7 +57,7 @@ function handleAssetsExcludeSuccess(isJsonMode: boolean, result: AssetOverrideRe
   if (!result.changed) {
     console.log('Asset is already excluded from accounting');
   } else {
-    console.log('✅ Asset excluded from accounting');
+    console.log('✓ Asset excluded from accounting');
   }
 
   console.log(`   Asset ID: ${result.assetId}`);

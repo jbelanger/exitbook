@@ -178,7 +178,7 @@ async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAp
           {
             accountId: accountResult.value.id,
             onSingleAddressWarning: async () => {
-              process.stderr.write('\n⚠️  Single address import (incomplete wallet view)\n\n');
+              process.stderr.write('\n⚠  Single address import (incomplete wallet view)\n\n');
               process.stderr.write('Single address tracking has limitations:\n');
               process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
               process.stderr.write('  • Change to other addresses will appear as withdrawals\n');

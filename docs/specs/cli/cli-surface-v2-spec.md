@@ -542,6 +542,7 @@ The text-progress presenter receives the same event stream as the Ink presenter.
 - Heartbeat frequency should be adaptive: more frequent during active fetching, suppressed when idle.
 - `--verbose` increases detail level (per-request logging, full error stacks) without changing which presenter is selected. It is orthogonal to presentation mode.
 - Output must be CI-safe: no cursor control, no ANSI escape sequences beyond basic color, no terminal-width assumptions.
+- Human-facing text output should prefer text-style symbols over emoji presentation.
 
 ## Migration Plan
 
