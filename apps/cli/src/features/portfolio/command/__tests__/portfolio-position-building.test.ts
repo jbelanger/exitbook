@@ -12,7 +12,7 @@ import {
   type CanadaDisplayCostBasisReport,
   type CanadaTaxInputContext,
   type CanadaTaxReport,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/portfolio';
 import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';

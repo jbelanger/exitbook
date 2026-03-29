@@ -417,7 +417,7 @@ describe('provider manager helpers', () => {
         name: 'test-provider',
         displayName: 'Test Provider',
         requiresApiKey: true,
-        apiKeyEnvVar: 'CUSTOM_API_KEY',
+        apiKeyEnvName: 'CUSTOM_API_KEY',
       });
 
       expect(result.available).toBe(true);

@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db nulls */
 import type { CostBasisSnapshotRecord } from '@exitbook/accounting/ports';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
@@ -27,7 +27,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       return ok(this.toRecord(row));
     } catch (error) {
       this.logger.error({ error, scopeKey }, 'Failed to load latest cost-basis snapshot');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, `Failed to load latest cost-basis snapshot for ${scopeKey}`);
     }
   }
 
@@ -87,7 +87,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       return ok(undefined);
     } catch (error) {
       this.logger.error({ error, scopeKey: snapshot.scopeKey }, 'Failed to replace latest cost-basis snapshot');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, `Failed to replace latest cost-basis snapshot for ${snapshot.scopeKey}`);
     }
   }
 
@@ -114,7 +114,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       return ok(deletedCount);
     } catch (error) {
       this.logger.error({ error, scopeKeys }, 'Failed to delete cost-basis snapshots');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to delete cost-basis snapshots');
     }
   }
 
@@ -128,7 +128,7 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       return ok(row?.count ?? 0);
     } catch (error) {
       this.logger.error({ error }, 'Failed to count cost-basis snapshots');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to count cost-basis snapshots');
     }
   }
 

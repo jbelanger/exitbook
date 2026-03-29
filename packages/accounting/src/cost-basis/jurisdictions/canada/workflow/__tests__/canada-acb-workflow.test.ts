@@ -55,7 +55,10 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'withdrawal',
     });
 
-    const result = await runCanadaAcbWorkflow([first, second], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [first, second],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       assetReviewSummaries: new Map([
         [
           'blockchain:arbitrum:0xaaa',
@@ -137,7 +140,10 @@ describe('runCanadaAcbWorkflow', () => {
       },
     ];
 
-    const result = await runCanadaAcbWorkflow([first, second], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [first, second],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:arbitrum:0xbbb']),
       assetReviewSummaries: new Map([
         [
@@ -184,7 +190,10 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'deposit',
     });
 
-    const result = await runCanadaAcbWorkflow([reviewRequired], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [reviewRequired],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       assetReviewSummaries: new Map([
         ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
       ]),
@@ -228,7 +237,10 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'deposit',
     });
 
-    const result = await runCanadaAcbWorkflow([safeAcquisition, reviewRequired], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [safeAcquisition, reviewRequired],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:ethereum:0xscam']),
       assetReviewSummaries: new Map([
         ['blockchain:ethereum:0xscam', createAssetReviewSummary('blockchain:ethereum:0xscam')],
@@ -261,7 +273,10 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'deposit',
     });
 
-    const result = await runCanadaAcbWorkflow([warningOnly], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [warningOnly],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       assetReviewSummaries: new Map([
         [
           'blockchain:ethereum:0xwarn',
@@ -369,11 +384,11 @@ describe('runCanadaAcbWorkflow', () => {
       assetSymbol: 'BTC' as Currency,
     });
 
-    const result = await runCanadaAcbWorkflow(
-      [acquisition, transferOut, transferIn, disposition],
-      [confirmedTransferLink],
-      fxProvider
-    );
+    const result = await runCanadaAcbWorkflow({
+      transactions: [acquisition, transferOut, transferIn, disposition],
+      confirmedLinks: [confirmedTransferLink],
+      priceRuntime: fxProvider,
+    });
     const value = assertOk(result);
 
     expect(value.inputContext.inputEvents.map((event) => event.kind)).toEqual([
@@ -433,7 +448,11 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'sell',
     });
 
-    const result = await runCanadaAcbWorkflow([acquisition, disposition], [], fxProvider);
+    const result = await runCanadaAcbWorkflow({
+      transactions: [acquisition, disposition],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
+    });
     const value = assertOk(result);
 
     expect(value.inputContext.inputEvents).toHaveLength(2);
@@ -536,11 +555,11 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'sell',
     });
 
-    const result = await runCanadaAcbWorkflow(
-      [acquisition, internalSource, internalTarget, disposition],
-      [],
-      fxProvider
-    );
+    const result = await runCanadaAcbWorkflow({
+      transactions: [acquisition, internalSource, internalTarget, disposition],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
+    });
     const value = assertOk(result);
     const kinds = value.inputContext.inputEvents.map((event) => event.kind);
 
@@ -579,7 +598,10 @@ describe('runCanadaAcbWorkflow', () => {
       type: 'deposit',
     });
 
-    const result = await runCanadaAcbWorkflow([excludedAcquisition], [], fxProvider, {
+    const result = await runCanadaAcbWorkflow({
+      transactions: [excludedAcquisition],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
       accountingExclusionPolicy: createAccountingExclusionPolicy(['blockchain:spam-chain:0xscam']),
     });
     const value = assertOk(result);

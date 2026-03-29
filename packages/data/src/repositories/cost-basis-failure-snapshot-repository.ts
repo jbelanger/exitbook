@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- db nulls */
 import type { CostBasisFailureConsumer, CostBasisFailureSnapshotRecord } from '@exitbook/accounting/ports';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
@@ -71,7 +71,10 @@ export class CostBasisFailureSnapshotRepository extends BaseRepository {
         { error, scopeKey: snapshot.scopeKey, consumer: snapshot.consumer },
         'Failed to replace latest cost-basis failure snapshot'
       );
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(
+        error,
+        `Failed to replace latest cost-basis failure snapshot for ${snapshot.scopeKey} (${snapshot.consumer})`
+      );
     }
   }
 
@@ -105,7 +108,7 @@ export class CostBasisFailureSnapshotRepository extends BaseRepository {
       return ok(deletedCount);
     } catch (error) {
       this.logger.error({ error, scopeKeys, consumers }, 'Failed to delete cost-basis failure snapshots');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to delete cost-basis failure snapshots');
     }
   }
 
@@ -120,7 +123,7 @@ export class CostBasisFailureSnapshotRepository extends BaseRepository {
       return ok(row?.count ?? 0);
     } catch (error) {
       this.logger.error({ error, consumers }, 'Failed to count cost-basis failure snapshots');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to count cost-basis failure snapshots');
     }
   }
 }

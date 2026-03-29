@@ -6,7 +6,7 @@ import { TatumBitcoinBalanceSchema, TatumBitcoinTransactionSchema } from './tatu
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.schemas.js';
 
 export const tatumBitcoinMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'TATUM_API_KEY',
+  apiKeyEnvName: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/bitcoin',
   blockchain: 'bitcoin',
   capabilities: {

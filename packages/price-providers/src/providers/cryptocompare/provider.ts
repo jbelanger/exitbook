@@ -12,9 +12,10 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { CoinNotFoundError } from '../../contracts/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import type { PricesDB } from '../../price-cache/persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import { BasePriceProvider } from '../../runtime/base-provider.js';
-import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import type { ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import { buildPriceProvider } from '../shared/provider-construction.js';
 
 import {
   buildHistoricalParams,
@@ -67,39 +68,26 @@ export function createCryptoCompareProvider(
   config: CryptoCompareProviderConfig = {},
   instrumentation?: InstrumentationCollector
 ): Result<CryptoCompareProvider, Error> {
-  try {
-    const apiKey = config.apiKey;
+  const apiKey = config.apiKey;
+  const rateLimit = apiKey ? CRYPTOCOMPARE_RATE_LIMITS.paid : CRYPTOCOMPARE_RATE_LIMITS.free;
 
-    // Determine rate limits based on whether API key is provided
-    const rateLimit = apiKey ? CRYPTOCOMPARE_RATE_LIMITS.paid : CRYPTOCOMPARE_RATE_LIMITS.free;
-
-    // Create HTTP client
-    const httpClient = createProviderHttpClient({
+  return buildPriceProvider({
+    buildProvider: ({ httpClient, priceQueries }) =>
+      new CryptoCompareProvider(httpClient, priceQueries, { apiKey }, rateLimit),
+    creationError: 'Failed to create CryptoCompare provider',
+    db,
+    http: {
       baseUrl: 'https://min-api.cryptocompare.com',
       instrumentation,
       providerName: 'CryptoCompare',
       rateLimit,
-      // CryptoCompare uses query param for API key, not header
-    });
-
-    // Create queries
-    const priceQueries = createPriceQueries(db);
-
-    // Create provider
-    const provider = new CryptoCompareProvider(httpClient, priceQueries, { apiKey }, rateLimit);
-
-    return ok(provider);
-  } catch (error) {
-    return wrapError(error, 'Failed to create CryptoCompare provider');
-  }
+    },
+  });
 }
 
 /**
  * CryptoCompare price provider
  * Free tier: ~100,000 calls/month
- *
- * Imperative shell managing HTTP client, DB repositories, and orchestration
- * Uses pure functions from cryptocompare-utils.js for all transformations
  */
 export class CryptoCompareProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
@@ -149,10 +137,6 @@ export class CryptoCompareProvider extends BasePriceProvider {
     };
   }
 
-  /**
-   * Fetch single price (implements BasePriceProvider)
-   * Query is already validated and currency is normalized by BasePriceProvider
-   */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       // Currency is guaranteed to be set by BasePriceProvider

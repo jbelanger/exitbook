@@ -8,13 +8,13 @@ import type { BlockchainCatalogItem } from './command/blockchains-view-utils.js'
 export function toBlockchainViewItem(blockchain: BlockchainCatalogItem): BlockchainViewItem {
   const providers: ProviderViewItem[] = blockchain.providers.map((provider) => {
     const apiKeyConfigured =
-      provider.requiresApiKey && provider.apiKeyEnvVar ? !!process.env[provider.apiKeyEnvVar] : undefined;
+      provider.requiresApiKey && provider.apiKeyEnvName ? !!process.env[provider.apiKeyEnvName] : undefined;
 
     return {
       name: provider.name,
       displayName: provider.displayName,
       requiresApiKey: provider.requiresApiKey,
-      apiKeyEnvVar: provider.apiKeyEnvVar,
+      apiKeyEnvName: provider.apiKeyEnvName,
       apiKeyConfigured,
       capabilities: provider.capabilities,
       rateLimit: provider.rateLimit,

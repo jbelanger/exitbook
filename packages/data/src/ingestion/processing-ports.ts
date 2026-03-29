@@ -1,4 +1,4 @@
-import type { TransactionMaterializationScope } from '@exitbook/core';
+import type { ImportSessionStatus, TransactionMaterializationScope } from '@exitbook/core';
 import { err, resultDoAsync } from '@exitbook/foundation';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
@@ -68,7 +68,7 @@ export function buildProcessingPorts(
   db: DataSession,
   options: {
     overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
-    rebuildAssetReviewProjection: () => Promise<import('@exitbook/foundation').Result<void, Error>>;
+    rebuildAssetReviewProjection: (accountIds: number[]) => Promise<import('@exitbook/foundation').Result<void, Error>>;
   }
 ): ProcessingPorts {
   return {
@@ -126,7 +126,7 @@ export function buildProcessingPorts(
 
           // Sessions are returned ordered by creation date descending,
           // so the first one per account is the latest.
-          const latestByAccount = new Map<number, { accountId: number; status: string }>();
+          const latestByAccount = new Map<number, { accountId: number; status: ImportSessionStatus }>();
           for (const session of sessions) {
             if (!latestByAccount.has(session.accountId)) {
               latestByAccount.set(session.accountId, {
@@ -156,7 +156,7 @@ export function buildProcessingPorts(
 
     markProcessedTransactionsFailed: () => db.projectionState.markFailed('processed-transactions'),
 
-    rebuildAssetReviewProjection: options.rebuildAssetReviewProjection,
+    rebuildAssetReviewProjection: (accountIds) => options.rebuildAssetReviewProjection(accountIds),
 
     withTransaction: (fn) => db.executeInTransaction((txDb) => fn(buildProcessingPorts(txDb, options))),
   };

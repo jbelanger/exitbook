@@ -213,7 +213,10 @@ export class BalanceWorkflow {
       this.appendPartialCoverageWarnings(warnings, coverage);
       this.appendTokenCoverageWarnings(warnings, scopeContext.scopeAccount);
 
-      const lastImportTimestamp = await this.getLastImportTimestamp(scopeContext);
+      const lastImportTimestampResult = await this.getLastImportTimestamp(scopeContext);
+      if (lastImportTimestampResult.isErr()) return err(lastImportTimestampResult.error);
+
+      const lastImportTimestamp = lastImportTimestampResult.value;
       const hasTransactions = Object.keys(calculatedBalances).length > 0;
       const verificationResult = createVerificationResult(
         scopeContext.scopeAccount,
@@ -247,7 +250,7 @@ export class BalanceWorkflow {
     errorMessage: string,
     operation: () => Promise<Result<T, Error>>
   ): Promise<Result<T, Error>> {
-    const buildingResult = await this.ports.projectionState.markBuilding(scopeAccountId);
+    const buildingResult = await this.ports.markBuilding(scopeAccountId);
     if (buildingResult.isErr()) return err(buildingResult.error);
 
     try {
@@ -257,7 +260,7 @@ export class BalanceWorkflow {
         return err(operationResult.error);
       }
 
-      const freshResult = await this.ports.projectionState.markFresh(scopeAccountId);
+      const freshResult = await this.ports.markFresh(scopeAccountId);
       if (freshResult.isErr()) {
         await this.markScopeFailed(scopeAccountId, freshResult.error);
         return err(freshResult.error);
@@ -272,7 +275,7 @@ export class BalanceWorkflow {
   }
 
   private async markScopeFailed(scopeAccountId: number, cause: Error): Promise<void> {
-    const failedResult = await this.ports.projectionState.markFailed(scopeAccountId);
+    const failedResult = await this.ports.markFailed(scopeAccountId);
     if (failedResult.isErr()) {
       logger.warn(
         { scopeAccountId, cause, projectionStateError: failedResult.error },
@@ -282,11 +285,11 @@ export class BalanceWorkflow {
   }
 
   private async loadBalanceScopeContext(accountId: number): Promise<Result<BalanceScopeContext, Error>> {
-    const requestedAccountResult = await this.ports.accountLookup.findById(accountId);
+    const requestedAccountResult = await this.ports.findById(accountId);
     if (requestedAccountResult.isErr()) return err(requestedAccountResult.error);
     if (!requestedAccountResult.value) return err(new Error(`No account found with ID ${accountId}`));
 
-    return loadSharedBalanceScopeContext(requestedAccountResult.value, this.ports.accountLookup);
+    return loadSharedBalanceScopeContext(requestedAccountResult.value, this.ports);
   }
 
   private buildVerificationCoverage(
@@ -364,29 +367,33 @@ export class BalanceWorkflow {
     }
   }
 
-  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<number | undefined> {
+  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<Result<number | undefined, Error>> {
+    const accountIds = scopeContext.memberAccounts.map((account) => account.id);
+
     try {
-      const sessionsResult: Result<ImportSession[], Error> = await this.ports.importSessionLookup.findByAccountIds(
-        scopeContext.memberAccounts.map((account) => account.id)
-      );
+      const sessionsResult: Result<ImportSession[], Error> = await this.ports.findByAccountIds(accountIds);
 
       if (sessionsResult.isErr()) {
-        logger.warn(`Failed to fetch import sessions: ${sessionsResult.error.message}`);
-        return undefined;
+        return wrapError(
+          sessionsResult.error,
+          `Failed to fetch import sessions for balance verification scope ${scopeContext.scopeAccount.id}`
+        );
       }
 
       const completedSessions = sessionsResult.value.filter((s) => s.status === 'completed');
-      if (completedSessions.length === 0) return undefined;
+      if (completedSessions.length === 0) return ok(undefined);
 
       const mostRecent = completedSessions.reduce((best, current) => {
         if (!current.completedAt) return best;
         if (!best.completedAt) return current;
         return current.completedAt > best.completedAt ? current : best;
       });
-      return mostRecent.completedAt?.getTime();
+      return ok(mostRecent.completedAt?.getTime());
     } catch (error) {
-      logger.warn(`Error fetching last import timestamp: ${error instanceof Error ? error.message : String(error)}`);
-      return undefined;
+      return wrapError(
+        error,
+        `Failed to fetch import sessions for balance verification scope ${scopeContext.scopeAccount.id}`
+      );
     }
   }
 
@@ -396,8 +403,7 @@ export class BalanceWorkflow {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
-      const sessionsResult: Result<ImportSession[], Error> =
-        await this.ports.importSessionLookup.findByAccountIds(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.ports.findByAccountIds(accountIds);
       if (sessionsResult.isErr()) return err(sessionsResult.error);
 
       const allSessions = sessionsResult.value;
@@ -409,7 +415,7 @@ export class BalanceWorkflow {
         return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.platformKey}`));
       }
 
-      const transactionsResult: Result<Transaction[], Error> = await this.ports.transactionSource.findByAccountIds({
+      const transactionsResult: Result<Transaction[], Error> = await this.ports.findTransactionsByAccountIds({
         accountIds,
       });
       if (transactionsResult.isErr()) return err(transactionsResult.error);
@@ -482,8 +488,7 @@ export class BalanceWorkflow {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
-      const sessionsResult: Result<ImportSession[], Error> =
-        await this.ports.importSessionLookup.findByAccountIds(accountIds);
+      const sessionsResult: Result<ImportSession[], Error> = await this.ports.findByAccountIds(accountIds);
       if (sessionsResult.isErr()) return err(sessionsResult.error);
 
       const allSessions = sessionsResult.value;
@@ -491,7 +496,7 @@ export class BalanceWorkflow {
         return ok({ balanceAdjustments: {}, spamAssetIds: new Set() });
       }
 
-      const excludedTxResult: Result<Transaction[], Error> = await this.ports.transactionSource.findByAccountIds({
+      const excludedTxResult: Result<Transaction[], Error> = await this.ports.findTransactionsByAccountIds({
         accountIds,
         includeExcluded: true,
       });
@@ -578,7 +583,7 @@ export class BalanceWorkflow {
         excludedFromAccounting: false,
       }));
 
-      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({ snapshot, assets });
+      const replaceResult = await this.ports.replaceSnapshot({ snapshot, assets });
       if (replaceResult.isErr()) return err(replaceResult.error);
 
       logger.info(
@@ -632,7 +637,7 @@ export class BalanceWorkflow {
         excludedFromAccounting: false,
       }));
 
-      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({ snapshot, assets });
+      const replaceResult = await this.ports.replaceSnapshot({ snapshot, assets });
       if (replaceResult.isErr()) return err(replaceResult.error);
 
       logger.warn(
@@ -692,7 +697,7 @@ export class BalanceWorkflow {
         excludedFromAccounting: false,
       }));
 
-      const replaceResult = await this.ports.snapshotStore.replaceSnapshot({
+      const replaceResult = await this.ports.replaceSnapshot({
         snapshot,
         assets,
       });

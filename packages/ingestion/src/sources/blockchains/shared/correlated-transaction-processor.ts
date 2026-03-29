@@ -279,7 +279,7 @@ async function enrichContractTokenMetadata(
     }
 
     if (metadata.decimals !== undefined && tx.tokenDecimals === undefined) {
-      logger.debug(`Updating decimals for ${tx.tokenAddress} from ${tx.tokenDecimals} to ${metadata.decimals}`);
+      logger.debug({ updatedTokenDecimals: metadata.decimals }, 'Updating token decimals from metadata');
       tx.tokenDecimals = metadata.decimals;
     }
   }

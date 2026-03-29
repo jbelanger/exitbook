@@ -14,7 +14,7 @@ export function buildBalancesFreshnessPorts(db: DataSession): {
     async checkFreshness(scopeAccountId) {
       return resultDoAsync(async function* () {
         const scopeKey = toBalanceScopeKey(scopeAccountId);
-        const state = yield* await db.projectionState.get('balances', scopeKey);
+        const state = yield* await db.projectionState.find('balances', scopeKey);
         const snapshot = yield* await db.balanceSnapshots.findSnapshot(scopeAccountId);
 
         if (state && (state.status === 'stale' || state.status === 'failed' || state.status === 'building')) {

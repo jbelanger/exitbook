@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./ports": "./src/ports/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -17,8 +16,7 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/foundation": "workspace:*",
-    "@exitbook/logger": "workspace:*"
+    "@exitbook/foundation": "workspace:*"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"

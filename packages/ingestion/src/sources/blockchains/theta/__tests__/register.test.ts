@@ -37,7 +37,6 @@ describe('theta/register', () => {
     const processor = thetaAdapter!.createProcessor({
       providerRuntime,
       scamDetectionService: undefined,
-      accountId: 1,
     });
 
     expect(importer).toBeInstanceOf(ThetaImporter);

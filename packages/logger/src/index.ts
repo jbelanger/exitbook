@@ -2,11 +2,13 @@ export {
   initLogger,
   getLogger,
   flushLoggers,
+  resetLoggerForTests,
   type Logger,
   type Sink,
   type LogEntry,
   type LogLevel,
   type LoggerConfig,
+  type LoggerInitOptions,
 } from './logger.js';
 export { ConsoleSink } from './sinks/console.js';
 export { FileSink, type FileSinkOptions } from './sinks/file.js';

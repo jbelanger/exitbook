@@ -1,5 +1,6 @@
 // Command registration for benchmark providers subcommand
 
+import { err, ok } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -13,9 +14,14 @@ import { outputSuccess } from '../../shared/json-output.js';
 import { BenchmarkApp } from '../view/benchmark-components.jsx';
 import { createBenchmarkState } from '../view/benchmark-state.js';
 
-import { createProviderBenchmarkHandler } from './providers-benchmark-handler.js';
+import { withProviderBenchmarkCommandScope } from './providers-benchmark-command-scope.js';
 import { buildConfigOverride } from './providers-benchmark-utils.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from './providers-option-schemas.js';
+import {
+  prepareProviderBenchmarkSession,
+  runProviderBenchmark,
+  runProviderBenchmarkJson,
+} from './run-providers-benchmark.js';
 
 /**
  * Command options (validated at CLI boundary).
@@ -82,12 +88,7 @@ async function executeProvidersBenchmarkCommand(rawOptions: unknown, appRuntime:
 async function executeProvidersBenchmarkJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = createProviderBenchmarkHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-      const handler = handlerResult.value;
-      const result = await handler.execute(options);
+      const result = await withProviderBenchmarkCommandScope(ctx, (scope) => runProviderBenchmarkJson(scope, options));
 
       if (result.isErr()) {
         displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
@@ -124,38 +125,31 @@ async function executeProvidersBenchmarkJSON(options: CommandOptions, appRuntime
 async function executeProvidersBenchmarkTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const handlerResult = createProviderBenchmarkHandler(ctx);
-      if (handlerResult.isErr()) {
-        displayCliError('providers-benchmark', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      const handler = handlerResult.value;
+      const result = await withProviderBenchmarkCommandScope(ctx, async (scope) => {
+        const setupResult = await prepareProviderBenchmarkSession(scope, options);
+        if (setupResult.isErr()) {
+          return err(setupResult.error);
+        }
 
-      // Setup phase
-      const setupResult = await handler.prepareSession(options);
+        const { params, session, providerInfo } = setupResult.value;
+        const initialState = createBenchmarkState(params, providerInfo);
 
-      if (setupResult.isErr()) {
-        displayCliError('providers-benchmark', setupResult.error, ExitCodes.INVALID_ARGS, 'text');
-      }
+        ctx.onAbort(() => {
+          /* empty */
+        });
 
-      const { params, session, providerInfo } = setupResult.value;
+        await renderApp(() =>
+          React.createElement(BenchmarkApp, {
+            initialState,
+            runBenchmark: async (onProgress) => runProviderBenchmark(scope, session.provider, params, onProgress),
+          })
+        );
 
-      // Create initial state
-      const initialState = createBenchmarkState(params, providerInfo);
-
-      // Register SIGINT so dispose() runs cleanup (handler.destroy)
-      ctx.onAbort(() => {
-        /* empty */
+        return ok(undefined);
       });
-
-      // Render TUI
-      await renderApp(() =>
-        React.createElement(BenchmarkApp, {
-          initialState,
-          runBenchmark: async (onProgress) => {
-            return handler.runBenchmark(session.provider, params, onProgress);
-          },
-        })
-      );
+      if (result.isErr()) {
+        displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'text');
+      }
     });
   } catch (error) {
     displayCliError(

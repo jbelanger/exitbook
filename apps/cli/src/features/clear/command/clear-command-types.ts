@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import type { FlatDeletionPreview } from './clear-handler.js';
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
+import type { FlatDeletionPreview } from './clear-service.js';
 
 export type ClearCommandOptions = z.infer<typeof ClearCommandOptionsSchema>;
 

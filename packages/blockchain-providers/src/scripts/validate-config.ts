@@ -99,13 +99,9 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
           );
           for (const [providerName, override] of sortedOverrides) {
             const metadata = registry.getMetadata(blockchain, providerName);
-            const apiKeyInfo = metadata?.requiresApiKey
-              ? metadata.apiKeyEnvVar
-                ? ` (${metadata.apiKeyEnvVar})`
-                : ' (API key required)'
-              : '';
+            const providerSetupNote = metadata?.requiresApiKey ? ' (environment configuration required)' : '';
             const enabledStr = override.enabled === false ? 'disabled' : 'enabled';
-            console.log(`    ${override.priority ?? '?'}. ${providerName} [${enabledStr}]${apiKeyInfo}`);
+            console.log(`    ${override.priority ?? '?'}. ${providerName} [${enabledStr}]${providerSetupNote}`);
           }
         }
 

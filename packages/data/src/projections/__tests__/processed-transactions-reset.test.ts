@@ -95,19 +95,21 @@ describe('buildProcessedTransactionsResetPorts', () => {
     }
 
     // Verify projection state is marked stale
-    const ptState = assertOk(await ctx.projectionState.get('processed-transactions'));
+    const ptState = assertOk(await ctx.projectionState.find('processed-transactions'));
     expect(ptState!.status).toBe('stale');
     expect(ptState!.invalidatedBy).toBe('reset');
 
     // Verify downstream projections are also marked stale
-    const assetReviewState = assertOk(await ctx.projectionState.get('asset-review', buildProfileProjectionScopeKey(1)));
+    const assetReviewState = assertOk(
+      await ctx.projectionState.find('asset-review', buildProfileProjectionScopeKey(1))
+    );
     expect(assetReviewState!.status).toBe('stale');
     expect(assetReviewState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
 
-    const linksState = assertOk(await ctx.projectionState.get('links', buildProfileProjectionScopeKey(1)));
+    const linksState = assertOk(await ctx.projectionState.find('links', buildProfileProjectionScopeKey(1)));
     expect(linksState!.status).toBe('stale');
     expect(linksState!.invalidatedBy).toBe('upstream-reset:processed-transactions');
-    expect(assertOk(await ctx.projectionState.get('links'))).toBeUndefined();
+    expect(assertOk(await ctx.projectionState.find('links'))).toBeUndefined();
   });
 
   it('scopes reset to specific account IDs', async () => {
@@ -127,11 +129,11 @@ describe('buildProcessedTransactionsResetPorts', () => {
     const txCount = assertOk(await ctx.transactions.count({ includeExcluded: true }));
     expect(txCount).toBe(1);
 
-    const parentBalanceState = assertOk(await ctx.projectionState.get('balances', 'balance:1'));
+    const parentBalanceState = assertOk(await ctx.projectionState.find('balances', 'balance:1'));
     expect(parentBalanceState?.status).toBe('stale');
     expect(parentBalanceState?.invalidatedBy).toBe('upstream-reset:processed-transactions');
 
-    const childBalanceState = assertOk(await ctx.projectionState.get('balances', 'balance:2'));
+    const childBalanceState = assertOk(await ctx.projectionState.find('balances', 'balance:2'));
     expect(childBalanceState).toBeUndefined();
   });
 });

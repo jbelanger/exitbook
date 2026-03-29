@@ -19,7 +19,7 @@ import type {
 /**
  * Result of executeMissing.
  */
-interface MissingPricesResult {
+export interface MissingPricesResult {
   movements: MissingPriceMovement[];
   assetBreakdown: AssetBreakdownEntry[];
 }

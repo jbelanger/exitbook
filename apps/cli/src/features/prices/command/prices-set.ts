@@ -3,10 +3,10 @@
 
 import type { Command } from 'commander';
 
-import { resolveCliProfileSelection } from '../../profiles/profile-state.js';
+import { runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { withCliPriceProviderRuntimeResult } from '../../shared/cli-price-provider-runtime.js';
-import { getDataDir } from '../../shared/data-dir.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
@@ -49,67 +49,51 @@ Notes:
  * Execute the prices set command.
  */
 async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
-  // Check for --json flag early (even before validation) to determine output format
-  const isJsonMode =
-    typeof rawOptions === 'object' && rawOptions !== null && 'json' in rawOptions && rawOptions.json === true;
-
-  // Validate options at CLI boundary
-  const parseResult = PricesSetCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'prices-set',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      isJsonMode ? 'json' : 'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format, options } = parseCliCommandOptions('prices-set', rawOptions, PricesSetCommandOptionsSchema);
 
   try {
     const { OverrideStore } = await import('@exitbook/data/overrides');
-    const dataDir = getDataDir();
-    const profileSelectionResult = resolveCliProfileSelection(dataDir);
-    if (profileSelectionResult.isErr()) {
-      displayCliError(
-        'prices-set',
-        profileSelectionResult.error,
-        ExitCodes.GENERAL_ERROR,
-        options.json ? 'json' : 'text'
-      );
-    }
-    const overrideStore = new OverrideStore(dataDir);
-    const result = await withCliPriceProviderRuntimeResult({ dataDir }, async (priceRuntime) => {
-      const handler = new PricesSetHandler(priceRuntime, overrideStore);
-      return handler.execute({
-        asset: options.asset,
-        date: options.date,
-        price: options.price,
-        currency: options.currency,
-        source: options.source,
-        profileKey: profileSelectionResult.value.profileKey,
+    await runCommand(async (ctx) => {
+      const database = await ctx.database();
+      const profileResult = await resolveCommandProfile(ctx, database);
+      if (profileResult.isErr()) {
+        displayCliError('prices-set', profileResult.error, ExitCodes.GENERAL_ERROR, format);
+      }
+
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const result = await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const handler = new PricesSetHandler(priceRuntime, overrideStore);
+        const executeResult = await handler.execute({
+          asset: options.asset,
+          date: options.date,
+          price: options.price,
+          currency: options.currency,
+          source: options.source,
+          profileKey: profileResult.value.profileKey,
+        });
+        if (executeResult.isErr()) {
+          throw executeResult.error;
+        }
+
+        return executeResult.value;
       });
+
+      if (format === 'json') {
+        outputSuccess('prices-set', result);
+      } else {
+        console.log('✅ Price set successfully');
+        console.log(`   Asset: ${result.asset}`);
+        console.log(`   Date: ${result.timestamp.toISOString()}`);
+        console.log(`   Price: ${result.price} ${result.currency}`);
+        console.log(`   Source: ${result.source}`);
+      }
     });
-
-    if (result.isErr()) {
-      displayCliError('prices-set', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
-    }
-
-    if (options.json) {
-      outputSuccess('prices-set', result.value);
-    } else {
-      console.log('✅ Price set successfully');
-      console.log(`   Asset: ${result.value.asset}`);
-      console.log(`   Date: ${result.value.timestamp.toISOString()}`);
-      console.log(`   Price: ${result.value.price} ${result.value.currency}`);
-      console.log(`   Source: ${result.value.source}`);
-    }
   } catch (error) {
     displayCliError(
       'prices-set',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

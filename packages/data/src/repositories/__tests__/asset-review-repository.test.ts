@@ -136,6 +136,44 @@ describe('AssetReviewRepository', () => {
     });
   });
 
+  it('returns an error when persisted evidence metadata is malformed', async () => {
+    await db
+      .insertInto('asset_review_state')
+      .values({
+        profile_id: PROFILE_ID,
+        asset_id: 'blockchain:ethereum:0xscam',
+        review_status: 'needs-review',
+        reference_status: 'unknown',
+        warning_summary: undefined,
+        evidence_fingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+        confirmed_evidence_fingerprint: undefined,
+        confirmation_is_stale: false,
+        accounting_blocked: true,
+        computed_at: new Date().toISOString(),
+      })
+      .execute();
+
+    await db
+      .insertInto('asset_review_evidence')
+      .values({
+        profile_id: PROFILE_ID,
+        asset_id: 'blockchain:ethereum:0xscam',
+        position: 0,
+        kind: 'spam-flag',
+        severity: 'error',
+        message: 'bad metadata row',
+        metadata_json: '[]',
+      })
+      .execute();
+
+    const result = await repo.listAll(PROFILE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('blockchain:ethereum:0xscam');
+      expect(result.error.message).toContain('position 0');
+    }
+  });
+
   it('tracks the latest computed timestamp', async () => {
     expect(assertOk(await repo.findLatestComputedAt(PROFILE_ID))).toBeNull();
 

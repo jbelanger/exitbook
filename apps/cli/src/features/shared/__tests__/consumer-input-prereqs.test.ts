@@ -13,7 +13,6 @@ const {
   mockBuildProcessedTransactionsFreshnessPorts,
   mockBuildProcessedTransactionsResetPorts,
   mockCheckTransactionPriceCoverage,
-  mockOpenCliPriceProviderRuntime,
   mockPipelineExecute,
 } = vi.hoisted(() => ({
   mockBuildAssetReviewFreshnessPorts: vi.fn(),
@@ -26,7 +25,6 @@ const {
   mockBuildProcessedTransactionsFreshnessPorts: vi.fn(),
   mockBuildProcessedTransactionsResetPorts: vi.fn(),
   mockCheckTransactionPriceCoverage: vi.fn(),
-  mockOpenCliPriceProviderRuntime: vi.fn(),
   mockPipelineExecute: vi.fn(),
 }));
 
@@ -45,26 +43,27 @@ vi.mock('@exitbook/data/projections', () => ({
   buildProcessedTransactionsResetPorts: mockBuildProcessedTransactionsResetPorts,
 }));
 
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual('@exitbook/accounting');
-  class MockPriceEnrichmentPipeline {
-    execute = mockPipelineExecute;
-  }
-  class MockStandardFxRateProvider {}
+vi.mock('@exitbook/accounting/cost-basis', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/cost-basis');
   return {
     ...actual,
     checkTransactionPriceCoverage: mockCheckTransactionPriceCoverage,
-    PriceEnrichmentPipeline: MockPriceEnrichmentPipeline,
-    StandardFxRateProvider: MockStandardFxRateProvider,
   };
 });
 
-vi.mock('../cli-price-provider-runtime.js', () => ({
-  openCliPriceProviderRuntime: mockOpenCliPriceProviderRuntime,
-}));
+vi.mock('@exitbook/accounting/price-enrichment', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/price-enrichment');
+  class MockPriceEnrichmentPipeline {
+    execute = mockPipelineExecute;
+  }
+  return {
+    ...actual,
+    PriceEnrichmentPipeline: MockPriceEnrichmentPipeline,
+  };
+});
 
-import { ensureConsumerInputsReady } from '../consumer-input-readiness.js';
-import { resetProjections } from '../projection-reset.js';
+import { ensureConsumerInputsReady } from '../../../runtime/consumer-input-readiness.js';
+import { resetProjections } from '../../../runtime/projection-reset.js';
 
 describe('consumer-input-readiness', () => {
   const mockDatabase = {
@@ -98,15 +97,6 @@ describe('consumer-input-readiness', () => {
       loadTransactions: vi.fn().mockResolvedValue(ok([])),
     });
     mockBuildPricingPorts.mockReturnValue({});
-    const fetchPrice = vi.fn();
-    mockOpenCliPriceProviderRuntime.mockResolvedValue(
-      ok({
-        fetchPrice,
-        cleanup: vi.fn().mockResolvedValue(ok(undefined)),
-        setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
-        setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
-      })
-    );
     mockPipelineExecute.mockResolvedValue(ok({}));
   });
 
@@ -161,7 +151,7 @@ describe('consumer-input-readiness', () => {
     };
 
     const result = await ensureConsumerInputsReady(ctx as never, 'cost-basis', {
-      isJsonMode: true,
+      format: 'json',
       profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),
@@ -201,7 +191,7 @@ describe('consumer-input-readiness', () => {
     };
 
     const result = await ensureConsumerInputsReady(ctx as never, 'portfolio', {
-      isJsonMode: true,
+      format: 'json',
       profileId: 1,
       priceConfig: {
         startDate: new Date('2025-01-01T00:00:00.000Z'),

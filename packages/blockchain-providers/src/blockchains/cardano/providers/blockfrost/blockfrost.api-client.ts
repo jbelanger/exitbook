@@ -51,7 +51,7 @@ import {
  * Rate limits: Default 10 req/sec with burst limit of 500 req/min.
  */
 export const blockfrostMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'BLOCKFROST_API_KEY',
+  apiKeyEnvName: 'BLOCKFROST_API_KEY',
   baseUrl: 'https://cardano-mainnet.blockfrost.io/api/v0',
   blockchain: 'cardano',
   capabilities: {

@@ -4,13 +4,19 @@ import { err, ok } from '@exitbook/foundation';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
 import { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
+import type { BlockchainDisplayCategory } from '../blockchains-view-model.js';
 
 export { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 
 /**
- * Blockchain categories for filtering.
+ * Blockchain categories surfaced in view data.
  */
-export const BLOCKCHAIN_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'all'] as const;
+const BLOCKCHAIN_DISPLAY_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other'] as const;
+
+/**
+ * Blockchain category filters accepted at the CLI boundary.
+ */
+export const BLOCKCHAIN_CATEGORIES = [...BLOCKCHAIN_DISPLAY_CATEGORIES, 'all'] as const;
 export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 
 /**
@@ -19,7 +25,7 @@ export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 export interface BlockchainCatalogItem {
   name: string;
   displayName: string;
-  category: string;
+  category: BlockchainDisplayCategory;
   layer?: string | undefined;
   providers: ProviderSummary[];
   providerCount: number;
@@ -46,7 +52,7 @@ export function validateCategory(category: string): Result<BlockchainCategory, E
  * Get blockchain category from name.
  * Derives category from the blockchain hint in shared prompts.
  */
-export function getBlockchainCategory(blockchain: string): string {
+export function getBlockchainCategory(blockchain: string): BlockchainDisplayCategory {
   const hint = getBlockchainHint(blockchain);
 
   if (hint.includes('EVM')) return 'evm';

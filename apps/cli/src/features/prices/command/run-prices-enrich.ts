@@ -1,143 +1,31 @@
-import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { getLogger } from '@exitbook/logger';
+import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
+import { wrapError, type Result } from '@exitbook/foundation';
 
-import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
-  createCliPriceEnrichmentRuntime,
-  type CliPriceEnrichmentRuntime,
+  executeCliPriceEnrichmentRuntime,
+  withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
-import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
-const logger = getLogger('PricesEnrichRunner');
-
-interface ExecutePricesEnrichRuntimeOptions<TSuccess = PricesEnrichResult> {
-  afterSuccess?:
-    | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
-    | undefined;
-  params: PricesEnrichOptions;
-}
-
-interface WithPricesEnrichRuntimeOptions {
-  accountingExclusionPolicy?: import('@exitbook/accounting').AccountingExclusionPolicy | undefined;
-  database: Awaited<ReturnType<CommandRuntime['database']>>;
-  isJsonMode: boolean;
-  onAbortRegistered?: ((abort: () => void) => void) | undefined;
-  onAbortReleased?: (() => void) | undefined;
-  profileId: number;
-  scope: CommandRuntime;
-}
-
-export async function executePricesEnrichRuntime<TSuccess = PricesEnrichResult>(
-  runtime: CliPriceEnrichmentRuntime,
-  options: ExecutePricesEnrichRuntimeOptions<TSuccess>
-): Promise<Result<TSuccess, Error>> {
-  try {
-    if (runtime.controller) {
-      await runtime.controller.start();
-    }
-
-    const result = await runtime.pipeline.execute(options.params, runtime.priceRuntime);
-
-    if (result.isErr()) {
-      if (runtime.controller) {
-        runtime.controller.fail(result.error.message);
-        await runtime.controller.stop();
-      }
-      return err(result.error);
-    }
-
-    const successResult = options.afterSuccess
-      ? await options.afterSuccess(result.value, runtime)
-      : ok(result.value as TSuccess);
-    if (successResult.isErr()) {
-      if (runtime.controller) {
-        runtime.controller.fail(successResult.error.message);
-        await runtime.controller.stop();
-      }
-      return err(successResult.error);
-    }
-
-    if (runtime.controller) {
-      runtime.controller.complete();
-      await runtime.controller.stop();
-    }
-
-    return ok(successResult.value);
-  } catch (error) {
-    if (runtime.controller) {
-      const message = error instanceof Error ? error.message : String(error);
-      runtime.controller.fail(message);
-      await runtime.controller.stop().catch((controllerError) => {
-        logger.warn({ controllerError }, 'Failed to stop controller after exception');
-      });
-    }
-    return wrapError(error, 'Price enrichment failed');
-  }
-}
-
-function abortPricesEnrichRuntime(runtime: CliPriceEnrichmentRuntime): void {
-  if (runtime.controller) {
-    runtime.controller.abort();
-    void runtime.controller.stop().catch((error) => {
-      logger.warn({ error }, 'Failed to stop controller on abort');
-    });
-  }
-}
-
-export async function withPricesEnrichRuntime<T>(
-  options: WithPricesEnrichRuntimeOptions,
-  operation: (runtime: CliPriceEnrichmentRuntime) => Promise<Result<T, Error>>
-): Promise<Result<T, Error>> {
-  const runtimeResult = await createCliPriceEnrichmentRuntime({
-    accountingExclusionPolicy: options.accountingExclusionPolicy,
-    database: options.database,
-    isJsonMode: options.isJsonMode,
-    profileId: options.profileId,
-    registerCleanup: false,
-    scope: options.scope,
-  });
-  if (runtimeResult.isErr()) {
-    return err(runtimeResult.error);
-  }
-
-  const runtime = runtimeResult.value;
-  const cleanupPriceRuntime = adaptResultCleanup(runtime.priceRuntime.cleanup);
-
-  options.onAbortRegistered?.(() => abortPricesEnrichRuntime(runtime));
-
-  try {
-    return await operation(runtime);
-  } finally {
-    options.onAbortReleased?.();
-    await cleanupPriceRuntime().catch((cleanupError) => {
-      logger.warn({ cleanupError }, 'Failed to clean up price runtime after price enrichment operation');
-    });
-  }
-}
+import type { PricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 
 export async function runPricesEnrich(
-  ctx: CommandRuntime,
-  options: { isJsonMode: boolean; profileId: number; profileKey: string },
+  scope: PricesEnrichCommandScope,
+  options: { format: CliOutputFormat },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
   try {
-    const database = await ctx.database();
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
-    if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
-    }
-    return withPricesEnrichRuntime(
+    return withCliPriceEnrichmentRuntime(
       {
-        accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-        database,
-        isJsonMode: options.isJsonMode,
-        onAbortRegistered: (abort) => ctx.onAbort(abort),
-        profileId: options.profileId,
-        scope: ctx,
+        accountingExclusionPolicy: scope.accountingExclusionPolicy,
+        database: scope.database,
+        format: options.format,
+        onAbortRegistered: (abort: () => void) => scope.runtime.onAbort(abort),
+        profileId: scope.profile.id,
+        scope: scope.runtime,
       },
       (runtime) =>
-        executePricesEnrichRuntime(runtime, {
+        executeCliPriceEnrichmentRuntime(runtime, {
           params,
         })
     );

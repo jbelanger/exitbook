@@ -1,6 +1,5 @@
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 
 import type {
   ProviderConfig,
@@ -55,9 +54,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
   async execute<TOperation extends OneShotOperation>(
     operation: TOperation
   ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
-    );
+    this.logger.debug(`Executing operation - Type: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressBalances':
@@ -97,7 +94,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return err(new Error(`Invalid Solana address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw address balance');
 
     const result = await this.httpClient.post<JsonRpcResponse<{ value: number }>>(
       '/',
@@ -111,9 +108,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw address balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -125,9 +120,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
 
     const balanceData = transformSolBalance(response.result.value);
 
-    this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceData.decimalAmount}`
-    );
+    this.logger.debug('Successfully retrieved raw address balance');
 
     return ok(balanceData);
   }
@@ -142,7 +135,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
       return err(new Error(`Invalid Solana address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw token balances');
 
     const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
       '/',
@@ -164,24 +157,20 @@ export class SolanaRPCApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw token balances - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
     const tokenAccountsResponse = result.value;
 
     if (!tokenAccountsResponse?.result) {
-      this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
+      this.logger.debug('No raw token accounts found');
       return ok([]);
     }
 
     const balances = transformTokenAccounts(tokenAccountsResponse.result.value);
 
-    this.logger.debug(
-      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`
-    );
+    this.logger.debug({ tokenAccountCount: balances.length }, 'Successfully retrieved raw token balances');
 
     return ok(balances);
   }

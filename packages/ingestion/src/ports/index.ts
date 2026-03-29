@@ -3,7 +3,7 @@ export type { IProcessingBatchSource } from './processing-batch-source.js';
 export type { INearBatchSource } from './near-batch-source.js';
 export type { IProcessedTransactionSink } from './processed-transaction-sink.js';
 export type { IAccountLookup, ProcessingAccountInfo } from './account-lookup.js';
-export type { IImportSessionLookup, ImportSessionStatus } from './import-session-guard.js';
+export type { IImportSessionLookup, ImportSessionLookupStatus } from './import-session-guard.js';
 export type { IIngestionDataPurge, IngestionPurgeImpact } from './ingestion-data-purge.js';
 export type {
   IProcessedTransactionsFreshness,
@@ -12,32 +12,21 @@ export type {
 export type { IProcessedTransactionsReset, ProcessedTransactionsResetImpact } from './processed-transactions-reset.js';
 export type {
   AssetReviewProjectionFreshnessResult,
-  AssetReviewProjectionPorts,
+  AssetReviewProjectionWorkflowPorts,
   AssetReviewProjectionRuntimePorts,
-  IAssetReviewProjectionBuildStateReader,
-  IAssetReviewDecisionSource,
-  IAssetReviewProjectionDataSource,
-  IAssetReviewProjectionFreshness,
-  IAssetReviewProjectionStore,
-  IAssetReviewOverrideFreshness,
 } from './asset-review-projection-ports.js';
 
 // Aggregate dependency types
 export type { ITransactionNoteProjection, ProcessingPorts } from './processing-ports.js';
 export type {
+  CreateImportAccountInput,
+  FinalizeImportSessionInput,
+  ImportAccountFilters,
   ImportPorts,
-  IImportAccountStore,
-  IImportSessionStore,
-  IImportRawTransactionSink,
+  UpdateImportAccountInput,
+  UpdateImportSessionInput,
 } from './import-ports.js';
-export type {
-  BalancePorts,
-  IBalanceAccountLookup,
-  IBalanceImportSessionLookup,
-  IBalanceProjectionStateStore,
-  IBalanceSnapshotStore,
-  IBalanceTransactionSource,
-} from './balance-ports.js';
+export type { BalancePorts, BalanceTransactionQuery } from './balance-ports.js';
 export {
   loadBalanceScopeContext,
   loadBalanceScopeMemberAccounts,

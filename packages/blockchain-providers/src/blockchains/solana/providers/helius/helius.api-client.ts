@@ -1,7 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 
 import type {
   ProviderConfig,
@@ -39,7 +38,7 @@ import {
 } from './helius.schemas.js';
 
 export const heliusMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'HELIUS_API_KEY',
+  apiKeyEnvName: 'HELIUS_API_KEY',
   baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
   capabilities: {
@@ -77,16 +76,6 @@ export const heliusFactory: ProviderFactory = {
 export class HeliusApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
-
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
-      this.reinitializeHttpClient({
-        baseUrl: heliusUrl,
-        defaultHeaders: {
-          'Content-Type': 'application/json',
-        },
-      });
-    }
   }
 
   extractCursors(transaction: SolanaTransaction): PaginationCursor[] {
@@ -116,9 +105,7 @@ export class HeliusApiClient extends BaseApiClient {
   async execute<TOperation extends OneShotOperation>(
     operation: TOperation
   ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
-    );
+    this.logger.debug(`Executing operation - Type: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressBalances':
@@ -174,7 +161,7 @@ export class HeliusApiClient extends BaseApiClient {
         jsonrpc: '2.0',
         method: 'getHealth',
       },
-      endpoint: '/',
+      endpoint: this.rpcEndpoint(),
       method: 'POST' as const,
       validate: (response: unknown) => {
         const data = response as JsonRpcResponse<string>;
@@ -191,7 +178,7 @@ export class HeliusApiClient extends BaseApiClient {
     // For batch requests, use getAssetBatch method
     if (mintAddresses.length > 1) {
       const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -223,7 +210,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     // Single address - use getAsset method
     const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -265,6 +252,14 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
+  private rpcEndpoint(): string {
+    if (!this.apiKey || this.apiKey === 'YourApiKeyToken') {
+      return '/';
+    }
+
+    return `/?api-key=${this.apiKey}`;
+  }
+
   private async getAddressBalances(params: { address: string }): Promise<Result<RawBalanceData, Error>> {
     const { address } = params;
 
@@ -272,10 +267,10 @@ export class HeliusApiClient extends BaseApiClient {
       return err(new Error(`Invalid Solana address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw address balance');
 
     const result = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -286,9 +281,7 @@ export class HeliusApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw address balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -300,9 +293,7 @@ export class HeliusApiClient extends BaseApiClient {
 
     const balanceData = transformSolBalance(response.result.value);
 
-    this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, SOL: ${balanceData.decimalAmount}`
-    );
+    this.logger.debug('Successfully retrieved raw address balance');
 
     return ok(balanceData);
   }
@@ -317,10 +308,10 @@ export class HeliusApiClient extends BaseApiClient {
       return err(new Error(`Invalid Solana address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw token balances');
 
     const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -339,31 +330,27 @@ export class HeliusApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw token balances - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
     const tokenAccountsResponse = result.value;
 
     if (!tokenAccountsResponse?.result) {
-      this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
+      this.logger.debug('No raw token accounts found');
       return ok([]);
     }
 
     const balances = transformTokenAccounts(tokenAccountsResponse.result.value);
 
-    this.logger.debug(
-      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${balances.length}`
-    );
+    this.logger.debug({ tokenAccountCount: balances.length }, 'Successfully retrieved raw token balances');
 
     return ok(balances);
   }
 
   private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>(
-      '/',
+      this.rpcEndpoint(),
       {
         id: 1,
         jsonrpc: '2.0',
@@ -382,16 +369,14 @@ export class HeliusApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.warn(
-        `Failed to get token accounts - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.warn(`Failed to get token accounts - Error: ${getErrorMessage(result.error)}`);
       return ok([]);
     }
 
     const tokenAccountsResponse = result.value;
 
     if (!tokenAccountsResponse?.result?.value) {
-      this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
+      this.logger.debug('No token accounts found');
       return ok([]);
     }
 
@@ -399,9 +384,7 @@ export class HeliusApiClient extends BaseApiClient {
       (account: { pubkey: string }) => account.pubkey
     );
 
-    this.logger.debug(
-      `Found token accounts owned by address - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`
-    );
+    this.logger.debug({ tokenAccountCount: tokenAccountAddresses.length }, 'Found token accounts for owner');
 
     return ok(tokenAccountAddresses);
   }
@@ -426,7 +409,7 @@ export class HeliusApiClient extends BaseApiClient {
 
       // Fetch signatures for main address
       const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -437,9 +420,7 @@ export class HeliusApiClient extends BaseApiClient {
       );
 
       if (signaturesResult.isErr()) {
-        this.logger.error(
-          `Failed to fetch signatures - Address: ${maskAddress(address)}, Error: ${getErrorMessage(signaturesResult.error)}`
-        );
+        this.logger.error(`Failed to fetch signatures - Error: ${getErrorMessage(signaturesResult.error)}`);
         return err(signaturesResult.error);
       }
 
@@ -453,7 +434,7 @@ export class HeliusApiClient extends BaseApiClient {
       const transactions: HeliusTransaction[] = [];
       for (const sig of signatures) {
         const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
-          '/',
+          this.rpcEndpoint(),
           {
             id: 1,
             jsonrpc: '2.0',
@@ -493,9 +474,7 @@ export class HeliusApiClient extends BaseApiClient {
         const mapped = mapHeliusTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
+          this.logger.error(`Provider data validation failed - Error: ${errorMessage}`);
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
         return ok([{ raw, normalized: mapped.value }]);
@@ -531,9 +510,7 @@ export class HeliusApiClient extends BaseApiClient {
           }
           tokenAccounts = tokenAccountsResult.value;
 
-          this.logger.info(
-            `Found ${tokenAccounts.length} token accounts for address - Address: ${maskAddress(address)}`
-          );
+          this.logger.info(`Found ${tokenAccounts.length} token accounts for transaction hydration`);
         }
 
         // If resuming, restore the account index from metadata
@@ -568,7 +545,7 @@ export class HeliusApiClient extends BaseApiClient {
 
       // Fetch signatures for current token account
       const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>(
-        '/',
+        this.rpcEndpoint(),
         {
           id: 1,
           jsonrpc: '2.0',
@@ -597,7 +574,7 @@ export class HeliusApiClient extends BaseApiClient {
       const transactions: HeliusTransaction[] = [];
       for (const sig of signatures) {
         const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>(
-          '/',
+          this.rpcEndpoint(),
           {
             id: 1,
             jsonrpc: '2.0',
@@ -656,9 +633,7 @@ export class HeliusApiClient extends BaseApiClient {
         const mapped = mapHeliusTransaction(raw);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
+          this.logger.error(`Provider data validation failed - Error: ${errorMessage}`);
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
         return ok([{ raw, normalized: mapped.value }]);

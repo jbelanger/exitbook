@@ -1,20 +1,27 @@
-import { PriceEnrichmentPipeline, type AccountingExclusionPolicy, type PricingEvent } from '@exitbook/accounting';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
+import {
+  PriceEnrichmentPipeline,
+  type PricingEvent,
+  type PricesEnrichOptions,
+  type PricesEnrichResult,
+} from '@exitbook/accounting/price-enrichment';
 import { buildPricingPorts } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { EventBus } from '@exitbook/events';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import { PricesEnrichMonitor } from '../features/prices/view/prices-enrich-components.jsx';
+import type { CliOutputFormat } from '../features/shared/command-options.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 
 const logger = getLogger('cli-price-enrichment-runtime');
 
-export interface CliPriceEnrichmentRuntime {
+interface CliPriceEnrichmentRuntime {
   controller?: EventDrivenController<PricingEvent> | undefined;
   instrumentation: InstrumentationCollector;
   pipeline: PriceEnrichmentPipeline;
@@ -24,13 +31,30 @@ export interface CliPriceEnrichmentRuntime {
 interface CreateCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   database: DataSession;
-  isJsonMode: boolean;
+  format: CliOutputFormat;
   profileId: number;
   registerCleanup?: boolean | undefined;
   scope: CommandRuntime;
 }
 
-export async function createCliPriceEnrichmentRuntime(
+interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrichResult> {
+  afterSuccess?:
+    | ((result: PricesEnrichResult, runtime: CliPriceEnrichmentRuntime) => Promise<Result<TSuccess, Error>>)
+    | undefined;
+  params: PricesEnrichOptions;
+}
+
+interface WithCliPriceEnrichmentRuntimeOptions {
+  accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
+  database: Awaited<ReturnType<CommandRuntime['database']>>;
+  format: CliOutputFormat;
+  onAbortRegistered?: ((abort: () => void) => void) | undefined;
+  onAbortReleased?: (() => void) | undefined;
+  profileId: number;
+  scope: CommandRuntime;
+}
+
+async function createCliPriceEnrichmentRuntime(
   options: CreateCliPriceEnrichmentRuntimeOptions
 ): Promise<Result<CliPriceEnrichmentRuntime, Error>> {
   let controller: EventDrivenController<PricingEvent> | undefined;
@@ -40,16 +64,11 @@ export async function createCliPriceEnrichmentRuntime(
     const store = buildPricingPorts(options.database, options.profileId);
     const instrumentation = new InstrumentationCollector();
 
-    if (options.isJsonMode) {
-      const priceRuntimeResult = await options.scope.openPriceProviderRuntime({
+    if (options.format === 'json') {
+      priceRuntime = await options.scope.openPriceProviderRuntime({
         instrumentation,
         registerCleanup: options.registerCleanup,
       });
-      if (priceRuntimeResult.isErr()) {
-        return err(priceRuntimeResult.error);
-      }
-
-      priceRuntime = priceRuntimeResult.value;
       return ok({
         instrumentation,
         pipeline: new PriceEnrichmentPipeline(store, undefined, instrumentation, options.accountingExclusionPolicy),
@@ -64,18 +83,11 @@ export async function createCliPriceEnrichmentRuntime(
     });
     controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-    const priceRuntimeResult = await options.scope.openPriceProviderRuntime({
+    priceRuntime = await options.scope.openPriceProviderRuntime({
       instrumentation,
       eventBus,
       registerCleanup: options.registerCleanup,
     });
-    if (priceRuntimeResult.isErr()) {
-      controller.fail(priceRuntimeResult.error.message);
-      await controller.stop();
-      return err(priceRuntimeResult.error);
-    }
-
-    priceRuntime = priceRuntimeResult.value;
     return ok({
       controller,
       instrumentation,
@@ -96,5 +108,91 @@ export async function createCliPriceEnrichmentRuntime(
     }
 
     return err(runtimeError);
+  }
+}
+
+export async function executeCliPriceEnrichmentRuntime<TSuccess = PricesEnrichResult>(
+  runtime: CliPriceEnrichmentRuntime,
+  options: ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess>
+): Promise<Result<TSuccess, Error>> {
+  try {
+    if (runtime.controller) {
+      await runtime.controller.start();
+    }
+
+    const result = await runtime.pipeline.execute(options.params, runtime.priceRuntime);
+
+    if (result.isErr()) {
+      if (runtime.controller) {
+        runtime.controller.fail(result.error.message);
+        await runtime.controller.stop();
+      }
+      return err(result.error);
+    }
+
+    const successResult = options.afterSuccess
+      ? await options.afterSuccess(result.value, runtime)
+      : ok(result.value as TSuccess);
+    if (successResult.isErr()) {
+      if (runtime.controller) {
+        runtime.controller.fail(successResult.error.message);
+        await runtime.controller.stop();
+      }
+      return err(successResult.error);
+    }
+
+    if (runtime.controller) {
+      runtime.controller.complete();
+      await runtime.controller.stop();
+    }
+
+    return ok(successResult.value);
+  } catch (error) {
+    if (runtime.controller) {
+      const message = error instanceof Error ? error.message : String(error);
+      runtime.controller.fail(message);
+      await runtime.controller.stop().catch((controllerError) => {
+        logger.warn({ controllerError }, 'Failed to stop controller after exception');
+      });
+    }
+    return wrapError(error, 'Price enrichment failed');
+  }
+}
+
+export async function withCliPriceEnrichmentRuntime<T>(
+  options: WithCliPriceEnrichmentRuntimeOptions,
+  operation: (runtime: CliPriceEnrichmentRuntime) => Promise<Result<T, Error>>
+): Promise<Result<T, Error>> {
+  const runtimeResult = await createCliPriceEnrichmentRuntime({
+    accountingExclusionPolicy: options.accountingExclusionPolicy,
+    database: options.database,
+    format: options.format,
+    profileId: options.profileId,
+    registerCleanup: false,
+    scope: options.scope,
+  });
+  if (runtimeResult.isErr()) {
+    return err(runtimeResult.error);
+  }
+
+  const runtime = runtimeResult.value;
+  const cleanupPriceRuntime = adaptResultCleanup(runtime.priceRuntime.cleanup);
+
+  options.onAbortRegistered?.(() => {
+    if (runtime.controller) {
+      runtime.controller.abort();
+      void runtime.controller.stop().catch((error) => {
+        logger.warn({ error }, 'Failed to stop controller on abort');
+      });
+    }
+  });
+
+  try {
+    return await operation(runtime);
+  } finally {
+    options.onAbortReleased?.();
+    await cleanupPriceRuntime().catch((cleanupError) => {
+      logger.warn({ cleanupError }, 'Failed to clean up price runtime after price enrichment operation');
+    });
   }
 }

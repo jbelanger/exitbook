@@ -1,7 +1,6 @@
 import type { CursorState, PaginationCursor } from '@exitbook/foundation';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { maskAddress } from '@exitbook/foundation';
 
 import type {
   NormalizedTransactionBase,
@@ -136,9 +135,7 @@ export class XrplRpcApiClient extends BaseApiClient {
   async execute<TOperation extends OneShotOperation>(
     operation: TOperation
   ): Promise<Result<OneShotOperationResult<TOperation>, Error>> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
-    );
+    this.logger.debug(`Executing operation - Type: ${operation.type}`);
 
     switch (operation.type) {
       case 'getAddressBalances':
@@ -219,7 +216,7 @@ export class XrplRpcApiClient extends BaseApiClient {
       return err(new Error(`Invalid XRP address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw address balance');
 
     const result = await this.httpClient.post<XrplAccountInfoResponse>(
       '/',
@@ -238,9 +235,7 @@ export class XrplRpcApiClient extends BaseApiClient {
     );
 
     if (result.isErr()) {
-      this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-      );
+      this.logger.error(`Failed to get raw address balance - Error: ${getErrorMessage(result.error)}`);
       return err(result.error);
     }
 
@@ -252,9 +247,7 @@ export class XrplRpcApiClient extends BaseApiClient {
 
     const balanceData = transformXrpBalance(response.result.account_data.Balance);
 
-    this.logger.debug(
-      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, XRP: ${balanceData.decimalAmount}`
-    );
+    this.logger.debug('Successfully retrieved raw address balance');
 
     return ok(balanceData);
   }
@@ -269,7 +262,7 @@ export class XrplRpcApiClient extends BaseApiClient {
       return err(new Error(`Invalid XRP address: ${address}`));
     }
 
-    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
+    this.logger.debug('Fetching raw token balances');
 
     const allBalances: RawBalanceData[] = [];
     let marker: string | undefined;
@@ -296,9 +289,7 @@ export class XrplRpcApiClient extends BaseApiClient {
       );
 
       if (result.isErr()) {
-        this.logger.error(
-          `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
-        );
+        this.logger.error(`Failed to get raw token balances - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
@@ -320,7 +311,7 @@ export class XrplRpcApiClient extends BaseApiClient {
       pageCount++;
 
       if (pageCount >= maxPages) {
-        const errorMsg = `Reached max page limit (${maxPages}) for token balances - Address: ${maskAddress(address)}. Account has too many trust lines to fetch safely.`;
+        const errorMsg = `Reached max page limit (${maxPages}) for token balances. Account has too many trust lines to fetch safely.`;
         this.logger.error(errorMsg);
         return err(new Error(errorMsg));
       }
@@ -336,7 +327,12 @@ export class XrplRpcApiClient extends BaseApiClient {
     }
 
     this.logger.debug(
-      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenCount: ${filteredBalances.length} (${allBalances.length} total, ${pageCount} pages)`
+      {
+        filteredTokenCount: filteredBalances.length,
+        pageCount,
+        totalTokenCount: allBalances.length,
+      },
+      'Successfully retrieved raw token balances'
     );
 
     return ok(filteredBalances);
@@ -397,9 +393,7 @@ export class XrplRpcApiClient extends BaseApiClient {
       );
 
       if (result.isErr()) {
-        this.logger.error(
-          `Failed to fetch transactions for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
-        );
+        this.logger.error(`Failed to fetch transactions - Error: ${getErrorMessage(result.error)}`);
         return err(result.error);
       }
 
@@ -431,9 +425,7 @@ export class XrplRpcApiClient extends BaseApiClient {
         const mapped = mapXrplTransaction(raw, address);
         if (mapped.isErr()) {
           const errorMessage = mapped.error.type === 'error' ? mapped.error.message : mapped.error.reason;
-          this.logger.error(
-            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
-          );
+          this.logger.error(`Provider data validation failed - Error: ${errorMessage}`);
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
         return ok([{ raw, normalized: mapped.value }]);

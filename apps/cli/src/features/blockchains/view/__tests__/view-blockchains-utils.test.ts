@@ -2,6 +2,7 @@ import { type BlockchainProviderDescriptor, type ProviderOperationType } from '@
 import { describe, expect, it } from 'vitest';
 
 import { toBlockchainViewItem } from '../../blockchain-view-projection.js';
+import type { BlockchainDisplayCategory } from '../../blockchains-view-model.js';
 import type { BlockchainCatalogItem } from '../../command/blockchains-view-utils.js';
 import {
   buildBlockchainCatalogItem,
@@ -25,7 +26,7 @@ describe('view-blockchains-utils', () => {
     });
 
     it('should validate all valid category options', () => {
-      const categories = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'all'];
+      const categories = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other', 'all'];
       for (const category of categories) {
         const result = validateCategory(category);
         expect(result.isOk()).toBe(true);
@@ -285,7 +286,7 @@ describe('view-blockchains-utils', () => {
             name: 'alchemy',
             displayName: 'Alchemy',
             requiresApiKey: true,
-            apiKeyEnvVar: 'TEST_NONEXISTENT_KEY_12345',
+            apiKeyEnvName: 'TEST_NONEXISTENT_KEY_12345',
             capabilities: ['txs', 'balance'],
             rateLimit: '5/sec',
           },
@@ -349,7 +350,7 @@ function createMockProvider(
   };
 }
 
-function createMockBlockchainInfo(name: string, category: string): BlockchainCatalogItem {
+function createMockBlockchainInfo(name: string, category: BlockchainDisplayCategory): BlockchainCatalogItem {
   return {
     name,
     displayName: name.charAt(0).toUpperCase() + name.slice(1),

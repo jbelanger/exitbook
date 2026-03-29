@@ -6,7 +6,7 @@ import {
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
-import type { AssetViewItem } from '../command/assets-handler.js';
+import type { AssetViewItem } from '../command/assets-types.js';
 
 import { getAssetsVisibleRows } from './assets-view-layout.js';
 import {

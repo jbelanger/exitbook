@@ -271,7 +271,7 @@ const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({
 
 const AssetRow: FC<{
   columns: Columns<AssetCostBasisItem, 'asset' | 'disposalCount' | 'proceeds' | 'basis'>;
-  currency: string;
+  currency: CostBasisAssetState['currency'];
   isSelected: boolean;
   item: AssetCostBasisItem;
 }> = ({ item, currency, isSelected, columns }) => {
@@ -500,7 +500,7 @@ function formatTransferTransactionSpan(item: TransferViewItem): string {
   return '';
 }
 
-function getTransferBasisLabel(jurisdiction: string): string {
+function getTransferBasisLabel(jurisdiction: CostBasisTimelineState['jurisdiction']): string {
   return jurisdiction === 'CA' ? 'carried ACB' : 'carried basis';
 }
 
@@ -597,7 +597,7 @@ type TimelineCols = Columns<TimelineEvent, 'quantityAsset' | 'basisOrGainLoss' |
 
 const AcquisitionRow: FC<{
   columns: TimelineCols;
-  currency: string;
+  currency: CostBasisTimelineState['currency'];
   isSelected: boolean;
   item: AcquisitionViewItem;
 }> = ({ item, isSelected, columns }) => {
@@ -619,7 +619,7 @@ const AcquisitionRow: FC<{
 
 const DisposalRow: FC<{
   columns: TimelineCols;
-  currency: string;
+  currency: CostBasisTimelineState['currency'];
   isSelected: boolean;
   isUS: boolean;
   item: DisposalViewItem;
@@ -656,10 +656,10 @@ const DisposalRow: FC<{
 
 const TransferRow: FC<{
   columns: TimelineCols;
-  currency: string;
+  currency: CostBasisTimelineState['currency'];
   isSelected: boolean;
   item: TransferViewItem;
-  jurisdiction: string;
+  jurisdiction: CostBasisTimelineState['jurisdiction'];
 }> = ({ item, isSelected, columns, jurisdiction }) => {
   const marker = '→';
 
@@ -929,11 +929,11 @@ const TransferDetail: FC<{ item: TransferViewItem; state: CostBasisTimelineState
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getTaxRule(jurisdiction: string): string {
+function getTaxRule(jurisdiction: CostBasisAssetState['jurisdiction']): string {
   if (jurisdiction === 'CA') return '50% inclusion';
   return 'full amount';
 }
 
-function formatLotStatus(status: string): string {
+function formatLotStatus(status: AcquisitionViewItem['status']): string {
   return status.replace(/_/g, ' ');
 }

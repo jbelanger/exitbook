@@ -6,7 +6,7 @@ import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 import { mapTatumDogecoinTransaction } from './tatum.mapper-utils.js';
 
 const tatumDogecoinMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'TATUM_API_KEY',
+  apiKeyEnvName: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/dogecoin',
   blockchain: 'dogecoin',
   capabilities: {

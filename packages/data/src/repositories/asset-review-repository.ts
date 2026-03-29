@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import type { AssetReviewEvidence, AssetReviewSummary } from '@exitbook/core';
+import type { AssetReferenceStatus, AssetReviewEvidence, AssetReviewStatus, AssetReviewSummary } from '@exitbook/core';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 
 import type { AssetReviewEvidenceTable, AssetReviewStateTable } from '../database-schema.js';
@@ -16,19 +16,19 @@ interface AssetReviewStateRecord {
   confirmation_is_stale: number | boolean;
   confirmed_evidence_fingerprint: string | null;
   evidence_fingerprint: string;
-  reference_status: string;
-  review_status: string;
+  reference_status: AssetReferenceStatus;
+  review_status: AssetReviewStatus;
   warning_summary: string | null;
 }
 
 interface AssetReviewEvidenceRecord {
   profile_id: number;
   asset_id: string;
-  kind: string;
+  kind: AssetReviewEvidence['kind'];
   message: string;
   metadata_json: unknown;
   position: number;
-  severity: string;
+  severity: AssetReviewEvidence['severity'];
 }
 
 export class AssetReviewRepository extends BaseRepository {
@@ -85,7 +85,7 @@ export class AssetReviewRepository extends BaseRepository {
         .orderBy('position', 'asc')
         .execute();
 
-      return ok(this.buildSummaries(stateRows, evidenceRows));
+      return this.buildSummaries(stateRows, evidenceRows);
     } catch (error) {
       this.logger.error({ error }, 'Failed to list asset review projection');
       return wrapError(error, 'Failed to list asset review projection');
@@ -127,7 +127,12 @@ export class AssetReviewRepository extends BaseRepository {
       stateRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id));
       evidenceRows.sort((left, right) => left.asset_id.localeCompare(right.asset_id) || left.position - right.position);
 
-      return ok(new Map(this.buildSummaries(stateRows, evidenceRows).map((summary) => [summary.assetId, summary])));
+      const summariesResult = this.buildSummaries(stateRows, evidenceRows);
+      if (summariesResult.isErr()) {
+        return err(summariesResult.error);
+      }
+
+      return ok(new Map(summariesResult.value.map((summary) => [summary.assetId, summary])));
     } catch (error) {
       this.logger.error({ error, assetIds, profileId }, 'Failed to load asset review projection by asset IDs');
       return wrapError(error, 'Failed to load asset review projection by asset IDs');
@@ -188,50 +193,57 @@ export class AssetReviewRepository extends BaseRepository {
   private buildSummaries(
     stateRows: AssetReviewStateRecord[],
     evidenceRows: AssetReviewEvidenceRecord[]
-  ): AssetReviewSummary[] {
+  ): Result<AssetReviewSummary[], Error> {
     const evidenceByAssetId = new Map<string, AssetReviewEvidence[]>();
 
     for (const row of evidenceRows) {
       const evidence = evidenceByAssetId.get(row.asset_id) ?? [];
-      const metadata = this.parseEvidenceMetadata(row.metadata_json, row.asset_id, row.position);
+      const metadataResult = this.parseEvidenceMetadata(row.metadata_json, row.asset_id, row.position);
+      if (metadataResult.isErr()) {
+        return err(metadataResult.error);
+      }
+
+      const metadata = metadataResult.value;
       evidence.push(
         metadata
           ? {
-              kind: row.kind as AssetReviewEvidence['kind'],
-              severity: row.severity as AssetReviewEvidence['severity'],
+              kind: row.kind,
+              severity: row.severity,
               message: row.message,
               metadata,
             }
           : {
-              kind: row.kind as AssetReviewEvidence['kind'],
-              severity: row.severity as AssetReviewEvidence['severity'],
+              kind: row.kind,
+              severity: row.severity,
               message: row.message,
             }
       );
       evidenceByAssetId.set(row.asset_id, evidence);
     }
 
-    return stateRows.map((row) => {
-      const summary: AssetReviewSummary = {
-        assetId: row.asset_id,
-        reviewStatus: row.review_status as AssetReviewSummary['reviewStatus'],
-        referenceStatus: row.reference_status as AssetReviewSummary['referenceStatus'],
-        evidenceFingerprint: row.evidence_fingerprint,
-        confirmationIsStale: Boolean(row.confirmation_is_stale),
-        accountingBlocked: Boolean(row.accounting_blocked),
-        evidence: evidenceByAssetId.get(row.asset_id) ?? [],
-      };
+    return ok(
+      stateRows.map((row) => {
+        const summary: AssetReviewSummary = {
+          assetId: row.asset_id,
+          reviewStatus: row.review_status,
+          referenceStatus: row.reference_status,
+          evidenceFingerprint: row.evidence_fingerprint,
+          confirmationIsStale: Boolean(row.confirmation_is_stale),
+          accountingBlocked: Boolean(row.accounting_blocked),
+          evidence: evidenceByAssetId.get(row.asset_id) ?? [],
+        };
 
-      if (row.confirmed_evidence_fingerprint) {
-        summary.confirmedEvidenceFingerprint = row.confirmed_evidence_fingerprint;
-      }
+        if (row.confirmed_evidence_fingerprint) {
+          summary.confirmedEvidenceFingerprint = row.confirmed_evidence_fingerprint;
+        }
 
-      if (row.warning_summary) {
-        summary.warningSummary = row.warning_summary;
-      }
+        if (row.warning_summary) {
+          summary.warningSummary = row.warning_summary;
+        }
 
-      return summary;
-    });
+        return summary;
+      })
+    );
   }
 
   private toStateRow(
@@ -276,22 +288,28 @@ export class AssetReviewRepository extends BaseRepository {
     value: unknown,
     assetId: string,
     position: number
-  ): Record<string, unknown> | undefined {
+  ): Result<Record<string, unknown> | undefined, Error> {
     if (typeof value !== 'string' || value.trim() === '') {
-      return undefined;
+      return ok(undefined);
     }
 
     try {
       const parsed = JSON.parse(value) as unknown;
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        this.logger.warn({ assetId, position, value }, 'Asset review evidence metadata was not an object');
-        return undefined;
+        const error = new Error(
+          `Asset review evidence metadata was not an object for asset ${assetId} at position ${position}`
+        );
+        this.logger.error({ assetId, position, value }, error.message);
+        return err(error);
       }
 
-      return parsed as Record<string, unknown>;
+      return ok(parsed as Record<string, unknown>);
     } catch (error) {
-      this.logger.warn({ assetId, position, error }, 'Failed to parse asset review evidence metadata JSON');
-      return undefined;
+      this.logger.error({ assetId, position, error }, 'Failed to parse asset review evidence metadata JSON');
+      return wrapError(
+        error,
+        `Failed to parse asset review evidence metadata for asset ${assetId} at position ${position}`
+      );
     }
   }
 }

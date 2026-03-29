@@ -1,8 +1,7 @@
 import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Account, ExchangeCredentials } from '@exitbook/core';
-import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion';
+import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
@@ -22,7 +21,6 @@ interface BalanceVerificationRunnerDeps {
   accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   assetDetailsBuilder: BalanceAssetDetailsBuilder;
   balanceOperation: BalanceWorkflow | undefined;
-  db: DataSession;
 }
 
 export class BalanceVerificationRunner {
@@ -30,14 +28,12 @@ export class BalanceVerificationRunner {
   private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
   private readonly balanceOperation: BalanceWorkflow | undefined;
-  private readonly db: DataSession;
   private streamPromise: Promise<void> | undefined;
 
   constructor(deps: BalanceVerificationRunnerDeps) {
     this.accountService = deps.accountService;
     this.assetDetailsBuilder = deps.assetDetailsBuilder;
     this.balanceOperation = deps.balanceOperation;
-    this.db = deps.db;
   }
 
   abort(): void {

@@ -11,23 +11,13 @@ import { toBalanceScopeKey } from './balance-scope.js';
  */
 export function buildBalancePorts(db: DataSession): BalancePorts {
   return {
-    accountLookup: {
-      findById: (id) => db.accounts.findById(id),
-      findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
-    },
-    snapshotStore: {
-      replaceSnapshot: ({ snapshot, assets }) => db.balanceSnapshots.replaceSnapshot({ snapshot, assets }),
-    },
-    projectionState: {
-      markBuilding: (scopeAccountId) => db.projectionState.markBuilding('balances', toBalanceScopeKey(scopeAccountId)),
-      markFailed: (scopeAccountId) => db.projectionState.markFailed('balances', toBalanceScopeKey(scopeAccountId)),
-      markFresh: (scopeAccountId) => db.projectionState.markFresh('balances', null, toBalanceScopeKey(scopeAccountId)),
-    },
-    importSessionLookup: {
-      findByAccountIds: (accountIds) => db.importSessions.findAll({ accountIds }),
-    },
-    transactionSource: {
-      findByAccountIds: (params) => db.transactions.findAll(params),
-    },
+    findById: (id) => db.accounts.findById(id),
+    findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
+    replaceSnapshot: ({ snapshot, assets }) => db.balanceSnapshots.replaceSnapshot({ snapshot, assets }),
+    markBuilding: (scopeAccountId) => db.projectionState.markBuilding('balances', toBalanceScopeKey(scopeAccountId)),
+    markFailed: (scopeAccountId) => db.projectionState.markFailed('balances', toBalanceScopeKey(scopeAccountId)),
+    markFresh: (scopeAccountId) => db.projectionState.markFresh('balances', null, toBalanceScopeKey(scopeAccountId)),
+    findByAccountIds: (accountIds) => db.importSessions.findAll({ accountIds }),
+    findTransactionsByAccountIds: (params) => db.transactions.findAll(params),
   };
 }

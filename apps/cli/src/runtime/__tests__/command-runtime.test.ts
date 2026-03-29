@@ -6,10 +6,11 @@ import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommandRuntime, renderApp, runCommand } from '../command-runtime.js';
+import { CommandRuntime, renderApp, runCommand, withCommandPriceProviderRuntime } from '../command-runtime.js';
 
 // Hoisted so they're accessible inside vi.mock factory
-const { mockInitialize, mockInkRender } = vi.hoisted(() => ({
+const { mockCreatePriceProviderRuntime, mockInitialize, mockInkRender } = vi.hoisted(() => ({
+  mockCreatePriceProviderRuntime: vi.fn(),
   mockInitialize: vi.fn(),
   mockInkRender: vi.fn(),
 }));
@@ -29,18 +30,39 @@ vi.mock('ink', () => ({
   render: mockInkRender,
 }));
 
+vi.mock('@exitbook/price-providers', async () => {
+  const actual = await vi.importActual('@exitbook/price-providers');
+  return {
+    ...actual,
+    createPriceProviderRuntime: mockCreatePriceProviderRuntime,
+  };
+});
+
 // Mock process.exit to prevent test runner from exiting
 const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
 // Module-level close mock so it's accessible across both describe blocks
 let mockClose: ReturnType<typeof vi.fn>;
 let mockDataContext: DataSession;
+let mockPriceRuntime: {
+  cleanup: ReturnType<typeof vi.fn>;
+  fetchPrice: ReturnType<typeof vi.fn>;
+  setManualFxRate: ReturnType<typeof vi.fn>;
+  setManualPrice: ReturnType<typeof vi.fn>;
+};
 
 describe('CommandRuntime', () => {
   beforeEach(() => {
     mockClose = vi.fn().mockResolvedValue(ok(undefined));
     mockDataContext = { close: mockClose } as unknown as DataSession;
     mockInitialize.mockResolvedValue(ok(mockDataContext));
+    mockPriceRuntime = {
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+      fetchPrice: vi.fn(),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+    mockCreatePriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
   });
 
   afterEach(() => {
@@ -187,6 +209,16 @@ describe('CommandRuntime', () => {
       await expect(ctx.dispose()).rejects.toThrow('close failed');
     });
   });
+
+  describe('openPriceProviderRuntime()', () => {
+    it('should throw when the raw opener fails', async () => {
+      mockCreatePriceProviderRuntime.mockResolvedValue(err(new Error('price runtime init failed')));
+
+      const ctx = new CommandRuntime();
+
+      await expect(ctx.openPriceProviderRuntime()).rejects.toThrow('price runtime init failed');
+    });
+  });
 });
 
 describe('renderApp', () => {
@@ -289,5 +321,44 @@ describe('runCommand', () => {
 
     // DB close was still attempted
     expect(mockClose).toHaveBeenCalled();
+  });
+});
+
+describe('withCommandPriceProviderRuntime', () => {
+  beforeEach(() => {
+    mockPriceRuntime = {
+      cleanup: vi.fn().mockResolvedValue(ok(undefined)),
+      fetchPrice: vi.fn(),
+      setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
+      setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+    mockCreatePriceProviderRuntime.mockResolvedValue(ok(mockPriceRuntime));
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('cleans up the runtime even when the operation throws', async () => {
+    const ctx = new CommandRuntime();
+
+    await expect(
+      withCommandPriceProviderRuntime(ctx, undefined, async () => {
+        throw new Error('operation failed');
+      })
+    ).rejects.toThrow('operation failed');
+
+    expect(mockPriceRuntime.cleanup).toHaveBeenCalledOnce();
+  });
+
+  it('throws an aggregate error when operation and cleanup both fail', async () => {
+    mockPriceRuntime.cleanup.mockResolvedValue(err(new Error('cleanup failed')));
+
+    const ctx = new CommandRuntime();
+    await expect(
+      withCommandPriceProviderRuntime(ctx, undefined, async () => {
+        throw new Error('operation failed');
+      })
+    ).rejects.toThrow('Price provider runtime operation failed');
   });
 });

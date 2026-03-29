@@ -13,7 +13,7 @@ const logger = getLogger('TokenMetadataDatabase');
 export function createTokenMetadataDatabase(dbPath: string): Result<Kysely<TokenMetadataDatabase>, Error> {
   const result = createSqliteDatabase<TokenMetadataDatabase>(dbPath);
   if (result.isOk()) {
-    logger.info(`Connected to token metadata database: ${dbPath}`);
+    logger.info('Connected to token metadata database');
   }
   return result;
 }

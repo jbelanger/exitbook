@@ -1,12 +1,13 @@
 /* eslint-disable unicorn/no-null -- null required for db */
-import type { ProjectionId, ProjectionStatus } from '@exitbook/core';
-import { ok, err, type Result } from '@exitbook/foundation';
+import { PROJECTION_DEFINITIONS, type ProjectionId, type ProjectionStatus } from '@exitbook/core';
+import { ok, err, wrapError, type Result } from '@exitbook/foundation';
 
 import type { KyselyDB } from '../database.js';
 
 import { BaseRepository } from './base-repository.js';
 
 const DEFAULT_SCOPE_KEY = '__global__';
+const PROJECTION_IDS = new Set(PROJECTION_DEFINITIONS.map(({ id }) => id));
 
 interface ProjectionStateRow {
   projectionId: ProjectionId;
@@ -18,12 +19,22 @@ interface ProjectionStateRow {
   metadata: Record<string, unknown> | null;
 }
 
+interface ProjectionStateRecord {
+  invalidated_by: string | null;
+  last_built_at: string | null;
+  last_invalidated_at: string | null;
+  metadata_json: unknown;
+  projection_id: string;
+  scope_key: string;
+  status: ProjectionStatus;
+}
+
 export class ProjectionStateRepository extends BaseRepository {
   constructor(db: KyselyDB) {
     super(db, 'projection-state-repository');
   }
 
-  async get(
+  async find(
     projectionId: ProjectionId,
     scopeKey: string = DEFAULT_SCOPE_KEY
   ): Promise<Result<ProjectionStateRow | undefined, Error>> {
@@ -35,11 +46,14 @@ export class ProjectionStateRepository extends BaseRepository {
         .where('scope_key', '=', scopeKey)
         .executeTakeFirst();
 
-      if (!row) return ok(undefined);
+      if (!row) {
+        return ok(undefined);
+      }
 
-      return ok(this.toRow(row));
+      return this.toRow(row);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error({ error, projectionId, scopeKey }, 'Failed to load projection state');
+      return wrapError(error, `Failed to load projection state for ${projectionId} (${scopeKey})`);
     }
   }
 
@@ -71,7 +85,11 @@ export class ProjectionStateRepository extends BaseRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        { error, projectionId: row.projectionId, scopeKey: row.scopeKey },
+        'Failed to upsert projection state'
+      );
+      return wrapError(error, `Failed to upsert projection state for ${row.projectionId} (${row.scopeKey})`);
     }
   }
 
@@ -103,7 +121,8 @@ export class ProjectionStateRepository extends BaseRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error({ error, projectionId, scopeKey, invalidatedBy }, 'Failed to mark projection state stale');
+      return wrapError(error, `Failed to mark projection state stale for ${projectionId} (${scopeKey})`);
     }
   }
 
@@ -125,7 +144,8 @@ export class ProjectionStateRepository extends BaseRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error({ error, projectionId, scopeKey }, 'Failed to mark projection state building');
+      return wrapError(error, `Failed to mark projection state building for ${projectionId} (${scopeKey})`);
     }
   }
 
@@ -159,7 +179,8 @@ export class ProjectionStateRepository extends BaseRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error({ error, projectionId, scopeKey }, 'Failed to mark projection state fresh');
+      return wrapError(error, `Failed to mark projection state fresh for ${projectionId} (${scopeKey})`);
     }
   }
 
@@ -181,27 +202,63 @@ export class ProjectionStateRepository extends BaseRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error({ error, projectionId, scopeKey }, 'Failed to mark projection state failed');
+      return wrapError(error, `Failed to mark projection state failed for ${projectionId} (${scopeKey})`);
     }
   }
 
-  private toRow(raw: {
-    invalidated_by: string | null;
-    last_built_at: string | null;
-    last_invalidated_at: string | null;
-    metadata_json: unknown;
-    projection_id: string;
-    scope_key: string;
-    status: string;
-  }): ProjectionStateRow {
-    return {
-      projectionId: raw.projection_id as ProjectionId,
+  private toRow(raw: ProjectionStateRecord): Result<ProjectionStateRow, Error> {
+    const projectionIdResult = this.parseProjectionId(raw.projection_id, raw.scope_key);
+    if (projectionIdResult.isErr()) {
+      return err(projectionIdResult.error);
+    }
+
+    const metadataResult = this.parseMetadata(raw.metadata_json, projectionIdResult.value, raw.scope_key);
+    if (metadataResult.isErr()) {
+      return err(metadataResult.error);
+    }
+
+    return ok({
+      projectionId: projectionIdResult.value,
       scopeKey: raw.scope_key,
-      status: raw.status as ProjectionStatus,
+      status: raw.status,
       lastBuiltAt: raw.last_built_at ? new Date(raw.last_built_at) : null,
       lastInvalidatedAt: raw.last_invalidated_at ? new Date(raw.last_invalidated_at) : null,
       invalidatedBy: raw.invalidated_by,
-      metadata: raw.metadata_json ? (JSON.parse(raw.metadata_json as string) as Record<string, unknown>) : null,
-    };
+      metadata: metadataResult.value,
+    });
+  }
+
+  private parseProjectionId(value: string, scopeKey: string): Result<ProjectionId, Error> {
+    if (PROJECTION_IDS.has(value as ProjectionId)) {
+      return ok(value as ProjectionId);
+    }
+
+    return err(new Error(`Projection state row for ${value} (${scopeKey}) used an unknown projection id`));
+  }
+
+  private parseMetadata(
+    value: unknown,
+    projectionId: ProjectionId,
+    scopeKey: string
+  ): Result<Record<string, unknown> | null, Error> {
+    if (value === null || value === undefined || value === '') {
+      return ok(null);
+    }
+
+    if (typeof value !== 'string') {
+      return err(new Error(`Projection state metadata for ${projectionId} (${scopeKey}) was not stored as JSON text`));
+    }
+
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return err(new Error(`Projection state metadata for ${projectionId} (${scopeKey}) was not an object`));
+      }
+
+      return ok(parsed as Record<string, unknown>);
+    } catch (error) {
+      return wrapError(error, `Failed to parse projection state metadata for ${projectionId} (${scopeKey})`);
+    }
   }
 }

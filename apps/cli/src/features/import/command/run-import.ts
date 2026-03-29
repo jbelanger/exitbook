@@ -2,21 +2,25 @@ import type { Account, ImportSession } from '@exitbook/core';
 import { buildImportPorts } from '@exitbook/data/ingestion';
 import { EventBus, type EventBus as EventBusType } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { AdapterRegistry, ImportParams, IngestionEvent } from '@exitbook/ingestion';
-import { ImportWorkflow, isUtxoAdapter } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
+import { isUtxoAdapter } from '@exitbook/ingestion/adapters';
+import type { IngestionEvent } from '@exitbook/ingestion/events';
+import { ImportWorkflow, type ImportParams } from '@exitbook/ingestion/import';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
+import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
   type BatchImportMonitorEvent,
   type BatchImportSyncMode,
 } from '../view/index.js';
+
+import type { ImportCommandScope } from './import-command-scope.js';
 
 export interface ImportExecuteResult {
   sessions: ImportSession[];
@@ -45,6 +49,11 @@ export interface BatchImportExecuteResult {
   profileDisplayName: string;
   runStats: MetricsSummary;
   totalCount: number;
+}
+
+export interface ImportAccountSelection {
+  account?: string | undefined;
+  accountId?: number | undefined;
 }
 
 export interface ImportExecutionRuntime {
@@ -119,165 +128,169 @@ export function abortImportRuntime(runtime: ImportExecutionRuntime): void {
 }
 
 export async function runImport(
-  ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  scope: ImportCommandScope,
+  options: { format: CliOutputFormat },
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
 ): Promise<Result<ImportExecuteResult, Error>> {
   try {
-    const database = await ctx.database();
-    const registry = ctx.requireAppRuntime().adapterRegistry;
-    const infra = await createIngestionRuntime(ctx, database, {
-      presentation: options.isJsonMode ? 'headless' : 'monitor',
-    });
-    const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
-
-    ctx.onAbort(() => {
-      abortImportRuntime(runtime);
-    });
-    return executeImportWithRuntime(runtime, params);
+    const database = scope.database;
+    const registry = scope.registry;
+    return withIngestionRuntime(
+      scope.runtime,
+      database,
+      {
+        presentation: options.format === 'json' ? 'headless' : 'monitor',
+        onAbortRegistered: (infra) => {
+          const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
+          scope.runtime.onAbort(() => {
+            abortImportRuntime(runtime);
+          });
+        },
+      },
+      async (infra) => {
+        const runtime = buildImportExecutionRuntime(database, registry, infra, infra.ingestionMonitor);
+        return executeImportWithRuntime(runtime, params);
+      }
+    );
   } catch (error) {
     return wrapError(error, 'Failed to run import');
   }
 }
 
 export async function runImportAll(
-  ctx: CommandRuntime,
-  options: {
-    isJsonMode: boolean;
-    profileDisplayName: string;
-    profileId: number;
-  }
+  scope: ImportCommandScope,
+  options: { format: CliOutputFormat }
 ): Promise<Result<BatchImportExecuteResult, Error>> {
   let batchController: EventDrivenController<BatchImportMonitorEvent> | undefined;
   let unsubscribeCliEvents: (() => void) | undefined;
 
   try {
-    const database = await ctx.database();
-    const registry = ctx.requireAppRuntime().adapterRegistry;
-    const batchAccountsResult = await loadBatchImportAccounts(database, options.profileId);
+    const database = scope.database;
+    const registry = scope.registry;
+    const batchAccountsResult = await loadBatchImportAccounts(database, scope.profile.id);
     if (batchAccountsResult.isErr()) {
       return err(batchAccountsResult.error);
     }
 
     const batchAccounts = batchAccountsResult.value;
     if (batchAccounts.length === 0) {
-      return err(new Error(`No accounts found for profile '${options.profileDisplayName}'`));
+      return err(new Error(`No accounts found for profile '${scope.profile.displayName}'`));
     }
-
-    const infra = await createIngestionRuntime(ctx, database, { presentation: 'headless' });
-    const runtime = buildImportExecutionRuntime(database, registry, infra);
 
     const batchEventBus = new EventBus<BatchImportMonitorEvent>({
       onError: (error) => {
         logger.error({ error }, 'Batch import event bus error');
       },
     });
+    return withIngestionRuntime(scope.runtime, database, { presentation: 'headless' }, async (infra) => {
+      const runtime = buildImportExecutionRuntime(database, registry, infra);
 
-    if (!options.isJsonMode) {
-      batchController = createEventDrivenController(batchEventBus, BatchImportMonitor, {
-        instrumentation: infra.instrumentation,
-        providerRuntime: infra.blockchainProviderRuntime,
-      });
-      await batchController.start();
-      unsubscribeCliEvents = infra.eventBus.subscribe((event: CliEvent) => {
-        batchEventBus.emit(event);
-      });
-    }
-
-    ctx.onAbort(() => {
-      runtime.importWorkflow.abort();
-      if (!batchController) {
-        return;
+      if (options.format !== 'json') {
+        batchController = createEventDrivenController(batchEventBus, BatchImportMonitor, {
+          instrumentation: infra.instrumentation,
+          providerRuntime: infra.blockchainProviderRuntime,
+        });
+        await batchController.start();
+        unsubscribeCliEvents = infra.eventBus.subscribe((event: CliEvent) => {
+          batchEventBus.emit(event);
+        });
       }
 
-      batchController.abort();
-      void batchController.stop().catch((error) => {
-        logger.warn({ error }, 'Failed to stop batch import monitor on abort');
-      });
-    });
-
-    batchEventBus.emit({
-      type: 'batch.started',
-      profileDisplayName: options.profileDisplayName,
-      rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
-        accountId: batchAccount.account.id,
-        accountType: batchAccount.account.accountType,
-        name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
-        platformKey: batchAccount.account.platformKey,
-        syncMode: batchAccount.syncMode,
-      })),
-    });
-
-    const accountResults: BatchImportAccountResult[] = [];
-    let failedCount = 0;
-
-    for (const [index, batchAccount] of batchAccounts.entries()) {
-      batchEventBus.emit({
-        type: 'batch.account.started',
-        accountId: batchAccount.account.id,
-        index,
-      });
-
-      const importResult = await executeImportWithRuntime(runtime, {
-        accountId: batchAccount.account.id,
-      });
-
-      if (importResult.isErr()) {
-        failedCount += 1;
-        const countsResult = await loadFailedImportCounts(database, batchAccount.account.id);
-        if (countsResult.isErr()) {
-          return err(countsResult.error);
+      scope.runtime.onAbort(() => {
+        runtime.importWorkflow.abort();
+        if (!batchController) {
+          return;
         }
 
-        batchEventBus.emit({
-          type: 'batch.account.failed',
+        batchController.abort();
+        void batchController.stop().catch((error) => {
+          logger.warn({ error }, 'Failed to stop batch import monitor on abort');
+        });
+      });
+
+      batchEventBus.emit({
+        type: 'batch.started',
+        profileDisplayName: scope.profile.displayName,
+        rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
           accountId: batchAccount.account.id,
-          error: importResult.error.message,
-          imported: countsResult.value.imported,
-          skipped: countsResult.value.skipped,
+          accountType: batchAccount.account.accountType,
+          name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
+          platformKey: batchAccount.account.platformKey,
+          syncMode: batchAccount.syncMode,
+        })),
+      });
+
+      const accountResults: BatchImportAccountResult[] = [];
+      let failedCount = 0;
+
+      for (const [index, batchAccount] of batchAccounts.entries()) {
+        batchEventBus.emit({
+          type: 'batch.account.started',
+          accountId: batchAccount.account.id,
+          index,
+        });
+
+        const importResult = await executeImportWithRuntime(runtime, {
+          accountId: batchAccount.account.id,
+        });
+
+        if (importResult.isErr()) {
+          failedCount += 1;
+          const countsResult = await loadFailedImportCounts(database, batchAccount.account.id);
+          if (countsResult.isErr()) {
+            return err(countsResult.error);
+          }
+
+          batchEventBus.emit({
+            type: 'batch.account.failed',
+            accountId: batchAccount.account.id,
+            error: importResult.error.message,
+            imported: countsResult.value.imported,
+            skipped: countsResult.value.skipped,
+          });
+
+          accountResults.push({
+            account: toBatchImportAccount(batchAccount.account),
+            counts: countsResult.value,
+            errorMessage: importResult.error.message,
+            status: 'failed',
+            syncMode: batchAccount.syncMode,
+          });
+          continue;
+        }
+
+        const counts = summarizeImportSessions(importResult.value.sessions);
+        batchEventBus.emit({
+          type: 'batch.account.completed',
+          accountId: batchAccount.account.id,
+          imported: counts.imported,
+          skipped: counts.skipped,
         });
 
         accountResults.push({
           account: toBatchImportAccount(batchAccount.account),
-          counts: countsResult.value,
-          errorMessage: importResult.error.message,
-          status: 'failed',
+          counts,
+          status: 'completed',
           syncMode: batchAccount.syncMode,
         });
-        continue;
       }
 
-      const counts = summarizeImportSessions(importResult.value.sessions);
       batchEventBus.emit({
-        type: 'batch.account.completed',
-        accountId: batchAccount.account.id,
-        imported: counts.imported,
-        skipped: counts.skipped,
+        type: 'batch.completed',
+        completedCount: accountResults.length - failedCount,
+        failedCount,
+        totalCount: accountResults.length,
       });
 
-      accountResults.push({
-        account: toBatchImportAccount(batchAccount.account),
-        counts,
-        status: 'completed',
-        syncMode: batchAccount.syncMode,
+      await batchController?.stop();
+
+      return ok({
+        accounts: accountResults,
+        failedCount,
+        profileDisplayName: scope.profile.displayName,
+        runStats: runtime.instrumentation.getSummary(),
+        totalCount: accountResults.length,
       });
-    }
-
-    batchEventBus.emit({
-      type: 'batch.completed',
-      completedCount: accountResults.length - failedCount,
-      failedCount,
-      totalCount: accountResults.length,
-    });
-
-    await batchController?.stop();
-
-    return ok({
-      accounts: accountResults,
-      failedCount,
-      profileDisplayName: options.profileDisplayName,
-      runStats: runtime.instrumentation.getSummary(),
-      totalCount: accountResults.length,
     });
   } catch (error) {
     const batchError = error instanceof Error ? error : new Error(String(error));
@@ -331,10 +344,10 @@ async function checkSingleAddressWarning(
 }
 
 function buildImportExecutionRuntime(
-  database: Awaited<ReturnType<CommandRuntime['database']>>,
+  database: ImportCommandScope['database'],
   registry: AdapterRegistry,
   infra: {
-    blockchainProviderRuntime: Awaited<ReturnType<typeof createIngestionRuntime>>['blockchainProviderRuntime'];
+    blockchainProviderRuntime: IngestionRuntime['blockchainProviderRuntime'];
     eventBus: EventBusType<CliEvent>;
     instrumentation: InstrumentationCollector;
   },
@@ -357,7 +370,7 @@ function buildImportExecutionRuntime(
 }
 
 async function loadBatchImportAccounts(
-  database: Awaited<ReturnType<CommandRuntime['database']>>,
+  database: ImportCommandScope['database'],
   profileId: number
 ): Promise<Result<BatchImportAccountPlan[], Error>> {
   const accountService = buildCliAccountLifecycleService(database);
@@ -395,7 +408,7 @@ function classifyBatchImportSyncMode(account: Account, incompleteSession?: Impor
 }
 
 async function loadFailedImportCounts(
-  database: Awaited<ReturnType<CommandRuntime['database']>>,
+  database: ImportCommandScope['database'],
   accountId: number
 ): Promise<Result<{ imported: number; skipped: number }, Error>> {
   const sessionResult = await database.importSessions.findLatestIncomplete(accountId);
@@ -423,4 +436,31 @@ function toBatchImportAccount(account: Account): BatchImportAccountResult['accou
     name: account.name ?? `account-${account.id}`,
     platformKey: account.platformKey,
   };
+}
+
+export async function resolveImportAccount(
+  scope: ImportCommandScope,
+  options: ImportAccountSelection
+): Promise<Result<Account, Error>> {
+  const accountService = buildCliAccountLifecycleService(scope.database);
+
+  if (options.accountId !== undefined) {
+    const accountResult = await accountService.requireOwned(scope.profile.id, options.accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+
+    return ok(accountResult.value);
+  }
+
+  const requestedAccountName = options.account?.trim() ?? '';
+  const accountResult = await accountService.getByName(scope.profile.id, requestedAccountName);
+  if (accountResult.isErr()) {
+    return err(accountResult.error);
+  }
+  if (!accountResult.value) {
+    return err(new Error(`Account '${requestedAccountName.toLowerCase()}' not found`));
+  }
+
+  return ok(accountResult.value);
 }

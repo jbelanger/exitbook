@@ -78,7 +78,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
 
   /**
    * Execute operation with streaming pagination
-   * Default implementation throws error - providers should implement when ready for Phase 1+
+   * Default implementation yields a single Err result - providers should implement when ready for Phase 1+
    */
   async *executeStreaming<T extends NormalizedTransactionBase = NormalizedTransactionBase>(
     _operation: StreamingOperation,
@@ -231,12 +231,12 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     }
 
     // If no API key support at all (not required and no env var specified), return empty
-    if (!this.metadata.requiresApiKey && !this.metadata.apiKeyEnvVar) {
+    if (!this.metadata.requiresApiKey && !this.metadata.apiKeyEnvName) {
       return '';
     }
 
     if (!this.config.apiKey || this.config.apiKey === 'YourApiKeyToken') {
-      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+      const envVar = this.metadata.apiKeyEnvName || `${this.metadata.name.toUpperCase()}_API_KEY`;
       if (this.metadata.requiresApiKey) {
         const error = this.createMissingApiKeyError(envVar);
         this.logger.warn(error.message);
@@ -250,7 +250,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
   }
 
   private createMissingApiKeyError(envVar?: string): Error {
-    const resolvedEnvVar = envVar || this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+    const resolvedEnvVar = envVar || this.metadata.apiKeyEnvName || `${this.metadata.name.toUpperCase()}_API_KEY`;
     return new Error(
       `Valid API key required for ${this.metadata.displayName}. Set environment variable: ${resolvedEnvVar}`
     );

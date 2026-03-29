@@ -24,7 +24,7 @@ const createTransaction = (
     id,
     accountId,
     txFingerprint,
-    platformKey: source,
+    platformKey,
     platformKind,
     datetime,
     timestamp,
@@ -40,7 +40,7 @@ const createTransaction = (
     id: id ?? 1,
     accountId: accountId ?? 1,
     txFingerprint: txFingerprint ?? 'ext-1',
-    platformKey: source ?? 'kraken',
+    platformKey: platformKey ?? 'kraken',
     platformKind: platformKind ?? 'exchange',
     datetime: datetime ?? '2024-01-01T12:00:00Z',
     timestamp: timestamp ?? Date.parse('2024-01-01T12:00:00Z'),
@@ -98,7 +98,7 @@ describe('export-utils', () => {
       expect(params.since).toBeUndefined();
     });
 
-    it('should build params with exchange source', () => {
+    it('should build params with exchange platform', () => {
       const options: ExportCommandOptions = {
         exchange: 'kraken',
         format: 'json',
@@ -113,7 +113,7 @@ describe('export-utils', () => {
       expect(params.outputPath).toBe('./exports/kraken.json');
     });
 
-    it('should build params with blockchain source', () => {
+    it('should build params with blockchain platform', () => {
       const options: ExportCommandOptions = {
         blockchain: 'bitcoin',
         format: 'csv',
@@ -195,7 +195,7 @@ describe('export-utils', () => {
 
       const result = convertToCSV([transaction]);
 
-      expect(result).toContain('id,tx_fingerprint,source,operation_category');
+      expect(result).toContain('id,tx_fingerprint,platform_key,operation_category');
       expect(result).toContain('1,ext-1,kraken,trade,buy');
       expect(result).toContain('BTC,1.5');
     });
@@ -228,7 +228,7 @@ describe('export-utils', () => {
       const lines = result.split('\n');
 
       expect(lines).toHaveLength(3); // header + 2 rows
-      expect(lines[0]).toContain('id,tx_fingerprint,source,operation_category');
+      expect(lines[0]).toContain('id,tx_fingerprint,platform_key,operation_category');
       expect(lines[1]).toContain('1,ext-1,kraken,trade,buy');
       expect(lines[2]).toContain('2,ext-2,kraken,trade,sell');
     });
@@ -299,10 +299,10 @@ describe('export-utils', () => {
         id: string;
         movements: { primary: { amount: string; assetSymbol: string; direction: string } };
         operation: { category: string; type: string };
-        source: string;
+        platformKey: string;
       };
       expect(tx.id).toBe(1);
-      expect(tx.source).toBe('kraken');
+      expect(tx.platformKey).toBe('kraken');
       expect(tx.operation.category).toBe('trade');
       expect(tx.operation.type).toBe('buy');
       expect(tx.fees.total).toBeUndefined();

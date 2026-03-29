@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- Vitest command-scope mocks intentionally use partial test doubles. */
 import type { Account, ImportSession, Profile } from '@exitbook/core';
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
@@ -6,32 +7,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
-  mockBuildCliAccountLifecycleService,
   mockCtx,
   mockDisplayCliError,
-  mockGetByName,
   mockOutputSuccess,
   mockPromptConfirm,
-  mockRequireOwned,
-  mockResolveCommandProfile,
+  mockResolveImportAccount,
   mockRunCommand,
   mockRunImport,
   mockRunImportAll,
+  mockWithImportCommandScope,
 } = vi.hoisted(() => ({
-  mockBuildCliAccountLifecycleService: vi.fn(),
   mockCtx: {
     database: vi.fn(),
     exitCode: undefined as number | undefined,
   },
   mockDisplayCliError: vi.fn(),
-  mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPromptConfirm: vi.fn(),
-  mockRequireOwned: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
+  mockResolveImportAccount: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunImport: vi.fn(),
   mockRunImportAll: vi.fn(),
+  mockWithImportCommandScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -47,15 +44,12 @@ vi.mock('../../../shared/cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
-}));
-
-vi.mock('../../../accounts/account-service.js', () => ({
-  buildCliAccountLifecycleService: mockBuildCliAccountLifecycleService,
+vi.mock('../import-command-scope.js', () => ({
+  withImportCommandScope: mockWithImportCommandScope,
 }));
 
 vi.mock('../run-import.js', () => ({
+  resolveImportAccount: mockResolveImportAccount,
   runImport: mockRunImport,
   runImportAll: mockRunImportAll,
 }));
@@ -122,11 +116,15 @@ beforeEach(() => {
       throw new Error('Missing runCommand callback');
     }
   });
-  mockResolveCommandProfile.mockResolvedValue(ok(makeProfile()));
-  mockBuildCliAccountLifecycleService.mockReturnValue({
-    getByName: mockGetByName,
-    requireOwned: mockRequireOwned,
-  });
+  mockWithImportCommandScope.mockImplementation(async (_ctx, operation) =>
+    operation({
+      database: { tag: 'db' },
+      profile: makeProfile(),
+      registry: { tag: 'registry' },
+      runtime: mockCtx,
+    })
+  );
+  mockResolveImportAccount.mockResolvedValue(ok(makeAccount()));
   mockRunImport.mockResolvedValue(ok({ sessions: [makeSession()], runStats: { totalRequests: 0 } }));
   mockRunImportAll.mockResolvedValue(
     ok({
@@ -184,12 +182,22 @@ describe('ImportCommandOptionsSchema', () => {
 describe('import command', () => {
   it('resolves a named account and outputs JSON results', async () => {
     const program = createImportProgram();
-    mockGetByName.mockResolvedValue(ok(makeAccount()));
 
     await program.parseAsync(['import', '--account', 'kraken-main', '--json'], { from: 'user' });
 
-    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockRunImport).toHaveBeenCalledWith(mockCtx, { isJsonMode: true }, { accountId: 7 });
+    expect(mockResolveImportAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { account: 'kraken-main', json: true }
+    );
+    expect(mockRunImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { format: 'json' },
+      { accountId: 7 }
+    );
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
 
     const [, payload] = mockOutputSuccess.mock.calls[0] as [
@@ -224,7 +232,7 @@ describe('import command', () => {
 
   it('rejects an account id that belongs to another profile', async () => {
     const program = createImportProgram();
-    mockRequireOwned.mockResolvedValue(err(new Error('Account 42 does not belong to the selected profile')));
+    mockResolveImportAccount.mockResolvedValue(err(new Error('Account 42 does not belong to the selected profile')));
 
     await expect(program.parseAsync(['import', '--account-id', '42', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:import:json:Account 42 does not belong to the selected profile'
@@ -235,7 +243,14 @@ describe('import command', () => {
 
   it('runs batch import for --all in JSON mode and returns partial failure status', async () => {
     const program = createImportProgram();
-    mockResolveCommandProfile.mockResolvedValue(ok(makeProfile({ id: 3, displayName: 'business' })));
+    mockWithImportCommandScope.mockImplementation(async (_ctx, operation) =>
+      operation({
+        database: { tag: 'db' },
+        profile: makeProfile({ id: 3, displayName: 'business' }),
+        registry: { tag: 'registry' },
+        runtime: mockCtx,
+      })
+    );
     mockRunImportAll.mockResolvedValue(
       ok({
         accounts: [
@@ -278,14 +293,14 @@ describe('import command', () => {
 
     await program.parseAsync(['import', '--all', '--json'], { from: 'user' });
 
-    expect(mockRunImportAll).toHaveBeenCalledWith(mockCtx, {
-      isJsonMode: true,
-      profileId: 3,
-      profileDisplayName: 'business',
-    });
+    expect(mockRunImportAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 3, displayName: 'business' }),
+      }),
+      { format: 'json' }
+    );
     expect(mockRunImport).not.toHaveBeenCalled();
-    expect(mockRequireOwned).not.toHaveBeenCalled();
-    expect(mockGetByName).not.toHaveBeenCalled();
+    expect(mockResolveImportAccount).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockCtx.exitCode).toBe(1);
 

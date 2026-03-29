@@ -2,11 +2,12 @@ import {
   CostBasisArtifactService,
   CostBasisWorkflow,
   persistCostBasisFailureSnapshot,
-  type CostBasisContext,
   type AccountingExclusionPolicy,
+  type CostBasisContext,
+  type CostBasisDependencyWatermark,
   type ValidatedCostBasisConfig,
   type CostBasisWorkflowResult,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import type { AssetReviewSummary } from '@exitbook/core';
 import {
   buildCostBasisArtifactStore,
@@ -14,19 +15,14 @@ import {
   buildCostBasisPorts,
 } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { PriceProviderConfig } from '@exitbook/price-providers';
+import { err, ok, type Result } from '@exitbook/foundation';
+import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { loadAccountingExclusionPolicy } from '../../shared/accounting-exclusion-policy.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
-import { ensureConsumerInputsReady } from '../../shared/consumer-input-readiness.js';
-import { readCostBasisDependencyWatermark } from '../../shared/cost-basis-dependency-watermark-runtime.js';
 
 export type { ValidatedCostBasisConfig };
 
-interface CostBasisArtifactExecutionResult {
+export interface CostBasisArtifactExecutionResult {
   artifact: CostBasisWorkflowResult;
   scopeKey: string;
   snapshotId: string;
@@ -41,16 +37,18 @@ interface PreparedCostBasisArtifactResult {
   assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
 }
 
+type ReadCostBasisDependencyWatermark = () => Promise<Result<CostBasisDependencyWatermark, Error>>;
+
 /**
  * Cost Basis Handler - Thin CLI wrapper that runs prereqs then delegates to CostBasisWorkflow.
  */
 export class CostBasisHandler {
   constructor(
     private readonly db: DataSession,
-    private readonly dataDir: string,
     private readonly profileId: number,
     private readonly accountingExclusionPolicy: AccountingExclusionPolicy = { excludedAssetIds: new Set<string>() },
-    private readonly priceProviderConfig?: PriceProviderConfig | undefined
+    private readonly priceRuntime: IPriceProviderRuntime,
+    private readonly readDependencyWatermark: ReadCostBasisDependencyWatermark
   ) {}
 
   async execute(
@@ -95,149 +93,57 @@ export class CostBasisHandler {
     const contextReader = buildCostBasisPorts(this.db, this.profileId);
     const artifactStore = buildCostBasisArtifactStore(this.db);
     const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
-    const priceRuntimeResult = await openCliPriceProviderRuntime({
-      dataDir: this.dataDir,
-      providers: this.priceProviderConfig,
-    });
-    if (priceRuntimeResult.isErr()) {
-      return err(new Error(`Failed to create price provider runtime: ${priceRuntimeResult.error.message}`));
-    }
+    try {
+      const workflow = new CostBasisWorkflow(contextReader, this.priceRuntime);
+      const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
 
-    const priceRuntime = priceRuntimeResult.value;
-    const executionResult = await (async (): Promise<Result<PreparedCostBasisArtifactResult, Error>> => {
-      try {
-        const workflow = new CostBasisWorkflow(contextReader, priceRuntime);
-        const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-
-        const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db, this.profileId);
-        if (assetReviewSummariesResult.isErr()) {
-          return err(assetReviewSummariesResult.error);
-        }
-
-        const watermarkResult = await readCostBasisDependencyWatermark(
-          this.db,
-          this.dataDir,
-          this.accountingExclusionPolicy,
-          this.profileId
-        );
-        if (watermarkResult.isErr()) {
-          return err(watermarkResult.error);
-        }
-
-        const result = await artifactService.execute({
-          config: params,
-          dependencyWatermark: watermarkResult.value,
-          refresh: options?.refresh,
-          accountingExclusionPolicy: this.accountingExclusionPolicy,
-          assetReviewSummaries: assetReviewSummariesResult.value,
-        });
-        if (result.isErr()) {
-          const failurePersistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
-            consumer: 'cost-basis',
-            input: params,
-            dependencyWatermark: watermarkResult.value,
-            error: result.error,
-            stage: 'artifact-service.execute',
-            context: {
-              refresh: options?.refresh === true,
-            },
-          });
-          if (failurePersistResult.isErr()) {
-            return err(
-              new Error(
-                `Cost basis failed: ${result.error.message}. Additionally, failure snapshot persistence failed: ${failurePersistResult.error.message}`,
-                { cause: result.error }
-              )
-            );
-          }
-          return err(result.error);
-        }
-
-        return ok({
-          artifact: result.value.artifact,
-          scopeKey: result.value.scopeKey,
-          snapshotId: result.value.snapshotId,
-          assetReviewSummaries: assetReviewSummariesResult.value,
-        });
-      } catch (error) {
-        return err(error instanceof Error ? error : new Error(String(error)));
-      }
-    })();
-
-    const cleanupResult = await priceRuntime.cleanup();
-    if (cleanupResult.isErr()) {
-      if (executionResult.isErr()) {
-        return err(
-          new AggregateError(
-            [executionResult.error, cleanupResult.error],
-            'Cost basis execution failed and price provider runtime cleanup also failed'
-          )
-        );
+      const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db, this.profileId);
+      if (assetReviewSummariesResult.isErr()) {
+        return err(assetReviewSummariesResult.error);
       }
 
-      return err(cleanupResult.error);
-    }
+      const watermarkResult = await this.readDependencyWatermark();
+      if (watermarkResult.isErr()) {
+        return err(watermarkResult.error);
+      }
 
-    return executionResult;
-  }
-}
-
-/**
- * Create a CostBasisHandler with prereqs (reprocess + linking + price enrichment) run first.
- * Factory runs prereqs via ensureConsumerInputsReady -- command files NEVER call prereqs directly.
- */
-export async function createCostBasisHandler(
-  ctx: CommandRuntime,
-  options: {
-    isJsonMode: boolean;
-    params: ValidatedCostBasisConfig;
-    profileId: number;
-    profileKey: string;
-  }
-): Promise<Result<CostBasisHandler, Error>> {
-  try {
-    const database = await ctx.database();
-    let prereqAbort: (() => void) | undefined;
-    if (!options.isJsonMode) {
-      ctx.onAbort(() => {
-        prereqAbort?.();
+      const result = await artifactService.execute({
+        config: params,
+        dependencyWatermark: watermarkResult.value,
+        refresh: options?.refresh,
+        accountingExclusionPolicy: this.accountingExclusionPolicy,
+        assetReviewSummaries: assetReviewSummariesResult.value,
       });
+      if (result.isErr()) {
+        const failurePersistResult = await persistCostBasisFailureSnapshot(failureSnapshotStore, {
+          consumer: 'cost-basis',
+          input: params,
+          dependencyWatermark: watermarkResult.value,
+          error: result.error,
+          stage: 'artifact-service.execute',
+          context: {
+            refresh: options?.refresh === true,
+          },
+        });
+        if (failurePersistResult.isErr()) {
+          return err(
+            new Error(
+              `Cost basis failed: ${result.error.message}. Additionally, failure snapshot persistence failed: ${failurePersistResult.error.message}`,
+              { cause: result.error }
+            )
+          );
+        }
+        return err(result.error);
+      }
+
+      return ok({
+        artifact: result.value.artifact,
+        scopeKey: result.value.scopeKey,
+        snapshotId: result.value.snapshotId,
+        assetReviewSummaries: assetReviewSummariesResult.value,
+      });
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
-
-    const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(ctx.dataDir, options.profileKey);
-    if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
-    }
-
-    const { params } = options;
-    const priceConfig =
-      params.startDate && params.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined;
-
-    const readyResult = await ensureConsumerInputsReady(ctx, 'cost-basis', {
-      isJsonMode: options.isJsonMode,
-      profileId: options.profileId,
-      profileKey: options.profileKey,
-      priceConfig,
-      accountingExclusionPolicy: accountingExclusionPolicyResult.value,
-      setAbort: (abort) => {
-        prereqAbort = abort;
-      },
-    });
-    if (readyResult.isErr()) {
-      return err(readyResult.error);
-    }
-
-    prereqAbort = undefined;
-    return ok(
-      new CostBasisHandler(
-        database,
-        ctx.dataDir,
-        options.profileId,
-        accountingExclusionPolicyResult.value,
-        ctx.requireAppRuntime().priceProviderConfig
-      )
-    );
-  } catch (error) {
-    return wrapError(error, 'Failed to create cost basis handler');
   }
 }

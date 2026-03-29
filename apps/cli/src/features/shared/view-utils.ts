@@ -7,7 +7,6 @@ import { err, ok, type Result } from '@exitbook/foundation';
  * Common filter options across view subcommands.
  */
 export interface CommonViewFilters {
-  source?: string | undefined;
   since?: string | undefined;
   until?: string | undefined;
   limit?: number | undefined;

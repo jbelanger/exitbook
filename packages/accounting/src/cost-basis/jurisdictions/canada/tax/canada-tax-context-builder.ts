@@ -8,14 +8,14 @@ import type {
 } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferSet } from '../../../standard/matching/validated-scoped-transfer-links.js';
 
+import { applyCarryoverSemantics } from './canada-tax-event-carryover.js';
 import {
-  applyCarryoverSemantics,
   applyGenericFeeAdjustments,
   buildSameAssetTransferFeeAdjustments,
   buildValidatedTransferTargetFeeAdjustments,
-  projectCanadaMovementEvents,
-} from './canada-tax-event-builders.js';
+} from './canada-tax-event-fee-adjustments.js';
 import { sortCanadaEvents } from './canada-tax-event-ordering.js';
+import { projectCanadaMovementEvents } from './canada-tax-event-projection.js';
 import type { CanadaTaxInputContext, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
 export async function buildCanadaTaxInputContext(params: {

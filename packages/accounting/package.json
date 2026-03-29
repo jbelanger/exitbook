@@ -5,6 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./cost-basis": "./src/cost-basis.ts",
+    "./linking": "./src/linking.ts",
+    "./portfolio": "./src/portfolio.ts",
+    "./price-enrichment": "./src/price-enrichment.ts",
     "./ports": "./src/ports/index.ts"
   },
   "scripts": {

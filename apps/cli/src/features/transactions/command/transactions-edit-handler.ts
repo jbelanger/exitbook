@@ -11,7 +11,7 @@ type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'r
 type TransactionEditQueryDatabase = Pick<DataSession, 'transactions'>;
 
 interface TransactionIdentity {
-  source: string;
+  platformKey: string;
   txFingerprint: string;
 }
 
@@ -34,8 +34,8 @@ export interface TransactionNoteEditResult {
   action: 'set' | 'clear';
   changed: boolean;
   note?: string | undefined;
+  platformKey: string;
   reason?: string | undefined;
-  source: string;
   transactionId: number;
   txFingerprint: string;
 }
@@ -63,8 +63,8 @@ export class TransactionsEditHandler {
         action: 'set',
         changed: false,
         note: params.message,
+        platformKey: identityResult.value.platformKey,
         reason: params.reason,
-        source: identityResult.value.source,
         transactionId: params.transactionId,
         txFingerprint: identityResult.value.txFingerprint,
       });
@@ -94,8 +94,8 @@ export class TransactionsEditHandler {
       action: 'set',
       changed: true,
       note: params.message,
+      platformKey: identityResult.value.platformKey,
       reason: params.reason,
-      source: identityResult.value.source,
       transactionId: params.transactionId,
       txFingerprint: identityResult.value.txFingerprint,
     });
@@ -116,8 +116,8 @@ export class TransactionsEditHandler {
       return ok({
         action: 'clear',
         changed: false,
+        platformKey: identityResult.value.platformKey,
         reason: params.reason,
-        source: identityResult.value.source,
         transactionId: params.transactionId,
         txFingerprint: identityResult.value.txFingerprint,
       });
@@ -145,8 +145,8 @@ export class TransactionsEditHandler {
     return ok({
       action: 'clear',
       changed: true,
+      platformKey: identityResult.value.platformKey,
       reason: params.reason,
-      source: identityResult.value.source,
       transactionId: params.transactionId,
       txFingerprint: identityResult.value.txFingerprint,
     });
@@ -192,7 +192,7 @@ export class TransactionsEditHandler {
     }
 
     return ok({
-      source: transaction.platformKey,
+      platformKey: transaction.platformKey,
       txFingerprint: transaction.txFingerprint,
     });
   }

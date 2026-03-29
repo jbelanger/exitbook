@@ -1,3 +1,4 @@
+import { err, ok } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
@@ -5,7 +6,6 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -20,9 +20,16 @@ import {
 } from '../view/balance-view-state.js';
 import { sortAssetsByStatus, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
 
-import { createBalanceHandler } from './balance-handler.js';
+import { withBalanceCommandScope } from './balance-command-scope.js';
 import { BalanceRefreshCommandOptionsSchema } from './balance-option-schemas.js';
 import { buildCliExchangeCredentials } from './balance-utils.js';
+import {
+  abortBalanceVerification,
+  loadBalanceVerificationAccounts,
+  runBalanceRefreshAll,
+  runBalanceRefreshSingle,
+  startBalanceVerificationStream,
+} from './run-balance.js';
 
 type BalanceRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsSchema>;
 
@@ -60,7 +67,7 @@ async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: Cli
   } else if (options.accountId) {
     await executeBalanceRefreshSingleTUI(options, appRuntime);
   } else {
-    await executeBalanceRefreshAllTUI(options, appRuntime);
+    await executeBalanceRefreshAllTUI(appRuntime);
   }
 }
 
@@ -70,95 +77,88 @@ async function executeBalanceRefreshJSON(
 ): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('balance-refresh', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
+      const result = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
+        if (options.accountId) {
+          const credentials = buildCliExchangeCredentials(options);
+          const refreshResult = await runBalanceRefreshSingle(scope, {
+            accountId: options.accountId,
+            credentials,
+          });
+          if (refreshResult.isErr()) {
+            return err(refreshResult.error);
+          }
 
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
-      if (handlerResult.isErr()) {
-        displayCliError('balance-refresh', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
+          const { account, requestedAccount, verificationResult, streamMetadata } = refreshResult.value;
 
-      const handler = handlerResult.value;
-
-      if (options.accountId) {
-        const credentials = buildCliExchangeCredentials(options);
-        const result = await handler.refreshSingleScope({
-          accountId: options.accountId,
-          credentials,
-          profileId: profileResult.value.id,
-        });
-        if (result.isErr()) {
-          displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
+          outputSuccess('balance-refresh', {
+            status: verificationResult.status,
+            mode: refreshResult.value.mode,
+            balances:
+              refreshResult.value.mode === 'verification'
+                ? refreshResult.value.comparisons
+                : refreshResult.value.assets.map((asset) => ({
+                    assetId: asset.assetId,
+                    assetSymbol: asset.assetSymbol,
+                    calculatedBalance: asset.calculatedBalance,
+                    diagnostics: asset.diagnostics,
+                  })),
+            summary: verificationResult.summary,
+            coverage: verificationResult.coverage,
+            source: {
+              type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
+              name: account.platformKey,
+              address: account.accountType === 'blockchain' ? account.identifier : undefined,
+            },
+            account: {
+              id: account.id,
+              type: account.accountType,
+              platformKey: account.platformKey,
+              identifier: account.identifier,
+              providerName: account.providerName,
+            },
+            ...(requestedAccount && {
+              requestedAccount: {
+                id: requestedAccount.id,
+                type: requestedAccount.accountType,
+                platformKey: requestedAccount.platformKey,
+                identifier: requestedAccount.identifier,
+                providerName: requestedAccount.providerName,
+              },
+            }),
+            meta: {
+              timestamp: new Date(verificationResult.timestamp).toISOString(),
+              ...(streamMetadata && { streams: streamMetadata }),
+            },
+            suggestion: verificationResult.suggestion,
+            partialFailures: verificationResult.partialFailures,
+            warnings: verificationResult.warnings,
+          });
+          return ok(undefined);
         }
 
-        const { account, requestedAccount, verificationResult, streamMetadata } = result.value;
+        const refreshAllResult = await runBalanceRefreshAll(scope);
+        if (refreshAllResult.isErr()) {
+          return err(refreshAllResult.error);
+        }
 
-        outputSuccess('balance-refresh', {
-          status: verificationResult.status,
-          mode: result.value.mode,
-          balances:
-            result.value.mode === 'verification'
-              ? result.value.comparisons
-              : result.value.assets.map((asset) => ({
-                  assetId: asset.assetId,
-                  assetSymbol: asset.assetSymbol,
-                  calculatedBalance: asset.calculatedBalance,
-                  diagnostics: asset.diagnostics,
-                })),
-          summary: verificationResult.summary,
-          coverage: verificationResult.coverage,
-          source: {
-            type: (account.accountType === 'blockchain' ? 'blockchain' : 'exchange') as string,
-            name: account.platformKey,
-            address: account.accountType === 'blockchain' ? account.identifier : undefined,
-          },
-          account: {
-            id: account.id,
-            type: account.accountType,
-            platformKey: account.platformKey,
-            identifier: account.identifier,
-            providerName: account.providerName,
-          },
-          ...(requestedAccount && {
-            requestedAccount: {
-              id: requestedAccount.id,
-              type: requestedAccount.accountType,
-              platformKey: requestedAccount.platformKey,
-              identifier: requestedAccount.identifier,
-              providerName: requestedAccount.providerName,
-            },
-          }),
-          meta: {
-            timestamp: new Date(verificationResult.timestamp).toISOString(),
-            ...(streamMetadata && { streams: streamMetadata }),
-          },
-          suggestion: verificationResult.suggestion,
-          partialFailures: verificationResult.partialFailures,
-          warnings: verificationResult.warnings,
-        });
-        return;
-      }
+        outputSuccess(
+          'balance-refresh',
+          { accounts: refreshAllResult.value.accounts },
+          {
+            totalAccounts: refreshAllResult.value.totals.total,
+            verified: refreshAllResult.value.totals.verified,
+            skipped: refreshAllResult.value.totals.skipped,
+            matches: refreshAllResult.value.totals.matches,
+            mismatches: refreshAllResult.value.totals.mismatches,
+            timestamp: new Date().toISOString(),
+          }
+        );
 
-      const result = await handler.refreshAllScopes(profileResult.value.id);
+        return ok(undefined);
+      });
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
-
-      outputSuccess(
-        'balance-refresh',
-        { accounts: result.value.accounts },
-        {
-          totalAccounts: result.value.totals.total,
-          verified: result.value.totals.verified,
-          skipped: result.value.totals.skipped,
-          matches: result.value.totals.matches,
-          mismatches: result.value.totals.mismatches,
-          timestamp: new Date().toISOString(),
-        }
-      );
     });
   } catch (error) {
     displayCliError(
@@ -179,16 +179,12 @@ async function executeBalanceRefreshSingleTUI(
 
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) throw profileResult.error;
-
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
-      if (handlerResult.isErr()) throw handlerResult.error;
-
-      const handler = handlerResult.value;
-      const credentials = buildCliExchangeCredentials(options);
-      const result = await handler.refreshSingleScope({ accountId, credentials, profileId: profileResult.value.id });
+      const result = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, (scope) =>
+        runBalanceRefreshSingle(scope, {
+          accountId,
+          credentials: buildCliExchangeCredentials(options),
+        })
+      );
       if (result.isErr()) {
         displayCliError('balance-refresh', result.error, ExitCodes.GENERAL_ERROR, 'text');
       }
@@ -224,52 +220,50 @@ async function executeBalanceRefreshSingleTUI(
   }
 }
 
-async function executeBalanceRefreshAllTUI(
-  options: BalanceRefreshCommandOptions,
-  appRuntime: CliAppRuntime
-): Promise<void> {
+async function executeBalanceRefreshAllTUI(appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) throw profileResult.error;
+      const result = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) => {
+        const sortedResult = await loadBalanceVerificationAccounts(scope);
+        if (sortedResult.isErr()) {
+          return sortedResult;
+        }
 
-      const handlerResult = await createBalanceHandler(ctx, { needsWorkflow: true });
-      if (handlerResult.isErr()) throw handlerResult.error;
+        const initialItems: AccountVerificationItem[] = sortAccountsByVerificationPriority(sortedResult.value).map(
+          (account) => ({
+            accountId: account.accountId,
+            platformKey: account.platformKey,
+            accountType: account.accountType,
+            status: account.skipReason ? ('skipped' as const) : ('pending' as const),
+            assetCount: 0,
+            matchCount: 0,
+            mismatchCount: 0,
+            warningCount: 0,
+            skipReason: account.skipReason,
+          })
+        );
+        const initialState = createBalanceVerificationState(initialItems);
+        const relay = new EventRelay<BalanceEvent>();
 
-      const handler = handlerResult.value;
-      const sortedResult = await handler.loadAccountsForVerification(profileResult.value.id);
-      if (sortedResult.isErr()) throw sortedResult.error;
+        startBalanceVerificationStream(scope, sortedResult.value, relay);
+        ctx.onAbort(() => abortBalanceVerification(scope));
 
-      const initialItems: AccountVerificationItem[] = sortAccountsByVerificationPriority(sortedResult.value).map(
-        (account) => ({
-          accountId: account.accountId,
-          platformKey: account.platformKey,
-          accountType: account.accountType,
-          status: account.skipReason ? ('skipped' as const) : ('pending' as const),
-          assetCount: 0,
-          matchCount: 0,
-          mismatchCount: 0,
-          warningCount: 0,
-          skipReason: account.skipReason,
-        })
-      );
-      const initialState = createBalanceVerificationState(initialItems);
-      const relay = new EventRelay<BalanceEvent>();
+        await renderApp((unmount) =>
+          React.createElement(BalanceApp, {
+            initialState,
+            relay,
+            onQuit: () => {
+              relay.push({ type: 'ABORTING' });
+              setTimeout(unmount, 50);
+            },
+          })
+        );
 
-      handler.startStream(sortedResult.value, relay);
-      ctx.onAbort(() => handler.abort());
-
-      await renderApp((unmount) =>
-        React.createElement(BalanceApp, {
-          initialState,
-          relay,
-          onQuit: () => {
-            relay.push({ type: 'ABORTING' });
-            setTimeout(unmount, 50);
-          },
-        })
-      );
+        return sortedResult;
+      });
+      if (result.isErr()) {
+        throw result.error;
+      }
     });
   } catch (error) {
     displayCliError(

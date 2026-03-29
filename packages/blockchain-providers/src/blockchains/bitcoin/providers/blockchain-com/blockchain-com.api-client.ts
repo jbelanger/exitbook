@@ -36,7 +36,7 @@ import {
 import { calculateSimpleBalance } from './blockchain-com.utils.js';
 
 export const blockchainComMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
+  apiKeyEnvName: 'BLOCKCHAIN_COM_API_KEY',
   baseUrl: 'https://blockchain.info',
   blockchain: 'bitcoin',
   capabilities: {

@@ -13,9 +13,10 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { CoinNotFoundError } from '../../contracts/errors.js';
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import type { PricesDB } from '../../price-cache/persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import { BasePriceProvider } from '../../runtime/base-provider.js';
-import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import type { ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import { buildPriceProvider } from '../shared/provider-construction.js';
 
 import {
   buildBinanceKlinesParams,
@@ -61,27 +62,19 @@ export function createBinanceProvider(
   config: BinanceProviderConfig = {},
   instrumentation?: InstrumentationCollector
 ): Result<BinanceProvider, Error> {
-  try {
-    const rateLimit = BINANCE_RATE_LIMITS.free;
+  const rateLimit = BINANCE_RATE_LIMITS.free;
 
-    // Create HTTP client
-    const httpClient = createProviderHttpClient({
+  return buildPriceProvider({
+    buildProvider: ({ httpClient, priceQueries }) => new BinanceProvider(httpClient, priceQueries, config, rateLimit),
+    creationError: 'Failed to create Binance provider',
+    db,
+    http: {
       baseUrl: 'https://api.binance.com',
       instrumentation,
       providerName: 'Binance',
       rateLimit,
-    });
-
-    // Create queries
-    const priceQueries = createPriceQueries(db);
-
-    // Create provider
-    const provider = new BinanceProvider(httpClient, priceQueries, config, rateLimit);
-
-    return ok(provider);
-  } catch (error) {
-    return wrapError(error, 'Failed to create Binance provider');
-  }
+    },
+  });
 }
 
 /**
@@ -90,9 +83,6 @@ export function createBinanceProvider(
  *
  * Provides minute-level historical data for ~1 year
  * Falls back to daily data for older timestamps
- *
- * Imperative shell managing HTTP client, DB repositories, and orchestration
- * Uses pure functions from binance-utils.js for all transformations
  */
 export class BinanceProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
@@ -135,10 +125,6 @@ export class BinanceProvider extends BasePriceProvider {
     };
   }
 
-  /**
-   * Fetch single price (implements BasePriceProvider)
-   * Query is already validated and currency is normalized by BasePriceProvider
-   */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       // Currency is guaranteed to be set by BasePriceProvider

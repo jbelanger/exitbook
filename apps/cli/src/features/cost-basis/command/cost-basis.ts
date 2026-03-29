@@ -1,4 +1,4 @@
-import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting';
+import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting/cost-basis';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
@@ -6,7 +6,6 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -16,12 +15,14 @@ import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
 import { createCostBasisAssetState, createCostBasisTimelineState } from '../view/cost-basis-view-state.js';
 import { buildPresentationModel } from '../view/cost-basis-view-utils.js';
 
+import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
-import { createCostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { outputCostBasisJSON } from './cost-basis-json.js';
 import { CostBasisCommandOptionsSchema } from './cost-basis-option-schemas.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
+import { runCostBasis } from './run-cost-basis.js';
 
 const logger = getLogger('cost-basis');
 
@@ -77,26 +78,9 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
     const params = unwrapResult(buildCostBasisInputFromFlags(options));
 
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: true,
-        params,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
-      });
-
-      if (handlerResult.isErr()) {
-        displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handler = handlerResult.value;
-      const result = await handler.execute(params, { refresh: options.refresh });
-
+      const result = await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
+        runCostBasis(scope, params, { refresh: options.refresh })
+      );
       if (result.isErr()) {
         displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
       }
@@ -118,12 +102,6 @@ async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime
 async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
   try {
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('cost-basis', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
       // Step 1: Resolve params via interactive prompts or CLI flags
       let params: ValidatedCostBasisConfig;
       const defaultMethodResult = options.jurisdiction
@@ -144,23 +122,16 @@ async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime:
         params = unwrapResult(buildCostBasisInputFromFlags(options));
       }
 
-      // Step 2: Create handler (runs projection + linking + price enrichment prereqs)
-      const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: false,
-        params,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
-      });
-      if (handlerResult.isErr()) {
-        displayCliError('cost-basis', handlerResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      const handler = handlerResult.value;
-
       // Step 3: Calculate cost basis
       const spinner = createSpinner('Calculating cost basis...', false);
-      const result = await handler.execute(params, { refresh: options.refresh });
-      stopSpinner(spinner);
+      let result: Awaited<ReturnType<typeof runCostBasis>>;
+      try {
+        result = await withCostBasisCommandScope(ctx, { format: 'text', params }, (scope) =>
+          runCostBasis(scope, params, { refresh: options.refresh })
+        );
+      } finally {
+        stopSpinner(spinner);
+      }
 
       if (result.isErr()) {
         displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'text');

@@ -59,15 +59,7 @@ export function createProviderCatalogQueries(db: PricesDB) {
    */
   async function getOrCreateProvider(name: string, displayName: string): Promise<Result<ProviderRecord, Error>> {
     try {
-      // Check if provider exists
-      const existing = await db.selectFrom('providers').selectAll().where('name', '=', name).executeTakeFirst();
-
-      if (existing) {
-        return ok(normalizeProviderRecord(existing as ProviderRow));
-      }
-
-      // Insert new provider
-      const result = await db
+      const inserted = await db
         .insertInto('providers')
         .values({
           name,
@@ -76,10 +68,20 @@ export function createProviderCatalogQueries(db: PricesDB) {
           metadata: '{}',
           created_at: new Date().toISOString(),
         })
+        .onConflict((conflict) => conflict.column('name').doNothing())
         .returningAll()
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
 
-      return ok(normalizeProviderRecord(result as ProviderRow));
+      if (inserted) {
+        return ok(normalizeProviderRecord(inserted as ProviderRow));
+      }
+
+      const existing = await db.selectFrom('providers').selectAll().where('name', '=', name).executeTakeFirst();
+      if (!existing) {
+        return err(new Error(`Provider '${name}' was not found after creation attempt`));
+      }
+
+      return ok(normalizeProviderRecord(existing as ProviderRow));
     } catch (error) {
       return wrapError(error, 'Failed to get or create provider');
     }

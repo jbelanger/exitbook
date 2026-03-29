@@ -20,10 +20,11 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import type { PricesDB } from '../../price-cache/persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import { BasePriceProvider } from '../../runtime/base-provider.js';
-import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import type { ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
 import { BusinessDayFallbackExhaustedError, fetchWithBusinessDayFallback } from '../shared/fx-fallback-utils.js';
+import { buildPriceProvider } from '../shared/provider-construction.js';
 
 import {
   formatFrankfurterDate,
@@ -56,28 +57,17 @@ export function createFrankfurterProvider(
   _config: unknown = {},
   instrumentation?: InstrumentationCollector
 ): Result<FrankfurterProvider, Error> {
-  try {
-    // Frankfurter API base URL (v1 API)
-    const baseUrl = 'https://api.frankfurter.dev/v1';
-
-    // Create HTTP client
-    const httpClient = createProviderHttpClient({
-      baseUrl,
+  return buildPriceProvider({
+    buildProvider: ({ httpClient, priceQueries }) => new FrankfurterProvider(httpClient, priceQueries),
+    creationError: 'Failed to create Frankfurter provider',
+    db,
+    http: {
+      baseUrl: 'https://api.frankfurter.dev/v1',
       instrumentation,
       providerName: 'Frankfurter',
       rateLimit: FRANKFURTER_RATE_LIMIT,
-    });
-
-    // Create queries
-    const priceQueries = createPriceQueries(db);
-
-    // Create provider
-    const provider = new FrankfurterProvider(httpClient, priceQueries);
-
-    return ok(provider);
-  } catch (error) {
-    return wrapError(error, 'Failed to create Frankfurter provider');
-  }
+    },
+  });
 }
 
 /**
@@ -119,10 +109,6 @@ export class FrankfurterProvider extends BasePriceProvider {
     };
   }
 
-  /**
-   * Fetch FX rate (implements BasePriceProvider)
-   * Query is already validated and currency is normalized by BasePriceProvider
-   */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       const { assetSymbol: assetSymbol, currency, timestamp } = query;

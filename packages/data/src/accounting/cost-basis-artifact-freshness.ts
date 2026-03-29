@@ -14,8 +14,8 @@ export function buildCostBasisArtifactFreshnessPorts(
   return {
     async readCurrentWatermark(exclusionFingerprint): Promise<Result<CostBasisDependencyWatermark, Error>> {
       const [linksResult, assetReviewResult] = await Promise.all([
-        db.projectionState.get('links', scopeKey),
-        db.projectionState.get('asset-review', scopeKey),
+        db.projectionState.find('links', scopeKey),
+        db.projectionState.find('asset-review', scopeKey),
       ]);
 
       if (linksResult.isErr()) return err(linksResult.error);

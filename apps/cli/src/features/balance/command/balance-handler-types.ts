@@ -1,5 +1,5 @@
 import type { Account, AccountType, BalanceSnapshot } from '@exitbook/core';
-import type { BalanceVerificationResult } from '@exitbook/ingestion';
+import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 
 import type { AssetComparisonItem, StoredSnapshotAssetItem } from '../view/balance-view-state.js';
 

@@ -8,7 +8,7 @@ import type {
 } from '../../contracts/index.js';
 
 function resolveMetadataApiKey(metadata: ProviderMetadata): string | undefined {
-  const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+  const envVar = metadata.apiKeyEnvName || `${metadata.name.toUpperCase().replace(/-/g, '_')}_API_KEY`;
   const apiKey = process.env[envVar];
   return apiKey && apiKey !== 'YourApiKeyToken' ? apiKey : undefined;
 }

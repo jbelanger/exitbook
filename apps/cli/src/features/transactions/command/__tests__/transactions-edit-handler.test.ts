@@ -77,7 +77,7 @@ function createMockOverrideStore(
     exists: vi.fn().mockImplementation(() => events.length > 0),
     readByScopes: vi
       .fn()
-      .mockImplementation(async (profileKey: string, scopes: OverrideEvent['scope'][]) =>
+      .mockImplementation(async (_profileKey: string, scopes: OverrideEvent['scope'][]) =>
         ok(events.filter((event) => scopes.includes(event.scope)))
       ),
   };
@@ -107,11 +107,11 @@ describe('TransactionsEditHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'set',
       changed: true,
+      platformKey: 'kraken',
       transactionId: 42,
       txFingerprint: 'tx:v2:kraken:1:trade-42',
       note: 'Moved to hardware wallet',
       reason: 'manual reminder',
-      source: 'kraken',
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,

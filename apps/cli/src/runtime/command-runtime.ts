@@ -1,22 +1,25 @@
 import path from 'node:path';
 
+import type { PricingEvent } from '@exitbook/accounting/price-enrichment';
+import {
+  createBlockchainProviderRuntime,
+  type BlockchainExplorersConfig,
+  type IBlockchainProviderRuntime,
+  type ProviderEvent,
+} from '@exitbook/blockchain-providers';
 import { DataSession } from '@exitbook/data/session';
-import type { Result } from '@exitbook/foundation';
+import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { InstrumentationCollector } from '@exitbook/observability';
+import {
+  createPriceProviderRuntime,
+  type IPriceProviderRuntime,
+  type PriceProviderConfig,
+} from '@exitbook/price-providers';
 import { render } from 'ink';
 import type React from 'react';
 
 import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
-import {
-  openCliBlockchainProviderRuntime,
-  type CliBlockchainProviderRuntimeOptions,
-  type OpenedCliBlockchainProviderRuntime,
-} from '../features/shared/blockchain-provider-runtime.js';
-import {
-  openCliPriceProviderRuntime,
-  type CliPriceProviderRuntimeOptions,
-} from '../features/shared/cli-price-provider-runtime.js';
 import { getDataDir } from '../features/shared/data-dir.js';
 
 import type { CliAppRuntime } from './app-runtime.js';
@@ -26,6 +29,20 @@ const logger = getLogger('command-runtime');
 interface ResultCleanupOutcome {
   error?: Error | undefined;
   isErr(): boolean;
+}
+
+interface BlockchainProviderRuntimeOptions {
+  dataDir?: string | undefined;
+  eventBus?: EventBus<ProviderEvent> | undefined;
+  explorerConfig?: BlockchainExplorersConfig | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
+}
+
+interface PriceProviderRuntimeOptions {
+  dataDir?: string | undefined;
+  eventBus?: EventBus<PricingEvent> | undefined;
+  instrumentation?: InstrumentationCollector | undefined;
+  providers?: PriceProviderConfig | undefined;
 }
 
 /**
@@ -111,43 +128,43 @@ export class CommandRuntime {
   }
 
   async openBlockchainProviderRuntime(
-    options?: CliBlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
-  ): Promise<Result<OpenedCliBlockchainProviderRuntime, Error>> {
-    const runtimeResult = await openCliBlockchainProviderRuntime({
-      dataDir: this.dataDir,
+    options?: BlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+  ): Promise<IBlockchainProviderRuntime> {
+    const runtimeResult = await createBlockchainProviderRuntime({
+      dataDir: options?.dataDir ?? this.dataDir,
       explorerConfig: options?.explorerConfig ?? this.app?.blockchainExplorersConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
     });
     if (runtimeResult.isErr()) {
-      return runtimeResult;
+      throw runtimeResult.error;
     }
 
     if (options?.registerCleanup !== false) {
       this.onCleanup(adaptResultCleanup(runtimeResult.value.cleanup));
     }
 
-    return runtimeResult;
+    return runtimeResult.value;
   }
 
   async openPriceProviderRuntime(
-    options?: CliPriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
-  ): Promise<Result<IPriceProviderRuntime, Error>> {
-    const runtimeResult = await openCliPriceProviderRuntime({
-      dataDir: this.dataDir,
+    options?: PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
+  ): Promise<IPriceProviderRuntime> {
+    const runtimeResult = await createPriceProviderRuntime({
+      dataDir: options?.dataDir ?? this.dataDir,
       providers: options?.providers ?? this.app?.priceProviderConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
     });
     if (runtimeResult.isErr()) {
-      return runtimeResult;
+      throw runtimeResult.error;
     }
 
     if (options?.registerCleanup !== false) {
       this.onCleanup(adaptResultCleanup(runtimeResult.value.cleanup));
     }
 
-    return runtimeResult;
+    return runtimeResult.value;
   }
 
   /**
@@ -246,6 +263,45 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
       throw cleanupResult.error ?? new Error('Cleanup failed');
     }
   };
+}
+
+export async function withCommandPriceProviderRuntime<T>(
+  runtime: CommandRuntime,
+  options: (PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
+  operation: (priceRuntime: IPriceProviderRuntime) => Promise<T>
+): Promise<T> {
+  let priceRuntime: IPriceProviderRuntime | undefined;
+  let value: T | undefined;
+  let operationError: Error | undefined;
+
+  try {
+    priceRuntime = await runtime.openPriceProviderRuntime({
+      ...options,
+      registerCleanup: false,
+    });
+    value = await operation(priceRuntime);
+  } catch (error) {
+    operationError = error instanceof Error ? error : new Error(String(error));
+  }
+
+  if (!priceRuntime) {
+    throw operationError ?? new Error('Price provider runtime was not created');
+  }
+
+  const cleanupResult = await priceRuntime.cleanup();
+  if (cleanupResult.isErr()) {
+    if (operationError) {
+      throw new AggregateError([operationError, cleanupResult.error], 'Price provider runtime operation failed');
+    }
+
+    throw cleanupResult.error;
+  }
+
+  if (operationError) {
+    throw operationError;
+  }
+
+  return value as T;
 }
 
 /**

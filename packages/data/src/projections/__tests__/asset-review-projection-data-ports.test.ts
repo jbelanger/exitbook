@@ -54,7 +54,7 @@ describe('buildAssetReviewProjectionDataPorts', () => {
     const persisted = assertOk(await ctx.assetReview.listAll(PROFILE_ID));
     expect(persisted).toEqual([summary]);
 
-    const state = assertOk(await ctx.projectionState.get('asset-review', buildProfileProjectionScopeKey(PROFILE_ID)));
+    const state = assertOk(await ctx.projectionState.find('asset-review', buildProfileProjectionScopeKey(PROFILE_ID)));
     expect(state).toMatchObject({
       projectionId: 'asset-review',
       scopeKey: buildProfileProjectionScopeKey(PROFILE_ID),

@@ -7,10 +7,10 @@ import { sql } from '@exitbook/sqlite';
 
 import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { toRawTransaction } from '../utils/db-utils.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
+import { toRawTransaction } from './raw-transaction-row-mapper.js';
 
 function isJson1UnavailableError(error: unknown): boolean {
   const errorMessage = error instanceof Error ? error.message : String(error);

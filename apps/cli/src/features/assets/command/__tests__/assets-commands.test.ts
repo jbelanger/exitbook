@@ -4,51 +4,38 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AssetsViewState } from '../../view/assets-view-state.js';
-import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-handler.js';
+import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-types.js';
 
 const {
-  mockAssetsHandlerConstructor,
-  mockClearReview,
-  mockConfirmReview,
   mockCtx,
   mockDisplayCliError,
-  mockExclude,
-  mockInclude,
-  mockListExclusions,
   mockOutputSuccess,
-  mockOverrideStoreConstructor,
-  mockOverrideStoreInstance,
   mockRenderApp,
-  mockResolveCommandProfile,
+  mockRunAssetsClearReview,
+  mockRunAssetsConfirmReview,
+  mockRunAssetsExclude,
+  mockRunAssetsExclusions,
+  mockRunAssetsInclude,
+  mockRunAssetsView,
   mockRunCommand,
-  mockView,
+  mockWithAssetsCommandScope,
 } = vi.hoisted(() => ({
-  mockAssetsHandlerConstructor: vi.fn(),
-  mockClearReview: vi.fn(),
-  mockConfirmReview: vi.fn(),
   mockCtx: {
     dataDir: '/tmp/exitbook-assets',
     database: vi.fn(),
     exitCode: 0,
   },
   mockDisplayCliError: vi.fn(),
-  mockExclude: vi.fn(),
-  mockInclude: vi.fn(),
-  mockListExclusions: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockOverrideStoreConstructor: vi.fn(),
-  mockOverrideStoreInstance: { tag: 'override-store' },
   mockRenderApp: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
+  mockRunAssetsClearReview: vi.fn(),
+  mockRunAssetsConfirmReview: vi.fn(),
+  mockRunAssetsExclude: vi.fn(),
+  mockRunAssetsExclusions: vi.fn(),
+  mockRunAssetsInclude: vi.fn(),
+  mockRunAssetsView: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockView: vi.fn(),
-}));
-
-vi.mock('@exitbook/data/overrides', () => ({
-  OverrideStore: vi.fn().mockImplementation(function MockOverrideStore(...args: unknown[]) {
-    mockOverrideStoreConstructor(...args);
-    return mockOverrideStoreInstance;
-  }),
+  mockWithAssetsCommandScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -64,22 +51,17 @@ vi.mock('../../../shared/json-output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../assets-command-scope.js', () => ({
+  withAssetsCommandScope: mockWithAssetsCommandScope,
 }));
 
-vi.mock('../assets-handler.js', () => ({
-  AssetsHandler: vi.fn().mockImplementation(function MockAssetsHandler(...args: unknown[]) {
-    mockAssetsHandlerConstructor(...args);
-    return {
-      clearReview: mockClearReview,
-      confirmReview: mockConfirmReview,
-      exclude: mockExclude,
-      include: mockInclude,
-      listExclusions: mockListExclusions,
-      view: mockView,
-    };
-  }),
+vi.mock('../run-assets.js', () => ({
+  runAssetsClearReview: mockRunAssetsClearReview,
+  runAssetsConfirmReview: mockRunAssetsConfirmReview,
+  runAssetsExclude: mockRunAssetsExclude,
+  runAssetsExclusions: mockRunAssetsExclusions,
+  runAssetsInclude: mockRunAssetsInclude,
+  runAssetsView: mockRunAssetsView,
 }));
 
 vi.mock('../../view/assets-view-components.jsx', () => ({
@@ -105,16 +87,26 @@ function createAssetsProgram(): Command {
 describe('assets command modules', () => {
   const PROFILE_KEY = 'default';
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  const assetsScope = {
+    overrideService: {},
+    profile: {
+      id: 1,
+      profileKey: PROFILE_KEY,
+      displayName: PROFILE_KEY,
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+    },
+    snapshotReader: {},
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockCtx.database.mockResolvedValue({ tag: 'db' });
-    mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
+    mockWithAssetsCommandScope.mockImplementation(
+      async (_ctx: unknown, operation: (scope: typeof assetsScope) => Promise<unknown>) => operation(assetsScope)
+    );
     mockDisplayCliError.mockImplementation(
       (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${error.message}`);
@@ -133,7 +125,7 @@ describe('assets command modules', () => {
       reviewStatus: 'not-reviewed',
       reason: 'reset evidence',
     };
-    mockClearReview.mockResolvedValue(ok(result));
+    mockRunAssetsClearReview.mockResolvedValue(ok(result));
 
     await program.parseAsync(
       ['assets', 'clear-review', '--asset-id', 'asset-1', '--reason', 'reset evidence', '--json'],
@@ -142,16 +134,8 @@ describe('assets command modules', () => {
       }
     );
 
-    expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-assets');
-    expect(mockAssetsHandlerConstructor).toHaveBeenCalledWith(
-      { tag: 'db' },
-      mockOverrideStoreInstance,
-      '/tmp/exitbook-assets'
-    );
-    expect(mockClearReview).toHaveBeenCalledWith({
+    expect(mockRunAssetsClearReview).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-1',
-      profileId: 1,
-      profileKey: PROFILE_KEY,
       symbol: undefined,
       reason: 'reset evidence',
     });
@@ -160,7 +144,7 @@ describe('assets command modules', () => {
 
   it('prints confirm guidance when the asset remains accounting-blocked after review confirmation', async () => {
     const program = createAssetsProgram();
-    mockConfirmReview.mockResolvedValue(
+    mockRunAssetsConfirmReview.mockResolvedValue(
       ok({
         assetId: 'asset-2',
         assetSymbols: ['USDC'],
@@ -174,10 +158,8 @@ describe('assets command modules', () => {
 
     await program.parseAsync(['assets', 'confirm', '--symbol', 'USDC'], { from: 'user' });
 
-    expect(mockConfirmReview).toHaveBeenCalledWith({
+    expect(mockRunAssetsConfirmReview).toHaveBeenCalledWith(assetsScope, {
       assetId: undefined,
-      profileId: 1,
-      profileKey: PROFILE_KEY,
       symbol: 'USDC',
       reason: undefined,
     });
@@ -197,12 +179,12 @@ describe('assets command modules', () => {
     );
 
     expect(mockDisplayCliError).toHaveBeenCalledWith('assets-exclude', expect.any(Error), 2, 'json');
-    expect(mockExclude).not.toHaveBeenCalled();
+    expect(mockRunAssetsExclude).not.toHaveBeenCalled();
   });
 
   it('prints excluded asset rows in text mode', async () => {
     const program = createAssetsProgram();
-    mockListExclusions.mockResolvedValue(
+    mockRunAssetsExclusions.mockResolvedValue(
       ok({
         excludedAssets: [
           {
@@ -223,6 +205,7 @@ describe('assets command modules', () => {
 
     await program.parseAsync(['assets', 'exclusions'], { from: 'user' });
 
+    expect(mockRunAssetsExclusions).toHaveBeenCalledWith(assetsScope);
     expect(consoleLogSpy).toHaveBeenCalledWith('Excluded assets (2):');
     expect(consoleLogSpy).toHaveBeenCalledWith('- BTC  asset-3  3 txs  5 movements');
     expect(consoleLogSpy).toHaveBeenCalledWith('- (unknown)  asset-4  1 txs  1 movements');
@@ -231,16 +214,14 @@ describe('assets command modules', () => {
   it('routes include handler failures through the JSON CLI error path', async () => {
     const program = createAssetsProgram();
     const includeError = new Error('override write failed');
-    mockInclude.mockResolvedValue(err(includeError));
+    mockRunAssetsInclude.mockResolvedValue(err(includeError));
 
     await expect(
       program.parseAsync(['assets', 'include', '--asset-id', 'asset-5', '--json'], { from: 'user' })
     ).rejects.toThrow('CLI:assets-include:json:override write failed');
 
-    expect(mockInclude).toHaveBeenCalledWith({
+    expect(mockRunAssetsInclude).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-5',
-      profileId: 1,
-      profileKey: PROFILE_KEY,
       symbol: undefined,
       reason: undefined,
     });
@@ -249,7 +230,7 @@ describe('assets command modules', () => {
 
   it('outputs asset view JSON with action-required metadata', async () => {
     const program = createAssetsProgram();
-    mockView.mockResolvedValue(
+    mockRunAssetsView.mockResolvedValue(
       ok({
         assets: [
           {
@@ -276,7 +257,7 @@ describe('assets command modules', () => {
 
     await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
 
-    expect(mockView).toHaveBeenCalledWith({ actionRequiredOnly: true, profileId: 1, profileKey: PROFILE_KEY });
+    expect(mockRunAssetsView).toHaveBeenCalledWith(assetsScope, { actionRequiredOnly: true });
     expect(mockOutputSuccess).toHaveBeenCalledWith('assets-view', {
       data: [
         {
@@ -309,7 +290,7 @@ describe('assets command modules', () => {
     const program = createAssetsProgram();
     let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
 
-    mockView.mockResolvedValue(
+    mockRunAssetsView.mockResolvedValue(
       ok({
         assets: [
           {
@@ -333,10 +314,10 @@ describe('assets command modules', () => {
         actionRequiredCount: 0,
       })
     );
-    mockExclude.mockResolvedValue(
+    mockRunAssetsExclude.mockResolvedValue(
       ok({ assetId: 'asset-view-2', assetSymbols: ['TOKEN'], action: 'exclude', changed: true })
     );
-    mockConfirmReview.mockResolvedValue(
+    mockRunAssetsConfirmReview.mockResolvedValue(
       ok({
         action: 'confirm',
         accountingBlocked: false,
@@ -351,7 +332,7 @@ describe('assets command modules', () => {
         warningSummary: undefined,
       })
     );
-    mockClearReview.mockResolvedValue(
+    mockRunAssetsClearReview.mockResolvedValue(
       ok({
         action: 'clear-review',
         accountingBlocked: true,
@@ -385,16 +366,12 @@ describe('assets command modules', () => {
     await renderedElement?.props.onConfirmReview('asset-view-2');
     await renderedElement?.props.onClearReview('asset-view-2');
 
-    expect(mockExclude).toHaveBeenCalledWith({ assetId: 'asset-view-2', profileId: 1, profileKey: PROFILE_KEY });
-    expect(mockConfirmReview).toHaveBeenCalledWith({
+    expect(mockRunAssetsExclude).toHaveBeenCalledWith(assetsScope, { assetId: 'asset-view-2' });
+    expect(mockRunAssetsConfirmReview).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-view-2',
-      profileId: 1,
-      profileKey: PROFILE_KEY,
     });
-    expect(mockClearReview).toHaveBeenCalledWith({
+    expect(mockRunAssetsClearReview).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-view-2',
-      profileId: 1,
-      profileKey: PROFILE_KEY,
     });
   });
 

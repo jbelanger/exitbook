@@ -3,7 +3,7 @@ import type { Account, BalanceSnapshot } from '@exitbook/core';
 import { buildBalancesFreshnessPorts, resolveBalanceScopeAccountId } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
-import type { BalanceWorkflow } from '@exitbook/ingestion';
+import type { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
 import {

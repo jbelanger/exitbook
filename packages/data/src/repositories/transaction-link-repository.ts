@@ -12,7 +12,7 @@ import type { Selectable } from '@exitbook/sqlite';
 
 import type { TransactionLinksTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseWithSchema, serializeToJson } from '../utils/db-utils.js';
+import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE, SQLITE_SAFE_INSERT_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';

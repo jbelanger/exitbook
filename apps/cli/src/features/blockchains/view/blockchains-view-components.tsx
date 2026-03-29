@@ -286,10 +286,25 @@ function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[]
   return rows;
 }
 
+function getEnvironmentConfigurationStatus(apiKeyConfigured: boolean | undefined): {
+  color: 'green' | 'yellow';
+  text: string;
+} {
+  if (apiKeyConfigured) {
+    return { color: 'green', text: 'env configured ✓' };
+  }
+
+  return { color: 'yellow', text: 'env missing ✗' };
+}
+
 const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
   const icon = getProviderIcon(provider);
   const capabilities = provider.capabilities.join(' · ');
   const rateLimit = provider.rateLimit ? `${provider.rateLimit}` : '';
+  const environmentConfigurationStatus =
+    provider.requiresApiKey && provider.apiKeyEnvName
+      ? getEnvironmentConfigurationStatus(provider.apiKeyConfigured)
+      : undefined;
 
   return (
     <Text>
@@ -305,16 +320,10 @@ const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
           <Text dimColor>{rateLimit}</Text>
         </>
       )}
-      {provider.requiresApiKey && provider.apiKeyEnvVar && (
+      {environmentConfigurationStatus && (
         <>
           {'   '}
-          {provider.apiKeyConfigured ? (
-            <Text color="green">{provider.apiKeyEnvVar} ✓</Text>
-          ) : (
-            <>
-              <Text color="yellow">{provider.apiKeyEnvVar}</Text> <Text color="red">✗</Text>
-            </>
-          )}
+          <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
         </>
       )}
     </Text>

@@ -128,7 +128,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
 };
 
 export const subscanMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'SUBSCAN_API_KEY',
+  apiKeyEnvName: 'SUBSCAN_API_KEY',
   baseUrl: 'https://polkadot.api.subscan.io',
   blockchain: 'polkadot',
   capabilities: {

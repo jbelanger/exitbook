@@ -67,11 +67,8 @@ export interface ImportBatchResult {
  */
 export interface IImporter {
   /**
-   * Streaming import - yields batches as they're fetched
-   * Enables memory-bounded processing and mid-import resumption
-   *
-   * Optional during migration - blockchain importers should implement this,
-   * exchange importers may implement later
+   * Canonical importer API.
+   * Yields batches as they are fetched so imports stay memory-bounded and resumable.
    *
    * @param params - Import parameters including optional resume cursors
    * @returns AsyncIterator yielding Result-wrapped batches

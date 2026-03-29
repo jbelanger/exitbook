@@ -109,10 +109,10 @@ describe('buildLinksResetPorts', () => {
     const remaining = assertOk(await ctx.transactionLinks.count());
     expect(remaining).toBe(0);
 
-    const linksState = assertOk(await ctx.projectionState.get('links', buildProfileProjectionScopeKey(1)));
+    const linksState = assertOk(await ctx.projectionState.find('links', buildProfileProjectionScopeKey(1)));
     expect(linksState!.status).toBe('stale');
     expect(linksState!.invalidatedBy).toBe('reset');
-    expect(assertOk(await ctx.projectionState.get('links'))).toBeUndefined();
+    expect(assertOk(await ctx.projectionState.find('links'))).toBeUndefined();
   });
 
   it('scopes reset to specific account IDs', async () => {

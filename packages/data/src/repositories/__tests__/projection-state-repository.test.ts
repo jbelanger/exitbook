@@ -21,7 +21,7 @@ describe('ProjectionStateRepository', () => {
 
   describe('get', () => {
     it('returns undefined when no state exists', async () => {
-      const row = assertOk(await repo.get('processed-transactions'));
+      const row = assertOk(await repo.find('processed-transactions'));
       expect(row).toBeUndefined();
     });
 
@@ -38,12 +38,31 @@ describe('ProjectionStateRepository', () => {
         })
       );
 
-      const row = assertOk(await repo.get('processed-transactions'));
+      const row = assertOk(await repo.find('processed-transactions'));
       expect(row).toBeDefined();
       expect(row!.projectionId).toBe('processed-transactions');
       expect(row!.status).toBe('fresh');
       expect(row!.lastBuiltAt).toEqual(new Date('2026-01-01T00:00:00.000Z'));
       expect(row!.metadata).toEqual({ accountHash: 'abc123' });
+    });
+
+    it('returns a contextual error when persisted metadata is malformed', async () => {
+      await db
+        .insertInto('projection_state')
+        .values({
+          projection_id: 'processed-transactions',
+          scope_key: 'profile:demo',
+          status: 'fresh',
+          metadata_json: '[]',
+        })
+        .execute();
+
+      const result = await repo.find('processed-transactions', 'profile:demo');
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('processed-transactions');
+        expect(result.error.message).toContain('profile:demo');
+      }
     });
   });
 
@@ -51,7 +70,7 @@ describe('ProjectionStateRepository', () => {
     it('creates a stale row if none exists', async () => {
       assertOk(await repo.markStale('links', 'import-completed'));
 
-      const row = assertOk(await repo.get('links'));
+      const row = assertOk(await repo.find('links'));
       expect(row).toBeDefined();
       expect(row!.status).toBe('stale');
       expect(row!.invalidatedBy).toBe('import-completed');
@@ -62,7 +81,7 @@ describe('ProjectionStateRepository', () => {
       assertOk(await repo.markFresh('links', null));
       assertOk(await repo.markStale('links', 'upstream-rebuild'));
 
-      const row = assertOk(await repo.get('links'));
+      const row = assertOk(await repo.find('links'));
       expect(row!.status).toBe('stale');
       expect(row!.invalidatedBy).toBe('upstream-rebuild');
     });
@@ -72,7 +91,7 @@ describe('ProjectionStateRepository', () => {
     it('sets status to building', async () => {
       assertOk(await repo.markBuilding('processed-transactions'));
 
-      const row = assertOk(await repo.get('processed-transactions'));
+      const row = assertOk(await repo.find('processed-transactions'));
       expect(row!.status).toBe('building');
     });
   });
@@ -81,7 +100,7 @@ describe('ProjectionStateRepository', () => {
     it('sets status to fresh with metadata', async () => {
       assertOk(await repo.markFresh('processed-transactions', { accountHash: 'xyz' }));
 
-      const row = assertOk(await repo.get('processed-transactions'));
+      const row = assertOk(await repo.find('processed-transactions'));
       expect(row!.status).toBe('fresh');
       expect(row!.lastBuiltAt).toBeInstanceOf(Date);
       expect(row!.metadata).toEqual({ accountHash: 'xyz' });
@@ -90,19 +109,19 @@ describe('ProjectionStateRepository', () => {
     it('sets status to fresh with null metadata', async () => {
       assertOk(await repo.markFresh('links', null));
 
-      const row = assertOk(await repo.get('links'));
+      const row = assertOk(await repo.find('links'));
       expect(row!.status).toBe('fresh');
       expect(row!.metadata).toBeNull();
     });
 
     it('clears stale-cause metadata when marking fresh', async () => {
       assertOk(await repo.markStale('links', 'upstream-rebuild'));
-      const staleRow = assertOk(await repo.get('links'));
+      const staleRow = assertOk(await repo.find('links'));
       expect(staleRow!.invalidatedBy).toBe('upstream-rebuild');
       expect(staleRow!.lastInvalidatedAt).toBeInstanceOf(Date);
 
       assertOk(await repo.markFresh('links', null));
-      const freshRow = assertOk(await repo.get('links'));
+      const freshRow = assertOk(await repo.find('links'));
       expect(freshRow!.status).toBe('fresh');
       expect(freshRow!.invalidatedBy).toBeNull();
       expect(freshRow!.lastInvalidatedAt).toBeNull();
@@ -113,7 +132,7 @@ describe('ProjectionStateRepository', () => {
     it('sets status to failed', async () => {
       assertOk(await repo.markFailed('processed-transactions'));
 
-      const row = assertOk(await repo.get('processed-transactions'));
+      const row = assertOk(await repo.find('processed-transactions'));
       expect(row!.status).toBe('failed');
     });
   });
@@ -133,7 +152,7 @@ describe('ProjectionStateRepository', () => {
         })
       );
 
-      const row = assertOk(await repo.get('links'));
+      const row = assertOk(await repo.find('links'));
       expect(row!.status).toBe('stale');
       expect(row!.lastBuiltAt).toBeNull();
       expect(row!.invalidatedBy).toBe('manual');
@@ -146,8 +165,8 @@ describe('ProjectionStateRepository', () => {
       assertOk(await repo.markFresh('processed-transactions', null, 'scope-a'));
       assertOk(await repo.markStale('processed-transactions', 'test', 'scope-b'));
 
-      const a = assertOk(await repo.get('processed-transactions', 'scope-a'));
-      const b = assertOk(await repo.get('processed-transactions', 'scope-b'));
+      const a = assertOk(await repo.find('processed-transactions', 'scope-a'));
+      const b = assertOk(await repo.find('processed-transactions', 'scope-b'));
 
       expect(a!.status).toBe('fresh');
       expect(b!.status).toBe('stale');
@@ -158,8 +177,12 @@ describe('ProjectionStateRepository', () => {
     it('returns error when database is closed', async () => {
       await db.destroy();
 
-      const result = await repo.get('processed-transactions');
+      const result = await repo.find('processed-transactions');
       expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('processed-transactions');
+        expect(result.error.message).toContain('__global__');
+      }
     });
   });
 });

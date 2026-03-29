@@ -1,4 +1,16 @@
-import type { ImportSessionStatus, PlatformKind, ProcessingStatus } from '@exitbook/core';
+import type {
+  AssetReviewEvidence,
+  AssetReferenceStatus,
+  AssetReviewStatus,
+  BalanceSnapshotAssetComparisonStatus,
+  BalanceSnapshotCoverageConfidence,
+  BalanceSnapshotCoverageStatus,
+  BalanceSnapshotVerificationStatus,
+  ImportSessionStatus,
+  PlatformKind,
+  ProcessingStatus,
+  ProjectionStatus,
+} from '@exitbook/core';
 import type { Generated, ColumnType } from '@exitbook/sqlite';
 
 /**
@@ -227,7 +239,7 @@ export interface TransactionLinksTable {
 export interface ProjectionStateTable {
   projection_id: string;
   scope_key: string; // Default '__global__'
-  status: string; // 'fresh' | 'stale' | 'building' | 'failed'
+  status: ProjectionStatus;
   last_built_at: DateTime | null;
   last_invalidated_at: DateTime | null;
   invalidated_by: string | null;
@@ -285,9 +297,9 @@ export interface BalanceSnapshotsTable {
   scope_account_id: number;
   calculated_at: DateTime | null;
   last_refresh_at: DateTime | null;
-  verification_status: string;
-  coverage_status: string | null;
-  coverage_confidence: string | null;
+  verification_status: BalanceSnapshotVerificationStatus;
+  coverage_status: BalanceSnapshotCoverageStatus | null;
+  coverage_confidence: BalanceSnapshotCoverageConfidence | null;
   requested_address_count: number | null;
   successful_address_count: number | null;
   failed_address_count: number | null;
@@ -311,15 +323,15 @@ export interface BalanceSnapshotAssetsTable {
   calculated_balance: DecimalString;
   live_balance: DecimalString | null;
   difference: DecimalString | null;
-  comparison_status: string | null;
+  comparison_status: BalanceSnapshotAssetComparisonStatus | null;
   excluded_from_accounting: boolean;
 }
 
 export interface AssetReviewStateTable {
   profile_id: number;
   asset_id: string;
-  review_status: string;
-  reference_status: string;
+  review_status: AssetReviewStatus;
+  reference_status: AssetReferenceStatus;
   warning_summary: string | null;
   evidence_fingerprint: string;
   confirmed_evidence_fingerprint: string | null;
@@ -333,8 +345,8 @@ export interface AssetReviewEvidenceTable {
   profile_id: number;
   asset_id: string;
   position: number;
-  kind: string;
-  severity: string;
+  kind: AssetReviewEvidence['kind'];
+  severity: AssetReviewEvidence['severity'];
   message: string;
   metadata_json: JSONString | null;
 }

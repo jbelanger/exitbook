@@ -1,8 +1,9 @@
+import type { ImportSessionStatus as CoreImportSessionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
-export interface ImportSessionStatus {
+export interface ImportSessionLookupStatus {
   accountId: number;
-  status: string;
+  status: CoreImportSessionStatus;
 }
 
 /**
@@ -14,5 +15,5 @@ export interface IImportSessionLookup {
    * Return the latest import session status for each of the given accounts.
    * Accounts with no sessions are omitted from the result.
    */
-  findLatestSessionPerAccount(accountIds: number[]): Promise<Result<ImportSessionStatus[], Error>>;
+  findLatestSessionPerAccount(accountIds: number[]): Promise<Result<ImportSessionLookupStatus[], Error>>;
 }

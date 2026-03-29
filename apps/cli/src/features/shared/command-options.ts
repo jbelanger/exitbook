@@ -3,7 +3,7 @@ import type { z } from 'zod';
 import { displayCliError } from './cli-error.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 
-type CliOutputFormat = 'json' | 'text';
+export type CliOutputFormat = 'json' | 'text';
 
 function hasBooleanJsonFlag(value: unknown): value is { json?: boolean | undefined } {
   if (typeof value !== 'object' || value === null) {

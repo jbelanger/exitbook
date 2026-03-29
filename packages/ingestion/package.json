@@ -7,6 +7,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./adapters": "./src/adapters.ts",
+    "./asset-review": "./src/asset-review.ts",
+    "./balance": "./src/balance.ts",
+    "./events": "./src/events-entry.ts",
+    "./import": "./src/import.ts",
+    "./process": "./src/process.ts",
     "./ports": "./src/ports/index.ts"
   },
   "main": "src/index.ts",

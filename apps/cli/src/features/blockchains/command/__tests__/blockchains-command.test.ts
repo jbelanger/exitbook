@@ -1,5 +1,5 @@
 import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
-import type { AdapterRegistry } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -95,7 +95,7 @@ function createBlockchainProviderDescriptor(
     displayName: overrides.displayName,
     name: overrides.name,
     requiresApiKey: overrides.requiresApiKey ?? false,
-    apiKeyEnvVar: overrides.apiKeyEnvVar,
+    apiKeyEnvName: overrides.apiKeyEnvName,
   };
 }
 
@@ -136,7 +136,7 @@ describe('registerBlockchainsViewCommand', () => {
         name: 'mempool',
       }),
       createBlockchainProviderDescriptor({
-        apiKeyEnvVar: 'HELIUS_API_KEY',
+        apiKeyEnvName: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',
         name: 'helius',
@@ -186,7 +186,7 @@ describe('registerBlockchainsViewCommand', () => {
     mockCreateBlockchainsViewState.mockReturnValue(initialState);
     mockListBlockchainProviders.mockReturnValue([
       createBlockchainProviderDescriptor({
-        apiKeyEnvVar: 'HELIUS_API_KEY',
+        apiKeyEnvName: 'HELIUS_API_KEY',
         blockchain: 'solana',
         displayName: 'Helius',
         name: 'helius',
@@ -245,7 +245,7 @@ describe('registerBlockchainsViewCommand', () => {
     await expect(
       program.parseAsync(['blockchains', 'view', '--category', 'invalid', '--json'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana'
+      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other'
     );
 
     expect(mockListBlockchainProviders).not.toHaveBeenCalled();

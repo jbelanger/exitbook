@@ -38,12 +38,12 @@ describe('TransactionsExportHandler', () => {
     handler = new TransactionsExportHandler(mockDb);
   });
 
-  const createMockTransaction = (id: number, source: string, assetSymbol: string): Transaction =>
+  const createMockTransaction = (id: number, platformKey: string, assetSymbol: string): Transaction =>
     createPersistedTransaction({
       id: id,
       accountId: 1,
       txFingerprint: `ext-${id}`,
-      platformKey: source,
+      platformKey,
       platformKind: 'exchange',
       operation: { category: 'trade', type: 'buy' },
       datetime: '2024-01-01T12:00:00Z',
@@ -174,11 +174,11 @@ describe('TransactionsExportHandler', () => {
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('simple');
       expect(exportResult.outputs).toHaveLength(1);
-      expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,source,operation_category');
+      expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,platform_key,operation_category');
       expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
     });
 
-    it('should filter by source name', async () => {
+    it('should filter by platform key', async () => {
       const params: ExportHandlerParams = {
         profileId: 1,
         platformKey: 'kraken',
@@ -226,7 +226,7 @@ describe('TransactionsExportHandler', () => {
       });
     });
 
-    it('should filter by both source and since date', async () => {
+    it('should filter by both platform key and since date', async () => {
       const sinceTimestamp = Date.parse('2024-01-01');
       const params: ExportHandlerParams = {
         profileId: 1,

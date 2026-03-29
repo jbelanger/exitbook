@@ -206,9 +206,6 @@ importers:
       '@exitbook/foundation':
         specifier: workspace:*
         version: link:../foundation
-      '@exitbook/logger':
-        specifier: workspace:*
-        version: link:../logger
     devDependencies:
       tsconfig:
         specifier: workspace:*

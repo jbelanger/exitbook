@@ -2,7 +2,7 @@
  * Portfolio view controller — reducer and keyboard handler.
  */
 
-import { sortPositions } from '@exitbook/accounting';
+import { sortPositions } from '@exitbook/accounting/portfolio';
 
 import {
   dispatchListNavigationKeys,

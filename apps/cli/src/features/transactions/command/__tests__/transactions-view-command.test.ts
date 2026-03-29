@@ -80,7 +80,7 @@ describe('transactions view command', () => {
       }
     );
     mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }]));
-    mockToTransactionViewItem.mockReturnValue({ id: 1, source: 'kraken' });
+    mockToTransactionViewItem.mockReturnValue({ id: 1, platformKey: 'kraken' });
   });
 
   it('uses --platform as the primary transaction platform filter', async () => {
@@ -99,7 +99,7 @@ describe('transactions view command', () => {
       noPrice: undefined,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('view-transactions', {
-      data: [{ id: 1, source: 'kraken' }],
+      data: [{ id: 1, platformKey: 'kraken' }],
       meta: {
         count: 1,
         offset: 0,

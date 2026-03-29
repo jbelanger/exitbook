@@ -5,19 +5,17 @@ import {
   buildTaxPackageBuildContext,
   deriveTaxPackageReadinessMetadata,
   exportTaxPackage,
-  type ITaxPackageFileWriter,
   type TaxPackageExportResult,
   validateTaxPackageScope,
   type TaxPackageFile,
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -25,9 +23,11 @@ import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { unwrapResult } from '../../shared/result-utils.js';
 
-import { createCostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
+import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { CostBasisExportCommandOptionsSchema } from './cost-basis-option-schemas.js';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
+import { runCostBasisArtifact } from './run-cost-basis.js';
 
 interface CostBasisExportCommandResult {
   calculationId: string;
@@ -100,23 +100,11 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
     await mkdir(outputDir, { recursive: true });
 
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('cost-basis-export', profileResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
-      }
-
-      const handlerResult = await createCostBasisHandler(ctx, {
-        isJsonMode: isJson,
-        params,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
-      });
-      if (handlerResult.isErr()) {
-        displayCliError('cost-basis-export', handlerResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
-      }
-
-      const artifactResult = await handlerResult.value.executeArtifactWithContext(params, { refresh: options.refresh });
+      const artifactResult = await withCostBasisCommandScope(
+        ctx,
+        { format: isJson ? 'json' : 'text', params },
+        (scope) => runCostBasisArtifact(scope, params, { refresh: options.refresh })
+      );
       if (artifactResult.isErr()) {
         displayCliError('cost-basis-export', artifactResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
       }
@@ -192,7 +180,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
   }
 }
 
-export class TaxPackageDirectoryWriter implements ITaxPackageFileWriter {
+export class TaxPackageDirectoryWriter {
   constructor(private readonly outputDir: string) {}
 
   async writeAll(files: readonly TaxPackageFile[]): Promise<Result<WrittenTaxPackageFile[], Error>> {

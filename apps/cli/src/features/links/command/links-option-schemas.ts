@@ -40,8 +40,6 @@ export const LinksRunCommandOptionsSchema = z
     }
   );
 
-export const LinksConfirmCommandOptionsSchema = JsonFlagSchema;
-
-export const LinksRejectCommandOptionsSchema = JsonFlagSchema;
+export const LinksReviewCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksGapsCommandOptionsSchema = JsonFlagSchema;

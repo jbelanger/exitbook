@@ -23,7 +23,7 @@ export function buildProcessedTransactionsFreshnessPorts(db: DataSession): IProc
           return { status: 'fresh' as const, reason: undefined };
         }
 
-        const state = yield* await db.projectionState.get('processed-transactions');
+        const state = yield* await db.projectionState.find('processed-transactions');
 
         if (!state) {
           return { status: 'stale' as const, reason: 'raw data has never been processed' };

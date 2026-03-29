@@ -9,7 +9,7 @@ import type {
 } from '../../ports/cost-basis-persistence.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 
-import { buildCostBasisScopeKey } from './artifact-storage.js';
+import { buildCostBasisScopeKey } from './artifact-snapshot-storage.js';
 
 const logger = getLogger('cost-basis.artifacts.failure-snapshot');
 

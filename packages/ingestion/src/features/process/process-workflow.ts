@@ -112,7 +112,7 @@ export class ProcessingWorkflow {
         const freshResult = await this.ports.markProcessedTransactionsFresh(accountIds);
         if (freshResult.isErr()) return err(freshResult.error);
 
-        const assetReviewResult = await this.ports.rebuildAssetReviewProjection();
+        const assetReviewResult = await this.ports.rebuildAssetReviewProjection(accountIds);
         if (assetReviewResult.isErr()) {
           const errorMessage = `Processed transactions were rebuilt, but asset review projection failed: ${assetReviewResult.error.message}`;
 
@@ -383,7 +383,7 @@ export class ProcessingWorkflow {
     const addressContext = await this.buildAddressContext(account, accountId);
 
     // Create processor once (reused for all batches)
-    const processorResult = this.createProcessor(platformKey, account.accountType, accountId);
+    const processorResult = this.createProcessor(platformKey, account.accountType);
     if (processorResult.isErr()) {
       return err(processorResult.error);
     }
@@ -523,6 +523,7 @@ export class ProcessingWorkflow {
     accountId: number
   ): Promise<AddressContext> {
     const addressContext: AddressContext = {
+      accountId,
       primaryAddress: '',
       userAddresses: [],
     };
@@ -546,11 +547,7 @@ export class ProcessingWorkflow {
     return addressContext;
   }
 
-  private createProcessor(
-    platformKey: string,
-    platformKind: string,
-    accountId: number
-  ): Result<ITransactionProcessor, Error> {
+  private createProcessor(platformKey: string, platformKind: string): Result<ITransactionProcessor, Error> {
     if (platformKind === 'blockchain') {
       const adapterResult = this.registry.getBlockchain(platformKey);
       if (adapterResult.isErr()) {
@@ -561,8 +558,6 @@ export class ProcessingWorkflow {
         adapterResult.value.createProcessor({
           providerRuntime: this.providerRuntime,
           scamDetectionService: this.scamDetectionService,
-          nearBatchSource: this.ports.nearBatchSource,
-          accountId,
         })
       );
     } else {

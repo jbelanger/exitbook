@@ -1,12 +1,13 @@
 // Command registration for view prices subcommand
 import { OverrideStore } from '@exitbook/data/overrides';
+import { err, ok } from '@exitbook/foundation';
+import type { Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
+import { renderApp, runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
-import { withCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -22,9 +23,18 @@ import { PricesViewApp, createCoverageViewState, createMissingViewState } from '
 
 import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
-import { PricesViewHandler } from './prices-view-handler.js';
+import { PricesViewHandler, type MissingPricesResult } from './prices-view-handler.js';
 
 type ViewPricesCommandParams = ViewPricesParams;
+type PricesViewTextMode = 'coverage' | 'missing';
+type PricesViewTuiState =
+  | {
+      initialState: ReturnType<typeof createCoverageViewState>;
+      onLoadMissing: (asset: string) => Promise<MissingPricesResult>;
+    }
+  | {
+      initialState: ReturnType<typeof createMissingViewState>;
+    };
 
 /**
  * Result data for view prices command (JSON mode).
@@ -95,144 +105,113 @@ async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   }
 }
 
-/**
- * Execute coverage view in TUI mode (keeps DB open for drill-down into missing mode)
- */
 async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('prices-view', 'text', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        console.error('\n⚠ Error:', profileResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const handler = new PricesViewHandler(database, profileResult.value.id);
-
-      const detailResult = await handler.executeCoverageDetail(params);
-      if (detailResult.isErr()) {
-        console.error('\n⚠ Error:', detailResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const summaryResult = await handler.execute(params);
-      if (summaryResult.isErr()) {
-        console.error('\n⚠ Error:', summaryResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const initialState = createCoverageViewState(
-        detailResult.value,
-        summaryResult.value.summary,
-        params.asset,
-        params.platform
-      );
-
-      const handleLoadMissing = async (asset: string) => {
-        const result = await handler.executeMissing({ ...params, asset });
-        if (result.isErr()) throw result.error;
-        return result.value;
-      };
-
-      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
-        { dataDir: ctx.dataDir },
-        async (priceRuntime) => {
-          const overrideStore = new OverrideStore(ctx.dataDir);
-          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
-
-          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({
-              asset,
-              date,
-              price,
-              source: 'manual-tui',
-              profileKey: profileResult.value.profileKey,
-            });
-            if (result.isErr()) throw result.error;
-          };
-
-          await renderApp((unmount) =>
-            React.createElement(PricesViewApp, {
-              initialState,
-              onLoadMissing: handleLoadMissing,
-              onSetPrice: handleSetPrice,
-              onQuit: unmount,
-            })
-          );
-        }
-      );
-      if (priceRuntimeUseResult.isErr()) {
-        console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      }
-    });
+    await executePricesViewTUI(params, 'coverage');
   });
 }
 
-/**
- * Execute missing view in TUI mode (keeps DB open for set-price writes)
- */
 async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<void> {
   await withCliCommandErrorHandling('prices-view', 'text', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        console.error('\n⚠ Error:', profileResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
+    await executePricesViewTUI(params, 'missing');
+  });
+}
+
+async function executePricesViewTUI(params: ViewPricesCommandParams, mode: PricesViewTextMode): Promise<void> {
+  await runCommand(async (ctx) => {
+    const database = await ctx.database();
+    const profileResult = await resolveCommandProfile(ctx, database);
+    if (profileResult.isErr()) {
+      console.error('\n⚠ Error:', profileResult.error.message);
+      ctx.exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+
+    const handler = new PricesViewHandler(database, profileResult.value.id);
+    const initialStateResult =
+      mode === 'coverage' ? await loadCoverageViewState(handler, params) : await loadMissingViewState(handler, params);
+    if (initialStateResult.isErr()) {
+      console.error('\n⚠ Error:', initialStateResult.error.message);
+      ctx.exitCode = ExitCodes.GENERAL_ERROR;
+      return;
+    }
+
+    try {
+      await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const overrideStore = new OverrideStore(ctx.dataDir);
+        const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
+        const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
+          const result = await pricesSetHandler.execute({
+            asset,
+            date,
+            price,
+            source: 'manual-tui',
+            profileKey: profileResult.value.profileKey,
+          });
+          if (result.isErr()) {
+            throw result.error;
+          }
+        };
+
+        await renderApp((unmount) =>
+          React.createElement(PricesViewApp, {
+            ...initialStateResult.value,
+            onSetPrice: handleSetPrice,
+            onQuit: unmount,
+          })
+        );
+      });
+    } catch (error) {
+      console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
+      ctx.exitCode = ExitCodes.GENERAL_ERROR;
+    }
+  });
+}
+
+async function loadCoverageViewState(
+  handler: PricesViewHandler,
+  params: ViewPricesCommandParams
+): Promise<Result<PricesViewTuiState, Error>> {
+  const detailResult = await handler.executeCoverageDetail(params);
+  if (detailResult.isErr()) {
+    return err(detailResult.error);
+  }
+
+  const summaryResult = await handler.execute(params);
+  if (summaryResult.isErr()) {
+    return err(summaryResult.error);
+  }
+
+  return ok({
+    initialState: createCoverageViewState(
+      detailResult.value,
+      summaryResult.value.summary,
+      params.asset,
+      params.platform
+    ),
+    onLoadMissing: async (asset: string) => {
+      const result = await handler.executeMissing({ ...params, asset });
+      if (result.isErr()) {
+        throw result.error;
       }
 
-      const handler = new PricesViewHandler(database, profileResult.value.id);
+      return result.value;
+    },
+  });
+}
 
-      const missingResult = await handler.executeMissing(params);
-      if (missingResult.isErr()) {
-        console.error('\n⚠ Error:', missingResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
+async function loadMissingViewState(
+  handler: PricesViewHandler,
+  params: ViewPricesCommandParams
+): Promise<Result<PricesViewTuiState, Error>> {
+  const missingResult = await handler.executeMissing(params);
+  if (missingResult.isErr()) {
+    return err(missingResult.error);
+  }
 
-      const { movements, assetBreakdown } = missingResult.value;
-
-      const initialState = createMissingViewState(movements, assetBreakdown, params.asset, params.platform);
-
-      const priceRuntimeUseResult = await withCliPriceProviderRuntime(
-        { dataDir: ctx.dataDir },
-        async (priceRuntime) => {
-          const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
-
-          const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-            const result = await pricesSetHandler.execute({
-              asset,
-              date,
-              price,
-              source: 'manual-tui',
-              profileKey: profileResult.value.profileKey,
-            });
-            if (result.isErr()) {
-              throw result.error;
-            }
-          };
-
-          await renderApp((unmount) =>
-            React.createElement(PricesViewApp, {
-              initialState,
-              onSetPrice: handleSetPrice,
-              onQuit: unmount,
-            })
-          );
-        }
-      );
-      if (priceRuntimeUseResult.isErr()) {
-        console.error('\n⚠ Error:', priceRuntimeUseResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      }
-    });
+  const { movements, assetBreakdown } = missingResult.value;
+  return ok({
+    initialState: createMissingViewState(movements, assetBreakdown, params.asset, params.platform),
   });
 }
 

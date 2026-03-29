@@ -18,7 +18,7 @@ import type {
 /**
  * Parameters for view transactions command.
  */
-export interface ViewTransactionsParams extends Omit<CommonViewFilters, 'source'> {
+export interface ViewTransactionsParams extends CommonViewFilters {
   platform?: string | undefined;
   assetSymbol?: string | undefined;
   operationType?: string | undefined;
@@ -134,7 +134,7 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
 
   return {
     id: tx.id,
-    source: tx.platformKey,
+    platformKey: tx.platformKey,
     platformKind: tx.blockchain ? 'blockchain' : 'exchange',
     txFingerprint: tx.txFingerprint,
     datetime: tx.datetime,

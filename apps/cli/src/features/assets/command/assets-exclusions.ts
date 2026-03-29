@@ -1,14 +1,15 @@
-import { OverrideStore } from '@exitbook/data/overrides';
 import type { Command } from 'commander';
 
 import { runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 
-import { AssetsHandler, type AssetExclusionsResult } from './assets-handler.js';
+import { withAssetsCommandScope } from './assets-command-scope.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
+import type { AssetExclusionsResult } from './assets-types.js';
+import { runAssetsExclusions } from './run-assets.js';
 
 export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
@@ -32,47 +33,25 @@ Notes:
 }
 
 async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
-  const parseResult = AssetsExclusionsCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'assets-exclusions',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
+  const { format } = parseCliCommandOptions('assets-exclusions', rawOptions, AssetsExclusionsCommandOptionsSchema);
 
   try {
     await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError(
-          'assets-exclusions',
-          profileResult.error,
-          ExitCodes.GENERAL_ERROR,
-          options.json ? 'json' : 'text'
-        );
-      }
-
-      const overrideStore = new OverrideStore(ctx.dataDir);
-      const handler = new AssetsHandler(database, overrideStore, ctx.dataDir);
-      const result = await handler.listExclusions(profileResult.value.id, profileResult.value.profileKey);
+      const result = await withAssetsCommandScope(ctx, runAssetsExclusions);
 
       if (result.isErr()) {
-        displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, options.json ? 'json' : 'text');
+        displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, format);
+        return;
       }
 
-      handleAssetsExclusionsSuccess(options.json ?? false, result.value);
+      handleAssetsExclusionsSuccess(format === 'json', result.value);
     });
   } catch (error) {
     displayCliError(
       'assets-exclusions',
       error instanceof Error ? error : new Error(String(error)),
       ExitCodes.GENERAL_ERROR,
-      options.json ? 'json' : 'text'
+      format
     );
   }
 }

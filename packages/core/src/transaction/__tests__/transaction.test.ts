@@ -215,7 +215,7 @@ describe('TransactionSchema', () => {
         txFingerprint: 'txfp-1',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'solana',
+        platformKey: 'solana',
         platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
@@ -243,7 +243,7 @@ describe('TransactionSchema', () => {
         txFingerprint: 'txfp-2',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'solana',
+        platformKey: 'solana',
         platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
@@ -275,7 +275,7 @@ describe('TransactionSchema', () => {
         txFingerprint: 'txfp-3',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'solana',
+        platformKey: 'solana',
         platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {
@@ -307,7 +307,7 @@ describe('TransactionSchema', () => {
         txFingerprint: 'txfp-4',
         datetime: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'solana',
+        platformKey: 'solana',
         platformKind: 'blockchain' as const,
         status: 'success' as const,
         movements: {

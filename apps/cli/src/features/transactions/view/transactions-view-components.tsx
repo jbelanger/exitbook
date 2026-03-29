@@ -177,7 +177,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
     () =>
       createColumns(transactions, {
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
-        platform: { format: (item) => item.source, minWidth: 10 },
+        platform: { format: (item) => item.platformKey, minWidth: 10 },
         operation: { format: (item) => formatOperationShort(item.operationCategory, item.operationType), minWidth: 15 },
         asset: { format: (item) => item.primaryAsset ?? '', minWidth: 10 },
         amount: { format: (item) => formatAmount(item.primaryAmount ?? '', 12), align: 'right', minWidth: 12 },
@@ -274,8 +274,8 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
   const fullTimestamp = selected.datetime.replace('T', ' ').replace('Z', '');
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.source}</Text> <Text dimColor>{operation}</Text>{' '}
-      <Text dimColor>{fullTimestamp}</Text>
+      <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.platformKey}</Text>{' '}
+      <Text dimColor>{operation}</Text> <Text dimColor>{fullTimestamp}</Text>
     </Text>,
   ];
 

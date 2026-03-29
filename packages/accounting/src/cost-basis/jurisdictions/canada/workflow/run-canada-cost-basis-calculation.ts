@@ -16,7 +16,7 @@ import { runCanadaSuperficialLossEngine } from './canada-superficial-loss-engine
 
 const logger = getLogger('run-canada-cost-basis-calculation');
 
-export interface RunCanadaCostBasisCalculationParams {
+interface RunCanadaCostBasisCalculationParams {
   input: ValidatedCostBasisConfig;
   transactions: Transaction[];
   confirmedLinks: TransactionLink[];
@@ -64,16 +64,14 @@ export async function runCanadaCostBasisCalculation(
     );
   }
 
-  const acbWorkflowResult = await runCanadaAcbWorkflow(
-    priceCoverageResult.value.rebuildTransactions,
-    params.confirmedLinks,
-    params.priceRuntime,
-    {
-      accountingExclusionPolicy: params.accountingExclusionPolicy,
-      assetReviewSummaries: params.assetReviewSummaries,
-      taxAssetIdentityPolicy: params.input.taxAssetIdentityPolicy,
-    }
-  );
+  const acbWorkflowResult = await runCanadaAcbWorkflow({
+    transactions: priceCoverageResult.value.rebuildTransactions,
+    confirmedLinks: params.confirmedLinks,
+    priceRuntime: params.priceRuntime,
+    accountingExclusionPolicy: params.accountingExclusionPolicy,
+    assetReviewSummaries: params.assetReviewSummaries,
+    taxAssetIdentityPolicy: params.input.taxAssetIdentityPolicy,
+  });
   if (acbWorkflowResult.isErr()) {
     return err(acbWorkflowResult.error);
   }

@@ -2,7 +2,7 @@
  * Portfolio view TUI state types and factory functions.
  */
 
-import type { PortfolioPositionItem, SortMode } from '@exitbook/accounting';
+import type { PortfolioPositionItem, SortMode } from '@exitbook/accounting/portfolio';
 import type { Currency } from '@exitbook/foundation';
 
 import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';

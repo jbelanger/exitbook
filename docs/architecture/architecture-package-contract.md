@@ -479,6 +479,40 @@ Examples:
 
 ---
 
+## Public package surface rules
+
+Package roots are public contracts and must stay intentional.
+
+Default rule:
+
+- root entrypoints are curated, not wildcard barrels
+- large feature packages expose capability subpaths
+- small primitive or infrastructure packages may stay root-only, but that root should still be explicitly curated
+- wildcard barrels are acceptable for private/internal folders, not as the main package API
+
+Use this as the default public shape:
+
+- small primitive or infrastructure packages may keep a curated root-only API when the surface is intentionally small and cohesive
+- small primitive or infrastructure packages do not need capability subpaths unless they actually own multiple distinct public capabilities
+- large feature packages should keep the root minimal and expose explicit subpaths such as `@pkg/cost-basis`, `@pkg/linking`, or `@pkg/import`
+- if a package already needs multiple unrelated headings inside `src/index.ts`, it should probably have capability subpaths instead of one larger root barrel
+- do not use `export *` at the package root as a convenience default; even small packages should name their public exports intentionally
+
+For this repo:
+
+- `@exitbook/accounting` should expose capability subpaths such as `./cost-basis`, `./linking`, `./portfolio`, and `./price-enrichment`
+- `@exitbook/ingestion` should expose capability subpaths such as `./adapters`, `./import`, `./process`, `./balance`, `./asset-review`, and `./events`
+- `@exitbook/data` is the reference direction: narrow root plus explicit subpaths
+- packages such as `@exitbook/foundation`, `@exitbook/core`, and `@exitbook/http` should usually stay root-only, but their root `index.ts` files should still be curated explicit export lists rather than wildcard barrels
+
+Avoid:
+
+- broad feature-package roots that become default import hubs
+- mixing curated roots and wildcard roots across sibling packages
+- treating the root entrypoint as a dumping ground for every export that might be useful somewhere
+
+---
+
 ## Composition guidance
 
 Each app should expose a clear app runtime and a clear request/command scope.
@@ -486,7 +520,7 @@ Each app should expose a clear app runtime and a clear request/command scope.
 For the CLI, the preferred shape is:
 
 - one immutable app runtime, for example `apps/cli/src/runtime/app-runtime.ts`
-- one per-command scope, for example `apps/cli/src/runtime/command-scope.ts`
+- one per-command scope, for example `apps/cli/src/runtime/command-runtime.ts`
 - explicit feature runner functions under feature command directories
 - explicit prereq helpers under `apps/cli/src/features/shared/`, currently split across:
   `consumer-input-readiness.ts`, `projection-readiness.ts`, `projection-reset.ts`, and `price-readiness.ts`
@@ -563,7 +597,7 @@ Before merging new package-level code, verify:
 
 This contract describes the target architecture. Some earlier migration steps have already happened, but key gaps remain:
 
-- **The CLI app layer still lacks a clean command-scope model.** App config, command lifecycle, prereq orchestration, and feature execution are still spread across command files, shared runtime helpers, and handler factories. Migration: converge on one immutable app runtime plus one per-command scope.
+- **The CLI app layer still lacks a clean `command-runtime.ts`-centered scope model.** App config, command lifecycle, prereq orchestration, and feature execution are still spread across command files, shared runtime helpers, and handler factories. Migration: converge on one immutable app runtime plus one per-command scope.
 - **Some account-oriented behavior is still host-local.** Dedicated package boundaries may still need to emerge as account-specific workflows grow.
 - **Some CLI wiring still reflects older handler/factory conventions.** Migration: remove multi-argument `ctx + db + registry` assembly shapes in favor of one scope argument.
 - **Infrastructure classification is still tightening.** `logger`, `http`, `resilience`, `sqlite`, `events`, and `observability` are classified here, but code structure may still lag behind the contract in places.

@@ -19,6 +19,8 @@ export interface AddressContext {
   primaryAddress: string;
   /** All user addresses on this blockchain (for detecting internal transfers) - already normalized */
   userAddresses: string[];
+  /** Database account identity for source-specific historical lookups. */
+  accountId?: number | undefined;
 }
 
 /**

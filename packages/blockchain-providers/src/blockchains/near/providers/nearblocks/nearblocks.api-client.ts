@@ -79,7 +79,7 @@ const NEARBLOCKS_DEDUP_WINDOW_SIZE = 200;
  * - Each type independently resumable
  */
 const nearblocksMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'NEARBLOCKS_API_KEY',
+  apiKeyEnvName: 'NEARBLOCKS_API_KEY',
   baseUrl: 'https://api.nearblocks.io',
   blockchain: 'near',
   capabilities: {

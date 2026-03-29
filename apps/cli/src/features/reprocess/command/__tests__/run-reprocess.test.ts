@@ -1,7 +1,7 @@
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
-import type { ProcessingWorkflow } from '@exitbook/ingestion';
+import type { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
 import {
@@ -19,7 +19,7 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-vi.mock('../../../shared/projection-reset.js', () => ({
+vi.mock('../../../../runtime/projection-reset.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
 }));
 

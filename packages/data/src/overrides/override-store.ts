@@ -39,7 +39,7 @@ export class OverrideStore {
    * Returns the created event with generated ID and timestamp
    *
    * Thread-safe: Uses a write queue to serialize appends and prevent
-   * concurrent writes from corrupting the JSONL file.
+   * overlapping SQLite writes from the CLI process.
    */
   async append(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
     // Queue this write to ensure serialization while returning the operation result.

@@ -1,13 +1,14 @@
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import type { ProcessingWorkflow } from '@exitbook/ingestion';
+import type { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { createIngestionRuntime, type CliEvent } from '../../../runtime/ingestion-runtime.js';
+import { type CliEvent, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
+import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import { resetProjections } from '../../shared/projection-reset.js';
+import type { CliOutputFormat } from '../../shared/command-options.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;
@@ -95,25 +96,38 @@ export function abortReprocessRuntime(runtime: ReprocessExecutionRuntime): void 
 
 export async function runReprocess(
   ctx: CommandRuntime,
-  options: { isJsonMode: boolean },
+  options: { format: CliOutputFormat },
   params: ReprocessParams
 ): Promise<Result<ProcessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
-    const infra = await createIngestionRuntime(ctx, database, {
-      presentation: options.isJsonMode ? 'headless' : 'monitor',
-    });
-    const runtime: ReprocessExecutionRuntime = {
+    return withIngestionRuntime(
+      ctx,
       database,
-      processingWorkflow: infra.processingWorkflow,
-      ingestionMonitor: infra.ingestionMonitor,
-      instrumentation: infra.instrumentation,
-    };
-
-    ctx.onAbort(() => {
-      abortReprocessRuntime(runtime);
-    });
-    return executeReprocessWithRuntime(runtime, params);
+      {
+        presentation: options.format === 'json' ? 'headless' : 'monitor',
+        onAbortRegistered: (infra) => {
+          const runtime: ReprocessExecutionRuntime = {
+            database,
+            processingWorkflow: infra.processingWorkflow,
+            ingestionMonitor: infra.ingestionMonitor,
+            instrumentation: infra.instrumentation,
+          };
+          ctx.onAbort(() => {
+            abortReprocessRuntime(runtime);
+          });
+        },
+      },
+      async (infra) => {
+        const runtime: ReprocessExecutionRuntime = {
+          database,
+          processingWorkflow: infra.processingWorkflow,
+          ingestionMonitor: infra.ingestionMonitor,
+          instrumentation: infra.instrumentation,
+        };
+        return executeReprocessWithRuntime(runtime, params);
+      }
+    );
   } catch (error) {
     return wrapError(error, 'Failed to run reprocess');
   }

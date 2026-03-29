@@ -6,7 +6,7 @@ import { TatumUtxoBaseApiClient } from './tatum-utxo-base.api-client.js';
 import { mapTatumBCashTransaction } from './tatum.mapper-utils.js';
 
 const tatumBcashMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'TATUM_API_KEY',
+  apiKeyEnvName: 'TATUM_API_KEY',
   baseUrl: 'https://api.tatum.io/v3/bcash',
   blockchain: 'bitcoin-cash',
   capabilities: {

@@ -53,7 +53,7 @@ describe('buildAssetReviewResetPorts', () => {
     expect(impact.assets).toBe(1);
     expect(assertOk(await ctx.assetReview.countStates(PROFILE_ID))).toBe(0);
 
-    const state = assertOk(await ctx.projectionState.get('asset-review', buildProfileProjectionScopeKey(PROFILE_ID)));
+    const state = assertOk(await ctx.projectionState.find('asset-review', buildProfileProjectionScopeKey(PROFILE_ID)));
     expect(state?.status).toBe('stale');
     expect(state?.invalidatedBy).toBe('reset');
   });

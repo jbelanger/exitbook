@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type -- for clarity */
-import type { Result } from '@exitbook/foundation';
-
 import type { CostBasisJurisdiction, CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -58,9 +55,9 @@ interface TaxPackageTransactionIssueDetailBase {
   transactionId: number;
 }
 
-export interface TaxPackageUnknownTransactionClassificationDetail extends TaxPackageTransactionIssueDetailBase {}
+export type TaxPackageUnknownTransactionClassificationDetail = TaxPackageTransactionIssueDetailBase;
 
-export interface TaxPackageUncertainProceedsAllocationDetail extends TaxPackageTransactionIssueDetailBase {}
+export type TaxPackageUncertainProceedsAllocationDetail = TaxPackageTransactionIssueDetailBase;
 
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;
@@ -92,10 +89,6 @@ export interface WrittenTaxPackageFile extends TaxPackageFile {
   absolutePath: string;
   sha256: string;
   bytesWritten: number;
-}
-
-export interface ITaxPackageFileWriter {
-  writeAll(files: readonly TaxPackageFile[]): Promise<Result<WrittenTaxPackageFile[], Error>>;
 }
 
 export interface ExportTaxPackageArtifactRef {

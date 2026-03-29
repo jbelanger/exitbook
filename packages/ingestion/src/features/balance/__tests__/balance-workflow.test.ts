@@ -194,43 +194,31 @@ function createPortsMock(params: {
     );
 
   const ports: BalancePorts = {
-    accountLookup: {
-      findById,
-      findChildAccounts,
-    },
-    snapshotStore: {
-      replaceSnapshot,
-    },
-    projectionState: {
-      markBuilding,
-      markFresh,
-      markFailed,
-    },
-    importSessionLookup: {
-      findByAccountIds: vi
-        .fn()
-        .mockImplementation((accountIds: number[]) =>
-          ok(params.sessions.filter((session) => accountIds.includes(session.accountId)))
-        ),
-    },
-    transactionSource: {
-      findByAccountIds: vi
-        .fn()
-        .mockImplementation(
-          (query: { accountIds: number[]; includeExcluded?: boolean | undefined }): Result<Transaction[], Error> => {
-            const normalTransactions = params.normalTransactions.filter((tx) =>
-              query.accountIds.includes(tx.accountId)
-            );
-            const excludedTransactions = params.excludedTransactions.filter((tx) =>
-              query.accountIds.includes(tx.accountId)
-            );
-            if (query.includeExcluded) {
-              return ok([...normalTransactions, ...excludedTransactions]);
-            }
-            return ok(normalTransactions);
+    findById,
+    findChildAccounts,
+    replaceSnapshot,
+    markBuilding,
+    markFresh,
+    markFailed,
+    findByAccountIds: vi
+      .fn()
+      .mockImplementation((accountIds: number[]) =>
+        ok(params.sessions.filter((session) => accountIds.includes(session.accountId)))
+      ),
+    findTransactionsByAccountIds: vi
+      .fn()
+      .mockImplementation(
+        (query: { accountIds: number[]; includeExcluded?: boolean | undefined }): Result<Transaction[], Error> => {
+          const normalTransactions = params.normalTransactions.filter((tx) => query.accountIds.includes(tx.accountId));
+          const excludedTransactions = params.excludedTransactions.filter((tx) =>
+            query.accountIds.includes(tx.accountId)
+          );
+          if (query.includeExcluded) {
+            return ok([...normalTransactions, ...excludedTransactions]);
           }
-        ),
-    },
+          return ok(normalTransactions);
+        }
+      ),
   };
 
   return { findById, findChildAccounts, markBuilding, markFailed, markFresh, replaceSnapshot, ports };
@@ -409,6 +397,57 @@ describe('BalanceWorkflow', () => {
         },
       ],
     });
+  });
+
+  it('fails verification when import session lookup fails', async () => {
+    const account = createAccount();
+    const normalTransactions = [
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              grossAmount: parseDecimal('1.0'),
+              netAmount: parseDecimal('1.0'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { markBuilding, markFailed, markFresh, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+    ports.findByAccountIds = vi
+      .fn()
+      .mockResolvedValueOnce(ok([createCompletedImportSession(account.id)]))
+      .mockResolvedValueOnce(ok([createCompletedImportSession(account.id)]))
+      .mockResolvedValueOnce(err(new Error('session lookup failed')));
+
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '100000000',
+      decimalAmount: '1.0',
+      symbol: 'BTC',
+      decimals: 8,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to fetch import sessions for balance verification scope 1');
+      expect(result.error.cause).toBeInstanceOf(Error);
+    }
+
+    expect(markBuilding).toHaveBeenCalledWith(1);
+    expect(markFresh).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith(1);
   });
 
   it('falls back to a calculated-only unavailable snapshot when no provider supports live balances', async () => {
@@ -741,18 +780,14 @@ describe('BalanceWorkflow', () => {
 
   it('returns an error when account does not exist', async () => {
     const ports: BalancePorts = {
-      accountLookup: {
-        findById: vi.fn().mockResolvedValue(ok(undefined)),
-        findChildAccounts: vi.fn(),
-      },
-      snapshotStore: { replaceSnapshot: vi.fn() },
-      projectionState: {
-        markBuilding: vi.fn(),
-        markFresh: vi.fn(),
-        markFailed: vi.fn(),
-      },
-      importSessionLookup: { findByAccountIds: vi.fn() },
-      transactionSource: { findByAccountIds: vi.fn() },
+      findById: vi.fn().mockResolvedValue(ok(undefined)),
+      findChildAccounts: vi.fn(),
+      replaceSnapshot: vi.fn(),
+      markBuilding: vi.fn(),
+      markFresh: vi.fn(),
+      markFailed: vi.fn(),
+      findByAccountIds: vi.fn(),
+      findTransactionsByAccountIds: vi.fn(),
     };
 
     const providerRuntime = {

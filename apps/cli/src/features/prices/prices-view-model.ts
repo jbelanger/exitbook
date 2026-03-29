@@ -3,7 +3,7 @@ import type { CommonViewFilters } from '../shared/view-utils.js';
 /**
  * Parameters for view prices command.
  */
-export interface ViewPricesParams extends Omit<CommonViewFilters, 'source'> {
+export interface ViewPricesParams extends CommonViewFilters {
   platform?: string | undefined;
   asset?: string | undefined;
   missingOnly?: boolean | undefined;

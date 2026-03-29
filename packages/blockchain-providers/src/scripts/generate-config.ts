@@ -122,17 +122,15 @@ function generateConfiguration(): void {
     console.log('  1. Review the generated template');
     console.log('  2. Copy to blockchain-explorers.json if needed');
     console.log('  3. Customize enabled providers and priorities');
-    console.log('  4. Set up required API keys in environment variables:');
+    console.log('  4. Set up required provider credentials in environment variables:');
 
-    // Show required environment variables
-    const apiKeyProviders = allProviders.filter((p) => p.requiresApiKey);
-    if (apiKeyProviders.length > 0) {
-      for (const provider of apiKeyProviders) {
-        const metadata = registry.getMetadata(provider.blockchain, provider.name);
-        if (metadata?.apiKeyEnvVar) {
-          console.log(`     export ${metadata.apiKeyEnvVar}="your_${provider.name}_api_key"`);
-        }
+    const providersNeedingEnvironmentConfiguration = allProviders.filter((provider) => provider.requiresApiKey);
+    if (providersNeedingEnvironmentConfiguration.length > 0) {
+      for (const provider of providersNeedingEnvironmentConfiguration) {
+        console.log(`     - ${provider.displayName} (${provider.blockchain})`);
       }
+      console.log('     Example: export <PROVIDER_API_KEY_ENV_VAR>="your_api_key_here"');
+      console.log('     Use `pnpm run dev providers view --json` to inspect provider configuration details.');
     }
 
     console.log('  5. Run `pnpm run config:validate` to verify');

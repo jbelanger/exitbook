@@ -1,6 +1,6 @@
 import type { EventBus } from '@exitbook/events';
 import type { Result } from '@exitbook/foundation';
-import { err, ok } from '@exitbook/foundation';
+import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector } from '@exitbook/observability';
 
@@ -106,16 +106,24 @@ export async function createBlockchainProviderRuntime(
       },
     });
   } catch (error) {
+    const cleanupErrors: Error[] = [];
+
     if (providerManager) {
       await providerManager.destroy().catch((destroyError: unknown) => {
-        logger.warn({ error: destroyError }, 'Failed to destroy provider manager after initialization failure');
+        const cleanupError =
+          destroyError instanceof Error ? destroyError : new Error(`Unknown cleanup failure: ${String(destroyError)}`);
+        cleanupErrors.push(cleanupError);
+        logger.warn({ error: cleanupError }, 'Failed to destroy provider manager after initialization failure');
       });
     }
 
     if (tokenMetadataPersistence) {
       await tokenMetadataPersistence.cleanup().catch((cleanupError: unknown) => {
+        const normalizedError =
+          cleanupError instanceof Error ? cleanupError : new Error(`Unknown cleanup failure: ${String(cleanupError)}`);
+        cleanupErrors.push(normalizedError);
         logger.warn(
-          { error: cleanupError },
+          { error: normalizedError },
           'Failed to cleanup token metadata persistence after initialization failure'
         );
       });
@@ -123,13 +131,27 @@ export async function createBlockchainProviderRuntime(
 
     if (providerStatsPersistence) {
       await providerStatsPersistence.cleanup().catch((cleanupError: unknown) => {
+        const normalizedError =
+          cleanupError instanceof Error ? cleanupError : new Error(`Unknown cleanup failure: ${String(cleanupError)}`);
+        cleanupErrors.push(normalizedError);
         logger.warn(
-          { error: cleanupError },
+          { error: normalizedError },
           'Failed to cleanup provider stats persistence after initialization failure'
         );
       });
     }
 
-    return err(error instanceof Error ? error : new Error(String(error)));
+    const wrappedError = wrapError(error, 'Failed to create blockchain provider runtime');
+    if (cleanupErrors.length === 0) {
+      return wrappedError;
+    }
+
+    if (wrappedError.isOk()) {
+      return wrappedError;
+    }
+
+    return err(
+      new AggregateError([wrappedError.error, ...cleanupErrors], 'Failed to create blockchain provider runtime')
+    );
   }
 }

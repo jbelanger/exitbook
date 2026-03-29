@@ -1,5 +1,5 @@
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
-import type { AssetViewItem } from '../command/assets-handler.js';
+import type { AssetViewItem } from '../command/assets-types.js';
 
 export type AssetsViewFilter = 'default' | 'action-required';
 

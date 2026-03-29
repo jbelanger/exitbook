@@ -34,7 +34,7 @@ import {
 } from './solscan.schemas.js';
 
 export const solscanMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'SOLSCAN_API_KEY',
+  apiKeyEnvName: 'SOLSCAN_API_KEY',
   baseUrl: 'https://pro-api.solscan.io/v2.0',
   blockchain: 'solana',
   capabilities: {
@@ -250,8 +250,8 @@ export class SolscanApiClient extends BaseApiClient {
         );
       }
 
-      // If primary endpoint failed or returned no data, try legacy endpoint (V1)
-      // This endpoint is deprecated but may work for some addresses/keys where V2 fails.
+      // Retry the deprecated V1 endpoint when V2 fails or returns no items.
+      // Some keys and addresses still only work there.
       if (items.length === 0) {
         this.logger.debug(`Attempting legacy Solscan endpoint - Address: ${maskAddress(address)}`);
 
@@ -264,13 +264,9 @@ export class SolscanApiClient extends BaseApiClient {
           const legacyResponse = legacyResult.value;
           if (legacyResponse && legacyResponse.success && legacyResponse.data) {
             items = Array.isArray(legacyResponse.data) ? legacyResponse.data : [];
-            // Clear error if legacy succeeded
             fetchError = undefined;
           }
         } else if (!fetchError) {
-          // If primary succeeded (but empty) and legacy failed, keep primary success (empty)
-          // If primary failed and legacy failed, keep primary error (or legacy error?)
-          // Let's keep primary error if it exists, otherwise legacy error
           fetchError = legacyResult.error;
         }
       }

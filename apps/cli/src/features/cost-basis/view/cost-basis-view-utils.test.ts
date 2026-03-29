@@ -3,7 +3,7 @@ import type {
   CanadaDisplayCostBasisReport,
   ConvertedLotDisposal,
   StandardCostBasisFilingFacts,
-} from '@exitbook/accounting';
+} from '@exitbook/accounting/cost-basis';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 

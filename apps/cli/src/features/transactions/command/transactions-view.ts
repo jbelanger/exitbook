@@ -6,6 +6,7 @@ import React from 'react';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
+import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { outputSuccess } from '../../shared/json-output.js';
@@ -69,19 +70,11 @@ Common Usage:
  * Execute the view transactions command.
  */
 async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void> {
-  // Validate options at CLI boundary
-  const parseResult = TransactionsViewCommandOptionsSchema.safeParse(rawOptions);
-  if (!parseResult.success) {
-    displayCliError(
-      'transactions-view',
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      ExitCodes.INVALID_ARGS,
-      'text'
-    );
-  }
-
-  const options = parseResult.data;
-  const isJsonMode = options.json ?? false;
+  const { format, options } = parseCliCommandOptions(
+    'transactions-view',
+    rawOptions,
+    TransactionsViewCommandOptionsSchema
+  );
 
   // Build params from options
   const params: ViewTransactionsCommandParams = {
@@ -94,7 +87,7 @@ async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void
     limit: options.limit || 50,
   };
 
-  if (isJsonMode) {
+  if (format === 'json') {
     await executeTransactionsViewJSON(params);
   } else {
     await executeTransactionsViewTUI(params);

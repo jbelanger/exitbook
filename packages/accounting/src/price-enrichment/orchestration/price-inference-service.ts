@@ -9,7 +9,7 @@ import {
   enrichFeePricesFromMovements,
   inferMultiPass,
   propagatePricesAcrossLinks,
-} from '../enrichment/price-enrichment-utils.js';
+} from '../enrichment/price-inference-rules.js';
 import { buildLinkGraph } from '../graph/link-graph-utils.js';
 import type { LinkedTransactionGroup } from '../shared/types.js';
 

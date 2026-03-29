@@ -2,7 +2,16 @@
  * Cost basis view TUI state types, action types, and factory functions.
  */
 
+import type {
+  CostBasisJurisdiction,
+  CostBasisMethod,
+  FiatCurrency,
+  StandardCostBasisFilingFacts,
+} from '@exitbook/accounting/cost-basis';
+
 import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
+
+type AcquisitionLotStatus = StandardCostBasisFilingFacts['acquisitions'][number]['status'];
 
 // ─── Display Items ──────────────────────────────────────────────────────────
 
@@ -85,7 +94,7 @@ export interface AcquisitionViewItem {
   transactionId: number;
   lotId: string;
   remainingQuantity: string;
-  status: string; // 'open' | 'partially_disposed' | 'fully_disposed'
+  status: AcquisitionLotStatus;
 
   // FX conversion (non-USD currency)
   fxConversion?:
@@ -144,10 +153,10 @@ export interface CostBasisAssetState {
 
   // Calculation context
   calculationId: string;
-  method: string;
-  jurisdiction: string;
+  method: CostBasisMethod;
+  jurisdiction: CostBasisJurisdiction;
   taxYear: number;
-  currency: string;
+  currency: FiatCurrency;
   dateRange: { endDate: string; startDate: string };
 
   // Financial summary
@@ -177,8 +186,8 @@ export interface CostBasisTimelineState {
 
   // Asset context
   asset: string;
-  currency: string;
-  jurisdiction: string;
+  currency: FiatCurrency;
+  jurisdiction: CostBasisJurisdiction;
   assetTotalGainLoss: string;
   assetLotCount: number;
   assetDisposalCount: number;
@@ -217,10 +226,10 @@ export type CostBasisAction =
 
 export interface CalculationContext {
   calculationId: string;
-  method: string;
-  jurisdiction: string;
+  method: CostBasisMethod;
+  jurisdiction: CostBasisJurisdiction;
   taxYear: number;
-  currency: string;
+  currency: FiatCurrency;
   dateRange: { endDate: string; startDate: string };
 }
 

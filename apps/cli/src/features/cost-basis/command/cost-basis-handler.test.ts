@@ -1,41 +1,30 @@
-import { CostBasisArtifactService, CostBasisWorkflow, persistCostBasisFailureSnapshot } from '@exitbook/accounting';
+import {
+  CostBasisArtifactService,
+  CostBasisWorkflow,
+  persistCostBasisFailureSnapshot,
+} from '@exitbook/accounting/cost-basis';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok } from '@exitbook/foundation';
-import { readPriceCacheFreshness } from '@exitbook/price-providers';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import { openCliPriceProviderRuntime } from '../../shared/cli-price-provider-runtime.js';
 
 import { CostBasisHandler } from './cost-basis-handler.js';
 
 const PROFILE_ID = 1;
 
-vi.mock('@exitbook/accounting', async () => {
-  const actual = await vi.importActual('@exitbook/accounting');
+vi.mock('@exitbook/accounting/cost-basis', async () => {
+  const actual = await vi.importActual('@exitbook/accounting/cost-basis');
   return {
     ...actual,
     CostBasisArtifactService: vi.fn(),
     CostBasisWorkflow: vi.fn(),
     persistCostBasisFailureSnapshot: vi.fn(),
-    StandardFxRateProvider: vi.fn(),
   };
 });
 
-vi.mock('@exitbook/price-providers', () => ({
-  readPriceCacheFreshness: vi.fn(),
-}));
-
-vi.mock('../../shared/cli-price-provider-runtime.js', () => ({
-  openCliPriceProviderRuntime: vi.fn(),
-}));
-
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
-
-vi.mock('../../shared/data-dir.js', () => ({
-  getDataDir: vi.fn().mockReturnValue('/tmp/test-data'),
 }));
 
 vi.mock('../../shared/asset-review-projection-store.js', () => ({
@@ -51,6 +40,7 @@ describe('CostBasisHandler', () => {
     setManualPrice: Mock;
   };
   let mockArtifactServiceExecute: Mock;
+  let mockReadDependencyWatermark: Mock;
   let mockTransactionsFindAll: Mock;
   let mockTransactionLinksFindAll: Mock;
   let mockAccountsFindAll: Mock;
@@ -99,8 +89,14 @@ describe('CostBasisHandler', () => {
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(ok(mockPriceRuntime));
-    vi.mocked(readPriceCacheFreshness).mockResolvedValue(ok(new Date('2026-03-14T12:00:02.000Z')));
+    mockReadDependencyWatermark = vi.fn().mockResolvedValue(
+      ok({
+        links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+        assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
+        pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
+        exclusionFingerprint: 'excluded-assets:none',
+      })
+    );
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
     );
@@ -130,32 +126,30 @@ describe('CostBasisHandler', () => {
 
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
 
-    handler = new CostBasisHandler(mockDb, '/tmp/test-data', PROFILE_ID);
+    handler = new CostBasisHandler(
+      mockDb,
+      PROFILE_ID,
+      { excludedAssetIds: new Set<string>() },
+      mockPriceRuntime as never,
+      mockReadDependencyWatermark
+    );
   });
 
   describe('execute', () => {
-    it('returns error when price manager creation fails', async () => {
-      vi.mocked(openCliPriceProviderRuntime).mockResolvedValue(err(new Error('DB init failed')));
-
-      const result = await handler.execute(validParams);
-
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error.message).toContain('Failed to create price provider runtime');
-      }
-    });
-
     it('returns error when dependency watermark loading fails', async () => {
       const failingDb = {
         transactions: { findAll: vi.fn().mockResolvedValue(ok([])) },
         transactionLinks: { findAll: vi.fn().mockResolvedValue(ok([])) },
         costBasisFailureSnapshots: { replaceLatest: vi.fn() },
         costBasisSnapshots: { findLatest: vi.fn(), replaceLatest: vi.fn() },
-        projectionState: {
-          get: vi.fn().mockResolvedValue(err(new Error('projection read failed'))),
-        },
       } as unknown as DataSession;
-      handler = new CostBasisHandler(failingDb, '/tmp/test-data', PROFILE_ID);
+      handler = new CostBasisHandler(
+        failingDb,
+        PROFILE_ID,
+        { excludedAssetIds: new Set<string>() },
+        mockPriceRuntime as never,
+        vi.fn().mockResolvedValue(err(new Error('projection read failed')))
+      );
 
       const result = await handler.execute(validParams);
 
@@ -186,14 +180,6 @@ describe('CostBasisHandler', () => {
       expect(mockTransactionsFindAll).not.toHaveBeenCalled();
       expect(mockTransactionLinksFindAll).not.toHaveBeenCalled();
       expect(mockAccountsFindAll).not.toHaveBeenCalled();
-    });
-
-    it('destroys price manager even when artifact execution fails', async () => {
-      mockArtifactServiceExecute.mockResolvedValue(err(new Error('artifact error')));
-
-      await handler.execute(validParams);
-
-      expect(mockPriceRuntime.cleanup).toHaveBeenCalled();
     });
 
     it('persists a failure snapshot when artifact execution fails', async () => {

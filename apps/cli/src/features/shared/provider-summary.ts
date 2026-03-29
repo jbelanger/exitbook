@@ -4,7 +4,7 @@ export interface ProviderSummary {
   name: string;
   displayName: string;
   requiresApiKey: boolean;
-  apiKeyEnvVar?: string | undefined;
+  apiKeyEnvName?: string | undefined;
   capabilities: string[];
   rateLimit?: string | undefined;
 }
@@ -34,8 +34,8 @@ export function providerToSummary(provider: BlockchainProviderDescriptor): Provi
     summary.rateLimit = `${rateLimit.requestsPerSecond}/sec`;
   }
 
-  if (provider.requiresApiKey && provider.apiKeyEnvVar) {
-    summary.apiKeyEnvVar = provider.apiKeyEnvVar;
+  if (provider.requiresApiKey && provider.apiKeyEnvName) {
+    summary.apiKeyEnvName = provider.apiKeyEnvName;
   }
 
   return summary;

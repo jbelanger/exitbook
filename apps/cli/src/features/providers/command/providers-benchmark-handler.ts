@@ -132,18 +132,3 @@ export class ProviderBenchmarkHandler {
     }
   }
 }
-
-/**
- * Create a ProviderBenchmarkHandler and register cleanup with ctx.
- * Factory owns cleanup -- command files NEVER call ctx.onCleanup().
- *
- * Returns Result for consistency with other Tier 2 factories.
- * Creation itself is infallible; err() is unreachable in practice.
- */
-export function createProviderBenchmarkHandler(
-  ctx: import('../../../runtime/command-runtime.js').CommandRuntime
-): Result<ProviderBenchmarkHandler, Error> {
-  const handler = new ProviderBenchmarkHandler(ctx.requireAppRuntime().blockchainExplorersConfig);
-  ctx.onCleanup(async () => handler.destroy());
-  return ok(handler);
-}

@@ -1,7 +1,3 @@
-/**
- * Dashboard State - Operation tree model
- */
-
 import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../../../ui/shared/index.js';
 import { createProviderStats } from '../../../ui/shared/index.js';
 
@@ -15,41 +11,19 @@ export type TransientMessage =
   | { expiresAt: number; type: 'backoff' }
   | { expiresAt: number; text: string; type: 'failover' };
 
-/**
- * Account information
- */
 export interface AccountInfo {
   id: number;
-  /**
-   * True if this is the first import for this account (no prior cursor data).
-   * False means the account has prior data (incremental import).
-   */
   isNewAccount: boolean;
-  /**
-   * True if this is an xpub parent account
-   */
   isXpubParent?: boolean | undefined;
-  /**
-   * Number of derived child addresses (for xpub parents)
-   */
   childAccountCount?: number | undefined;
-  /**
-   * Transaction counts by stream type (only present for existing accounts)
-   */
   transactionCounts?: Map<string, number> | undefined;
 }
 
-/**
- * Provider readiness status
- */
 export interface ProviderReadiness {
   count: number;
   durationMs: number;
 }
 
-/**
- * Xpub derivation operation state
- */
 export interface DerivationOperation {
   status: OperationStatus;
   startedAt: number;
@@ -61,48 +35,27 @@ export interface DerivationOperation {
   newCount?: number | undefined; // For re-derivation only
 }
 
-/**
- * Xpub import wrapper state (aggregates child imports)
- */
 export interface XpubImportWrapper {
   parentAccountId: number;
   childAccountCount: number;
   blockchain: string;
-
-  // Aggregated streams across all children
   aggregatedStreams: Map<string, StreamState>;
 }
 
-/**
- * Stream state within import operation
- */
 export interface StreamState {
   name: string;
   status: OperationStatus;
   startedAt: number;
   completedAt?: number | undefined;
-
-  // Current batch being fetched (for active streams)
   currentBatch?: number | undefined;
-
-  // Cumulative count of items imported
   imported: number;
-
-  // Active provider info (for active streams)
   activeProvider?: string | undefined;
-  currentRate?: number | undefined; // req/s
+  currentRate?: number | undefined;
   maxRate?: number | undefined;
-
-  // Transient message (rate limit or failover)
   transientMessage?: TransientMessage | undefined;
-
-  // Failure info (for warning/failed status)
   errorMessage?: string | undefined;
 }
 
-/**
- * Import operation state
- */
 export interface ImportOperation {
   status: OperationStatus;
   startedAt: number;
@@ -110,9 +63,6 @@ export interface ImportOperation {
   streams: Map<string, StreamState>;
 }
 
-/**
- * Token metadata tracking during processing (provider/rate mirrors import stream pattern)
- */
 export interface ProcessingMetadata {
   cached: number;
   fetched: number;
@@ -122,9 +72,6 @@ export interface ProcessingMetadata {
   transientMessage?: TransientMessage | undefined;
 }
 
-/**
- * Clearing operation state (reprocessing only)
- */
 export interface ClearingOperation {
   status: OperationStatus;
   startedAt: number;
@@ -132,81 +79,39 @@ export interface ClearingOperation {
   transactions: number;
 }
 
-/**
- * Processing operation state
- */
 export interface ProcessingOperation {
   status: OperationStatus;
   startedAt: number;
   completedAt?: number | undefined;
-
-  // Total raw transactions to process (from process.started)
   totalRaw: number;
-  // Accumulated processed count (from process.batch.completed batchSize)
   processed: number;
-  // Final deduplicated transaction count (from process.completed)
   totalProcessed?: number | undefined;
-
-  // Token metadata enrichment — undefined for CSV imports (no metadata events fire)
   metadata?: ProcessingMetadata | undefined;
-  // Scam detection summary — undefined until first scam found
   scams?: { exampleSymbols: string[]; total: number } | undefined;
 }
 
-/**
- * Warning message
- */
 export interface Warning {
   message: string;
 }
 
-/**
- * Complete Dashboard State
- */
 export interface IngestionMonitorState {
-  // Account info
   account?: AccountInfo | undefined;
-
-  // Provider readiness
   providerReadiness?: ProviderReadiness | undefined;
-
-  // Blockchain being imported (set from provider events; undefined for exchange imports)
   blockchain?: string | undefined;
-
-  // Current active provider (global, applies to all streams)
   currentProvider?: string | undefined;
-
-  // Derivation operation (xpub only)
   derivation?: DerivationOperation | undefined;
-
-  // Xpub import wrapper (when importing xpub)
   xpubImport?: XpubImportWrapper | undefined;
-
-  // Import operation
   import?: ImportOperation | undefined;
-
-  // Clearing operation (reprocessing only)
   clearing?: ClearingOperation | undefined;
-
-  // Processing operation
   processing?: ProcessingOperation | undefined;
-
-  // API call statistics
   apiCalls: ApiCallStats;
-
-  // Completion status
   isComplete: boolean;
   aborted?: boolean | undefined;
   errorMessage?: string | undefined;
   totalDurationMs?: number | undefined;
-
-  // Warnings
   warnings: Warning[];
 }
 
-/**
- * Create initial dashboard state
- */
 export function createIngestionMonitorState(): IngestionMonitorState {
   return {
     account: undefined,

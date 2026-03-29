@@ -1,7 +1,39 @@
 import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { IAccountLifecycleStore } from '../ports/index.js';
+interface AccountLifecycleStore {
+  create(input: {
+    accountType: AccountType;
+    credentials?: ExchangeCredentials | undefined;
+    identifier: string;
+    metadata?: Account['metadata'] | undefined;
+    name: string;
+    platformKey: string;
+    profileId: number;
+    providerName?: string | undefined;
+  }): Promise<Result<Account, Error>>;
+  findById(accountId: number): Promise<Result<Account | undefined, Error>>;
+  findByKey(input: {
+    accountType: AccountType;
+    identifier: string;
+    platformKey: string;
+    profileId: number;
+  }): Promise<Result<Account | undefined, Error>>;
+  findByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>>;
+  findChildren(parentAccountId: number, profileId: number): Promise<Result<Account[], Error>>;
+  listTopLevel(profileId: number): Promise<Result<Account[], Error>>;
+  update(
+    accountId: number,
+    updates: {
+      credentials?: ExchangeCredentials | undefined;
+      identifier?: string | undefined;
+      metadata?: Account['metadata'] | undefined;
+      name?: string | null | undefined;
+      providerName?: string | undefined;
+      resetCursor?: boolean | undefined;
+    }
+  ): Promise<Result<void, Error>>;
+}
 
 export interface CreateNamedAccountInput {
   profileId: number;
@@ -32,7 +64,7 @@ function normalizeAccountName(name: string): Result<string, Error> {
 }
 
 export class AccountLifecycleService {
-  constructor(private readonly store: IAccountLifecycleStore) {}
+  constructor(private readonly store: AccountLifecycleStore) {}
 
   async createNamed(input: CreateNamedAccountInput): Promise<Result<Account, Error>> {
     const normalizedNameResult = normalizeAccountName(input.name);
@@ -105,7 +137,7 @@ export class AccountLifecycleService {
     return this.store.listTopLevel(profileId);
   }
 
-  getById(accountId: number): Promise<Result<Account | undefined, Error>> {
+  findById(accountId: number): Promise<Result<Account | undefined, Error>> {
     return this.store.findById(accountId);
   }
 
@@ -224,13 +256,10 @@ export class AccountLifecycleService {
     return this.requireAccount(account.id);
   }
 
-  async collectHierarchy(rootAccountId: number): Promise<Result<Account[], Error>> {
-    const rootResult = await this.store.findById(rootAccountId);
+  async collectHierarchy(profileId: number, rootAccountId: number): Promise<Result<Account[], Error>> {
+    const rootResult = await this.requireOwned(profileId, rootAccountId);
     if (rootResult.isErr()) {
       return err(rootResult.error);
-    }
-    if (!rootResult.value) {
-      return err(new Error(`Account ${rootAccountId} not found`));
     }
 
     const ordered: Account[] = [rootResult.value];
@@ -238,7 +267,7 @@ export class AccountLifecycleService {
 
     while (queue.length > 0) {
       const parentId = queue.shift()!;
-      const childrenResult = await this.store.findChildren(parentId);
+      const childrenResult = await this.store.findChildren(parentId, profileId);
       if (childrenResult.isErr()) {
         return err(childrenResult.error);
       }

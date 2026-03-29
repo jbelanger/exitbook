@@ -50,10 +50,10 @@ Common Usage:
   - View provider capabilities and rate limits
 
 Categories:
-  evm, substrate, cosmos, utxo, solana
+  evm, substrate, cosmos, utxo, solana, other
 `
     )
-    .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana)')
+    .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana, other)')
     .option('--requires-api-key', 'Show only blockchains that require API keys')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {

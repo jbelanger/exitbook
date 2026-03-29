@@ -1,8 +1,9 @@
 import type { Account } from '@exitbook/core';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
-import type { AdapterRegistry, ImportParams, ImportWorkflow } from '@exitbook/ingestion';
-import { isUtxoAdapter } from '@exitbook/ingestion';
+import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
+import { isUtxoAdapter } from '@exitbook/ingestion/adapters';
+import type { ImportParams, ImportWorkflow } from '@exitbook/ingestion/import';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { abortImportRuntime, executeImportWithRuntime, type ImportExecutionRuntime } from '../run-import.js';
@@ -16,8 +17,8 @@ vi.mock('@exitbook/logger', () => ({
   }),
 }));
 
-vi.mock('@exitbook/ingestion', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@exitbook/ingestion')>();
+vi.mock('@exitbook/ingestion/adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@exitbook/ingestion/adapters')>();
   return { ...actual, isUtxoAdapter: vi.fn() };
 });
 

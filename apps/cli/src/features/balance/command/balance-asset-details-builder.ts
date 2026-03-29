@@ -1,7 +1,7 @@
 import type { Account, BalanceSnapshotAsset, Transaction } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
-import type { BalanceVerificationResult } from '@exitbook/ingestion';
+import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
@@ -91,9 +91,16 @@ export class BalanceAssetDetailsBuilder {
   }
 
   private async loadAccountTransactions(account: Account): Promise<Result<Transaction[], Error>> {
+    if (account.profileId === undefined) {
+      return err(new Error(`Account #${account.id} is missing profile scope`));
+    }
+
     const memberAccountsResult = await loadBalanceScopeMemberAccounts(account, {
       findChildAccounts: async (parentAccountId: number) => {
-        const childAccountsResult = await this.db.accounts.findAll({ parentAccountId });
+        const childAccountsResult = await this.db.accounts.findAll({
+          parentAccountId,
+          profileId: account.profileId,
+        });
         if (childAccountsResult.isErr()) {
           return err(childAccountsResult.error);
         }

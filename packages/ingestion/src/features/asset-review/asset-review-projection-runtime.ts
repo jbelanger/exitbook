@@ -81,14 +81,28 @@ async function rebuildAssetReviewProjection(
     ? (providerSupport as AssetReviewReferenceResolver)
     : undefined;
 
+  const rebuildResult = await workflow.rebuild({
+    tokenMetadataReader,
+    referenceResolver,
+  });
+
   try {
-    return await workflow.rebuild({
-      tokenMetadataReader,
-      referenceResolver,
-    });
-  } finally {
     await providerSupport.cleanup();
+  } catch (error) {
+    const cleanupError = error instanceof Error ? error : new Error(String(error));
+    if (rebuildResult.isErr()) {
+      return err(
+        new AggregateError(
+          [rebuildResult.error, cleanupError],
+          'Asset review rebuild failed and provider support cleanup also failed'
+        )
+      );
+    }
+
+    return err(cleanupError);
   }
+
+  return rebuildResult;
 }
 
 async function findAssetReviewExternalStalenessReason(

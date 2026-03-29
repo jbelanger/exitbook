@@ -4,7 +4,6 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { displayCliError } from '../../shared/cli-error.js';
 import { parseCliCommandOptions } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
@@ -18,8 +17,9 @@ import {
 } from '../shared/portfolio-history-utils.js';
 import { PortfolioApp, createPortfolioAssetsState, type CreatePortfolioAssetsStateParams } from '../view/index.js';
 
-import { createPortfolioHandler } from './portfolio-handler.js';
+import { withPortfolioCommandScope } from './portfolio-command-scope.js';
 import { PortfolioCommandOptionsSchema } from './portfolio-option-schemas.js';
+import { runPortfolio } from './run-portfolio.js';
 
 type PortfolioCommandOptions = z.infer<typeof PortfolioCommandOptionsSchema>;
 
@@ -74,31 +74,14 @@ async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime
     const normalized = normalizeOptions(options);
 
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      const handlerResult = await createPortfolioHandler(ctx, {
-        isJsonMode: true,
-        asOf: normalized.asOf,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
-      });
-
-      if (handlerResult.isErr()) {
-        throw handlerResult.error;
-      }
-
-      const handler = handlerResult.value;
-      const result = await handler.execute({
-        method: normalized.method,
-        jurisdiction: normalized.jurisdiction,
-        displayCurrency: normalized.displayCurrency,
-        asOf: normalized.asOf,
-      });
-
+      const result = await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format: 'json' }, (scope) =>
+        runPortfolio(scope, {
+          method: normalized.method,
+          jurisdiction: normalized.jurisdiction,
+          displayCurrency: normalized.displayCurrency,
+          asOf: normalized.asOf,
+        })
+      );
       if (result.isErr()) {
         throw result.error;
       }
@@ -138,37 +121,17 @@ async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime:
     const normalized = normalizeOptions(options);
 
     await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('portfolio', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      const handlerResult = await createPortfolioHandler(ctx, {
-        isJsonMode: false,
-        asOf: normalized.asOf,
-        profileId: profileResult.value.id,
-        profileKey: profileResult.value.profileKey,
-      });
-
-      if (handlerResult.isErr()) {
-        throw handlerResult.error;
-      }
-
-      const handler = handlerResult.value;
-      // No ctx.onAbort: portfolio calculation is a single synchronous DB read — it cannot be
-      // meaningfully interrupted mid-flight. The prereq abort (prices/links) is handled inside
-      // createPortfolioHandler before this point.
-
       const spinner = createSpinner('Calculating portfolio...', false);
-      let result: Awaited<ReturnType<typeof handler.execute>>;
+      let result: Awaited<ReturnType<typeof runPortfolio>>;
       try {
-        result = await handler.execute({
-          method: normalized.method,
-          jurisdiction: normalized.jurisdiction,
-          displayCurrency: normalized.displayCurrency,
-          asOf: normalized.asOf,
-        });
+        result = await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format: 'text' }, (scope) =>
+          runPortfolio(scope, {
+            method: normalized.method,
+            jurisdiction: normalized.jurisdiction,
+            displayCurrency: normalized.displayCurrency,
+            asOf: normalized.asOf,
+          })
+        );
       } finally {
         stopSpinner(spinner);
       }

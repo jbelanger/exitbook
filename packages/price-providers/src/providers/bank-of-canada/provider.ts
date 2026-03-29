@@ -13,10 +13,11 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 
 import type { ProviderMetadata, PriceQuery, PriceData } from '../../contracts/types.js';
 import type { PricesDB } from '../../price-cache/persistence/database.js';
-import { createPriceQueries, type PriceQueries } from '../../price-cache/persistence/queries.js';
+import type { PriceQueries } from '../../price-cache/persistence/queries.js';
 import { BasePriceProvider } from '../../runtime/base-provider.js';
-import { createProviderHttpClient, type ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
+import type { ProviderRateLimitConfig } from '../../runtime/http/provider-http-client.js';
 import { BusinessDayFallbackExhaustedError, fetchWithBusinessDayFallback } from '../shared/fx-fallback-utils.js';
+import { buildPriceProvider } from '../shared/provider-construction.js';
 
 import { formatBoCDate, transformBoCResponse } from './boc-utils.js';
 import { BankOfCanadaResponseSchema } from './schemas.js';
@@ -43,28 +44,17 @@ export function createBankOfCanadaProvider(
   _config: unknown = {},
   instrumentation?: InstrumentationCollector
 ): Result<BankOfCanadaProvider, Error> {
-  try {
-    // Bank of Canada Valet API base URL
-    const baseUrl = 'https://www.bankofcanada.ca/valet';
-
-    // Create HTTP client
-    const httpClient = createProviderHttpClient({
-      baseUrl,
+  return buildPriceProvider({
+    buildProvider: ({ httpClient, priceQueries }) => new BankOfCanadaProvider(httpClient, priceQueries),
+    creationError: 'Failed to create Bank of Canada provider',
+    db,
+    http: {
+      baseUrl: 'https://www.bankofcanada.ca/valet',
       instrumentation,
       providerName: 'BankOfCanada',
       rateLimit: BOC_RATE_LIMIT,
-    });
-
-    // Create queries
-    const priceQueries = createPriceQueries(db);
-
-    // Create provider
-    const provider = new BankOfCanadaProvider(httpClient, priceQueries);
-
-    return ok(provider);
-  } catch (error) {
-    return wrapError(error, 'Failed to create Bank of Canada provider');
-  }
+    },
+  });
 }
 
 /**
@@ -106,10 +96,6 @@ export class BankOfCanadaProvider extends BasePriceProvider {
     };
   }
 
-  /**
-   * Fetch FX rate (implements BasePriceProvider)
-   * Query is already validated and currency is normalized by BasePriceProvider
-   */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       const { assetSymbol: asset, currency, timestamp } = query;

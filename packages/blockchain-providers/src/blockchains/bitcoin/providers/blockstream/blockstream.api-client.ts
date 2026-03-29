@@ -38,7 +38,7 @@ import {
 import { calculateBlockstreamBalance } from './blockstream.utils.js';
 
 export const blockstreamMetadata: ProviderMetadata = {
-  apiKeyEnvVar: 'BLOCKSTREAM_API_KEY',
+  apiKeyEnvName: 'BLOCKSTREAM_API_KEY',
   baseUrl: 'https://blockstream.info/api',
   blockchain: 'bitcoin',
   capabilities: {

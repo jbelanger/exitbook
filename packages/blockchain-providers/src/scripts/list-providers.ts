@@ -62,10 +62,8 @@ function listProviders(): void {
       console.log(`    Name: ${provider.displayName}`);
       console.log(`    API Key Required: ${provider.requiresApiKey ? 'Yes' : 'No'}`);
 
-      // Show API key environment variable if available
-      const metadata = registry.getMetadata(blockchain, provider.name);
-      if (metadata?.apiKeyEnvVar && provider.requiresApiKey) {
-        console.log(`    Environment Variable: ${metadata.apiKeyEnvVar}`);
+      if (provider.requiresApiKey) {
+        console.log('    Environment Configuration: Required');
       }
 
       console.log(`    Rate Limits: ${formatRateLimit(provider.defaultConfig.rateLimit)}`);
