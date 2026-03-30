@@ -1,3 +1,4 @@
+import { AccountTypeSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 import {
@@ -7,10 +8,10 @@ import {
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
 
-export const AccountsViewCommandOptionsSchema = JsonFlagSchema.extend({
+export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({
   accountId: z.number().int().positive().optional(),
   platform: z.string().optional(),
-  type: z.string().optional(),
+  type: AccountTypeSchema.optional(),
   showSessions: z.boolean().optional(),
 });
 

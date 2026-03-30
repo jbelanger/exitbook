@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { toAccountViewItem } from '../../account-view-projection.js';
 import type { AccountSummary, SessionSummary } from '../../query/account-query.js';
+import { buildAccountsBrowseOptionsHelpText } from '../accounts-browse-command.js';
 import { registerAccountsCommand } from '../accounts.js';
 
 function createAccountSummary(overrides: Partial<AccountSummary> = {}): AccountSummary {
@@ -96,7 +97,7 @@ describe('toAccountViewItem', () => {
 });
 
 describe('registerAccountsCommand', () => {
-  it('registers the accounts namespace with the view subcommand', () => {
+  it('registers the accounts namespace with browse and mutation subcommands', () => {
     const program = new Command();
     const appRuntime = {} as CliAppRuntime;
 
@@ -104,9 +105,21 @@ describe('registerAccountsCommand', () => {
 
     const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
     expect(accountsCommand).toBeDefined();
-    expect(accountsCommand?.description()).toBe('Manage accounts');
+    expect(accountsCommand?.description()).toBe('Browse and manage accounts');
     expect(accountsCommand?.commands.map((command) => command.name())).toEqual(
       expect.arrayContaining(['add', 'view', 'update', 'rename', 'remove'])
     );
+  });
+
+  it('builds browse option help text from the same source used to register browse options', () => {
+    const help = buildAccountsBrowseOptionsHelpText();
+
+    expect(help).not.toContain('Browse Options:');
+    expect(help).toContain('--account-id <number>');
+    expect(help).toContain('Filter by account ID');
+    expect(help).toContain('--show-sessions');
+    expect(help).toContain('Include import session details for each account');
+    expect(help).toContain('--json');
+    expect(help).toContain('Output JSON format');
   });
 });

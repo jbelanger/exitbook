@@ -22,6 +22,7 @@ Examples:
 Notes:
   - Renaming keeps the underlying account data and import history intact.
   - Account names must remain unique within a profile.
+  - Reserved command words such as add, list, remove, rename, update, and view cannot be used as account names.
 `
     )
     .argument('<current-name>', 'Existing account name')

@@ -54,10 +54,20 @@ export interface UpdateAccountInput {
   resetCursor?: boolean | undefined;
 }
 
+const RESERVED_ACCOUNT_NAMES = new Set(['add', 'list', 'remove', 'rename', 'update', 'view']);
+
 function normalizeAccountName(name: string): Result<string, Error> {
   const normalized = name.trim().toLowerCase();
   if (normalized.length === 0) {
     return err(new Error('Account name must not be empty'));
+  }
+
+  if (RESERVED_ACCOUNT_NAMES.has(normalized)) {
+    return err(
+      new Error(
+        `Account name '${normalized}' is reserved by the accounts command surface. Reserved names: ${[...RESERVED_ACCOUNT_NAMES].join(', ')}`
+      )
+    );
   }
 
   return ok(normalized);

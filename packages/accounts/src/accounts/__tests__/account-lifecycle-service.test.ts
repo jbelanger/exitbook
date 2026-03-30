@@ -154,6 +154,25 @@ describe('AccountLifecycleService', () => {
     expect(result.name).toBe('kraken-main');
   });
 
+  it('rejects reserved command words as new account names', async () => {
+    const { store } = createStore();
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.create({
+      profileId: 1,
+      name: 'view',
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      identifier: 'api-key-1',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Account name 'view' is reserved");
+      expect(result.error.message).toContain('add, list, remove, rename, update, view');
+    }
+  });
+
   it('rejects a second top-level exchange account on the same platform in one profile', async () => {
     const { store } = createStore([
       createAccount({
@@ -253,6 +272,27 @@ describe('AccountLifecycleService', () => {
     const renamed = assertOk(await service.rename(1, 'kraken-main', 'kraken-primary'));
 
     expect(renamed.name).toBe('kraken-primary');
+  });
+
+  it('rejects renaming an account to a reserved command word', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.rename(1, 'kraken-main', 'list');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Account name 'list' is reserved");
+    }
   });
 
   it('updates account config for an existing account', async () => {

@@ -29,6 +29,7 @@ Examples:
 Notes:
   - Create exactly one account type per command: exchange API, exchange CSV, or blockchain wallet.
   - Use --provider and --xpub-gap only for blockchain accounts.
+  - Account names cannot use reserved command words such as add, list, remove, rename, update, or view.
 `
     )
     .argument('<name>', 'Account name')

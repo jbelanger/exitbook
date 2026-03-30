@@ -3,6 +3,8 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+
 const {
   mockBuildCliAccountLifecycleService,
   mockBuildAccountQueryPorts,
@@ -81,11 +83,11 @@ vi.mock('../../view/accounts-static-renderer.js', () => ({
   outputAccountsStaticList: mockOutputAccountsStaticList,
 }));
 
-import { registerAccountsViewCommand } from '../accounts-view.js';
+import { registerAccountsCommand } from '../accounts.js';
 
 function createAccountsProgram(): Command {
   const program = new Command();
-  registerAccountsViewCommand(program.command('accounts'));
+  registerAccountsCommand(program, {} as CliAppRuntime);
   return program;
 }
 
@@ -184,7 +186,154 @@ afterAll(() => {
   }
 });
 
-describe('registerAccountsViewCommand', () => {
+describe('accounts browse commands', () => {
+  it('renders the static list for the bare accounts command', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts'], {
+      from: 'user',
+    });
+
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: undefined,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
+    expect(mockOutputAccountStaticDetail).not.toHaveBeenCalled();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('renders the static detail card for the bare selector form', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'kraken-main'], {
+      from: 'user',
+    });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 1,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
+    expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+  });
+
+  it('outputs list JSON for the bare accounts command', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts', {
+      data: [
+        {
+          id: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          name: 'kraken-main',
+          identifier: 'acct-1',
+          parentAccountId: undefined,
+          providerName: 'kraken-api',
+          balanceProjectionStatus: 'fresh',
+          balanceProjectionReason: undefined,
+          lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+          lastRefreshAt: '2026-03-12T12:30:00.000Z',
+          verificationStatus: 'match',
+          sessionCount: 2,
+          childAccounts: [
+            {
+              id: 2,
+              identifier: 'acct-child',
+              sessionCount: 1,
+              balanceProjectionStatus: 'fresh',
+              verificationStatus: 'warning',
+            },
+          ],
+          sessions: undefined,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      meta: {
+        count: 1,
+        offset: 0,
+        limit: 1,
+        hasMore: false,
+        filters: undefined,
+      },
+    });
+  });
+
+  it('keeps the legacy list alias on the static list surface', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'list'], {
+      from: 'user',
+    });
+
+    expect(mockGetByName).not.toHaveBeenCalled();
+    expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
+    expect(mockOutputAccountStaticDetail).not.toHaveBeenCalled();
+  });
+
+  it('routes bare selector misses through the not-found error path', async () => {
+    const program = createAccountsProgram();
+
+    mockGetByName.mockResolvedValue(ok(undefined));
+
+    await expect(program.parseAsync(['accounts', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
+      "CLI:accounts:text:Account 'ghost-wallet' not found"
+    );
+
+    expect(mockDisplayCliError).toHaveBeenCalledWith('accounts', expect.any(Error), 4, 'text');
+    expect(mockList).not.toHaveBeenCalled();
+  });
+
   it('outputs JSON results using transformed account view items', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
