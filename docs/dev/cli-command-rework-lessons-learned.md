@@ -128,3 +128,29 @@
 - `run-accounts-remove.ts` still emits `CliCommandError` as data for not-found.
   - That is localized and explicitly marked with `TODO(cli-rework)`.
   - The next cleanup pass should let remove-scope helpers carry `CliFailure` or another typed semantic failure directly.
+
+## Phase 4: `clear`
+
+### What worked
+
+- A TUI-first command can still fit the shared boundary.
+  - `clear` now parses under `runCliCommandBoundary(...)` and then routes to either terminal or TUI flow as data.
+  - The default interactive path still opens the TUI, but the command entrypoint no longer owns any direct error rendering or exits.
+
+- Interactive TUI rendering does not need to happen outside the runtime boundary.
+  - `clear` needs a live `clearService` while the Ink app is mounted.
+  - The right shape was to keep `renderApp(...)` inside the runtime scope and return `silentSuccess()` afterward, rather than forcing every command to render after `runCommand(...)` completes.
+
+- Dead legacy branches are worth deleting during migration.
+  - `clear-terminal.ts` had an unreachable confirmation prompt path because the top-level command already routed non-confirmed text mode into the TUI.
+  - Removing that branch simplified the command and removed another deep cancellation path for free.
+
+### Constraints confirmed
+
+- Some commands need both output styles:
+  - TUI path: render inside runtime, then return `silentSuccess()`.
+  - Terminal path: return `CliCompletion` so JSON output and empty-result text still route through the shared boundary.
+
+- Prompt cancellation is still not globally solved.
+  - `clear` no longer depends on the old prompt-cancellation helper.
+  - `promptConfirm(...)` and `handleCancellation(...)` still remain for other command families, especially `import` and the remaining confirmation paths.

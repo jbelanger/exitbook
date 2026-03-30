@@ -1,6 +1,9 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
@@ -43,19 +46,25 @@ Notes:
  * Execute the clear command.
  */
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    'clear',
-    rawOptions,
-    ClearCommandOptionsSchema,
-    ExitCodes.GENERAL_ERROR
-  );
-  const useJsonMode = format === 'json';
-  const useConfirmBypass = options.confirm ?? false;
+  const format = detectCliOutputFormat(rawOptions);
 
-  if (!useJsonMode && !useConfirmBypass) {
-    await runClearTuiFlow(options);
-    return;
-  }
+  await runCliCommandBoundary({
+    command: 'clear',
+    format,
+    unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(
+          rawOptions,
+          ClearCommandOptionsSchema,
+          ExitCodes.GENERAL_ERROR
+        );
 
-  await runClearTerminalFlow(options);
+        if (format === 'text' && options.confirm !== true) {
+          return yield* await runClearTuiFlow(options);
+        }
+
+        return yield* await runClearTerminalFlow(options);
+      }),
+  });
 }

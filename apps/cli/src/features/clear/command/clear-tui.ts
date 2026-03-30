@@ -1,8 +1,9 @@
-import { err, ok } from '@exitbook/foundation';
+import { resultDoAsync } from '@exitbook/foundation';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
+import { renderApp } from '../../../runtime/command-runtime.js';
+import { captureCliRuntimeResult } from '../../shared/cli-boundary.js';
+import { silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';
 import { createClearViewState } from '../view/clear-view-state.js';
@@ -13,62 +14,47 @@ import { buildScopeLabel } from './clear-output.js';
 import { flattenPreview } from './clear-service.js';
 import { buildClearParams, previewClear } from './run-clear.js';
 
-export async function runClearTuiFlow(options: ClearCommandOptions): Promise<void> {
-  try {
-    await runCommand(async (ctx) => {
-      const commandResult = await withClearCommandScope(ctx, async (scope) => {
-        const params = buildClearParams(scope, options);
+export async function runClearTuiFlow(options: ClearCommandOptions): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'clear',
+    unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        return yield* toCliResult(
+          await withClearCommandScope(ctx, async (scope) =>
+            resultDoAsync(async function* () {
+              const params = buildClearParams(scope, options);
 
-        const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([
-          previewClear(scope, { ...params, includeRaw: false }),
-          previewClear(scope, { ...params, includeRaw: true }),
-        ]);
+              const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([
+                previewClear(scope, { ...params, includeRaw: false }),
+                previewClear(scope, { ...params, includeRaw: true }),
+              ]);
 
-        if (previewWithoutRawResult.isErr()) {
-          console.error(`\nWARNING: ${previewWithoutRawResult.error.message}`);
-          ctx.exitCode = ExitCodes.GENERAL_ERROR;
-          return err(previewWithoutRawResult.error);
-        }
+              const previewWithoutRaw = flattenPreview(yield* previewWithoutRawResult);
+              const previewWithRaw = flattenPreview(yield* previewWithRawResult);
+              const scopeLabel = buildScopeLabel(options.accountId, options.platform);
 
-        if (previewWithRawResult.isErr()) {
-          console.error(`\nWARNING: ${previewWithRawResult.error.message}`);
-          ctx.exitCode = ExitCodes.GENERAL_ERROR;
-          return err(previewWithRawResult.error);
-        }
+              const initialState = createClearViewState(
+                { accountId: options.accountId, platformKey: options.platform, label: scopeLabel },
+                previewWithRaw,
+                previewWithoutRaw,
+                options.includeRaw ?? false
+              );
 
-        const previewWithoutRaw = flattenPreview(previewWithoutRawResult.value);
-        const previewWithRaw = flattenPreview(previewWithRawResult.value);
-        const scopeLabel = buildScopeLabel(options.accountId, options.platform);
+              await renderApp((unmount) =>
+                React.createElement(ClearViewApp, {
+                  initialState,
+                  clearService: scope.clearService,
+                  params,
+                  onQuit: unmount,
+                })
+              );
 
-        const initialState = createClearViewState(
-          { accountId: options.accountId, platformKey: options.platform, label: scopeLabel },
-          previewWithRaw,
-          previewWithoutRaw,
-          options.includeRaw ?? false
+              return silentSuccess();
+            })
+          ),
+          ExitCodes.GENERAL_ERROR
         );
-
-        await renderApp((unmount) =>
-          React.createElement(ClearViewApp, {
-            initialState,
-            clearService: scope.clearService,
-            params,
-            onQuit: unmount,
-          })
-        );
-
-        return ok(undefined);
-      });
-
-      if (commandResult.isErr()) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'clear',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+      }),
+  });
 }

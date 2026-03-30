@@ -1,4 +1,4 @@
-import { outputSuccess } from '../../shared/json-output.js';
+import { jsonSuccess, silentSuccess, textSuccess, type CliCompletion } from '../../shared/cli-contract.js';
 import { stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
 
 import type { ClearCommandResult } from './clear-command-types.js';
@@ -14,48 +14,33 @@ export function buildScopeLabel(accountId: number | undefined, platformKey: stri
   return 'all accounts';
 }
 
-export function outputClearEmptyResult(flat: FlatDeletionPreview, isJsonMode: boolean): void {
+export function buildClearEmptyCompletion(flat: FlatDeletionPreview, isJsonMode: boolean): CliCompletion {
   if (isJsonMode) {
-    outputSuccess('clear', { deleted: flat } satisfies ClearCommandResult);
-    return;
+    return jsonSuccess({ deleted: flat } satisfies ClearCommandResult);
   }
 
-  console.error('No data to clear.');
+  return textSuccess(() => {
+    console.error('No data to clear.');
+  });
 }
 
-export function outputClearPreview(flat: FlatDeletionPreview, includeRaw: boolean): void {
-  console.error('\nThis will clear:');
-  if (flat.transactions > 0) console.error(`  - ${flat.transactions} transactions`);
-  if (flat.links > 0) console.error(`  - ${flat.links} transaction links`);
-  if (flat.assetReviewStates > 0) console.error(`  - ${flat.assetReviewStates} asset review states`);
-  if (flat.balanceSnapshots > 0) console.error(`  - ${flat.balanceSnapshots} balance snapshots`);
-  if (flat.balanceSnapshotAssets > 0) console.error(`  - ${flat.balanceSnapshotAssets} balance snapshot assets`);
-  if (flat.costBasisSnapshots > 0) console.error(`  - ${flat.costBasisSnapshots} cost-basis snapshots`);
-
-  if (includeRaw) {
-    console.error('\nWARNING: Raw data will also be deleted:');
-    if (flat.accounts > 0) console.error(`  - ${flat.accounts} accounts`);
-    if (flat.sessions > 0) console.error(`  - ${flat.sessions} import sessions`);
-    if (flat.rawData > 0) console.error(`  - ${flat.rawData} raw data items`);
-    console.error('\nYou will need to re-import from exchanges/blockchains (slow, rate-limited).');
-  } else {
-    console.error('\nRaw imported data will be preserved:');
-    if (flat.sessions > 0) console.error(`  - ${flat.sessions} sessions`);
-    if (flat.rawData > 0) console.error(`  - ${flat.rawData} raw data items`);
-    console.error('\nYou can reprocess with: exitbook reprocess');
-  }
-
-  console.error('');
-}
-
-export function handleClearSuccess(
+export function buildClearSuccessCompletion(
   clearResult: ClearResult,
   spinner: SpinnerWrapper | undefined,
   isJsonMode: boolean
-): void {
+): CliCompletion {
   const flat = flattenPreview(clearResult.deleted);
   const resultData: ClearCommandResult = { deleted: flat };
 
+  if (isJsonMode) {
+    return jsonSuccess(resultData);
+  }
+
+  stopSpinner(spinner, buildClearCompletionMessage(flat));
+  return silentSuccess();
+}
+
+function buildClearCompletionMessage(flat: FlatDeletionPreview): string {
   const parts: string[] = [];
   if (flat.transactions > 0) parts.push(`${flat.transactions} transactions`);
   if (flat.links > 0) parts.push(`${flat.links} links`);
@@ -67,12 +52,5 @@ export function handleClearSuccess(
   if (flat.sessions > 0) parts.push(`${flat.sessions} sessions`);
   if (flat.rawData > 0) parts.push(`${flat.rawData} raw items`);
 
-  const completionMessage =
-    parts.length > 0 ? `Clear complete - ${parts.join(', ')}` : 'Clear complete - no data deleted';
-
-  stopSpinner(spinner, completionMessage);
-
-  if (isJsonMode) {
-    outputSuccess('clear', resultData);
-  }
+  return parts.length > 0 ? `Clear complete - ${parts.join(', ')}` : 'Clear complete - no data deleted';
 }
