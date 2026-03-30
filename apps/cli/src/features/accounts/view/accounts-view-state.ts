@@ -37,14 +37,37 @@ export function createAccountsViewState(
   accounts: AccountViewItem[],
   filters: AccountsViewFilters,
   totalCount: number,
-  typeCounts?: TypeCounts
+  typeCounts?: TypeCounts,
+  initialSelectedIndex?: number
 ): AccountsViewState {
+  const selectedIndex = clampSelectedIndex(initialSelectedIndex, accounts.length);
+
   return {
     accounts,
     typeCounts: typeCounts ?? computeTypeCounts(accounts),
     totalCount,
-    selectedIndex: 0,
-    scrollOffset: 0,
+    selectedIndex,
+    scrollOffset: selectedIndex > 0 ? selectedIndex : 0,
     filters,
   };
+}
+
+function clampSelectedIndex(selectedIndex: number | undefined, itemCount: number): number {
+  if (itemCount === 0) {
+    return 0;
+  }
+
+  if (selectedIndex === undefined || !Number.isFinite(selectedIndex)) {
+    return 0;
+  }
+
+  if (selectedIndex < 0) {
+    return 0;
+  }
+
+  if (selectedIndex >= itemCount) {
+    return itemCount - 1;
+  }
+
+  return selectedIndex;
 }

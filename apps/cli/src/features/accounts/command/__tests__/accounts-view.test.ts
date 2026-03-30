@@ -10,8 +10,9 @@ const {
   mockDisplayCliError,
   mockGetByName,
   mockList,
+  mockOutputAccountStaticDetail,
+  mockOutputAccountsStaticList,
   mockOutputSuccess,
-  mockOutputAccountsTextSnapshot,
   mockRenderApp,
   mockResolveCommandProfile,
   mockRunCommand,
@@ -27,8 +28,9 @@ const {
   mockDisplayCliError: vi.fn(),
   mockGetByName: vi.fn(),
   mockList: vi.fn(),
+  mockOutputAccountStaticDetail: vi.fn(),
+  mockOutputAccountsStaticList: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockOutputAccountsTextSnapshot: vi.fn(),
   mockRenderApp: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
@@ -74,8 +76,9 @@ vi.mock('../../view/accounts-view-components.jsx', () => ({
   AccountsViewApp: 'AccountsViewApp',
 }));
 
-vi.mock('../../view/accounts-text-renderer.js', () => ({
-  outputAccountsTextSnapshot: mockOutputAccountsTextSnapshot,
+vi.mock('../../view/accounts-static-renderer.js', () => ({
+  outputAccountStaticDetail: mockOutputAccountStaticDetail,
+  outputAccountsStaticList: mockOutputAccountsStaticList,
 }));
 
 import { registerAccountsViewCommand } from '../accounts-view.js';
@@ -86,7 +89,15 @@ function createAccountsProgram(): Command {
   return program;
 }
 
-function createAccountSummary() {
+function createAccountSummary(overrides: Partial<ReturnType<typeof createBaseAccountSummary>> = {}) {
+  return {
+    ...createBaseAccountSummary(),
+    ...overrides,
+    childAccounts: overrides.childAccounts ?? createBaseAccountSummary().childAccounts,
+  };
+}
+
+function createBaseAccountSummary() {
   return {
     id: 1,
     accountType: 'exchange-api' as const,
@@ -224,7 +235,7 @@ describe('registerAccountsViewCommand', () => {
       platformKey: 'kraken',
       showSessions: true,
     });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('view-accounts', {
+    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-view', {
       data: [
         {
           id: 1,
@@ -347,9 +358,66 @@ describe('registerAccountsViewCommand', () => {
     });
   });
 
-  it('renders the empty-state TUI when no accounts match', async () => {
+  it('preselects the requested account inside the full explorer list on a tty', async () => {
     const program = createAccountsProgram();
+    const firstAccount = createAccountSummary();
+    const selectedAccount = createAccountSummary({
+      id: 2,
+      name: 'wallet-main',
+      platformKey: 'bitcoin',
+      identifier: 'bc1qwalletmainaddress',
+    });
     let renderedElement: ReactElement | undefined;
+
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 2,
+        profileId: 1,
+        name: 'wallet-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'bitcoin',
+        identifier: 'bc1qwalletmainaddress',
+        providerName: undefined,
+        credentials: { apiKey: 'acct-2', apiSecret: 'secret' },
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-03T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [firstAccount, selectedAccount],
+        count: 2,
+        sessions: undefined,
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['accounts', 'view', 'wallet-main'], { from: 'user' });
+
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: undefined,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('AccountsViewApp');
+    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toMatchObject({
+      selectedIndex: 1,
+      scrollOffset: 1,
+      totalCount: 2,
+    });
+  });
+
+  it('short-circuits empty explorer state to the static renderer', async () => {
+    const program = createAccountsProgram();
 
     mockList.mockResolvedValue(
       ok({
@@ -358,16 +426,10 @@ describe('registerAccountsViewCommand', () => {
         sessions: undefined,
       })
     );
-    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
-      renderedElement = create(() => undefined);
-    });
 
     await program.parseAsync(['accounts', 'view'], { from: 'user' });
 
-    expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
-    expect(mockRenderApp).toHaveBeenCalledOnce();
-    expect(renderedElement?.type).toBe('AccountsViewApp');
-    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toEqual({
+    expect(mockOutputAccountsStaticList).toHaveBeenCalledWith({
       accounts: [],
       filters: {
         platformFilter: undefined,
@@ -383,70 +445,11 @@ describe('registerAccountsViewCommand', () => {
         exchangeCsv: 0,
       },
     });
-  });
-
-  it('renders the text snapshot when explicitly requested', async () => {
-    const program = createAccountsProgram();
-    const account = createAccountSummary();
-
-    mockList.mockResolvedValue(
-      ok({
-        accounts: [account],
-        count: 1,
-        sessions: undefined,
-      })
-    );
-
-    await program.parseAsync(['accounts', 'view', '--text'], { from: 'user' });
-
-    expect(mockOutputAccountsTextSnapshot).toHaveBeenCalledWith({
-      accounts: [
-        {
-          id: 1,
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          name: 'kraken-main',
-          identifier: 'acct-1',
-          parentAccountId: undefined,
-          providerName: 'kraken-api',
-          balanceProjectionStatus: 'fresh',
-          balanceProjectionReason: undefined,
-          lastCalculatedAt: '2026-03-12T12:00:00.000Z',
-          lastRefreshAt: '2026-03-12T12:30:00.000Z',
-          verificationStatus: 'match',
-          sessionCount: 2,
-          childAccounts: [
-            {
-              id: 2,
-              identifier: 'acct-child',
-              sessionCount: 1,
-              balanceProjectionStatus: 'fresh',
-              verificationStatus: 'warning',
-            },
-          ],
-          sessions: undefined,
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-      filters: {
-        platformFilter: undefined,
-        typeFilter: undefined,
-        showSessions: false,
-      },
-      selectedIndex: 0,
-      scrollOffset: 0,
-      totalCount: 1,
-      typeCounts: {
-        blockchain: 0,
-        exchangeApi: 1,
-        exchangeCsv: 0,
-      },
-    });
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
   });
 
-  it('falls back to the text snapshot off-terminal without mounting Ink', async () => {
+  it('falls back to the static list renderer off-terminal without mounting Ink', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
@@ -461,7 +464,60 @@ describe('registerAccountsViewCommand', () => {
 
     await program.parseAsync(['accounts', 'view'], { from: 'user' });
 
-    expect(mockOutputAccountsTextSnapshot).toHaveBeenCalledOnce();
+    expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the static detail renderer for selector views off-terminal', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    setTTYFlags(true, false);
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'view', 'kraken-main'], { from: 'user' });
+
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 1,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputAccountStaticDetail).toHaveBeenCalledWith({
+      id: 1,
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      name: 'kraken-main',
+      identifier: 'acct-1',
+      parentAccountId: undefined,
+      providerName: 'kraken-api',
+      balanceProjectionStatus: 'fresh',
+      balanceProjectionReason: undefined,
+      lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+      lastRefreshAt: '2026-03-12T12:30:00.000Z',
+      verificationStatus: 'match',
+      sessionCount: 2,
+      childAccounts: [
+        {
+          id: 2,
+          identifier: 'acct-child',
+          sessionCount: 1,
+          balanceProjectionStatus: 'fresh',
+          verificationStatus: 'warning',
+        },
+      ],
+      sessions: undefined,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
   });
@@ -490,7 +546,44 @@ describe('registerAccountsViewCommand', () => {
       platformKey: undefined,
       showSessions: undefined,
     });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('view-accounts', expect.anything());
+    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-view', {
+      data: {
+        id: 1,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        name: 'kraken-main',
+        identifier: 'acct-1',
+        parentAccountId: undefined,
+        providerName: 'kraken-api',
+        balanceProjectionStatus: 'fresh',
+        balanceProjectionReason: undefined,
+        lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+        lastRefreshAt: '2026-03-12T12:30:00.000Z',
+        verificationStatus: 'match',
+        sessionCount: 2,
+        childAccounts: [
+          {
+            id: 2,
+            identifier: 'acct-child',
+            sessionCount: 1,
+            balanceProjectionStatus: 'fresh',
+            verificationStatus: 'warning',
+          },
+        ],
+        sessions: undefined,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      meta: {
+        count: 1,
+        offset: 0,
+        limit: 1,
+        hasMore: false,
+        filters: {
+          accountName: 'kraken-main',
+          accountId: 1,
+        },
+      },
+    });
 
     const payload: unknown = mockOutputSuccess.mock.calls[0]?.[1];
     expect(payload).toBeDefined();
@@ -506,10 +599,10 @@ describe('registerAccountsViewCommand', () => {
     mockGetByName.mockResolvedValue(ok(undefined));
 
     await expect(program.parseAsync(['accounts', 'view', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
-      "CLI:view-accounts:text:Account 'ghost-wallet' not found"
+      "CLI:accounts-view:text:Account 'ghost-wallet' not found"
     );
 
-    expect(mockDisplayCliError).toHaveBeenCalledWith('view-accounts', expect.any(Error), 4, 'text');
+    expect(mockDisplayCliError).toHaveBeenCalledWith('accounts-view', expect.any(Error), 4, 'text');
     expect(mockList).not.toHaveBeenCalled();
   });
 

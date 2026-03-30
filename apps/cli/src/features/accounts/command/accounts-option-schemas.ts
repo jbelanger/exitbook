@@ -6,9 +6,8 @@ import {
   JsonFlagSchema,
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
-import { PresentationFlagSchema } from '../../shared/presentation/presentation-options.js';
 
-export const AccountsViewCommandOptionsSchema = PresentationFlagSchema.extend({
+export const AccountsViewCommandOptionsSchema = JsonFlagSchema.extend({
   accountId: z.number().int().positive().optional(),
   platform: z.string().optional(),
   type: z.string().optional(),

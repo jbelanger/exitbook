@@ -3,9 +3,8 @@ import type { z } from 'zod';
 import { getCliCommandErrorExitCode } from './cli-command-error.js';
 import { displayCliError } from './cli-error.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
-import type { CommandPresentationSpec } from './presentation/command-presentation.js';
-import { resolvePresentationMode } from './presentation/command-presentation.js';
-import type { PresentationMode } from './presentation/presentation-mode.js';
+import type { BrowseSurfaceSpec, ResolvedBrowsePresentation } from './presentation/browse-surface.js';
+import { resolveBrowsePresentation } from './presentation/browse-surface.js';
 
 export type CliOutputFormat = 'json' | 'text';
 
@@ -49,13 +48,13 @@ export function parseCliCommandOptions<T>(
   };
 }
 
-export function parseCliPresentationOptions<T>(
+export function parseCliBrowseOptions<T>(
   command: string,
   rawOptions: unknown,
   schema: z.ZodType<T>,
-  spec: CommandPresentationSpec,
+  spec: BrowseSurfaceSpec,
   invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
-): { mode: PresentationMode; options: T } {
+): { options: T; presentation: ResolvedBrowsePresentation } {
   const format = detectCliOutputFormat(rawOptions);
   const parseResult = schema.safeParse(rawOptions);
 
@@ -68,15 +67,15 @@ export function parseCliPresentationOptions<T>(
     );
   }
 
-  let mode: PresentationMode;
+  let presentation: ResolvedBrowsePresentation;
   try {
-    mode = resolvePresentationMode(spec, rawOptions);
+    presentation = resolveBrowsePresentation(spec, rawOptions);
   } catch (error) {
     displayCliError(command, toCliError(error), invalidExitCode, format);
   }
 
   return {
-    mode,
+    presentation,
     options: parseResult.data,
   };
 }

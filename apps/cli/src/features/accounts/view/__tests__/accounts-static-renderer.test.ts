@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildAccountsTextSnapshot } from '../accounts-text-renderer.js';
+import { buildAccountStaticDetail, buildAccountsStaticList } from '../accounts-static-renderer.js';
 
 const ansiPattern = new RegExp(String.raw`\u001B\[[0-9;]*m`, 'g');
 
@@ -8,9 +8,9 @@ function stripAnsi(value: string): string {
   return value.replace(ansiPattern, '');
 }
 
-describe('buildAccountsTextSnapshot', () => {
+describe('buildAccountsStaticList', () => {
   it('renders the header and list rows without TUI chrome', () => {
-    const output = buildAccountsTextSnapshot({
+    const output = buildAccountsStaticList({
       accounts: [
         {
           id: 1,
@@ -64,8 +64,8 @@ describe('buildAccountsTextSnapshot', () => {
     expect(stripAnsi(output)).not.toContain('Identifier:');
   });
 
-  it('renders the filtered empty state as a compact snapshot', () => {
-    const output = buildAccountsTextSnapshot({
+  it('renders the filtered empty state as a compact static list', () => {
+    const output = buildAccountsStaticList({
       accounts: [],
       filters: {
         platformFilter: 'kraken',
@@ -85,5 +85,53 @@ describe('buildAccountsTextSnapshot', () => {
     expect(stripAnsi(output)).toContain('\nAccounts (kraken) 0 total\n');
     expect(stripAnsi(output)).toContain('No accounts found for kraken.');
     expect(stripAnsi(output)).not.toContain('Tip:');
+  });
+});
+
+describe('buildAccountStaticDetail', () => {
+  it('renders a compact detail card without TUI chrome', () => {
+    const output = buildAccountStaticDetail({
+      id: 1,
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      name: 'kraken-main',
+      identifier: 'acct-1',
+      parentAccountId: undefined,
+      providerName: 'kraken-api',
+      balanceProjectionStatus: 'fresh',
+      balanceProjectionReason: undefined,
+      lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+      lastRefreshAt: '2026-03-12T12:30:00.000Z',
+      verificationStatus: 'match',
+      sessionCount: 2,
+      childAccounts: [
+        {
+          id: 2,
+          identifier: 'acct-child',
+          sessionCount: 1,
+          balanceProjectionStatus: 'fresh',
+          verificationStatus: 'warning',
+        },
+      ],
+      sessions: [
+        {
+          id: 10,
+          status: 'completed',
+          startedAt: '2026-03-12T10:00:00.000Z',
+          completedAt: '2026-03-12T10:05:00.000Z',
+        },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(stripAnsi(output)).toContain('\nkraken-main #1 kraken exchange-api\n');
+    expect(stripAnsi(output)).toContain('Name: kraken-main');
+    expect(stripAnsi(output)).toContain('Identifier: acct-1');
+    expect(stripAnsi(output)).toContain('Provider: kraken-api');
+    expect(stripAnsi(output)).toContain('Verification: ✓ verified · Projection: ✓ fresh');
+    expect(stripAnsi(output)).toContain('Derived addresses (1)');
+    expect(stripAnsi(output)).toContain('Recent sessions');
+    expect(stripAnsi(output)).not.toContain('↑↓/j/k');
+    expect(stripAnsi(output)).not.toContain('q quit');
   });
 });
