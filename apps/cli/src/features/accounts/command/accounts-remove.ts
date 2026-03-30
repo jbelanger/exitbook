@@ -8,7 +8,7 @@ import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
-import { promptConfirm } from '../../shared/prompts.js';
+import { promptConfirmDecision } from '../../shared/prompts.js';
 
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
@@ -67,14 +67,17 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
 
                     if (!options.confirm && !options.json) {
                       outputRemovalPreview(accountName, preview);
-                      const shouldProceed = await promptConfirm(
+                      const decision = await promptConfirmDecision(
                         `Delete account ${accountName} and all attached data?`,
                         false
                       );
-                      if (!shouldProceed) {
-                        return textSuccess(() => {
-                          console.error('Account removal cancelled');
-                        });
+                      if (decision !== 'confirmed') {
+                        return textSuccess(
+                          () => {
+                            console.error('Account removal cancelled');
+                          },
+                          decision === 'cancelled' ? ExitCodes.CANCELLED : undefined
+                        );
                       }
                     }
 

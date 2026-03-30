@@ -151,6 +151,26 @@
   - TUI path: render inside runtime, then return `silentSuccess()`.
   - Terminal path: return `CliCompletion` so JSON output and empty-result text still route through the shared boundary.
 
-- Prompt cancellation is still not globally solved.
-  - `clear` no longer depends on the old prompt-cancellation helper.
-  - `promptConfirm(...)` and `handleCancellation(...)` still remain for other command families, especially `import` and the remaining confirmation paths.
+## Phase 5: Prompt cancellation cleanup
+
+### What worked
+
+- Prompt helpers should return user intent, not terminate the process.
+  - `promptConfirmDecision(...)` now returns `'confirmed' | 'declined' | 'cancelled'`.
+  - That keeps Ctrl+C localized as data and lets each command decide whether decline/cancel should be zero-success or `CANCELLED`.
+
+- Local cancellation outcomes are better than generic failures for workflow seams.
+  - `import` now returns a `{ kind: 'cancelled' }` outcome from the workflow helper path instead of manufacturing an error.
+  - The command adapter maps that one known case to a cancelled completion without teaching the whole shared boundary about import-specific behavior.
+
+- Removing the old helper was cleaner than carrying both APIs.
+  - `handleCancellation(...)` and the boolean `promptConfirm(...)` wrapper would have kept two prompt contracts alive.
+  - Migrating both `import` and `accounts remove` in the same pass avoided that split.
+
+### Constraints confirmed
+
+- Cancellation semantics still belong to the command, not the prompt helper.
+  - `import` treats decline/cancel as a cancelled completion because the user explicitly aborted the workflow.
+  - `accounts remove` now distinguishes decline from Ctrl+C:
+    - decline stays a normal text completion
+    - Ctrl+C becomes `CANCELLED`

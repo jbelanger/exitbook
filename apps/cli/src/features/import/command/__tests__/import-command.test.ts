@@ -5,12 +5,13 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+import { ExitCodes } from '../../../shared/exit-codes.js';
 
 const {
   mockCtx,
   mockExitCliFailure,
   mockOutputSuccess,
-  mockPromptConfirm,
+  mockPromptConfirmDecision,
   mockResolveImportAccount,
   mockRunCommand,
   mockRunImport,
@@ -22,7 +23,7 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockPromptConfirm: vi.fn(),
+  mockPromptConfirmDecision: vi.fn(),
   mockResolveImportAccount: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunImport: vi.fn(),
@@ -48,14 +49,19 @@ vi.mock('../import-command-scope.js', () => ({
   withImportCommandScope: mockWithImportCommandScope,
 }));
 
-vi.mock('../run-import.js', () => ({
-  resolveImportAccount: mockResolveImportAccount,
-  runImport: mockRunImport,
-  runImportAll: mockRunImportAll,
-}));
+vi.mock('../run-import.js', async () => {
+  const actual = await vi.importActual<typeof import('../run-import.js')>('../run-import.js');
+
+  return {
+    ...actual,
+    resolveImportAccount: mockResolveImportAccount,
+    runImport: mockRunImport,
+    runImportAll: mockRunImportAll,
+  };
+});
 
 vi.mock('../../../shared/prompts.js', () => ({
-  promptConfirm: mockPromptConfirm,
+  promptConfirmDecision: mockPromptConfirmDecision,
 }));
 
 import { ImportCommandOptionsSchema } from '../import-option-schemas.js';
@@ -126,7 +132,15 @@ beforeEach(() => {
     })
   );
   mockResolveImportAccount.mockResolvedValue(ok(makeAccount()));
-  mockRunImport.mockResolvedValue(ok({ sessions: [makeSession()], runStats: { totalRequests: 0 } }));
+  mockRunImport.mockResolvedValue(
+    ok({
+      kind: 'completed',
+      result: {
+        sessions: [makeSession()],
+        runStats: { totalRequests: 0 },
+      },
+    })
+  );
   mockRunImportAll.mockResolvedValue(
     ok({
       accounts: [],
@@ -136,7 +150,7 @@ beforeEach(() => {
       totalCount: 0,
     })
   );
-  mockPromptConfirm.mockResolvedValue(true);
+  mockPromptConfirmDecision.mockResolvedValue('confirmed');
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -364,5 +378,20 @@ describe('import command', () => {
         syncMode: 'resuming',
       },
     ]);
+  });
+
+  it('maps import cancellation to the shared cancelled exit code', async () => {
+    const program = createImportProgram();
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockRunImport.mockResolvedValue(ok({ kind: 'cancelled' }));
+
+    await program.parseAsync(['import', '--account', 'kraken-main'], { from: 'user' });
+
+    expect(mockExitCliFailure).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith('Import cancelled by user');
+    expect(mockProcessExit).toHaveBeenCalledWith(ExitCodes.CANCELLED);
+
+    consoleError.mockRestore();
   });
 });

@@ -5,11 +5,11 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
+import { cliErr, jsonSuccess, silentSuccess, textSuccess, type CliCommandResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { promptConfirm } from '../../shared/prompts.js';
+import { promptConfirmDecision } from '../../shared/prompts.js';
 
 import { withImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
@@ -83,14 +83,13 @@ type ImportCommandExecution =
       result: BatchImportExecuteResult;
     }
   | {
+      kind: 'single-cancelled';
+    }
+  | {
       account: Account;
-      kind: 'single';
+      kind: 'single-completed';
       result: ImportExecuteResult;
     };
-
-// TODO(cli-rework): Revisit whether `import` should model prompt decline as an
-// explicit cancelled completion once prompt-first/destructive flows are
-// migrated. Right now the lower workflow still returns a plain Error.
 
 export function registerImportCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
@@ -139,30 +138,37 @@ async function executeImportCommandResult(
     appRuntime,
     action: async (ctx) =>
       resultDoAsync(async function* () {
-        const execution = yield* toCliResult(
-          await withImportCommandScope(ctx, async (scope) =>
-            resultDoAsync(async function* () {
-              if (options.all) {
-                const result = yield* await runImportAll(scope, { format });
-                return {
-                  kind: 'batch' as const,
-                  result,
-                };
-              }
-
-              const account = yield* await resolveImportAccount(scope, options);
-              const result = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+        const executionResult = await withImportCommandScope(ctx, async (scope) =>
+          resultDoAsync(async function* () {
+            if (options.all) {
+              const result = yield* await runImportAll(scope, { format });
               return {
-                kind: 'single' as const,
-                account,
+                kind: 'batch' as const,
                 result,
               };
-            })
-          ),
-          ExitCodes.GENERAL_ERROR
+            }
+
+            const account = yield* await resolveImportAccount(scope, options);
+            const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+            if (outcome.kind === 'cancelled') {
+              return {
+                kind: 'single-cancelled' as const,
+              };
+            }
+
+            return {
+              kind: 'single-completed' as const,
+              account,
+              result: outcome.result,
+            };
+          })
         );
 
-        return buildImportCompletion(execution, format);
+        if (executionResult.isErr()) {
+          return yield* cliErr(executionResult.error, ExitCodes.GENERAL_ERROR);
+        }
+
+        return buildImportCompletion(executionResult.value, format);
       }),
   });
 }
@@ -188,7 +194,7 @@ function buildSingleImportParams(account: Account, format: CliOutputFormat) {
       );
       process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
       process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
-      return await promptConfirm('Continue with single address import?', false);
+      return await promptConfirmDecision('Continue with single address import?', false);
     },
   };
 }
@@ -201,6 +207,16 @@ function buildImportCompletion(execution: ImportCommandExecution, format: CliOut
     }
 
     return silentSuccess(exitCode);
+  }
+
+  if (execution.kind === 'single-cancelled') {
+    if (format === 'json') {
+      return silentSuccess(ExitCodes.CANCELLED);
+    }
+
+    return textSuccess(() => {
+      console.error('Import cancelled by user');
+    }, ExitCodes.CANCELLED);
   }
 
   if (format === 'json') {

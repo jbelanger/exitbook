@@ -13,6 +13,7 @@ import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../.
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import type { CliOutputFormat } from '../../shared/cli-output-format.js';
+import type { ConfirmationPromptDecision } from '../../shared/prompts.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
@@ -26,6 +27,15 @@ export interface ImportExecuteResult {
   sessions: ImportSession[];
   runStats: MetricsSummary;
 }
+
+export type ImportRunOutcome =
+  | {
+      kind: 'cancelled';
+    }
+  | {
+      kind: 'completed';
+      result: ImportExecuteResult;
+    };
 
 export interface BatchImportAccountResult {
   account: {
@@ -75,17 +85,25 @@ interface BatchImportAccountPlan {
   syncMode: BatchImportSyncMode;
 }
 
+type SingleAddressWarningStatus = 'cancelled' | 'continue';
+
 const logger = getLogger('ImportRunner');
 
 export async function executeImportWithRuntime(
   runtime: ImportExecutionRuntime,
-  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
-): Promise<Result<ImportExecuteResult, Error>> {
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<ConfirmationPromptDecision>) | undefined }
+): Promise<Result<ImportRunOutcome, Error>> {
   const warningResult = await checkSingleAddressWarning(runtime, params);
   if (warningResult.isErr()) {
     runtime.ingestionMonitor?.fail(warningResult.error.message);
     await runtime.ingestionMonitor?.stop();
     return err(warningResult.error);
+  }
+  if (warningResult.value === 'cancelled') {
+    await runtime.ingestionMonitor?.stop();
+    return ok({
+      kind: 'cancelled',
+    });
   }
 
   const importResult = await runtime.importWorkflow.execute(params);
@@ -110,8 +128,11 @@ export async function executeImportWithRuntime(
 
   await runtime.ingestionMonitor?.stop();
   return ok({
-    sessions,
-    runStats: runtime.instrumentation.getSummary(),
+    kind: 'completed',
+    result: {
+      sessions,
+      runStats: runtime.instrumentation.getSummary(),
+    },
   });
 }
 
@@ -130,8 +151,8 @@ export function abortImportRuntime(runtime: ImportExecutionRuntime): void {
 export async function runImport(
   scope: ImportCommandScope,
   options: { format: CliOutputFormat },
-  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
-): Promise<Result<ImportExecuteResult, Error>> {
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<ConfirmationPromptDecision>) | undefined }
+): Promise<Result<ImportRunOutcome, Error>> {
   try {
     const database = scope.database;
     const registry = scope.registry;
@@ -258,8 +279,34 @@ export async function runImportAll(
           });
           continue;
         }
+        if (importResult.value.kind === 'cancelled') {
+          logger.warn(
+            { accountId: batchAccount.account.id },
+            'Batch import returned a cancelled outcome even though batch mode should not prompt'
+          );
+          failedCount += 1;
+          batchEventBus.emit({
+            type: 'batch.account.failed',
+            accountId: batchAccount.account.id,
+            error: 'Import cancelled by user',
+            imported: 0,
+            skipped: 0,
+          });
 
-        const counts = summarizeImportSessions(importResult.value.sessions);
+          accountResults.push({
+            account: toBatchImportAccount(batchAccount.account),
+            counts: {
+              imported: 0,
+              skipped: 0,
+            },
+            errorMessage: 'Import cancelled by user',
+            status: 'failed',
+            syncMode: batchAccount.syncMode,
+          });
+          continue;
+        }
+
+        const counts = summarizeImportSessions(importResult.value.result.sessions);
         batchEventBus.emit({
           type: 'batch.account.completed',
           accountId: batchAccount.account.id,
@@ -306,10 +353,10 @@ export async function runImportAll(
 
 async function checkSingleAddressWarning(
   runtime: ImportExecutionRuntime,
-  params: ImportParams & { onSingleAddressWarning?: (() => Promise<boolean>) | undefined }
-): Promise<Result<void, Error>> {
+  params: ImportParams & { onSingleAddressWarning?: (() => Promise<ConfirmationPromptDecision>) | undefined }
+): Promise<Result<SingleAddressWarningStatus, Error>> {
   if (!params.onSingleAddressWarning) {
-    return ok(undefined);
+    return ok('continue');
   }
 
   const accountResult = await runtime.findAccountById(params.accountId);
@@ -322,28 +369,25 @@ async function checkSingleAddressWarning(
 
   const account = accountResult.value;
   if (account.accountType !== 'blockchain' || account.parentAccountId !== undefined) {
-    return ok(undefined);
+    return ok('continue');
   }
 
   const adapterResult = runtime.registry.getBlockchain(account.platformKey.toLowerCase());
   if (adapterResult.isErr()) {
-    return ok(undefined);
+    return ok('continue');
   }
 
   if (isUtxoAdapter(adapterResult.value)) {
     const isXpub = adapterResult.value.isExtendedPublicKey(account.identifier);
     if (!isXpub) {
-      const shouldContinue = await params.onSingleAddressWarning();
-      if (!shouldContinue) {
-        // TODO(cli-rework): Return a typed cancellation result/error here so the
-        // shared command boundary can map prompt decline to CANCELLED instead of
-        // collapsing it into a generic command failure.
-        return err(new Error('Import cancelled by user'));
+      const decision = await params.onSingleAddressWarning();
+      if (decision !== 'confirmed') {
+        return ok('cancelled');
       }
     }
   }
 
-  return ok(undefined);
+  return ok('continue');
 }
 
 function buildImportExecutionRuntime(

@@ -5,33 +5,24 @@ import { ExitPromptError } from '@inquirer/core';
  * Reusable prompt helpers for the CLI.
  */
 
-/**
- * TODO(cli-rework): Legacy direct-exit helper for prompt cancellation. Verify
- * whether this is still needed once prompt flows return explicit cancellation
- * results to the shared CLI boundary.
- * @deprecated Prefer surfacing cancellation as data and letting the outer
- * command boundary choose the exit behavior.
- */
-export function handleCancellation(message = 'Operation cancelled'): never {
-  console.error(message);
-  process.exit(0);
-}
+export type ConfirmationPromptDecision = 'cancelled' | 'confirmed' | 'declined';
 
 /**
- * Prompt for confirmation.
+ * Prompt for confirmation without exiting from the helper on Ctrl+C.
  */
-export async function promptConfirm(message: string, initialValue = true): Promise<boolean> {
+export async function promptConfirmDecision(message: string, initialValue = true): Promise<ConfirmationPromptDecision> {
   try {
-    return await confirm({
+    const confirmed = await confirm({
       message,
       default: initialValue,
     });
+
+    return confirmed ? 'confirmed' : 'declined';
   } catch (error) {
-    // Only treat explicit user cancellation (Ctrl+C) as successful exit
     if (error instanceof ExitPromptError) {
-      handleCancellation();
+      return 'cancelled';
     }
-    // Propagate other errors (prompt failures, I/O errors, etc.)
+
     throw error;
   }
 }

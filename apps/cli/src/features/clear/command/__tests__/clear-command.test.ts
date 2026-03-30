@@ -233,4 +233,15 @@ describe('clear command', () => {
     expect(mockExitCliFailure).toHaveBeenCalledWith('clear', expect.objectContaining({ exitCode: 1 }), 'json');
     expect(mockRenderApp).not.toHaveBeenCalled();
   });
+
+  it('treats invalid clear options as invalid-args failures', async () => {
+    const program = createProgram();
+
+    await expect(program.parseAsync(['clear', '--account-id', '0', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:clear:json:Too small: expected number to be >0:2'
+    );
+
+    expect(mockExitCliFailure).toHaveBeenCalledWith('clear', expect.objectContaining({ exitCode: 2 }), 'json');
+    expect(mockRunCommand).not.toHaveBeenCalled();
+  });
 });

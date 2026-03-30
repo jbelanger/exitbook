@@ -16,7 +16,7 @@ const {
   mockGetByName,
   mockOutputSuccess,
   mockPrepareAccountRemoval,
-  mockPromptConfirm,
+  mockPromptConfirmDecision,
   mockRename,
   mockResolveCommandProfile,
   mockRunAccountRemoval,
@@ -35,7 +35,7 @@ const {
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPrepareAccountRemoval: vi.fn(),
-  mockPromptConfirm: vi.fn(),
+  mockPromptConfirmDecision: vi.fn(),
   mockRename: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunAccountRemoval: vi.fn(),
@@ -80,13 +80,15 @@ vi.mock('../run-accounts-remove.js', () => ({
 }));
 
 vi.mock('../../../shared/prompts.js', () => ({
-  promptConfirm: mockPromptConfirm,
+  promptConfirmDecision: mockPromptConfirmDecision,
 }));
 
 import { registerAccountsAddCommand } from '../accounts-add.js';
 import { registerAccountsRemoveCommand } from '../accounts-remove.js';
 import { registerAccountsRenameCommand } from '../accounts-rename.js';
 import { registerAccountsUpdateCommand } from '../accounts-update.js';
+
+const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
 function createAccountsProgram(): Command {
   const program = new Command();
@@ -146,7 +148,7 @@ beforeEach(() => {
         },
       })
   );
-  mockPromptConfirm.mockResolvedValue(true);
+  mockPromptConfirmDecision.mockResolvedValue('confirmed');
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -505,5 +507,37 @@ describe('accounts lifecycle commands', () => {
       },
       undefined
     );
+  });
+
+  it('maps interrupted account removal prompts to cancelled exit semantics', async () => {
+    const program = createAccountsProgram();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    mockPrepareAccountRemoval.mockResolvedValue(
+      ok({
+        accountIds: [7],
+        accountName: 'kraken-main',
+        preview: {
+          accounts: 1,
+          rawData: 4,
+          sessions: 2,
+          transactions: 8,
+          links: 3,
+          assetReviewStates: 1,
+          balanceSnapshots: 1,
+          balanceSnapshotAssets: 5,
+          costBasisSnapshots: 6,
+        },
+      })
+    );
+    mockPromptConfirmDecision.mockResolvedValue('cancelled');
+
+    await program.parseAsync(['accounts', 'remove', 'kraken-main'], { from: 'user' });
+
+    expect(mockRunAccountRemoval).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith('Account removal cancelled');
+    expect(mockProcessExit).toHaveBeenCalledWith(ExitCodes.CANCELLED);
+
+    consoleError.mockRestore();
   });
 });

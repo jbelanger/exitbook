@@ -105,7 +105,13 @@ describe('import runner helpers', () => {
       const result = await executeImportWithRuntime(runtime, params);
 
       const importResult = assertOk(result);
-      expect(importResult.sessions).toEqual([session]);
+      expect(importResult).toEqual({
+        kind: 'completed',
+        result: {
+          sessions: [session],
+          runStats: { totalRequests: 0 },
+        },
+      });
       expect(mockImportWorkflow.execute).toHaveBeenCalledWith(params);
       expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
@@ -144,17 +150,21 @@ describe('import runner helpers', () => {
       mockFindAccountById.mockResolvedValue(ok(makeAccount()));
       vi.mocked(isUtxoAdapter).mockReturnValue(true);
 
-      const onSingleAddressWarning = vi.fn().mockResolvedValue(false);
+      const onSingleAddressWarning = vi.fn().mockResolvedValue('declined');
 
       const result = await executeImportWithRuntime(runtime, {
         accountId: 1,
         onSingleAddressWarning,
       });
 
-      const error = assertErr(result);
-      expect(error.message).toContain('cancelled');
+      const outcome = assertOk(result);
+      expect(outcome).toEqual({
+        kind: 'cancelled',
+      });
       expect(onSingleAddressWarning).toHaveBeenCalled();
       expect(mockImportWorkflow.execute).not.toHaveBeenCalled();
+      expect(mockIngestionMonitor.fail).not.toHaveBeenCalled();
+      expect(mockIngestionMonitor.stop).toHaveBeenCalledOnce();
     });
 
     it('should proceed when user accepts single-address warning', async () => {
@@ -166,14 +176,20 @@ describe('import runner helpers', () => {
       const session = makeSession();
       mockImportWorkflow.execute.mockResolvedValue(ok({ sessions: [session] }));
 
-      const onSingleAddressWarning = vi.fn().mockResolvedValue(true);
+      const onSingleAddressWarning = vi.fn().mockResolvedValue('confirmed');
 
       const result = await executeImportWithRuntime(runtime, {
         accountId: 1,
         onSingleAddressWarning,
       });
 
-      expect(result.isOk()).toBe(true);
+      expect(assertOk(result)).toEqual({
+        kind: 'completed',
+        result: {
+          sessions: [session],
+          runStats: { totalRequests: 0 },
+        },
+      });
       expect(mockImportWorkflow.execute).toHaveBeenCalled();
     });
 
@@ -193,7 +209,13 @@ describe('import runner helpers', () => {
         onSingleAddressWarning,
       });
 
-      expect(result.isOk()).toBe(true);
+      expect(assertOk(result)).toEqual({
+        kind: 'completed',
+        result: {
+          sessions: [session],
+          runStats: { totalRequests: 0 },
+        },
+      });
       expect(onSingleAddressWarning).not.toHaveBeenCalled();
     });
 
@@ -202,7 +224,7 @@ describe('import runner helpers', () => {
 
       const result = await executeImportWithRuntime(runtime, {
         accountId: 999,
-        onSingleAddressWarning: vi.fn(),
+        onSingleAddressWarning: vi.fn().mockResolvedValue('confirmed'),
       });
 
       const error = assertErr(result);

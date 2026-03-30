@@ -57,7 +57,7 @@ async function executeClearCommand(rawOptions: unknown): Promise<void> {
         const options = yield* parseCliCommandOptionsResult(
           rawOptions,
           ClearCommandOptionsSchema,
-          ExitCodes.GENERAL_ERROR
+          ExitCodes.INVALID_ARGS
         );
 
         if (format === 'text' && options.confirm !== true) {
