@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 const { mockDisplayCliError } = vi.hoisted(() => ({
   mockDisplayCliError: vi.fn(),
@@ -9,7 +10,11 @@ vi.mock('../cli-error.js', () => ({
   displayCliError: mockDisplayCliError,
 }));
 
-import { parseCliBrowseRootInvocation } from '../command-options.js';
+import {
+  parseCliBrowseRootInvocation,
+  parseCliBrowseRootInvocationResult,
+  parseCliCommandOptionsResult,
+} from '../command-options.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,5 +59,32 @@ describe('parseCliBrowseRootInvocation', () => {
       selector: undefined,
       rawOptions: {},
     });
+  });
+
+  it('returns result failures without exiting in the new result-based helper', () => {
+    const invocationResult = parseCliBrowseRootInvocationResult(['first', 'second', '--json'], (command) =>
+      command.option('--json')
+    );
+
+    expect(invocationResult.isErr()).toBe(true);
+    if (invocationResult.isErr()) {
+      expect(invocationResult.error.exitCode).toBe(2);
+      expect(invocationResult.error.error.message).toBe('error: too many arguments. Expected 1 argument but got 2.');
+    }
+  });
+
+  it('returns result failures for invalid option payloads', () => {
+    const optionsResult = parseCliCommandOptionsResult(
+      { json: 'yes' },
+      z.object({
+        json: z.boolean().optional(),
+      })
+    );
+
+    expect(optionsResult.isErr()).toBe(true);
+    if (optionsResult.isErr()) {
+      expect(optionsResult.error.exitCode).toBe(2);
+      expect(optionsResult.error.error.message).toContain('expected boolean');
+    }
   });
 });

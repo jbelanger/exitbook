@@ -12,6 +12,7 @@ Goals:
 - create a migration order that does not leave legacy boundary patterns behind
 
 This document is intentionally iterative. It should be updated as command batches are reviewed.
+Implementation notes and proving-ground adjustments should also be captured in [cli-command-rework-lessons-learned.md](/Users/joel/Dev/exitbook/docs/dev/cli-command-rework-lessons-learned.md).
 
 ## Why This Exists
 

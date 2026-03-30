@@ -1,10 +1,10 @@
 import type { Profile } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
+import { runCliRuntimeCommand } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliProfileService } from '../profile-service.js';
 
 export function registerProfilesListCommand(profilesCommand: Command): void {
@@ -25,45 +25,34 @@ Notes:
     .option('--json', 'Output results in JSON format')
     .action(async (options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';
+      await runCliRuntimeCommand({
+        command: 'profiles-list',
+        format,
+        action: async (ctx) =>
+          resultDoAsync(async function* () {
+            const db = await ctx.database();
+            const profileService = buildCliProfileService(db);
 
-      try {
-        await runCommand(async (ctx) => {
-          const db = await ctx.database();
-          const profileService = buildCliProfileService(db);
-          const defaultProfileResult = await profileService.findOrCreateDefault();
-          if (defaultProfileResult.isErr()) {
-            displayCliError('profiles-list', defaultProfileResult.error, ExitCodes.GENERAL_ERROR, format);
-          }
+            yield* toCliResult(await profileService.findOrCreateDefault(), ExitCodes.GENERAL_ERROR);
 
-          const profilesResult = await profileService.list();
-          if (profilesResult.isErr()) {
-            displayCliError('profiles-list', profilesResult.error, ExitCodes.GENERAL_ERROR, format);
-          }
+            const profiles = yield* toCliResult(await profileService.list(), ExitCodes.GENERAL_ERROR);
+            const activeProfileKey = ctx.activeProfileKey;
 
-          const profiles = profilesResult.value;
-          const activeProfileKey = ctx.activeProfileKey;
+            if (format === 'json') {
+              return jsonSuccess({
+                activeProfileKey,
+                profiles: profiles.map((profile) => toProfileListItem(profile, activeProfileKey)),
+              });
+            }
 
-          if (options.json) {
-            outputSuccess('profiles-list', {
-              activeProfileKey,
-              profiles: profiles.map((profile) => toProfileListItem(profile, activeProfileKey)),
+            return textSuccess(() => {
+              for (const profile of profiles) {
+                const marker = profile.profileKey === activeProfileKey ? '*' : ' ';
+                console.log(`${marker} ${profile.displayName} [key: ${profile.profileKey}]`);
+              }
             });
-            return;
-          }
-
-          for (const profile of profiles) {
-            const marker = profile.profileKey === activeProfileKey ? '*' : ' ';
-            console.log(`${marker} ${profile.displayName} [key: ${profile.profileKey}]`);
-          }
-        });
-      } catch (error) {
-        displayCliError(
-          'profiles-list',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR,
-          format
-        );
-      }
+          }),
+      });
     });
 }
 

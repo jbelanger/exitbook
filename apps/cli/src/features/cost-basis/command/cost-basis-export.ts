@@ -11,17 +11,19 @@ import {
   type TaxPackageIssue,
   type WrittenTaxPackageFile,
 } from '@exitbook/accounting/cost-basis';
-import { err, ok, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult, type CliCompletion } from '../../shared/cli-contract.js';
+import {
+  detectCliOutputFormat,
+  parseCliCommandOptionsResult,
+  type CliOutputFormat,
+} from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
-import { outputSuccess } from '../../shared/json-output.js';
-import { unwrapResult } from '../../shared/result-utils.js';
 
 import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
 import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
@@ -76,108 +78,74 @@ Examples:
 }
 
 async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    'cost-basis-export',
-    rawOptions,
-    CostBasisExportCommandOptionsSchema
-  );
-  const isJson = format === 'json';
+  const command = 'cost-basis-export';
+  const format = detectCliOutputFormat(rawOptions);
 
-  try {
-    const params = unwrapResult(buildCostBasisInputFromFlags(options));
-    const scopeValidation = validateTaxPackageScope({
-      config: params,
-      asset: options.asset,
-    });
-    if (scopeValidation.isErr()) {
-      displayCliError('cost-basis-export', scopeValidation.error, ExitCodes.VALIDATION_ERROR, isJson ? 'json' : 'text');
-      return;
-    }
-
-    const scope = scopeValidation.value;
-
-    const outputDir = resolveCostBasisExportOutputDir(options.output, buildDefaultOutputDir(params));
-    await mkdir(outputDir, { recursive: true });
-
-    await runCommand(appRuntime, async (ctx) => {
-      const artifactResult = await withCostBasisCommandScope(
-        ctx,
-        { format: isJson ? 'json' : 'text', params },
-        (scope) => runCostBasisArtifact(scope, params, { refresh: options.refresh })
-      );
-      if (artifactResult.isErr()) {
-        displayCliError('cost-basis-export', artifactResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
-      }
-
-      const buildContextResult = buildTaxPackageBuildContext({
-        artifact: artifactResult.value.artifact,
-        sourceContext: artifactResult.value.sourceContext,
-        scopeKey: artifactResult.value.scopeKey,
-        snapshotId: artifactResult.value.snapshotId,
-      });
-      if (buildContextResult.isErr()) {
-        displayCliError(
-          'cost-basis-export',
-          buildContextResult.error,
-          ExitCodes.GENERAL_ERROR,
-          isJson ? 'json' : 'text'
+  await runCliCommandBoundary({
+    command,
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, CostBasisExportCommandOptionsSchema);
+        const params = yield* toCliResult(buildCostBasisInputFromFlags(options), ExitCodes.VALIDATION_ERROR);
+        const scope = yield* toCliResult(
+          validateTaxPackageScope({
+            config: params,
+            asset: options.asset,
+          }),
+          ExitCodes.VALIDATION_ERROR
         );
-      }
 
-      const readinessMetadata = deriveTaxPackageReadinessMetadata({
-        context: buildContextResult.value,
-        assetReviewSummaries: artifactResult.value.assetReviewSummaries,
-      });
+        const outputDir = resolveCostBasisExportOutputDir(options.output, buildDefaultOutputDir(params));
+        await mkdir(outputDir, { recursive: true });
 
-      const exportResult = await exportTaxPackage(
-        {
-          context: buildContextResult.value,
-          readinessMetadata,
-          scope,
-        },
-        {
-          now: () => new Date(),
-          writer: new TaxPackageDirectoryWriter(outputDir),
-        }
-      );
-      if (exportResult.isErr()) {
-        displayCliError('cost-basis-export', exportResult.error, ExitCodes.GENERAL_ERROR, isJson ? 'json' : 'text');
-      }
+        return yield* await captureCliRuntimeResult({
+          command,
+          appRuntime,
+          action: async (ctx) =>
+            resultDoAsync(async function* () {
+              const artifactResult = yield* toCliResult(
+                await withCostBasisCommandScope(ctx, { format, params }, (scope) =>
+                  runCostBasisArtifact(scope, params, { refresh: options.refresh })
+                ),
+                ExitCodes.GENERAL_ERROR
+              );
 
-      const response: CostBasisExportCommandResult = {
-        calculationId: exportResult.value.artifactRef.calculationId,
-        snapshotId: exportResult.value.artifactRef.snapshotId,
-        packageStatus: exportResult.value.status,
-        outputDir,
-        outputPaths: exportResult.value.files.map((file) => file.absolutePath),
-      };
+              const buildContext = yield* toCliResult(
+                buildTaxPackageBuildContext({
+                  artifact: artifactResult.artifact,
+                  sourceContext: artifactResult.sourceContext,
+                  scopeKey: artifactResult.scopeKey,
+                  snapshotId: artifactResult.snapshotId,
+                }),
+                ExitCodes.GENERAL_ERROR
+              );
 
-      if (isJson) {
-        outputSuccess('cost-basis-export', response);
-      } else {
-        console.log(`Exported tax package to: ${outputDir}`);
-        console.log(`Package status: ${exportResult.value.status}`);
-        for (const line of buildTaxPackageStatusSummaryLines(exportResult.value, outputDir)) {
-          console.log(line);
-        }
-        console.log('Files:');
-        for (const file of exportResult.value.files) {
-          console.log(`  - ${file.absolutePath}`);
-        }
-      }
+              const readinessMetadata = deriveTaxPackageReadinessMetadata({
+                context: buildContext,
+                assetReviewSummaries: artifactResult.assetReviewSummaries,
+              });
 
-      if (exportResult.value.status === 'blocked') {
-        ctx.exitCode = ExitCodes.BLOCKED_PACKAGE;
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'cost-basis-export',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      isJson ? 'json' : 'text'
-    );
-  }
+              const exportResult = yield* toCliResult(
+                await exportTaxPackage(
+                  {
+                    context: buildContext,
+                    readinessMetadata,
+                    scope,
+                  },
+                  {
+                    now: () => new Date(),
+                    writer: new TaxPackageDirectoryWriter(outputDir),
+                  }
+                ),
+                ExitCodes.GENERAL_ERROR
+              );
+
+              return buildCostBasisExportCompletion(format, outputDir, exportResult);
+            }),
+        });
+      }),
+  });
 }
 
 export class TaxPackageDirectoryWriter {
@@ -226,6 +194,37 @@ export class TaxPackageDirectoryWriter {
 
 function buildDefaultOutputDir(params: ValidatedCostBasisConfig): string {
   return path.join('reports', `${params.taxYear}-${params.jurisdiction.toLowerCase()}-tax-package`);
+}
+
+function buildCostBasisExportCompletion(
+  format: CliOutputFormat,
+  outputDir: string,
+  exportResult: TaxPackageExportResult
+): CliCompletion {
+  const response: CostBasisExportCommandResult = {
+    calculationId: exportResult.artifactRef.calculationId,
+    snapshotId: exportResult.artifactRef.snapshotId,
+    packageStatus: exportResult.status,
+    outputDir,
+    outputPaths: exportResult.files.map((file) => file.absolutePath),
+  };
+  const exitCode = exportResult.status === 'blocked' ? ExitCodes.BLOCKED_PACKAGE : undefined;
+
+  if (format === 'json') {
+    return jsonSuccess(response, undefined, exitCode);
+  }
+
+  return textSuccess(() => {
+    console.log(`Exported tax package to: ${outputDir}`);
+    console.log(`Package status: ${exportResult.status}`);
+    for (const line of buildTaxPackageStatusSummaryLines(exportResult, outputDir)) {
+      console.log(line);
+    }
+    console.log('Files:');
+    for (const file of exportResult.files) {
+      console.log(`  - ${file.absolutePath}`);
+    }
+  }, exitCode);
 }
 
 export function resolveCostBasisExportOutputDir(

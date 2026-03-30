@@ -2,24 +2,25 @@ import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBuildCliProfileService, mockCtx, mockDisplayCliError, mockOutputSuccess, mockRename, mockRunCommand } =
+const { mockBuildCliProfileService, mockCtx, mockExitCliFailure, mockOutputSuccess, mockRename, mockRunCommand } =
   vi.hoisted(() => ({
     mockBuildCliProfileService: vi.fn(),
     mockCtx: {
       database: vi.fn(),
     },
-    mockDisplayCliError: vi.fn(),
+    mockExitCliFailure: vi.fn(),
     mockOutputSuccess: vi.fn(),
     mockRename: vi.fn(),
     mockRunCommand: vi.fn(),
   }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
+  CommandRuntime: class {},
   runCommand: mockRunCommand,
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../../../shared/json-output.js', () => ({
@@ -48,9 +49,9 @@ beforeEach(() => {
   mockBuildCliProfileService.mockReturnValue({
     rename: mockRename,
   });
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
+  mockExitCliFailure.mockImplementation(
+    (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+      throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
     }
   );
 });
@@ -69,7 +70,7 @@ describe('profiles rename command', () => {
     await program.parseAsync(['profiles', 'rename', 'business', 'Business / Family', '--json'], { from: 'user' });
 
     expect(mockRename).toHaveBeenCalledWith('business', 'Business / Family');
-    expect(mockOutputSuccess).toHaveBeenCalledWith('profiles-rename', { profile });
+    expect(mockOutputSuccess).toHaveBeenCalledWith('profiles-rename', { profile }, undefined);
   });
 
   it('surfaces rename errors through the CLI error handler', async () => {
@@ -77,7 +78,7 @@ describe('profiles rename command', () => {
     mockRename.mockResolvedValue(err(new Error("Profile 'missing' not found")));
 
     await expect(program.parseAsync(['profiles', 'rename', 'missing', 'Missing'], { from: 'user' })).rejects.toThrow(
-      "CLI:profiles-rename:text:Profile 'missing' not found"
+      "CLI:profiles-rename:text:Profile 'missing' not found:1"
     );
   });
 });

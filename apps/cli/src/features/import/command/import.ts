@@ -1,14 +1,17 @@
 import type { Account, ImportSession } from '@exitbook/core';
-import { err, ok } from '@exitbook/foundation';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
+import {
+  detectCliOutputFormat,
+  parseCliCommandOptionsResult,
+  type CliOutputFormat,
+} from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
 import { withImportCommandScope } from './import-command-scope.js';
@@ -77,6 +80,17 @@ interface BatchImportCommandResult {
   };
 }
 
+type ImportCommandExecution =
+  | {
+      kind: 'batch';
+      result: BatchImportExecuteResult;
+    }
+  | {
+      account: Account;
+      kind: 'single';
+      result: ImportExecuteResult;
+    };
+
 export function registerImportCommand(program: Command, appRuntime: CliAppRuntime): void {
   program
     .command('import')
@@ -100,120 +114,99 @@ Examples:
 }
 
 async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('import', rawOptions, ImportCommandOptionsSchema);
+  const command = 'import';
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command,
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, ImportCommandOptionsSchema);
+        return yield* await executeImportCommandResult(options, format, appRuntime);
+      }),
+  });
+}
+
+async function executeImportCommandResult(
+  options: ImportCommandOptions,
+  format: CliOutputFormat,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'import',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const execution = yield* toCliResult(
+          await withImportCommandScope(ctx, async (scope) =>
+            resultDoAsync(async function* () {
+              if (options.all) {
+                const result = yield* await runImportAll(scope, { format });
+                return {
+                  kind: 'batch' as const,
+                  result,
+                };
+              }
+
+              const account = yield* await resolveImportAccount(scope, options);
+              const result = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+              return {
+                kind: 'single' as const,
+                account,
+                result,
+              };
+            })
+          ),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return buildImportCompletion(execution, format);
+      }),
+  });
+}
+
+function buildSingleImportParams(account: Account, format: CliOutputFormat) {
+  if (format === 'json') {
+    return {
+      accountId: account.id,
+    };
+  }
+
+  return {
+    accountId: account.id,
+    onSingleAddressWarning: async () => {
+      process.stderr.write('\n⚠  Single address import (incomplete wallet view)\n\n');
+      process.stderr.write('Single address tracking has limitations:\n');
+      process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
+      process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
+      process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
+      process.stderr.write('For complete wallet tracking, create a separate xpub account instead:\n');
+      process.stderr.write(
+        `  $ exitbook accounts add wallet-xpub --blockchain ${account.platformKey} --address xpub... --xpub-gap 20\n`
+      );
+      process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
+      process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
+      return await promptConfirm('Continue with single address import?', false);
+    },
+  };
+}
+
+function buildImportCompletion(execution: ImportCommandExecution, format: CliOutputFormat) {
+  if (execution.kind === 'batch') {
+    const exitCode = execution.result.failedCount > 0 ? ExitCodes.GENERAL_ERROR : undefined;
+    if (format === 'json') {
+      return jsonSuccess(buildBatchImportResult(execution.result), undefined, exitCode);
+    }
+
+    return silentSuccess(exitCode);
+  }
 
   if (format === 'json') {
-    await executeImportJSON(options, appRuntime);
-  } else {
-    await executeImportTUI(options, appRuntime);
+    return jsonSuccess(buildImportResult(execution.result, execution.account));
   }
-}
 
-async function executeImportJSON(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const executionResult = await withImportCommandScope(ctx, async (scope) => {
-        if (options.all) {
-          const result = await runImportAll(scope, { format: 'json' });
-          if (result.isErr()) {
-            return err(result.error);
-          }
-
-          outputSuccess('import', buildBatchImportResult(result.value));
-          return ok(result.value.failedCount);
-        }
-
-        const accountResult = await resolveImportAccount(scope, options);
-        if (accountResult.isErr()) {
-          return err(accountResult.error);
-        }
-
-        const result = await runImport(scope, { format: 'json' }, { accountId: accountResult.value.id });
-        if (result.isErr()) {
-          return err(result.error);
-        }
-
-        outputSuccess('import', buildImportResult(result.value, accountResult.value));
-        return ok(0);
-      });
-      if (executionResult.isErr()) {
-        displayCliError('import', executionResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      if (executionResult.value > 0) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'import',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-async function executeImportTUI(options: ImportCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const executionResult = await withImportCommandScope(ctx, async (scope) => {
-        if (options.all) {
-          const result = await runImportAll(scope, { format: 'text' });
-          if (result.isErr()) {
-            return err(result.error);
-          }
-
-          return ok(result.value.failedCount);
-        }
-
-        const accountResult = await resolveImportAccount(scope, options);
-        if (accountResult.isErr()) {
-          return err(accountResult.error);
-        }
-
-        const result = await runImport(
-          scope,
-          { format: 'text' },
-          {
-            accountId: accountResult.value.id,
-            onSingleAddressWarning: async () => {
-              process.stderr.write('\n⚠  Single address import (incomplete wallet view)\n\n');
-              process.stderr.write('Single address tracking has limitations:\n');
-              process.stderr.write('  • Cannot distinguish internal transfers from external sends\n');
-              process.stderr.write('  • Change to other addresses will appear as withdrawals\n');
-              process.stderr.write('  • Multi-address transactions may show incorrect amounts\n\n');
-              process.stderr.write('For complete wallet tracking, create a separate xpub account instead:\n');
-              process.stderr.write(
-                `  $ exitbook accounts add wallet-xpub --blockchain ${accountResult.value.platformKey} --address xpub... --xpub-gap 20\n`
-              );
-              process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
-              process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
-              return await promptConfirm('Continue with single address import?', false);
-            },
-          }
-        );
-        if (result.isErr()) {
-          return err(result.error);
-        }
-
-        return ok(0);
-      });
-      if (executionResult.isErr()) {
-        displayCliError('import', executionResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-      if (executionResult.value > 0) {
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'import',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  return silentSuccess();
 }
 
 function buildImportResult(importResult: ImportExecuteResult, account: Account): ImportCommandResult {

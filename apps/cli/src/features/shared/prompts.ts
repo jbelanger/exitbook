@@ -6,7 +6,11 @@ import { ExitPromptError } from '@inquirer/core';
  */
 
 /**
- * Handle cancellation by showing a message and exiting.
+ * TODO(cli-rework): Legacy direct-exit helper for prompt cancellation. Verify
+ * whether this is still needed once prompt flows return explicit cancellation
+ * results to the shared CLI boundary.
+ * @deprecated Prefer surfacing cancellation as data and letting the outer
+ * command boundary choose the exit behavior.
  */
 export function handleCancellation(message = 'Operation cancelled'): never {
   console.error(message);

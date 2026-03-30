@@ -1,9 +1,9 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
+import { runCliRuntimeCommand } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliProfileService } from '../profile-service.js';
 import { writeCliStateFile } from '../profile-state.js';
 
@@ -26,41 +26,28 @@ Notes:
     .option('--json', 'Output results in JSON format')
     .action(async (profileKey: string, options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';
+      await runCliRuntimeCommand({
+        command: 'profiles-switch',
+        format,
+        action: async (ctx) =>
+          resultDoAsync(async function* () {
+            const db = await ctx.database();
+            const profileService = buildCliProfileService(db);
+            const profile = yield* toCliResult(await profileService.resolve(profileKey), ExitCodes.GENERAL_ERROR);
 
-      try {
-        await runCommand(async (ctx) => {
-          const db = await ctx.database();
-          const profileService = buildCliProfileService(db);
-          const profileResult = await profileService.resolve(profileKey);
+            yield* toCliResult(writeCliStateFile(ctx.dataDir, profile.profileKey), ExitCodes.GENERAL_ERROR);
 
-          if (profileResult.isErr()) {
-            displayCliError('profiles-switch', profileResult.error, ExitCodes.GENERAL_ERROR, format);
-          }
+            if (format === 'json') {
+              return jsonSuccess({
+                defaultProfileKey: profile.profileKey,
+                profile,
+              });
+            }
 
-          const writeResult = writeCliStateFile(ctx.dataDir, profileResult.value.profileKey);
-          if (writeResult.isErr()) {
-            displayCliError('profiles-switch', writeResult.error, ExitCodes.GENERAL_ERROR, format);
-          }
-
-          if (options.json) {
-            outputSuccess('profiles-switch', {
-              defaultProfileKey: profileResult.value.profileKey,
-              profile: profileResult.value,
+            return textSuccess(() => {
+              console.log(`Default profile set to ${profile.displayName} [key: ${profile.profileKey}]`);
             });
-            return;
-          }
-
-          console.log(
-            `Default profile set to ${profileResult.value.displayName} [key: ${profileResult.value.profileKey}]`
-          );
-        });
-      } catch (error) {
-        displayCliError(
-          'profiles-switch',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR,
-          format
-        );
-      }
+          }),
+      });
     });
 }

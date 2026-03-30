@@ -1,7 +1,10 @@
+import { err, ok, type Result } from '@exitbook/foundation';
 import { Command, type CommanderError } from 'commander';
 import type { z } from 'zod';
 
 import { getCliCommandErrorExitCode } from './cli-command-error.js';
+import type { CliFailure } from './cli-contract.js';
+import { createCliFailure } from './cli-contract.js';
 import { displayCliError } from './cli-error.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 import type { BrowseSurfaceSpec, ResolvedBrowsePresentation } from './presentation/browse-surface.js';
@@ -30,6 +33,12 @@ export function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
   return hasBooleanJsonFlag(rawOptions) && rawOptions.json === true ? 'json' : 'text';
 }
 
+/**
+ * TODO(cli-rework): Legacy compatibility wrapper that still exits during
+ * parsing. Verify whether this is still needed once callers migrate to
+ * `parseCliBrowseRootInvocationResult(...)`.
+ * @deprecated Prefer the `*Result(...)` parse helpers in new migrations.
+ */
 export function parseCliBrowseRootInvocation(
   command: string,
   tokens: string[] | undefined,
@@ -37,6 +46,20 @@ export function parseCliBrowseRootInvocation(
   invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
 ): CliBrowseRootInvocation {
   const format = detectCliTokenOutputFormat(tokens);
+  const invocationResult = parseCliBrowseRootInvocationResult(tokens, registerBrowseOptions, invalidExitCode);
+
+  if (invocationResult.isErr()) {
+    displayCliError(command, invocationResult.error.error, invocationResult.error.exitCode, format);
+  }
+
+  return invocationResult.value;
+}
+
+export function parseCliBrowseRootInvocationResult(
+  tokens: string[] | undefined,
+  registerBrowseOptions: (command: Command) => Command,
+  invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
+): Result<CliBrowseRootInvocation, CliFailure> {
   // Why this exists:
   // a browse root like `accounts [selector] [options]` also acts as the parent
   // namespace for subcommands like `accounts view` and `accounts add`. Commander
@@ -61,17 +84,23 @@ export function parseCliBrowseRootInvocation(
   });
 
   try {
-    parser.parse(['node', command, ...(tokens ?? [])], { from: 'node' });
+    parser.parse(['node', 'command', ...(tokens ?? [])], { from: 'node' });
   } catch (error) {
-    displayCliError(command, toCliError(error), invalidExitCode, format);
+    return createCliFailureResult(error, invalidExitCode);
   }
 
-  return {
+  return ok({
     selector,
     rawOptions,
-  };
+  });
 }
 
+/**
+ * TODO(cli-rework): Legacy compatibility wrapper that still exits during
+ * parsing. Verify whether this is still needed once callers migrate to
+ * `parseCliCommandOptionsResult(...)`.
+ * @deprecated Prefer the `*Result(...)` parse helpers in new migrations.
+ */
 export function parseCliCommandOptions<T>(
   command: string,
   rawOptions: unknown,
@@ -79,23 +108,24 @@ export function parseCliCommandOptions<T>(
   invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
 ): { format: CliOutputFormat; options: T } {
   const format = detectCliOutputFormat(rawOptions);
-  const parseResult = schema.safeParse(rawOptions);
+  const optionsResult = parseCliCommandOptionsResult(rawOptions, schema, invalidExitCode);
 
-  if (!parseResult.success) {
-    displayCliError(
-      command,
-      new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      invalidExitCode,
-      format
-    );
+  if (optionsResult.isErr()) {
+    displayCliError(command, optionsResult.error.error, optionsResult.error.exitCode, format);
   }
 
   return {
     format,
-    options: parseResult.data,
+    options: optionsResult.value,
   };
 }
 
+/**
+ * TODO(cli-rework): Legacy compatibility wrapper that still exits during
+ * parsing. Verify whether this is still needed once callers migrate to
+ * `parseCliBrowseOptionsResult(...)`.
+ * @deprecated Prefer the `*Result(...)` parse helpers in new migrations.
+ */
 export function parseCliBrowseOptions<T>(
   command: string,
   rawOptions: unknown,
@@ -104,28 +134,52 @@ export function parseCliBrowseOptions<T>(
   invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
 ): { options: T; presentation: ResolvedBrowsePresentation } {
   const format = detectCliOutputFormat(rawOptions);
+  const browseOptionsResult = parseCliBrowseOptionsResult(rawOptions, schema, spec, invalidExitCode);
+
+  if (browseOptionsResult.isErr()) {
+    displayCliError(command, browseOptionsResult.error.error, browseOptionsResult.error.exitCode, format);
+  }
+
+  return browseOptionsResult.value;
+}
+
+export function parseCliCommandOptionsResult<T>(
+  rawOptions: unknown,
+  schema: z.ZodType<T>,
+  invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
+): Result<T, CliFailure> {
   const parseResult = schema.safeParse(rawOptions);
 
   if (!parseResult.success) {
-    displayCliError(
-      command,
+    return createCliFailureResult(
       new Error(parseResult.error.issues[0]?.message ?? 'Invalid options'),
-      invalidExitCode,
-      format
+      invalidExitCode
     );
   }
 
-  let presentation: ResolvedBrowsePresentation;
-  try {
-    presentation = resolveBrowsePresentation(spec, rawOptions);
-  } catch (error) {
-    displayCliError(command, toCliError(error), invalidExitCode, format);
+  return ok(parseResult.data);
+}
+
+export function parseCliBrowseOptionsResult<T>(
+  rawOptions: unknown,
+  schema: z.ZodType<T>,
+  spec: BrowseSurfaceSpec,
+  invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
+): Result<{ options: T; presentation: ResolvedBrowsePresentation }, CliFailure> {
+  const optionsResult = parseCliCommandOptionsResult(rawOptions, schema, invalidExitCode);
+
+  if (optionsResult.isErr()) {
+    return err(optionsResult.error);
   }
 
-  return {
-    presentation,
-    options: parseResult.data,
-  };
+  try {
+    return ok({
+      presentation: resolveBrowsePresentation(spec, rawOptions),
+      options: optionsResult.value,
+    });
+  } catch (error) {
+    return createCliFailureResult(error, invalidExitCode);
+  }
 }
 
 function toCliError(error: unknown): Error {
@@ -144,6 +198,13 @@ function isCommanderError(error: unknown): error is CommanderError {
   return typeof error === 'object' && error !== null && 'code' in error && 'exitCode' in error && 'message' in error;
 }
 
+/**
+ * TODO(cli-rework): Legacy throw-based boundary wrapper kept for compatibility
+ * with commands that still rely on `CliCommandError`. Verify whether this is
+ * still needed once all commands use `runCliCommandBoundary(...)`.
+ * @deprecated Prefer `runCliCommandBoundary(...)` / `runCliRuntimeCommand(...)`
+ * and `CliFailure` results.
+ */
 export async function withCliCommandErrorHandling(
   command: string,
   format: CliOutputFormat,
@@ -155,4 +216,8 @@ export async function withCliCommandErrorHandling(
   } catch (error) {
     displayCliError(command, toCliError(error), getCliCommandErrorExitCode(error) ?? exitCode, format);
   }
+}
+
+function createCliFailureResult(error: unknown, exitCode: ExitCode): Result<never, CliFailure> {
+  return err(createCliFailure(toCliError(error), exitCode));
 }

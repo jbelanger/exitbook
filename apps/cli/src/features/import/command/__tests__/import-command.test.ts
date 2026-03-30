@@ -8,7 +8,7 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockCtx,
-  mockDisplayCliError,
+  mockExitCliFailure,
   mockOutputSuccess,
   mockPromptConfirm,
   mockResolveImportAccount,
@@ -19,9 +19,8 @@ const {
 } = vi.hoisted(() => ({
   mockCtx: {
     database: vi.fn(),
-    exitCode: undefined as number | undefined,
   },
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPromptConfirm: vi.fn(),
   mockResolveImportAccount: vi.fn(),
@@ -32,6 +31,7 @@ const {
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
+  CommandRuntime: class {},
   renderApp: vi.fn(),
   runCommand: mockRunCommand,
 }));
@@ -41,7 +41,7 @@ vi.mock('../../../shared/json-output.js', () => ({
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../import-command-scope.js', () => ({
@@ -60,6 +60,8 @@ vi.mock('../../../shared/prompts.js', () => ({
 
 import { ImportCommandOptionsSchema } from '../import-option-schemas.js';
 import { registerImportCommand } from '../import.js';
+
+const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
 function createImportProgram(): Command {
   const program = new Command();
@@ -108,7 +110,6 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockCtx.database.mockResolvedValue({ tag: 'db' });
-  mockCtx.exitCode = undefined;
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);
@@ -136,12 +137,9 @@ beforeEach(() => {
     })
   );
   mockPromptConfirm.mockResolvedValue(true);
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      if (error.message.startsWith('CLI:')) {
-        throw error;
-      }
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
+  mockExitCliFailure.mockImplementation(
+    (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+      throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
     }
   );
 });
@@ -199,6 +197,7 @@ describe('import command', () => {
       { accountId: 7 }
     );
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
+    expect(mockProcessExit).not.toHaveBeenCalled();
 
     const [, payload] = mockOutputSuccess.mock.calls[0] as [
       string,
@@ -235,7 +234,7 @@ describe('import command', () => {
     mockResolveImportAccount.mockResolvedValue(err(new Error('Account 42 does not belong to the selected profile')));
 
     await expect(program.parseAsync(['import', '--account-id', '42', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:import:json:Account 42 does not belong to the selected profile'
+      'CLI:import:json:Account 42 does not belong to the selected profile:1'
     );
 
     expect(mockRunImport).not.toHaveBeenCalled();
@@ -302,7 +301,7 @@ describe('import command', () => {
     expect(mockRunImport).not.toHaveBeenCalled();
     expect(mockResolveImportAccount).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
-    expect(mockCtx.exitCode).toBe(1);
+    expect(mockProcessExit).toHaveBeenCalledWith(1);
 
     const [, payload] = mockOutputSuccess.mock.calls[0] as [
       string,

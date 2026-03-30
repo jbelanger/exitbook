@@ -1,9 +1,9 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
+import { runCliRuntimeCommand } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { resolveCommandProfile } from '../profile-resolution.js';
 
 export function registerProfilesCurrentCommand(profilesCommand: Command): void {
@@ -24,35 +24,27 @@ Notes:
     .option('--json', 'Output results in JSON format')
     .action(async (options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';
+      await runCliRuntimeCommand({
+        command: 'profiles-current',
+        format,
+        action: async (ctx) =>
+          resultDoAsync(async function* () {
+            const db = await ctx.database();
+            const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+            const payload = {
+              profile,
+              source: ctx.activeProfileSource,
+            };
 
-      try {
-        await runCommand(async (ctx) => {
-          const db = await ctx.database();
-          const profileResult = await resolveCommandProfile(ctx, db);
-          if (profileResult.isErr()) {
-            displayCliError('profiles-current', profileResult.error, ExitCodes.GENERAL_ERROR, format);
-          }
+            if (format === 'json') {
+              return jsonSuccess(payload);
+            }
 
-          const payload = {
-            profile: profileResult.value,
-            source: ctx.activeProfileSource,
-          };
-
-          if (options.json) {
-            outputSuccess('profiles-current', payload);
-            return;
-          }
-
-          const sourceSuffix = ctx.activeProfileSource === 'default' ? '' : ` (${ctx.activeProfileSource})`;
-          console.log(`${profileResult.value.displayName} [key: ${profileResult.value.profileKey}]${sourceSuffix}`);
-        });
-      } catch (error) {
-        displayCliError(
-          'profiles-current',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR,
-          format
-        );
-      }
+            return textSuccess(() => {
+              const sourceSuffix = ctx.activeProfileSource === 'default' ? '' : ` (${ctx.activeProfileSource})`;
+              console.log(`${profile.displayName} [key: ${profile.profileKey}]${sourceSuffix}`);
+            });
+          }),
+      });
     });
 }

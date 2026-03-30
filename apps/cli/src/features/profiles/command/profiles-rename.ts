@@ -1,9 +1,9 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
+import { runCliRuntimeCommand } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliProfileService } from '../profile-service.js';
 
 export function registerProfilesRenameCommand(profilesCommand: Command): void {
@@ -27,29 +27,25 @@ Notes:
     .option('--json', 'Output results in JSON format')
     .action(async (profileKey: string, displayName: string, options: { json?: boolean | undefined }) => {
       const format = options.json ? 'json' : 'text';
+      await runCliRuntimeCommand({
+        command: 'profiles-rename',
+        format,
+        action: async (ctx) =>
+          resultDoAsync(async function* () {
+            const db = await ctx.database();
+            const profile = yield* toCliResult(
+              await buildCliProfileService(db).rename(profileKey, displayName),
+              ExitCodes.GENERAL_ERROR
+            );
 
-      try {
-        await runCommand(async (ctx) => {
-          const db = await ctx.database();
-          const result = await buildCliProfileService(db).rename(profileKey, displayName);
-          if (result.isErr()) {
-            displayCliError('profiles-rename', result.error, ExitCodes.GENERAL_ERROR, format);
-          }
+            if (format === 'json') {
+              return jsonSuccess({ profile });
+            }
 
-          if (options.json) {
-            outputSuccess('profiles-rename', { profile: result.value });
-            return;
-          }
-
-          console.log(`Renamed profile ${result.value.profileKey} to ${result.value.displayName}`);
-        });
-      } catch (error) {
-        displayCliError(
-          'profiles-rename',
-          error instanceof Error ? error : new Error(String(error)),
-          ExitCodes.GENERAL_ERROR,
-          format
-        );
-      }
+            return textSuccess(() => {
+              console.log(`Renamed profile ${profile.profileKey} to ${profile.displayName}`);
+            });
+          }),
+      });
     });
 }
