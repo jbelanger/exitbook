@@ -3,15 +3,16 @@ import type { Command } from 'commander';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
-import { maskIdentifier } from '../query/account-query-utils.js';
 
 import { buildCreateAccountInput } from './account-draft-utils.js';
+import { requireCliResult, serializeAccountForCli } from './accounts-command-helpers.js';
 import { AccountAddCommandOptionsSchema } from './accounts-option-schemas.js';
+
+const ACCOUNTS_ADD_COMMAND_ID = 'accounts-add';
 
 export function registerAccountsAddCommand(accountsCommand: Command, appRuntime: CliAppRuntime): void {
   accountsCommand
@@ -49,64 +50,38 @@ Notes:
 }
 
 async function executeAddAccountCommand(name: string, rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('accounts-add', rawOptions, AccountAddCommandOptionsSchema);
+  const { format, options } = parseCliCommandOptions(
+    ACCOUNTS_ADD_COMMAND_ID,
+    rawOptions,
+    AccountAddCommandOptionsSchema
+  );
 
-  try {
+  await withCliCommandErrorHandling(ACCOUNTS_ADD_COMMAND_ID, format, async () => {
     await runCommand(appRuntime, async (ctx) => {
       const db = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, db);
-      if (profileResult.isErr()) {
-        displayCliError('accounts-add', profileResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
+      const profile = requireCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
 
-      const draftResult = buildCreateAccountInput(name, profileResult.value.id, options, appRuntime.adapterRegistry);
-      if (draftResult.isErr()) {
-        displayCliError('accounts-add', draftResult.error, ExitCodes.INVALID_ARGS, format);
-      }
+      const draft = requireCliResult(
+        buildCreateAccountInput(name, profile.id, options, appRuntime.adapterRegistry),
+        ExitCodes.INVALID_ARGS
+      );
 
-      const addResult = await buildCliAccountLifecycleService(db).create(draftResult.value);
-      if (addResult.isErr()) {
-        displayCliError('accounts-add', addResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
+      const account = requireCliResult(
+        await buildCliAccountLifecycleService(db).create(draft),
+        ExitCodes.GENERAL_ERROR
+      );
 
       const payload = {
-        account: serializeAccount(addResult.value),
-        profile: profileResult.value.profileKey,
+        account: serializeAccountForCli(account),
+        profile: profile.profileKey,
       };
 
       if (options.json) {
-        outputSuccess('accounts-add', payload);
+        outputSuccess(ACCOUNTS_ADD_COMMAND_ID, payload);
         return;
       }
 
-      console.log(`Added account ${addResult.value.name} (${addResult.value.platformKey})`);
+      console.log(`Added account ${account.name} (${account.platformKey})`);
     });
-  } catch (error) {
-    displayCliError(
-      'accounts-add',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      format
-    );
-  }
-}
-
-function serializeAccount(account: {
-  accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
-  createdAt: Date;
-  id: number;
-  identifier: string;
-  name?: string | undefined;
-  platformKey: string;
-  providerName?: string | undefined;
-}) {
-  return {
-    id: account.id,
-    name: account.name,
-    accountType: account.accountType,
-    platformKey: account.platformKey,
-    identifier: maskIdentifier(account),
-    providerName: account.providerName,
-    createdAt: account.createdAt.toISOString(),
-  };
+  });
 }

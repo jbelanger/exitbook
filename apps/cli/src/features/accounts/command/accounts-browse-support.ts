@@ -16,7 +16,7 @@ import { computeTypeCounts, createAccountsViewState, type AccountsViewState } fr
 
 export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId'> {
   accountName?: string | undefined;
-  selectorMode?: 'filter' | 'preselect' | undefined;
+  preselectInExplorer?: boolean | undefined;
 }
 
 export type AccountsBrowseJsonListResult = ViewCommandResult<AccountViewItem[]>;
@@ -45,7 +45,7 @@ export async function buildAccountsBrowsePresentation(
   }
 
   const selectedAccountId = accountIdResult.value ?? params.accountId;
-  const shouldPreselectAccount = params.selectorMode === 'preselect' && selectedAccountId !== undefined;
+  const shouldPreselectAccount = params.preselectInExplorer === true && selectedAccountId !== undefined;
 
   const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
   const result = await accountQuery.list({

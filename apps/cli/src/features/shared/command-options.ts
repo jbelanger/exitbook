@@ -37,6 +37,13 @@ export function parseCliBrowseRootInvocation(
   invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
 ): CliBrowseRootInvocation {
   const format = detectCliTokenOutputFormat(tokens);
+  // Why this exists:
+  // a browse root like `accounts [selector] [options]` also acts as the parent
+  // namespace for subcommands like `accounts view` and `accounts add`. Commander
+  // cannot express that shape cleanly without parent options bleeding into
+  // subcommands, so the real root command captures raw tokens and this throwaway
+  // parser re-applies strict browse option parsing only when the bare root form
+  // is actually invoked.
   const parser = registerBrowseOptions(new Command())
     .argument('[selector]')
     .allowUnknownOption(false)

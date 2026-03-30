@@ -4,15 +4,16 @@ import type { Command } from 'commander';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
-import { maskIdentifier } from '../query/account-query-utils.js';
 
 import { buildUpdateAccountInput } from './account-draft-utils.js';
+import { requireCliResult, requireCliValue, serializeAccountForCli } from './accounts-command-helpers.js';
 import { AccountUpdateCommandOptionsSchema, type AccountUpdateCommandOptions } from './accounts-option-schemas.js';
+
+const ACCOUNTS_UPDATE_COMMAND_ID = 'accounts-update';
 
 export function registerAccountsUpdateCommand(accountsCommand: Command, appRuntime: CliAppRuntime): void {
   accountsCommand
@@ -50,64 +51,49 @@ async function executeUpdateAccountCommand(
   rawOptions: unknown,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  const { format, options } = parseCliCommandOptions('accounts-update', rawOptions, AccountUpdateCommandOptionsSchema);
+  const { format, options } = parseCliCommandOptions(
+    ACCOUNTS_UPDATE_COMMAND_ID,
+    rawOptions,
+    AccountUpdateCommandOptionsSchema
+  );
 
-  try {
+  await withCliCommandErrorHandling(ACCOUNTS_UPDATE_COMMAND_ID, format, async () => {
     await runCommand(appRuntime, async (ctx) => {
       const db = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, db);
-      if (profileResult.isErr()) {
-        displayCliError('accounts-update', profileResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
+      const profile = requireCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
 
       const accountService = buildCliAccountLifecycleService(db);
-      const accountResult = await accountService.getByName(profileResult.value.id, name);
-      if (accountResult.isErr()) {
-        displayCliError('accounts-update', accountResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
-      if (!accountResult.value) {
-        displayCliError(
-          'accounts-update',
-          new Error(`Account '${name.trim().toLowerCase()}' not found`),
-          ExitCodes.NOT_FOUND,
-          format
-        );
-      }
-
-      const existingAccount = accountResult.value;
-      const draftResult = buildUpdateAccountInput(existingAccount, options, appRuntime.adapterRegistry);
-      if (draftResult.isErr()) {
-        displayCliError('accounts-update', draftResult.error, ExitCodes.INVALID_ARGS, format);
-      }
-
-      const updateResult = await accountService.update(profileResult.value.id, name, draftResult.value);
-      if (updateResult.isErr()) {
-        displayCliError('accounts-update', updateResult.error, ExitCodes.GENERAL_ERROR, format);
-      }
+      const account = requireCliResult(await accountService.getByName(profile.id, name), ExitCodes.GENERAL_ERROR);
+      const existingAccount = requireCliValue(
+        account,
+        `Account '${name.trim().toLowerCase()}' not found`,
+        ExitCodes.NOT_FOUND
+      );
+      const draft = requireCliResult(
+        buildUpdateAccountInput(existingAccount, options, appRuntime.adapterRegistry),
+        ExitCodes.INVALID_ARGS
+      );
+      const updatedAccount = requireCliResult(
+        await accountService.update(profile.id, name, draft),
+        ExitCodes.GENERAL_ERROR
+      );
 
       const payload = {
-        account: serializeAccount(updateResult.value),
-        profile: profileResult.value.profileKey,
+        account: serializeAccountForCli(updatedAccount),
+        profile: profile.profileKey,
       };
 
       if (options.json) {
-        outputSuccess('accounts-update', payload);
+        outputSuccess(ACCOUNTS_UPDATE_COMMAND_ID, payload);
         return;
       }
 
-      console.log(`Updated account ${updateResult.value.name}`);
-      for (const change of buildAccountUpdateSummary(existingAccount, updateResult.value, options)) {
+      console.log(`Updated account ${updatedAccount.name}`);
+      for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, options)) {
         console.log(`  ${change}`);
       }
     });
-  } catch (error) {
-    displayCliError(
-      'accounts-update',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      format
-    );
-  }
+  });
 }
 
 function buildAccountUpdateSummary(
@@ -140,24 +126,4 @@ function buildAccountUpdateSummary(
   }
 
   return changes;
-}
-
-function serializeAccount(account: {
-  accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
-  createdAt: Date;
-  id: number;
-  identifier: string;
-  name?: string | undefined;
-  platformKey: string;
-  providerName?: string | undefined;
-}) {
-  return {
-    id: account.id,
-    name: account.name,
-    accountType: account.accountType,
-    platformKey: account.platformKey,
-    identifier: maskIdentifier(account),
-    providerName: account.providerName,
-    createdAt: account.createdAt.toISOString(),
-  };
 }

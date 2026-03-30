@@ -105,7 +105,7 @@ export async function executeAccountsBrowseCommand({
     platformKey: options.platform,
     accountType: options.type,
     showSessions: options.showSessions,
-    selectorMode: accountName && presentation.mode === 'tui' ? 'preselect' : 'filter',
+    preselectInExplorer: accountName && presentation.mode === 'tui' ? true : undefined,
   };
 
   await withCliCommandErrorHandling(commandId, toCliOutputFormat(presentation.mode), async () => {
@@ -139,12 +139,14 @@ async function presentAccountsBrowseCommand(
     case 'json':
       outputSuccess(
         commandId,
-        staticKind === 'detail' ? getSelectedAccountJsonResult(browsePresentation) : browsePresentation.listJsonResult
+        staticKind === 'detail'
+          ? requireSelectedAccountJsonResult(browsePresentation)
+          : browsePresentation.listJsonResult
       );
       return;
     case 'static':
       if (staticKind === 'detail') {
-        outputAccountStaticDetail(getSelectedAccount(browsePresentation));
+        outputAccountStaticDetail(requireSelectedAccount(browsePresentation));
       } else {
         outputAccountsStaticList(browsePresentation.initialState);
       }
@@ -163,7 +165,7 @@ async function presentAccountsBrowseCommand(
   return exhaustiveCheck;
 }
 
-function getSelectedAccount(presentation: AccountsBrowsePresentation) {
+function requireSelectedAccount(presentation: AccountsBrowsePresentation) {
   if (!presentation.selectedAccount) {
     throw new Error('Expected a selected account for detail presentation');
   }
@@ -171,7 +173,7 @@ function getSelectedAccount(presentation: AccountsBrowsePresentation) {
   return presentation.selectedAccount;
 }
 
-function getSelectedAccountJsonResult(presentation: AccountsBrowsePresentation) {
+function requireSelectedAccountJsonResult(presentation: AccountsBrowsePresentation) {
   if (!presentation.detailJsonResult) {
     throw new Error('Expected a detail JSON result for detail presentation');
   }

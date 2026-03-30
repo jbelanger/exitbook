@@ -1,5 +1,8 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
+import { CliCommandError } from '../../shared/cli-command-error.js';
+import { ExitCodes } from '../../shared/exit-codes.js';
+
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { flattenAccountRemovePreview } from './account-removal-service.js';
 import type { AccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
@@ -19,7 +22,7 @@ export async function prepareAccountRemoval(
     return err(accountResult.error);
   }
   if (!accountResult.value) {
-    return err(new Error(`Account '${accountName.trim().toLowerCase()}' not found`));
+    return err(new CliCommandError(`Account '${accountName.trim().toLowerCase()}' not found`, ExitCodes.NOT_FOUND));
   }
 
   const hierarchyResult = await scope.accountService.collectHierarchy(scope.profile.id, accountResult.value.id);

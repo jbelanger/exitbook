@@ -138,6 +138,7 @@ function createBaseAccountSummary() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('CI', '');
   setTTYFlags(true, true);
   mockCtx.database.mockResolvedValue({ tag: 'db' });
   mockCtx.closeDatabase.mockResolvedValue(undefined);
@@ -177,6 +178,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
+  vi.unstubAllEnvs();
   if (originalStdinTTYDescriptor) {
     Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
   }
@@ -296,6 +298,62 @@ describe('accounts browse commands', () => {
         limit: 1,
         hasMore: false,
         filters: undefined,
+      },
+    });
+  });
+
+  it('outputs detail JSON for the bare selector form', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'kraken-main', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts', {
+      data: {
+        id: 1,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        name: 'kraken-main',
+        identifier: 'acct-1',
+        parentAccountId: undefined,
+        providerName: 'kraken-api',
+        balanceProjectionStatus: 'fresh',
+        balanceProjectionReason: undefined,
+        lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+        lastRefreshAt: '2026-03-12T12:30:00.000Z',
+        verificationStatus: 'match',
+        sessionCount: 2,
+        childAccounts: [
+          {
+            id: 2,
+            identifier: 'acct-child',
+            sessionCount: 1,
+            balanceProjectionStatus: 'fresh',
+            verificationStatus: 'warning',
+          },
+        ],
+        sessions: undefined,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      meta: {
+        count: 1,
+        offset: 0,
+        limit: 1,
+        hasMore: false,
+        filters: {
+          accountName: 'kraken-main',
+          accountId: 1,
+        },
       },
     });
   });

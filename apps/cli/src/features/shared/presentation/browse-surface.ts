@@ -103,6 +103,9 @@ function getStaticSurfaceKind(kind: BrowseSurfaceKind): StaticSurfaceKind {
 }
 
 function readRawBrowseOptions(rawOptions: unknown): RawBrowseOptions {
+  // Defensive on purpose: this helper sits at the CLI boundary and accepts raw
+  // option payloads from command handlers, even though current callers all come
+  // from Commander-parsed objects.
   if (typeof rawOptions !== 'object' || rawOptions === null) {
     return {};
   }
