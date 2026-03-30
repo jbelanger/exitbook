@@ -1,16 +1,18 @@
 import type { Account } from '@exitbook/core';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult, toCliValue } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
+import { serializeAccountForCli } from './account-cli-serialization.js';
 import { buildUpdateAccountInput } from './account-draft-utils.js';
-import { requireCliResult, requireCliValue, serializeAccountForCli } from './accounts-command-helpers.js';
 import { AccountUpdateCommandOptionsSchema, type AccountUpdateCommandOptions } from './accounts-option-schemas.js';
 
 const ACCOUNTS_UPDATE_COMMAND_ID = 'accounts-update';
@@ -51,48 +53,56 @@ async function executeUpdateAccountCommand(
   rawOptions: unknown,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    ACCOUNTS_UPDATE_COMMAND_ID,
-    rawOptions,
-    AccountUpdateCommandOptionsSchema
-  );
+  await runCliCommandBoundary({
+    command: ACCOUNTS_UPDATE_COMMAND_ID,
+    format: detectCliOutputFormat(rawOptions),
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, AccountUpdateCommandOptionsSchema);
 
-  await withCliCommandErrorHandling(ACCOUNTS_UPDATE_COMMAND_ID, format, async () => {
-    await runCommand(appRuntime, async (ctx) => {
-      const db = await ctx.database();
-      const profile = requireCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+        return yield* await captureCliRuntimeResult({
+          command: ACCOUNTS_UPDATE_COMMAND_ID,
+          appRuntime,
+          action: async (ctx) =>
+            resultDoAsync(async function* () {
+              const db = await ctx.database();
+              const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+              const accountService = buildCliAccountLifecycleService(db);
+              const account = yield* toCliResult(
+                await accountService.getByName(profile.id, name),
+                ExitCodes.GENERAL_ERROR
+              );
+              const existingAccount = yield* toCliValue(
+                account,
+                `Account '${name.trim().toLowerCase()}' not found`,
+                ExitCodes.NOT_FOUND
+              );
+              const draft = yield* toCliResult(
+                buildUpdateAccountInput(existingAccount, options, appRuntime.adapterRegistry),
+                ExitCodes.INVALID_ARGS
+              );
+              const updatedAccount = yield* toCliResult(
+                await accountService.update(profile.id, name, draft),
+                ExitCodes.GENERAL_ERROR
+              );
+              const payload = {
+                account: serializeAccountForCli(updatedAccount),
+                profile: profile.profileKey,
+              };
 
-      const accountService = buildCliAccountLifecycleService(db);
-      const account = requireCliResult(await accountService.getByName(profile.id, name), ExitCodes.GENERAL_ERROR);
-      const existingAccount = requireCliValue(
-        account,
-        `Account '${name.trim().toLowerCase()}' not found`,
-        ExitCodes.NOT_FOUND
-      );
-      const draft = requireCliResult(
-        buildUpdateAccountInput(existingAccount, options, appRuntime.adapterRegistry),
-        ExitCodes.INVALID_ARGS
-      );
-      const updatedAccount = requireCliResult(
-        await accountService.update(profile.id, name, draft),
-        ExitCodes.GENERAL_ERROR
-      );
+              if (options.json) {
+                return jsonSuccess(payload);
+              }
 
-      const payload = {
-        account: serializeAccountForCli(updatedAccount),
-        profile: profile.profileKey,
-      };
-
-      if (options.json) {
-        outputSuccess(ACCOUNTS_UPDATE_COMMAND_ID, payload);
-        return;
-      }
-
-      console.log(`Updated account ${updatedAccount.name}`);
-      for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, options)) {
-        console.log(`  ${change}`);
-      }
-    });
+              return textSuccess(() => {
+                console.log(`Updated account ${updatedAccount.name}`);
+                for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, options)) {
+                  console.log(`  ${change}`);
+                }
+              });
+            }),
+        });
+      }),
   });
 }
 

@@ -6,7 +6,7 @@ import { getCliCommandErrorExitCode } from './cli-command-error.js';
 import type { CliFailure } from './cli-contract.js';
 import { createCliFailure } from './cli-contract.js';
 import { displayCliError } from './cli-error.js';
-import { detectCliOutputFormat, type CliOutputFormat } from './cli-output-format.js';
+import { detectCliOutputFormat, detectCliTokenOutputFormat, type CliOutputFormat } from './cli-output-format.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 import type { BrowseSurfaceSpec, ResolvedBrowsePresentation } from './presentation/browse-surface.js';
 import { resolveBrowsePresentation } from './presentation/browse-surface.js';
@@ -171,10 +171,6 @@ function toCliError(error: unknown): Error {
   }
 
   return error instanceof Error ? error : new Error(String(error));
-}
-
-function detectCliTokenOutputFormat(tokens: string[] | undefined): CliOutputFormat {
-  return tokens?.some((token) => token === '--json' || token.startsWith('--json=')) ? 'json' : 'text';
 }
 
 function isCommanderError(error: unknown): error is CommanderError {

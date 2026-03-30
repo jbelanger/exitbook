@@ -28,6 +28,7 @@ interface RawBrowseOptions {
 
 export interface ExplorerNavigability {
   hasNavigableItems: boolean;
+  shouldCollapseEmptyExplorer: boolean;
 }
 
 export function staticListSurfaceSpec(commandId: string): BrowseSurfaceSpec {
@@ -77,7 +78,7 @@ export function collapseEmptyExplorerToStatic(
   presentation: ResolvedBrowsePresentation,
   navigability: ExplorerNavigability
 ): ResolvedBrowsePresentation {
-  if (presentation.mode !== 'tui' || navigability.hasNavigableItems) {
+  if (presentation.mode !== 'tui' || navigability.hasNavigableItems || !navigability.shouldCollapseEmptyExplorer) {
     return presentation;
   }
 

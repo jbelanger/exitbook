@@ -1,8 +1,10 @@
-import { ok } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+import { CliCommandError } from '../../../shared/cli-command-error.js';
+import { ExitCodes } from '../../../shared/exit-codes.js';
 
 const {
   mockBuildCliAccountLifecycleService,
@@ -10,7 +12,7 @@ const {
   mockBuildUpdateAccountInput,
   mockCreate,
   mockCtx,
-  mockDisplayCliError,
+  mockExitCliFailure,
   mockGetByName,
   mockOutputSuccess,
   mockPrepareAccountRemoval,
@@ -29,7 +31,7 @@ const {
   mockCtx: {
     database: vi.fn(),
   },
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPrepareAccountRemoval: vi.fn(),
@@ -52,7 +54,7 @@ vi.mock('../../../shared/json-output.js', () => ({
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../../../profiles/profile-resolution.js', () => ({
@@ -145,9 +147,9 @@ beforeEach(() => {
       })
   );
   mockPromptConfirm.mockResolvedValue(true);
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
+  mockExitCliFailure.mockImplementation(
+    (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+      throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
     }
   );
 });
@@ -209,18 +211,22 @@ describe('accounts lifecycle commands', () => {
         profileId: 1,
       })
     );
-    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-add', {
-      account: {
-        id: 7,
-        name: 'kraken-main',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: '***',
-        providerName: undefined,
-        createdAt: '2026-01-02T00:00:00.000Z',
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'accounts-add',
+      {
+        account: {
+          id: 7,
+          name: 'kraken-main',
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: '***',
+          providerName: undefined,
+          createdAt: '2026-01-02T00:00:00.000Z',
+        },
+        profile: 'default',
       },
-      profile: 'default',
-    });
+      undefined
+    );
   });
 
   it('renames an account in JSON mode', async () => {
@@ -240,14 +246,18 @@ describe('accounts lifecycle commands', () => {
     await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary', '--json'], { from: 'user' });
 
     expect(mockRename).toHaveBeenCalledWith(1, 'kraken-main', 'kraken-primary');
-    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-rename', {
-      account: {
-        id: 7,
-        name: 'kraken-primary',
-        platformKey: 'kraken',
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'accounts-rename',
+      {
+        account: {
+          id: 7,
+          name: 'kraken-primary',
+          platformKey: 'kraken',
+        },
+        profile: 'default',
       },
-      profile: 'default',
-    });
+      undefined
+    );
   });
 
   it('updates an account config in JSON mode', async () => {
@@ -317,18 +327,22 @@ describe('accounts lifecycle commands', () => {
         resetCursor: true,
       })
     );
-    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-update', {
-      account: {
-        id: 7,
-        name: 'kraken-main',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: '***',
-        providerName: undefined,
-        createdAt: '2026-01-02T00:00:00.000Z',
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'accounts-update',
+      {
+        account: {
+          id: 7,
+          name: 'kraken-main',
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: '***',
+          providerName: undefined,
+          createdAt: '2026-01-02T00:00:00.000Z',
+        },
+        profile: 'default',
       },
-      profile: 'default',
-    });
+      undefined
+    );
   });
 
   it('prints the specific fields changed during a text-mode update', async () => {
@@ -383,18 +397,41 @@ describe('accounts lifecycle commands', () => {
 
     await expect(
       program.parseAsync(['accounts', 'update', 'ghost-wallet', '--provider', 'alchemy'], { from: 'user' })
-    ).rejects.toThrow("CLI:accounts-update:text:Account 'ghost-wallet' not found");
-    expect(mockDisplayCliError).toHaveBeenCalledWith('accounts-update', expect.any(Error), 4, 'text');
+    ).rejects.toThrow("CLI:accounts-update:text:Account 'ghost-wallet' not found:4");
+    expect(mockExitCliFailure).toHaveBeenCalledWith(
+      'accounts-update',
+      expect.objectContaining({ exitCode: 4 }),
+      'text'
+    );
   });
 
   it('requires --confirm for JSON account removal', async () => {
     const program = createAccountsProgram();
 
     await expect(program.parseAsync(['accounts', 'remove', 'kraken-main', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:accounts-remove:json:--confirm is required when using --json for destructive account removal'
+      'CLI:accounts-remove:json:--confirm is required when using --json for destructive account removal:2'
     );
 
-    expect(mockRunCommand).toHaveBeenCalledOnce();
+    expect(mockRunCommand).not.toHaveBeenCalled();
+  });
+
+  it('preserves not-found semantics for account removal', async () => {
+    const program = createAccountsProgram();
+
+    mockPrepareAccountRemoval.mockResolvedValue(
+      err(new CliCommandError("Account 'ghost-wallet' not found", ExitCodes.NOT_FOUND))
+    );
+
+    await expect(
+      program.parseAsync(['accounts', 'remove', 'ghost-wallet', '--confirm'], { from: 'user' })
+    ).rejects.toThrow("CLI:accounts-remove:text:Account 'ghost-wallet' not found:4");
+
+    expect(mockExitCliFailure).toHaveBeenCalledWith(
+      'accounts-remove',
+      expect.objectContaining({ exitCode: 4 }),
+      'text'
+    );
+    expect(mockRunAccountRemoval).not.toHaveBeenCalled();
   });
 
   it('removes an account in JSON mode when confirmed', async () => {
@@ -449,20 +486,24 @@ describe('accounts lifecycle commands', () => {
     ];
     expect(removeScope.profile).toMatchObject({ id: 1, profileKey: 'default' });
     expect(removeAccountIds).toEqual([7]);
-    expect(mockOutputSuccess).toHaveBeenCalledWith('accounts-remove', {
-      accountName: 'kraken-main',
-      deleted: {
-        accounts: 1,
-        rawData: 4,
-        sessions: 2,
-        transactions: 8,
-        links: 3,
-        assetReviewStates: 1,
-        balanceSnapshots: 1,
-        balanceSnapshotAssets: 5,
-        costBasisSnapshots: 6,
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'accounts-remove',
+      {
+        accountName: 'kraken-main',
+        deleted: {
+          accounts: 1,
+          rawData: 4,
+          sessions: 2,
+          transactions: 8,
+          links: 3,
+          assetReviewStates: 1,
+          balanceSnapshots: 1,
+          balanceSnapshotAssets: 5,
+          costBasisSnapshots: 6,
+        },
+        profile: 'default',
       },
-      profile: 'default',
-    });
+      undefined
+    );
   });
 });

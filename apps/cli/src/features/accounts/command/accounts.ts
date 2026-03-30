@@ -1,7 +1,10 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { parseCliBrowseRootInvocation } from '../../shared/command-options.js';
+import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { detectCliTokenOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliBrowseRootInvocationResult } from '../../shared/command-options.js';
 import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../shared/presentation/browse-surface.js';
 
 import { registerAccountsAddCommand } from './accounts-add.js';
@@ -59,16 +62,23 @@ Notes:
     );
 
   accounts.action(async (tokens: string[] | undefined) => {
-    const parsedInvocation = parseCliBrowseRootInvocation(ACCOUNTS_COMMAND_ID, tokens, registerAccountsBrowseOptions);
-    const accountName = normalizeAccountsRootSelector(parsedInvocation.selector);
+    await runCliCommandBoundary({
+      command: ACCOUNTS_COMMAND_ID,
+      format: detectCliTokenOutputFormat(tokens),
+      action: async () =>
+        resultDoAsync(async function* () {
+          const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAccountsBrowseOptions);
+          const accountName = normalizeAccountsRootSelector(parsedInvocation.selector);
 
-    await executeAccountsBrowseCommand({
-      accountName,
-      commandId: ACCOUNTS_COMMAND_ID,
-      rawOptions: parsedInvocation.rawOptions,
-      surfaceSpec: accountName
-        ? staticDetailSurfaceSpec(ACCOUNTS_COMMAND_ID)
-        : staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
+          return yield* await executeAccountsBrowseCommand({
+            accountName,
+            commandId: ACCOUNTS_COMMAND_ID,
+            rawOptions: parsedInvocation.rawOptions,
+            surfaceSpec: accountName
+              ? staticDetailSurfaceSpec(ACCOUNTS_COMMAND_ID)
+              : staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
+          });
+        }),
     });
   });
 

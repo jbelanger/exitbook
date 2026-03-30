@@ -1,5 +1,6 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
+import { getCliCommandErrorExitCode } from './cli-command-error.js';
 import type { ExitCode } from './exit-codes.js';
 
 export interface CliFailure {
@@ -35,7 +36,7 @@ export type CliCommandResult = Result<CliCompletion, CliFailure>;
 export function createCliFailure(error: unknown, exitCode: ExitCode, details?: unknown): CliFailure {
   const failure: CliFailure = {
     error: normalizeCliError(error),
-    exitCode,
+    exitCode: getCliCommandErrorExitCode(error) ?? exitCode,
   };
 
   if (details !== undefined) {
@@ -55,6 +56,19 @@ export function toCliResult<T>(result: Result<T, Error>, exitCode: ExitCode, det
   }
 
   return ok(result.value);
+}
+
+export function toCliValue<T>(
+  value: T | undefined,
+  error: unknown,
+  exitCode: ExitCode,
+  details?: unknown
+): Result<T, CliFailure> {
+  if (value === undefined) {
+    return err(createCliFailure(error, exitCode, details));
+  }
+
+  return ok(value);
 }
 
 export function jsonSuccess(data: unknown, metadata?: Record<string, unknown>, exitCode?: ExitCode): CliCompletion {

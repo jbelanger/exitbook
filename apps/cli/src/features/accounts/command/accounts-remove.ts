@@ -1,17 +1,16 @@
-import { ok } from '@exitbook/foundation';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { z } from 'zod';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { CliCommandError } from '../../shared/cli-command-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { cliErr, jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
-import { requireCliResult } from './accounts-command-helpers.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
 import { prepareAccountRemoval, runAccountRemoval } from './run-accounts-remove.js';
 
@@ -43,54 +42,62 @@ Notes:
 }
 
 async function executeRemoveAccountCommand(name: string, rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    ACCOUNTS_REMOVE_COMMAND_ID,
-    rawOptions,
-    AccountsRemoveCommandOptionsSchema
-  );
+  await runCliCommandBoundary({
+    command: ACCOUNTS_REMOVE_COMMAND_ID,
+    format: detectCliOutputFormat(rawOptions),
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, AccountsRemoveCommandOptionsSchema);
 
-  await withCliCommandErrorHandling(ACCOUNTS_REMOVE_COMMAND_ID, format, async () => {
-    await runCommand(async (ctx) => {
-      if (options.json && !options.confirm) {
-        throw new CliCommandError(
-          '--confirm is required when using --json for destructive account removal',
-          ExitCodes.INVALID_ARGS
-        );
-      }
-
-      requireCliResult(
-        await withAccountsRemoveCommandScope(ctx, async (scope) => {
-          const { accountIds, accountName, preview } = requireCliResult(
-            await prepareAccountRemoval(scope, name),
-            ExitCodes.GENERAL_ERROR
+        if (options.json && !options.confirm) {
+          return yield* cliErr(
+            '--confirm is required when using --json for destructive account removal',
+            ExitCodes.INVALID_ARGS
           );
+        }
 
-          if (!options.confirm && !options.json) {
-            outputRemovalPreview(accountName, preview);
-            const shouldProceed = await promptConfirm(`Delete account ${accountName} and all attached data?`, false);
-            if (!shouldProceed) {
-              console.error('Account removal cancelled');
-              process.exit(0);
-            }
-          }
+        return yield* await captureCliRuntimeResult({
+          command: ACCOUNTS_REMOVE_COMMAND_ID,
+          action: async (ctx) =>
+            resultDoAsync(async function* () {
+              return yield* toCliResult(
+                await withAccountsRemoveCommandScope(ctx, async (scope) =>
+                  resultDoAsync(async function* () {
+                    const { accountIds, accountName, preview } = yield* await prepareAccountRemoval(scope, name);
 
-          const removal = requireCliResult(await runAccountRemoval(scope, accountIds), ExitCodes.GENERAL_ERROR);
+                    if (!options.confirm && !options.json) {
+                      outputRemovalPreview(accountName, preview);
+                      const shouldProceed = await promptConfirm(
+                        `Delete account ${accountName} and all attached data?`,
+                        false
+                      );
+                      if (!shouldProceed) {
+                        return textSuccess(() => {
+                          console.error('Account removal cancelled');
+                        });
+                      }
+                    }
 
-          if (options.json) {
-            outputSuccess(ACCOUNTS_REMOVE_COMMAND_ID, {
-              accountName,
-              deleted: removal.deleted,
-              profile: scope.profile.profileKey,
-            });
-          } else {
-            console.log(`Removed account ${accountName}`);
-          }
+                    const removal = yield* await runAccountRemoval(scope, accountIds);
 
-          return ok(undefined);
-        }),
-        ExitCodes.GENERAL_ERROR
-      );
-    });
+                    if (options.json) {
+                      return jsonSuccess({
+                        accountName,
+                        deleted: removal.deleted,
+                        profile: scope.profile.profileKey,
+                      });
+                    }
+
+                    return textSuccess(() => {
+                      console.log(`Removed account ${accountName}`);
+                    });
+                  })
+                ),
+                ExitCodes.GENERAL_ERROR
+              );
+            }),
+        });
+      }),
   });
 }
 

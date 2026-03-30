@@ -22,6 +22,9 @@ export async function prepareAccountRemoval(
     return err(accountResult.error);
   }
   if (!accountResult.value) {
+    // TODO(cli-rework): This still uses the legacy CLI exception type as data so
+    // the surrounding remove scope can preserve NOT_FOUND without throwing.
+    // Revisit once remove-scope helpers can carry CliFailure directly.
     return err(new CliCommandError(`Account '${accountName.trim().toLowerCase()}' not found`, ExitCodes.NOT_FOUND));
   }
 

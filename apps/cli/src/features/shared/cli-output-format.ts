@@ -15,3 +15,7 @@ function hasBooleanJsonFlag(value: unknown): value is { json?: boolean | undefin
 export function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
   return hasBooleanJsonFlag(rawOptions) && rawOptions.json === true ? 'json' : 'text';
 }
+
+export function detectCliTokenOutputFormat(tokens: string[] | undefined): CliOutputFormat {
+  return tokens?.some((token) => token === '--json' || token.startsWith('--json=')) ? 'json' : 'text';
+}

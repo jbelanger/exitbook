@@ -1,15 +1,14 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { CliCommandError } from '../../shared/cli-command-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult, toCliValue } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
-
-import { requireCliResult } from './accounts-command-helpers.js';
 
 const ACCOUNTS_RENAME_COMMAND_ID = 'accounts-rename';
 
@@ -40,37 +39,47 @@ Notes:
 }
 
 async function executeRenameAccountCommand(currentName: string, nextName: string, rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions(ACCOUNTS_RENAME_COMMAND_ID, rawOptions, JsonFlagSchema);
+  await runCliCommandBoundary({
+    command: ACCOUNTS_RENAME_COMMAND_ID,
+    format: detectCliOutputFormat(rawOptions),
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, JsonFlagSchema);
 
-  await withCliCommandErrorHandling(ACCOUNTS_RENAME_COMMAND_ID, format, async () => {
-    await runCommand(async (ctx) => {
-      const db = await ctx.database();
-      const profile = requireCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
-      const account = requireCliResult(
-        await buildCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
-        ExitCodes.GENERAL_ERROR
-      );
+        return yield* await captureCliRuntimeResult({
+          command: ACCOUNTS_RENAME_COMMAND_ID,
+          action: async (ctx) =>
+            resultDoAsync(async function* () {
+              const db = await ctx.database();
+              const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+              const account = yield* toCliResult(
+                await buildCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
+                ExitCodes.GENERAL_ERROR
+              );
+              const payload = {
+                account: {
+                  id: account.id,
+                  name: account.name,
+                  platformKey: account.platformKey,
+                },
+                profile: profile.profileKey,
+              };
 
-      const payload = {
-        account: {
-          id: account.id,
-          name: account.name,
-          platformKey: account.platformKey,
-        },
-        profile: profile.profileKey,
-      };
+              if (options.json) {
+                return jsonSuccess(payload);
+              }
 
-      if (options.json) {
-        outputSuccess(ACCOUNTS_RENAME_COMMAND_ID, payload);
-        return;
-      }
+              const renamedAccountName = yield* toCliValue(
+                account.name,
+                `Renamed account ${account.id} is missing a top-level name`,
+                ExitCodes.GENERAL_ERROR
+              );
 
-      const renamedAccountName = account.name ?? throwMissingRenamedAccountName(account.id);
-      console.log(`Renamed account ${currentName.trim().toLowerCase()} to ${renamedAccountName}`);
-    });
+              return textSuccess(() => {
+                console.log(`Renamed account ${currentName.trim().toLowerCase()} to ${renamedAccountName}`);
+              });
+            }),
+        });
+      }),
   });
-}
-
-function throwMissingRenamedAccountName(accountId: number): never {
-  throw new CliCommandError(`Renamed account ${accountId} is missing a top-level name`, ExitCodes.GENERAL_ERROR);
 }

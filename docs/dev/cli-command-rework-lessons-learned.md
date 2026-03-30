@@ -102,3 +102,29 @@
 - The next migrations should probably target:
   - `accounts`, because the browse/detail split now has a proven surrounding contract
   - `clear` or another prompt-first command, to finish the cancellation story
+
+## Phase 3: `accounts`
+
+### What worked
+
+- The browse/detail family fits the shared outcome contract without special casing.
+  - Root browse parsing now uses the result-returning root parser and the shared boundary.
+  - `accounts view` and bare `accounts` both route through the same browse execution path and return `CliCompletion`.
+
+- Filtered-empty explorers need an explicit collapse rule.
+  - The shared surface helper now requires `shouldCollapseEmptyExplorer`.
+  - `accounts` only enables collapse when no selector or slice filter is active, so filtered-empty explorer states stay on TUI as required by the V3 surface spec.
+
+- Preserving legacy semantic exit codes during `Result` conversion matters during migration.
+  - Some lower helpers still return `CliCommandError` as `Err` data.
+  - `createCliFailure(...)` now preserves that embedded exit code instead of flattening everything to the fallback code.
+
+- Prompt cancellation can be modeled as completion.
+  - `accounts remove` no longer calls `process.exit(0)` after a declined confirmation.
+  - It now returns a normal text completion and lets the shared boundary remain the only owner of termination.
+
+### Remaining cleanup
+
+- `run-accounts-remove.ts` still emits `CliCommandError` as data for not-found.
+  - That is localized and explicitly marked with `TODO(cli-rework)`.
+  - The next cleanup pass should let remove-scope helpers carry `CliFailure` or another typed semantic failure directly.

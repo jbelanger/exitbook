@@ -57,7 +57,12 @@ describe('collapseEmptyExplorerToStatic', () => {
       { stdinIsTTY: true, stdoutIsTTY: true, ci: false }
     );
 
-    expect(collapseEmptyExplorerToStatic(presentation, { hasNavigableItems: false })).toEqual({
+    expect(
+      collapseEmptyExplorerToStatic(presentation, {
+        hasNavigableItems: false,
+        shouldCollapseEmptyExplorer: true,
+      })
+    ).toEqual({
       commandId: 'accounts-view',
       kind: 'explorer-list',
       mode: 'static',
@@ -72,6 +77,26 @@ describe('collapseEmptyExplorerToStatic', () => {
       { stdinIsTTY: true, stdoutIsTTY: true, ci: false }
     );
 
-    expect(collapseEmptyExplorerToStatic(presentation, { hasNavigableItems: true })).toBe(presentation);
+    expect(
+      collapseEmptyExplorerToStatic(presentation, {
+        hasNavigableItems: true,
+        shouldCollapseEmptyExplorer: true,
+      })
+    ).toBe(presentation);
+  });
+
+  it('keeps filtered-empty explorer presentations on tui', () => {
+    const presentation = resolveBrowsePresentation(
+      explorerListSurfaceSpec('accounts-view'),
+      {},
+      { stdinIsTTY: true, stdoutIsTTY: true, ci: false }
+    );
+
+    expect(
+      collapseEmptyExplorerToStatic(presentation, {
+        hasNavigableItems: false,
+        shouldCollapseEmptyExplorer: false,
+      })
+    ).toBe(presentation);
   });
 });

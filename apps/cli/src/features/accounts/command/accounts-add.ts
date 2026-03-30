@@ -1,15 +1,17 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
+import { serializeAccountForCli } from './account-cli-serialization.js';
 import { buildCreateAccountInput } from './account-draft-utils.js';
-import { requireCliResult, serializeAccountForCli } from './accounts-command-helpers.js';
 import { AccountAddCommandOptionsSchema } from './accounts-option-schemas.js';
 
 const ACCOUNTS_ADD_COMMAND_ID = 'accounts-add';
@@ -50,38 +52,42 @@ Notes:
 }
 
 async function executeAddAccountCommand(name: string, rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    ACCOUNTS_ADD_COMMAND_ID,
-    rawOptions,
-    AccountAddCommandOptionsSchema
-  );
+  await runCliCommandBoundary({
+    command: ACCOUNTS_ADD_COMMAND_ID,
+    format: detectCliOutputFormat(rawOptions),
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, AccountAddCommandOptionsSchema);
 
-  await withCliCommandErrorHandling(ACCOUNTS_ADD_COMMAND_ID, format, async () => {
-    await runCommand(appRuntime, async (ctx) => {
-      const db = await ctx.database();
-      const profile = requireCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+        return yield* await captureCliRuntimeResult({
+          command: ACCOUNTS_ADD_COMMAND_ID,
+          appRuntime,
+          action: async (ctx) =>
+            resultDoAsync(async function* () {
+              const db = await ctx.database();
+              const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
+              const draft = yield* toCliResult(
+                buildCreateAccountInput(name, profile.id, options, appRuntime.adapterRegistry),
+                ExitCodes.INVALID_ARGS
+              );
+              const account = yield* toCliResult(
+                await buildCliAccountLifecycleService(db).create(draft),
+                ExitCodes.GENERAL_ERROR
+              );
+              const payload = {
+                account: serializeAccountForCli(account),
+                profile: profile.profileKey,
+              };
 
-      const draft = requireCliResult(
-        buildCreateAccountInput(name, profile.id, options, appRuntime.adapterRegistry),
-        ExitCodes.INVALID_ARGS
-      );
+              if (options.json) {
+                return jsonSuccess(payload);
+              }
 
-      const account = requireCliResult(
-        await buildCliAccountLifecycleService(db).create(draft),
-        ExitCodes.GENERAL_ERROR
-      );
-
-      const payload = {
-        account: serializeAccountForCli(account),
-        profile: profile.profileKey,
-      };
-
-      if (options.json) {
-        outputSuccess(ACCOUNTS_ADD_COMMAND_ID, payload);
-        return;
-      }
-
-      console.log(`Added account ${account.name} (${account.platformKey})`);
-    });
+              return textSuccess(() => {
+                console.log(`Added account ${account.name} (${account.platformKey})`);
+              });
+            }),
+        });
+      }),
   });
 }

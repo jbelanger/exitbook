@@ -2,7 +2,11 @@ import type { Command } from 'commander';
 
 import { explorerDetailSurfaceSpec, explorerListSurfaceSpec } from '../../shared/presentation/browse-surface.js';
 
-import { executeAccountsBrowseCommand, registerAccountsBrowseOptions } from './accounts-browse-command.js';
+import {
+  executeAccountsBrowseCommand,
+  runAccountsBrowseCommandBoundary,
+  registerAccountsBrowseOptions,
+} from './accounts-browse-command.js';
 
 const ACCOUNTS_VIEW_COMMAND_ID = 'accounts-view';
 
@@ -34,13 +38,15 @@ Account Types:
 `
       )
   ).action(async (name: string | undefined, rawOptions: unknown) => {
-    await executeAccountsBrowseCommand({
-      accountName: name,
-      commandId: ACCOUNTS_VIEW_COMMAND_ID,
-      rawOptions,
-      surfaceSpec: name
-        ? explorerDetailSurfaceSpec(ACCOUNTS_VIEW_COMMAND_ID)
-        : explorerListSurfaceSpec(ACCOUNTS_VIEW_COMMAND_ID),
-    });
+    await runAccountsBrowseCommandBoundary(ACCOUNTS_VIEW_COMMAND_ID, rawOptions, async () =>
+      executeAccountsBrowseCommand({
+        accountName: name,
+        commandId: ACCOUNTS_VIEW_COMMAND_ID,
+        rawOptions,
+        surfaceSpec: name
+          ? explorerDetailSurfaceSpec(ACCOUNTS_VIEW_COMMAND_ID)
+          : explorerListSurfaceSpec(ACCOUNTS_VIEW_COMMAND_ID),
+      })
+    );
   });
 }
