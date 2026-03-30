@@ -1,16 +1,24 @@
-// Command registration for view prices subcommand
 import { OverrideStore } from '@exitbook/data/overrides';
-import { err, ok } from '@exitbook/foundation';
-import type { Result } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
+import type { z } from 'zod';
 
-import { renderApp, runCommand, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import { type CommandRuntime, renderApp, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  createCliFailure,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliCompletion,
+  type CliFailure,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import type {
@@ -25,7 +33,7 @@ import { PricesViewCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
 import { PricesViewHandler, type MissingPricesResult } from './prices-view-handler.js';
 
-type ViewPricesCommandParams = ViewPricesParams;
+type PricesViewCommandOptions = z.infer<typeof PricesViewCommandOptionsSchema>;
 type PricesViewTextMode = 'coverage' | 'missing';
 type PricesViewTuiState =
   | {
@@ -36,17 +44,23 @@ type PricesViewTuiState =
       initialState: ReturnType<typeof createMissingViewState>;
     };
 
-/**
- * Result data for view prices command (JSON mode).
- */
 type ViewPricesCommandResult = ViewCommandResult<{
   coverage: PriceCoverageInfo[];
   summary: ViewPricesResult['summary'];
 }>;
 
-/**
- * Register the prices view subcommand.
- */
+type MissingPricesCommandResult = ViewCommandResult<{
+  assetBreakdown: AssetBreakdownEntry[];
+  movements: {
+    amount: string;
+    assetSymbol: string;
+    datetime: string;
+    direction: string;
+    source: string;
+    transactionId: number;
+  }[];
+}>;
+
 export function registerPricesViewCommand(pricesCommand: Command): void {
   pricesCommand
     .command('view')
@@ -75,102 +89,176 @@ Common Usage:
     });
 }
 
-/**
- * Execute the view prices command.
- */
 async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions('prices-view', rawOptions, PricesViewCommandOptionsSchema);
-  const isMissingMode = options.missingOnly ?? false;
+  const format = detectCliOutputFormat(rawOptions);
 
-  const params: ViewPricesCommandParams = {
+  await runCliCommandBoundary({
+    command: 'prices-view',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, PricesViewCommandOptionsSchema);
+        return yield* await executePricesViewCommandResult(buildViewPricesParams(options), format);
+      }),
+  });
+}
+
+async function executePricesViewCommandResult(
+  params: ViewPricesParams,
+  format: CliOutputFormat
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'prices-view',
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+        const handler = new PricesViewHandler(database, profile.id);
+
+        if (format === 'json') {
+          return yield* await buildPricesViewJsonCompletion(handler, params);
+        }
+
+        return yield* await buildPricesViewTuiCompletion(ctx, handler, profile.profileKey, params);
+      }),
+  });
+}
+
+function buildViewPricesParams(options: PricesViewCommandOptions): ViewPricesParams {
+  return {
     platform: options.platform,
     asset: options.asset,
     missingOnly: options.missingOnly,
   };
+}
 
-  if (format === 'json') {
-    if (isMissingMode) {
-      await executeMissingViewJSON(params);
-    } else {
-      await executeViewPricesJSON(params);
-    }
-
-    return;
+function buildPricesViewJsonCompletion(
+  handler: PricesViewHandler,
+  params: ViewPricesParams
+): Promise<Result<CliCompletion, CliFailure>> {
+  if (params.missingOnly) {
+    return buildMissingPricesJsonCompletion(handler, params);
   }
 
-  if (isMissingMode) {
-    await executeMissingViewTUI(params);
-  } else {
-    await executeCoverageViewTUI(params);
+  return buildCoveragePricesJsonCompletion(handler, params);
+}
+
+async function buildCoveragePricesJsonCompletion(
+  handler: PricesViewHandler,
+  params: ViewPricesParams
+): Promise<Result<CliCompletion, CliFailure>> {
+  const result = toCliResult(await handler.execute(params), ExitCodes.GENERAL_ERROR);
+  if (result.isErr()) {
+    return err(result.error);
   }
+
+  const { coverage, summary } = result.value;
+  const resultData: ViewPricesCommandResult = {
+    data: { coverage, summary },
+    meta: buildViewMeta(
+      coverage.length,
+      0,
+      coverage.length,
+      coverage.length,
+      buildDefinedFilters({
+        asset: params.asset,
+        platform: params.platform,
+        missingOnly: params.missingOnly ? true : undefined,
+      })
+    ),
+  };
+
+  return ok(jsonSuccess(resultData));
 }
 
-async function executeCoverageViewTUI(params: ViewPricesCommandParams): Promise<void> {
-  await withCliCommandErrorHandling('prices-view', 'text', async () => {
-    await executePricesViewTUI(params, 'coverage');
-  });
+async function buildMissingPricesJsonCompletion(
+  handler: PricesViewHandler,
+  params: ViewPricesParams
+): Promise<Result<CliCompletion, CliFailure>> {
+  const result = toCliResult(await handler.executeMissing(params), ExitCodes.GENERAL_ERROR);
+  if (result.isErr()) {
+    return err(result.error);
+  }
+
+  const { movements, assetBreakdown } = result.value;
+  const resultData: MissingPricesCommandResult = {
+    data: {
+      movements: movements.map((movement) => ({
+        transactionId: movement.transactionId,
+        source: movement.source,
+        datetime: movement.datetime,
+        assetSymbol: movement.assetSymbol,
+        direction: movement.direction,
+        amount: movement.amount,
+      })),
+      assetBreakdown,
+    },
+    meta: buildViewMeta(
+      movements.length,
+      0,
+      movements.length,
+      movements.length,
+      buildDefinedFilters({
+        asset: params.asset,
+        platform: params.platform,
+        missingOnly: true,
+      })
+    ),
+  };
+
+  return ok(jsonSuccess(resultData));
 }
 
-async function executeMissingViewTUI(params: ViewPricesCommandParams): Promise<void> {
-  await withCliCommandErrorHandling('prices-view', 'text', async () => {
-    await executePricesViewTUI(params, 'missing');
-  });
-}
+async function buildPricesViewTuiCompletion(
+  ctx: CommandRuntime,
+  handler: PricesViewHandler,
+  profileKey: string,
+  params: ViewPricesParams
+): Promise<Result<CliCompletion, CliFailure>> {
+  const mode: PricesViewTextMode = params.missingOnly ? 'missing' : 'coverage';
+  const initialStateResult =
+    mode === 'coverage' ? await loadCoverageViewState(handler, params) : await loadMissingViewState(handler, params);
 
-async function executePricesViewTUI(params: ViewPricesCommandParams, mode: PricesViewTextMode): Promise<void> {
-  await runCommand(async (ctx) => {
-    const database = await ctx.database();
-    const profileResult = await resolveCommandProfile(ctx, database);
-    if (profileResult.isErr()) {
-      console.error('\n⚠ Error:', profileResult.error.message);
-      ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+  const stateResult = toCliResult(initialStateResult, ExitCodes.GENERAL_ERROR);
+  if (stateResult.isErr()) {
+    return err(stateResult.error);
+  }
 
-    const handler = new PricesViewHandler(database, profileResult.value.id);
-    const initialStateResult =
-      mode === 'coverage' ? await loadCoverageViewState(handler, params) : await loadMissingViewState(handler, params);
-    if (initialStateResult.isErr()) {
-      console.error('\n⚠ Error:', initialStateResult.error.message);
-      ctx.exitCode = ExitCodes.GENERAL_ERROR;
-      return;
-    }
+  try {
+    await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+      const overrideStore = new OverrideStore(ctx.dataDir);
+      const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
 
-    try {
-      await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
-        const overrideStore = new OverrideStore(ctx.dataDir);
-        const pricesSetHandler = new PricesSetHandler(priceRuntime, overrideStore);
-        const handleSetPrice = async (asset: string, date: string, price: string): Promise<void> => {
-          const result = await pricesSetHandler.execute({
-            asset,
-            date,
-            price,
-            source: 'manual-tui',
-            profileKey: profileResult.value.profileKey,
-          });
-          if (result.isErr()) {
-            throw result.error;
-          }
-        };
+      await renderApp((unmount) =>
+        React.createElement(PricesViewApp, {
+          ...stateResult.value,
+          onQuit: unmount,
+          onSetPrice: async (asset: string, date: string, price: string) => {
+            const result = await pricesSetHandler.execute({
+              asset,
+              date,
+              price,
+              source: 'manual-tui',
+              profileKey,
+            });
 
-        await renderApp((unmount) =>
-          React.createElement(PricesViewApp, {
-            ...initialStateResult.value,
-            onSetPrice: handleSetPrice,
-            onQuit: unmount,
-          })
-        );
-      });
-    } catch (error) {
-      console.error('\n⚠ Error:', error instanceof Error ? error.message : String(error));
-      ctx.exitCode = ExitCodes.GENERAL_ERROR;
-    }
-  });
+            if (result.isErr()) {
+              throw result.error;
+            }
+          },
+        })
+      );
+    });
+  } catch (error) {
+    return err(createCliFailure(error, ExitCodes.GENERAL_ERROR));
+  }
+
+  return ok(silentSuccess());
 }
 
 async function loadCoverageViewState(
   handler: PricesViewHandler,
-  params: ViewPricesCommandParams
+  params: ViewPricesParams
 ): Promise<Result<PricesViewTuiState, Error>> {
   const detailResult = await handler.executeCoverageDetail(params);
   if (detailResult.isErr()) {
@@ -202,7 +290,7 @@ async function loadCoverageViewState(
 
 async function loadMissingViewState(
   handler: PricesViewHandler,
-  params: ViewPricesCommandParams
+  params: ViewPricesParams
 ): Promise<Result<PricesViewTuiState, Error>> {
   const missingResult = await handler.executeMissing(params);
   if (missingResult.isErr()) {
@@ -212,117 +300,5 @@ async function loadMissingViewState(
   const { movements, assetBreakdown } = missingResult.value;
   return ok({
     initialState: createMissingViewState(movements, assetBreakdown, params.asset, params.platform),
-  });
-}
-
-/**
- * Execute view prices in JSON mode
- */
-async function executeViewPricesJSON(params: ViewPricesCommandParams): Promise<void> {
-  await withCliCommandErrorHandling('view-prices', 'json', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const handler = new PricesViewHandler(database, profileResult.value.id);
-
-      const result = await handler.execute(params);
-
-      if (result.isErr()) {
-        displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const { coverage, summary } = result.value;
-
-      const resultData: ViewPricesCommandResult = {
-        data: { coverage, summary },
-        meta: buildViewMeta(
-          coverage.length,
-          0,
-          coverage.length,
-          coverage.length,
-          buildDefinedFilters({
-            asset: params.asset,
-            platform: params.platform,
-            missingOnly: params.missingOnly ? true : undefined,
-          })
-        ),
-      };
-
-      outputSuccess('view-prices', resultData);
-    });
-  });
-}
-
-/**
- * Result data for missing prices JSON mode.
- */
-type MissingPricesCommandResult = ViewCommandResult<{
-  assetBreakdown: AssetBreakdownEntry[];
-  movements: {
-    amount: string;
-    assetSymbol: string;
-    datetime: string;
-    direction: string;
-    source: string;
-    transactionId: number;
-  }[];
-}>;
-
-/**
- * Execute missing prices in JSON mode
- */
-async function executeMissingViewJSON(params: ViewPricesCommandParams): Promise<void> {
-  await withCliCommandErrorHandling('view-prices', 'json', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('view-prices', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const handler = new PricesViewHandler(database, profileResult.value.id);
-
-      const result = await handler.executeMissing(params);
-
-      if (result.isErr()) {
-        displayCliError('view-prices', result.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const { movements, assetBreakdown } = result.value;
-
-      const jsonMovements = movements.map((m) => ({
-        transactionId: m.transactionId,
-        source: m.source,
-        datetime: m.datetime,
-        assetSymbol: m.assetSymbol,
-        direction: m.direction,
-        amount: m.amount,
-      }));
-
-      const resultData: MissingPricesCommandResult = {
-        data: { movements: jsonMovements, assetBreakdown },
-        meta: buildViewMeta(
-          movements.length,
-          0,
-          movements.length,
-          movements.length,
-          buildDefinedFilters({
-            asset: params.asset,
-            platform: params.platform,
-            missingOnly: true,
-          })
-        ),
-      };
-
-      outputSuccess('view-prices', resultData);
-    });
   });
 }

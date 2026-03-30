@@ -7,23 +7,24 @@
  * 3. Market prices - Fetch missing crypto prices from external providers
  * 4. Price rederive - Use newly fetched/normalized prices for ratio calculations
  */
-import type { PricesEnrichOptions } from '@exitbook/accounting/price-enrichment';
+import type { PricesEnrichOptions, PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 
 import { withPricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
 import { runPricesEnrich } from './run-prices-enrich.js';
 
-/**
- * Register the prices enrich subcommand
- */
+type PricesEnrichCommandOptions = z.infer<typeof PricesEnrichCommandOptionsSchema>;
+
 export function registerPricesEnrichCommand(pricesCommand: Command, appRuntime: CliAppRuntime): void {
   pricesCommand
     .command('enrich')
@@ -51,72 +52,58 @@ Notes:
     .action((rawOptions: unknown) => executePricesEnrichCommand(rawOptions, appRuntime));
 }
 
-/**
- * Helper to collect multiple option values
- */
 function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
 }
 
 async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('prices-enrich', rawOptions, PricesEnrichCommandOptionsSchema);
-  const params: PricesEnrichOptions = {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command: 'prices-enrich',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, PricesEnrichCommandOptionsSchema);
+        return yield* await executePricesEnrichCommandResult(buildPricesEnrichParams(options), format, appRuntime);
+      }),
+  });
+}
+
+async function executePricesEnrichCommandResult(
+  params: PricesEnrichOptions,
+  format: CliOutputFormat,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'prices-enrich',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await withPricesEnrichCommandScope(ctx, (scope) => runPricesEnrich(scope, { format }, params)),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return buildPricesEnrichCompletion(result, format);
+      }),
+  });
+}
+
+function buildPricesEnrichParams(options: PricesEnrichCommandOptions): PricesEnrichOptions {
+  return {
     asset: options.asset,
     onMissing: options.onMissing,
     normalizeOnly: options.normalizeOnly,
     deriveOnly: options.deriveOnly,
     fetchOnly: options.fetchOnly,
   };
+}
 
+function buildPricesEnrichCompletion(result: PricesEnrichResult, format: CliOutputFormat) {
   if (format === 'json') {
-    await executePricesEnrichJSON(params, appRuntime);
-  } else {
-    await executePricesEnrichTUI(params, appRuntime);
+    return jsonSuccess(result);
   }
-}
 
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
-async function executePricesEnrichJSON(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withPricesEnrichCommandScope(ctx, (scope) =>
-        runPricesEnrich(scope, { format: 'json' }, params)
-      );
-      if (result.isErr()) {
-        displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      outputSuccess('prices-enrich', result.value);
-    });
-  } catch (error) {
-    displayCliError(
-      'prices-enrich',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-// ─── TUI Mode ────────────────────────────────────────────────────────────────
-
-async function executePricesEnrichTUI(params: PricesEnrichOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withPricesEnrichCommandScope(ctx, (scope) =>
-        runPricesEnrich(scope, { format: 'text' }, params)
-      );
-      if (result.isErr()) {
-        displayCliError('prices-enrich', result.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'prices-enrich',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
+  return silentSuccess();
 }

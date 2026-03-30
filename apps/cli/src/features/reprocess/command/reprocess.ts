@@ -1,24 +1,25 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  jsonSuccess,
+  silentSuccess,
+  textSuccess,
+  toCliResult,
+  type CliCommandResult,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 
-import { ProcessCommandOptionsSchema } from './reprocess-option-schemas.js';
-import { runReprocess, type ProcessResultWithMetrics } from './run-reprocess.js';
+import { ReprocessCommandOptionsSchema } from './reprocess-option-schemas.js';
+import { runReprocess, type ReprocessResultWithMetrics } from './run-reprocess.js';
 
-/**
- * Process command options validated by Zod at CLI boundary
- */
-type ProcessCommandOptions = z.infer<typeof ProcessCommandOptionsSchema>;
+type ReprocessCommandOptions = z.infer<typeof ReprocessCommandOptionsSchema>;
 
-/**
- * Process command result structure for JSON output
- */
 interface ReprocessCommandResult {
   status: 'success' | 'warning';
   reprocess: {
@@ -58,66 +59,57 @@ Notes:
 }
 
 async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('reprocess', rawOptions, ProcessCommandOptionsSchema);
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command: 'reprocess',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, ReprocessCommandOptionsSchema);
+        return yield* await executeReprocessCommandResult(options, format, appRuntime);
+      }),
+  });
+}
+
+async function executeReprocessCommandResult(
+  options: ReprocessCommandOptions,
+  format: CliOutputFormat,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'reprocess',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await runReprocess(ctx, { format }, { accountId: options.accountId }),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return buildReprocessCompletion(result, format);
+      }),
+  });
+}
+
+function buildReprocessCompletion(result: ReprocessResultWithMetrics, format: CliOutputFormat) {
   if (format === 'json') {
-    await executeReprocessJSON(options, appRuntime);
-  } else {
-    await executeReprocessTUI(options, appRuntime);
+    return jsonSuccess(buildReprocessResult(result));
   }
+
+  if (result.errors.length === 0) {
+    return silentSuccess();
+  }
+
+  return textSuccess(() => {
+    process.stderr.write('\nFirst 5 processing errors:\n');
+    for (const error of result.errors.slice(0, 5)) {
+      process.stderr.write(`  • ${error}\n`);
+    }
+  });
 }
 
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
-async function executeReprocessJSON(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await runReprocess(ctx, { format: 'json' }, { accountId: options.accountId });
-      if (result.isErr()) {
-        displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      outputSuccess('reprocess', buildReprocessResult(result.value));
-    });
-  } catch (error) {
-    displayCliError(
-      'reprocess',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-// ─── TUI Mode ────────────────────────────────────────────────────────────────
-
-async function executeReprocessTUI(options: ProcessCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await runReprocess(ctx, { format: 'text' }, { accountId: options.accountId });
-      if (result.isErr()) {
-        displayCliError('reprocess', result.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      if (result.value.errors.length > 0) {
-        process.stderr.write('\nFirst 5 processing errors:\n');
-        for (const error of result.value.errors.slice(0, 5)) {
-          process.stderr.write(`  • ${error}\n`);
-        }
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'reprocess',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
-  }
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function buildReprocessResult(result: ProcessResultWithMetrics): ReprocessCommandResult {
+function buildReprocessResult(result: ReprocessResultWithMetrics): ReprocessCommandResult {
   return {
     status: result.errors.length > 0 ? 'warning' : 'success',
     reprocess: {

@@ -174,3 +174,61 @@
   - `accounts remove` now distinguishes decline from Ctrl+C:
     - decline stays a normal text completion
     - Ctrl+C becomes `CANCELLED`
+
+## Phase 6: Workflow shell cleanup (`reprocess` + `prices enrich`)
+
+### What worked
+
+- Some legacy workflows only needed the boundary rewrite, not a deeper runtime redesign.
+  - `reprocess` and `prices enrich` were both duplicating JSON/text shells around `runCommand(...)`.
+  - Rewriting the entrypoints around `runCliCommandBoundary(...)` plus `captureCliRuntimeResult(...)` removed that duplication without touching the underlying runtime helpers.
+
+- Workflow commands can stay simple when the runtime already owns presentation.
+  - `prices enrich` text mode does not need post-run output; `silentSuccess()` is the correct completion.
+  - `reprocess` only needs a small text completion when successful processing still produced warnings, so the post-run output stays local and explicit.
+
+- Command tests are worth adding at the migration seam, even when runner tests already exist.
+  - `run-reprocess.test.ts` already covered the runtime helper.
+  - The new command tests caught the exact integration questions the runner tests could not: option parsing, boundary failures, JSON output, and text completion behavior.
+
+### Constraints confirmed
+
+- `captureCliRuntimeResult(...)` is the right helper when parsing happens outside the runtime but execution lives fully inside it.
+  - That keeps parse failures in the shared boundary contract.
+  - It also avoids dragging `runCommand(...)` details back into each command file.
+
+## Phase 7: Small mutations on runtime-owned price helpers (`prices set` + `prices set-fx`)
+
+### What worked
+
+- Not every runtime helper needs a second adapter layer.
+  - `withCommandPriceProviderRuntime(...)` can already carry a `Result<T, Error>` value through the callback.
+  - That let `prices set` and `prices set-fx` drop the old `throw executeResult.error` bridge entirely.
+
+- Small mutations still benefit from command-level tests.
+  - The handler tests already covered validation and persistence.
+  - The new command tests now cover boundary behavior: profile resolution, JSON output, and shared failure routing.
+
+### Constraints confirmed
+
+- The shared command boundary is still readable for small commands as long as completion helpers stay local.
+  - `prices set` and `prices set-fx` each keep their text success rendering inline.
+  - Extracting a generic helper here would have hidden the command contract more than it would have clarified it.
+
+## Phase 8: `prices view` alignment
+
+### What worked
+
+- A TUI command with live mutation callbacks can still fit the shared boundary.
+  - `prices view` needs a live price runtime while the app is mounted because the missing-price screen can save manual prices inline.
+  - The right shape was the same as `clear`: render the app inside the runtime-owned section, then return `silentSuccess()` afterward.
+
+- JSON and TUI modes can still share the same outer parse/boundary contract even when their inner execution shapes diverge.
+  - JSON mode builds structured completion data.
+  - TUI mode builds runtime-local state and render callbacks.
+
+### Constraints confirmed
+
+- Callback-local errors are a different problem than command-boundary errors.
+  - `prices view` no longer uses legacy parse or boundary helpers.
+  - The TUI callbacks still surface failures by rejecting inside the component flow, which is acceptable for now because the UI reducer already owns that interaction loop.

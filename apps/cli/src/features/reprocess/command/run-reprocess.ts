@@ -10,7 +10,7 @@ import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
 import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
-export interface ProcessResultWithMetrics {
+export interface ReprocessResultWithMetrics {
   processed: number;
   errors: string[];
   failed: number;
@@ -34,7 +34,7 @@ export interface ReprocessExecutionRuntime {
 export async function executeReprocessWithRuntime(
   runtime: ReprocessExecutionRuntime,
   params: ReprocessParams
-): Promise<Result<ProcessResultWithMetrics, Error>> {
+): Promise<Result<ReprocessResultWithMetrics, Error>> {
   const planResult = await runtime.processingWorkflow.prepareReprocess(params);
   if (planResult.isErr()) {
     runtime.ingestionMonitor?.fail(planResult.error.message);
@@ -98,7 +98,7 @@ export async function runReprocess(
   ctx: CommandRuntime,
   options: { format: CliOutputFormat },
   params: ReprocessParams
-): Promise<Result<ProcessResultWithMetrics, Error>> {
+): Promise<Result<ReprocessResultWithMetrics, Error>> {
   try {
     const database = await ctx.database();
     return withIngestionRuntime(
