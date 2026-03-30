@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockClearNote,
   mockCtx,
-  mockDisplayCliError,
+  mockExitCliFailure,
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
@@ -18,9 +18,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-transactions',
     database: vi.fn(),
-    exitCode: 0,
   },
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
@@ -39,12 +38,13 @@ vi.mock('@exitbook/data/overrides', () => ({
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
-  runCommand: mockRunCommand,
+  CommandRuntime: class {},
   renderApp: vi.fn(),
+  runCommand: mockRunCommand,
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../../../shared/json-output.js', () => ({
@@ -86,9 +86,9 @@ describe('transactions edit command', () => {
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
-    mockDisplayCliError.mockImplementation(
-      (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-        throw new Error(`CLI:${command}:${format}:${error.message}`);
+    mockExitCliFailure.mockImplementation(
+      (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+        throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
     );
     consoleLogSpy.mockClear();
@@ -151,27 +151,27 @@ describe('transactions edit command', () => {
       transactionId: 123,
       reason: undefined,
     });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-note', result);
+    expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-note', result, undefined);
     expect(consoleLogSpy).not.toHaveBeenCalled();
   });
 
-  it('routes option validation failures through the CLI error path', async () => {
+  it('routes option validation failures through the shared boundary', async () => {
     const program = createProgram();
 
     await expect(program.parseAsync(['transactions', 'edit', 'note', '123'], { from: 'user' })).rejects.toThrow(
-      'CLI:transactions-edit-note:text:Either --message or --clear is required'
+      'CLI:transactions-edit-note:text:Either --message or --clear is required:2'
     );
 
     expect(mockSetNote).not.toHaveBeenCalled();
     expect(mockClearNote).not.toHaveBeenCalled();
   });
 
-  it('routes invalid transaction ids through the CLI error path', async () => {
+  it('routes invalid transaction ids through the shared boundary', async () => {
     const program = createProgram();
 
     await expect(
       program.parseAsync(['transactions', 'edit', 'note', 'not-a-number', '--message', 'Memo'], { from: 'user' })
-    ).rejects.toThrow('CLI:transactions-edit-note:text:Invalid input: expected number, received NaN');
+    ).rejects.toThrow('CLI:transactions-edit-note:text:Invalid input: expected number, received NaN:2');
 
     expect(mockSetNote).not.toHaveBeenCalled();
   });

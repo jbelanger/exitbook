@@ -1,19 +1,19 @@
-// Command registration for transactions export subcommand
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
-import { outputSuccess } from '../../shared/json-output.js';
 
 import { TransactionsExportCommandOptionsSchema } from './transactions-option-schemas.js';
 
-/**
- * JSON output shape for transactions export.
- */
+type TransactionsExportCommandOptions = z.infer<typeof TransactionsExportCommandOptionsSchema>;
+
 interface TransactionsExportCommandResult {
   data: {
     csvFormat?: string | undefined;
@@ -23,9 +23,6 @@ interface TransactionsExportCommandResult {
   };
 }
 
-/**
- * Register the transactions export subcommand.
- */
 export function registerTransactionsExportCommand(transactionsCommand: Command): void {
   transactionsCommand
     .command('export')
@@ -44,100 +41,107 @@ Examples:
     .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--output <file>', 'Output file path')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeTransactionsExportCommand(rawOptions);
-    });
+    .action((rawOptions: unknown) => executeTransactionsExportCommand(rawOptions));
 }
 
-/**
- * Execute the transactions export command.
- */
 async function executeTransactionsExportCommand(rawOptions: unknown): Promise<void> {
-  const { format: outputFormat, options } = parseCliCommandOptions(
-    'transactions-export',
-    rawOptions,
-    TransactionsExportCommandOptionsSchema
-  );
+  const format = detectCliOutputFormat(rawOptions);
 
-  const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
+  await runCliCommandBoundary({
+    command: 'transactions-export',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, TransactionsExportCommandOptionsSchema);
+        return yield* await executeTransactionsExportCommandResult(options, format);
+      }),
+  });
+}
 
-  try {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('transactions-export', profileResult.error, ExitCodes.GENERAL_ERROR, outputFormat);
-      }
+async function executeTransactionsExportCommandResult(
+  options: TransactionsExportCommandOptions,
+  format: CliOutputFormat
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'transactions-export',
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+        const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
+        const exportHandler = new TransactionsExportHandler(database);
+        const exportFormat = options.format ?? 'csv';
+        const csvFormat = options.csvFormat ?? (exportFormat === 'csv' ? 'normalized' : undefined);
+        const outputPath = options.output ?? `data/transactions.${exportFormat === 'json' ? 'json' : 'csv'}`;
 
-      const exportHandler = new TransactionsExportHandler(database);
+        const result = yield* toCliResult(
+          await exportHandler.execute({
+            profileId: profile.id,
+            format: exportFormat,
+            csvFormat,
+            outputPath,
+          }),
+          ExitCodes.GENERAL_ERROR
+        );
 
-      const exportFormat = options.format ?? 'csv';
-      const csvFormat = options.csvFormat ?? (exportFormat === 'csv' ? 'normalized' : undefined);
-      const outputPath = options.output ?? `data/transactions.${exportFormat === 'json' ? 'json' : 'csv'}`;
+        if (result.transactionCount === 0) {
+          return buildEmptyTransactionsExportCompletion(exportFormat, csvFormat, format);
+        }
 
-      const result = await exportHandler.execute({
-        profileId: profileResult.value.id,
+        const outputPaths = yield* toCliResult(
+          await writeFilesWithAtomicRenames(result.outputs),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return buildTransactionsExportCompletion(
+          {
+            csvFormat: result.csvFormat,
+            format: result.format,
+            outputPaths,
+            transactionCount: result.transactionCount,
+          },
+          format
+        );
+      }),
+  });
+}
+
+function buildEmptyTransactionsExportCompletion(
+  exportFormat: string,
+  csvFormat: string | undefined,
+  format: CliOutputFormat
+) {
+  if (format === 'json') {
+    const resultData: TransactionsExportCommandResult = {
+      data: {
+        transactionCount: 0,
         format: exportFormat,
         csvFormat,
-        outputPath,
-      });
-
-      if (result.isErr()) {
-        displayCliError('transactions-export', result.error, ExitCodes.GENERAL_ERROR, outputFormat);
-      }
-
-      if (result.value.transactionCount === 0) {
-        if (outputFormat !== 'json') {
-          console.log('No transactions found to export.');
-        } else {
-          const jsonResult: TransactionsExportCommandResult = {
-            data: {
-              transactionCount: 0,
-              format: exportFormat,
-              csvFormat,
-              outputPaths: [],
-            },
-          };
-          outputSuccess('transactions-export', jsonResult);
-        }
-        return;
-      }
-
-      // Write files atomically
-      const writeResult = await writeFilesWithAtomicRenames(result.value.outputs);
-      if (writeResult.isErr()) {
-        displayCliError('transactions-export', writeResult.error, ExitCodes.GENERAL_ERROR, outputFormat);
-      }
-
-      const outputPaths = writeResult.value;
-
-      if (outputFormat === 'json') {
-        const jsonResult: TransactionsExportCommandResult = {
-          data: {
-            transactionCount: result.value.transactionCount,
-            format: result.value.format,
-            csvFormat: result.value.csvFormat,
-            outputPaths,
-          },
-        };
-        outputSuccess('transactions-export', jsonResult);
-      } else {
-        if (outputPaths.length === 1) {
-          console.log(`Exported ${result.value.transactionCount} transactions to: ${outputPaths[0]}`);
-        } else {
-          console.log(`Exported ${result.value.transactionCount} transactions to:`);
-          for (const exportPath of outputPaths) {
-            console.log(`  - ${exportPath}`);
-          }
-        }
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'transactions-export',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      outputFormat
-    );
+        outputPaths: [],
+      },
+    };
+    return jsonSuccess(resultData);
   }
+
+  return textSuccess(() => {
+    console.log('No transactions found to export.');
+  });
+}
+
+function buildTransactionsExportCompletion(result: TransactionsExportCommandResult['data'], format: CliOutputFormat) {
+  if (format === 'json') {
+    return jsonSuccess({ data: result } satisfies TransactionsExportCommandResult);
+  }
+
+  return textSuccess(() => {
+    if (result.outputPaths.length === 1) {
+      console.log(`Exported ${result.transactionCount} transactions to: ${result.outputPaths[0]}`);
+      return;
+    }
+
+    console.log(`Exported ${result.transactionCount} transactions to:`);
+    for (const exportPath of result.outputPaths) {
+      console.log(`  - ${exportPath}`);
+    }
+  });
 }

@@ -232,3 +232,21 @@
 - Callback-local errors are a different problem than command-boundary errors.
   - `prices view` no longer uses legacy parse or boundary helpers.
   - The TUI callbacks still surface failures by rejecting inside the component flow, which is acceptable for now because the UI reducer already owns that interaction loop.
+
+## Phase 9: `transactions` family alignment
+
+### What worked
+
+- Migrating a whole command family was cleaner than splitting a shared seam across phases.
+  - `transactions view`, `transactions export`, and `transactions edit note` were all still using the legacy parse/error boundary.
+  - Moving them together avoided leaving one family split across `displayCliError(...)` and `runCliCommandBoundary(...)`.
+
+- Filters that feed later callbacks need to be validated once at the outer boundary and then carried forward as data.
+  - `transactions view` had a hidden drift bug: the TUI export callback did not preserve the active `--since` filter.
+  - Parsing `since`/`until` up front and threading the validated values into both the list query and the inline export callback fixed that without inventing callback-local parsing rules.
+
+### Constraints confirmed
+
+- Command ids should normalize during migration, even when the legacy JSON field was inconsistent.
+  - `view-transactions` became `transactions-view` to match the current command naming convention used by the shared boundary.
+  - That is a user-visible JSON change, so future migrations should make the rename explicit in tests and notes instead of leaving mixed ids around.
