@@ -9,7 +9,7 @@ import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-de
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 export interface PortfolioCommandScope {
   handler: PortfolioHandler;

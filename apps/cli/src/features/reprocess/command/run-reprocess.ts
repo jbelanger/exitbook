@@ -8,7 +8,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { type CliEvent, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 export interface ProcessResultWithMetrics {
   processed: number;

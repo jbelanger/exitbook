@@ -7,7 +7,7 @@ import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/comman
 import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
 import { BalanceStoredSnapshotReader } from './balance-stored-snapshot-reader.js';

@@ -5,7 +5,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { CostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
 

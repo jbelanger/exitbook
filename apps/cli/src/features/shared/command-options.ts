@@ -6,31 +6,14 @@ import { getCliCommandErrorExitCode } from './cli-command-error.js';
 import type { CliFailure } from './cli-contract.js';
 import { createCliFailure } from './cli-contract.js';
 import { displayCliError } from './cli-error.js';
+import { detectCliOutputFormat, type CliOutputFormat } from './cli-output-format.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 import type { BrowseSurfaceSpec, ResolvedBrowsePresentation } from './presentation/browse-surface.js';
 import { resolveBrowsePresentation } from './presentation/browse-surface.js';
 
-export type CliOutputFormat = 'json' | 'text';
-
 export interface CliBrowseRootInvocation {
   rawOptions: Record<string, unknown>;
   selector?: string | undefined;
-}
-
-function hasBooleanJsonFlag(value: unknown): value is { json?: boolean | undefined } {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  if (!('json' in value)) {
-    return true;
-  }
-
-  return typeof (value as { json: unknown }).json === 'boolean';
-}
-
-export function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
-  return hasBooleanJsonFlag(rawOptions) && rawOptions.json === true ? 'json' : 'text';
 }
 
 /**

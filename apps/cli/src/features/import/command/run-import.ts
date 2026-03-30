@@ -12,7 +12,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
@@ -335,6 +335,9 @@ async function checkSingleAddressWarning(
     if (!isXpub) {
       const shouldContinue = await params.onSingleAddressWarning();
       if (!shouldContinue) {
+        // TODO(cli-rework): Return a typed cancellation result/error here so the
+        // shared command boundary can map prompt decline to CANCELLED instead of
+        // collapsing it into a generic command failure.
         return err(new Error('Import cancelled by user'));
       }
     }

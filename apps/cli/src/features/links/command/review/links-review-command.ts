@@ -4,7 +4,8 @@ import React from 'react';
 
 import { runCommand } from '../../../../runtime/command-runtime.js';
 import { displayCliError } from '../../../shared/cli-error.js';
-import { parseCliCommandOptions, type CliOutputFormat } from '../../../shared/command-options.js';
+import type { CliOutputFormat } from '../../../shared/cli-output-format.js';
+import { parseCliCommandOptions } from '../../../shared/command-options.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
 import { outputSuccess } from '../../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../../shared/spinner.js';

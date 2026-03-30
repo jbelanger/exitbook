@@ -8,7 +8,7 @@ import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { resolveCommandProfile } from '../features/profiles/profile-resolution.js';
-import type { CliOutputFormat } from '../features/shared/command-options.js';
+import type { CliOutputFormat } from '../features/shared/cli-output-format.js';
 
 import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type { CommandRuntime } from './command-runtime.js';

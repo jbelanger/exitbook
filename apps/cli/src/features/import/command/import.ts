@@ -6,11 +6,8 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
-import {
-  detectCliOutputFormat,
-  parseCliCommandOptionsResult,
-  type CliOutputFormat,
-} from '../../shared/command-options.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { promptConfirm } from '../../shared/prompts.js';
 
@@ -90,6 +87,10 @@ type ImportCommandExecution =
       kind: 'single';
       result: ImportExecuteResult;
     };
+
+// TODO(cli-rework): Revisit whether `import` should model prompt decline as an
+// explicit cancelled completion once prompt-first/destructive flows are
+// migrated. Right now the lower workflow still returns a plain Error.
 
 export function registerImportCommand(program: Command, appRuntime: CliAppRuntime): void {
   program

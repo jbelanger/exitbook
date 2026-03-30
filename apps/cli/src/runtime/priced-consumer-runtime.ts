@@ -2,7 +2,7 @@ import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis'
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { CliOutputFormat } from '../features/shared/command-options.js';
+import type { CliOutputFormat } from '../features/shared/cli-output-format.js';
 
 import { loadAccountingExclusionPolicy } from './accounting-exclusion-policy.js';
 import type { CommandRuntime } from './command-runtime.js';

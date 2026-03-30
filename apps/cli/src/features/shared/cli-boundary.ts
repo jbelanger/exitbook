@@ -6,7 +6,7 @@ import { CommandRuntime, runCommand } from '../../runtime/command-runtime.js';
 import type { CliCommandResult, CliCompletion } from './cli-contract.js';
 import { createCliFailure } from './cli-contract.js';
 import { exitCliFailure } from './cli-error.js';
-import type { CliOutputFormat } from './command-options.js';
+import type { CliOutputFormat } from './cli-output-format.js';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 import { outputSuccess } from './json-output.js';
 

@@ -17,11 +17,8 @@ import type { Command } from 'commander';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult, type CliCompletion } from '../../shared/cli-contract.js';
-import {
-  detectCliOutputFormat,
-  parseCliCommandOptionsResult,
-  type CliOutputFormat,
-} from '../../shared/command-options.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 

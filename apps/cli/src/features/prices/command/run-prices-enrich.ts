@@ -5,7 +5,7 @@ import {
   executeCliPriceEnrichmentRuntime,
   withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
-import type { CliOutputFormat } from '../../shared/command-options.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import type { PricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 
